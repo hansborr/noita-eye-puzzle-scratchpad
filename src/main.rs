@@ -259,7 +259,7 @@ fn print_input_randomness_report(report: &pipeline_null::InputRandomnessReport) 
         report.real_chi_square_vs_uniform
     );
     println!(
-        "analytic P(no -1 in matched random corpus): {:.6e}",
+        "exact P(no -1 in capped matched random corpus): {:.6e}",
         report.analytic_probability_no_minus_one
     );
     println!(
@@ -276,7 +276,7 @@ fn print_input_randomness_report(report: &pipeline_null::InputRandomnessReport) 
     );
     println!();
     println!(
-        "Interpretation: this only shows the authored engine inputs live in the 0..=5 storage alphabet (zero -1 controls and 86 delimiters) instead of resembling matched-length random integers. It does not show that the authored symbols encode anything."
+        "Interpretation: this only shows the authored engine inputs live in the 0..=5 storage alphabet (zero -1 controls and 86 delimiters) instead of resembling capped matched-length random integers. The analytic no -1 probability is exact for that capped model, and the Monte-Carlo counts are the empirical check at the configured trial count; neither shows that the authored symbols encode anything."
     );
 }
 

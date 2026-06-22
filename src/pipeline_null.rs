@@ -12,24 +12,28 @@
 //!
 //! 1. [`run_pipeline_null`] — the **structure-matched null**. It rebuilds the
 //!    verified grids but fills their cells with orientations harvested from
-//!    decoding random 64-bit integers whose per-pair base-7 lengths match the
-//!    real message blocks, then runs the identical standard-36 reading-order
-//!    search as [`crate::null`]. Sub-22-symbol blocks have independent uniform
-//!    base-7 digits after conditioning on emitted orientations; 22-symbol blocks
-//!    preserve the real `u64` ceiling, so this is an actual storage-pipeline null
-//!    rather than a mathematically identical copy of the uniform-orientation
-//!    null. Running it confirms empirically that the base-7 pipeline
-//!    manufactures *no* reading-layer contiguity: the `0..=82` range essentially
-//!    never appears, just as it does not for uniform cells.
+//!    decoding uniformly sampled 64-bit integers whose per-pair base-7 output
+//!    lengths match the real message blocks, then runs the identical
+//!    standard-36 reading-order search as [`crate::null`]. Sub-22-symbol blocks
+//!    induce independent decoded storage symbols with a non-`-1` leading symbol
+//!    and uniform `-1..=5` interior symbols; 22-symbol blocks preserve the real
+//!    `u64` ceiling, so their high digits are mildly truncated. This makes the
+//!    experiment an actual storage-pipeline null rather than a mathematically
+//!    identical copy of the uniform-orientation null. Running it confirms
+//!    empirically that the base-7 pipeline manufactures *no* reading-layer
+//!    contiguity: the `0..=82` range essentially never appears, just as it does
+//!    not for uniform cells.
 //!
 //! 2. [`input_randomness_report`] — the **negative control**. Genuine random
-//!    integers of the same magnitude are wildly inconsistent with the real
-//!    engine inputs: they decode to hundreds of `-1` control symbols and
-//!    hundreds of delimiters per corpus, whereas the real messages contain zero
-//!    `-1` and only 86 delimiters. This quantifies that the inputs are
-//!    deliberately authored in the `0..=5` alphabet (engine-generated structured
-//!    data), not random — which says nothing about whether the authored content
-//!    is a recoverable message.
+//!    integers from the same matched-length, `u64`-capped model are wildly
+//!    inconsistent with the real engine inputs: they decode to hundreds of `-1`
+//!    control symbols and hundreds of delimiters per corpus, whereas the real
+//!    messages contain zero `-1` and only 86 delimiters. The analytic no-`-1`
+//!    probability is counted against that same capped model, including the
+//!    length-22 ceiling. This quantifies that the inputs are deliberately
+//!    authored in the `0..=5` alphabet (engine-generated structured data), not
+//!    random — which says nothing about whether the authored content is a
+//!    recoverable message.
 //!
 //! Honest reading: "not a pipeline artifact" only means the specific authored
 //! digit values matter; uniform-random data also never produces the contiguity,
@@ -43,6 +47,7 @@ use crate::orders::{GlyphGrid, GridError};
 
 const SYMBOL_BUCKETS: usize = 7;
 const BASE7_CEILING_DIGITS: u32 = 22;
+const U64_DRAW_DOMAIN: u128 = 1u128 << 64;
 
 /// Total decoded storage symbols across the nine verified messages.
 #[must_use]
@@ -56,10 +61,10 @@ pub fn real_symbol_total() -> usize {
 /// Runs the structure-matched base-7 pipeline null over the standard-36 family.
 ///
 /// Synthetic corpora preserve the verified row-width structure; each cell is an
-/// orientation harvested from decoding random 64-bit integers whose per-pair
-/// base-7 lengths cycle through the verified engine block lengths. The returned
-/// [`NullReport`] uses the same statistics as [`crate::null::run_standard36_null`]
-/// so the two are directly comparable.
+/// orientation harvested from decoding uniformly sampled matched-length 64-bit
+/// integers whose per-pair base-7 output lengths cycle through the verified
+/// engine block lengths. The returned [`NullReport`] uses the same statistics
+/// as [`crate::null::run_standard36_null`] so the two are directly comparable.
 ///
 /// # Errors
 /// Returns [`GridError`] if the verified corpus grids cannot be reconstructed or
@@ -146,26 +151,140 @@ impl<'a> OrientationSource<'a> {
     }
 }
 
-/// Returns a random 64-bit integer whose base-7 decode emits exactly `length`
-/// storage symbols.
+/// Returns a uniformly sampled 64-bit integer whose base-7 decode emits exactly
+/// `length` storage symbols.
 ///
 /// A value in `[7^length, min(7^(length+1), 2^64))` decodes to `length` symbols:
-/// the engine drops the trailing base-7 digit, leaving a value with exactly
-/// `length` base-7 digits. The `2^64` cap reproduces the genuine ceiling the
-/// real engine integers also live under, so the most-significant digit of a
-/// maximal (length-22) block carries the same `u64` ceiling the real data has.
+/// the engine drops the trailing base-7 digit, leaving a quotient with exactly
+/// `length` base-7 digits. The offset inside that interval is drawn with
+/// rejection sampling over the full `u64` domain, so there is no modulo bias.
+///
+/// For lengths below 22, the decoded storage-symbol distribution has a
+/// non-`-1` leading symbol followed by independent uniform `-1..=5` interior
+/// symbols. A maximal length-22 block is still uniform over its representable
+/// interval, but that interval ends at `2^64` rather than `7^23`, carrying the
+/// same ceiling the real engine integers have.
 fn random_value_of_length(length: usize, rng: &mut SplitMix64) -> u64 {
+    let Some((lower, span)) = value_span_for_length(length) else {
+        return u64::MAX;
+    };
+    lower.wrapping_add(random_offset_below(span, rng))
+}
+
+fn value_bounds_for_length(length: usize) -> Option<(u128, u128)> {
     let lower = pow7_u128(length);
-    let upper = pow7_u128(length + 1).min(1u128 << 64);
-    let lower_u64 = u64::try_from(lower).unwrap_or(u64::MAX);
-    let span = u64::try_from(upper.saturating_sub(lower))
-        .unwrap_or(u64::MAX)
-        .max(1);
-    lower_u64.wrapping_add(rng.next_u64() % span)
+    let upper_exponent = length.checked_add(1)?;
+    let upper = pow7_u128(upper_exponent).min(U64_DRAW_DOMAIN);
+    (lower < upper).then_some((lower, upper))
+}
+
+fn value_span_for_length(length: usize) -> Option<(u64, u64)> {
+    let (lower, upper) = value_bounds_for_length(length)?;
+    let lower = u64::try_from(lower).ok()?;
+    let span = u64::try_from(upper.saturating_sub(u128::from(lower))).ok()?;
+    (span > 0).then_some((lower, span))
+}
+
+fn random_offset_below(span: u64, rng: &mut SplitMix64) -> u64 {
+    if span <= 1 {
+        return 0;
+    }
+
+    let span = u128::from(span);
+    let acceptance_zone = (U64_DRAW_DOMAIN / span) * span;
+    loop {
+        let draw = u128::from(rng.next_u64());
+        if draw < acceptance_zone {
+            return (draw % span) as u64;
+        }
+    }
 }
 
 fn pow7_u128(exponent: usize) -> u128 {
     (0..exponent).fold(1u128, |acc, _| acc.saturating_mul(7))
+}
+
+fn pow6_u128(exponent: usize) -> u128 {
+    (0..exponent).fold(1u128, |acc, _| acc.saturating_mul(6))
+}
+
+fn exact_probability_no_minus_one(lengths: &[usize]) -> f64 {
+    lengths
+        .iter()
+        .map(|&length| {
+            no_minus_one_count_and_span(length)
+                .map_or(0.0, |(count, span)| count as f64 / span as f64)
+        })
+        .product()
+}
+
+fn no_minus_one_count_and_span(length: usize) -> Option<(u128, u128)> {
+    let (lower, upper) = value_bounds_for_length(length)?;
+    let span = upper.saturating_sub(lower);
+    if length == 0 {
+        return Some((span, span));
+    }
+
+    let full_q_limit = upper / 7;
+    let partial_residues = upper % 7;
+    let mut count = 7 * count_nonzero_base7_below(full_q_limit, length);
+    if partial_residues > 0 && has_fixed_width_nonzero_base7_digits(full_q_limit, length) {
+        count += partial_residues;
+    }
+
+    Some((count, span))
+}
+
+fn count_nonzero_base7_below(limit: u128, length: usize) -> u128 {
+    if length == 0 {
+        return u128::from(limit > 0);
+    }
+
+    let lower = pow7_u128(length.saturating_sub(1));
+    let upper = pow7_u128(length);
+    if limit <= lower {
+        return 0;
+    }
+    if limit >= upper {
+        return pow6_u128(length);
+    }
+
+    let mut count = 0u128;
+    let mut remainder = limit;
+    let mut divisor = lower;
+    let mut remaining_positions = length;
+    for _position in 0..length {
+        let digit = remainder / divisor;
+        remainder %= divisor;
+        remaining_positions = remaining_positions.saturating_sub(1);
+        count += digit.saturating_sub(1).min(6) * pow6_u128(remaining_positions);
+        if digit == 0 {
+            return count;
+        }
+        divisor /= 7;
+    }
+    count
+}
+
+fn has_fixed_width_nonzero_base7_digits(value: u128, length: usize) -> bool {
+    if length == 0 {
+        return value == 0;
+    }
+    if value < pow7_u128(length.saturating_sub(1)) || value >= pow7_u128(length) {
+        return false;
+    }
+
+    let mut remainder = value;
+    let mut divisor = pow7_u128(length.saturating_sub(1));
+    for _position in 0..length {
+        let digit = remainder / divisor;
+        if digit == 0 {
+            return false;
+        }
+        remainder %= divisor;
+        divisor /= 7;
+    }
+    true
 }
 
 /// Summary of how unlike random 64-bit integers the real engine inputs are.
@@ -185,7 +304,8 @@ pub struct InputRandomnessReport {
     pub real_symbol_histogram: [usize; SYMBOL_BUCKETS],
     /// Chi-square of the real histogram against a uniform base-7 expectation.
     pub real_chi_square_vs_uniform: f64,
-    /// Analytic probability a matched-length random corpus decodes with no `-1`.
+    /// Exact probability a matched-length, `u64`-capped random corpus decodes
+    /// with no `-1`.
     pub analytic_probability_no_minus_one: f64,
     /// Mean `-1` symbols produced per random matched-length corpus.
     pub mc_mean_minus_one: f64,
@@ -225,11 +345,7 @@ pub fn input_randomness_report(config: NullConfig) -> Result<InputRandomnessRepo
     let real_delimiters = real_histogram.get(6).copied().unwrap_or(0);
     let real_chi_square_vs_uniform = chi_square_vs_uniform(&real_histogram, total_symbols);
 
-    // Each block's most-significant digit is non-zero by construction, leaving
-    // `length - 1` interior digits that each avoid `-1` with probability 6/7.
-    let interior_digits = total_symbols.saturating_sub(pair_count);
-    let analytic_probability_no_minus_one =
-        (6.0f64 / 7.0).powi(i32::try_from(interior_digits).unwrap_or(i32::MAX));
+    let analytic_probability_no_minus_one = exact_probability_no_minus_one(&lengths);
 
     let mut rng = SplitMix64::new(config.seed);
     let mut total_minus_one = 0u64;
@@ -287,7 +403,8 @@ fn chi_square_vs_uniform(histogram: &[usize; SYMBOL_BUCKETS], total: usize) -> f
 #[cfg(test)]
 mod tests {
     use super::{
-        BASE7_CEILING_DIGITS, OrientationSource, input_randomness_report, random_value_of_length,
+        BASE7_CEILING_DIGITS, OrientationSource, U64_DRAW_DOMAIN, input_randomness_report,
+        no_minus_one_count_and_span, pow6_u128, pow7_u128, random_value_of_length,
         real_symbol_total, run_pipeline_null,
     };
     use crate::generator;
@@ -317,6 +434,23 @@ mod tests {
             let orientation = source.next(&mut rng);
             assert!(orientation.digit() <= 4);
         }
+    }
+
+    #[test]
+    fn no_minus_one_probability_accounts_for_u64_cap() {
+        let (sub_ceiling_count, sub_ceiling_span) =
+            no_minus_one_count_and_span(21).expect("length 21 is representable");
+        assert_eq!(sub_ceiling_span, 6 * pow7_u128(21));
+        assert_eq!(sub_ceiling_count, 7 * pow6_u128(21));
+
+        let (ceiling_count, ceiling_span) =
+            no_minus_one_count_and_span(22).expect("length 22 is representable");
+        assert_eq!(ceiling_span, U64_DRAW_DOMAIN - pow7_u128(22));
+        assert_ne!(
+            ceiling_count * 6 * pow7_u128(22),
+            ceiling_span * 7 * pow6_u128(22),
+            "length-22 no -1 rate must not use the uncapped independence ratio"
+        );
     }
 
     #[test]
@@ -361,8 +495,9 @@ mod tests {
         assert!(report.mc_mean_delimiters > 300.0);
         assert_eq!(report.mc_corpora_with_zero_minus_one, 0);
 
-        // The real histogram is astronomically far from a uniform base-7 decode,
-        // and a random corpus essentially never reproduces the no-`-1` property.
+        // The real histogram is astronomically far from the capped matched-length
+        // random decode, and a random corpus essentially never reproduces the
+        // no-`-1` property.
         assert!(report.real_chi_square_vs_uniform > 1_000.0);
         assert!(report.analytic_probability_no_minus_one < 1e-100);
         assert!(report.analytic_probability_no_minus_one > 0.0);
