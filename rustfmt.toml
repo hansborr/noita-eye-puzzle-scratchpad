@@ -1,0 +1,3 @@
+# Stable-only options so `cargo fmt` works without a nightly toolchain.
+edition = "2024"
+max_width = 100

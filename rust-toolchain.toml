@@ -1,0 +1,7 @@
+[toolchain]
+# Use the installed stable toolchain (currently Rust 1.96.0). In a networked CI
+# environment you can pin this to an exact version (e.g. "1.96.0") for fully
+# reproducible builds; left as "stable" here so it also resolves offline.
+channel = "stable"
+components = ["rustfmt", "clippy"]
+profile = "minimal"
