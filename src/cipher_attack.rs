@@ -12,6 +12,10 @@
 //! therefore requires a symbol-to-letter mapping that is unknown and cannot be
 //! verified from the eye data alone. Every mapping here is a declared guess.
 //! A negative result is the expected defensible outcome.
+//! The CLI interpretation therefore derives its conclusion from exceedance
+//! rates, multiple-comparison scope, and the effect-size contrast against
+//! positive-control plants; small pointwise tails on the eye stream are not
+//! near-solutions.
 //!
 //! Message boundaries are preserved. Stateful ciphers reset at the start of
 //! each message, and language scores are weighted across per-message scores so
