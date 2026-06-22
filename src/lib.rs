@@ -13,6 +13,9 @@
 //!   entropy, index of coincidence, chi-square goodness of fit, n-grams).
 //! - [`chaining`]: Experiment 7B alphabet-chaining structural signatures with
 //!   generated known-succeed and known-fail calibration controls.
+//! - [`cipher_attack`]: Experiment 12 attack/null harness that scores named
+//!   candidate ciphers only under declared, unverified symbol-to-letter
+//!   mappings.
 //! - [`ciphers`]: Experiment 12 candidate-cipher primitives and exact
 //!   round-trip controls.
 //! - [`controls`]: positive-control fixtures for solved cipher classes.
@@ -36,6 +39,7 @@
 
 pub mod analysis;
 pub mod chaining;
+pub mod cipher_attack;
 pub mod ciphers;
 pub mod controls;
 pub mod corpus;

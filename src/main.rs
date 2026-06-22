@@ -7,8 +7,8 @@
 use std::process::ExitCode;
 
 use noita_eye_puzzle::{
-    analysis, chaining, controls, corpus, glyph::Sequence, grouping, isomorph_null, null, orders,
-    periodicity, pipeline_null,
+    analysis, chaining, cipher_attack, controls, corpus, glyph::Sequence, grouping, isomorph_null,
+    null, orders, periodicity, pipeline_null,
 };
 
 const MIN_RELIABLE_PERIODICITY_NULL_TRIALS: usize = 50;
@@ -31,6 +31,8 @@ USAGE:
                                   Experiment 7A real isomorphs vs within-message shuffle null
     noita-eye chaining [--seed <u64>] [--trials <n>] [--min-period <n>] [--max-period <n>]
                                   Experiment 7B alphabet-chaining structural control
+    noita-eye cipherattack [--seed <u64>] [--samples <n>] [--null-trials <n>]
+                                  Experiment 12 candidate-cipher language-scoring null harness
     noita-eye controls monoalphabetic [--seed <u64>]
                                   Experiment 11 monoalphabetic positive control
     noita-eye controls isomorph [--seed <u64>]
@@ -94,6 +96,13 @@ fn main() -> ExitCode {
                 None => &[],
             };
             run_chaining(rest)
+        }
+        Some("cipherattack") => {
+            let rest = match args.get(1..) {
+                Some(values) => values,
+                None => &[],
+            };
+            run_cipherattack(rest)
         }
         Some("controls") => {
             let rest = match args.get(1..) {
@@ -246,6 +255,31 @@ fn run_chaining(args: &[String]) -> ExitCode {
         }
     };
     print_chaining_report(&report);
+    ExitCode::SUCCESS
+}
+
+fn run_cipherattack(args: &[String]) -> ExitCode {
+    let config = match parse_cipher_attack_config(args) {
+        Ok(config) => config,
+        Err(message) => {
+            eprintln!("{message}");
+            eprintln!(
+                "usage: noita-eye cipherattack [--seed <u64>] [--samples <n>] [--null-trials <n>] [--max-vigenere-period <n>]"
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    let report = match cipher_attack::run_cipher_attack(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!(
+                "cipher attack error: {}",
+                format_cipher_attack_error(&error)
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    print_cipher_attack_report(&report);
     ExitCode::SUCCESS
 }
 
@@ -463,6 +497,51 @@ fn parse_chaining_config(args: &[String]) -> Result<chaining::ChainingConfig, St
     Ok(config)
 }
 
+fn parse_cipher_attack_config(
+    args: &[String],
+) -> Result<cipher_attack::CipherAttackConfig, String> {
+    let mut config = cipher_attack::CipherAttackConfig::default();
+    let mut iter = args.iter();
+    while let Some(flag) = iter.next() {
+        match flag.as_str() {
+            "--seed" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --seed".to_owned());
+                };
+                config.seed = value
+                    .parse::<u64>()
+                    .map_err(|error| format!("invalid --seed value {value:?}: {error}"))?;
+            }
+            "--samples" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --samples".to_owned());
+                };
+                config.samples = value
+                    .parse::<usize>()
+                    .map_err(|error| format!("invalid --samples value {value:?}: {error}"))?;
+            }
+            "--null-trials" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --null-trials".to_owned());
+                };
+                config.null_trials = value
+                    .parse::<usize>()
+                    .map_err(|error| format!("invalid --null-trials value {value:?}: {error}"))?;
+            }
+            "--max-vigenere-period" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --max-vigenere-period".to_owned());
+                };
+                config.vigenere_max_period = value.parse::<usize>().map_err(|error| {
+                    format!("invalid --max-vigenere-period value {value:?}: {error}")
+                })?;
+            }
+            other => return Err(format!("unknown cipherattack flag {other:?}")),
+        }
+    }
+    Ok(config)
+}
+
 fn parse_periodicity_config(args: &[String]) -> Result<periodicity::PeriodicityConfig, String> {
     let mut config = periodicity::PeriodicityConfig::default();
     let mut iter = args.iter();
@@ -588,6 +667,10 @@ fn format_chaining_error(error: chaining::ChainingError) -> String {
             format!("random draw bound {bound} is too large")
         }
     }
+}
+
+fn format_cipher_attack_error(error: &cipher_attack::CipherAttackError) -> String {
+    error.to_string()
 }
 
 fn format_grouping_error(error: grouping::GroupingError) -> String {
@@ -1489,6 +1572,165 @@ fn print_chaining_interpretation(report: &chaining::ChainingReport) {
     println!(
         "This is a structural null result only. It does not prove the eyes are meaningless, and it does not rule out other encodings, period models, reading orders, transcription corrections, or non-additive alphabet relationships."
     );
+}
+
+fn print_cipher_attack_report(report: &cipher_attack::CipherAttackReport) {
+    println!("Experiment 12 candidate-cipher language-scoring/null harness");
+    println!("order: {}", report.order_name);
+    println!("alphabet: eye reading-layer values 0..=82");
+    println!(
+        "fundamental limitation: English/Finnish scores require an unknown 83-symbol-to-letter mapping; every mapping below is an unverified guess"
+    );
+    println!("seed: {}", report.config.seed);
+    println!("sampled keys: {}", report.config.samples);
+    println!("shuffle null trials: {}", report.config.null_trials);
+    println!(
+        "Vigenere periods searched: 1..={}",
+        report.config.vigenere_max_period
+    );
+    println!(
+        "message lengths: {}",
+        format_message_lengths(&report.message_lengths)
+    );
+    println!("pooled length: {}", report.total_symbols);
+    println!("boundary rule: {}", report.boundary_rule);
+    println!("null model: {}", report.null_model);
+    println!();
+    println!(
+        "{:<19} {:<7} {:<14} {:>10} {:>10} {:>10} {:>8} {:>10} {:<28}",
+        "cipher", "lang", "mapping", "real", "null mean", "null q95", "p", "verdict", "best key"
+    );
+    for row in &report.rows {
+        println!(
+            "{:<19} {:<7} {:<14} {:>10.4} {:>10.4} {:>10.4} {:>8.4} {:>10} {:<28}",
+            row.cipher.label(),
+            row.language.label(),
+            row.mapping_label,
+            row.real.score.bigram_mean_log_likelihood,
+            row.null.mean,
+            row.null.q95,
+            row.null.empirical_p,
+            format_cipher_attack_verdict(row),
+            truncate_chars(&row.real.key, 28)
+        );
+    }
+    println!();
+    println!("search methods");
+    for summary in unique_cipher_search_summaries(&report.rows) {
+        println!(
+            "  {}: {} candidates; keyspace {}; {}",
+            summary.0.label(),
+            summary.1.candidates_evaluated,
+            summary.1.key_space,
+            summary.1.note
+        );
+    }
+    println!();
+    println!("mapping caveats");
+    for row in &report.rows {
+        println!(
+            "  {} / {} / {}: {}",
+            row.cipher.label(),
+            row.language.label(),
+            row.mapping_label,
+            row.mapping_note
+        );
+    }
+    println!();
+    print_positive_control_report(&report.positive_control);
+    println!();
+    println!(
+        "caveat: any apparent hit is not credible unless it has a fully reproducible, independently checkable method and is rechecked against Experiment 0 transcription integrity; this command makes no message claim"
+    );
+    print_cipher_attack_interpretation(report);
+}
+
+fn print_positive_control_report(report: &cipher_attack::PositiveControlReport) {
+    println!("positive control");
+    print_plant_recovery(&report.caesar);
+    print_plant_recovery(&report.vigenere);
+}
+
+fn print_plant_recovery(plant: &cipher_attack::PlantRecovery) {
+    println!(
+        "  {}: expected {}, recovered {}, score {:.4}, null max {:.4}, margin {:.4}, p {:.4}",
+        plant.cipher.label(),
+        plant.expected_key,
+        plant.recovered_key,
+        plant.real_score.bigram_mean_log_likelihood,
+        plant.null.max,
+        plant.margin_over_null_max,
+        plant.null.empirical_p
+    );
+}
+
+fn print_cipher_attack_interpretation(report: &cipher_attack::CipherAttackReport) {
+    let above_q95 = report
+        .rows
+        .iter()
+        .filter(|row| row.real.score.bigram_mean_log_likelihood > row.null.q95)
+        .count();
+    let above_max = report
+        .rows
+        .iter()
+        .filter(|row| row.real.score.bigram_mean_log_likelihood > row.null.max)
+        .count();
+    if above_q95 == 0 {
+        println!(
+            "Interpretation: all {} cipher/mapping/language rows are inside the one-sided 95% shuffled-null best-score band. Under these named ciphers and declared guessed mappings, this run shows no English/Finnish language signal above chance.",
+            report.rows.len()
+        );
+    } else {
+        println!(
+            "Interpretation: {above_q95} of {} rows exceed the one-sided 95% shuffled-null band, and {above_max} exceed the sampled null maximum. Those are pointwise tail observations under unverified mappings, not credible hits.",
+            report.rows.len()
+        );
+    }
+    println!(
+        "Overall conclusion: no credible English/Finnish decryption is established. The run constrains only these candidate ciphers, this reading order, these sampled keyspaces, and these unverified symbol-to-letter mappings."
+    );
+}
+
+fn format_cipher_attack_verdict(row: &cipher_attack::AttackRow) -> &'static str {
+    let real = row.real.score.bigram_mean_log_likelihood;
+    if real > row.null.max {
+        "above-max"
+    } else if real > row.null.q95 {
+        "above95"
+    } else {
+        "inside95"
+    }
+}
+
+fn unique_cipher_search_summaries(
+    rows: &[cipher_attack::AttackRow],
+) -> Vec<(cipher_attack::CipherFamily, cipher_attack::SearchSummary)> {
+    let mut summaries = Vec::new();
+    for row in rows {
+        if summaries
+            .iter()
+            .any(|(cipher, _summary)| *cipher == row.cipher)
+        {
+            continue;
+        }
+        summaries.push((row.cipher, row.search.clone()));
+    }
+    summaries
+}
+
+fn truncate_chars(value: &str, max_chars: usize) -> String {
+    let mut output = String::new();
+    let mut chars = value.chars();
+    for _position in 0..max_chars {
+        let Some(ch) = chars.next() else {
+            return output;
+        };
+        output.push(ch);
+    }
+    if chars.next().is_some() {
+        output.push_str("...");
+    }
+    output
 }
 
 fn format_chaining_band(band: chaining::ScalarBand) -> String {
