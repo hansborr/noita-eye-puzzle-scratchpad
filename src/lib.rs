@@ -11,6 +11,8 @@
 //! - [`trigram`]: the base-5 reading layer over rendered orientations.
 //! - [`analysis`]: encoding-agnostic cryptanalysis statistics (frequencies,
 //!   entropy, index of coincidence, chi-square goodness of fit, n-grams).
+//! - [`chaining`]: Experiment 7B alphabet-chaining structural signatures with
+//!   generated known-succeed and known-fail calibration controls.
 //! - [`controls`]: positive-control fixtures for solved cipher classes.
 //! - [`corpus`]: the verified transcribed message data.
 //! - [`generator`]: the engine storage-layer base-7 decoder and vendored input
@@ -29,6 +31,7 @@
 //! hypothesis space.
 
 pub mod analysis;
+pub mod chaining;
 pub mod controls;
 pub mod corpus;
 pub mod generator;

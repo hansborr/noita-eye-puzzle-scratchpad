@@ -7,8 +7,8 @@
 use std::process::ExitCode;
 
 use noita_eye_puzzle::{
-    analysis, controls, corpus, glyph::Sequence, isomorph_null, null, orders, periodicity,
-    pipeline_null,
+    analysis, chaining, controls, corpus, glyph::Sequence, isomorph_null, null, orders,
+    periodicity, pipeline_null,
 };
 
 const MIN_RELIABLE_PERIODICITY_NULL_TRIALS: usize = 50;
@@ -28,6 +28,8 @@ USAGE:
                                   Base-7 pipeline null plus input-randomness control
     noita-eye isomorphnull [--seed <u64>] [--trials <n>]
                                   Experiment 7A real isomorphs vs within-message shuffle null
+    noita-eye chaining [--seed <u64>] [--trials <n>] [--min-period <n>] [--max-period <n>]
+                                  Experiment 7B alphabet-chaining structural control
     noita-eye controls monoalphabetic [--seed <u64>]
                                   Experiment 11 monoalphabetic positive control
     noita-eye controls isomorph [--seed <u64>]
@@ -83,6 +85,13 @@ fn main() -> ExitCode {
                 None => &[],
             };
             run_isomorphnull(rest)
+        }
+        Some("chaining") => {
+            let rest = match args.get(1..) {
+                Some(values) => values,
+                None => &[],
+            };
+            run_chaining(rest)
         }
         Some("controls") => {
             let rest = match args.get(1..) {
@@ -201,6 +210,28 @@ fn run_isomorphnull(args: &[String]) -> ExitCode {
         }
     };
     print_isomorph_null_report(&report);
+    ExitCode::SUCCESS
+}
+
+fn run_chaining(args: &[String]) -> ExitCode {
+    let config = match parse_chaining_config(args) {
+        Ok(config) => config,
+        Err(message) => {
+            eprintln!("{message}");
+            eprintln!(
+                "usage: noita-eye chaining [--seed <u64>] [--trials <n>] [--min-period <n>] [--max-period <n>]"
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    let report = match chaining::run_chaining(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("chaining error: {}", format_chaining_error(error));
+            return ExitCode::FAILURE;
+        }
+    };
+    print_chaining_report(&report);
     ExitCode::SUCCESS
 }
 
@@ -375,6 +406,49 @@ fn parse_isomorph_null_config(
     Ok(config)
 }
 
+fn parse_chaining_config(args: &[String]) -> Result<chaining::ChainingConfig, String> {
+    let mut config = chaining::ChainingConfig::default();
+    let mut iter = args.iter();
+    while let Some(flag) = iter.next() {
+        match flag.as_str() {
+            "--seed" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --seed".to_owned());
+                };
+                config.seed = value
+                    .parse::<u64>()
+                    .map_err(|error| format!("invalid --seed value {value:?}: {error}"))?;
+            }
+            "--trials" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --trials".to_owned());
+                };
+                config.trials = value
+                    .parse::<usize>()
+                    .map_err(|error| format!("invalid --trials value {value:?}: {error}"))?;
+            }
+            "--min-period" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --min-period".to_owned());
+                };
+                config.min_period = value
+                    .parse::<usize>()
+                    .map_err(|error| format!("invalid --min-period value {value:?}: {error}"))?;
+            }
+            "--max-period" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --max-period".to_owned());
+                };
+                config.max_period = value
+                    .parse::<usize>()
+                    .map_err(|error| format!("invalid --max-period value {value:?}: {error}"))?;
+            }
+            other => return Err(format!("unknown chaining flag {other:?}")),
+        }
+    }
+    Ok(config)
+}
+
 fn parse_periodicity_config(args: &[String]) -> Result<periodicity::PeriodicityConfig, String> {
     let mut config = periodicity::PeriodicityConfig::default();
     let mut iter = args.iter();
@@ -470,6 +544,34 @@ fn format_isomorph_null_error(error: isomorph_null::IsomorphNullError) -> String
         }
         isomorph_null::IsomorphNullError::RandomBoundTooLarge { bound } => {
             format!("shuffle bound {bound} is too large")
+        }
+    }
+}
+
+fn format_chaining_error(error: chaining::ChainingError) -> String {
+    match error {
+        chaining::ChainingError::Grid(grid_error) => {
+            format!("grid/order error: {grid_error:?}")
+        }
+        chaining::ChainingError::ZeroTrials => {
+            "at least one Monte-Carlo trial is required".to_owned()
+        }
+        chaining::ChainingError::InvalidPeriodRange {
+            min_period,
+            max_period,
+        } => format!("invalid period range {min_period}..={max_period}; use periods >= 2"),
+        chaining::ChainingError::InvalidAlphabetSize { alphabet_size } => {
+            format!("invalid alphabet size {alphabet_size}; expected 1..=125")
+        }
+        chaining::ChainingError::ValueOutsideAlphabet {
+            value,
+            alphabet_size,
+        } => format!("stream value {value} is outside configured alphabet size {alphabet_size}"),
+        chaining::ChainingError::ControlConstructionFailed => {
+            "generated control fixture could not be constructed".to_owned()
+        }
+        chaining::ChainingError::RandomBoundTooLarge { bound } => {
+            format!("random draw bound {bound} is too large")
         }
     }
 }
@@ -1232,6 +1334,145 @@ fn print_isomorph_null_interpretation(report: &isomorph_null::IsomorphNullReport
     println!(
         "Any striking excess should be rechecked against Experiment 0 transcription integrity before interpretation."
     );
+}
+
+fn print_chaining_report(report: &chaining::ChainingReport) {
+    println!("Experiment 7B alphabet-chaining structural control");
+    println!("order: {}", report.order.name());
+    println!(
+        "alphabet: reading-layer values 0..={}",
+        report.config.alphabet_size.saturating_sub(1)
+    );
+    println!("seed: {}", report.config.seed);
+    println!("trials per period/control: {}", report.config.trials);
+    println!(
+        "periods: {}..={}",
+        report.config.min_period, report.config.max_period
+    );
+    println!(
+        "message lengths: {}",
+        format_message_lengths(&report.message_lengths)
+    );
+    println!("pooled length: {}", report.total_length);
+    println!(
+        "boundary rule: columns reset at each message; no column evidence crosses message joins"
+    );
+    println!(
+        "procedure: split by position mod p; estimate adjacent additive shifts by maximum circular distribution overlap"
+    );
+    println!(
+        "quality: best overlap minus second-best overlap; score = mean quality * cycle closure"
+    );
+    println!(
+        "controls: generated Vigenere known-succeed, independent per-column substitution known-fail, and within-column shuffled fail invariance check"
+    );
+    println!();
+    println!(
+        "{:>2} {:>10} {:>9} {:>7} {:>15} {:>15} {:>15} {:>12}",
+        "p",
+        "eye score",
+        "eye qual",
+        "resid",
+        "succeed 95%",
+        "fail 95%",
+        "shuf-fail 95%",
+        "verdict"
+    );
+    for row in &report.rows {
+        println!(
+            "{:>2} {:>10.4} {:>9.4} {:>7} {:>15} {:>15} {:>15} {:>12}",
+            row.period,
+            row.real.chain_score,
+            row.real.mean_alignment_quality,
+            format_residual(row.real.cycle_residual_distance, row.real.alphabet_size),
+            format_chaining_band(row.succeed.chain_score),
+            format_chaining_band(row.fail.chain_score),
+            format_chaining_band(row.shuffled_fail.chain_score),
+            format_chaining_classification(row.classification)
+        );
+    }
+    println!();
+    println!("calibration detail");
+    println!(
+        "{:>2} {:>17} {:>17} {:>17} {:>17} {:>17} {:>17}",
+        "p",
+        "succ qual 95%",
+        "fail qual 95%",
+        "succ ovlp 95%",
+        "fail ovlp 95%",
+        "succ resid 95%",
+        "fail resid 95%"
+    );
+    for row in &report.rows {
+        println!(
+            "{:>2} {:>17} {:>17} {:>17} {:>17} {:>17} {:>17}",
+            row.period,
+            format_chaining_band(row.succeed.mean_alignment_quality),
+            format_chaining_band(row.fail.mean_alignment_quality),
+            format_chaining_band(row.succeed.mean_best_overlap),
+            format_chaining_band(row.fail.mean_best_overlap),
+            format_residual_band(row.succeed.cycle_residual_distance),
+            format_residual_band(row.fail.cycle_residual_distance)
+        );
+    }
+    println!();
+    print_chaining_interpretation(report);
+}
+
+fn print_chaining_interpretation(report: &chaining::ChainingReport) {
+    let mut fail_matches = 0usize;
+    let mut succeed_matches = 0usize;
+    let mut between = 0usize;
+    let mut overlapping = 0usize;
+    for row in &report.rows {
+        match row.classification {
+            chaining::ChainingClassification::MatchesKnownFail => fail_matches += 1,
+            chaining::ChainingClassification::MatchesKnownSucceed => succeed_matches += 1,
+            chaining::ChainingClassification::BetweenBands => between += 1,
+            chaining::ChainingClassification::CalibrationOverlaps => overlapping += 1,
+        }
+    }
+    if overlapping > 0 {
+        println!(
+            "Interpretation: {overlapping} candidate {} had overlapping succeed/fail control bands, so those periods are not calibrated well enough for a verdict.",
+            counted_noun(overlapping, "period", "periods")
+        );
+    }
+    if fail_matches == report.rows.len() {
+        println!(
+            "Interpretation: across the scanned periods, the eye stream lands in the calibrated known-fail chaining band, not the known-succeed Vigenere band. Under this honeycomb reading order and fixed-period additive alphabet model, the eyes lack chainable additive-related-alphabet structure."
+        );
+    } else {
+        println!(
+            "Interpretation: period placement summary: {fail_matches} known-fail, {succeed_matches} known-succeed, {between} between separated bands, {overlapping} uncalibrated-overlap."
+        );
+    }
+    println!(
+        "This is a structural null result only. It does not prove the eyes are meaningless, and it does not rule out other encodings, period models, reading orders, transcription corrections, or non-additive alphabet relationships."
+    );
+}
+
+fn format_chaining_band(band: chaining::ScalarBand) -> String {
+    format!("{:.4}..{:.4}", band.q025, band.q975)
+}
+
+fn format_residual_band(band: chaining::ResidualBand) -> String {
+    format!("{}..{}", band.q025, band.q975)
+}
+
+fn format_residual(distance: usize, alphabet_size: usize) -> String {
+    format!("{distance}/{}", alphabet_size / 2)
+}
+
+fn format_chaining_classification(
+    classification: chaining::ChainingClassification,
+) -> &'static str {
+    match classification {
+        chaining::ChainingClassification::CalibrationOverlaps => "overlap",
+        chaining::ChainingClassification::MatchesKnownFail => "known-fail",
+        chaining::ChainingClassification::MatchesKnownSucceed => "known-succeed",
+        chaining::ChainingClassification::BetweenBands => "between",
+    }
 }
 
 fn format_isomorph_band(band: isomorph_null::IsomorphNullBand) -> String {
