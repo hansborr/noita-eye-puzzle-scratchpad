@@ -41,8 +41,10 @@ make run ARGS=demo
 ## Design notes
 
 - A `Glyph` is an opaque `u16` index into an `Alphabet`, **not** a closed enum,
-  because the glyph inventory isn't settled yet. Promote to an `enum` (for
-  exhaustiveness checking) once it is.
+  because the broader analysis alphabet still has multiple layers. The rendered
+  orientation inventory is settled separately: digits `0`-`4` are the five
+  displayed orientations, and `5` is a non-rendered row delimiter. Do not encode
+  unverifiable pixel-direction names into those orientation digits.
 - The CLI in `main.rs` is intentionally thin; logic lives in the library so it
   stays testable. Move to `clap` subcommands as the CLI grows.
 
