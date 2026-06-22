@@ -13,6 +13,8 @@
 //!   entropy, index of coincidence, chi-square goodness of fit, n-grams).
 //! - [`chaining`]: Experiment 7B alphabet-chaining structural signatures with
 //!   generated known-succeed and known-fail calibration controls.
+//! - [`ciphers`]: Experiment 12 candidate-cipher primitives and exact
+//!   round-trip controls.
 //! - [`controls`]: positive-control fixtures for solved cipher classes.
 //! - [`corpus`]: the verified transcribed message data.
 //! - [`generator`]: the engine storage-layer base-7 decoder and vendored input
@@ -34,6 +36,7 @@
 
 pub mod analysis;
 pub mod chaining;
+pub mod ciphers;
 pub mod controls;
 pub mod corpus;
 pub mod generator;
