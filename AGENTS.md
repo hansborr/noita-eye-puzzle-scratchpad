@@ -32,9 +32,14 @@ make run ARGS=demo
   compiling: `cargo doc` runs with `RUSTDOCFLAGS="-D warnings"`.
 - **`--locked` everywhere.** Don't let a command silently re-resolve `Cargo.lock`;
   commit lockfile changes deliberately.
-- **Never present placeholder-derived numbers as findings.** `corpus.rs` is fake
-  sample data until real eye messages are transcribed. Any statistic computed
-  from it is meaningless; say so.
+- **Never present unverified numbers as findings.** `corpus.rs` is now the real,
+  Experiment-0-verified corpus — the engine base-7 decode is cross-checked
+  byte-for-byte against the ngraham20 transcription for all nine messages — so
+  statistics computed from it are meaningful. The discipline still holds for
+  anything *unverified or model-conditional*: label guessed/assumed choices as
+  such (e.g. Exp 12's unknown symbol→letter mappings, Exp 7B's
+  additive-relationship model) and never report a number more strongly than its
+  construction supports.
 - **Transcription is the risk.** A single mis-read glyph invalidates downstream
   analysis. When adding real data, record its in-game source and cross-check.
 

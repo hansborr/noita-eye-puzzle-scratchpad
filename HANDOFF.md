@@ -88,10 +88,58 @@ Commits `ac0bcd7`→`2bdb0c0` on `master`, all gate-green. Verified independentl
   trigram truncation), now fixed (`2bdb0c0`): `Message::trigrams()` errors on
   non-÷3 input.
 
-Modules: `glyph.rs` (Orientation 0–4 + delimiter; StorageSymbol −1..5; generic
-Glyph/Alphabet), `trigram.rs` (reading layer 0–124), `corpus.rs`, `analysis.rs`
-(frequencies/entropy/IoC/ngrams), `orders.rs`, `null.rs`, `main.rs` (CLI:
-`demo`, `stats`, `orders`, `nulltest`).
+### Continuation experiments (2, 11, 4, 5, 7, 8, 12) — all gate-green, reviewed, verified
+
+Each pairs a measurement with a null or positive control; all eye results are
+negative, all calibration controls fire. Full one-liners with SHAs are in §9.
+
+- **Exp 2 — generation-pipeline artifact null** (`generator.rs`, `pipeline_null.rs`):
+  the base-7 pipeline does **not** manufacture the bounded 0–82 contiguity (uniform
+  cells don't either) ⇒ not a generation artifact; negative control only shows the
+  authored inputs live in the 0–5 storage alphabet. Review fixes: unbiased
+  rejection sampler + exact cap-aware no-`-1` rate.
+- **Exp 11 — positive controls** (`controls.rs`): a monoalphabetic 1:1 substitution
+  control preserves IoC/frequency multisets and separates from uniform; an
+  isomorph/period control recovers a repeating-key Vigenère period while
+  autokey/running-key stay quiet. The first isomorph control was caught
+  **degenerate** and redesigned — see §5.
+- **Exp 4 — frequency/entropy/IoC across orders** (`analysis.rs` chi-square +
+  `orders.rs`): honeycomb winner is the only standard36 order fully inside 0–82;
+  mean freq 12.48, concatenated normalized IoC **1.066** (matches community), χ² vs
+  uniform 150.355. Flat freq rules monoalphabetic OUT, not a message IN.
+- **Exp 5A — periodicity/autocorrelation** (`periodicity.rs`): no period/lag clears
+  the random-null band; verdict derived from the flags; explicit distance-4
+  reconciliation with Exp 1B (family-wise vs pointwise).
+- **Exp 5B-1 — English/Finnish language scorer** (`language.rs`, corpora under
+  `research/data/lang/`): held-out bigram log-likelihood discriminates the two
+  languages (calibration positive control); reusable by Exp 12. Exp 5B-2's
+  Caesar/Vigenère-vs-language brute was folded into Exp 12.
+- **Exp 7A — isomorph shuffle null** (`isomorph.rs`, `isomorph_null.rs`): the eyes
+  do **not** exceed their within-message shuffle null for repeated-signature counts
+  — the missing community null, computed and negative.
+- **Exp 7B — alphabet chaining** (`chaining.rs`): the eyes match the known-fail
+  chaining signature, not the known-succeed Vigenère band (additive model).
+- **Exp 8 — base-N grouping + independent state count** (`grouping.rs`): no grouping
+  is both alphabet- and entropy-compatible with a language; a collision estimator
+  calibrated on known-N (not assuming 83) gives ≈ 73–90 ⇒ ~83 genuine near-uniform
+  states.
+- **Exp 12 — candidate ciphers** (`ciphers.rs`, `cipher_attack.rs`):
+  Caesar/Vigenère/incrementing-wheel/Chaocipher/S₈₃-deck scored vs English/Finnish
+  under guessed mappings yield no decryption above chance (best excesses ~21–293×
+  below a recovered plant); a plant positive control is recovered, proving the
+  harness is not blind. Interpretation made statistically rigorous (exceedance-rate
+  diagnosis + effect-size contrast).
+
+A cross-experiment **completeness pass** (read-only audit) confirmed: gate green,
+shared anchors agree across all modules, every statistic has a null/control, and no
+source text overstates. The synthesized conclusion lives in `README.md` (Results).
+
+Modules (17): `glyph.rs`, `trigram.rs`, `generator.rs`, `corpus.rs`, `analysis.rs`,
+`orders.rs`, `null.rs`, `pipeline_null.rs`, `isomorph.rs`, `isomorph_null.rs`,
+`periodicity.rs`, `chaining.rs`, `grouping.rs`, `controls.rs`, `language.rs`,
+`ciphers.rs`, `cipher_attack.rs`. CLI (`main.rs`): `demo`, `stats`, `orders`,
+`nulltest`, `pipelinenull`, `periodicity`, `isomorphnull`, `chaining`, `grouping`,
+`cipherattack`, `controls {monoalphabetic|isomorph(=polyalphabetic)}`.
 
 ---
 
@@ -188,6 +236,15 @@ pre-existing history. The pre-commit hook (`make setup` installs it) runs the ga
 For each, read its full spec in `research/05-code-investigations.md`. Definition of
 done for ALL: gate-green, the relevant null/control present (not just the point
 estimate), honest interpretation in code/CLI docs, committed, progress logged.
+
+> **STATUS (2026-06-22): QUEUE EXHAUSTED.** Items 1–7 below (Experiments 2, 11, 4,
+> 5, 7, 8, 12) are all implemented, verified, reviewed, and committed — see §3 and
+> the §9 progress log. Item 8 (Experiments 9 & 10) remains out of pure-crate scope
+> as documented. The **completeness pass has been run**: a read-only audit found
+> the gate green, the shared anchors consistent across modules, every statistic
+> backed by a null/control, and no source overstatement; the only gaps were
+> documentation (README / AGENTS golden rule / this section / a results synthesis),
+> now addressed. The items below are retained for historical context.
 
 1. **Experiment 2 — generation-pipeline artifact null (HIGH; do first).** Implement
    the documented base-7/64-bit generator; reproduce the wiki worked example
