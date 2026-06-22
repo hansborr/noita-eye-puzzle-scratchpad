@@ -8,13 +8,23 @@
 use crate::glyph::{Orientation, RenderedSymbol, Sequence, SymbolError};
 use crate::trigram::ReadingTrigram;
 
-/// Error returned when a corpus digit is not part of the rendered eye alphabet.
+/// Error returned when corpus data fails integrity checks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct CorpusError {
-    /// The message key whose data failed to parse.
-    pub message_key: &'static str,
-    /// The invalid symbol.
-    pub symbol: SymbolError,
+pub enum CorpusError {
+    /// A corpus digit is not part of the rendered eye alphabet.
+    MalformedSymbol {
+        /// The message key whose data failed to parse.
+        message_key: &'static str,
+        /// The invalid symbol.
+        symbol: SymbolError,
+    },
+    /// Delimiter-stripped orientations cannot be evenly grouped into trigrams.
+    IncompleteTrigram {
+        /// The message key whose data failed the trigram grouping check.
+        message_key: &'static str,
+        /// Number of delimiter-stripped orientations in the message.
+        orientations: usize,
+    },
 }
 
 /// East or West parallel-world side for an eye message.
@@ -84,7 +94,7 @@ impl Message {
         let mut symbols = Vec::new();
         for byte in self.digits.bytes() {
             let symbol = digit_from_byte(byte).and_then(RenderedSymbol::from_digit);
-            symbols.push(symbol.map_err(|symbol| CorpusError {
+            symbols.push(symbol.map_err(|symbol| CorpusError::MalformedSymbol {
                 message_key: self.key,
                 symbol,
             })?);
@@ -101,7 +111,7 @@ impl Message {
         let mut orientations = Vec::new();
         for byte in self.digits.bytes() {
             let symbol = digit_from_byte(byte).and_then(RenderedSymbol::from_digit);
-            match symbol.map_err(|symbol| CorpusError {
+            match symbol.map_err(|symbol| CorpusError::MalformedSymbol {
                 message_key: self.key,
                 symbol,
             })? {
@@ -128,9 +138,10 @@ impl Message {
     /// Groups delimiter-stripped orientations into base-5 reading trigrams.
     ///
     /// # Errors
-    /// Returns [`CorpusError`] if the rendered digits are malformed.
+    /// Returns [`CorpusError`] if the rendered digits are malformed or the
+    /// delimiter-stripped orientation count is not divisible by three.
     pub fn trigrams(&self) -> Result<Vec<ReadingTrigram>, CorpusError> {
-        Ok(trigrams_from_orientations(&self.orientations()?))
+        trigrams_from_orientations(self.key, &self.orientations()?)
     }
 
     /// Returns the raw string length including row delimiters.
@@ -268,7 +279,17 @@ fn digit_from_byte(byte: u8) -> Result<u8, SymbolError> {
     }
 }
 
-fn trigrams_from_orientations(orientations: &[Orientation]) -> Vec<ReadingTrigram> {
+fn trigrams_from_orientations(
+    message_key: &'static str,
+    orientations: &[Orientation],
+) -> Result<Vec<ReadingTrigram>, CorpusError> {
+    if !orientations.len().is_multiple_of(3) {
+        return Err(CorpusError::IncompleteTrigram {
+            message_key,
+            orientations: orientations.len(),
+        });
+    }
+
     let mut trigrams = Vec::new();
     for chunk in orientations.chunks_exact(3) {
         let [first, second, third] = *chunk else {
@@ -276,14 +297,14 @@ fn trigrams_from_orientations(orientations: &[Orientation]) -> Vec<ReadingTrigra
         };
         trigrams.push(ReadingTrigram::new(first, second, third));
     }
-    trigrams
+    Ok(trigrams)
 }
 
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
 
-    use super::{MESSAGES, messages};
+    use super::{CorpusError, MESSAGES, Message, PROVENANCE, Region, messages};
     use crate::glyph::StorageSymbol;
 
     const NG_EYES: &str = include_str!("../research/data/eye-messages/ng_eyes.json");
@@ -326,6 +347,28 @@ mod tests {
             assert_eq!(message.sequence().unwrap().len(), message.eye_count);
             assert_eq!(message.trigrams().unwrap().len(), message.trigram_count);
         }
+    }
+
+    #[test]
+    fn trigrams_reject_non_divisible_orientation_count() {
+        let message = Message {
+            id: 99,
+            key: "synthetic",
+            region: Region::East,
+            region_index: 99,
+            digits: "0123",
+            eye_count: 4,
+            trigram_count: 1,
+            provenance: PROVENANCE,
+        };
+
+        assert_eq!(
+            message.trigrams(),
+            Err(CorpusError::IncompleteTrigram {
+                message_key: "synthetic",
+                orientations: 4,
+            })
+        );
     }
 
     #[test]

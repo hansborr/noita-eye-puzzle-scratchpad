@@ -36,10 +36,7 @@ fn main() -> ExitCode {
                 ExitCode::SUCCESS
             }
             Err(error) => {
-                eprintln!(
-                    "corpus parse error in {}: invalid symbol {:?}",
-                    error.message_key, error.symbol
-                );
+                eprintln!("{}", format_corpus_error(error));
                 ExitCode::FAILURE
             }
         },
@@ -55,6 +52,21 @@ fn main() -> ExitCode {
             eprintln!("{USAGE}");
             ExitCode::FAILURE
         }
+    }
+}
+
+fn format_corpus_error(error: corpus::CorpusError) -> String {
+    match error {
+        corpus::CorpusError::MalformedSymbol {
+            message_key,
+            symbol,
+        } => format!("corpus parse error in {message_key}: invalid symbol {symbol:?}"),
+        corpus::CorpusError::IncompleteTrigram {
+            message_key,
+            orientations,
+        } => format!(
+            "corpus parse error in {message_key}: {orientations} orientations cannot form complete trigrams"
+        ),
     }
 }
 
