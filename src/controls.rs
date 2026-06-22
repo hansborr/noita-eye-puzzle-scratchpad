@@ -7,12 +7,13 @@
 //! PRNG. That proves the frequency and substitution tooling fires on a
 //! monoalphabetic cipher with ground truth.
 //!
-//! The isomorph/polyalphabetic control is also generated: known plaintext is
-//! encrypted with short-key Vigenere and autokey fixtures whose repeated
-//! structure is intentional, then contrasted with a full-length running-key
-//! fixture where that short-period structure is absent. That proves the
-//! first-occurrence signature detector fires on known structure and stays quiet
-//! on the matched absence case.
+//! The isomorph/polyalphabetic control is also generated: an aperiodic
+//! natural-language plaintext is encrypted three ways. A short repeating-key
+//! Vigenere fixture is the known-present period case, while autokey and
+//! full-length running-key fixtures over the same plaintext are known-absent
+//! short-period contrasts. That proves the first-occurrence signature detector
+//! recovers a real Kasiski-style Vigenere period and stays quiet when that
+//! short repeating key is absent.
 //!
 //! The documented Common Glyphs plaintexts are included only as named
 //! round-trip vectors. Their upstream glyph-pixel mapping is not vendored here,
@@ -33,13 +34,13 @@ const DEFAULT_ISOMORPH_SEED: u64 = 0x6973_6f6d_6f72_7068;
 const U64_DRAW_DOMAIN: u128 = 1u128 << 64;
 const MIN_IOC_SEPARATION: f64 = 0.015;
 const ISOMORPH_KEY_PERIOD: usize = 7;
-const ISOMORPH_WINDOW: usize = 9;
-const ISOMORPH_FIXTURE_LENGTH: usize = 280;
+const ISOMORPH_AUTOKEY_SEED_LENGTH: usize = 43;
+const ISOMORPH_WINDOW: usize = 16;
 const ISOMORPH_MIN_PERIOD: usize = 2;
 const ISOMORPH_MAX_PERIOD: usize = 16;
-const MIN_PRESENT_PERIOD_MATCHES: usize = 180;
-const MAX_ABSENT_PERIOD_MATCHES: usize = 32;
-const MIN_PERIOD_MATCH_SEPARATION: usize = 120;
+const MIN_PRESENT_PERIOD_MATCHES: usize = 850;
+const MAX_ABSENT_PERIOD_MATCHES: usize = 64;
+const MIN_PERIOD_MATCH_SEPARATION: usize = 800;
 const LONG_FIXTURE_LABEL: &str = "embedded English-like calibration plaintext";
 const LONG_FIXTURE_TEXT: &str = "\
 THE METHOD CHECKS THE KNOWN CIPHER BEFORE IT JUDGES THE UNKNOWN MESSAGE.
@@ -49,6 +50,37 @@ THE SAME COINCIDENCE RATE AND THE SAME BAG OF COUNTS. WHEN THE SAMPLE IS LONG
 ENOUGH THE ENGLISH FREQUENCY SHAPE STANDS ABOVE A UNIFORM STREAM. THAT IS THE
 ONLY CLAIM OF THIS CONTROL. IT CALIBRATES THE MEASUREMENT PATH AND IT DOES NOT
 SAY THAT THE EYE GLYPHS CONTAIN A RECOVERABLE SENTENCE.";
+const ISOMORPH_FIXTURE_LABEL: &str = "embedded natural-language isomorph plaintext";
+const ISOMORPH_FIXTURE_TEXT: &str = "\
+THE METHOD CHECKS THE KNOWN CIPHER BEFORE IT JUDGES THE UNKNOWN MESSAGE.
+A SIMPLE SUBSTITUTION CHANGES LETTER NAMES BUT IT DOES NOT CHANGE HOW OFTEN
+EACH LETTER OCCURS. THE SAME TOOL SHOULD NOTICE THAT THE CIPHER TEXT KEEPS
+THE SAME COINCIDENCE RATE AND THE SAME BAG OF COUNTS. WHEN THE SAMPLE IS LONG
+ENOUGH THE ENGLISH FREQUENCY SHAPE STANDS ABOVE A UNIFORM STREAM. THAT IS THE
+ONLY CLAIM OF THIS CONTROL. IT CALIBRATES THE MEASUREMENT PATH AND IT DOES NOT
+SAY THAT THE EYE GLYPHS CONTAIN A RECOVERABLE SENTENCE.
+
+CAREFUL MEASUREMENT KEEPS THE RECORD HONEST. THE CLERK WRITES THE DATE AND
+CHECKS THE MARGIN BEFORE THE NEXT LINE BEGINS TODAY.
+CAREFUL MEASUREMENT KEEPS THE RECORD HONEST. A SECOND NOTE DESCRIBES THE
+SOURCE, THE COPY, AND THE REASON FOR KEEPING BOTH TODAY.
+CAREFUL MEASUREMENT KEEPS THE RECORD HONEST. NO SYMBOL IS TRUSTED UNTIL
+ANOTHER READER HAS COMPARED IT WITH THE RECORD NEARBY.
+CAREFUL MEASUREMENT KEEPS THE RECORD HONEST. THE TABLE BESIDE THE DESK HOLDS
+PENS, PAPER, AND A SMALL LAMP FOR EVENING WORK TODAY.
+CAREFUL MEASUREMENT KEEPS THE RECORD HONEST. THIS PARAGRAPH IS PLAIN ENGLISH
+PROSE WITH UNEVEN WORDS AND ORDINARY CADENCE AS WRITTEN.
+CAREFUL MEASUREMENT KEEPS THE RECORD HONEST. EVERY EXAMPLE IS MEANT TO BE
+USEFUL, MODEST, AND EASY TO AUDIT LATER NEARBY.
+CAREFUL MEASUREMENT KEEPS THE RECORD HONEST. THE SURROUNDING SENTENCES ARE NOT
+REPEATED, AND THEY CARRY THE PASSAGE FORWARD STEADILY.
+CAREFUL MEASUREMENT KEEPS THE RECORD HONEST. NOTHING IN THIS CONTROL CLAIMS
+ANYTHING ABOUT A HIDDEN MESSAGE IN THE GLYPHS THROUGHOUT.
+CAREFUL MEASUREMENT KEEPS THE RECORD HONEST.
+
+THE FINAL SENTENCES CLOSE THE FIXTURE WITHOUT REPEATING THE CALIBRATION PHRASE
+AGAIN. THEY REMIND THE READER THAT THE CONTRAST IS BETWEEN A REPEATING KEY AND
+TWO APERIODIC KEYS, NOT BETWEEN SOLVED AND UNSOLVED GLYPH TEXT.";
 const DOCUMENTED_COMMON_GLYPHS: [(&str, &str); 2] = [
     ("Common Glyphs / seek the end", "SEEK THE END"),
     (
@@ -189,12 +221,24 @@ pub enum ControlsError {
         /// Minimum matches required by the control.
         required_matches: usize,
     },
+    /// A known-present fixture's strongest period was not the ground-truth
+    /// key period.
+    IsomorphPeriodRecoveryFailed {
+        /// Human-readable fixture label.
+        label: &'static str,
+        /// Ground-truth short period.
+        expected_period: usize,
+        /// Strongest period observed by the detector.
+        observed_period: Option<usize>,
+        /// Repeated-signature matches for the strongest observed period.
+        observed_matches: usize,
+    },
     /// A known-absent fixture produced too much short-period signal.
     IsomorphFalsePositive {
         /// Human-readable fixture label.
         label: &'static str,
-        /// Ground-truth short period that should be absent.
-        expected_period: usize,
+        /// Strongest short period observed by the detector.
+        observed_period: usize,
         /// Observed repeated-signature matches at that period.
         observed_matches: usize,
         /// Maximum matches allowed by the control.
@@ -276,8 +320,8 @@ pub struct MonoalphabeticControlReport {
 pub struct PeriodSignal {
     /// Candidate period measured in glyph positions.
     pub period: usize,
-    /// Number of informative signature windows repeated exactly one period
-    /// later.
+    /// Number of repeated-signature occurrence pairs whose start-position
+    /// distance is a positive multiple of this candidate period.
     pub matches: usize,
     /// Number of distinct signature shapes contributing at least one match.
     pub signature_kinds: usize,
@@ -290,7 +334,8 @@ pub struct SignatureSummary {
     pub signature: String,
     /// Window start positions where this signature occurs.
     pub occurrences: Vec<usize>,
-    /// Number of occurrence pairs separated by the ground-truth period.
+    /// Number of occurrence pairs whose start-position distance is a positive
+    /// multiple of the checked period.
     pub expected_period_matches: usize,
 }
 
@@ -324,8 +369,8 @@ pub struct IsomorphFixtureReport {
     pub informative_windows: usize,
     /// Number of distinct informative signatures that repeat somewhere.
     pub repeated_signature_kinds: usize,
-    /// Ground-truth period expected for known-present fixtures, and checked as
-    /// absent in the contrast fixture.
+    /// Short period checked for this fixture: present for Vigenere, absent for
+    /// autokey and running-key contrasts.
     pub expected_period: usize,
     /// Repeated-signature matches observed at [`Self::expected_period`].
     pub expected_period_matches: usize,
@@ -350,15 +395,17 @@ pub struct IsomorphControlReport {
     pub min_period: usize,
     /// Upper inclusive period searched by the detector.
     pub max_period: usize,
-    /// Ground-truth short period encoded in the known-present fixtures.
+    /// Ground-truth short period encoded in the known-present Vigenere fixture.
     pub expected_period: usize,
-    /// Minimum repeated-signature matches required for known-present fixtures.
+    /// Minimum repeated-signature matches required for the known-present
+    /// Vigenere fixture.
     pub required_present_matches: usize,
-    /// Maximum repeated-signature matches allowed for the known-absent fixture.
+    /// Maximum repeated-signature matches allowed for each known-absent fixture
+    /// at any searched period.
     pub allowed_absent_matches: usize,
     /// Known-present Vigenere fixture.
     pub vigenere: IsomorphFixtureReport,
-    /// Known-present autokey fixture.
+    /// Known-absent autokey fixture.
     pub autokey: IsomorphFixtureReport,
     /// Known-absent running-key contrast fixture.
     pub running_key: IsomorphFixtureReport,
@@ -400,10 +447,10 @@ pub fn run_monoalphabetic_control(
 
 /// Runs the isomorph/polyalphabetic positive control.
 ///
-/// The known-present fixtures deliberately align repeated plaintext structure
-/// with a short Vigenere key and an autokey seed. The contrast fixture encrypts
-/// the same Vigenere plaintext with a full-length running key, removing the
-/// short-period ground truth.
+/// The known-present fixture encrypts one natural-language plaintext with a
+/// short Vigenere key. Known-absent contrast fixtures encrypt the same
+/// plaintext with autokey and a full-length running key, removing the short
+/// repeating-key ground truth.
 ///
 /// # Errors
 /// Returns [`ControlsError`] if fixture generation fails or if the detector
@@ -412,53 +459,43 @@ pub fn run_monoalphabetic_control(
 pub fn run_isomorph_control(
     config: IsomorphControlConfig,
 ) -> Result<IsomorphControlReport, ControlsError> {
-    let target_period = target_cipher_period(config.seed)?;
+    let plaintext = normalize_plaintext(ISOMORPH_FIXTURE_LABEL, ISOMORPH_FIXTURE_TEXT)?;
 
     let vigenere_key = random_distinct_glyphs(
         "Vigenere short key",
         config.seed ^ 0x7669_6765_6e65_7265,
         ISOMORPH_KEY_PERIOD,
     )?;
-    let vigenere_plain_period =
-        derive_vigenere_plain_period("Vigenere plaintext period", &target_period, &vigenere_key)?;
-    let vigenere_plaintext = repeat_period(&vigenere_plain_period, ISOMORPH_FIXTURE_LENGTH)?;
     let vigenere_ciphertext =
-        encrypt_vigenere("Vigenere known-present", &vigenere_plaintext, &vigenere_key)?;
+        encrypt_vigenere("Vigenere known-present", &plaintext, &vigenere_key)?;
     let vigenere = build_isomorph_fixture(
-        "known-present Vigenere short-key fixture",
+        "known-present Vigenere repeating-key fixture",
         "Vigenere",
         format!(
             "period-{} key {}",
             vigenere_key.len(),
             render_key(&vigenere_key)?
         ),
-        &vigenere_plaintext,
+        &plaintext,
         &vigenere_ciphertext,
         ISOMORPH_KEY_PERIOD,
     )?;
 
-    let autokey_seed = random_distinct_glyphs(
+    let autokey_seed = random_key_stream(
         "autokey seed",
         config.seed ^ 0x6175_746f_6b65_7921,
-        ISOMORPH_KEY_PERIOD,
+        ISOMORPH_AUTOKEY_SEED_LENGTH,
     )?;
-    let autokey_plaintext = derive_autokey_plaintext(
-        "autokey known-present",
-        &target_period,
-        &autokey_seed,
-        ISOMORPH_FIXTURE_LENGTH,
-    )?;
-    let autokey_ciphertext =
-        encrypt_autokey("autokey known-present", &autokey_plaintext, &autokey_seed)?;
+    let autokey_ciphertext = encrypt_autokey("autokey known-absent", &plaintext, &autokey_seed)?;
     let autokey = build_isomorph_fixture(
-        "known-present autokey short-seed fixture",
+        "known-absent autokey short-seed fixture",
         "autokey",
         format!(
             "{}-symbol seed {}",
             autokey_seed.len(),
             render_key(&autokey_seed)?
         ),
-        &autokey_plaintext,
+        &plaintext,
         &autokey_ciphertext,
         ISOMORPH_KEY_PERIOD,
     )?;
@@ -466,18 +503,15 @@ pub fn run_isomorph_control(
     let running_key = random_key_stream(
         "running-key contrast key",
         config.seed ^ 0x7275_6e6e_696e_6721,
-        ISOMORPH_FIXTURE_LENGTH,
+        plaintext.len(),
     )?;
-    let running_ciphertext = encrypt_key_stream(
-        "running-key known-absent",
-        &vigenere_plaintext,
-        &running_key,
-    )?;
+    let running_ciphertext =
+        encrypt_key_stream("running-key known-absent", &plaintext, &running_key)?;
     let running_key = build_isomorph_fixture(
         "known-absent full-length running-key fixture",
         "running key",
         format!("{}-symbol full-length key stream", running_ciphertext.len()),
-        &vigenere_plaintext,
+        &plaintext,
         &running_ciphertext,
         ISOMORPH_KEY_PERIOD,
     )?;
@@ -611,35 +645,46 @@ fn assert_isomorph_separation(
     autokey: &IsomorphFixtureReport,
     running_key: &IsomorphFixtureReport,
 ) -> Result<(), ControlsError> {
-    for fixture in [vigenere, autokey] {
-        if fixture.expected_period_matches < MIN_PRESENT_PERIOD_MATCHES {
-            return Err(ControlsError::IsomorphSignalMissing {
-                label: fixture.label,
-                expected_period: fixture.expected_period,
-                observed_matches: fixture.expected_period_matches,
-                required_matches: MIN_PRESENT_PERIOD_MATCHES,
+    if vigenere.expected_period_matches < MIN_PRESENT_PERIOD_MATCHES {
+        return Err(ControlsError::IsomorphSignalMissing {
+            label: vigenere.label,
+            expected_period: vigenere.expected_period,
+            observed_matches: vigenere.expected_period_matches,
+            required_matches: MIN_PRESENT_PERIOD_MATCHES,
+        });
+    }
+
+    let observed_best_period = vigenere.best_period.map(|signal| signal.period);
+    if observed_best_period != Some(vigenere.expected_period) {
+        return Err(ControlsError::IsomorphPeriodRecoveryFailed {
+            label: vigenere.label,
+            expected_period: vigenere.expected_period,
+            observed_period: observed_best_period,
+            observed_matches: vigenere.best_period.map_or(0, |signal| signal.matches),
+        });
+    }
+
+    for absent in [autokey, running_key] {
+        let absent_best = absent.best_period;
+        let absent_best_matches = absent_best.map_or(0, |signal| signal.matches);
+        if absent_best_matches > MAX_ABSENT_PERIOD_MATCHES {
+            return Err(ControlsError::IsomorphFalsePositive {
+                label: absent.label,
+                observed_period: absent_best.map_or(absent.expected_period, |signal| signal.period),
+                observed_matches: absent_best_matches,
+                allowed_matches: MAX_ABSENT_PERIOD_MATCHES,
             });
         }
-        if fixture.expected_period_matches
-            < running_key.expected_period_matches + MIN_PERIOD_MATCH_SEPARATION
-        {
+
+        if vigenere.expected_period_matches < absent_best_matches + MIN_PERIOD_MATCH_SEPARATION {
             return Err(ControlsError::IsomorphSeparationFailed {
-                present_label: fixture.label,
-                absent_label: running_key.label,
-                present_matches: fixture.expected_period_matches,
-                absent_matches: running_key.expected_period_matches,
+                present_label: vigenere.label,
+                absent_label: absent.label,
+                present_matches: vigenere.expected_period_matches,
+                absent_matches: absent_best_matches,
                 required_gap: MIN_PERIOD_MATCH_SEPARATION,
             });
         }
-    }
-
-    if running_key.expected_period_matches > MAX_ABSENT_PERIOD_MATCHES {
-        return Err(ControlsError::IsomorphFalsePositive {
-            label: running_key.label,
-            expected_period: running_key.expected_period,
-            observed_matches: running_key.expected_period_matches,
-            allowed_matches: MAX_ABSENT_PERIOD_MATCHES,
-        });
     }
 
     Ok(())
@@ -859,20 +904,6 @@ fn balanced_uniform_sequence(
     Ok(glyphs)
 }
 
-fn target_cipher_period(seed: u64) -> Result<Vec<Glyph>, ControlsError> {
-    let symbols = random_distinct_glyphs("target isomorph period", seed ^ 0x7461_7267_6574, 5)?;
-    let mut period = Vec::with_capacity(ISOMORPH_KEY_PERIOD);
-    for offset in [0usize, 1, 2, 0, 3, 4, 0] {
-        let Some(glyph) = symbols.get(offset).copied() else {
-            return Err(ControlsError::AlphabetTooLarge {
-                alphabet_size: ALPHABET_SIZE,
-            });
-        };
-        period.push(glyph);
-    }
-    Ok(period)
-}
-
 fn random_distinct_glyphs(
     label: &'static str,
     seed: u64,
@@ -915,68 +946,6 @@ fn random_key_stream(
         return Err(ControlsError::EmptyPlaintext { label });
     }
     Ok(key)
-}
-
-fn derive_vigenere_plain_period(
-    label: &'static str,
-    target_period: &[Glyph],
-    key: &[Glyph],
-) -> Result<Vec<Glyph>, ControlsError> {
-    if target_period.len() != key.len() {
-        return Err(ControlsError::InvalidIsomorphWindow {
-            label,
-            window: key.len(),
-            sequence_len: target_period.len(),
-        });
-    }
-
-    let mut plaintext = Vec::with_capacity(target_period.len());
-    for (cipher, key_glyph) in target_period.iter().copied().zip(key.iter().copied()) {
-        plaintext.push(subtract_glyphs(label, cipher, key_glyph)?);
-    }
-    Ok(plaintext)
-}
-
-fn derive_autokey_plaintext(
-    label: &'static str,
-    target_period: &[Glyph],
-    seed_key: &[Glyph],
-    length: usize,
-) -> Result<Vec<Glyph>, ControlsError> {
-    if seed_key.is_empty() {
-        return Err(ControlsError::EmptyPlaintext { label });
-    }
-
-    let mut plaintext = Vec::with_capacity(length);
-    for position in 0..length {
-        let cipher = period_glyph_at(label, target_period, position)?;
-        let key = if position < seed_key.len() {
-            period_glyph_at(label, seed_key, position)?
-        } else {
-            let Some(key) = plaintext.get(position - seed_key.len()).copied() else {
-                return Err(ControlsError::InvalidIsomorphWindow {
-                    label,
-                    window: seed_key.len(),
-                    sequence_len: plaintext.len(),
-                });
-            };
-            key
-        };
-        plaintext.push(subtract_glyphs(label, cipher, key)?);
-    }
-    Ok(plaintext)
-}
-
-fn repeat_period(period: &[Glyph], length: usize) -> Result<Vec<Glyph>, ControlsError> {
-    let mut output = Vec::with_capacity(length);
-    for position in 0..length {
-        output.push(period_glyph_at(
-            "repeated plaintext period",
-            period,
-            position,
-        )?);
-    }
-    Ok(output)
 }
 
 fn encrypt_vigenere(
@@ -1043,15 +1012,6 @@ fn encrypt_key_stream(
 fn add_glyphs(label: &'static str, left: Glyph, right: Glyph) -> Result<Glyph, ControlsError> {
     let sum = glyph_index(label, left, ALPHABET_SIZE)? + glyph_index(label, right, ALPHABET_SIZE)?;
     glyph_from_index(sum % ALPHABET_SIZE, ALPHABET_SIZE)
-}
-
-fn subtract_glyphs(label: &'static str, left: Glyph, right: Glyph) -> Result<Glyph, ControlsError> {
-    let left = glyph_index(label, left, ALPHABET_SIZE)?;
-    let right = glyph_index(label, right, ALPHABET_SIZE)?;
-    glyph_from_index(
-        (ALPHABET_SIZE + left - right) % ALPHABET_SIZE,
-        ALPHABET_SIZE,
-    )
 }
 
 fn period_glyph_at(
@@ -1254,15 +1214,20 @@ fn detect_isomorphs(
 }
 
 fn signature_period_matches(group: &SignatureGroup, period: usize) -> usize {
-    group
-        .occurrences
-        .iter()
-        .filter(|position| {
-            position
-                .checked_add(period)
-                .is_some_and(|target| group.occurrences.binary_search(&target).is_ok())
-        })
-        .count()
+    if period == 0 {
+        return 0;
+    }
+
+    let mut matches = 0usize;
+    for (left_index, left) in group.occurrences.iter().enumerate() {
+        for right in group.occurrences.iter().skip(left_index + 1) {
+            let distance = right.saturating_sub(*left);
+            if distance >= period && distance % period == 0 {
+                matches += 1;
+            }
+        }
+    }
+    matches
 }
 
 fn sorted_frequency_counts(seq: &[Glyph]) -> Vec<usize> {
@@ -1391,24 +1356,25 @@ mod tests {
 
     #[test]
     fn isomorph_control_separates_present_and_absent_structure() {
-        let report = run_isomorph_control(IsomorphControlConfig {
-            seed: 0x1234_5678_9abc_def0,
-        })
-        .unwrap();
+        for seed in [0x6973_6f6d_6f72_7068, 0x1234_5678_9abc_def0, 0xf00d, 0] {
+            let report = run_isomorph_control(IsomorphControlConfig { seed }).unwrap();
 
-        assert!(report.vigenere.expected_period_matches >= MIN_PRESENT_PERIOD_MATCHES);
-        assert!(report.autokey.expected_period_matches >= MIN_PRESENT_PERIOD_MATCHES);
-        assert!(report.running_key.expected_period_matches <= MAX_ABSENT_PERIOD_MATCHES);
-        assert!(
-            report.vigenere.expected_period_matches
-                >= report.running_key.expected_period_matches + MIN_PERIOD_MATCH_SEPARATION
-        );
-        assert!(
-            report.autokey.expected_period_matches
-                >= report.running_key.expected_period_matches + MIN_PERIOD_MATCH_SEPARATION
-        );
-        assert_eq!(report.vigenere.expected_period, ISOMORPH_KEY_PERIOD);
-        assert_eq!(report.autokey.expected_period, ISOMORPH_KEY_PERIOD);
+            assert_eq!(report.vigenere.length, 1496);
+            assert!(report.vigenere.expected_period_matches >= MIN_PRESENT_PERIOD_MATCHES);
+            assert_eq!(
+                report.vigenere.best_period.map(|signal| signal.period),
+                Some(ISOMORPH_KEY_PERIOD)
+            );
+
+            for absent in [&report.autokey, &report.running_key] {
+                let absent_max_matches = absent.best_period.map_or(0, |signal| signal.matches);
+                assert!(absent_max_matches <= MAX_ABSENT_PERIOD_MATCHES);
+                assert!(
+                    report.vigenere.expected_period_matches
+                        >= absent_max_matches + MIN_PERIOD_MATCH_SEPARATION
+                );
+            }
+        }
     }
 
     #[test]
@@ -1433,8 +1399,8 @@ mod tests {
 
         let detection = detect_isomorphs("test", &seq, 9).unwrap();
 
-        assert_eq!(detection.period_matches(7), 125);
-        assert_eq!(detection.period_matches(6), 0);
+        assert_eq!(detection.best_period().map(|signal| signal.period), Some(7));
+        assert!(detection.period_matches(7) > detection.period_matches(6));
     }
 
     #[test]

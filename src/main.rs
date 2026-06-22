@@ -347,13 +347,25 @@ fn format_controls_error(error: &controls::ControlsError) -> String {
         } => format!(
             "{label}: expected period {expected_period} produced {observed_matches} signature matches, below required {required_matches}"
         ),
-        controls::ControlsError::IsomorphFalsePositive {
+        controls::ControlsError::IsomorphPeriodRecoveryFailed {
             label,
             expected_period,
+            observed_period,
+            observed_matches,
+        } => {
+            let observed =
+                observed_period.map_or_else(|| "none".to_owned(), |period| period.to_string());
+            format!(
+                "{label}: strongest recovered period was {observed} with {observed_matches} signature matches, expected {expected_period}"
+            )
+        }
+        controls::ControlsError::IsomorphFalsePositive {
+            label,
+            observed_period,
             observed_matches,
             allowed_matches,
         } => format!(
-            "{label}: expected-absent period {expected_period} produced {observed_matches} signature matches, above allowed {allowed_matches}"
+            "{label}: expected-absent period signal {observed_period} produced {observed_matches} signature matches, above allowed {allowed_matches}"
         ),
         controls::ControlsError::IsomorphSeparationFailed {
             present_label,
@@ -497,11 +509,11 @@ fn print_isomorph_control_report(report: &controls::IsomorphControlReport) {
         report.window, report.min_period, report.max_period
     );
     println!(
-        "ground truth: known-present fixtures have period {}; running-key contrast should not",
+        "ground truth: Vigenere has repeating-key period {}; autokey and running-key do not",
         report.expected_period
     );
     println!(
-        "invariant: present >= {} matches, absent <= {} matches",
+        "invariant: Vigenere period matches >= {}; each absent fixture max period matches <= {}",
         report.required_present_matches, report.allowed_absent_matches
     );
     println!();
@@ -512,7 +524,7 @@ fn print_isomorph_control_report(report: &controls::IsomorphControlReport) {
     print_isomorph_fixture(&report.running_key);
     println!();
     println!(
-        "Interpretation: this proves the isomorph/periodicity tooling fires on generated known-key fixtures with repeated short-period structure and stays quiet on a generated running-key fixture where that short period is absent. It says nothing about whether the unsolved eye glyphs encode a message. If this control fails, the methodology is suspect."
+        "Interpretation: this proves the isomorph/period tooling recovers the key period of a repeating-key Vigenere over natural text and stays quiet on autokey and running-key ciphertexts where no exploitable short repeating key is present. It says nothing about whether the unsolved eye glyphs encode a message. If this control fails, the methodology is suspect."
     );
 }
 
@@ -534,7 +546,7 @@ fn print_isomorph_fixture(fixture: &controls::IsomorphFixtureReport) {
         fixture.exact_repeated_windows
     );
     println!(
-        "expected-period {} signature matches: {}",
+        "period-{} signature matches: {}",
         fixture.expected_period, fixture.expected_period_matches
     );
     match fixture.best_period {
@@ -545,7 +557,7 @@ fn print_isomorph_fixture(fixture: &controls::IsomorphFixtureReport) {
         None => println!("best period: none"),
     }
     if !fixture.strongest_signatures.is_empty() {
-        println!("top expected-period signatures:");
+        println!("top period-{} signatures:", fixture.expected_period);
         for signature in &fixture.strongest_signatures {
             println!(
                 "  [{}] at {} ({} period matches)",
