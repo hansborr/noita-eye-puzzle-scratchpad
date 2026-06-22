@@ -10,6 +10,8 @@ use noita_eye_puzzle::{
     analysis, controls, corpus, glyph::Sequence, null, orders, periodicity, pipeline_null,
 };
 
+const MIN_RELIABLE_PERIODICITY_NULL_TRIALS: usize = 50;
+
 const USAGE: &str = "\
 noita-eye — Noita eye-glyph puzzle toolkit
 
@@ -582,12 +584,148 @@ fn print_periodicity_report(report: &periodicity::PeriodicityReport) {
     println!();
     print_message_kasiski_summary(&report.messages);
     println!();
+    print_periodicity_interpretation(report);
+}
+
+fn print_periodicity_interpretation(report: &periodicity::PeriodicityReport) {
+    let exceedance_labels = null_envelope_exceedance_labels(report);
+    if report.config.trials < MIN_RELIABLE_PERIODICITY_NULL_TRIALS {
+        println!(
+            "Caveat: only {} Monte-Carlo trial(s) were sampled (< {}); the report-wide null envelope is undersampled and the OUT/inside verdict is not reliable.",
+            report.config.trials, MIN_RELIABLE_PERIODICITY_NULL_TRIALS
+        );
+    }
+
+    if exceedance_labels.is_empty() {
+        println!(
+            "Interpretation: no pooled or per-message period/lag row exceeds the sampled report-wide random-null envelope (no OUT flags). That rules out a simple fixed-period polyalphabetic cipher under this honeycomb reading order; it does not prove the data is meaningless, and it says nothing about other reading orders or encodings."
+        );
+    } else {
+        let count = exceedance_labels.len();
+        println!(
+            "Interpretation: {count} pooled/per-message period/lag {} {} the sampled report-wide random-null envelope (OUT): {}. Because at least one row is OUT, this run does not support the no-exceedance verdict and does not rule out a simple fixed-period polyalphabetic cipher under this honeycomb reading order.",
+            counted_noun(count, "row", "rows"),
+            counted_verb(count, "exceeds", "exceed"),
+            exceedance_labels.join(", ")
+        );
+    }
+
     println!(
-        "Interpretation: no pooled or per-message period/lag exceeds the sampled report-wide random-null envelope. That rules out a simple fixed-period polyalphabetic cipher under this honeycomb reading order; it does not prove the data is meaningless, and it says nothing about other reading orders or encodings. Near-uniform IoC-by-period is also exactly what a fixed permutation of structured data can produce."
+        "Near-uniform IoC-by-period is also exactly what a fixed permutation of structured data can produce. Pointwise pt95 rows are shown as noise candidates only; a peak inside the sampled envelope is not a period claim."
     );
+    print_distance4_reconciliation(report, !exceedance_labels.is_empty());
     println!(
-        "Pointwise pt95 rows are shown as noise candidates only; a peak inside the sampled envelope is not a period claim. Any future striking period must be rechecked against Experiment 0 transcription integrity before interpretation."
+        "Any future striking period must be rechecked against Experiment 0 transcription integrity before interpretation."
     );
+}
+
+fn null_envelope_exceedance_labels(report: &periodicity::PeriodicityReport) -> Vec<String> {
+    let mut labels = Vec::new();
+    append_period_exceedance_labels("pooled", &report.pooled_ioc_by_period, &mut labels);
+    append_autocorrelation_exceedance_labels("pooled", &report.pooled_autocorrelation, &mut labels);
+    for message in &report.messages {
+        append_period_exceedance_labels(message.message_key, &message.ioc_by_period, &mut labels);
+        append_autocorrelation_exceedance_labels(
+            message.message_key,
+            &message.autocorrelation,
+            &mut labels,
+        );
+    }
+    labels
+}
+
+fn append_period_exceedance_labels(
+    scope: &str,
+    rows: &[periodicity::PeriodIocRow],
+    labels: &mut Vec<String>,
+) {
+    for row in rows.iter().filter(|row| row.above_null_envelope) {
+        let period = row.period;
+        labels.push(format!("{scope} period p={period}"));
+    }
+}
+
+fn append_autocorrelation_exceedance_labels(
+    scope: &str,
+    rows: &[periodicity::AutocorrelationRow],
+    labels: &mut Vec<String>,
+) {
+    for row in rows.iter().filter(|row| row.above_null_envelope) {
+        let lag = row.lag;
+        labels.push(format!("{scope} lag={lag}"));
+    }
+}
+
+fn print_distance4_reconciliation(
+    report: &periodicity::PeriodicityReport,
+    has_envelope_exceedance: bool,
+) {
+    let lag4 = report
+        .pooled_autocorrelation
+        .iter()
+        .find(|row| row.lag == 4);
+    let strongest = strongest_autocorrelation_row(&report.pooled_autocorrelation);
+    let lag4_is_dominant = matches!((lag4, strongest), (Some(_), Some(row)) if row.lag == 4);
+
+    match (lag4, strongest) {
+        (Some(row), Some(strongest_row)) if strongest_row.lag == 4 => {
+            println!(
+                "Distance-4 reconciliation: lag 4 is the dominant pooled autocorrelation peak under this honeycomb order, consistent with Experiment 1B's distance-4 spike."
+            );
+            print_lag4_band_reconciliation(row);
+        }
+        (Some(row), Some(strongest_row)) => {
+            println!(
+                "Distance-4 reconciliation: lag 4 is included in this scan, but the strongest pooled autocorrelation peak in the configured range is lag {}. The usual lag-4-dominant wording therefore does not apply to this run.",
+                strongest_row.lag
+            );
+            print_lag4_band_reconciliation(row);
+        }
+        _ => println!(
+            "Distance-4 reconciliation: this configured lag range does not include lag 4, so this run cannot evaluate Experiment 1B's distance-4 spike."
+        ),
+    }
+
+    println!(
+        "Experiment 1B's targeted distance-4 test, appropriate for a pre-identified distance under the best-over-36 null, found d4 significant; this broad conservative sweep does not contradict it."
+    );
+    if has_envelope_exceedance {
+        println!(
+            "Because OUT rows are present in this configured run, the broad scan should not be summarized as showing no new family-wise period/lag signal. The d4 structure itself is order-contingent and is not a message claim."
+        );
+    } else if lag4_is_dominant {
+        println!(
+            "The broad scan still shows no new dominant period beyond the known d4 structure. The d4 structure itself is order-contingent and is not a message claim."
+        );
+    } else {
+        println!(
+            "This configured scan should not be used for a broad no-new-period statement beyond its scanned range. The d4 structure itself is order-contingent and is not a message claim."
+        );
+    }
+}
+
+fn print_lag4_band_reconciliation(row: &periodicity::AutocorrelationRow) {
+    if row.above_null_envelope {
+        println!(
+            "The report-wide envelope is a family-wise verdict over all scanned lags; lag 4 is OUT against that envelope in this configured run, and it exceeds its own per-lag band (pt95). Treat that as an envelope exceedance, not as a plaintext claim by itself."
+        );
+    } else if row.above_pointwise_band {
+        println!(
+            "The report-wide envelope is a family-wise verdict over all scanned lags; lag 4 is inside that envelope, but it still exceeds its own per-lag band (pt95). Therefore, no family-wise exceedance is not evidence that the d4 structure is absent."
+        );
+    } else {
+        println!(
+            "The report-wide envelope is a family-wise verdict over all scanned lags; lag 4 is inside that envelope and does not exceed its own per-lag band in this configured run."
+        );
+    }
+}
+
+fn counted_noun(count: usize, singular: &'static str, plural: &'static str) -> &'static str {
+    if count == 1 { singular } else { plural }
+}
+
+fn counted_verb(count: usize, singular: &'static str, plural: &'static str) -> &'static str {
+    if count == 1 { singular } else { plural }
 }
 
 fn print_period_ioc_table(label: &str, rows: &[periodicity::PeriodIocRow]) {
