@@ -9,6 +9,32 @@ use std::collections::BTreeMap;
 
 use crate::glyph::Glyph;
 
+/// Error returned by [`chi_square_goodness_of_fit`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ChiSquareError {
+    /// The observed and expected distributions have different lengths.
+    LengthMismatch {
+        /// Number of observed buckets.
+        observed: usize,
+        /// Number of expected buckets.
+        expected: usize,
+    },
+    /// One expected bucket had a non-finite weight.
+    NonFiniteExpectedWeight {
+        /// Zero-based bucket index.
+        index: usize,
+        /// The invalid expected weight.
+        weight: f64,
+    },
+    /// One expected bucket had a zero or negative weight.
+    NonPositiveExpectedWeight {
+        /// Zero-based bucket index.
+        index: usize,
+        /// The invalid expected weight.
+        weight: f64,
+    },
+}
+
 /// Counts how often each glyph occurs.
 #[must_use]
 pub fn frequencies(seq: &[Glyph]) -> BTreeMap<Glyph, usize> {
@@ -55,6 +81,75 @@ pub fn index_of_coincidence(seq: &[Glyph]) -> f64 {
     numerator as f64 / (n * (n - 1)) as f64
 }
 
+/// Pearson chi-square goodness-of-fit statistic against a uniform distribution.
+///
+/// Each observed bucket is compared with the same expected count,
+/// `sum(observed) / observed.len()`. Returns `0.0` for an empty or all-zero
+/// observation vector.
+#[must_use]
+pub fn chi_square_goodness_of_fit_uniform(observed: &[usize]) -> f64 {
+    let total: usize = observed.iter().sum();
+    if observed.is_empty() || total == 0 {
+        return 0.0;
+    }
+
+    let expected = total as f64 / observed.len() as f64;
+    observed
+        .iter()
+        .map(|&count| {
+            let delta = count as f64 - expected;
+            delta * delta / expected
+        })
+        .sum()
+}
+
+/// Pearson chi-square goodness-of-fit statistic against an expected distribution.
+///
+/// `expected_weights` are positive finite weights and are normalized internally,
+/// so callers may pass probabilities, frequencies, or any proportional expected
+/// distribution. Returns `0.0` for an empty or all-zero observation vector.
+///
+/// # Errors
+/// Returns [`ChiSquareError`] if the observed and expected bucket counts differ,
+/// or if any expected weight is non-finite, zero, or negative.
+pub fn chi_square_goodness_of_fit(
+    observed: &[usize],
+    expected_weights: &[f64],
+) -> Result<f64, ChiSquareError> {
+    if observed.len() != expected_weights.len() {
+        return Err(ChiSquareError::LengthMismatch {
+            observed: observed.len(),
+            expected: expected_weights.len(),
+        });
+    }
+    let total: usize = observed.iter().sum();
+    if observed.is_empty() || total == 0 {
+        return Ok(0.0);
+    }
+
+    let mut expected_weight_total = 0.0;
+    for (index, &weight) in expected_weights.iter().enumerate() {
+        if !weight.is_finite() {
+            return Err(ChiSquareError::NonFiniteExpectedWeight { index, weight });
+        }
+        if weight <= 0.0 {
+            return Err(ChiSquareError::NonPositiveExpectedWeight { index, weight });
+        }
+        expected_weight_total += weight;
+    }
+
+    let total = total as f64;
+    Ok(observed
+        .iter()
+        .zip(expected_weights)
+        .map(|(&count, &weight)| {
+            let expected = total * weight / expected_weight_total;
+            let delta = count as f64 - expected;
+            delta * delta / expected
+        })
+        .sum())
+}
+
 /// Counts contiguous n-grams of length `n`.
 ///
 /// Returns an empty map if `n` is zero or larger than the sequence length.
@@ -72,7 +167,10 @@ pub fn ngrams(seq: &[Glyph], n: usize) -> BTreeMap<Vec<Glyph>, usize> {
 
 #[cfg(test)]
 mod tests {
-    use super::{frequencies, index_of_coincidence, ngrams, shannon_entropy};
+    use super::{
+        ChiSquareError, chi_square_goodness_of_fit, chi_square_goodness_of_fit_uniform,
+        frequencies, index_of_coincidence, ngrams, shannon_entropy,
+    };
     use crate::glyph::Glyph;
 
     fn glyphs(indices: &[u16]) -> Vec<Glyph> {
@@ -101,6 +199,36 @@ mod tests {
     #[test]
     fn ioc_of_constant_sequence_is_one() {
         assert!((index_of_coincidence(&glyphs(&[1, 1, 1, 1])) - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn chi_square_uniform_matches_toy_distribution() {
+        let statistic = chi_square_goodness_of_fit_uniform(&[10, 10, 20]);
+        assert!((statistic - 5.0).abs() < 1e-9, "got {statistic}");
+    }
+
+    #[test]
+    fn chi_square_arbitrary_expected_distribution_normalizes_weights() {
+        let statistic = chi_square_goodness_of_fit(&[9, 1], &[3.0, 1.0]).unwrap();
+        assert!((statistic - 1.2).abs() < 1e-9, "got {statistic}");
+    }
+
+    #[test]
+    fn chi_square_rejects_invalid_expected_distribution() {
+        assert_eq!(
+            chi_square_goodness_of_fit(&[1, 2], &[1.0]),
+            Err(ChiSquareError::LengthMismatch {
+                observed: 2,
+                expected: 1,
+            })
+        );
+        assert_eq!(
+            chi_square_goodness_of_fit(&[1, 2], &[1.0, 0.0]),
+            Err(ChiSquareError::NonPositiveExpectedWeight {
+                index: 1,
+                weight: 0.0,
+            })
+        );
     }
 
     #[test]

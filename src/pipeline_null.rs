@@ -40,6 +40,7 @@
 //! so this is equally consistent with structured-but-meaningless data. No
 //! isomorph null is computed here — that is Experiment 7.
 
+use crate::analysis;
 use crate::generator::{self, ENGINE_MESSAGES};
 use crate::glyph::Orientation;
 use crate::null::{NullConfig, NullReport, SplitMix64, run_standard36_null_with};
@@ -343,7 +344,7 @@ pub fn input_randomness_report(config: NullConfig) -> Result<InputRandomnessRepo
     let total_symbols: usize = real_histogram.iter().sum();
     let real_minus_one = real_histogram.first().copied().unwrap_or(0);
     let real_delimiters = real_histogram.get(6).copied().unwrap_or(0);
-    let real_chi_square_vs_uniform = chi_square_vs_uniform(&real_histogram, total_symbols);
+    let real_chi_square_vs_uniform = analysis::chi_square_goodness_of_fit_uniform(&real_histogram);
 
     let analytic_probability_no_minus_one = exact_probability_no_minus_one(&lengths);
 
@@ -384,20 +385,6 @@ pub fn input_randomness_report(config: NullConfig) -> Result<InputRandomnessRepo
         mc_mean_delimiters: total_delimiters as f64 / trials,
         mc_corpora_with_zero_minus_one: corpora_with_zero_minus_one,
     })
-}
-
-fn chi_square_vs_uniform(histogram: &[usize; SYMBOL_BUCKETS], total: usize) -> f64 {
-    if total == 0 {
-        return 0.0;
-    }
-    let expected = total as f64 / SYMBOL_BUCKETS as f64;
-    histogram
-        .iter()
-        .map(|&observed| {
-            let delta = observed as f64 - expected;
-            delta * delta / expected
-        })
-        .sum()
 }
 
 #[cfg(test)]

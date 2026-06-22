@@ -15,9 +15,13 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::analysis;
 use crate::corpus::{CorpusError, Message, messages};
-use crate::glyph::Orientation;
+use crate::glyph::{Glyph, Orientation};
 use crate::trigram::{ReadingTrigram, TrigramValue};
+
+/// Size of the community reading-layer alphabet used by the honeycomb winner.
+pub const READING_LAYER_ALPHABET_SIZE: usize = 83;
 
 /// Error returned when a rendered message cannot be treated as a grid.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -701,6 +705,154 @@ impl OrderStats {
     }
 }
 
+/// Frequency, entropy, `IoC`, and chi-square flatness stats for one order.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReadingLayerFlatnessStats {
+    /// Number of trigrams across all messages.
+    pub total: usize,
+    /// Count of trigrams whose value is in the `0..=82` reading-layer alphabet.
+    pub in_alphabet_total: usize,
+    /// Count of trigrams outside the `0..=82` reading-layer alphabet.
+    pub outside_alphabet_occurrences: usize,
+    /// Frequency table for the `0..=82` reading-layer alphabet.
+    pub frequencies: Vec<(u8, usize)>,
+    /// Uniform expected frequency, `total / 83`.
+    pub mean_frequency: f64,
+    /// Smallest observed frequency among the `0..=82` buckets.
+    pub min_frequency: usize,
+    /// Largest observed frequency among the `0..=82` buckets.
+    pub max_frequency: usize,
+    /// Number of `0..=82` buckets with zero observations.
+    pub zero_frequency_symbols: usize,
+    /// Per-message weighted Shannon entropy, in bits per trigram.
+    pub entropy_bits_per_symbol: f64,
+    /// Maximum entropy for a valid 83-symbol uniform stream.
+    pub max_entropy_bits_per_symbol: f64,
+    /// Per-message weighted `IoC` probability.
+    pub ioc_probability: f64,
+    /// `IoC` normalized to the 83-symbol uniform baseline (`1.0` means uniform).
+    pub normalized_ioc: f64,
+    /// Concatenated-corpus `IoC` probability, reported as a community-reference cross-check.
+    pub concatenated_ioc_probability: f64,
+    /// Concatenated `IoC` normalized to the 83-symbol uniform baseline.
+    pub concatenated_normalized_ioc: f64,
+    /// Pearson chi-square statistic against uniform support on `0..=82`.
+    ///
+    /// This is infinite when the order emits any value outside `0..=82`, because
+    /// an 83-symbol expected distribution assigns those values probability zero.
+    pub chi_square_vs_uniform: f64,
+}
+
+impl ReadingLayerFlatnessStats {
+    /// Computes reading-layer flatness stats from per-message trigram values.
+    #[must_use]
+    pub fn from_message_values(message_values: &[Vec<TrigramValue>]) -> Self {
+        let message_glyphs = glyph_messages_from_values(message_values);
+        let glyphs: Vec<Glyph> = message_glyphs.iter().flatten().copied().collect();
+        let counts = analysis::frequencies(&glyphs);
+        let mut frequencies = Vec::with_capacity(READING_LAYER_ALPHABET_SIZE);
+        for value in 0..READING_LAYER_ALPHABET_SIZE {
+            let glyph = Glyph(value as u16);
+            frequencies.push((value as u8, counts.get(&glyph).copied().unwrap_or(0)));
+        }
+
+        let total = glyphs.len();
+        let in_alphabet_total = frequencies.iter().map(|(_value, count)| *count).sum();
+        let outside_alphabet_occurrences = total.saturating_sub(in_alphabet_total);
+        let min_frequency = frequencies
+            .iter()
+            .map(|(_value, count)| *count)
+            .min()
+            .unwrap_or(0);
+        let max_frequency = frequencies
+            .iter()
+            .map(|(_value, count)| *count)
+            .max()
+            .unwrap_or(0);
+        let zero_frequency_symbols = frequencies
+            .iter()
+            .filter(|(_value, count)| *count == 0)
+            .count();
+        let frequency_counts: Vec<usize> =
+            frequencies.iter().map(|(_value, count)| *count).collect();
+        let ioc_probability = message_weighted_ioc(&message_glyphs);
+        let concatenated_ioc_probability = analysis::index_of_coincidence(&glyphs);
+        let chi_square_vs_uniform = if outside_alphabet_occurrences == 0 {
+            analysis::chi_square_goodness_of_fit_uniform(&frequency_counts)
+        } else {
+            f64::INFINITY
+        };
+
+        Self {
+            total,
+            in_alphabet_total,
+            outside_alphabet_occurrences,
+            frequencies,
+            mean_frequency: total as f64 / READING_LAYER_ALPHABET_SIZE as f64,
+            min_frequency,
+            max_frequency,
+            zero_frequency_symbols,
+            entropy_bits_per_symbol: message_weighted_entropy(&message_glyphs),
+            max_entropy_bits_per_symbol: (READING_LAYER_ALPHABET_SIZE as f64).log2(),
+            ioc_probability,
+            normalized_ioc: ioc_probability * READING_LAYER_ALPHABET_SIZE as f64,
+            concatenated_ioc_probability,
+            concatenated_normalized_ioc: concatenated_ioc_probability
+                * READING_LAYER_ALPHABET_SIZE as f64,
+            chi_square_vs_uniform,
+        }
+    }
+}
+
+fn glyph_messages_from_values(message_values: &[Vec<TrigramValue>]) -> Vec<Vec<Glyph>> {
+    message_values
+        .iter()
+        .map(|values| {
+            values
+                .iter()
+                .map(|value| Glyph(u16::from(value.get())))
+                .collect()
+        })
+        .collect()
+}
+
+fn message_weighted_ioc(message_glyphs: &[Vec<Glyph>]) -> f64 {
+    let mut weighted_ioc = 0.0;
+    let mut pair_count_total = 0usize;
+    for glyphs in message_glyphs {
+        let n = glyphs.len();
+        if n < 2 {
+            continue;
+        }
+        let pair_count = n * (n - 1);
+        weighted_ioc += analysis::index_of_coincidence(glyphs) * pair_count as f64;
+        pair_count_total += pair_count;
+    }
+    if pair_count_total == 0 {
+        0.0
+    } else {
+        weighted_ioc / pair_count_total as f64
+    }
+}
+
+fn message_weighted_entropy(message_glyphs: &[Vec<Glyph>]) -> f64 {
+    let mut weighted_entropy = 0.0;
+    let mut total = 0usize;
+    for glyphs in message_glyphs {
+        let len = glyphs.len();
+        if len == 0 {
+            continue;
+        }
+        weighted_entropy += analysis::shannon_entropy(glyphs) * len as f64;
+        total += len;
+    }
+    if total == 0 {
+        0.0
+    } else {
+        weighted_entropy / total as f64
+    }
+}
+
 fn count_recurrence(values: &[TrigramValue], distance: usize) -> usize {
     if distance == 0 {
         return 0;
@@ -734,6 +886,15 @@ pub struct NamedOrderStats {
     pub stats: OrderStats,
 }
 
+/// Flatness statistics for a named order.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NamedReadingLayerFlatnessStats {
+    /// The reading order.
+    pub order: ReadingOrder,
+    /// The computed flatness statistics.
+    pub flatness: ReadingLayerFlatnessStats,
+}
+
 /// Computes stats for every order in [`audit_orders`].
 ///
 /// # Errors
@@ -750,11 +911,59 @@ pub fn audit_order_stats(grids: &[GlyphGrid]) -> Result<Vec<NamedOrderStats>, Gr
     Ok(stats)
 }
 
+/// Computes flatness stats for one order.
+///
+/// # Errors
+/// Returns [`GridError`] if the order is incompatible with the grids.
+pub fn reading_layer_flatness_stats(
+    grids: &[GlyphGrid],
+    order: ReadingOrder,
+) -> Result<ReadingLayerFlatnessStats, GridError> {
+    let message_values = read_corpus_message_values(grids, order)?;
+    Ok(ReadingLayerFlatnessStats::from_message_values(
+        &message_values,
+    ))
+}
+
+/// Computes flatness stats for every order in [`audit_orders`].
+///
+/// # Errors
+/// Returns [`GridError`] if any order is incompatible with the grids.
+pub fn audit_order_flatness_stats(
+    grids: &[GlyphGrid],
+) -> Result<Vec<NamedReadingLayerFlatnessStats>, GridError> {
+    let mut stats = Vec::new();
+    for order in audit_orders() {
+        stats.push(NamedReadingLayerFlatnessStats {
+            order,
+            flatness: reading_layer_flatness_stats(grids, order)?,
+        });
+    }
+    Ok(stats)
+}
+
+/// Computes flatness stats for the exact Toboter-style standard-36 family.
+///
+/// # Errors
+/// Returns [`GridError`] if any standard order is incompatible with the grids.
+pub fn standard36_flatness_stats(
+    grids: &[GlyphGrid],
+) -> Result<Vec<NamedReadingLayerFlatnessStats>, GridError> {
+    let mut stats = Vec::new();
+    for order in standard36_orders() {
+        stats.push(NamedReadingLayerFlatnessStats {
+            order,
+            flatness: reading_layer_flatness_stats(grids, order)?,
+        });
+    }
+    Ok(stats)
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        OrderStats, ReadingOrder, TrigramPermutation, audit_order_stats, corpus_grids,
-        summarize_grids,
+        OrderStats, READING_LAYER_ALPHABET_SIZE, ReadingOrder, TrigramPermutation,
+        audit_order_stats, corpus_grids, reading_layer_flatness_stats, summarize_grids,
     };
 
     #[test]
@@ -827,5 +1036,48 @@ mod tests {
             .map(|item| item.order.name())
             .collect();
         assert_eq!(winners, vec!["standard36-u012-d012"]);
+    }
+
+    #[test]
+    fn experiment_4_honeycomb_flatness_matches_frequency_and_ioc_anchors() {
+        let grids = corpus_grids().unwrap();
+        let order = ReadingOrder::HoneycombStandard {
+            upper: TrigramPermutation::IDENTITY,
+            lower: TrigramPermutation::IDENTITY,
+        };
+        let flatness = reading_layer_flatness_stats(&grids, order).unwrap();
+
+        assert_eq!(flatness.total, 1036);
+        assert_eq!(flatness.in_alphabet_total, 1036);
+        assert_eq!(flatness.outside_alphabet_occurrences, 0);
+        assert_eq!(flatness.frequencies.len(), READING_LAYER_ALPHABET_SIZE);
+        assert!((flatness.mean_frequency - (1036.0 / 83.0)).abs() < 1e-12);
+        assert!((flatness.normalized_ioc - flatness.ioc_probability * 83.0).abs() < 1e-12);
+        assert!(
+            (flatness.normalized_ioc - 0.971_776_489_899_835_8).abs() < 1e-12,
+            "per-message normalized IoC changed: {}",
+            flatness.normalized_ioc
+        );
+        assert!(
+            (flatness.concatenated_normalized_ioc - flatness.concatenated_ioc_probability * 83.0)
+                .abs()
+                < 1e-12
+        );
+        assert!(
+            (flatness.concatenated_normalized_ioc - 1.066).abs() < 0.002,
+            "concatenated normalized IoC drifted from the community reference: {}",
+            flatness.concatenated_normalized_ioc
+        );
+        assert!(flatness.chi_square_vs_uniform.is_finite());
+    }
+
+    #[test]
+    fn experiment_4_raw_order_is_not_an_83_symbol_stream() {
+        let grids = corpus_grids().unwrap();
+        let flatness = reading_layer_flatness_stats(&grids, ReadingOrder::RawRows).unwrap();
+
+        assert_eq!(flatness.total, 1036);
+        assert!(flatness.outside_alphabet_occurrences > 0);
+        assert!(flatness.chi_square_vs_uniform.is_infinite());
     }
 }

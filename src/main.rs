@@ -14,7 +14,7 @@ noita-eye — Noita eye-glyph puzzle toolkit
 USAGE:
     noita-eye stats <sequence>   Frequency / entropy / IoC for rendered digits 0-4
     noita-eye demo               Run analysis on the verified nine-message corpus
-    noita-eye orders             Audit raw/linear/standard36 reading-order stats
+    noita-eye orders             Audit reading orders and Experiment 4 flatness
     noita-eye nulltest [--seed <u64>] [--trials <n>]
                                   Monte-Carlo null over random grids + standard36
     noita-eye pipelinenull [--seed <u64>] [--trials <n>]
@@ -738,6 +738,15 @@ fn run_orders() -> ExitCode {
     } else {
         println!("contiguous 0..=82 orders: {}", winners.join(", "));
     }
+
+    let flatness = match orders::audit_order_flatness_stats(&grids) {
+        Ok(flatness) => flatness,
+        Err(error) => {
+            eprintln!("order flatness error: {error:?}");
+            return ExitCode::FAILURE;
+        }
+    };
+    print_experiment_4_flatness_report(&flatness);
     ExitCode::SUCCESS
 }
 
@@ -804,6 +813,84 @@ fn format_span(min: Option<u8>, max: Option<u8>) -> String {
 fn format_recurrence(recurrence: &[usize; 6]) -> String {
     let [d1, d2, d3, d4, d5, d6] = *recurrence;
     format!("{d1},{d2},{d3},{d4},{d5},{d6}")
+}
+
+fn print_experiment_4_flatness_report(flatness: &[orders::NamedReadingLayerFlatnessStats]) {
+    println!();
+    println!("Experiment 4 reading-layer flatness");
+    println!("alphabet: 83 reading-layer symbols, values 0..=82");
+    println!(
+        "frequency counts are pooled across the nine messages; entropy and IoC p/msg are message-weighted"
+    );
+    println!(
+        "IoC convention: probability form from analysis::index_of_coincidence; x83/all is the concatenated community-reference cross-check"
+    );
+    println!(
+        "{:<24} {:>5} {:>5} {:>7} {:>7} {:>13} {:>17} {:>10} {:>10} {:>10} {:>12}",
+        "order",
+        "total",
+        "in83",
+        "outside",
+        "mean",
+        "freq min..max",
+        "entropy/max",
+        "IoC p/msg",
+        "x83/msg",
+        "x83/all",
+        "chi2 83"
+    );
+    for item in flatness
+        .iter()
+        .filter(|item| is_experiment_4_order(item.order))
+    {
+        println!(
+            "{:<24} {:>5} {:>5} {:>7} {:>7.2} {:>13} {:>17} {:>10.6} {:>10.3} {:>10.3} {:>12}",
+            item.order.name(),
+            item.flatness.total,
+            item.flatness.in_alphabet_total,
+            item.flatness.outside_alphabet_occurrences,
+            item.flatness.mean_frequency,
+            format_frequency_range(&item.flatness),
+            format_entropy_ratio(&item.flatness),
+            item.flatness.ioc_probability,
+            item.flatness.normalized_ioc,
+            item.flatness.concatenated_normalized_ioc,
+            format_chi_square(item.flatness.chi_square_vs_uniform)
+        );
+    }
+    println!();
+    println!(
+        "Interpretation: flat per-symbol frequency RULES MONOALPHABETIC OUT; it does NOT rule a real message IN, and near-uniformity is exactly what a fixed honeycomb permutation of structured data also produces. A LOW chi-square (good fit to uniform) is consistent with both a polyalphabetic cipher AND structured-but-meaningless data; do not present flatness as evidence of encoding."
+    );
+}
+
+fn is_experiment_4_order(order: orders::ReadingOrder) -> bool {
+    matches!(
+        order,
+        orders::ReadingOrder::RawRows | orders::ReadingOrder::HoneycombStandard { .. }
+    )
+}
+
+fn format_frequency_range(flatness: &orders::ReadingLayerFlatnessStats) -> String {
+    format!(
+        "{}..{} z{}",
+        flatness.min_frequency, flatness.max_frequency, flatness.zero_frequency_symbols
+    )
+}
+
+fn format_entropy_ratio(flatness: &orders::ReadingLayerFlatnessStats) -> String {
+    format!(
+        "{:.4}/{:.4}",
+        flatness.entropy_bits_per_symbol, flatness.max_entropy_bits_per_symbol
+    )
+}
+
+fn format_chi_square(value: f64) -> String {
+    if value.is_infinite() {
+        "inf(outside)".to_owned()
+    } else {
+        format!("{value:.3}")
+    }
 }
 
 fn format_usize_histogram(histogram: &[(usize, usize)]) -> String {
