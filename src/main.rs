@@ -35,7 +35,7 @@ USAGE:
                                   Experiment 12 candidate-cipher language-scoring null harness
     noita-eye controls monoalphabetic [--seed <u64>]
                                   Experiment 11 monoalphabetic positive control
-    noita-eye controls isomorph [--seed <u64>]
+    noita-eye controls isomorph [--seed <u64>]   (alias: polyalphabetic)
                                   Experiment 11 isomorph/polyalphabetic positive control
 
 Digit 5 is treated as a row delimiter and ignored for glyph statistics.";
@@ -307,7 +307,7 @@ fn run_controls(args: &[String]) -> ExitCode {
 
     eprintln!("unknown controls target {first:?}");
     eprintln!(
-        "usage: noita-eye controls monoalphabetic [--seed <u64>]\n       noita-eye controls isomorph [--seed <u64>]"
+        "usage: noita-eye controls monoalphabetic [--seed <u64>]\n       noita-eye controls isomorph [--seed <u64>]   (alias: polyalphabetic)"
     );
     ExitCode::FAILURE
 }
