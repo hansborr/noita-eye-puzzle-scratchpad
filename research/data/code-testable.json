@@ -216,7 +216,7 @@
   },
   {
     "hypothesis": "Eye placement and message selection are deterministic functions of the world seed via Noita's LGM/Lehmer PRNG; the same seed yields identical eye coordinates and mirrored West/East counterparts.",
-    "howToTest": "Run the documented Cheat Engine Lua script (or reimplement SetRandomSeed(x,y)+Next() per the Technical:Noita PRNG page) across a fixed set of seeds, log eye coordinates for East and West parallel worlds, and verify (a) determinism on seed re-use and (b) mirrored counterpart locations. Lymm's noita-telescope can corroborate seed-based generation.",
+    "howToTest": "Run the documented Cheat Engine Lua script (or reimplement SetRandomSeed(x,y)+Next() per the Technical:Noita PRNG page) across a fixed set of seeds, log eye coordinates for East and West parallel worlds, and verify (a) determinism on seed reuse and (b) mirrored counterpart locations. Lymm's noita-telescope can corroborate seed-based generation.",
     "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
   },
   {

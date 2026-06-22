@@ -1,4 +1,4 @@
 [codespell]
 skip = ./target,.git,Cargo.lock
 # Domain words / abbreviations that are not typos.
-ignore-words-list = crate,ser,noita,nd
+ignore-words-list = crate,ser,noita,nd,wont,Statics,substition
