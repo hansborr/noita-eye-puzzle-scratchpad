@@ -6,7 +6,7 @@
 
 use std::process::ExitCode;
 
-use noita_eye_puzzle::{analysis, corpus, glyph::Sequence, null, orders};
+use noita_eye_puzzle::{analysis, corpus, glyph::Sequence, null, orders, pipeline_null};
 
 const USAGE: &str = "\
 noita-eye — Noita eye-glyph puzzle toolkit
@@ -17,6 +17,8 @@ USAGE:
     noita-eye orders             Audit raw/linear/standard36 reading-order stats
     noita-eye nulltest [--seed <u64>] [--trials <n>]
                                   Monte-Carlo null over random grids + standard36
+    noita-eye pipelinenull [--seed <u64>] [--trials <n>]
+                                  Base-7 pipeline null plus input-randomness control
 
 Digit 5 is treated as a row delimiter and ignored for glyph statistics.";
 
@@ -48,6 +50,13 @@ fn main() -> ExitCode {
             };
             run_nulltest(rest)
         }
+        Some("pipelinenull") => {
+            let rest = match args.get(1..) {
+                Some(values) => values,
+                None => &[],
+            };
+            run_pipelinenull(rest)
+        }
         _ => {
             eprintln!("{USAGE}");
             ExitCode::FAILURE
@@ -71,7 +80,7 @@ fn format_corpus_error(error: corpus::CorpusError) -> String {
 }
 
 fn run_nulltest(args: &[String]) -> ExitCode {
-    let config = match parse_null_config(args) {
+    let config = match parse_null_config(args, "nulltest") {
         Ok(config) => config,
         Err(message) => {
             eprintln!("{message}");
@@ -90,7 +99,36 @@ fn run_nulltest(args: &[String]) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn parse_null_config(args: &[String]) -> Result<null::NullConfig, String> {
+fn run_pipelinenull(args: &[String]) -> ExitCode {
+    let config = match parse_null_config(args, "pipelinenull") {
+        Ok(config) => config,
+        Err(message) => {
+            eprintln!("{message}");
+            eprintln!("usage: noita-eye pipelinenull [--seed <u64>] [--trials <n>]");
+            return ExitCode::FAILURE;
+        }
+    };
+    let pipeline_report = match pipeline_null::run_pipeline_null(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("pipeline null error: {error:?}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let input_report = match pipeline_null::input_randomness_report(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("input-randomness control error: {error:?}");
+            return ExitCode::FAILURE;
+        }
+    };
+    print_pipeline_null_report(&pipeline_report);
+    println!();
+    print_input_randomness_report(&input_report);
+    ExitCode::SUCCESS
+}
+
+fn parse_null_config(args: &[String], subcommand: &str) -> Result<null::NullConfig, String> {
     let mut seed = 0x6e6f_6974_612d_6579;
     let mut trials = 1_000usize;
     let mut iter = args.iter();
@@ -112,7 +150,7 @@ fn parse_null_config(args: &[String]) -> Result<null::NullConfig, String> {
                     .parse::<usize>()
                     .map_err(|error| format!("invalid --trials value {value:?}: {error}"))?;
             }
-            other => return Err(format!("unknown nulltest flag {other:?}")),
+            other => return Err(format!("unknown {subcommand} flag {other:?}")),
         }
     }
     Ok(null::NullConfig { seed, trials })
@@ -164,6 +202,81 @@ fn print_null_report(report: &null::NullReport) {
     println!();
     println!(
         "Interpretation: this corrects grid-content randomness and fixed standard36 digit-permutation selection only. It does not correct for broader researcher degrees of freedom such as choosing the traversal family, grouping rule, or headline statistic after looking at the data."
+    );
+}
+
+fn print_pipeline_null_report(report: &null::NullReport) {
+    println!("base-7 generation-pipeline null");
+    println!("seed: {}", report.config.seed);
+    println!("trials: {}", report.config.trials);
+    println!("orders searched per trial: {}", report.family_size);
+    println!(
+        "resampled: matched engine pair lengths through the u64-capped base-7 decode, filtered to orientation cells 0..=4"
+    );
+    println!("held fixed: honeycomb traversal, trigram grouping, and the statistic family");
+    println!();
+
+    print_interval(
+        "headline exact 0..=82",
+        null::wilson_95(report.headline_count, report.config.trials),
+    );
+    print_interval(
+        "some order adjacent_equal == 0",
+        null::wilson_95(report.adjacent_zero_count, report.config.trials),
+    );
+    println!(
+        "min distinct achieved over standard36: {}",
+        format_usize_histogram(&report.min_distinct_histogram)
+    );
+    println!(
+        "min ceiling achieved over standard36: {}",
+        format_u8_histogram(&report.min_ceiling_histogram)
+    );
+    println!(
+        "best distance-4 ratio d4/mean(d1..d6): min {:.3}, median {:.3}, max {:.3}",
+        report.distance4_ratio_min, report.distance4_ratio_median, report.distance4_ratio_max
+    );
+    println!();
+    println!(
+        "Interpretation: the base-7 pipeline does not manufacture the bounded 0..=82 contiguity; uniform-random orientation cells do not either. The contiguity is therefore not explained as a generation artifact, but this is equally consistent with structured-but-meaningless data and is not evidence of a recoverable message."
+    );
+}
+
+fn print_input_randomness_report(report: &pipeline_null::InputRandomnessReport) {
+    println!("engine-input randomness negative control");
+    println!("seed: {}", report.config.seed);
+    println!("trials: {}", report.config.trials);
+    println!("engine pairs: {}", report.pair_count);
+    println!("decoded storage symbols: {}", report.total_symbols);
+    println!(
+        "real storage histogram (-1..=5): {}",
+        format_storage_histogram(&report.real_symbol_histogram)
+    );
+    println!("real -1 controls: {}", report.real_minus_one);
+    println!("real delimiters: {}", report.real_delimiters);
+    println!(
+        "real chi-square vs uniform base-7 symbols: {:.3}",
+        report.real_chi_square_vs_uniform
+    );
+    println!(
+        "analytic P(no -1 in matched random corpus): {:.6e}",
+        report.analytic_probability_no_minus_one
+    );
+    println!(
+        "matched random corpus mean -1 controls: {:.3}",
+        report.mc_mean_minus_one
+    );
+    println!(
+        "matched random corpus mean delimiters: {:.3}",
+        report.mc_mean_delimiters
+    );
+    println!(
+        "matched random corpora with zero -1 controls: {}/{}",
+        report.mc_corpora_with_zero_minus_one, report.config.trials
+    );
+    println!();
+    println!(
+        "Interpretation: this only shows the authored engine inputs live in the 0..=5 storage alphabet (zero -1 controls and 86 delimiters) instead of resembling matched-length random integers. It does not show that the authored symbols encode anything."
     );
 }
 
@@ -308,6 +421,16 @@ fn format_u8_histogram(histogram: &[(u8, usize)]) -> String {
     histogram
         .iter()
         .map(|(value, count)| format!("{value}:{count}"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn format_storage_histogram(histogram: &[usize; 7]) -> String {
+    const STORAGE_LABELS: [&str; 7] = ["-1", "0", "1", "2", "3", "4", "5"];
+    STORAGE_LABELS
+        .iter()
+        .zip(histogram)
+        .map(|(label, count)| format!("{label}:{count}"))
         .collect::<Vec<_>>()
         .join(", ")
 }
