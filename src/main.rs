@@ -7,7 +7,7 @@
 use std::process::ExitCode;
 
 use noita_eye_puzzle::{
-    analysis, chaining, controls, corpus, glyph::Sequence, isomorph_null, null, orders,
+    analysis, chaining, controls, corpus, glyph::Sequence, grouping, isomorph_null, null, orders,
     periodicity, pipeline_null,
 };
 
@@ -26,6 +26,7 @@ USAGE:
                                   Experiment 5A period/lag/Kasiski battery
     noita-eye pipelinenull [--seed <u64>] [--trials <n>]
                                   Base-7 pipeline null plus input-randomness control
+    noita-eye grouping          Experiment 8 base-N grouping + state-count estimate
     noita-eye isomorphnull [--seed <u64>] [--trials <n>]
                                   Experiment 7A real isomorphs vs within-message shuffle null
     noita-eye chaining [--seed <u64>] [--trials <n>] [--min-period <n>] [--max-period <n>]
@@ -79,6 +80,7 @@ fn main() -> ExitCode {
             };
             run_pipelinenull(rest)
         }
+        Some("grouping") => run_grouping(),
         Some("isomorphnull") => {
             let rest = match args.get(1..) {
                 Some(values) => values,
@@ -190,6 +192,18 @@ fn run_pipelinenull(args: &[String]) -> ExitCode {
     print_pipeline_null_report(&pipeline_report);
     println!();
     print_input_randomness_report(&input_report);
+    ExitCode::SUCCESS
+}
+
+fn run_grouping() -> ExitCode {
+    let report = match grouping::run_experiment8() {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("grouping error: {}", format_grouping_error(error));
+            return ExitCode::FAILURE;
+        }
+    };
+    print_grouping_report(&report);
     ExitCode::SUCCESS
 }
 
@@ -572,6 +586,31 @@ fn format_chaining_error(error: chaining::ChainingError) -> String {
         }
         chaining::ChainingError::RandomBoundTooLarge { bound } => {
             format!("random draw bound {bound} is too large")
+        }
+    }
+}
+
+fn format_grouping_error(error: grouping::GroupingError) -> String {
+    match error {
+        grouping::GroupingError::Grid(grid_error) => format!("grid/order error: {grid_error:?}"),
+        grouping::GroupingError::Language(language_error) => {
+            format!("language model error: {language_error}")
+        }
+        grouping::GroupingError::Isomorph(isomorph_error) => {
+            format!("isomorph detector error: {isomorph_error:?}")
+        }
+        grouping::GroupingError::InvalidStorageSymbol {
+            message_index,
+            symbol,
+        } => format!("storage message {message_index} decoded invalid symbol {symbol}"),
+        grouping::GroupingError::ZeroStateCount => {
+            "synthetic calibration state count must be at least 1".to_owned()
+        }
+        grouping::GroupingError::StateCountTooLarge { state_count } => {
+            format!("synthetic calibration state count {state_count} is too large")
+        }
+        grouping::GroupingError::RandomBoundTooLarge { bound } => {
+            format!("synthetic calibration random bound {bound} is too large")
         }
     }
 }
@@ -1512,6 +1551,14 @@ fn format_positions(positions: &[usize]) -> String {
     rendered
 }
 
+fn format_optional_f64(value: Option<f64>) -> String {
+    value.map_or_else(|| "n/a".to_owned(), |number| format!("{number:.2}"))
+}
+
+fn format_optional_usize(value: Option<usize>) -> String {
+    value.map_or_else(|| "none".to_owned(), |number| number.to_string())
+}
+
 fn print_input_randomness_report(report: &pipeline_null::InputRandomnessReport) {
     println!("engine-input randomness negative control");
     println!("seed: {}", report.config.seed);
@@ -1548,6 +1595,278 @@ fn print_input_randomness_report(report: &pipeline_null::InputRandomnessReport) 
     println!(
         "Interpretation: this only shows the authored engine inputs live in the 0..=5 storage alphabet (zero -1 controls and 86 delimiters) instead of resembling capped matched-length random integers. The analytic no -1 probability is exact for that capped model, and the Monte-Carlo counts are the empirical check at the configured trial count; neither shows that the authored symbols encode anything."
     );
+}
+
+fn print_grouping_report(report: &grouping::Experiment8Report) {
+    println!("Experiment 8 base-N grouping reinterpretation");
+    println!("order: {}", report.state_estimate.order.name());
+    println!(
+        "message lengths: {}",
+        format_message_lengths(&report.state_estimate.message_lengths)
+    );
+    println!(
+        "boundary rule: rendered groups are non-overlapping within each message; incomplete tails are dropped and no group crosses a message join"
+    );
+    println!(
+        "storage axis: engine base-7 decoded symbols 0..=5, including delimiter 5, reported separately from rendered orientations"
+    );
+    println!();
+    print_grouping_summary(report);
+    println!();
+    print_grouping_message_detail(report);
+    println!();
+    print_language_reference_rows(report);
+    println!();
+    print_grouping_compatibility(report);
+    println!();
+    print_state_count_estimate(report);
+    println!();
+    print_state_count_calibration(report);
+    println!();
+    print_grouping_interpretation(report);
+}
+
+fn print_grouping_summary(report: &grouping::Experiment8Report) {
+    println!("grouping summary");
+    println!(
+        "{:<24} {:>5} {:>7} {:>6} {:>5} {:>9} {:>8} {:>10} {:>9} {:>10}",
+        "grouping",
+        "base",
+        "symbols",
+        "drop",
+        "used",
+        "H bits",
+        "H/log2k",
+        "IoC pool",
+        "H msg",
+        "IoC msg"
+    );
+    for row in &report.groupings {
+        println!(
+            "{:<24} {:>5} {:>7} {:>6} {:>5} {:>9.4} {:>8.4} {:>10.6} {:>9.4} {:>10.6}",
+            row.axis.label(),
+            row.axis.nominal_base(),
+            row.pooled.symbols,
+            row.dropped_source_symbols,
+            row.pooled.used_alphabet,
+            row.pooled.entropy_bits_per_symbol,
+            row.pooled.normalized_entropy,
+            row.pooled.ioc,
+            row.message_weighted_entropy_bits_per_symbol,
+            row.message_weighted_ioc
+        );
+    }
+}
+
+fn print_grouping_message_detail(report: &grouping::Experiment8Report) {
+    println!("per-message grouping detail");
+    println!(
+        "{:<24} {:<6} {:>6} {:>4} {:>5} {:>9} {:>8} {:>10}",
+        "grouping", "msg", "symbols", "drop", "used", "H bits", "H/log2k", "IoC"
+    );
+    for row in &report.groupings {
+        for message in &row.messages {
+            println!(
+                "{:<24} {:<6} {:>6} {:>4} {:>5} {:>9.4} {:>8.4} {:>10.6}",
+                row.axis.label(),
+                message.message_key,
+                message.stats.symbols,
+                message.dropped_source_symbols,
+                message.stats.used_alphabet,
+                message.stats.entropy_bits_per_symbol,
+                message.stats.normalized_entropy,
+                message.stats.ioc
+            );
+        }
+    }
+}
+
+fn print_language_reference_rows(report: &grouping::Experiment8Report) {
+    println!("natural-language unigram references from bundled language models");
+    println!(
+        "{:<8} {:>7} {:>8} {:>7} {:>9} {:>8} {:>10} {:>9}",
+        "lang", "nom k", "obs k", "letters", "H bits", "H/log2k", "IoC", "1/IoC"
+    );
+    for reference in &report.language_references {
+        println!(
+            "{:<8} {:>7} {:>8} {:>7} {:>9.4} {:>8.4} {:>10.6} {:>9.2}",
+            reference.language,
+            reference.nominal_alphabet,
+            reference.observed_used_alphabet,
+            reference.symbols,
+            reference.entropy_bits_per_symbol,
+            reference.normalized_entropy,
+            reference.ioc,
+            reference.collision_effective_alphabet
+        );
+    }
+}
+
+fn print_grouping_compatibility(report: &grouping::Experiment8Report) {
+    println!("language-compatibility flags");
+    println!(
+        "derived bands: alphabet {}..={}, entropy {:.4}..{:.4} bits",
+        report.compatibility.alphabet_min,
+        report.compatibility.alphabet_max,
+        report.compatibility.entropy_min,
+        report.compatibility.entropy_max
+    );
+    println!(
+        "{:<24} {:>10} {:>10} {:>10}",
+        "grouping", "alphabet", "entropy", "both"
+    );
+    for row in &report.compatibility.rows {
+        let both = row.alphabet_compatible && row.entropy_compatible;
+        println!(
+            "{:<24} {:>10} {:>10} {:>10}",
+            row.grouping_label,
+            yes_no(row.alphabet_compatible),
+            yes_no(row.entropy_compatible),
+            yes_no(both)
+        );
+    }
+    let compatible = report.compatibility.fully_compatible_groupings();
+    if compatible.is_empty() {
+        println!("fully compatible groupings: none");
+    } else {
+        println!("fully compatible groupings: {}", compatible.join(", "));
+    }
+    println!(
+        "nearest alphabet-size match: {}",
+        report.compatibility.nearest_alphabet_grouping
+    );
+}
+
+fn print_state_count_estimate(report: &grouping::Experiment8Report) {
+    let estimate = &report.state_estimate;
+    let collision = estimate.collision;
+    println!("independent collision state-count estimate");
+    println!(
+        "pooled IoC: {:.6}; 1/IoC: {:.2}; collision entropy: {:.4} bits",
+        collision.pooled_ioc, collision.pooled_effective_states, collision.collision_entropy_bits
+    );
+    println!(
+        "message-weighted IoC: {:.6}; 1/IoC: {:.2}; pooled Shannon entropy: {:.4} bits",
+        collision.message_weighted_ioc,
+        collision.message_weighted_effective_states,
+        collision.pooled_entropy_bits_per_symbol
+    );
+    println!(
+        "calibrated range: {}..{} states; contains established reading-layer size {}: {}",
+        estimate.range.lower,
+        estimate.range.upper,
+        orders::READING_LAYER_ALPHABET_SIZE,
+        yes_no(estimate.range.includes_83)
+    );
+    println!(
+        "calibration margin applied: {:.1}%",
+        estimate.calibration_relative_margin * 100.0
+    );
+    println!(
+        "longest repeated isomorph in scanned k={}..={}: {}",
+        grouping_state_min_window(report),
+        grouping_state_max_window(report),
+        estimate
+            .longest_repeated_isomorph
+            .map_or_else(|| "none".to_owned(), |window| window.to_string())
+    );
+    println!();
+    println!("isomorph/window diagnostics");
+    println!(
+        "{:>2} {:>8} {:>8} {:>10} {:>8} {:>12}",
+        "k", "windows", "inform", "rep kinds", "max rep", "birthday N"
+    );
+    for row in &estimate.isomorph_rows {
+        println!(
+            "{:>2} {:>8} {:>8} {:>10} {:>8} {:>12}",
+            row.window,
+            row.windows,
+            row.informative_windows,
+            row.repeated_signature_kinds,
+            row.max_repeat_count,
+            format_optional_f64(row.birthday_effective_states)
+        );
+    }
+}
+
+fn print_state_count_calibration(report: &grouping::Experiment8Report) {
+    println!("synthetic N-state positive-control calibration");
+    println!("seed: {}", report.calibration.seed);
+    println!(
+        "model: real message lengths, uniform N-symbol plaintext through N deterministic rotational alphabets"
+    );
+    println!(
+        "{:>6} {:>5} {:>10} {:>10} {:>10} {:>8} {:>10}",
+        "true N", "used", "IoC pool", "N pool", "N msg", "rel err", "max iso"
+    );
+    for row in &report.calibration.rows {
+        println!(
+            "{:>6} {:>5} {:>10.6} {:>10.2} {:>10.2} {:>8.2}% {:>10}",
+            row.true_states,
+            row.used_alphabet,
+            row.pooled_ioc,
+            row.pooled_effective_states,
+            row.message_weighted_effective_states,
+            row.relative_error * 100.0,
+            format_optional_usize(row.longest_repeated_isomorph)
+        );
+    }
+    println!(
+        "max sampled relative error: {:.2}%; applied margin: {:.2}%",
+        report.calibration.max_relative_error * 100.0,
+        report.calibration.applied_relative_margin * 100.0
+    );
+}
+
+fn print_grouping_interpretation(report: &grouping::Experiment8Report) {
+    let compatible = report.compatibility.fully_compatible_groupings();
+    if compatible.is_empty() {
+        println!(
+            "Interpretation: no tested grouping matches both the bundled natural-language alphabet-size band and entropy band as raw plaintext. The nearest alphabet-size match is {}, but its entropy is measured separately above.",
+            report.compatibility.nearest_alphabet_grouping
+        );
+    } else {
+        println!(
+            "Interpretation: grouping(s) matching both measured language alphabet size and entropy: {}.",
+            compatible.join(", ")
+        );
+    }
+
+    let range = report.state_estimate.range;
+    let relation = if range.includes_83 {
+        "overlaps"
+    } else if range.upper < orders::READING_LAYER_ALPHABET_SIZE {
+        "falls below"
+    } else {
+        "sits above"
+    };
+    println!(
+        "The independent collision estimate gives an approximate {}..{} state range, which {relation} the established 83-symbol reading layer. This agreement check does not assume 83, and it does not decode meaning.",
+        range.lower, range.upper
+    );
+    println!(
+        "Near-uniform high entropy remains consistent with a permutation or other structured transformation of data, as in Experiment 4; these numbers constrain plausible encodings only."
+    );
+}
+
+fn grouping_state_min_window(report: &grouping::Experiment8Report) -> usize {
+    report
+        .state_estimate
+        .isomorph_rows
+        .iter()
+        .map(|row| row.window)
+        .min()
+        .unwrap_or_default()
+}
+
+fn grouping_state_max_window(report: &grouping::Experiment8Report) -> usize {
+    report
+        .state_estimate
+        .isomorph_rows
+        .iter()
+        .map(|row| row.window)
+        .max()
+        .unwrap_or_default()
 }
 
 fn print_interval(label: &str, interval: null::WilsonInterval) {

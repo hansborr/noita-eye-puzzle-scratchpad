@@ -17,6 +17,8 @@
 //! - [`corpus`]: the verified transcribed message data.
 //! - [`generator`]: the engine storage-layer base-7 decoder and vendored input
 //!   blocks used for corpus cross-checks.
+//! - [`grouping`]: Experiment 8 base-N grouping comparison and independent
+//!   collision-based state-count calibration.
 //! - [`language`]: English/Finnish n-gram language models for scoring
 //!   candidate plaintexts.
 //! - [`null`]: deterministic null distributions for fixed reading-order
@@ -36,6 +38,7 @@ pub mod controls;
 pub mod corpus;
 pub mod generator;
 pub mod glyph;
+pub mod grouping;
 pub mod isomorph;
 pub mod isomorph_null;
 pub mod language;
