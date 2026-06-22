@@ -6,7 +6,7 @@
 
 use std::process::ExitCode;
 
-use noita_eye_puzzle::{analysis, corpus, glyph::Sequence, null, orders, pipeline_null};
+use noita_eye_puzzle::{analysis, controls, corpus, glyph::Sequence, null, orders, pipeline_null};
 
 const USAGE: &str = "\
 noita-eye — Noita eye-glyph puzzle toolkit
@@ -19,6 +19,8 @@ USAGE:
                                   Monte-Carlo null over random grids + standard36
     noita-eye pipelinenull [--seed <u64>] [--trials <n>]
                                   Base-7 pipeline null plus input-randomness control
+    noita-eye controls monoalphabetic [--seed <u64>]
+                                  Experiment 11 monoalphabetic positive control
 
 Digit 5 is treated as a row delimiter and ignored for glyph statistics.";
 
@@ -56,6 +58,13 @@ fn main() -> ExitCode {
                 None => &[],
             };
             run_pipelinenull(rest)
+        }
+        Some("controls") => {
+            let rest = match args.get(1..) {
+                Some(values) => values,
+                None => &[],
+            };
+            run_controls(rest)
         }
         _ => {
             eprintln!("{USAGE}");
@@ -128,6 +137,70 @@ fn run_pipelinenull(args: &[String]) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+fn run_controls(args: &[String]) -> ExitCode {
+    let Some(first) = args.first() else {
+        return run_monoalphabetic_control(&[]);
+    };
+    if first == "monoalphabetic" {
+        let rest = match args.get(1..) {
+            Some(values) => values,
+            None => &[],
+        };
+        return run_monoalphabetic_control(rest);
+    }
+    if first.starts_with("--") {
+        return run_monoalphabetic_control(args);
+    }
+
+    eprintln!("unknown controls target {first:?}");
+    eprintln!("usage: noita-eye controls monoalphabetic [--seed <u64>]");
+    ExitCode::FAILURE
+}
+
+fn run_monoalphabetic_control(args: &[String]) -> ExitCode {
+    let config = match parse_monoalphabetic_control_config(args) {
+        Ok(config) => config,
+        Err(message) => {
+            eprintln!("{message}");
+            eprintln!("usage: noita-eye controls monoalphabetic [--seed <u64>]");
+            return ExitCode::FAILURE;
+        }
+    };
+    let report = match controls::run_monoalphabetic_control(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!(
+                "monoalphabetic control failed: {}",
+                format_controls_error(&error)
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    print_monoalphabetic_control_report(&report);
+    ExitCode::SUCCESS
+}
+
+fn parse_monoalphabetic_control_config(
+    args: &[String],
+) -> Result<controls::MonoalphabeticControlConfig, String> {
+    let mut config = controls::MonoalphabeticControlConfig::default();
+    let mut iter = args.iter();
+    while let Some(flag) = iter.next() {
+        match flag.as_str() {
+            "--seed" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --seed".to_owned());
+                };
+                config.seed = value
+                    .parse::<u64>()
+                    .map_err(|error| format!("invalid --seed value {value:?}: {error}"))?;
+            }
+            other => return Err(format!("unknown controls monoalphabetic flag {other:?}")),
+        }
+    }
+    Ok(config)
+}
+
 fn parse_null_config(args: &[String], subcommand: &str) -> Result<null::NullConfig, String> {
     let mut seed = 0x6e6f_6974_612d_6579;
     let mut trials = 1_000usize;
@@ -154,6 +227,55 @@ fn parse_null_config(args: &[String], subcommand: &str) -> Result<null::NullConf
         }
     }
     Ok(null::NullConfig { seed, trials })
+}
+
+fn format_controls_error(error: &controls::ControlsError) -> String {
+    match error {
+        controls::ControlsError::EmptyPlaintext { label } => {
+            format!("{label}: normalized plaintext is empty")
+        }
+        controls::ControlsError::UnsupportedPlaintextSymbol { label, symbol } => {
+            format!("{label}: unsupported plaintext symbol {symbol:?}")
+        }
+        controls::ControlsError::GlyphOutsideAlphabet {
+            label,
+            glyph,
+            alphabet_size,
+        } => format!("{label}: glyph {glyph} is outside alphabet size {alphabet_size}"),
+        controls::ControlsError::AlphabetTooLarge { alphabet_size } => {
+            format!("alphabet size {alphabet_size} is too large for this control")
+        }
+        controls::ControlsError::NonBijectiveKey {
+            seed,
+            alphabet_size,
+        } => {
+            format!("seed {seed} did not produce a bijection over alphabet size {alphabet_size}")
+        }
+        controls::ControlsError::IocNotPreserved {
+            label,
+            plaintext_bits,
+            ciphertext_bits,
+        } => format!(
+            "{label}: IoC changed across substitution ({plaintext_bits:#x} != {ciphertext_bits:#x})"
+        ),
+        controls::ControlsError::FrequencyMultisetChanged { label } => {
+            format!("{label}: frequency-count multiset changed across substitution")
+        }
+        controls::ControlsError::BigramMultisetChanged { label } => {
+            format!("{label}: bigram-count multiset changed across substitution")
+        }
+        controls::ControlsError::KnownKeyRecoveryFailed { label } => {
+            format!("{label}: known-key inverse did not recover the plaintext")
+        }
+        controls::ControlsError::RegimeSeparationFailed {
+            label,
+            plaintext_ioc,
+            flattened_ioc,
+            uniform_floor,
+        } => format!(
+            "{label}: IoC did not separate regimes (plain {plaintext_ioc:.6}, balanced uniform {flattened_ioc:.6}, floor {uniform_floor:.6})"
+        ),
+    }
 }
 
 fn print_null_report(report: &null::NullReport) {
@@ -205,6 +327,75 @@ fn print_null_report(report: &null::NullReport) {
     );
 }
 
+fn print_monoalphabetic_control_report(report: &controls::MonoalphabeticControlReport) {
+    println!("Experiment 11 monoalphabetic positive control");
+    println!("seed: {}", report.config.seed);
+    println!(
+        "alphabet: {} symbols ({})",
+        report.alphabet_size, report.alphabet
+    );
+    println!("generated key: {}", report.key_mapping);
+    println!();
+    println!(
+        "long fixture: {} letters from {}",
+        report.long_fixture.length, report.long_fixture.label
+    );
+    println!(
+        "plaintext:  {}",
+        preview_text(&report.long_fixture.normalized_plaintext, 96)
+    );
+    println!(
+        "ciphertext: {}",
+        preview_text(&report.long_fixture.ciphertext, 96)
+    );
+    println!(
+        "recovered:  {}",
+        preview_text(&report.long_fixture.recovered_plaintext, 96)
+    );
+    println!();
+    println!(
+        "IoC plaintext/ciphertext: {:.6} / {:.6} (exactly preserved)",
+        report.long_fixture.plaintext_ioc, report.long_fixture.ciphertext_ioc
+    );
+    println!(
+        "IoC balanced uniform: {:.6}; uniform floor 1/k: {:.6}",
+        report.flattened_ioc, report.uniform_floor
+    );
+    println!(
+        "entropy plaintext/ciphertext/balanced uniform: {:.4} / {:.4} / {:.4} bits/symbol",
+        report.long_fixture.plaintext_entropy,
+        report.long_fixture.ciphertext_entropy,
+        report.flattened_entropy
+    );
+    println!(
+        "frequency multiset preserved: {}",
+        yes_no(report.long_fixture.frequency_multiset_preserved)
+    );
+    println!(
+        "bigram count multiset preserved: {}",
+        yes_no(report.long_fixture.bigram_multiset_preserved)
+    );
+    println!(
+        "known-key recovery: {}",
+        yes_no(report.long_fixture.known_key_recovered)
+    );
+    println!();
+    println!("documented Common Glyphs plaintext vectors (known-key exactness only):");
+    for fixture in &report.documented_vectors {
+        println!(
+            "  {}: {:?} -> {} -> {}",
+            fixture.label,
+            fixture.source_plaintext,
+            fixture.ciphertext,
+            fixture.recovered_plaintext
+        );
+    }
+    println!();
+    println!(
+        "Interpretation: this proves the frequency/substitution tooling is not systematically blind to a known monoalphabetic substitution fixture. It does not claim frequency-only recovery of the short Common Glyphs phrases, and it says nothing about whether the unsolved eye glyphs encode a message. If this control fails, the methodology is suspect."
+    );
+}
+
 fn print_pipeline_null_report(report: &null::NullReport) {
     println!("base-7 generation-pipeline null");
     println!("seed: {}", report.config.seed);
@@ -240,6 +431,26 @@ fn print_pipeline_null_report(report: &null::NullReport) {
     println!(
         "Interpretation: the base-7 pipeline does not manufacture the bounded 0..=82 contiguity; uniform-random orientation cells do not either. The contiguity is therefore not explained as a generation artifact, but this is equally consistent with structured-but-meaningless data and is not evidence of a recoverable message."
     );
+}
+
+fn yes_no(value: bool) -> &'static str {
+    if value { "yes" } else { "no" }
+}
+
+fn preview_text(text: &str, max_chars: usize) -> String {
+    let mut preview = String::new();
+    let mut omitted = false;
+    for (index, symbol) in text.chars().enumerate() {
+        if index >= max_chars {
+            omitted = true;
+            break;
+        }
+        preview.push(symbol);
+    }
+    if omitted {
+        preview.push_str("...");
+    }
+    preview
 }
 
 fn print_input_randomness_report(report: &pipeline_null::InputRandomnessReport) {

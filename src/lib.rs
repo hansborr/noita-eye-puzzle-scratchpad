@@ -7,6 +7,7 @@
 //! - [`trigram`]: the base-5 reading layer over rendered orientations.
 //! - [`analysis`]: encoding-agnostic cryptanalysis statistics (frequencies,
 //!   entropy, index of coincidence, n-grams).
+//! - [`controls`]: positive-control fixtures for solved cipher classes.
 //! - [`corpus`]: the verified transcribed message data.
 //! - [`generator`]: the engine storage-layer base-7 decoder and vendored input
 //!   blocks used for corpus cross-checks.
@@ -20,6 +21,7 @@
 //! hypothesis space.
 
 pub mod analysis;
+pub mod controls;
 pub mod corpus;
 pub mod generator;
 pub mod glyph;
