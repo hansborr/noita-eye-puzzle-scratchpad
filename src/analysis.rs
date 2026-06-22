@@ -122,11 +122,6 @@ pub fn chi_square_goodness_of_fit(
             expected: expected_weights.len(),
         });
     }
-    let total: usize = observed.iter().sum();
-    if observed.is_empty() || total == 0 {
-        return Ok(0.0);
-    }
-
     let mut expected_weight_total = 0.0;
     for (index, &weight) in expected_weights.iter().enumerate() {
         if !weight.is_finite() {
@@ -136,6 +131,11 @@ pub fn chi_square_goodness_of_fit(
             return Err(ChiSquareError::NonPositiveExpectedWeight { index, weight });
         }
         expected_weight_total += weight;
+    }
+
+    let total: usize = observed.iter().sum();
+    if observed.is_empty() || total == 0 {
+        return Ok(0.0);
     }
 
     let total = total as f64;
@@ -229,6 +229,30 @@ mod tests {
                 weight: 0.0,
             })
         );
+    }
+
+    #[test]
+    fn chi_square_validates_expected_distribution_before_zero_observation_return() {
+        assert!(matches!(
+            chi_square_goodness_of_fit(&[0, 0], &[1.0, f64::NAN]),
+            Err(ChiSquareError::NonFiniteExpectedWeight { index: 1, weight })
+                if weight.is_nan()
+        ));
+        assert_eq!(
+            chi_square_goodness_of_fit(&[0, 0], &[1.0, 0.0]),
+            Err(ChiSquareError::NonPositiveExpectedWeight {
+                index: 1,
+                weight: 0.0,
+            })
+        );
+        assert_eq!(
+            chi_square_goodness_of_fit(&[0, 0], &[1.0, -1.0]),
+            Err(ChiSquareError::NonPositiveExpectedWeight {
+                index: 1,
+                weight: -1.0,
+            })
+        );
+        assert_eq!(chi_square_goodness_of_fit(&[0, 0], &[1.0, 1.0]), Ok(0.0));
     }
 
     #[test]
