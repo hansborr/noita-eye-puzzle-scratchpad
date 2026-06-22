@@ -290,4 +290,4 @@ cargo run -- nulltest --seed 12345 --trials 1000   # the multiple-comparisons nu
 - 2026-06-22: Experiment 11 isomorph control — honest disclosure that the Kasiski signal uses period-aligned planted repeats (commit 6f7a2c).
 - 2026-06-22: Experiment 4 (frequency/entropy/IoC across orders) — honeycomb winner is the only standard36 order fully inside 0..=82 (mean 12.48, x83/all 1.066, chi2=150.355); raw/order variants leave the 83-symbol support (commit 506b004).
 - 2026-06-22: Experiment 5A (periodicity/autocorrelation battery) — no pooled or per-message period/lag clears the sampled report-wide random-null envelope; Kasiski repeats stop at bigrams (commit 1c6bbf8).
-- 2026-06-22: Experiment 5A interpretation fixes — verdict derived from null-envelope flags + explicit Experiment 1B distance-4 reconciliation (commit <sha>).
+- 2026-06-22: Experiment 5A interpretation fixes — verdict derived from null-envelope flags + explicit Experiment 1B distance-4 reconciliation (commit 8891ebf).
