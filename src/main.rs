@@ -21,6 +21,8 @@ USAGE:
                                   Base-7 pipeline null plus input-randomness control
     noita-eye controls monoalphabetic [--seed <u64>]
                                   Experiment 11 monoalphabetic positive control
+    noita-eye controls isomorph [--seed <u64>]
+                                  Experiment 11 isomorph/polyalphabetic positive control
 
 Digit 5 is treated as a row delimiter and ignored for glyph statistics.";
 
@@ -148,12 +150,21 @@ fn run_controls(args: &[String]) -> ExitCode {
         };
         return run_monoalphabetic_control(rest);
     }
+    if first == "isomorph" || first == "polyalphabetic" {
+        let rest = match args.get(1..) {
+            Some(values) => values,
+            None => &[],
+        };
+        return run_isomorph_control(rest);
+    }
     if first.starts_with("--") {
         return run_monoalphabetic_control(args);
     }
 
     eprintln!("unknown controls target {first:?}");
-    eprintln!("usage: noita-eye controls monoalphabetic [--seed <u64>]");
+    eprintln!(
+        "usage: noita-eye controls monoalphabetic [--seed <u64>]\n       noita-eye controls isomorph [--seed <u64>]"
+    );
     ExitCode::FAILURE
 }
 
@@ -180,6 +191,26 @@ fn run_monoalphabetic_control(args: &[String]) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+fn run_isomorph_control(args: &[String]) -> ExitCode {
+    let config = match parse_isomorph_control_config(args) {
+        Ok(config) => config,
+        Err(message) => {
+            eprintln!("{message}");
+            eprintln!("usage: noita-eye controls isomorph [--seed <u64>]");
+            return ExitCode::FAILURE;
+        }
+    };
+    let report = match controls::run_isomorph_control(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("isomorph control failed: {}", format_controls_error(&error));
+            return ExitCode::FAILURE;
+        }
+    };
+    print_isomorph_control_report(&report);
+    ExitCode::SUCCESS
+}
+
 fn parse_monoalphabetic_control_config(
     args: &[String],
 ) -> Result<controls::MonoalphabeticControlConfig, String> {
@@ -196,6 +227,27 @@ fn parse_monoalphabetic_control_config(
                     .map_err(|error| format!("invalid --seed value {value:?}: {error}"))?;
             }
             other => return Err(format!("unknown controls monoalphabetic flag {other:?}")),
+        }
+    }
+    Ok(config)
+}
+
+fn parse_isomorph_control_config(
+    args: &[String],
+) -> Result<controls::IsomorphControlConfig, String> {
+    let mut config = controls::IsomorphControlConfig::default();
+    let mut iter = args.iter();
+    while let Some(flag) = iter.next() {
+        match flag.as_str() {
+            "--seed" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --seed".to_owned());
+                };
+                config.seed = value
+                    .parse::<u64>()
+                    .map_err(|error| format!("invalid --seed value {value:?}: {error}"))?;
+            }
+            other => return Err(format!("unknown controls isomorph flag {other:?}")),
         }
     }
     Ok(config)
@@ -274,6 +326,43 @@ fn format_controls_error(error: &controls::ControlsError) -> String {
             uniform_floor,
         } => format!(
             "{label}: IoC did not separate regimes (plain {plaintext_ioc:.6}, balanced uniform {flattened_ioc:.6}, floor {uniform_floor:.6})"
+        ),
+        controls::ControlsError::InvalidIsomorphWindow {
+            label,
+            window,
+            sequence_len,
+        } => {
+            format!("{label}: invalid isomorph window {window} for sequence length {sequence_len}")
+        }
+        controls::ControlsError::InvalidPeriodSearch {
+            label,
+            min_period,
+            max_period,
+        } => format!("{label}: invalid isomorph period search {min_period}..={max_period}"),
+        controls::ControlsError::IsomorphSignalMissing {
+            label,
+            expected_period,
+            observed_matches,
+            required_matches,
+        } => format!(
+            "{label}: expected period {expected_period} produced {observed_matches} signature matches, below required {required_matches}"
+        ),
+        controls::ControlsError::IsomorphFalsePositive {
+            label,
+            expected_period,
+            observed_matches,
+            allowed_matches,
+        } => format!(
+            "{label}: expected-absent period {expected_period} produced {observed_matches} signature matches, above allowed {allowed_matches}"
+        ),
+        controls::ControlsError::IsomorphSeparationFailed {
+            present_label,
+            absent_label,
+            present_matches,
+            absent_matches,
+            required_gap,
+        } => format!(
+            "{present_label}: signature-period separation from {absent_label} was {present_matches} vs {absent_matches}, below required gap {required_gap}"
         ),
     }
 }
@@ -396,6 +485,78 @@ fn print_monoalphabetic_control_report(report: &controls::MonoalphabeticControlR
     );
 }
 
+fn print_isomorph_control_report(report: &controls::IsomorphControlReport) {
+    println!("Experiment 11 isomorph/polyalphabetic positive control");
+    println!("seed: {}", report.config.seed);
+    println!(
+        "alphabet: {} symbols ({})",
+        report.alphabet_size, report.alphabet
+    );
+    println!(
+        "detector: first-occurrence signatures over {}-glyph windows; periods {}..={}",
+        report.window, report.min_period, report.max_period
+    );
+    println!(
+        "ground truth: known-present fixtures have period {}; running-key contrast should not",
+        report.expected_period
+    );
+    println!(
+        "invariant: present >= {} matches, absent <= {} matches",
+        report.required_present_matches, report.allowed_absent_matches
+    );
+    println!();
+    print_isomorph_fixture(&report.vigenere);
+    println!();
+    print_isomorph_fixture(&report.autokey);
+    println!();
+    print_isomorph_fixture(&report.running_key);
+    println!();
+    println!(
+        "Interpretation: this proves the isomorph/periodicity tooling fires on generated known-key fixtures with repeated short-period structure and stays quiet on a generated running-key fixture where that short period is absent. It says nothing about whether the unsolved eye glyphs encode a message. If this control fails, the methodology is suspect."
+    );
+}
+
+fn print_isomorph_fixture(fixture: &controls::IsomorphFixtureReport) {
+    println!("{} ({})", fixture.label, fixture.cipher);
+    println!("key: {}", fixture.key_summary);
+    println!("length: {} glyphs", fixture.length);
+    println!("plaintext:  {}", preview_text(&fixture.plaintext, 84));
+    println!("ciphertext: {}", preview_text(&fixture.ciphertext, 84));
+    println!(
+        "cipher entropy/IoC/distinct: {:.4} bits / {:.6} / {}",
+        fixture.ciphertext_entropy, fixture.ciphertext_ioc, fixture.distinct_cipher_symbols
+    );
+    println!("plaintext IoC: {:.6}", fixture.plaintext_ioc);
+    println!(
+        "informative windows: {}; repeated signature kinds: {}; exact repeated windows: {}",
+        fixture.informative_windows,
+        fixture.repeated_signature_kinds,
+        fixture.exact_repeated_windows
+    );
+    println!(
+        "expected-period {} signature matches: {}",
+        fixture.expected_period, fixture.expected_period_matches
+    );
+    match fixture.best_period {
+        Some(signal) => println!(
+            "best period: {} ({} matches across {} signatures)",
+            signal.period, signal.matches, signal.signature_kinds
+        ),
+        None => println!("best period: none"),
+    }
+    if !fixture.strongest_signatures.is_empty() {
+        println!("top expected-period signatures:");
+        for signature in &fixture.strongest_signatures {
+            println!(
+                "  [{}] at {} ({} period matches)",
+                signature.signature,
+                format_positions(&signature.occurrences),
+                signature.expected_period_matches
+            );
+        }
+    }
+}
+
 fn print_pipeline_null_report(report: &null::NullReport) {
     println!("base-7 generation-pipeline null");
     println!("seed: {}", report.config.seed);
@@ -451,6 +612,19 @@ fn preview_text(text: &str, max_chars: usize) -> String {
         preview.push_str("...");
     }
     preview
+}
+
+fn format_positions(positions: &[usize]) -> String {
+    let mut rendered = positions
+        .iter()
+        .take(12)
+        .map(usize::to_string)
+        .collect::<Vec<_>>()
+        .join(",");
+    if positions.len() > 12 {
+        rendered.push_str(",...");
+    }
+    rendered
 }
 
 fn print_input_randomness_report(report: &pipeline_null::InputRandomnessReport) {
