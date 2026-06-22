@@ -8,6 +8,8 @@
 //! - [`analysis`]: encoding-agnostic cryptanalysis statistics (frequencies,
 //!   entropy, index of coincidence, n-grams).
 //! - [`corpus`]: the verified transcribed message data.
+//! - [`null`]: deterministic null distributions for fixed reading-order
+//!   families.
 //!
 //! Nothing here commits to a particular theory of how the glyphs encode
 //! meaning; the goal is to provide trustworthy primitives that constrain the
@@ -16,5 +18,6 @@
 pub mod analysis;
 pub mod corpus;
 pub mod glyph;
+pub mod null;
 pub mod orders;
 pub mod trigram;

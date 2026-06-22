@@ -6,7 +6,7 @@
 
 use std::process::ExitCode;
 
-use noita_eye_puzzle::{analysis, corpus, glyph::Sequence, orders};
+use noita_eye_puzzle::{analysis, corpus, glyph::Sequence, null, orders};
 
 const USAGE: &str = "\
 noita-eye — Noita eye-glyph puzzle toolkit
@@ -15,6 +15,8 @@ USAGE:
     noita-eye stats <sequence>   Frequency / entropy / IoC for rendered digits 0-4
     noita-eye demo               Run analysis on the verified nine-message corpus
     noita-eye orders             Audit raw/linear/standard36 reading-order stats
+    noita-eye nulltest [--seed <u64>] [--trials <n>]
+                                  Monte-Carlo null over random grids + standard36
 
 Digit 5 is treated as a row delimiter and ignored for glyph statistics.";
 
@@ -42,11 +44,122 @@ fn main() -> ExitCode {
             }
         },
         Some("orders") => run_orders(),
+        Some("nulltest") => {
+            let rest = match args.get(1..) {
+                Some(values) => values,
+                None => &[],
+            };
+            run_nulltest(rest)
+        }
         _ => {
             eprintln!("{USAGE}");
             ExitCode::FAILURE
         }
     }
+}
+
+fn run_nulltest(args: &[String]) -> ExitCode {
+    let config = match parse_null_config(args) {
+        Ok(config) => config,
+        Err(message) => {
+            eprintln!("{message}");
+            eprintln!("usage: noita-eye nulltest [--seed <u64>] [--trials <n>]");
+            return ExitCode::FAILURE;
+        }
+    };
+    let report = match null::run_standard36_null(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("null test error: {error:?}");
+            return ExitCode::FAILURE;
+        }
+    };
+    print_null_report(&report);
+    ExitCode::SUCCESS
+}
+
+fn parse_null_config(args: &[String]) -> Result<null::NullConfig, String> {
+    let mut seed = 0x6e6f_6974_612d_6579;
+    let mut trials = 1_000usize;
+    let mut iter = args.iter();
+    while let Some(flag) = iter.next() {
+        match flag.as_str() {
+            "--seed" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --seed".to_owned());
+                };
+                seed = value
+                    .parse::<u64>()
+                    .map_err(|error| format!("invalid --seed value {value:?}: {error}"))?;
+            }
+            "--trials" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --trials".to_owned());
+                };
+                trials = value
+                    .parse::<usize>()
+                    .map_err(|error| format!("invalid --trials value {value:?}: {error}"))?;
+            }
+            other => return Err(format!("unknown nulltest flag {other:?}")),
+        }
+    }
+    Ok(null::NullConfig { seed, trials })
+}
+
+fn print_null_report(report: &null::NullReport) {
+    println!("standard36 random-grid null");
+    println!("seed: {}", report.config.seed);
+    println!("trials: {}", report.config.trials);
+    println!("orders searched per trial: {}", report.family_size);
+    println!("resampled: verified row-width structure with uniform orientation cells 0..=4");
+    println!("held fixed: honeycomb traversal, trigram grouping, and the statistic family");
+    println!();
+
+    print_interval(
+        "headline exact 0..=82",
+        null::wilson_95(report.headline_count, report.config.trials),
+    );
+    print_interval(
+        "some order adjacent_equal == 0",
+        null::wilson_95(report.adjacent_zero_count, report.config.trials),
+    );
+    println!(
+        "min distinct achieved over standard36: {}",
+        format_usize_histogram(&report.min_distinct_histogram)
+    );
+    println!(
+        "min ceiling achieved over standard36: {}",
+        format_u8_histogram(&report.min_ceiling_histogram)
+    );
+    println!(
+        "best distance-4 ratio d4/mean(d1..d6): min {:.3}, median {:.3}, max {:.3}",
+        report.distance4_ratio_min, report.distance4_ratio_median, report.distance4_ratio_max
+    );
+    println!();
+    println!("analytic fixed-order headline bounds under independent uniform trigrams:");
+    println!(
+        "  per-order (83/125)^1036: {:.6e}",
+        report.analytic_bounds.per_order
+    );
+    println!(
+        "  Bonferroni over {} orders: {:.6e}",
+        report.analytic_bounds.family_size, report.analytic_bounds.bonferroni
+    );
+    println!(
+        "  Sidak over {} orders: {:.6e}",
+        report.analytic_bounds.family_size, report.analytic_bounds.sidak
+    );
+    println!();
+    println!(
+        "Interpretation: this corrects grid-content randomness and fixed standard36 digit-permutation selection only. It does not correct for broader researcher degrees of freedom such as choosing the traversal family, grouping rule, or headline statistic after looking at the data."
+    );
+}
+
+fn print_interval(label: &str, interval: null::WilsonInterval) {
+    println!(
+        "{label}: {}/{} = {:.6} (95% Wilson {:.6}..{:.6})",
+        interval.count, interval.trials, interval.estimate, interval.lower, interval.upper
+    );
 }
 
 fn run_orders() -> ExitCode {
@@ -169,4 +282,20 @@ fn format_span(min: Option<u8>, max: Option<u8>) -> String {
 fn format_recurrence(recurrence: &[usize; 6]) -> String {
     let [d1, d2, d3, d4, d5, d6] = *recurrence;
     format!("{d1},{d2},{d3},{d4},{d5},{d6}")
+}
+
+fn format_usize_histogram(histogram: &[(usize, usize)]) -> String {
+    histogram
+        .iter()
+        .map(|(value, count)| format!("{value}:{count}"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn format_u8_histogram(histogram: &[(u8, usize)]) -> String {
+    histogram
+        .iter()
+        .map(|(value, count)| format!("{value}:{count}"))
+        .collect::<Vec<_>>()
+        .join(", ")
 }

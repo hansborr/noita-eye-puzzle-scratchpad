@@ -103,6 +103,15 @@ impl GlyphGrid {
         })
     }
 
+    /// Builds a grid from already-rendered orientation rows.
+    ///
+    /// This is primarily for structure-matched null corpora: callers preserve
+    /// the verified row widths while replacing the cell contents.
+    #[must_use]
+    pub fn from_orientation_rows(message_key: &'static str, rows: Vec<Vec<Orientation>>) -> Self {
+        Self { message_key, rows }
+    }
+
     /// Message key for this grid.
     #[must_use]
     pub const fn message_key(&self) -> &'static str {
