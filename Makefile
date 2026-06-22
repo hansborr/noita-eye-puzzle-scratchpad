@@ -1,10 +1,10 @@
 # Developer guardrail commands. Run `make check` (or `make verify`) before a commit.
 # CI (.github/workflows/ci.yml) runs the same checks plus the release build.
 
-.PHONY: check verify fmt fmt-check lint test doc-check deny machete spell build setup run clean
+.PHONY: check verify fmt fmt-check lint test doc-check deny machete spell shellcheck build setup run clean
 
-## check: full local CI — verify + unused-deps + spelling + release build
-check: verify machete spell build
+## check: full local CI — verify + unused-deps + spelling + shellcheck + release build
+check: verify machete spell shellcheck build
 
 ## verify: the correctness gate the pre-commit hook runs
 verify: fmt-check lint test doc-check deny
@@ -40,6 +40,10 @@ machete:
 ## spell: spell-check sources and docs (config in .codespellrc)
 spell:
 	codespell
+
+## shellcheck: lint shell scripts (the git hook + any scripts/*.sh)
+shellcheck:
+	shellcheck -x .githooks/* $(wildcard scripts/*.sh)
 
 ## build: optimized release build
 build:

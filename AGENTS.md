@@ -13,7 +13,7 @@ hypothesis space, not premature claims about what the glyphs mean.
 
 ```sh
 make verify   # the correctness gate: fmt-check + clippy(-D) + tests + rustdoc(-D) + cargo-deny
-make check    # verify + cargo-machete + codespell + release build (full local CI)
+make check    # verify + cargo-machete + codespell + shellcheck + release build (full local CI)
 make setup    # install the git pre-commit hook (core.hooksPath = .githooks)
 make run ARGS=demo
 ```
@@ -54,6 +54,7 @@ make run ARGS=demo
 | Supply chain       | `deny.toml` (cargo-deny), `cargo machete`             |
 | Toolchain          | `rust-toolchain.toml`, MSRV in `Cargo.toml`+`clippy.toml` |
 | Spelling / text    | `.codespellrc`, `.editorconfig`, `.gitattributes`     |
+| Shell scripts      | `.shellcheckrc`, `shellcheck` (CI + pre-commit)       |
 | Local gate         | `.githooks/pre-commit` (install via `make setup`)     |
 | CI                 | `.github/workflows/ci.yml`                            |
 | Dangerous commands | `.claude/settings.json` deny list                     |

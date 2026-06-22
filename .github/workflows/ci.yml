@@ -63,3 +63,14 @@ jobs:
         run: pipx install codespell
       - name: Spell check (config in .codespellrc)
         run: codespell
+
+  shell:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # shellcheck is preinstalled on ubuntu-latest runners.
+      - name: ShellCheck
+        run: |
+          shopt -s nullglob globstar
+          shellcheck -x .githooks/* scripts/**/*.sh

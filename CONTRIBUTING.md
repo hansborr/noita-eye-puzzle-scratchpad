@@ -5,8 +5,8 @@
 - Rust (the pinned toolchain installs automatically via `rust-toolchain.toml`;
   see `rust-version` for the MSRV).
 - Optional dev tools used by the full gate:
-  `cargo install cargo-deny cargo-machete` and `pipx install codespell`
-  (or `pip install codespell`).
+  `cargo install cargo-deny cargo-machete`, `pipx install codespell`
+  (or `pip install codespell`), and `shellcheck`.
 
 ## From clone to running
 
@@ -19,7 +19,7 @@ cargo run -- demo   # run the CLI against the (placeholder) sample corpus
 
 ```sh
 make verify   # fmt-check + clippy(-D warnings) + tests + rustdoc(-D warnings) + cargo-deny
-make check    # everything in verify + cargo-machete + codespell + release build
+make check    # everything in verify + cargo-machete + codespell + shellcheck + release build
 ```
 
 `make verify` is the gate the pre-commit hook runs and must pass before every
