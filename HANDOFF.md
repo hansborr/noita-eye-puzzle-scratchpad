@@ -272,3 +272,4 @@ cargo run -- nulltest --seed 12345 --trials 1000   # the multiple-comparisons nu
 <!-- next agent: append `- <date>: <experiment> — <result + commit sha>` here as you finish each item -->
 - 2026-06-22: Experiment 2 (generation-pipeline artifact null) — base-7 pipeline does not manufacture bounded 0..=82 contiguity; negative control only shows authored 0..=5 storage alphabet, not a message claim (commit 6f4ef3d).
 - 2026-06-22: Experiment 2 review fixes — unbiased matched-length sampler + honest analytic no-`-1` rate (commit 24df29d).
+- 2026-06-22: Experiment 11 (monoalphabetic positive control) — deterministic 1:1 substitution control preserves IoC/frequency multisets and recovers known-key plaintext without eye-message claims (commit 128c10c).
