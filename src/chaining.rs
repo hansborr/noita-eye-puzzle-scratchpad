@@ -356,12 +356,12 @@ fn report_from_message_values(
     validate_config(config)?;
     let lengths = message_values.iter().map(Vec::len).collect::<Vec<_>>();
     let total_length = lengths.iter().sum();
-    let mut rng = SplitMix64::new(config.seed);
     let source_profile = SourceProfile::new(config.alphabet_size);
 
     let mut rows = Vec::new();
     for period in config.min_period..=config.max_period {
         let real = chaining_signature(message_values, period, config.alphabet_size)?;
+        let mut rng = calibration_rng_for_period(config.seed, period);
         let calibration = calibrate_period(config, period, &lengths, &source_profile, &mut rng)?;
         let score_bands_separated = calibration.fail.chain_score.q975
             < calibration.succeed.chain_score.q025
@@ -391,6 +391,14 @@ fn report_from_message_values(
         total_length,
         rows,
     })
+}
+
+fn calibration_rng_for_period(seed: u64, period: usize) -> SplitMix64 {
+    let period_word = period as u64;
+    let mixed = stateless_splitmix(
+        seed ^ 0x7065_7269_6f64_373b ^ period_word.wrapping_mul(0x9e37_79b9_7f4a_7c15),
+    );
+    SplitMix64::new(mixed)
 }
 
 fn validate_config(config: ChainingConfig) -> Result<(), ChainingError> {
@@ -1050,6 +1058,36 @@ mod tests {
             assert!(row.fail.chain_score.q975 < row.succeed.chain_score.q025);
             assert!(row.shuffled_fail.chain_score.q975 < row.succeed.chain_score.q025);
         }
+    }
+
+    #[test]
+    fn period_calibration_is_independent_of_scan_range() {
+        let wide_config = ChainingConfig {
+            seed: 1,
+            trials: 64,
+            min_period: 2,
+            max_period: 3,
+            alphabet_size: orders::READING_LAYER_ALPHABET_SIZE,
+        };
+        let narrow_config = ChainingConfig {
+            min_period: 3,
+            ..wide_config
+        };
+
+        let wide = run_chaining(wide_config).unwrap();
+        let narrow = run_chaining(narrow_config).unwrap();
+        let wide_period = wide.rows.iter().find(|row| row.period == 3).unwrap();
+        let narrow_period = narrow.rows.first().unwrap();
+
+        assert_eq!(narrow_period.period, 3);
+        assert_eq!(wide_period.succeed, narrow_period.succeed);
+        assert_eq!(wide_period.fail, narrow_period.fail);
+        assert_eq!(wide_period.shuffled_fail, narrow_period.shuffled_fail);
+        assert_eq!(
+            wide_period.score_bands_separated,
+            narrow_period.score_bands_separated
+        );
+        assert_eq!(wide_period.classification, narrow_period.classification);
     }
 
     #[test]
