@@ -6,7 +6,7 @@
 
 use std::process::ExitCode;
 
-use noita_eye_puzzle::{analysis, corpus, glyph::Sequence};
+use noita_eye_puzzle::{analysis, corpus, glyph::Sequence, orders};
 
 const USAGE: &str = "\
 noita-eye — Noita eye-glyph puzzle toolkit
@@ -14,6 +14,7 @@ noita-eye — Noita eye-glyph puzzle toolkit
 USAGE:
     noita-eye stats <sequence>   Frequency / entropy / IoC for rendered digits 0-4
     noita-eye demo               Run analysis on the verified nine-message corpus
+    noita-eye orders             Audit raw/linear/standard36 reading-order stats
 
 Digit 5 is treated as a row delimiter and ignored for glyph statistics.";
 
@@ -40,11 +41,69 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Some("orders") => run_orders(),
         _ => {
             eprintln!("{USAGE}");
             ExitCode::FAILURE
         }
     }
+}
+
+fn run_orders() -> ExitCode {
+    let grids = match orders::corpus_grids() {
+        Ok(grids) => grids,
+        Err(error) => {
+            eprintln!("grid reconstruction error: {error:?}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let summary = orders::summarize_grids(&grids);
+    println!("grid row widths:");
+    for (key, widths) in &summary.row_widths {
+        println!("  {key}: {}", format_widths(widths));
+    }
+    println!("max row width: {}", summary.max_width);
+    println!(
+        "bottom two rows differ by <=1: {}",
+        summary.bottom_two_rows_differ_by_at_most_one
+    );
+    println!();
+    println!(
+        "{:<24} {:>5} {:>8} {:>11} {:>9} {:>5} {:>8} {:>23}",
+        "order", "total", "distinct", "contiguous", "span", ">82", "adj-eq", "recurrence d1..d6"
+    );
+
+    let stats = match orders::audit_order_stats(&grids) {
+        Ok(stats) => stats,
+        Err(error) => {
+            eprintln!("order audit error: {error:?}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let mut winners = Vec::new();
+    for item in stats {
+        if item.stats.is_contiguous_0_to_82() {
+            winners.push(item.order.name());
+        }
+        println!(
+            "{:<24} {:>5} {:>8} {:>11} {:>9} {:>5} {:>8} {:>23}",
+            item.order.name(),
+            item.stats.total,
+            item.stats.distinct,
+            item.stats.contiguous,
+            format_span(item.stats.min, item.stats.max),
+            item.stats.values_above_82,
+            item.stats.adjacent_equal,
+            format_recurrence(&item.stats.recurrence_distance_1_to_6)
+        );
+    }
+    println!();
+    if winners.is_empty() {
+        println!("contiguous 0..=82 orders: none");
+    } else {
+        println!("contiguous 0..=82 orders: {}", winners.join(", "));
+    }
+    ExitCode::SUCCESS
 }
 
 fn run_stats(text: &str) -> ExitCode {
@@ -90,4 +149,24 @@ fn print_report(label: &str, seq: &Sequence) {
     for (glyph, count) in analysis::frequencies(&seq.glyphs) {
         println!("    {glyph}: {count}");
     }
+}
+
+fn format_widths(widths: &[usize]) -> String {
+    widths
+        .iter()
+        .map(usize::to_string)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn format_span(min: Option<u8>, max: Option<u8>) -> String {
+    match min.zip(max) {
+        Some((low, high)) => format!("{low}..{high}"),
+        None => "empty".to_owned(),
+    }
+}
+
+fn format_recurrence(recurrence: &[usize; 6]) -> String {
+    let [d1, d2, d3, d4, d5, d6] = *recurrence;
+    format!("{d1},{d2},{d3},{d4},{d5},{d6}")
 }

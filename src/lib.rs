@@ -16,4 +16,5 @@
 pub mod analysis;
 pub mod corpus;
 pub mod glyph;
+pub mod orders;
 pub mod trigram;
