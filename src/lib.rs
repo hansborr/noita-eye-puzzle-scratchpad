@@ -11,6 +11,8 @@
 //! - [`corpus`]: the verified transcribed message data.
 //! - [`generator`]: the engine storage-layer base-7 decoder and vendored input
 //!   blocks used for corpus cross-checks.
+//! - [`language`]: English/Finnish n-gram language models for scoring
+//!   candidate plaintexts.
 //! - [`null`]: deterministic null distributions for fixed reading-order
 //!   families.
 //! - [`periodicity`]: Experiment 5A periodicity, autocorrelation, and Kasiski
@@ -27,6 +29,7 @@ pub mod controls;
 pub mod corpus;
 pub mod generator;
 pub mod glyph;
+pub mod language;
 pub mod null;
 pub mod orders;
 pub mod periodicity;

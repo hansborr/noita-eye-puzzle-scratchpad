@@ -1,4 +1,7 @@
 [codespell]
-skip = ./target,.git,Cargo.lock
+skip = ./target,.git,Cargo.lock,./research/data/lang
+# `research/data/lang` is skipped so public-domain calibration excerpts,
+# especially Finnish source text, are not altered to satisfy an English
+# spelling dictionary.
 # Domain words / abbreviations that are not typos.
 ignore-words-list = crate,ser,noita,nd,wont,Statics,substition

@@ -2,6 +2,11 @@
 
 57 unique sources collected and deduplicated by URL during the research workflow. Grouped by type; these are the raw references behind the findings — confidence tags in the other documents indicate how much weight each source can bear.
 
+## language-model calibration samples
+
+- `research/data/lang/english.txt` — Excerpt from Lewis Carroll, *Alice's Adventures in Wonderland*, Chapter I. First published in 1865, so the source work is public domain in the United States because it was published before 1929. Used only to train the bundled English n-gram language model; it is not eye-glyph evidence.
+- `research/data/lang/finnish.txt` — Excerpt from Elias Lonnrot, *Kalevala*, First Poem / *Ensimmainen runo*. The expanded *Kalevala* was first published in 1849 and Lonnrot died in 1884, so the source work is public domain in the United States and in life-plus-70 jurisdictions. Used only to train the bundled Finnish n-gram language model; it is not eye-glyph evidence.
+
 ## ai-generated encyclopedia (unreliable for this claim)
 
 - [Noita (video game) — Grokipedia](https://grokipedia.com/page/Noita_(video_game)) — Source of the 'developers have confirmed ... encode meaningful content' phrasing. AI-generated; no primary citation located for the dev-confirmation claim. Treat as unsourced synthesis.
