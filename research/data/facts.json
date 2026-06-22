@@ -1,0 +1,884 @@
+[
+  {
+    "claim": "The eye puzzle is officially the 'Eye Messages': 9 messages of eye glyphs in the Parallel Worlds, considered to encode information but unsolved.",
+    "confidence": "confirmed",
+    "evidence": "Noita Wiki: '...known to contain information, but have yet to be solved.' Primary Google Doc: 'There are nine messages that can be displayed via \"eye\" glyphs.'",
+    "source": "noita.wiki.gg/wiki/Eye_Messages; docs.google.com/document/d/1s6gxrc1iLJ78iFfqC2d4qpB9_r_c5U5KwoHVYFFrjy0",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "claim": "9 messages total: 5 East, 4 West. Internally placed alternating E,W,E,W...; every East message except the last (East 5) has a West counterpart in the same location.",
+    "confidence": "confirmed",
+    "evidence": "Primary doc verbatim: 'Four of these are in West parallel worlds, five in East worlds. Internally, the messages are placed in East, West, East, West... Message 8 is the only one that does not have a corresponding message in West.' Note the survey's '5 East/4 West, East-5 no West counterpart' matches; note messages are numbered 0-8, where Message 8 = East 5.",
+    "source": "docs.google.com/document/d/1s6gxrc1iLJ78iFfqC2d4qpB9_r_c5U5KwoHVYFFrjy0 (export?format=txt)",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "claim": "Each glyph is one of five orientations encoded as digits 0-4; the digit '5' creates a new line and is not displayed.",
+    "confidence": "confirmed",
+    "evidence": "Primary doc verbatim: 'The \"5\" character creates a new line of eyes and is not actually displayed otherwise. The game converts these strings of numbers into eye glyphs using the following table:' (table shown as image with columns 0,1,2,3,4).",
+    "source": "docs.google.com/document/d/1s6gxrc1iLJ78iFfqC2d4qpB9_r_c5U5KwoHVYFFrjy0",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "claim": "The specific direction-per-digit mapping is 0=neutral/center, 1=up, 2=right, 3=down, 4=left.",
+    "confidence": "speculative",
+    "evidence": "Asserted by the Fandom wiki and community pages and consistent with the doc's 5-column image table, BUT the mapping in the primary doc and noita.wiki.gg is presented ONLY as an image; no retrievable text source pins each pixel-direction to its digit. Could not verify the sprite rendering directly.",
+    "source": "noita.fandom.com/wiki/Eye_Messages (403 to direct fetch; via search snippets); image in primary doc",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "claim": "Glyphs are arranged in rows (max 39 per row) with every second row offset to interlock between neighbors.",
+    "confidence": "confirmed",
+    "evidence": "Wiki verbatim: '...with at most 39 individual eyes in each row. Every second row is offset to fit in-between the neighboring rows.' Primary doc: 'every other line offset slightly to mesh together.'",
+    "source": "noita.wiki.gg/wiki/Eye_Messages; primary doc",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "claim": "Trigrams: groups of three eyes read as a 3-digit base-5 number (000-444 = 0-124). EVERY message's eye count is divisible by three.",
+    "confidence": "confirmed",
+    "evidence": "INDEPENDENTLY REPRODUCED from raw sequences: per-message eye counts {East1:297, West1:309, East2:354, West2:306, East3:411, West3:372, East4:357, West4:360, East5:342} — all divisible by 3. Primary doc: 'All of the messages have an eye count divisible by three.' Reddit user The_Duck1 proposed the trigram grouping.",
+    "source": "Computed from primary doc sequences; doc credits 'Reddit user The_Duck1'",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "claim": "Total trigram count across all 9 messages is exactly 1036, matching the published probability figure (83/125)^1036 = 5.836e-185.",
+    "confidence": "confirmed",
+    "evidence": "INDEPENDENTLY REPRODUCED: summing trigrams over all 9 messages = 1036. Wiki/doc give '(83/125)^1036 = 5.8362007929568295 x 10^-185'.",
+    "source": "Computed from primary doc; figure on noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "claim": "The 'unbroken 0-82 / 83 unique values out of 125' result holds for only ONE specific reading order (1 of 36), originally The_Duck1's interlocking-triangle method; naive orderings do NOT produce it.",
+    "confidence": "confirmed",
+    "evidence": "VERIFIED the order-dependence empirically: horizontal line-by-line trigram reading -> 114 distinct values, range 0-122 (NOT 0-82); column-major reading -> all 125 values. Wiki verbatim: 'Out of the 36 possible standard reading orders, only one order produces an unbroken range of base 10 values, from 0-82.' Primary doc: 'trigrams that span all possible values from 000 to 312, or 83 unique results (out of a possible 125)' (312 base5 = 82). This CORRECTS the survey's implication that 0-82 is a robust intrinsic property — it is contingent on the chosen traversal.",
+    "source": "Computed from primary doc; noita.wiki.gg/wiki/Eye_Messages; primary doc",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "claim": "The eye-spawning code is built into the engine (not a Lua script) and cannot be extracted from the game archive; the eye graphics are generated on the fly, not stored as assets.",
+    "confidence": "confirmed",
+    "evidence": "Primary doc verbatim: 'the code that spawns the eyes is not a Lua script and cannot be extracted from the archive. It is built into the engine itself. The graphics are also not in the archive but are generated on the fly.'",
+    "source": "docs.google.com/document/d/1s6gxrc1iLJ78iFfqC2d4qpB9_r_c5U5KwoHVYFFrjy0",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "claim": "The message CONTENT was nonetheless obtained: via Cheat Engine to locate eyes per seed, and via Ninji's partial disassembly (Ghidra project, viewable decompiled generating function).",
+    "confidence": "confirmed",
+    "evidence": "Primary doc: 'The game was also partially disassembled... Ninji... did some reverse-engineering. If you're familiar with Ghidra, you can download the Ghidra project (60 MB)... view the decompiled function that generates the messages.' This NUANCES the popular 'cannot be data-mined' claim: the engine asset archive can't yield it, but reverse engineering of the binary did.",
+    "source": "docs.google.com/document/d/1s6gxrc1iLJ78iFfqC2d4qpB9_r_c5U5KwoHVYFFrjy0",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "claim": "Spawn conditions: (1) mods_have_been_active_during_this_run flag must be unset; (2) player must have triggered the 'Entered East/West' message; (3) only spawns at locations with background background_cave_02.png. Locations are seed-deterministic.",
+    "confidence": "confirmed",
+    "evidence": "Primary doc verbatim: 'the \"mods_have_been_active_during_this_run\" flag must not be set'; 'They will not appear until the \"Entered East/West\" message is triggered'; 'The game will only spawn the eye messages in locations with the background \"background_cave_02.png\"'; 'a given seed will always spawn them in the same locations.'",
+    "source": "docs.google.com/document/d/1s6gxrc1iLJ78iFfqC2d4qpB9_r_c5U5KwoHVYFFrjy0; noita.wiki.gg",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "claim": "Example seed 1249563923 gives specific coordinates (e.g. East1 X:22064 Y:-6079, West1 X:-49616 Y:-6079; East5 X:36400 Y:2624 with no Western counterpart).",
+    "confidence": "likely",
+    "evidence": "Coordinate table present on noita.wiki.gg/wiki/Eye_Messages. NOT re-verified in-game; the primary doc explicitly warns the Cheat Engine script must be updated per Noita version, so coordinates may shift across game versions.",
+    "source": "noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "claim": "Eye Messages and the Cauldron Room are the two 'major secrets' visible only in mod-free runs / the most popular unsolved mysteries.",
+    "confidence": "likely",
+    "evidence": "noita.wiki.gg/wiki/Mysteries_and_Oddities verbatim: 'Among the most popular unsolved mysteries are the Eye Messages and Cauldron Room.' The page does NOT explicitly rank them as 'the two major mod-free secrets'; that framing is from the Eye Messages page. Note: Epilogue 2 (2024) is widely read as having resolved the Cauldron, so 'two unsolved secrets' is now arguably one.",
+    "source": "noita.wiki.gg/wiki/Mysteries_and_Oddities; noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "claim": "The puzzle is unsolved; simple monoalphabetic substitution is ruled out by flat trigram frequency.",
+    "confidence": "confirmed",
+    "evidence": "ngraham20 README verbatim: 'Frequency analysis has been tried on the trigrams, with no workable results, indicating that simple substitution isn't the answer.' Wiki (CodeWarrior0): 'The sample ciphertext frequency is flat, and not monoalphabetic.' Primary doc: 'Do we know what the eyes mean? A: No.'",
+    "source": "github.com/ngraham20/NoitaCryptographyResearch; noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "claim": "Cryptanalysis points to a polyalphabetic cipher with ~83 internal states, aperiodic, no doubled ciphertext letters, an anomalous distance-4 repetition, and a cipher/key constant across all messages.",
+    "confidence": "likely",
+    "evidence": "Wiki, attributed to Toboter: 'the cipher is polyalphabetic'; 'the cipher has no fewer than 20 internal states and statistically probably at least around 88, so it is likely 83 internal states'; 'the cipher, key... are the same across all messages.' Attributed to CodeWarrior0: 'No ciphertext letter appears twice in a row'; 'Ciphertext letters appear twice at a distance of 4, at nearly double the expected rate.' These are working hypotheses by named researchers, not proven.",
+    "source": "noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "claim": "Developer (Arvi Teikari/Hempuli, Nolla Games) publicly acknowledged the Eye Messages and Cauldron as deliberate unsolved mysteries.",
+    "confidence": "speculative",
+    "evidence": "A YouTube video documents Hempuli discussing Noita's secrets at Roguelike Celebration, and the dev advised players 'not being too concerned about the cauldron' (2021). But I could NOT retrieve a verbatim quote in which a dev calls the Eye Messages an 'intentional puzzle.' Intentionality is INFERRED from gating (mod check), engine-hardcoding, statistical structure, and dev acknowledgment of it as a mystery.",
+    "source": "youtube.com/watch?v=ItzQh6K3hP8 (transcript not retrievable via fetch)",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "claim": "A widely-circulated claim that the messages are 'originally written in Hexadecimal and converted by an algorithm into 0-5 values' is NOT supported by the primary doc.",
+    "confidence": "disputed",
+    "evidence": "This phrasing appeared in a WebSearch snippet of a third-party Scribd doc ('Noita Eye Glyph Messages', uploaded by glooko.pro, 13 pages). The authoritative primary Google Doc describes the encoding only as base-5 trigrams (000-444) and says nothing about an original hexadecimal source. Treat the 'hexadecimal origin' as unverified secondary speculation.",
+    "source": "scribd.com/document/911932819 (snippet only); contradicted-by-omission in primary Google Doc",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "claim": "There are exactly 9 Eye Messages per world: 5 in the East parallel world, 4 in the West, each East message mirrored in the West EXCEPT East-5 which has no West counterpart (West-5 is absent).",
+    "confidence": "confirmed",
+    "evidence": "noita.wiki.gg: '9 total eye messages... 4 messages generating in the western parallel world, and 5 messages generating in the eastern parallel world.' Fandom + ngraham20 README both list East 1-5, West 1-4 and note 'there is no West 5. The reason for this is unknown.'",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages ; https://raw.githubusercontent.com/ngraham20/NoitaCryptographyResearch/master/README.md",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "claim": "Each eye has one of five orientations encoded as 0=neutral/center, 1=up, 2=right, 3=down, 4=left; value 5 = end of line (no eye generated).",
+    "confidence": "confirmed",
+    "evidence": "Fandom verbatim: 'Each individual eye can be looking in one of 5 directions where: 0-neutral, 1-up, 2-right, 3-down, and 4-left. The number 5 represents end of line, and no eye is generated for this value.'",
+    "source": "https://noita.fandom.com/wiki/Eye_Messages",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "claim": "GENERATION ALGORITHM (primary, REPRODUCED): seed yields hex pair (parts a,b); concatenate b+a into a 64-bit unsigned int; repeatedly divide by 7, prepending each remainder to a list (base-7 expansion); drop the trailing 0; subtract 1 from each value to get eye orientations 0-4 (5=EOL). I ran this on the wiki's own example: 0xacf686745634505c = 12463296853015023708 -> base7 [3,1,2,1,2,4,3,3,4,4,1,5,1,5,2,2,4,1,3,4,3,2,0] -> eyes [2,0,1,0,1,3,2,2,3,3,0,4,0,4,1,1,3,0,2,3,2,1]. EXACT match to the wiki's stated output.",
+    "confidence": "confirmed",
+    "evidence": "Fandom wikitext gives the worked example verbatim; I reproduced int conversion, base-7 list, and EyePositionNumeric exactly in Python. Note: this is DIVISION BY 7 (base-7), not base-5 — a correction to the survey's 'converted to 0-5' phrasing which omitted the base-7 mechanism. The wiki states 'this has been confirmed to be the process that the engine uses.'",
+    "source": "https://noita.fandom.com/wiki/Eye_Messages (action=raw via api.php)",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "claim": "Eyes are grouped into 'trigrams' by pairing offset rows and taking three eyes forming a triangle, read as a three-digit BASE-5 number 000-444 = decimal 0-124. This is the trigram base; it is NOT base-83.",
+    "confidence": "confirmed",
+    "evidence": "noita.wiki.gg: 'each trigram can be read as a three-digit base 5 number from 000 to 444, which can be converted to base 10... a total range of possible values from 0-124.' I verified East-1: decoding 200,231,010... as d1*25+d2*5+d3 yields exactly 50,66,5,... matching ngraham20's published decimals. The survey/source phrasing 'three-digit base-83 values' is a WebFetch summarization error and is wrong.",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages ; verified against https://raw.githubusercontent.com/ngraham20/NoitaCryptographyResearch/master/README.md",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "claim": "Out of 36 possible standard reading orders, exactly one yields an unbroken contiguous range of base-10 trigram values 0-82 (83 distinct symbols) out of the possible 0-124; this is the community-canonical reading order. Toboter scripted ~86,000 reading-order variants and found no other with comparable statistical significance.",
+    "confidence": "confirmed",
+    "evidence": "noita.wiki.gg verbatim: 'Out of the 36 possible standard reading orders, only one order produces an unbroken range of base 10 values, from 0-82.' and 'user Toboter wrote a script that tested ~86,000 reading order possibilities and found no other reading order that matches the statistical significance.'",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "claim": "The probability that the 0-82 contiguity is coincidental is (83/125)^1036 = 5.8362007929568295e-185, implying ~1036 total trigrams across all 9 messages.",
+    "confidence": "confirmed",
+    "evidence": "noita.wiki.gg states the formula '(83/125)^1036 = 5.8362007929568295e-185'. Python float64 gives 5.8362007929568295e-185, but the exact high-precision value is 5.836200792956514e-185 — the published 18-digit mantissa is a float64 rounding artifact, not an exact match. The 1036 is the exponent (= total trigram count); per-message counts are not individually published (East-1 alone is ~93-97 trigrams across its 4 shown rows).",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages (computation independently verified)",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "claim": "A literal raw transcription exists: ngraham20 publishes East-1 as base-5 digit-triples ('200 231 010 143 222 023 300 104 044 221 132 240 231 222 112 024 311 013 030 303 002 104 023 144 001 310 / 312 130 223 311 041 034 000 130 201 230 ...') and as decimals ('50 66 5 48 62 13 75 29 24 61 42 70 66 62 32 14 81 8 15 78 2 29 13 49 1 80 / 82 40 63 81 21 19 0 40 51 65 ...'), plus runic, ASCII, and alchemical renderings.",
+    "confidence": "confirmed",
+    "evidence": "Pulled verbatim from the raw README (4 full rows of base-5, decimal, ASCII, runic, and alchemic for East-1). I verified the base-5->decimal mapping is internally consistent. NOTE: only East-1 is published verbatim in ngraham20's README; full per-message data lives in community Google Sheets (The Emerald Tablet / Noita Eye Data) which do not render via automated fetch.",
+    "source": "https://raw.githubusercontent.com/ngraham20/NoitaCryptographyResearch/master/README.md",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "claim": "The 83-symbol alphabet is sometimes displayed as 83 Elder Futhark runes (forward wheel ᚠᚡᚢ...ᛲ and its exact reverse), but this is an ARBITRARY researcher display mapping, NOT runes found in the game.",
+    "confidence": "confirmed",
+    "evidence": "ngraham20 README prints the exact forward and reverse wheels of 83 runes used purely as display for decimal values 0-82. The game stores eye orientations (0-4), not runes. No source claims these runes appear in-game.",
+    "source": "https://raw.githubusercontent.com/ngraham20/NoitaCryptographyResearch/master/README.md",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "claim": "Eye Messages spawn only in areas with background 'background_cave_02.png', at seed-determined locations, with mirrored X coordinates across the two parallel worlds, and do NOT generate if mods have been enabled at any point during the run.",
+    "confidence": "confirmed",
+    "evidence": "noita.wiki.gg: 'background_cave_02.png' spawn requirement and 'the eye messages do not generate if mods have been enabled at any point during the run.' Per-seed coordinate tables exist (seed 1249563923: East 1 X:22064 Y:-6079, West 1 X:-49616 Y:-6079; East 2 X:52272 Y:14400, West 2 X:-19408 Y:14400; Fandom lists East 5 X:36400 Y:2624 etc.). Lymm's Python tool computes these per seed.",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages ; https://noita.fandom.com/wiki/Eye_Messages ; https://gitlab.com/realgonzogames/lymms-binoculars/-/raw/main/README.md",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "claim": "The eye-message generator is compiled C++ game code (not extractable Lua); it was reverse-engineered by 'Ninji', whose Ghidra project (~60 MB) exposes the decompiled generator function.",
+    "confidence": "likely",
+    "evidence": "Multiple search snippets of noita.wiki.gg and the Scribd canonical doc attest: 'Ninji did some reverse-engineering... if you're familiar with Ghidra you can download the Ghidra project (60 MB)... view the decompiled function that generates the messages.' The reproducible base-7 algorithm corroborates that a decompiled generator exists. Downgraded from 'confirmed' only because I could not directly load the Ghidra project file or the exact wiki sentence verbatim from the page body (it surfaced via search snippet, not the WebFetch render).",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages (search snippet) ; https://www.scribd.com/document/911932819/Noita-Eye-Glyph-Messages",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "claim": "Cryptanalysis status: simple substitution is RULED OUT (frequency analysis flat / non-monoalphabetic, ciphertext non-periodic); the working model is polyalphabetic / plaintext-driven permutation where using a ciphertext symbol changes the key; isomorphs and sizable shared sections exist between messages; candidate models include wheel/incrementing cipher, chaocipher, Hutton, and S83 symmetric-group permutations. Autokey and Vigenere/Caesar/Trifid/Polybius/Diamond attacks were tried and failed.",
+    "confidence": "confirmed",
+    "evidence": "ngraham20: 'Frequency analysis has been tried on the trigrams, with no workable results, indicating that simple substitution isn't the answer.' CodeWarrior0 (Analytical Overview): 'frequency is flat and not monoalphabetic... ciphertext is not periodic... letters at the same position in different messages are likely enciphered by different alphabets... Six segments... are isomorphs.' Toboter: 'the cipher is polyalphabetic. Each ciphertext character is dependent on something outside of a single plaintext character.' Perseus (Steam) + simplesmiler propose plaintext-driven alphabet permutation (chaocipher/Hutton/S83). codewarrior0 repo has autokey_decrypt.py, isomorphs.py, stat_period.py, superimp_positional.py.",
+    "source": "https://github.com/codewarrior0/noita-eye-glyph-analyses ; https://steamcommunity.com/app/881100/discussions/0/4700161534027181070/ ; https://raw.githubusercontent.com/ngraham20/NoitaCryptographyResearch/master/README.md ; https://github.com/SirCapybar/NoitaEyeGlyphResearch",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "claim": "The 0-82 reading order is NOT formally 'proven' to be the correct/relevant one; the strongest defensible statement is that at least one of a small symmetric set of reading orders is correct.",
+    "confidence": "likely",
+    "evidence": "Perseus (Steam, Oct 2024): the docs treat 'the 0-82 order as if it was proven to be relevant, but as far as i know, that specific reading order hasn't been proven to be right'; however 'all six symmetrical reading orders result in a set of 83 different trigrams' and the patterns 'prove that at least one of the six symmetrical reading orders is correct.' This conflicts in NUMBER with the wikis' '36 reading orders / one yields 0-82' framing — the '6 symmetrical' set is a narrower subset of orders that all produce 83 symbols.",
+    "source": "https://steamcommunity.com/app/881100/discussions/0/4700161534027181070/",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "claim": "The Eye Messages are UNSOLVED; no credible public plaintext exists. Claims of a solution without a disclosed method should be distrusted.",
+    "confidence": "confirmed",
+    "evidence": "noita.wiki.gg: 'They are known to contain information, but have yet to be solved' and 'anyone claiming to have solved the eyes without presenting a method should not be believed.' The Steam thread literally titled 'i solved the eyes' contains NO method or plaintext ('no i wont tell you, kbye') and is dismissed by the community — a concrete example of an empty claim.",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages ; https://steamcommunity.com/app/881100/discussions/0/4852155152090234980/",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "claim": "No Nolla Games / Petri Purho developer statement confirming the Eye Messages encode real, recoverable plaintext (as opposed to structured-but-meaningless data) was found.",
+    "confidence": "likely",
+    "evidence": "Targeted searches for dev statements (Purho/Nolla/Hempuli interviews, GDC talk, Game Developer 'Road to the IGF') surfaced no quote asserting the eyes are solvable to plaintext. Absence of evidence; the community only asserts the messages 'contain information.' Cannot prove a negative, hence 'likely' not 'confirmed.'",
+    "source": "https://www.gamedeveloper.com/game-platforms/road-to-the-igf-nolla-games-i-noita-i- ; https://www.gdcvault.com/play/1025695/Exploring-the-Tech-and-Design",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "claim": "The 'hexadecimal -> converted to 0-5' description is accurate and primary (the worked Fandom example matches the engine), and is BETTER-sourced than the survey credited; the only correction is that the conversion uses base-7 division, and the 'base-5' aspect refers to the five eye orientations, not the conversion radix.",
+    "confidence": "confirmed",
+    "evidence": "Fandom worked example reproduced exactly in Python (div-by-7). The survey flagged this claim as 'weakly sourced / possibly garbled' — that flag is WRONG; it is in fact one of the best-substantiated primary facts. The wiki's prose 'converted into values from 0-5' is loose but the accompanying code is exact.",
+    "source": "https://noita.fandom.com/wiki/Eye_Messages",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "claim": "The Eye Messages are 9 messages: 5 in the East parallel world and 4 in the West (no West 5).",
+    "confidence": "confirmed",
+    "evidence": "noita.wiki.gg states '9 messages ... 5 in East ... 4 in West'; eyes.json contains exactly keys east1-east5 and west1-west4 (9 entries), no west5.",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages ; https://github.com/ngraham20/NoitaCryptographyResearch (eye/eyes.json)",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "claim": "Each glyph has 5 distinct orientations, encoded as digits 0-4 (center/up/right/down/left); digit 5 is a structural DELIMITER, not a 6th glyph.",
+    "confidence": "confirmed",
+    "evidence": "eyes.json declares '\"delimiter\":5' and '\"eyes\":[\"center\",\"up\",\"right\",\"down\",\"left\"]'. The raw message strings contain digits 0-5; 5 only ever appears at structural boundaries.",
+    "source": "https://github.com/ngraham20/NoitaCryptographyResearch (eye/eyes.json)",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "claim": "Stripping the delimiter (digit 5) makes EVERY message's glyph count divisible by 3, confirming the trigram structure.",
+    "confidence": "confirmed",
+    "evidence": "My computation on all 9 eyes.json strings: after removing 5s, lengths are 297,354,411,357,342 (East 1-5) and 309,306,372,360 (West 1-4) — all %3==0.",
+    "source": "Direct computation on eye/eyes.json raw data (this investigation)",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "claim": "Splitting a message on the delimiter yields rows of exactly 39 glyphs, with the bottom two rows differing by at most 1 — matching the wiki's 'max 39 per row' and 'bottom two rows vary by at most 1' claims.",
+    "confidence": "confirmed",
+    "evidence": "east1 splits into rows [39,39,39,39,39,39,32,31]; west1 into [39,39,39,39,39,39,38,37]. Bottom two differ by exactly 1 in both.",
+    "source": "Direct computation on eye/eyes.json (this investigation); wiki text https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "claim": "The total number of trigrams across all 9 messages is exactly 1036, matching the wiki's probability formula exponent.",
+    "confidence": "confirmed",
+    "evidence": "Summing trigram counts (99+118+137+119+114+103+102+124+120)=1036. Wiki gives probability '(83/125)^1036 = 5.8362007929568295×10^-185'. The exponent is the trigram count, cross-validating the dataset.",
+    "source": "Direct computation (this investigation); https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "claim": "The orthodox reading model groups glyphs into trigrams read as 3-digit base-5 numbers (000-444 = decimal 0-124), with the accepted order yielding an unbroken 0-82 range (83 distinct symbols).",
+    "confidence": "likely",
+    "evidence": "Stated on the wiki and repo. BUT this holds only under a specific reading order: under the raw stored order I get 114 distinct values spanning 0-122 WITH GAPS, not 0-82. The 0-82 result requires Toboter's special order (1 of ~86k tested / 1 of 36 standard orders).",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages ; contradicted-on-raw-order by direct computation (this investigation)",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "claim": "Of ~86,000 tested reading orders (Toboter's script), exactly one produces the contiguous 0-82 range; chance probability ≈ 5.84×10^-185 = (83/125)^1036.",
+    "confidence": "likely",
+    "evidence": "Wiki: 'Toboter wrote a script that tested ~86,000 reading order possibilities' and gives the exact probability. The exponent 1036 is verified as the true trigram count. The result is a genuine statistical finding but the selection criterion (contiguity) is partly assumed (potential circularity, per open questions).",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "claim": "Frequency analysis on the trigrams is flat / non-monoalphabetic, ruling out simple substitution.",
+    "confidence": "confirmed",
+    "evidence": "Repo README quote: 'Frequency analysis has been tried on the trigrams, with no workable results, indicating that simple substition isn't the answer.'",
+    "source": "https://github.com/ngraham20/NoitaCryptographyResearch",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "claim": "The cipher is polyalphabetic with ~83 internal states and exhibits isomorphs (Lymm's gap patterns); recurrences at distance 4 are reported at ~2x expected rate, with no trigram appearing twice in a row.",
+    "confidence": "disputed",
+    "evidence": "Stated by wiki/community. BUT on the RAW stored order my computation finds 17 adjacent-equal trigrams (violating 'no symbol twice in a row') and distance-4 recurrences (10) are NOT elevated vs distance 1 (17) or 3 (15). These properties are therefore conditional on the correctly-reordered ciphertext, which is itself only inferred — the claim is true only AFTER assuming the reading order is solved.",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages ; contradicted-on-raw-order by direct computation (this investigation)",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "claim": "Chaocipher and Hutton ciphers, and codewarrior0's 'alphabet chaining' attack, were tried and FAILED to reproduce/break the eyes' isomorphs.",
+    "confidence": "confirmed",
+    "evidence": "Steam (simplesmiler, Aug 2 2025) discusses Chaocipher as 'similar in spirit' but non-matching; wiki/search confirm 'after Lymm discovered isomorphs and codewarrior0 ... uncovered ... alphabet chaining ... the attack did not work on the eyes.'",
+    "source": "https://steamcommunity.com/app/881100/discussions/0/4700161534027181070/ ; https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "claim": "Perseus (Oct 22 2024) observed that ciphertext characters used in non-shared sections never reappear in later shared sections (p≈0.192% if random), hypothesizing the key permutes (swaps positions) after each character use; simplesmiler tied this to plaintext-driven cipher-alphabet permutation / non-commutative permutation ciphers.",
+    "confidence": "confirmed",
+    "evidence": "Direct quotes from the Steam 'Eye Messages discovery(?)' thread: Perseus 'every time a ciphertext character is used, its position in the key changes, probably swapping it with some other character'; simplesmiler ties to Chaocipher-like permutation models. Marked unresolved.",
+    "source": "https://steamcommunity.com/app/881100/discussions/0/4700161534027181070/",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "claim": "The repo's primary active model is an 'incrementing cipher': outer ring = 83 glyphs, inner ring = plaintext with gaps, ring rotates one position after each encoded character. It is unproven.",
+    "confidence": "confirmed",
+    "evidence": "Repo text: 'Incrementing cipher, where the outer ring has the 83 glyphs, and the inner ring has the plaintext with gaps. Each time you encode a plaintext character to a glyph, rotate the ring one position.' No solution claimed.",
+    "source": "https://github.com/ngraham20/NoitaCryptographyResearch",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "claim": "The 83-symbol display alphabet is rendered (in the repo) as Elder Futhark runes, with 5 display formats: runic, decimal (0-82), ASCII, alchemic (alchemical Unicode), and trigrams.",
+    "confidence": "confirmed",
+    "evidence": "Repo lists the 83-rune string 'ᚠᚡᚢ...ᛲ' and the formats; eyes.json has '\"format\":\"trigrams\",\"style\":\"runic\"'. 5x5x5=125 trigram space, 83 of which are used.",
+    "source": "https://github.com/ngraham20/NoitaCryptographyResearch",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "claim": "Eye Messages only generate in unmodded vanilla runs, after entering the corresponding parallel world, in locations using background_cave_02.png, are seed-determined, and reset on game close; they are engine-generated, not stored in game files.",
+    "confidence": "confirmed",
+    "evidence": "Wiki lists all conditions incl. background_cave_02.png, unmodded, parallel-world trigger, reset-on-close, and a seed example (1249563923) with coordinates. Wikipedia: messages 'generated by the game engine itself rather than loaded from files' / 'do not appear when using mods.'",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages ; https://en.wikipedia.org/wiki/Noita_(video_game)",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "claim": "There is NO verified developer statement (Petri Purho / Olli Harjola / Arvi Teikari / Nolla) confirming the eyes encode a real decodable message. Developer DENIALS in the wiki concern the Orb-Room symbol, not the eyes.",
+    "confidence": "confirmed",
+    "evidence": "Wikipedia and wiki say only 'unsolved.' Mysteries_and_Oddities: Orb-Room symbol denied by 'both [artists Arvi and Antti] ... Additionally, Olli has denied putting it there'; Petri attribution is speculative ('likely ... means something to Petri'). No dev quote ties to the eyes. Search-summary claims that 'devs confirmed it's meaningful' are unsourced.",
+    "source": "https://en.wikipedia.org/wiki/Noita_(video_game) ; https://noita.wiki.gg/wiki/Mysteries_and_Oddities",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "claim": "The PAM5 theory (mapping 5 eye orientations to telecom 5-level pulse-amplitude modulation) was debunked.",
+    "confidence": "likely",
+    "evidence": "YouTube video title explicitly contains '[Debunked]' by the examiner (Dec 2022). Only the title was retrievable; no primary refutation text was accessible, so 'likely' rather than 'confirmed'.",
+    "source": "https://www.youtube.com/watch?v=TdHYTu99GZ4",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "claim": "No credible methoded public solution exists; unmethoded claims are explicitly to be disbelieved per the community rule.",
+    "confidence": "confirmed",
+    "evidence": "Steam 'i solved the eyes' thread: feed4fun said 'i solved the eyes' then 'no i wont tell you, kbye'; 5hadowfax cited the rule 'anyone claiming to have solved the eyes without presenting a method should not be believed.' Wiki repeats this rule.",
+    "source": "https://steamcommunity.com/app/881100/discussions/0/4852155152090234980/ ; https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "claim": "The octahedron / 3D-projection theory is community-popular but produces inconsistent, only-vaguely-glyph-like results and is unsubstantiated.",
+    "confidence": "likely",
+    "evidence": "Described on the wiki as a theory (motivated by meditation-cube imagery) without a working result. No primary reproduction found.",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "claim": "Other Noita symbol systems ARE solved, providing contrast: Common Glyphs map 1:1 to English (e.g. 'SEEKTHEEND', 'BRING THE TREASURE HERE', 'we are watching you'); Orb-Room glyphs map to a Finnish creation myth; Material Symbols are decoded.",
+    "confidence": "confirmed",
+    "evidence": "Steam guide id 3281214266 catalogs these as SOLVED with decoded examples, vs Eye Messages / Hiisi symbols / magic-circle-center as UNSOLVED.",
+    "source": "https://steamcommunity.com/sharedfiles/filedetails/?id=3281214266",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "claim": "9 messages, no West 5; 1036 base-5 trigrams cover the contiguous set 0-82; lengths divisible by 3; no consecutive doubles.",
+    "confidence": "confirmed",
+    "evidence": "My code on SirCapybar data.csv: 1036 trigrams, all 83 values present, none above 82, doubles=0, lengths divisible by 3.",
+    "source": "data.csv",
+    "topic": "Noita Eye Messages eye-glyph puzzle (verification)"
+  },
+  {
+    "claim": "Orientation 0=center,1=up,2=right,3=down,4=left,5=line break; near-flat IC rules out monoalphabetic; 5.8362007929568295e-185=(83/125)^1036.",
+    "confidence": "confirmed",
+    "evidence": "eyes.json center/up/right/down/left + delimiter 5; IC 0.01284 vs uniform 0.01205; computed (83/125)^1036.",
+    "source": "eyes.json + wiki.gg",
+    "topic": "Noita Eye Messages eye-glyph puzzle (verification)"
+  },
+  {
+    "claim": "Shared sections branch: all 9 share trigrams 66 then 5; East-i/West-i share 0 leading trigrams; values agree across 3 independent extractions.",
+    "confidence": "confirmed",
+    "evidence": "East1 50,66,5,48,62,13,75 matches Toboter wheel_recovery.py and ngraham20 README byte-for-byte.",
+    "source": "my analysis + wheel_recovery.py",
+    "topic": "Noita Eye Messages eye-glyph puzzle (verification)"
+  },
+  {
+    "claim": "Leading hypothesis is a Group Autokey/deck cipher over symmetric group S_83; unsolved; Tolkien text is a known-plaintext GA test; code engine-built; plaintext language unknown.",
+    "confidence": "likely",
+    "evidence": "Lymm wiki GAK over S_83 deck of 83 cards; best.out Tolkien target with garbage output; wiki code in engine; Toboter ships Finnish and English.",
+    "source": "Lymm wiki + best.out",
+    "topic": "Noita Eye Messages eye-glyph puzzle (verification)"
+  },
+  {
+    "claim": "Lead-82/gold-79 atomic idea tested-inert (82 is lead); hex-then-0-5 wiki claim unsourced; orb-room (Finnish) and common (English) glyphs solved while eyes are not; spawn only unmodded on background_cave_02.",
+    "confidence": "confirmed",
+    "evidence": "ngraham20 TASKS.md atomic makes no difference; data is 0-4 with a 5 delimiter, no hex; Steam guide eyes biggest unsolved mystery.",
+    "source": "TASKS.md + Steam 3281214266",
+    "topic": "Noita Eye Messages eye-glyph puzzle (verification)"
+  },
+  {
+    "claim": "There are 9 eye messages per world: 5 East, 4 West; every East message except the last (East 5) has a mirrored-location West counterpart (the 'missing West 5').",
+    "confidence": "confirmed",
+    "evidence": "wiki.gg: '4 messages ... western ... 5 messages ... eastern'. Parallel Worlds wiki: 'Every eye message, except the last one in East, has a corresponding message in the opposing parallel world.' Community data.csv contains exactly East 1-5 and West 1-4 (9 rows).",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages ; https://github.com/Doctor-Ned/NoitaEyeGlyphResearch (data.csv)",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "claim": "Each eye is one of 5 orientations encoded 0-4; value 5 is a non-displayed line break; the engine converts integer strings to glyphs via a lookup table.",
+    "confidence": "confirmed",
+    "evidence": "Fandom (via search index): 'Individual eye glyphs are in one of five orientations'; 'The \"5\" character creates a new line of eyes and is not actually displayed otherwise'; 'converting strings of numbers into eye glyphs using a table for values 0, 1, 2, 3, and 4.' Community data.csv stores only values 0-4 (min 0, max 4 in every message), consistent with 5 being a separator stripped from transcription.",
+    "source": "https://noita.fandom.com/wiki/Eye_Messages (search snippets) ; data.csv analysis",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "claim": "Glyphs are read in trigrams (3 eyes = a 3-digit base-5 number 000-444 = decimal 0-124); every message's eye count is divisible by 3.",
+    "confidence": "confirmed",
+    "evidence": "wiki.gg: 'three-digit base 5 number from 000 to 444', range 0-124. My computation on data.csv: eye counts 297,309,354,306,411,372,357,360,342 — ALL divisible by 3 (99,103,118,102,137,124,119,120,114 trigrams).",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages ; direct computation on data.csv",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "claim": "In the accepted reading order, the 1036 trigram values form an UNBROKEN range 0-82: exactly 83 distinct values appear, none below 0, none above 82, none of 0-82 missing.",
+    "confidence": "confirmed",
+    "evidence": "I summed trigrams across all 9 messages from data.csv: total = 1036; min = 0; max = 82; distinct values = 83; values 0-82 missing = none; values >82 present = none. This EXACTLY matches the wiki's exponent 1036 and the 0-82 claim.",
+    "source": "Direct computation on https://github.com/Doctor-Ned/NoitaEyeGlyphResearch data.csv ; corroborated by https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "claim": "The probability of the 0-82 pattern arising randomly is (83/125)^1036 = 5.8362007929568295e-185; the cipher is inferred to have ~83 internal states and to be polyalphabetic.",
+    "confidence": "likely",
+    "evidence": "wiki.gg verbatim: '(83/125)^1036 = 5.8362007929568295*10^-185' and 'polyalphabetic ... probably at least around 88, so it is likely 83 internal states'. The 1036 and 83 are confirmed by data; '~83 states / polyalphabetic' is a statistical inference, not a proven cipher.",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "claim": "East/West 'counterparts' are mirrored in LOCATION, not byte-identical in content; counterparts share large leading trigram blocks but diverge, and all 9 messages share the same first two trigrams [66,5].",
+    "confidence": "confirmed",
+    "evidence": "My SequenceMatcher analysis on data.csv: East1 vs West1 share a 24-trigram common block; East4 vs West4 share 20; but East2 vs West2 share only 2, East3 vs West3 only 5. Trigram index 1-2 of ALL nine messages = 66,5. Messages cluster into families (East1/West1/East2 start 66,5,48,62,13,75,29; East3/East4/West4/East5 start 66,5,49,75,54,2,60). This CORRECTS the survey's implication that counterparts are identical.",
+    "source": "Direct computation on data.csv",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "claim": "Eye glyphs are rendered by the engine (no sprite/PNG asset) and the spawn code is hardcoded C++ — not a Lua script extractable from data.wak.",
+    "confidence": "confirmed",
+    "evidence": "Fandom: 'The messages are rendered using the engine, and do not have any sprites associated with them'; '... is not a Lua script and cannot be extracted from the archive—it is built into the engine itself, and the graphics are also not in the archive but are generated on the fly.'",
+    "source": "https://noita.fandom.com/wiki/Eye_Messages (search snippets)",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "claim": "The message-generation function was reverse-engineered in Ghidra; community attributes this to Ninji (downloadable ~60 MB Ghidra project), with a save file provided by FuryForged.",
+    "confidence": "likely",
+    "evidence": "Multiple secondary sources (Fandom snippets, search index) state '@Ninji' did the RE and a '~60 MB' Ghidra project / decompiled generation function is downloadable, with FuryForged's save. I could NOT directly load Ninji's Ghidra project or original tweet/page to verify the 60 MB figure, the literal decompiled function, or that the plaintext is/ isn't an embedded blob. The noita-player data.wak doc credits a different group ('feet crew discord'), not Ninji, for THAT work.",
+    "source": "https://noita.fandom.com/wiki/Eye_Messages ; https://twitter.com/_Ninji/status/1252617459292659719 (not directly fetched)",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "claim": "Only PLACEMENT of eye messages is seed-dependent; the content is generated and reported identical across seeds.",
+    "confidence": "likely",
+    "evidence": "wiki.gg: locations 'randomly determined by the world seed'. Lymm's tool finds per-seed COORDINATES only ('provide a seed ... it will provide that seed's eye message coordinates'), implying content is fixed. Direct binary confirmation that content cannot vary by seed is NOT available to me — community consensus, not verified from disassembly.",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages ; https://gitlab.com/realgonzogames/lymms-binoculars",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "claim": "Eye messages spawn only in unmodded runs (condition resets on game close), require background_cave_02.png, and only appear after the 'Entered East/West' parallel-world message triggers.",
+    "confidence": "confirmed",
+    "evidence": "wiki.gg: 'eye messages do not generate if mods have been enabled at any point during the run', resets when 'player closes the game'; requires 'background_cave_02.png'; needs 'Entered East/West X message' trigger. Search: 'They will not appear until the \"Entered East/West\" message is triggered.'",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages ; https://noita.wiki.gg/wiki/Parallel_Worlds",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "claim": "The puzzle is publicly UNSOLVED; no reproducible plaintext decryption exists; loud 'solved' claims have not produced a method.",
+    "confidence": "confirmed",
+    "evidence": "wiki.gg: messages 'have yet to be solved'. Steam thread 'i solved the eyes' (feed4fun): poster says 'no i wont tell you, kbye'; community cites 'anyone claiming to have solved the eyes without presenting a method should not be believed.' FuryForged's 2023 'OMG the Noita eyes have been solved!' tweet did not result in a public solution.",
+    "source": "https://steamcommunity.com/app/881100/discussions/0/4852155152090234980/ ; https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "claim": "data.wak is a WizardPak archive: 16-byte little-endian header {u32 version, u32 file_count, u32 first_file, u32 pad}, then file entries {u32 offset, u32 size, u32 name_len, char name[name_len]}, with file data at the stored offsets.",
+    "confidence": "confirmed",
+    "evidence": "wiki.gg Technical:File_Formats: 'struct WizardArchive { le u32 version; le u32 file_count; le u32 first_file; padding[4]; WakFile files[]; }' and 'struct WakFile { le u32 offset; le u32 size; le u32 name_len; char name[name_len]; char data[size] @ offset; }'. UnWak reads offset-4=num_files, offset-8=files_offset; wpak/LuaWAK reads identical TOC layout. All little-endian.",
+    "source": "https://noita.wiki.gg/wiki/Technical:_File_Formats ; https://github.com/isJuhn/UnWak (WakDecryptor.cs) ; https://github.com/zatherz/wpak (wak.lua)",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "claim": "data.wak file contents are encrypted with AES-128 in CTR mode (NOT OFB).",
+    "confidence": "confirmed",
+    "evidence": "UnWak ships Aes128CounterMode.cs implementing AES CipherMode.ECB + counter + XOR (textbook CTR), used by WakDecryptor. RidgeX gist: 'AES.MODE_CTR'. The noita-player doc hedges 'OFB and CTR are the same if your data is a single block' — but the working implementations use CTR. This corrects the survey's 'OFB/CTR' ambiguity.",
+    "source": "https://github.com/isJuhn/UnWak (Aes128CounterMode.cs) ; https://gist.github.com/RidgeX/e159bb7df97b2e18209aea2804a79d7a",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "claim": "data.wak key/IV derivation: PRNG seeds are 0 (key), 1 (header IV), 2147483646 (filetable IV), and the file index (per-file IV) — each first offset by +0x165EC8F (23,456,911) — using a Park-Miller/MINSTD PRNG (mult 16807, mod 2^31-1). The '123/0x7B' is a value AES-encrypted during archive construction, NOT the key-derivation seed.",
+    "confidence": "confirmed",
+    "evidence": "UnWak WakTypes.cs: 'wak_key_seed = 0; wak_header_IV_seed = 1; wak_filetable_IV_seed = 2147483646'. WakDecryptor.GenerateIV: 'iseed += 0x165ec8f' then seeds WakRng; per-file uses 'GenerateIV(IV, i)'. WakRng.cs uses multiplier 16807 and modulus 0x7FFFFFFF (Park-Miller). RidgeX gist independently: 'derive_key(0)' master key, 'derive_key(index)' per-entry IV, header 'with index 1'. noita-player doc separately confirms '0x165EC8F' constant and says the 123 is AES-encrypted 'when constructing WizardPak'. This CORRECTS the survey's 'PRNG seeded with constant 123'.",
+    "source": "https://github.com/isJuhn/UnWak (WakTypes.cs, WakRng.cs, WakDecryptor.cs) ; https://gist.github.com/RidgeX/e159bb7df97b2e18209aea2804a79d7a ; https://github.com/noita-player/noitadocs/wiki/Reversing-data.wak",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "claim": "Noita separately encrypts .salakieli files (save/state data) with AES-128-CTR using literal passphrase-derived key/IV strings, distinct from data.wak.",
+    "confidence": "confirmed",
+    "evidence": "RidgeX gist lists per-file passphrases, e.g. magic_numbers: key b'KnowledgeIsTheHighestOfTheHighest', IV b'WhoWouldntGiveEverythingForTrueKnowledge'; world_state: b'TheTruthIsThatThereIsNothing'/b'MoreValuableThanKnowledge' (AES truncates to 16 bytes). wiki.gg notes AES128-CTR applies to .salakieli. 'Salakieli' is Finnish for a secret/cipher language.",
+    "source": "https://gist.github.com/RidgeX/e159bb7df97b2e18209aea2804a79d7a ; https://noita.wiki.gg/wiki/Technical:_File_Formats",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "claim": "data.wak can be unpacked without third-party tools via Noita's own launch flag; community tools (wpak, UnWak, Noita-Wak-Extractor, noita_unicorn, RidgeX gist) reimplement the format.",
+    "confidence": "confirmed",
+    "evidence": "wiki.gg: assets 'can be extracted by passing the -wizard_unpak command-line flag to Noita.' Search corroborates copying tools_modding/ files to Noita root and running data_wak_unpack.bat on Windows. wpak usage: 'wpak.lua unpack data.wak some_directory/'.",
+    "source": "https://noita.wiki.gg/wiki/Technical:_File_Formats ; https://github.com/zatherz/wpak ; https://github.com/isJuhn/UnWak",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "claim": "Finding eye messages per-seed is done with Lymm's Python tool (coordinates only) or Chillie's web port; an older method used a Cheat Engine Lua script that breaks on each Noita update.",
+    "confidence": "confirmed",
+    "evidence": "Lymm README: 'python script to find the mysterious Eye Messages for any seed', outputs 'coordinates'. Chillie web tool linked. Fandom (snippet): a Cheat Engine Lua-Engine script 'will print out the generated coordinates of the eyes, but when Noita updates, the script needs to be updated'.",
+    "source": "https://gitlab.com/realgonzogames/lymms-binoculars ; https://chillie-ilya.github.io/lymms-binoculars-web/ ; https://noita.fandom.com/wiki/Eye_Messages",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "claim": "There are 9 eye messages per world: 4 in the West parallel world and 5 in the East; each East message has a West counterpart at an identical location except East 5 (no West 5). They spawn only in caves with background_cave_02.png after entering the matching parallel world; locations are determined by the world seed.",
+    "confidence": "confirmed",
+    "evidence": "wiki.gg verbatim: '9 total eye messages ... 4 messages generating in the western parallel world, and 5 ... in the eastern'; example seed 1249563923 table lists East 1-5 and West 1-4 coords with 'Message 5 (no counterpart)'. ngraham20 repo notes 'West 5 is absent'.",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages ; https://github.com/ngraham20/NoitaCryptographyResearch",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "claim": "Eye messages appear ONLY in unmodded runs; if mods have been enabled at any point during the run they do not spawn (condition resets on game close).",
+    "confidence": "confirmed",
+    "evidence": "wiki.gg verbatim: 'the eye messages do not generate if mods have been enabled at any point during the run' and 'Condition resets on game close'.",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "claim": "The eye-spawning code is built into the engine, is NOT a Lua script, and the glyph graphics are generated on the fly (no sprites) and are NOT stored in data.wak, so the content cannot be extracted by unpacking assets.",
+    "confidence": "confirmed",
+    "evidence": "Canonical Google Doc verbatim: 'the eye message spawning code is not a Lua script and cannot be extracted from the game archive ... built directly into the engine ... Graphics are similarly generated on-the-fly'. Wikipedia: 'generated by the game engine itself rather than loaded from the game files'.",
+    "source": "https://docs.google.com/document/d/1s6gxrc1iLJ78iFfqC2d4qpB9_r_c5U5KwoHVYFFrjy0 ; https://en.wikipedia.org/wiki/Noita_(video_game)",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "claim": "Glyphs have 5 orientations; read as triangular trigrams = 3-digit base-5 numbers (000-444 = base-10 0-124). The orthodox reading order yields an unbroken set of exactly 83 distinct values (0-82).",
+    "confidence": "confirmed",
+    "evidence": "wiki.gg: '5 distinct eye glyph orientations', 'three-digit base 5 number from 000 to 444', '0-124 possible values', 'Orthodox reading order: ... unbroken 0-82 range (83 total values from 125 possible)'.",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "claim": "A brute force of ~86,000 reading orders (Toboter) found no other reading order matching the 0-82 statistical significance; random generation of the unbroken set has probability (83/125)^1036 = 5.8362e-185.",
+    "confidence": "confirmed",
+    "evidence": "wiki.gg verbatim quotes the ~86,000 figure linking to Toboter's archive/eyeGlyphs-trigram order bruteforce.py, and the formula '(83/125)^1036 = 5.8362007929568295 x 10^-185'.",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages ; https://github.com/ToboterXP/EyeGlyphs/blob/main/archive/eyeGlyphs-trigram%20order%20bruteforce.py",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "claim": "Xkeeper0's PHP transcoder reproduces the engine's decode math: stores each of 9 messages as arrays of [u32,u32] pairs, reverses the array, combines each pair into a 64-bit number (n0 + n1*2^32), divides by 7 once, then repeatedly emits (a mod 7) - 1 and divides by 7; output order is reversed; values are -1..5 with 5 = newline.",
+    "confidence": "confirmed",
+    "evidence": "Full raw gist retrieved verbatim: define U32_MAX=4294967296; array_reverse(get_message); a=bcadd(n0,bcmul(n1,U32_MAX)); a=bcdiv(a,7,0); do { out[]=bcmod(a,7,0)-1; a=bcdiv(a,7,0);} while a!=0; out=array_reverse(out); '$c === 5 ? \"\\n\"'. Message 0 has 14 pairs (first pair [0x5634505c,0xacf68674]). Created 2021-04-29.",
+    "source": "https://gist.githubusercontent.com/Xkeeper0/a6eda18571ef889be291822c400cc6c8/raw",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "claim": "IMPORTANT NUANCE/CORRECTION: the ENGINE storage/decode is base-7 over 64-bit ints emitting -1..5 (5=newline), which is a different layer from the human base-5 trigram READING (0-124) of the rendered glyphs. The survey's 'base-7/modulo, symbol values -1..5' description is correct; the popular 'base-5 only' framing describes the rendered glyphs, not the internal decode.",
+    "confidence": "confirmed",
+    "evidence": "Xkeeper0 code uses base-7 (bcdiv/bcmod 7) and outputs -1..5; wiki.gg separately describes the visible glyphs as base-5 trigrams (0-124). Both layers verified independently.",
+    "source": "https://gist.githubusercontent.com/Xkeeper0/a6eda18571ef889be291822c400cc6c8/raw ; https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "claim": "Ninji reverse-engineered the Feb 3, 2021 Noita build and published a ~60 MB Ghidra project plus a decompiled message-generation function; he is the game RE'er @_ninji (wuffs.org), distinct from 'ghidraninja' (stacksmashing).",
+    "confidence": "likely",
+    "evidence": "Multiple sources (canonical Google Doc, search summaries of the Scribd write-up) state 'Ninji ... Ghidra project (60 MB) ... decompiled function showing message generation' and 'instructions ... for the Feb 3, 2021 build'. Ninji's identity confirmed via wuffs.org game-RE blog. The exact live download URL was not directly captured (hosted in the doc/Scribd, both partially gated).",
+    "source": "https://docs.google.com/document/d/1s6gxrc1iLJ78iFfqC2d4qpB9_r_c5U5KwoHVYFFrjy0 ; https://wuffs.org/blog/reversing-games-with-hashcat",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "claim": "Community cryptanalysis concludes the cipher is polyalphabetic and likely auto-keyed: ciphertext char is conditionally dependent on the previous char, with ~83 internal states.",
+    "confidence": "likely",
+    "evidence": "CodeWarrior0 Analytical Overview verbatim: 'letters appear evenly distributed', no periodicity ('not much more than noise'), 'No letter occurs twice in a row', '26 coincidences per 1000' at offset 4, 'no repeats more than two letters long', 'Six ... segments of the first three messages are Isomorphs'; 'slightly favors an auto-keyed cipher'. wiki.gg: 'polyalphabetic' and 'likely 83 internal states'. Inference, not proof.",
+    "source": "https://docs.google.com/document/d/1QeagH8TklJsd8iribMtT5LIRL91laOUU_tFcVl7OOqA ; https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "claim": "The eye messages remain UNSOLVED; no public, method-backed decryption to plaintext exists.",
+    "confidence": "confirmed",
+    "evidence": "wiki.gg, the canonical Google Doc ('we don\\'t know what the eyes mean'), and the Steam guide ('biggest unsolved mystery', 'no known way to translate them') all state unsolved as of their latest updates (wiki.gg last updated 2026-05-13).",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages ; https://steamcommunity.com/sharedfiles/filedetails/?id=3281214266",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "claim": "DOWNGRADED: The widely repeated claim that 'developers confirmed the eye messages encode meaningful content' lacks any citable primary dev quote. The well-sourced statement is only that they 'are known to contain information' (a community inference from the 0-82 statistics), not a dev confirmation.",
+    "confidence": "disputed",
+    "evidence": "Wikipedia makes NO dev-confirmation claim (only engine-generated + unsolved). wiki.gg says messages 'are known to contain information, but have yet to be solved' — the wiki's own inference. The 'developers confirmed meaningful' wording surfaces in Grokipedia (AI-generated, no primary citation found) and unsourced Fandom synthesis.",
+    "source": "https://en.wikipedia.org/wiki/Noita_(video_game) ; https://grokipedia.com/page/Noita_(video_game) ; https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "claim": "PRIMARY context on developer attitude toward dataminers: the official noitagame.com/for_the_seekers_of_truest_of_knowledge page (reached via the 34-orb QR-code ending) 302-redirects to a Rickroll (youtube oHg5SJYRHA0); a related hidden message decodes to 'So long and thanks for all the fish!'. Nolla deliberately trolls secret-hunters.",
+    "confidence": "confirmed",
+    "evidence": "WebFetch of the noitagame.com URL returned a 302 redirect to youtube.com/watch?v=oHg5SJYRHA0 (Rickroll). TV Tropes Noita Trivia + search corroborate the QR-code-to-Rickroll and 'So long and thanks for all the fish' (Hitchhiker's Guide) anti-datamining jokes.",
+    "source": "https://noitagame.com/for_the_seekers_of_truest_of_knowledge/ ; https://tvtropes.org/pmwiki/pmwiki.php/Trivia/Noita",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "claim": "Pyry's Conditions (9 constraints any theory must satisfy) and CodeWarrior0/Toboter conclusions are documented on wiki.gg, including 'complete absence of double trigrams' and 'first trigram differs between messages but the second trigram is identical across all messages'.",
+    "confidence": "confirmed",
+    "evidence": "wiki.gg enumerates 9 Pyry's Conditions verbatim incl. 'Complete absence of double trigrams' and condition 7 about second trigram identical across messages, plus the 'Based on 1 and 4 the cipher is polyalphabetic' / 'Based on 8 and 9 ... conditionally dependent on the previous ciphertext character' reasoning.",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "claim": "Seed behavior: eye message LOCATIONS are seed-dependent (a given seed always spawns them in the same place); the structural/statistical properties hold across seeds. Whether the exact trigram CONTENT is byte-for-byte identical across all seeds is claimed by the community but not proven in a primary source I could retrieve.",
+    "confidence": "likely",
+    "evidence": "Search/community summaries: 'A given seed will always spawn the eye messages in the same locations'; Xkeeper0's transcoder hard-codes ONE fixed set of message integers (implying seed-invariant content), but no source explicitly demonstrates the decoded values are identical across many independent seeds. wiki.gg did not state cross-seed content invariance when queried.",
+    "source": "https://gist.githubusercontent.com/Xkeeper0/a6eda18571ef889be291822c400cc6c8/raw ; https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "claim": "Tool/repo inventory (verified): SirCapybar/NoitaEyeGlyphResearch is C# (TrigramCollection/TrigramLineCollection/TrigramProvider/Statics; IoC, frequency, Vigenere, Caesar, diamond cipher, Polybius cube; Trifid 'useless'). ToboterXP/EyeGlyphs is Python/GPL-3.0 (alphabet+finnish/wheel/transposition hill-climbers, noitaGlyphs.txt, isomorphs.txt, cauldron data, English+Finnish n-gram corpora, essence/diamond visualizations). ngraham20/NoitaCryptographyResearch is Python 65%/Rust 31%/Lua 3% (Eyes Cipher v0.1.0; runic/decimal/ASCII/alchemic datasets; wheel ciphers; notes 'West 5 absent'). Azertinv/cipher_fuzzer is Rust (Shift/Scramble/Indexer/Repeater/Ciphertext-Autokeyer/Progressor; scores vs letter uniformity, index bounds, isomorph counts, periodic IoC); cipher_bruteforcer is its Python prototype. lastCoyotes/eyeGlyphs is Python, 1 star (main.py + subsetmap3dPam5.txt, PAM5/3D theory).",
+    "confidence": "confirmed",
+    "evidence": "Each repo page fetched and inventoried directly; languages, files, classes, license, and Python->Rust lineage confirmed from the GitHub pages.",
+    "source": "https://github.com/SirCapybar/NoitaEyeGlyphResearch ; https://github.com/ToboterXP/EyeGlyphs ; https://github.com/ngraham20/NoitaCryptographyResearch ; https://github.com/Azertinv/cipher_fuzzer ; https://github.com/Azertinv/cipher_bruteforcer ; https://github.com/lastCoyotes/eyeGlyphs",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "claim": "Lymm's Binoculars (GitLab, realgonzogames, created 2024-01-13) takes a seed and outputs eye-message coordinates; chillie-ilya's web port provides an interactive map. The Cauldron Room is a SEPARATE unmodded secret with no wiki-established direct link to the eyes.",
+    "confidence": "likely",
+    "evidence": "wiki.gg links 'Lymm's Binoculars (Python)' to gitlab.com/realgonzogames/lymms-binoculars and the web tool to chillie-ilya.github.io/lymms-binoculars-web; GitLab confirms repo exists (created 2024-01-13) but README/NumPy dependency not directly read (page didn't render body). Cauldron treated separately by all sources.",
+    "source": "https://gitlab.com/realgonzogames/lymms-binoculars ; https://chillie-ilya.github.io/lymms-binoculars-web/ ; https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "claim": "The PAM5 / 3D-octahedron projection family of theories (lastCoyotes subsetmap3dPam5) is low-engagement and was publicly debunked; most 3D projections are considered inconsistent with the isomorph/alignment constraints.",
+    "confidence": "likely",
+    "evidence": "A YouTube video titled '[Debunked] PAM5, a theory about how to solve the infamous Noita eyes puzzle' exists; lastCoyotes/eyeGlyphs has only 1 star/7 commits. (Video body/transcript did not render for verbatim debunk reasoning.)",
+    "source": "https://www.youtube.com/watch?v=TdHYTu99GZ4 ; https://github.com/lastCoyotes/eyeGlyphs",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "claim": "There are 9 Eye Messages: 4 in the West Parallel World and 5 in the East Parallel World; counterparts spawn in identical locations in opposite parallel worlds, with one exception (West-5/the 5th East message) having no western counterpart.",
+    "confidence": "confirmed",
+    "evidence": "noita.wiki.gg verbatim via fetch: '4 messages generating in the western parallel world, and 5 messages generating in the eastern parallel world' with 'counterpart messages in identical locations ... with one exception having no western counterpart.' ngraham20 repo notes West 5 'may be either a trigger location or an event location that triggers when the puzzle is solved.'",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages ; https://github.com/ngraham20/NoitaCryptographyResearch",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "claim": "The Eye Messages (and the Cauldron Room) are visible ONLY when playing with no mods enabled.",
+    "confidence": "confirmed",
+    "evidence": "Wiki: 'Eye Messages are one of two major secrets in Noita that can only be seen when playing without any mods enabled.'",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "claim": "Glyphs appear in 5 orientations, at most 39 per row, every second row offset to fit between neighbors; each message's total glyph count is divisible by three (enabling triangular 'trigram' grouping).",
+    "confidence": "confirmed",
+    "evidence": "Wiki verbatim: 'five distinct eye glyphs', 'at most 39 individual eyes in each row', 'Every second row is offset to fit in-between the neighboring rows', 'Every message has a total number of eye glyphs that is divisible by three.'",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "claim": "Each trigram is read as a 3-digit base-5 number (000–444) converted to base-10, giving possible values 0–124; exactly one of 36 standard reading orders yields a contiguous/unbroken 0–82 range, with cited odds (83/125)^1036 ≈ 5.836×10^-185. This is THE main 'intentional, not noise' argument.",
+    "confidence": "confirmed",
+    "evidence": "Wiki fetch quoted both the 0–124 range, the single reading order producing 0–82, '36 possible standard reading orders', and the probability '(83/125)^1036 ≈ 5.836×10⁻¹⁸⁵' (the exponent is 1036, the total trigram count — an earlier transcription that read it as '^10' was a transcription error).",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "claim": "Toboter wrote a script testing ~86,000 reading-order possibilities and found NO other order matching the statistical significance of the one producing the contiguous 0–82 set.",
+    "confidence": "likely",
+    "evidence": "Multiple search snippets of the wiki/Progress doc: 'Toboter wrote a script that tested approximately 86,000 reading order possibilities and found no other reading order that matches the statistical significance of the one that produces the unbroken 0-82 set.' Not fetched verbatim from the primary doc (gated).",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages ; https://docs.google.com/document/d/1XMNXktCoSabnFWZf9rJFoaKMzsA1bbv7x1Xh9tXkKYk/edit",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "claim": "The wiki states the messages are 'originally in Hexadecimal' and generated deterministically: a fixed large number (cited as 12463296853015023708) is repeatedly divided by 7, remainders prepended to a list, trailing zero dropped, and 1 subtracted from each value to yield EyePositionNumeric (example array [2,0,1,0,1,3,2,2,3,3,0,4,0,4,1,1,3,0,2,3,2,1]). This is described as the confirmed engine process.",
+    "confidence": "likely",
+    "evidence": "Search snippet of wiki: 'The eye messages are written originally in Hexadecimal, and through an algorithm converted into values from 0-5'; and the division-by-7 / subtract-1 / EyePositionNumeric description with the example array, said to be 'confirmed to be the process that the engine uses.' Surfaced via search, not fetched verbatim from page body. NOTE the tension: division by 7 (base-7 remainders 0–6) minus 1 ⇒ values −1..5, which sits oddly with a strict 5-glyph/base-5 framing.",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "claim": "Monoalphabetic substitution is effectively ruled out: frequency analysis on trigrams gives no workable results / flat distribution.",
+    "confidence": "confirmed",
+    "evidence": "ngraham20 repo: simple substitution frequency analysis 'yielded no workable results.' Wiki/research corroborate flat distribution. SirCapybar and codewarrior0 repos implement frequency analysis as standard tooling.",
+    "source": "https://github.com/ngraham20/NoitaCryptographyResearch ; https://github.com/codewarrior0/noita-eye-glyph-analyses",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "claim": "The cipher is believed polyalphabetic and NON-periodic; plain Vigenere/periodic ciphers are ruled out; autokey-type mechanisms remain the live (unconfirmed) hypothesis.",
+    "confidence": "likely",
+    "evidence": "Wiki: 'The cipher is polyalphabetic, with each ciphertext character dependent on something outside of a single plaintext character'; period analysis shows it is not periodic. codewarrior0 repo file stat_period.py (periodicity) and autokey_decrypt.py / autokey_superimp.py reflect the autokey focus. Conclusion rests on inference, not decrypted plaintext.",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages ; https://github.com/codewarrior0/noita-eye-glyph-analyses",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "claim": "The cipher is statistically inferred to have ~83 internal states ('no fewer than 20 ... statistically probably at least around 88 ... likely 83'), matching the ~83 distinct glyph values used.",
+    "confidence": "disputed",
+    "evidence": "Verbatim wiki: 'no fewer than 20 internal states and statistically probably at least around 88, so it is likely 83 internal states which is in line with ciphertext dependency.' This phrasing is internally muddled (states 'at least ~88' then concludes 'likely 83', i.e. fewer than its own lower bound), and 83 = the glyph-value count, so the estimate risks being circular (assuming #states = #glyph values).",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "claim": "Isomorph-based 'alphabet chaining' (an old classical attack) was identified by codewarrior0 but FAILS on the eyes for unknown reasons, and this is the main reason researchers are stuck.",
+    "confidence": "likely",
+    "evidence": "Search of wiki/Progress doc: 'After Lymm discovered isomorphs and codewarrior0 identified ... an old school attack called alphabet chaining, researchers have been more or less stuck because the attack did not work on the eyes and nobody could explain why.' Classical alphabet chaining 'relies on commutativity'; the eye mechanism need not be commutative, implying a non-commutative cipher.",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "claim": "Trigram-following correlation up to gap 50 shows 'little more than randomness' — distant trigrams don't strongly influence each other.",
+    "confidence": "confirmed",
+    "evidence": "Wiki snippet: 'Mapping out how many different trigrams follow every trigram, up to a gap size of 50, shows little more than randomness. So trigrams a set distance apart can't be influencing each other very strongly.'",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "claim": "3D / geometric projection approaches (most commonly onto an octahedron, the shape in the meditation cube) have FAILED to produce consistent results.",
+    "confidence": "confirmed",
+    "evidence": "Wiki: 'most 3D projections that have been suggested have inconsistent patterns, or vaguely resemble the Noita glyphs', with the octahedron noted as most common 'since that shape appears in the meditation cube.'",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages ; https://noita.fandom.com/wiki/Eye_Messages",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "claim": "The geometric 'PAM5' solution theory was publicly proposed and then debunked in a dedicated video (Dec 9, 2022).",
+    "confidence": "confirmed",
+    "evidence": "YouTube: '[Debunked] PAM5, a theory about how to solve the infamous Noita \"eyes\" puzzle' (id TdHYTu99GZ4). Title and search snippet explicitly mark it debunked.",
+    "source": "https://www.youtube.com/watch?v=TdHYTu99GZ4",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "claim": "The FuryForged 'mysterious emails' ARG (correspondence from a shadowy figure claiming a solution, early 2023) was debunked and is not a genuine clue.",
+    "confidence": "likely",
+    "evidence": "YouTube '[Debunked] Could these mysterious emails help SOLVE the Noita eye glyph puzzle?' (id hXEzoSyQlU4, ~Jan 11 2023) and 'The Rise And Fall Of The Noita Eye Mystery ARG' (id hmOzG9dkPJQ); FuryForged X post (Apr 2023) 'OMG the Noita eyes have been solved! Video coming ASAP!' The 'debunked' status comes from video titles/snippets; I could not fetch full video transcripts to confirm the exact mechanics of the debunk or who sent the emails.",
+    "source": "https://www.youtube.com/watch?v=hXEzoSyQlU4 ; https://www.youtube.com/watch?v=hmOzG9dkPJQ ; https://x.com/FuryForged/status/1642192647493173255",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "claim": "Public 'I solved the eyes' claims without a published method are routinely rejected; the wiki explicitly warns against believing them.",
+    "confidence": "confirmed",
+    "evidence": "Wiki verbatim: 'anyone claiming to have solved the eyes without presenting a method should not be believed.' Steam thread 'i solved the eyes' (feed4fun: 'no i wont tell you, kbye') drew uniform skepticism; 5hadowfax quoted the wiki line, Perseus confirmed still unsolved.",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages ; https://steamcommunity.com/app/881100/discussions/0/4852155152090234980/",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "claim": "Custom/advanced cipher families have also failed or are unconfirmed: trifid explicitly 'useless here'; diamond, Polybius, Caesar, Vigenere (text and trigram) implemented without success; non-commutative/permutation models (Chaocipher/Hutton/S83-style) are proposed as possibly-needing-to-be-invented.",
+    "confidence": "likely",
+    "evidence": "SirCapybar README verbatim: 'trifid cypher (which is useless here, btw)'; lists Vigenere/Caesar/diamond/Polybius/IoC/frequency tools. Steam discovery thread (simplesmiler) describes non-commutative/permutation models (Chaocipher/Hutton/S83). Steam thread itself not re-fetched verbatim this pass; relies on survey + corroborating search snippets.",
+    "source": "https://github.com/SirCapybar/NoitaEyeGlyphResearch/blob/master/README.md ; https://steamcommunity.com/app/881100/discussions/0/4700161534027181070/",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "claim": "The community openly hypothesizes plaintext/ciphertext CORRUPTION as a reason isomorph attacks fail, and frames the puzzle as possibly underdetermined but not hopeless.",
+    "confidence": "confirmed",
+    "evidence": "Wiki verbatim: 'Examples of plaintext corruption are wrong letters, transposed letters, missing or extraneous letters, and depending on the cipher, such corruption of plaintext may or may not divert the cipher state too much. There is still hope that it is a small-ish group with minor plaintext or ciphertext corruption.' Also: failure of perfect isomorphs implies 'either the cipher does not produce perfect isomorphs every time, or plaintext or ciphertext are corrupted.'",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "claim": "NO primary Nolla Games / developer (Petri Purho, Olli Harjola, Arvi Teikari) statement was located confirming the eyes are intentional and solvable, hinting at the method, or addressing solvability. Claims that 'developers confirmed' the messages encode meaning appear to be community paraphrase, not a sourced quote.",
+    "confidence": "confirmed",
+    "evidence": "Targeted searches for dev quotes returned only the wiki/forum community material; one search-model SUMMARY asserted 'Developers have confirmed that the eye messages encode meaningful content' but no verbatim dev quote/source backs it — flagged as unverified synthesis. This evidentiary GAP is significant for judging whether the eyes are a 'real' designed puzzle.",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages ; https://en.wikipedia.org/wiki/Noita_(video_game)",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "claim": "A SEPARATE Noita cipher — 'The Cessation Cipher Quest' (a.k.a. 'Mr. Olli's Wild Ride') — is FULLY SOLVED, decoding (via a community-cracked 30-bit key, ASCII) to 'SEEKING TRUTH, THE WISE FIND INSTEAD ITS PROFOUND ABSENCE'. It is distinct from the Eye Messages.",
+    "confidence": "confirmed",
+    "evidence": "Wiki fetch: 8-step quest, six glyphs (□ . : | ◇ +) → digits, merged images, 30-bit binary key 'cracked ... without following the possibly intended path', final ASCII message as quoted. Page makes NO mention of Eye Messages. Demonstrates Nolla design solvable ciphers but does not establish the eyes are solvable.",
+    "source": "https://noita.wiki.gg/wiki/The_Cessation_Cipher_Quest",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "claim": "'Pyry' is a frequently-cited eye-glyph contributor credited with an autokey-Alberti isomorph demonstration, but is NOT verifiably a Nolla Games developer; the documented Nolla team is Purho, Harjola, Teikari (plus collaborators Tiihonen, Takalainen).",
+    "confidence": "likely",
+    "evidence": "Search snippet: 'Pyry has constructed a demonstration of isomorphs using an autokey Alberti cipher on English plaintext where the rings rotate by an amount that depends on the previous plaintext character.' A direct search for 'Pyry' as Nolla staff returned the standard team list with no Pyry. Treating Pyry's work as insider/dev evidence is unsupported.",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages ; https://en.wikipedia.org/wiki/Noita_(video_game)",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "claim": "Research is centralized on a small set of analysts/tools (Lymm = isomorphs/gap patterns + seed-finder script; codewarrior0 = isomorph ID + alphabet-chaining + analytical-overview doc & repo; Toboter = reading-order search + Progress doc; Pyry = Alberti/autokey demo & spawn maps), raising echo-chamber/over-fit risk.",
+    "confidence": "confirmed",
+    "evidence": "Wiki/Progress crediting these specific contributors for the foundational findings; the three GitHub repos (codewarrior0, ngraham20, SirCapybar) and two Google Docs are the entire technical corpus. Independent reproduction beyond this group is not evidenced.",
+    "source": "https://github.com/codewarrior0/noita-eye-glyph-analyses ; https://github.com/ngraham20/NoitaCryptographyResearch ; https://github.com/SirCapybar/NoitaEyeGlyphResearch",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "claim": "The popular meta-claim 'the developers have confirmed that it is solvable' has NO primary source. It originates as the unsourced intro line of the 2022 Hacker News submission text and was never backed by a dev quote, Discord screenshot, or dated statement.",
+    "confidence": "confirmed",
+    "evidence": "The HN submission text reads verbatim: 'The developers have confirmed that it is solvable, but it would be great to get more... eyes... on possible solutions.' WebFetch of the HN item found 'No Discord message, quote, or developer link is provided to support this claim.' Multiple targeted searches for a primary dev source returned only this HN page echoing back. The authoritative primary cryptanalysis (CodeWarrior0 Google Doc), Wikipedia, both wikis, and Steam guides contain NO such dev-confirmation statement.",
+    "source": "https://hn.svelte.dev/item/33929442 ; https://news.ycombinator.com/item?id=33929442",
+    "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
+  },
+  {
+    "claim": "No Nolla Games developer (Petri Purho, Olli Harjola, Arvi Teikari, Antti Tiihonen) has ever made a public, eye-specific statement about the Eye Messages' meaning, cipher, intent, or solvability.",
+    "confidence": "likely",
+    "evidence": "Exhaustive searches across Wikipedia, both wikis, Steam, Reddit, YouTube, and the official Discord references surfaced no eye-specific dev quote. Wikipedia explicitly 'contains no statements from Nolla Games developers confirming whether the Eye Messages are technically solvable.' (Absence of evidence; the private Discord #silmä channels were not directly accessible.)",
+    "source": "https://en.wikipedia.org/wiki/Noita_(video_game)",
+    "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
+  },
+  {
+    "claim": "By contrast, the adjacent Cauldron Room secret DOES have a better-attributed dev remark: dev Arvi reportedly said in 2021 to not be too concerned about the cauldron for the time being.",
+    "confidence": "likely",
+    "evidence": "Survey-cited via the Cauldron Room wiki page; framed as a 2021 Arvi quote. Provides a clear contrast to the eyes' total dev silence, but the exact wording/date still rests on community attribution rather than a primary screenshot located here.",
+    "source": "https://noita.wiki.gg/wiki/Cauldron_Room",
+    "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
+  },
+  {
+    "claim": "The Orb Room mystery symbol: artists Arvi and Antti AND dev Olli each denied placing it, leading the community to infer it 'likely means something to Petri.' The denial is dev-attributed; the 'means something to Petri' part is explicitly community speculation.",
+    "confidence": "likely",
+    "evidence": "Mysteries and Oddities page, verbatim: 'Both of Noita's artists, Arvi and Antti, have been asked specifically about this symbol and both have confirmed that neither of them put it there. Additionally, Olli has denied putting it there.' Followed by: 'It is likely that this symbol means something to Petri.'",
+    "source": "https://noita.wiki.gg/wiki/Mysteries_and_Oddities",
+    "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
+  },
+  {
+    "claim": "There are 9 Eye Messages per world: 4 in the West Parallel World and 5 in the East; every East message except the last has a West counterpart (no 'West 5'). Each message length is divisible by 3.",
+    "confidence": "confirmed",
+    "evidence": "Consistent across wiki.gg, Fandom, Wikipedia, and the ngraham20 README: 'Notice that there is no West 5... speculated [it] may be a trigger/event location that triggers when the puzzle is solved.' CodeWarrior0 doc lists per-message lengths: 99,103,118,102,137,124,119,120,114 (total 1036).",
+    "source": "https://docs.google.com/document/d/1QeagH8TklJsd8iribMtT5LIRL91laOUU_tFcVl7OOqA/edit",
+    "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
+  },
+  {
+    "claim": "The glyphs are generated by the engine itself (not Lua, not extractable sprites); graphics are produced on the fly, and they do not generate if any mod is enabled. Community reverse-engineering (Ninji) produced a Ghidra project exposing the decompiled generation function; a Cheat Engine Lua script prints generated eye coordinates.",
+    "confidence": "confirmed",
+    "evidence": "Wikipedia [13]: messages 'do not appear when using mods and are generated by the game engine itself rather than loaded from the game files.' Fandom-sourced search: 'the code that spawns the eyes is not a Lua script and cannot be extracted from the archive... built into the engine itself. The graphics are also not in the archive but generated on the fly... Ghidra projects available where you can view the decompiled function.' 'Ninji did some reverse-engineering work... download the Ghidra project (60 MB).'",
+    "source": "https://en.wikipedia.org/wiki/Noita_(video_game)",
+    "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
+  },
+  {
+    "claim": "PRIMARY/LOAD-BEARING: The eye messages are reportedly 'written originally in Hexadecimal' and, through an algorithm, converted into values from 0-5 before being placed in the world by world seed. This implies the underlying content is encoded in the binary and recoverable in principle.",
+    "confidence": "likely",
+    "evidence": "Search snippet from the Fandom Eye Messages page: 'The eye messages are written originally in Hexadecimal, and through an algorithm converted into values from 0-5, and then placed into the world. The locations are randomly determined by the world seed, but each message will have a counterpart message in an identical location in the opposite parallel world.' Sourced from datamining/Ghidra rather than a dev statement; full-page verbatim confirmation was blocked (Fandom 403), so rated 'likely' pending direct read of the decompiled function.",
+    "source": "https://noita.fandom.com/wiki/Eye_Messages",
+    "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
+  },
+  {
+    "claim": "The canonical 0-4 glyph numbering (5 distinct eyes) was derived from data-mining the game executable — NOT merely reverse-engineered from the puzzle structure — and it coincides with the unique numbering that yields a full 0-82 base-5 range.",
+    "confidence": "confirmed",
+    "evidence": "CodeWarrior0 Analytical Overview, verbatim: 'This numbering was learned from data mining the game's executable. This is also the unique numbering that produces a complete range of 0-82 when the eyes are grouped into three and read as base-5.'",
+    "source": "https://docs.google.com/document/d/1QeagH8TklJsd8iribMtT5LIRL91laOUU_tFcVl7OOqA/edit",
+    "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
+  },
+  {
+    "claim": "Cryptanalysis specifics: 83-letter alphabet, 1036 total letters; flat frequency (median 12, mean 12.48), overall Index of Coincidence 1.066 (near-random, indicating NOT monoalphabetic); no letter occurs twice in a row; shared isomorphs across messages (Lymm). The standard isomorph 'Alphabet Chaining' exploit verbatim 'has not been completely successful.'",
+    "confidence": "confirmed",
+    "evidence": "CodeWarrior0 doc verbatim: 'The ciphertext alphabet has 83 letters. The total number of letters in all messages is 1036... The median frequency is 12... mean frequency is 12.48... The IoC score for all messages, taken together is: 1.066... No letter occurs twice in a row... Alphabet Chaining has not been completely successful when used on the glyph messages.' Verbatim isomorph sequences are reproduced in the doc (e.g., E1@40: 47 44 48 42 19 48 13 47 19 49 72).",
+    "source": "https://github.com/codewarrior0/noita-eye-glyph-analyses",
+    "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
+  },
+  {
+    "claim": "Exactly one reading order produces the contiguous 0-82 range. Out of 36 trigram orderings, six give the best up/down-triangle statistical fit, and only one of those six yields every value 0-82. Toboter independently brute-forced ~86,000 reading-order possibilities and found no better statistical match.",
+    "confidence": "confirmed",
+    "evidence": "CodeWarrior0 doc: 'Out of 36 possible schemes, six of them give the best statistical fit... this scheme is the only one that produces every number in the range 0-82.' Wiki: 'Toboter wrote a script that tested ~86,000 reading order possibilities and found no other reading order that matches the statistical significance.' Wiki gives random-occurrence probability 5.84x10^-185.",
+    "source": "https://noita.wiki.gg/wiki/Eye_Messages",
+    "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
+  },
+  {
+    "claim": "The messages remain UNSOLVED as of May 2026; no public method-backed translation exists. Unverified 'I solved it' claims (e.g., Steam user feed4fun, 20 Sep 2024, who said 'i solved the eyes... no i wont tell you') are dismissed by the community.",
+    "confidence": "confirmed",
+    "evidence": "wiki.gg last updated 2026-05-13 still lists status 'yet to be solved.' Steam thread by feed4fun dated 2024-09-20 provided no method and was dismissed; community cites the wiki line 'anyone claiming to have solved the eyes without presenting a method should not be believed.'",
+    "source": "https://steamcommunity.com/app/881100/discussions/0/4852155152090234980/?l=english",
+    "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
+  },
+  {
+    "claim": "The most authoritative primary cryptanalysis is CodeWarrior0's, with companion Python source (autokey_decrypt.py, isomorphs.py, simple_freq.py, etc.) and a Google Colab; the repo's 13 commits date Nov 26 - Dec 20, 2021, predating the 2022 HN 'devs confirmed' claim — so the puzzle was already being seriously worked in 2021 with no dev-confirmation citation.",
+    "confidence": "confirmed",
+    "evidence": "GitHub API: commits range 2021-11-26 to 2021-12-20; commit messages include 'Superimposition test for positionality of polyalphabetic cipher' and 'Cicada 3301 isomorph analysis (not significant).' README points to the 'Noita Eye Glyphs: Analytical Overview' Google Doc.",
+    "source": "https://github.com/codewarrior0/noita-eye-glyph-analyses",
+    "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
+  },
+  {
+    "claim": "Desert ruins contain recurring symbols (three small ovals, a string resembling '¡!¡', a diamond/rhombus) that SOME community members believe hint at the Eye Messages — explicitly community speculation, not dev-confirmed.",
+    "confidence": "likely",
+    "evidence": "Mysteries and Oddities page, verbatim: 'A set of 3 small ovals, what appears to be the string ¡!¡, and a rhombus resembling a diamond' and 'Some people believe these to be hints related to the Eye Messages or perhaps just symbols that relate to the Game Lore.' No developer confirmation.",
+    "source": "https://noita.wiki.gg/wiki/Mysteries_and_Oddities",
+    "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
+  },
+  {
+    "claim": "Timeline: the eyes are generally believed to have shipped with 1.0 (15 Oct 2020), but NO patch-note citation and NO attributable first-discovery post (2019-2021) could be located. Some sources loosely say 'since release of Noita' (which could include the Sept 2019 Early Access), creating ambiguity.",
+    "confidence": "speculative",
+    "evidence": "Searches returned only consensus assertions ('since release', '1.0 consensus') with no patch note. Wikipedia confirms 1.0 = 15 Oct 2020 but does not tie the eyes to a specific build. The only 'discovery(?)' Steam thread found is from 2024-10-22 (Perseus) and is explicitly NOT a first discovery.",
+    "source": "https://store.steampowered.com/news/?appids=881100",
+    "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
+  },
+  {
+    "claim": "Noita's RNG is a Lehmer/Lewis-Goodman-Miller (LGM/MINSTD) generator driven by SetRandomSeed(x,y)+Next(); eye placement and (per datamining) message selection are seed-deterministic. This makes the GENERATION reproducible/verifiable independent of solving the CIPHER.",
+    "confidence": "likely",
+    "evidence": "Technical:Noita PRNG wiki: 'Noita uses a form of PRNG called the Lewis-Goodman-Miller (LGM) generator... composed of calls to SetRandomSeed(x, y) and Next().' Search: eye 'locations are randomly determined by the world seed' with mirrored counterparts in the opposite parallel world.",
+    "source": "https://noita.wiki.gg/wiki/Technical:_Noita_PRNG",
+    "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
+  }
+]

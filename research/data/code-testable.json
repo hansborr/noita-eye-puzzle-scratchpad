@@ -1,0 +1,237 @@
+[
+  {
+    "hypothesis": "Every one of the 9 messages has an eye-glyph count divisible by 3 (precondition for clean trigram grouping).",
+    "howToTest": "Parse each message from the primary Google Doc (strip the trailing '5' line-break marker per line), concatenate digits, assert len % 3 == 0. VERIFIED in this run: counts {297,309,354,306,411,372,357,360,342} all divisible by 3.",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "hypothesis": "The global number of trigrams across all 9 messages is exactly 1036, matching the (83/125)^1036 probability statement.",
+    "howToTest": "Sum (eye_count/3) over all 9 messages. VERIFIED = 1036 in this run, exactly matching the published exponent.",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "hypothesis": "Naive trigram reading orders do NOT yield the unbroken 0-82 set; that result is specific to one traversal.",
+    "howToTest": "Group digits into trigrams (a) horizontally line-by-line and (b) column-major; convert base-5->base-10; collect the global distinct set. VERIFIED: horizontal -> 114 distinct, range 0-122; column-major -> 125 distinct, range 0-124. Neither equals {0..82}. Therefore the 0-82 claim requires the specific interlocking-triangle order.",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "hypothesis": "The published east1 multi-representation data (base-5/decimal/runic/ASCII/alchemic in ngraham20's README) is internally consistent: base-5 trigram -> base-10 via d0*25+d1*5+d2.",
+    "howToTest": "For each east1 trigram, compute d0*25+d1*5+d2 and compare to the README's decimal row. VERIFIED: 99/99 exact matches; all values in 0-82.",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "hypothesis": "If The_Duck1's interlocking-triangle traversal is reconstructed correctly, the global distinct trigram set will equal exactly {0,1,...,82} (83 values, unbroken) for ALL 9 messages combined.",
+    "howToTest": "Implement the offset/triangle index mapping (alternating up/down triangles across paired offset rows, wrapping as the doc says), apply to all 9 message grids, and check the global distinct set == set(range(83)). NOT yet achieved here (naive orders failed); the correct index pattern must be derived from the doc's images or the wiki illustration.",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "hypothesis": "Under the correct reading order, the ciphertext (as base-10 trigram stream) is aperiodic, has a flat frequency distribution, contains NO two identical symbols in a row, and shows ~2x expected coincidences at distance 4.",
+    "howToTest": "Once the 0-82 stream is reconstructed, run: index of coincidence, autocorrelation/Kasiski for periodicity, adjacency-repeat count (expect 0), and a distance-spectrum of equal-symbol pairs (expect a spike at lag 4). Reproduces CodeWarrior0/Toboter's claims.",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "hypothesis": "A static Vigenere/Caesar over the trigram alphabet cannot produce a meaningful plaintext, consistent with the polyalphabetic/dynamic-key hypothesis.",
+    "howToTest": "Brute-force Caesar shifts (0-82) and short Vigenere keys over the reconstructed 0-82 stream; score outputs for any natural-language/Finnish statistics. Expect no workable result, matching the repos' reported failures.",
+    "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "hypothesis": "The published eye-generation algorithm is base-7 (repeated integer division by 7), and reproduces the wiki's stated EyePositionNumeric exactly.",
+    "howToTest": "VERIFIED IN THIS SESSION. n=int('acf686745634505c',16) -> 12463296853015023708; build list by while x>0: insert(0, x%7); x//=7 -> [3,1,2,1,2,4,3,3,4,4,1,5,1,5,2,2,4,1,3,4,3,2,0]; drop last, subtract 1 -> [2,0,1,0,1,3,2,2,3,3,0,4,0,4,1,1,3,0,2,3,2,1]. Both matched the wiki's published lists exactly. Re-run on the other 8 messages' hex pairs (from The Emerald Tablet) to confirm the algorithm generalizes.",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "hypothesis": "Trigrams are base-5 (digit1*25 + digit2*5 + digit3), and East-1's base-5 triples decode to the published decimals.",
+    "howToTest": "VERIFIED IN THIS SESSION. Decoding '200 231 010 143 222 ...' as d1*25+d2*5+d3 produced exactly '50 66 5 48 62 ...', matching ngraham20's decimal row. Apply the same decode to all 9 messages once full raw data is obtained, and confirm every value falls in 0-82 under the canonical reading order.",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "hypothesis": "The wiki probability figure (83/125)^1036 equals 5.8362007929568295e-185.",
+    "howToTest": "VERIFIED IN THIS SESSION. Python (83/125)**1036 returned 5.8362007929568295e-185, exact match. Optionally recompute with the actual exact total trigram count once per-message lengths are confirmed, to check 1036 is the true sum.",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "hypothesis": "Simple monoalphabetic substitution is impossible: trigram (0-82) frequency distribution is statistically flat / non-monoalphabetic.",
+    "howToTest": "Load all 9 messages' decimal-0-82 sequences, compute symbol frequency histogram and chi-square against uniform; compute index of coincidence. Expect IoC near random (~1/83) and flat histogram, confirming CodeWarrior0/ngraham20. Use codewarrior0's simple_freq.py / SirCapybar's IoC routine.",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "hypothesis": "Isomorphs and shared sections exist between messages (the structural fingerprint CodeWarrior0/Lymm/Perseus report), consistent with a plaintext-driven polyalphabetic permutation cipher rather than a fixed polyalphabetic key.",
+    "howToTest": "Run isomorph detection (codewarrior0/isomorphs.py) across the 9 message sequences to locate repeated relative-pattern segments; verify Perseus's claim that symbols in non-shared sections do not recur in later shared sections of size>=2, and re-derive his ~0.192% baseline probability via Monte Carlo on random sequences of the same lengths/alphabet.",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "hypothesis": "The seed->coordinate spawn locations are deterministic and reproducible: Lymm's binoculars script, given seed 1249563923, returns East1 (22064,-6079) / West1 (-49616,-6079) etc., with mirrored X across worlds.",
+    "howToTest": "Run lymmsbinoculars.py (numpy) on seed 1249563923 and compare its coordinate output to the wiki's published table; confirm X-mirroring relationship between East and West entries. Cross-check spawn cells have background_cave_02.png in a save-edited world.",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "hypothesis": "At least one of the small symmetric set of reading orders (Perseus's 'six') yields exactly 83 distinct trigram values, and the 0-82 contiguous order is unique among the 36 standard orders.",
+    "howToTest": "Enumerate all 36 standard reading orders programmatically over the full raw eye grid, decode trigrams to base-10, and count distinct values + check for an unbroken 0-N range per order. Expect exactly one order giving contiguous 0-82, and identify which orders give 83 distinct values (test Perseus's 'symmetrical six' vs the wiki's '36').",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "hypothesis": "The digit 5 in eyes.json is a pure row delimiter; removing it makes every message divisible by 3, and splitting on it yields rows of width 39 (with bottom two rows differing by ≤1). VERIFIED THIS INVESTIGATION.",
+    "howToTest": "For each message string s in eyes.json: assert len(s.replace('5',''))%3==0; assert s.split('5') gives leading rows of length 39 and the last two non-empty rows differ by at most 1. (Confirmed: east1 rows [39,39,39,39,39,39,32,31]; all 9 pass divisibility.)",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "hypothesis": "The community cipher properties ('no trigram twice in a row', 'distance-4 recurrence ~2x') are FALSE on the raw stored order and only hold after the special reading-order reorder. VERIFIED FALSE-ON-RAW THIS INVESTIGATION.",
+    "howToTest": "Build trigrams via base-5 on the delimiter-stripped raw order; count adjacent-equal pairs (found 17/1027, nonzero) and the recurrence-distance histogram (distance1=17, dist3=15, dist4=10 — dist4 NOT elevated). If a candidate reading order makes adjacent-equal==0 and distance-4 spike to ~2x baseline, that order is corroborated as the intended one.",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "hypothesis": "The total trigram count over all 9 messages equals 1036, the exponent in the wiki's probability (83/125)^1036. VERIFIED THIS INVESTIGATION.",
+    "howToTest": "Sum len(s.replace('5',''))//3 over the 9 messages: 99+118+137+119+114+103+102+124+120 = 1036. Cross-check (83/125)**1036 ≈ 5.836e-185 against the wiki's stated 5.8362007929568295×10^-185.",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "hypothesis": "There exists a reading order (among the ~86k Toboter tested, or the 36 'standard' ones) for which the trigram base-5 values form a contiguous 0-82 set (83 distinct values). On the raw order this FAILS (114 distinct, 0-122 with 11 gaps in 0-124).",
+    "howToTest": "Enumerate candidate orders (e.g., row-pairing variants: interleave paired rows, reverse alternate rows, column-major reads, flipped trigram digit order per Lymm) and for each compute the set of base-5 trigram values across all 9 messages; flag any order yielding exactly range(0,83). Compare the winning order's value-distribution to the claimed 0-82.",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "hypothesis": "The repo's 'incrementing wheel cipher' can be implemented and tested: 83-glyph outer ring + gapped plaintext inner ring rotating one step per encoded char. If correct, decoding under it should yield natural-language statistics in some plaintext alphabet.",
+    "howToTest": "Implement the rotate-after-each-char wheel from eye/README, run it (and its inverse) over the correctly-ordered ciphertext for various inner-ring plaintext alphabets/gap patterns, and score outputs with n-gram language models (English/Finnish). The repo's Rust/Python code (src/, python/) plus eyes.json provide the substrate.",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "hypothesis": "Perseus's permutation observation is checkable: ciphertext symbols appearing in non-shared sections do not recur in later size-2+ shared sections of the same message (claimed p≈0.192% by chance).",
+    "howToTest": "Reconstruct shared vs non-shared aligned regions across the 9 messages (requires the alignment), then for each message test whether any symbol from a non-shared region reappears in a subsequent shared region; compute the empirical rate and compare to a randomized-shuffle null distribution.",
+    "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
+  },
+  {
+    "hypothesis": "MSB-first trigrams across all 9 give the contiguous set 0..82.",
+    "howToTest": "Parse data.csv into base-5 triples; assert sorted(set)==range(83) and max==82. Confirmed.",
+    "topic": "Noita Eye Messages eye-glyph puzzle (verification)"
+  },
+  {
+    "hypothesis": "An S_83 deck/GAK cipher reproduces the eyes while a single rotating wheel cannot.",
+    "howToTest": "Implement single 83-wheel vs S_83 deck shuffle; encipher Finnish/English; compare IC, no-double property, isomorph stats vs real eyes.",
+    "topic": "Noita Eye Messages eye-glyph puzzle (verification)"
+  },
+  {
+    "hypothesis": "All 9 eye messages have eye-counts divisible by 3 (so they cleanly partition into trigrams).",
+    "howToTest": "Download data.csv from Doctor-Ned/NoitaEyeGlyphResearch, parse each row's 0-4 values (skip first 2 columns), and assert len(values) % 3 == 0 for all 9 rows. RESULT: confirmed — counts 297,309,354,306,411,372,357,360,342 all divisible by 3.",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "hypothesis": "Concatenating all messages and grouping eyes into base-5 trigrams (a*25+b*5+c) yields exactly 1036 trigrams whose values form an unbroken 0-82 range with all 83 values present and none >82.",
+    "howToTest": "For each row compute trigrams t=v[i]*25+v[i+1]*5+v[i+2]; collect across all 9 rows; assert total==1036, min==0, max==82, len(set)==83, and {0..82} fully covered. RESULT: confirmed exactly, matching wiki's (83/125)^1036 exponent.",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "hypothesis": "East/West counterparts are NOT identical in content but share a long leading trigram block; all messages share the same trigrams at indices 1-2 = [66,5].",
+    "howToTest": "Compute trigram lists per message; use difflib.SequenceMatcher to find the longest common block between each East/West pair; print trigrams[1:3] for all. RESULT: East1/West1 share a 24-trigram block, East4/West4 share 20, but East2/West2 share only 2 — counterparts diverge; all nine share trigram[1:3]==[66,5].",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "hypothesis": "Noita's data.wak PRNG is Park-Miller/MINSTD (x' = 16807*x mod 2^31-1), and IV/key seeds are 0/1/2147483646/index each +0x165EC8F — NOT seed 123.",
+    "howToTest": "Port WakRng.cs (mult 16807, mod 0x7FFFFFFF, scale 1/2^31) and WakDecryptor.GenerateIV (iseed+=0x165ec8f) to Python; derive key from seed 0 and header IV from seed 1; AES-128-CTR decrypt the first 16 bytes of a real data.wak; verify the resulting header parses as little-endian {version, file_count, first_file, pad} with sane file_count. Cross-check against the RidgeX gist output.",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "hypothesis": "The community decimal transcription in ngraham20/NoitaCryptographyResearch matches the data.csv in Doctor-Ned/NoitaEyeGlyphResearch (two independent transcriptions agree).",
+    "howToTest": "Extract the decimal trigram dump from ngraham20 (e.g. message-1 begins 50 66 5 48 62 13 75 29 24 ...) and compare element-wise to trigrams computed from data.csv East 1 (which begins 50 66 5 48 62 13 75 29 24 ...). A full match across all 9 messages would strongly validate the canonical transcription; any divergence flags a transcription error to investigate.",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "hypothesis": "data.wak file payloads are AES-128-CTR encrypted while .salakieli files use literal passphrase keys (e.g. magic_numbers: 'KnowledgeIsTheHighestOfTheHighest'/'WhoWouldntGiveEverythingForTrueKnowledge', truncated to 16 bytes).",
+    "howToTest": "Run the RidgeX gist (or UnWak) against a real data.wak to confirm CTR decryption produces valid Lua/XML/PNG assets (e.g. secrets_secrets_secrets.png per Döpping). Separately, AES-128-CTR decrypt a .salakieli file (e.g. magic_numbers.salakieli) using the first 16 bytes of those passphrase strings as key/IV and verify the output is structured plaintext.",
+    "topic": "Noita Eye Puzzle (Eye Messages): encoding, generation, statistical anomaly, and the data.wak / .salakieli file formats — deep-dive on game-data-formats angle"
+  },
+  {
+    "hypothesis": "Xkeeper0's PHP transcoder, run as-is, deterministically reproduces the 9 messages' decoded symbol streams (values -1..5, 5=newline) from the hard-coded [u32,u32] pair arrays, and message 0 yields 14 pairs of output blocks.",
+    "howToTest": "Save the raw gist to eye.php (it is self-contained, needs PHP with bcmath) and run `php eye.php` (or loop ids 0-8). Confirm it prints 9 messages and that the decode loop divides by 7 then emits (a%7)-1. Reproduces ground-truth ciphertext for any downstream tool.",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "hypothesis": "Reading the rendered glyphs as base-5 trigrams in the orthodox order produces an unbroken set of exactly 83 distinct base-10 values 0-82 (none of 83-124 occur), and no trigram value repeats consecutively (no double trigrams).",
+    "howToTest": "Take the decoded symbol stream (from Xkeeper0 transcoder or ToboterXP/noitaGlyphs.txt), group into base-5 trigrams per the orthodox reading order, compute the set of distinct values and check it equals {0..82}; also scan for any i where trigram[i]==trigram[i+1] (Pyry condition 8).",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "hypothesis": "Toboter's reading-order brute force over ~86,000 orders finds exactly one order whose value set is the unbroken 0-82 (no other order matches the statistical significance).",
+    "howToTest": "Clone ToboterXP/EyeGlyphs and run archive/'eyeGlyphs-trigram order bruteforce.py' against noitaGlyphs.txt; verify it enumerates ~86k orders and reports a unique best order with the 0-82 contiguous property.",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "hypothesis": "The four published datasets agree byte-for-byte on the 9 messages: Xkeeper0 (decoded), SirCapybar spreadsheet, ngraham20 datasets, ToboterXP noitaGlyphs.txt.",
+    "howToTest": "Normalize each to the same representation (e.g., decimal trigram sequence per message), then diff. Any mismatch flags a transcription error that would invalidate that tool's results. (Requires downloading the raw files, which did not render in-browser during this research.)",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "hypothesis": "CodeWarrior0's statistics are reproducible from the ciphertext: flat unigram frequency, autocorrelation peak (~26/1000, ~2x baseline) at offset 4, no symbol-twice-in-a-row, and no repeated runs longer than 2.",
+    "howToTest": "From the decoded ciphertext compute: unigram histogram (expect ~uniform), autocorrelation at offsets 1..N (expect a spike near offset 4), max consecutive-equal run (expect 1), and longest repeated substring (expect <=2). Compare to the Analytical Overview figures.",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "hypothesis": "The official noitagame.com 'for_the_seekers_of_truest_of_knowledge' URL is a deliberate Rickroll redirect, evidencing Nolla's anti-datamining trolling rather than a sincere lore page.",
+    "howToTest": "`curl -sI https://noitagame.com/for_the_seekers_of_truest_of_knowledge/` and confirm a 302/redirect Location pointing at youtube.com/watch?v=oHg5SJYRHA0 (or follow with curl -L). Already observed via WebFetch.",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "hypothesis": "Eye content is seed-invariant: decoding messages from two different world seeds (via save-editing/Cheat Engine to the same engine build) yields identical trigram value sequences, with only world coordinates differing.",
+    "howToTest": "Generate two seeds, use Lymm's Binoculars to get eye coordinates per seed, capture the glyphs in-game (unmodded) or via the engine, transcribe to trigrams, and diff the value sequences. If identical, content is seed-invariant (currently an unproven assumption).",
+    "topic": "Noita Eye Messages / Eye Glyph Puzzle — tools, repos, and the engine-decode primary evidence (deep-dive & fact-check of the \"tools-repos\" angle)"
+  },
+  {
+    "hypothesis": "The 'one reading order yields contiguous 0–82' result is reproducible and statistically special (not an artifact of cherry-picking among 36 orders).",
+    "howToTest": "Reconstruct the 9 messages' glyph grids, implement all 36 standard reading orders + Toboter's broader ~86,000-order space, compute base-5→base-10 trigram values for each, and measure the distribution's contiguity/range. Confirm exactly one order gives an unbroken 0–82 span and that no other order matches its statistic; compare against the cited odds (83/125)^1036 to see if significance survives multiple-comparison correction across all tested orders.",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "hypothesis": "The 0–82 structure and isomorph patterns are partly an ENCODING ARTIFACT of the hex→base-7 generation pipeline rather than meaningful plaintext.",
+    "howToTest": "Implement the documented generator: take the fixed number 12463296853015023708, repeatedly divide by 7 prepending remainders, drop trailing zero, subtract 1 → EyePositionNumeric (verify it reproduces [2,0,1,0,1,3,2,2,3,3,0,4,0,4,1,1,3,0,2,3,2,1] for the sample). Then feed random/known plaintexts through the same pipeline and run the same trigram/range and isomorph analyses; if random inputs also tend to produce contiguous-ish ranges or pseudo-isomorphs, the structure is an artifact, not signal.",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "hypothesis": "Map base-7 remainders to the 5 glyph orientations: the generator divides by 7 (0–6) and subtracts 1, but only 5 orientations exist — so the mapping must collapse/clip values.",
+    "howToTest": "Cross-check EyePositionNumeric values against the rendered glyph orientations for a known seed (from Lymm's seed-finder / ngraham20 lua). Determine whether values are clamped, mod-5'd, or whether only certain remainders occur, and whether the '0–5 values' wiki phrasing vs base-7 remainders is consistent. This pins down whether the base-5 framing is even the right alphabet.",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "hypothesis": "Frequency distribution of trigram values is statistically flat (consistent with polyalphabetic), ruling out monoalphabetic substitution.",
+    "howToTest": "Run codewarrior0's simple_freq.py / SirCapybar frequency tools on the concatenated 9-message trigram stream; compute a chi-square goodness-of-fit against uniform and the index of coincidence. A near-uniform distribution / IoC near random confirms the wiki's flatness claim and the monoalphabetic-debunk.",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "hypothesis": "The ciphertext is NON-periodic (no Vigenere-style key period), supporting the polyalphabetic/autokey conclusion.",
+    "howToTest": "Run stat_period.py (Kasiski/autocorrelation/IoC-by-period) over candidate periods on the trigram stream; absence of a dominant period supports non-periodicity. Then run autokey_decrypt.py variants to confirm autokey assumptions don't yet yield readable output.",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "hypothesis": "Trigram-following correlation up to gap 50 is indistinguishable from randomness.",
+    "howToTest": "Build the conditional-frequency matrix (which trigram follows which, for gaps 1..50) and compare its entropy / mutual information against a shuffled-control baseline; near-equality reproduces the wiki's 'little more than randomness' claim and bounds how far state propagates.",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "hypothesis": "The estimated ~83 internal states is circular (it just equals the number of distinct glyph values), not an independent statistical result.",
+    "howToTest": "Count distinct trigram values actually used across the 9 messages; if that count ≈83 and the state estimate is derived from it, the figure is circular. Independently estimate state count via isomorph-length distributions / unicity arguments and compare — divergence would show whether 83 is independently supported or just the alphabet size.",
+    "topic": "Noita \"Eye Messages\" / Eye Glyph Puzzle — skeptical deep-dive on dead ends, evidence quality, and solvability"
+  },
+  {
+    "hypothesis": "The 0-4 glyph numbering and the underlying message bytes are present in the Noita executable (the eyes are 'written originally in Hexadecimal' then converted to 0-5), making the GENERATION fully recoverable from the binary even though the CIPHER is unsolved.",
+    "howToTest": "Load Ninji's published Ghidra project (~60 MB) for Noita and inspect the decompiled eye-generation function. Confirm whether it reads fixed hex/byte source data and applies an algorithm mapping to 0-5 values, and whether the canonical 0-4 numbering appears as a constant table. Cross-check the emitted trigrams against CodeWarrior0's published 0-82 message data.",
+    "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
+  },
+  {
+    "hypothesis": "Eye placement and message selection are deterministic functions of the world seed via Noita's LGM/Lehmer PRNG; the same seed yields identical eye coordinates and mirrored West/East counterparts.",
+    "howToTest": "Run the documented Cheat Engine Lua script (or reimplement SetRandomSeed(x,y)+Next() per the Technical:Noita PRNG page) across a fixed set of seeds, log eye coordinates for East and West parallel worlds, and verify (a) determinism on seed re-use and (b) mirrored counterpart locations. Lymm's noita-telescope can corroborate seed-based generation.",
+    "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
+  },
+  {
+    "hypothesis": "Exactly one of 36 trigram reading orders yields a contiguous 0-82 value set; no other order matches its statistical significance (reproducing Toboter's ~86,000-ordering brute force and CodeWarrior0's claim).",
+    "howToTest": "Using CodeWarrior0's repo data (or jpalacios84/messages.csv), enumerate the 36 clockwise/orientation reading schemes, convert trigrams base-5 -> base-10, and check which produce a full 0-82 range; then brute-force the larger ~86k ordering space and compute up/down-triangle statistical fit to confirm uniqueness.",
+    "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
+  },
+  {
+    "hypothesis": "The ciphertext is non-monoalphabetic and behaves polyalphabetic/aperiodic: flat frequency, IoC ~1.066, no AA bigram, and the standard isomorph 'Alphabet Chaining' attack fails to fully resolve it.",
+    "howToTest": "Run CodeWarrior0's simple_freq.py / isomorphs.py / autokey_decrypt.py against the 83-letter, 1036-symbol corpus. Recompute median/mean frequency (expect ~12 / ~12.48) and IoC (expect ~1.066), verify absence of consecutive repeats, then attempt Alphabet Chaining on the Lymm isomorphs and confirm it does not produce a consistent plaintext.",
+    "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
+  },
+  {
+    "hypothesis": "The eye messages do not render when any mod is enabled, because the engine-side generator gates on mod state (and requires background_cave_02.png).",
+    "howToTest": "Launch Noita with mods fully disabled vs. with a trivial no-op mod enabled, travel to the East/West parallel worlds at a fixed seed, and observe whether the eye rows render. Confirm the documented dependency on background_cave_02.png by checking the biome/background where eyes appear.",
+    "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
+  }
+]
