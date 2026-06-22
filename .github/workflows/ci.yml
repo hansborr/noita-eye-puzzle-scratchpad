@@ -6,10 +6,14 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # Fail the build/test compile on any rustc warning (clippy -D warnings does
+  # not cover plain `cargo build`/`cargo test`).
+  RUSTFLAGS: "-D warnings"
+  RUSTDOCFLAGS: "-D warnings"
 
 jobs:
-  guardrails:
-    name: fmt + clippy + test + build
+  rust:
+    name: fmt + clippy + test + doc + build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,23 +23,43 @@ jobs:
       - name: Install pinned toolchain
         run: rustup show
 
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache cargo + target
+        uses: Swatinem/rust-cache@v2
 
       - name: Formatting
         run: cargo fmt --check
 
       - name: Clippy (warnings = errors)
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --all-targets --all-features --locked -- -D warnings
 
       - name: Tests
-        run: cargo test --all-features
+        run: cargo test --all-features --locked
+
+      - name: Rustdoc (warnings = errors)
+        run: cargo doc --no-deps --locked
 
       - name: Release build
-        run: cargo build --release
+        run: cargo build --release --locked
+
+  supply-chain:
+    name: cargo-deny + unused deps
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny,cargo-machete
+      - name: cargo-deny
+        run: cargo deny check
+      - name: Unused dependencies
+        run: cargo machete --with-metadata
+
+  spelling:
+    name: codespell
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install codespell
+        run: pipx install codespell
+      - name: Spell check (config in .codespellrc)
+        run: codespell

@@ -1,0 +1,39 @@
+# cargo-deny configuration. Run `cargo deny check` (or `make deny`).
+# Right-sized from the /workspace monorepo's policy for a single crate.
+
+[advisories]
+version = 2
+# Fail on crates pulled from the RustSec advisory DB or that are yanked.
+yanked = "deny"
+ignore = []
+
+[licenses]
+version = 2
+# Permissive licenses only — no copyleft (AGPL/GPL) pulled in transitively.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "Zlib",
+    "BSL-1.0",
+    "MPL-2.0",
+]
+confidence-threshold = 0.93
+# We have no dependencies yet, so most allowed licenses are unused; don't warn.
+unused-allowed-license = "allow"
+
+[bans]
+# Catch accidental dependency bloat and unpinned ranges early.
+multiple-versions = "deny"
+wildcards = "deny"
+
+[sources]
+# Only the official crates.io registry; no ad-hoc git or alternative registries.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

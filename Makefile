@@ -1,10 +1,13 @@
-# Developer guardrail commands. Run `make check` before every commit.
-# (CI runs the same steps — see .github/workflows/ci.yml.)
+# Developer guardrail commands. Run `make check` (or `make verify`) before a commit.
+# CI (.github/workflows/ci.yml) runs the same checks plus the release build.
 
-.PHONY: check fmt fmt-check lint test build run clean
+.PHONY: check verify fmt fmt-check lint test doc-check deny machete spell build setup run clean
 
-## check: format check + clippy (deny warnings) + tests + release build
-check: fmt-check lint test build
+## check: full local CI — verify + unused-deps + spelling + release build
+check: verify machete spell build
+
+## verify: the correctness gate the pre-commit hook runs
+verify: fmt-check lint test doc-check deny
 
 ## fmt: apply rustfmt
 fmt:
@@ -16,15 +19,36 @@ fmt-check:
 
 ## lint: clippy with warnings treated as errors
 lint:
-	cargo clippy --all-targets --all-features -- -D warnings
+	cargo clippy --all-targets --all-features --locked -- -D warnings
 
-## test: run the test suite
+## test: run tests, failing on any compiler warning
 test:
-	cargo test
+	RUSTFLAGS="-D warnings" cargo test --locked
+
+## doc-check: build docs, failing on any rustdoc warning
+doc-check:
+	RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --locked
+
+## deny: cargo-deny supply-chain checks (advisories, licenses, bans, sources)
+deny:
+	cargo deny check
+
+## machete: detect unused dependencies
+machete:
+	cargo machete --with-metadata
+
+## spell: spell-check sources and docs (config in .codespellrc)
+spell:
+	codespell
 
 ## build: optimized release build
 build:
-	cargo build --release
+	cargo build --release --locked
+
+## setup: install the git pre-commit hook
+setup:
+	git config core.hooksPath .githooks
+	@echo "pre-commit hook installed (core.hooksPath = .githooks)"
 
 ## run: run the CLI, e.g. `make run ARGS=demo`
 run:

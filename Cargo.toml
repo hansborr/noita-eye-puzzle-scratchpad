@@ -2,6 +2,7 @@
 name = "noita-eye-puzzle"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.96.0"
 description = "Tools for analyzing and attempting to decode the Noita eye-glyph puzzle."
 license = "MIT OR Apache-2.0"
 readme = "README.md"
@@ -36,15 +37,44 @@ path = "src/lib.rs"
 [lints.rust]
 unsafe_code = "forbid"
 missing_docs = "warn"
+# A silently-dropped Result is a real correctness hazard in puzzle code.
+unused_results = "warn"
 
 [lints.clippy]
+# Groups (negative priority so the specific lints below win).
 all = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
+correctness = { level = "deny", priority = -1 }
+perf = { level = "deny", priority = -1 }
+
 # Numeric casts in statistics are intentional and bounded.
 cast_precision_loss = "allow"
 cast_possible_truncation = "allow"
 module_name_repetitions = "allow"
 missing_panics_doc = "allow"
+
+# Panics / silent failures: a mis-handled edge case must surface, not hide.
+# (`clippy.toml` relaxes the unwrap/panic family inside tests.)
+unwrap_used = "warn"
+get_unwrap = "warn"
+panic = "warn"
+panic_in_result_fn = "warn"
+indexing_slicing = "warn"
+string_slice = "warn"
+unused_result_ok = "warn"
+let_underscore_must_use = "warn"
+map_err_ignore = "warn"
+todo = "warn"
+unimplemented = "warn"
+dbg_macro = "deny"
+
+# Numeric-correctness lints that matter for a bit/byte cipher solver.
+float_cmp = "warn"
+lossy_float_literal = "warn"
+
+# Hygiene.
+wildcard_imports = "warn"
+allow_attributes_without_reason = "warn"
 
 [profile.release]
 lto = true

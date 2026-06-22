@@ -1,0 +1,7 @@
+# Normalize line endings to LF in the repo, regardless of contributor OS.
+* text=auto eol=lf
+*.rs text eol=lf
+
+# Cargo.lock is generated and committed: keep it out of diffs and mark it so
+# GitHub's language stats don't count it.
+Cargo.lock -diff linguist-generated

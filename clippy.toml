@@ -1,0 +1,15 @@
+# MSRV-aware linting: clippy won't suggest APIs newer than this floor, and it
+# documents the minimum supported Rust (kept in sync with `rust-version` in
+# Cargo.toml).
+msrv = "1.96.0"
+
+# Complexity ceilings — keep functions and signatures legible.
+cognitive-complexity-threshold = 20
+too-many-arguments-threshold = 7
+max-struct-bools = 3
+
+# The panic/unwrap family is forbidden in library/CLI code (see Cargo.toml) but
+# is the normal, readable idiom in tests and assertions.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
