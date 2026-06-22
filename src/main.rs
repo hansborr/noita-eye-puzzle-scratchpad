@@ -12,11 +12,10 @@ const USAGE: &str = "\
 noita-eye — Noita eye-glyph puzzle toolkit
 
 USAGE:
-    noita-eye stats <sequence>   Frequency / entropy / IoC for a transcribed sequence
-    noita-eye demo               Run analysis on the built-in sample corpus
+    noita-eye stats <sequence>   Frequency / entropy / IoC for rendered digits 0-4
+    noita-eye demo               Run analysis on the verified nine-message corpus
 
-Sequences are transcribed using the placeholder alphabet (a, b, c, ...);
-whitespace is ignored.";
+Digit 5 is treated as a row delimiter and ignored for glyph statistics.";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -28,10 +27,19 @@ fn main() -> ExitCode {
             };
             run_stats(text)
         }
-        Some("demo") => {
-            print_report("sample corpus", &corpus::sample());
-            ExitCode::SUCCESS
-        }
+        Some("demo") => match corpus::combined_sequence() {
+            Ok(seq) => {
+                print_report("verified eye corpus", &seq);
+                ExitCode::SUCCESS
+            }
+            Err(error) => {
+                eprintln!(
+                    "corpus parse error in {}: invalid symbol {:?}",
+                    error.message_key, error.symbol
+                );
+                ExitCode::FAILURE
+            }
+        },
         _ => {
             eprintln!("{USAGE}");
             ExitCode::FAILURE
@@ -40,17 +48,32 @@ fn main() -> ExitCode {
 }
 
 fn run_stats(text: &str) -> ExitCode {
-    let alphabet = corpus::placeholder_alphabet();
-    match Sequence::parse(text, &alphabet) {
+    match parse_rendered_sequence(text) {
         Ok(seq) => {
             print_report("input", &seq);
             ExitCode::SUCCESS
         }
         Err(c) => {
-            eprintln!("unknown glyph character {c:?} (not in the placeholder alphabet)");
+            eprintln!("unknown rendered digit {c:?}; expected 0-5, with 5 as delimiter");
             ExitCode::FAILURE
         }
     }
+}
+
+fn parse_rendered_sequence(text: &str) -> Result<Sequence, char> {
+    let mut glyphs = Vec::new();
+    for c in text.chars() {
+        if c.is_whitespace() || c == '5' {
+            continue;
+        }
+        let Some(digit) = c.to_digit(10) else {
+            return Err(c);
+        };
+        let orientation =
+            noita_eye_puzzle::glyph::Orientation::from_digit(digit as u8).map_err(|_symbol| c)?;
+        glyphs.push(orientation.glyph());
+    }
+    Ok(Sequence { glyphs })
 }
 
 fn print_report(label: &str, seq: &Sequence) {
