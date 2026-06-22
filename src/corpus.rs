@@ -328,6 +328,44 @@ mod tests {
         }
     }
 
+    #[test]
+    fn experiment_3_eye_counts_are_divisible_into_1036_trigrams() {
+        let expected_eye_counts = [297, 309, 354, 306, 411, 372, 357, 360, 342];
+        let actual_eye_counts: Vec<_> =
+            messages().iter().map(|message| message.eye_count).collect();
+        assert_eq!(actual_eye_counts, expected_eye_counts);
+
+        let total_trigrams: usize = messages()
+            .iter()
+            .map(|message| {
+                assert_eq!(
+                    message.eye_count % 3,
+                    0,
+                    "{} eye count must be divisible by 3 after delimiters are removed",
+                    message.key
+                );
+                assert_eq!(message.eye_count / 3, message.trigram_count);
+                message.trigram_count
+            })
+            .sum();
+        assert_eq!(total_trigrams, 1036);
+    }
+
+    #[test]
+    fn experiment_3_raw_lengths_include_delimiters_and_most_are_not_divisible_by_3() {
+        let raw_lengths: Vec<_> = messages()
+            .iter()
+            .map(super::Message::raw_len_including_delimiters)
+            .collect();
+        assert_eq!(raw_lengths, [305, 317, 364, 314, 423, 382, 367, 370, 352]);
+
+        let divisible_raw_lengths = raw_lengths.iter().filter(|length| *length % 3 == 0).count();
+        assert_eq!(
+            divisible_raw_lengths, 1,
+            "divisibility is an eye-count property, not a raw delimiter-including length property"
+        );
+    }
+
     fn parse_ngraham_messages(input: &str) -> BTreeMap<&str, &str> {
         let mut messages = BTreeMap::new();
         for key in MESSAGES.map(|message| message.key) {
