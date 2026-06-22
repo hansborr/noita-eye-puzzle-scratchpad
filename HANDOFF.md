@@ -292,3 +292,4 @@ cargo run -- nulltest --seed 12345 --trials 1000   # the multiple-comparisons nu
 - 2026-06-22: Experiment 5A (periodicity/autocorrelation battery) — no pooled or per-message period/lag clears the sampled report-wide random-null envelope; Kasiski repeats stop at bigrams (commit 1c6bbf8).
 - 2026-06-22: Experiment 5A interpretation fixes — verdict derived from null-envelope flags + explicit Experiment 1B distance-4 reconciliation (commit 8891ebf).
 - 2026-06-22: Experiment 5B-1 (English/Finnish n-gram language scorer) — held-out bigram MLL discriminates English -2.543859 vs Finnish-model -3.271251, Finnish -2.686381 vs English-model -3.187117 (commit 9e67f13).
+- 2026-06-22: Experiment 7A (isomorph shuffle null) — real eyes do not exceed their within-message shuffle null for k=3..=8 repeated-signature kind counts (commit 6ed61c318fb040ab2a25bc627bd2e7e30b69244b).
