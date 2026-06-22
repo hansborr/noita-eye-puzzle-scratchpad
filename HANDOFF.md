@@ -168,6 +168,18 @@ pre-existing history. The pre-commit hook (`make setup` installs it) runs the ga
   is validated by reproducing the known 0–82 result — that's why it's fair to hold
   it fixed in the null. If you add a *broader* order search, fold it into the SAME
   null (don't report it as a free independent check).
+- **Positive controls/nulls can be methodologically degenerate or tautological
+  even when gate-green.** The first Experiment 11 isomorph control was
+  reverse-engineered to a target periodic ciphertext, so its "Vigenere" and
+  "autokey" fixtures decoded to BYTE-IDENTICAL constant-period blocks and the
+  detector's "period found" was trivially true. `make check` and codex review
+  both passed it; only spot-reading the construction and noticing the two
+  "different cipher" fixtures were identical caught it. Mitigation: for any
+  control/null, spot-read that the signal is not trivially constructed, that two
+  "different" fixtures are not secretly identical, and that the measured
+  statistic is computed from data rather than asserted from the construction.
+  Redesigned in commit `5af6b51`; the genuine control recovers a real Kasiski
+  period and is honest that it uses period-aligned planted repeats.
 
 ---
 
