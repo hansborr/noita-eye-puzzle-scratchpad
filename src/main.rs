@@ -6,7 +6,9 @@
 
 use std::process::ExitCode;
 
-use noita_eye_puzzle::{analysis, controls, corpus, glyph::Sequence, null, orders, pipeline_null};
+use noita_eye_puzzle::{
+    analysis, controls, corpus, glyph::Sequence, null, orders, periodicity, pipeline_null,
+};
 
 const USAGE: &str = "\
 noita-eye — Noita eye-glyph puzzle toolkit
@@ -17,6 +19,8 @@ USAGE:
     noita-eye orders             Audit reading orders and Experiment 4 flatness
     noita-eye nulltest [--seed <u64>] [--trials <n>]
                                   Monte-Carlo null over random grids + standard36
+    noita-eye periodicity [--seed <u64>] [--trials <n>] [--max-period <n>] [--max-lag <n>]
+                                  Experiment 5A period/lag/Kasiski battery
     noita-eye pipelinenull [--seed <u64>] [--trials <n>]
                                   Base-7 pipeline null plus input-randomness control
     noita-eye controls monoalphabetic [--seed <u64>]
@@ -53,6 +57,13 @@ fn main() -> ExitCode {
                 None => &[],
             };
             run_nulltest(rest)
+        }
+        Some("periodicity") => {
+            let rest = match args.get(1..) {
+                Some(values) => values,
+                None => &[],
+            };
+            run_periodicity(rest)
         }
         Some("pipelinenull") => {
             let rest = match args.get(1..) {
@@ -107,6 +118,28 @@ fn run_nulltest(args: &[String]) -> ExitCode {
         }
     };
     print_null_report(&report);
+    ExitCode::SUCCESS
+}
+
+fn run_periodicity(args: &[String]) -> ExitCode {
+    let config = match parse_periodicity_config(args) {
+        Ok(config) => config,
+        Err(message) => {
+            eprintln!("{message}");
+            eprintln!(
+                "usage: noita-eye periodicity [--seed <u64>] [--trials <n>] [--max-period <n>] [--max-lag <n>] [--min-ngram <n>] [--max-ngram <n>]"
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    let report = match periodicity::run_periodicity(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("periodicity error: {}", format_periodicity_error(error));
+            return ExitCode::FAILURE;
+        }
+    };
+    print_periodicity_report(&report);
     ExitCode::SUCCESS
 }
 
@@ -281,6 +314,84 @@ fn parse_null_config(args: &[String], subcommand: &str) -> Result<null::NullConf
     Ok(null::NullConfig { seed, trials })
 }
 
+fn parse_periodicity_config(args: &[String]) -> Result<periodicity::PeriodicityConfig, String> {
+    let mut config = periodicity::PeriodicityConfig::default();
+    let mut iter = args.iter();
+    while let Some(flag) = iter.next() {
+        match flag.as_str() {
+            "--seed" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --seed".to_owned());
+                };
+                config.seed = value
+                    .parse::<u64>()
+                    .map_err(|error| format!("invalid --seed value {value:?}: {error}"))?;
+            }
+            "--trials" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --trials".to_owned());
+                };
+                config.trials = value
+                    .parse::<usize>()
+                    .map_err(|error| format!("invalid --trials value {value:?}: {error}"))?;
+            }
+            "--max-period" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --max-period".to_owned());
+                };
+                config.max_period = value
+                    .parse::<usize>()
+                    .map_err(|error| format!("invalid --max-period value {value:?}: {error}"))?;
+            }
+            "--max-lag" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --max-lag".to_owned());
+                };
+                config.max_lag = value
+                    .parse::<usize>()
+                    .map_err(|error| format!("invalid --max-lag value {value:?}: {error}"))?;
+            }
+            "--min-ngram" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --min-ngram".to_owned());
+                };
+                config.min_ngram = value
+                    .parse::<usize>()
+                    .map_err(|error| format!("invalid --min-ngram value {value:?}: {error}"))?;
+            }
+            "--max-ngram" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --max-ngram".to_owned());
+                };
+                config.max_ngram = value
+                    .parse::<usize>()
+                    .map_err(|error| format!("invalid --max-ngram value {value:?}: {error}"))?;
+            }
+            other => return Err(format!("unknown periodicity flag {other:?}")),
+        }
+    }
+    Ok(config)
+}
+
+fn format_periodicity_error(error: periodicity::PeriodicityError) -> String {
+    match error {
+        periodicity::PeriodicityError::Grid(grid_error) => {
+            format!("grid/order error: {grid_error:?}")
+        }
+        periodicity::PeriodicityError::ZeroTrials => {
+            "at least one Monte-Carlo trial is required".to_owned()
+        }
+        periodicity::PeriodicityError::ZeroMaxPeriod => "max period must be at least 1".to_owned(),
+        periodicity::PeriodicityError::ZeroMaxLag => "max lag must be at least 1".to_owned(),
+        periodicity::PeriodicityError::InvalidNgramRange { min, max } => {
+            format!("invalid n-gram range {min}..={max}")
+        }
+        periodicity::PeriodicityError::InvalidAlphabetSize { alphabet_size } => {
+            format!("invalid null alphabet size {alphabet_size}; expected 1..=125")
+        }
+    }
+}
+
 fn format_controls_error(error: &controls::ControlsError) -> String {
     match error {
         controls::ControlsError::EmptyPlaintext { label } => {
@@ -426,6 +537,229 @@ fn print_null_report(report: &null::NullReport) {
     println!(
         "Interpretation: this corrects grid-content randomness and fixed standard36 digit-permutation selection only. It does not correct for broader researcher degrees of freedom such as choosing the traversal family, grouping rule, or headline statistic after looking at the data."
     );
+}
+
+fn print_periodicity_report(report: &periodicity::PeriodicityReport) {
+    println!("Experiment 5A periodicity/autocorrelation battery");
+    println!("order: {}", report.order.name());
+    println!("alphabet: reading-layer values 0..=82");
+    println!("seed: {}", report.config.seed);
+    println!("trials: {}", report.config.trials);
+    println!(
+        "periods: 1..={} ; lags: 1..={} ; Kasiski n-grams: {}..={}",
+        report.config.max_period,
+        report.config.max_lag,
+        report.config.min_ngram,
+        report.config.max_ngram
+    );
+    println!(
+        "message lengths: {}",
+        format_message_lengths(&report.message_lengths)
+    );
+    println!("pooled length: {}", report.pooled_length);
+    println!(
+        "boundary rule: pooled statistics aggregate within-message evidence only; no lag pairs, period columns, or n-grams cross message joins"
+    );
+    println!(
+        "IoC convention: analysis::index_of_coincidence probability form; x83 normalizes to the uniform 83-symbol baseline"
+    );
+    println!(
+        "sampled report-wide null envelopes: period x83 <= {:.3}; autocorrelation rate <= {:.6}",
+        report.period_null_envelope_max, report.autocorrelation_null_envelope_max
+    );
+    println!();
+
+    print_period_ioc_table("pooled IoC-by-period", &report.pooled_ioc_by_period);
+    println!();
+    print_autocorrelation_table(
+        "pooled autocorrelation profile",
+        &report.pooled_autocorrelation,
+    );
+    println!();
+    print_message_periodicity_summary(&report.messages);
+    println!();
+    print_kasiski_table("pooled Kasiski distances", &report.pooled_kasiski);
+    println!();
+    print_message_kasiski_summary(&report.messages);
+    println!();
+    println!(
+        "Interpretation: no pooled or per-message period/lag exceeds the sampled report-wide random-null envelope. That rules out a simple fixed-period polyalphabetic cipher under this honeycomb reading order; it does not prove the data is meaningless, and it says nothing about other reading orders or encodings. Near-uniform IoC-by-period is also exactly what a fixed permutation of structured data can produce."
+    );
+    println!(
+        "Pointwise pt95 rows are shown as noise candidates only; a peak inside the sampled envelope is not a period claim. Any future striking period must be rechecked against Experiment 0 transcription integrity before interpretation."
+    );
+}
+
+fn print_period_ioc_table(label: &str, rows: &[periodicity::PeriodIocRow]) {
+    println!("{label}");
+    println!(
+        "{:>3} {:>10} {:>10} {:>19} {:>10} {:>7}",
+        "p", "IoC", "x83", "null x83 95%", "null max", "flag"
+    );
+    for row in rows {
+        println!(
+            "{:>3} {:>10.6} {:>10.3} {:>19} {:>10.3} {:>7}",
+            row.period,
+            row.mean_ioc,
+            row.normalized_ioc,
+            format_null_band(row.null_band),
+            row.null_band.max,
+            format_null_flag(row.above_pointwise_band, row.above_null_envelope)
+        );
+    }
+}
+
+fn print_autocorrelation_table(label: &str, rows: &[periodicity::AutocorrelationRow]) {
+    println!("{label}");
+    println!(
+        "{:>3} {:>11} {:>10} {:>10} {:>19} {:>10} {:>7}",
+        "lag", "matches", "rate", "x83", "null rate 95%", "null max", "flag"
+    );
+    for row in rows {
+        println!(
+            "{:>3} {:>11} {:>10.6} {:>10.3} {:>19} {:>10.6} {:>7}",
+            row.lag,
+            format_match_count(row.matches, row.comparisons),
+            row.rate,
+            row.normalized_rate,
+            format_null_band(row.null_band),
+            row.null_band.max,
+            format_null_flag(row.above_pointwise_band, row.above_null_envelope)
+        );
+    }
+}
+
+fn print_message_periodicity_summary(messages: &[periodicity::MessagePeriodicityReport]) {
+    println!("per-message strongest apparent rows");
+    println!(
+        "{:<6} {:>5} {:>8} {:>9} {:>7} {:>8} {:>11} {:>7}",
+        "msg", "len", "best p", "p x83", "p flag", "best lag", "lag rate", "lag flag"
+    );
+    for message in messages {
+        let period = strongest_period_row(&message.ioc_by_period);
+        let lag = strongest_autocorrelation_row(&message.autocorrelation);
+        println!(
+            "{:<6} {:>5} {:>8} {:>9} {:>7} {:>8} {:>11} {:>7}",
+            message.message_key,
+            message.length,
+            period.map_or_else(|| "none".to_owned(), |row| row.period.to_string()),
+            period.map_or_else(
+                || "n/a".to_owned(),
+                |row| format!("{:.3}", row.normalized_ioc)
+            ),
+            period.map_or("n/a", |row| {
+                format_null_flag(row.above_pointwise_band, row.above_null_envelope)
+            }),
+            lag.map_or_else(|| "none".to_owned(), |row| row.lag.to_string()),
+            lag.map_or_else(|| "n/a".to_owned(), |row| format!("{:.6}", row.rate)),
+            lag.map_or("n/a", |row| {
+                format_null_flag(row.above_pointwise_band, row.above_null_envelope)
+            })
+        );
+    }
+}
+
+fn print_kasiski_table(label: &str, rows: &[periodicity::KasiskiReport]) {
+    println!("{label}");
+    println!(
+        "{:>3} {:>9} {:>9} {:>9} {:>5} {:<28} {:<28} {:<28}",
+        "n", "repeat", "occurs", "dist", "gcd", "top distances", "per-ngram gcds", "top factors"
+    );
+    for row in rows {
+        println!(
+            "{:>3} {:>9} {:>9} {:>9} {:>5} {:<28} {:<28} {:<28}",
+            row.n,
+            row.repeated_ngram_kinds,
+            row.repeated_occurrences,
+            row.distance_count,
+            row.all_distance_gcd,
+            format_pair_counts(&row.top_distances),
+            format_pair_counts(&row.ngram_gcd_histogram),
+            format_top_factor_counts(&row.factor_counts)
+        );
+    }
+}
+
+fn print_message_kasiski_summary(messages: &[periodicity::MessagePeriodicityReport]) {
+    println!("per-message Kasiski summaries");
+    println!(
+        "{:<6} {:>3} {:>9} {:>9} {:>9} {:>5} {:<28}",
+        "msg", "n", "repeat", "occurs", "dist", "gcd", "top factors"
+    );
+    for message in messages {
+        for row in &message.kasiski {
+            println!(
+                "{:<6} {:>3} {:>9} {:>9} {:>9} {:>5} {:<28}",
+                message.message_key,
+                row.n,
+                row.repeated_ngram_kinds,
+                row.repeated_occurrences,
+                row.distance_count,
+                row.all_distance_gcd,
+                format_top_factor_counts(&row.factor_counts)
+            );
+        }
+    }
+}
+
+fn strongest_period_row(rows: &[periodicity::PeriodIocRow]) -> Option<&periodicity::PeriodIocRow> {
+    rows.iter()
+        .max_by(|left, right| left.normalized_ioc.total_cmp(&right.normalized_ioc))
+}
+
+fn strongest_autocorrelation_row(
+    rows: &[periodicity::AutocorrelationRow],
+) -> Option<&periodicity::AutocorrelationRow> {
+    rows.iter()
+        .max_by(|left, right| left.rate.total_cmp(&right.rate))
+}
+
+fn format_message_lengths(lengths: &[(&'static str, usize)]) -> String {
+    lengths
+        .iter()
+        .map(|(key, length)| format!("{key}:{length}"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn format_null_band(band: periodicity::NullBand) -> String {
+    format!("{:.3}..{:.3}", band.q025, band.q975)
+}
+
+fn format_null_flag(pointwise: bool, envelope: bool) -> &'static str {
+    if envelope {
+        "OUT"
+    } else if pointwise {
+        "pt95"
+    } else {
+        "inside"
+    }
+}
+
+fn format_match_count(matches: usize, comparisons: usize) -> String {
+    format!("{matches}/{comparisons}")
+}
+
+fn format_pair_counts(pairs: &[(usize, usize)]) -> String {
+    if pairs.is_empty() {
+        return "none".to_owned();
+    }
+    pairs
+        .iter()
+        .map(|(value, count)| format!("{value}:{count}"))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn format_top_factor_counts(pairs: &[(usize, usize)]) -> String {
+    let mut sorted = pairs
+        .iter()
+        .copied()
+        .filter(|(_factor, count)| *count > 0)
+        .collect::<Vec<_>>();
+    sorted.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
+    sorted.truncate(8);
+    format_pair_counts(&sorted)
 }
 
 fn print_monoalphabetic_control_report(report: &controls::MonoalphabeticControlReport) {

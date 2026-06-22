@@ -804,7 +804,12 @@ impl ReadingLayerFlatnessStats {
     }
 }
 
-fn glyph_messages_from_values(message_values: &[Vec<TrigramValue>]) -> Vec<Vec<Glyph>> {
+/// Converts per-message reading-layer trigram values into generic glyphs.
+///
+/// This keeps message boundaries intact for statistics that must not create
+/// artificial evidence across joins.
+#[must_use]
+pub fn glyph_messages_from_values(message_values: &[Vec<TrigramValue>]) -> Vec<Vec<Glyph>> {
     message_values
         .iter()
         .map(|values| {
@@ -853,7 +858,13 @@ fn message_weighted_entropy(message_glyphs: &[Vec<Glyph>]) -> f64 {
     }
 }
 
-fn count_recurrence(values: &[TrigramValue], distance: usize) -> usize {
+/// Counts values whose previous occurrence was exactly `distance` positions ago.
+///
+/// This is the recurrence convention used by the reading-order audit. It is
+/// not the same as all-pair lag autocorrelation: only the immediately previous
+/// occurrence of each value is considered.
+#[must_use]
+pub fn count_recurrence(values: &[TrigramValue], distance: usize) -> usize {
     if distance == 0 {
         return 0;
     }
@@ -870,10 +881,61 @@ fn count_recurrence(values: &[TrigramValue], distance: usize) -> usize {
     count
 }
 
-fn count_message_recurrence(message_values: &[Vec<TrigramValue>], distance: usize) -> usize {
+/// Sums [`count_recurrence`] over messages without crossing message joins.
+#[must_use]
+pub fn count_message_recurrence(message_values: &[Vec<TrigramValue>], distance: usize) -> usize {
     message_values
         .iter()
         .map(|values| count_recurrence(values, distance))
+        .sum()
+}
+
+/// Counts exact equality pairs at a fixed lag in one message.
+///
+/// For lag `L`, this checks every valid pair `symbol[i] == symbol[i + L]`.
+/// Returns zero for lag zero or for lags greater than or equal to the message
+/// length.
+#[must_use]
+pub fn count_lag_matches(values: &[TrigramValue], lag: usize) -> usize {
+    if lag == 0 || lag >= values.len() {
+        return 0;
+    }
+    values
+        .iter()
+        .zip(values.iter().skip(lag))
+        .filter(|(left, right)| left == right)
+        .count()
+}
+
+/// Counts comparable pairs at a fixed lag in one message.
+///
+/// This is the denominator for [`count_lag_matches`].
+#[must_use]
+pub fn count_lag_comparisons(values: &[TrigramValue], lag: usize) -> usize {
+    if lag == 0 {
+        return 0;
+    }
+    values.len().saturating_sub(lag)
+}
+
+/// Sums exact equality pairs at a fixed lag over messages.
+///
+/// Message boundaries are preserved: no pair is formed from the end of one
+/// message to the beginning of another.
+#[must_use]
+pub fn count_message_lag_matches(message_values: &[Vec<TrigramValue>], lag: usize) -> usize {
+    message_values
+        .iter()
+        .map(|values| count_lag_matches(values, lag))
+        .sum()
+}
+
+/// Sums comparable fixed-lag pairs over messages without crossing joins.
+#[must_use]
+pub fn count_message_lag_comparisons(message_values: &[Vec<TrigramValue>], lag: usize) -> usize {
+    message_values
+        .iter()
+        .map(|values| count_lag_comparisons(values, lag))
         .sum()
 }
 
