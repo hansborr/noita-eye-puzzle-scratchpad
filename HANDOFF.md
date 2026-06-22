@@ -270,3 +270,4 @@ cargo run -- nulltest --seed 12345 --trials 1000   # the multiple-comparisons nu
 
 - 2026-06-22: Exp 0, 3, 1A, 1B done + review/P3 fix (commits ac0bcd7→2bdb0c0). Handoff written.
 <!-- next agent: append `- <date>: <experiment> — <result + commit sha>` here as you finish each item -->
+- 2026-06-22: Experiment 2 (generation-pipeline artifact null) — base-7 pipeline does not manufacture bounded 0..=82 contiguity; negative control only shows authored 0..=5 storage alphabet, not a message claim (commit 6f4ef3d).
