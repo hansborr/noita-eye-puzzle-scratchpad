@@ -376,6 +376,15 @@ pub fn standard36_orders() -> Vec<ReadingOrder> {
     orders
 }
 
+/// Returns the accepted honeycomb order, `standard36-u012-d012`.
+#[must_use]
+pub const fn accepted_honeycomb_order() -> ReadingOrder {
+    ReadingOrder::HoneycombStandard {
+        upper: TrigramPermutation::IDENTITY,
+        lower: TrigramPermutation::IDENTITY,
+    }
+}
+
 /// Returns supplemental linear controls plus the standard 36 family.
 #[must_use]
 pub fn audit_orders() -> Vec<ReadingOrder> {

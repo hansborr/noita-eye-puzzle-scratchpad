@@ -16,7 +16,7 @@ use crate::analysis;
 use crate::glyph::Glyph;
 use crate::null::SplitMix64;
 use crate::orders::{
-    self, GlyphGrid, GridError, ReadingOrder, TrigramPermutation, count_message_lag_comparisons,
+    self, GlyphGrid, GridError, ReadingOrder, count_message_lag_comparisons,
     count_message_lag_matches, glyph_messages_from_values, read_corpus_message_values,
 };
 use crate::trigram::TrigramValue;
@@ -226,10 +226,7 @@ pub struct PeriodicityReport {
 /// Returns the accepted honeycomb reading order for the real stream.
 #[must_use]
 pub const fn accepted_honeycomb_order() -> ReadingOrder {
-    ReadingOrder::HoneycombStandard {
-        upper: TrigramPermutation::IDENTITY,
-        lower: TrigramPermutation::IDENTITY,
-    }
+    orders::accepted_honeycomb_order()
 }
 
 /// Runs Experiment 5A on the verified corpus.

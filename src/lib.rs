@@ -4,6 +4,10 @@
 //!
 //! - [`glyph`]: the alphabet and sequence types used to represent transcribed
 //!   eye messages, including the verified rendered orientation symbols.
+//! - [`isomorph`]: first-occurrence repeated-pattern detection used by the
+//!   isomorph experiments and controls.
+//! - [`isomorph_null`]: Experiment 7A repeated-pattern analysis against a
+//!   within-message shuffle null.
 //! - [`trigram`]: the base-5 reading layer over rendered orientations.
 //! - [`analysis`]: encoding-agnostic cryptanalysis statistics (frequencies,
 //!   entropy, index of coincidence, chi-square goodness of fit, n-grams).
@@ -29,6 +33,8 @@ pub mod controls;
 pub mod corpus;
 pub mod generator;
 pub mod glyph;
+pub mod isomorph;
+pub mod isomorph_null;
 pub mod language;
 pub mod null;
 pub mod orders;

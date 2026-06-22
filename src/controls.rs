@@ -23,11 +23,12 @@
 //! Passing this control says nothing about whether the unsolved eye glyphs
 //! encode a recoverable message.
 
-use std::collections::BTreeMap;
-
 use crate::analysis;
 use crate::glyph::Glyph;
+use crate::isomorph::{self, IsomorphError};
 use crate::null::SplitMix64;
+
+pub use crate::isomorph::{PeriodSignal, SignatureSummary};
 
 const ENGLISH_ALPHABET: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const ALPHABET_SIZE: usize = 26;
@@ -319,30 +320,6 @@ pub struct MonoalphabeticControlReport {
     /// Short documented Common Glyphs plaintexts, used only as known-key
     /// exactness vectors.
     pub documented_vectors: Vec<FixtureReport>,
-}
-
-/// Repeated-signature period signal from the isomorph detector.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct PeriodSignal {
-    /// Candidate period measured in glyph positions.
-    pub period: usize,
-    /// Number of repeated-signature occurrence pairs whose start-position
-    /// distance is a positive multiple of this candidate period.
-    pub matches: usize,
-    /// Number of distinct signature shapes contributing at least one match.
-    pub signature_kinds: usize,
-}
-
-/// One repeated isomorph signature surfaced for CLI inspection.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SignatureSummary {
-    /// First-occurrence pattern signature rendered as comma-separated ordinals.
-    pub signature: String,
-    /// Window start positions where this signature occurs.
-    pub occurrences: Vec<usize>,
-    /// Number of occurrence pairs whose start-position distance is a positive
-    /// multiple of the checked period.
-    pub expected_period_matches: usize,
 }
 
 /// Summary of one generated isomorph-control fixture.
@@ -1046,197 +1023,31 @@ fn render_key(key: &[Glyph]) -> Result<String, ControlsError> {
     render_glyphs("key rendering", key)
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-struct PatternSignature {
-    values: Vec<usize>,
-}
-
-impl PatternSignature {
-    fn from_window(window: &[Glyph]) -> Self {
-        let mut assignments: Vec<(Glyph, usize)> = Vec::new();
-        let mut values = Vec::with_capacity(window.len());
-        let mut next = 0usize;
-
-        for glyph in window {
-            let known = assignments
-                .iter()
-                .find(|(assigned_glyph, _signature)| assigned_glyph == glyph)
-                .map(|(_assigned_glyph, signature)| *signature);
-            if let Some(signature) = known {
-                values.push(signature);
-            } else {
-                assignments.push((*glyph, next));
-                values.push(next);
-                next += 1;
-            }
-        }
-
-        Self { values }
-    }
-
-    fn has_repeated_symbol(&self) -> bool {
-        let mut seen = Vec::new();
-        for value in &self.values {
-            if seen.contains(value) {
-                return true;
-            }
-            seen.push(*value);
-        }
-        false
-    }
-
-    fn render(&self) -> String {
-        self.values
-            .iter()
-            .map(usize::to_string)
-            .collect::<Vec<_>>()
-            .join(",")
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct SignatureGroup {
-    signature: PatternSignature,
-    occurrences: Vec<usize>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct IsomorphDetection {
-    informative_windows: usize,
-    groups: Vec<SignatureGroup>,
-    period_signals: Vec<PeriodSignal>,
-}
-
-impl IsomorphDetection {
-    fn repeated_signature_kinds(&self) -> usize {
-        self.groups.len()
-    }
-
-    fn period_matches(&self, period: usize) -> usize {
-        self.period_signals
-            .iter()
-            .find(|signal| signal.period == period)
-            .map_or(0, |signal| signal.matches)
-    }
-
-    fn best_period(&self) -> Option<PeriodSignal> {
-        self.period_signals
-            .iter()
-            .copied()
-            .max_by_key(|signal| (signal.matches, signal.signature_kinds))
-    }
-
-    fn strongest_signatures(&self, expected_period: usize) -> Vec<SignatureSummary> {
-        let mut groups = self
-            .groups
-            .iter()
-            .map(|group| {
-                (
-                    signature_period_matches(group, expected_period),
-                    group.occurrences.len(),
-                    group,
-                )
-            })
-            .filter(|(matches, _occurrences, _group)| *matches > 0)
-            .collect::<Vec<_>>();
-        groups.sort_by(|left, right| right.0.cmp(&left.0).then_with(|| right.1.cmp(&left.1)));
-        groups
-            .into_iter()
-            .take(3)
-            .map(
-                |(expected_period_matches, _occurrences, group)| SignatureSummary {
-                    signature: group.signature.render(),
-                    occurrences: group.occurrences.clone(),
-                    expected_period_matches,
-                },
-            )
-            .collect()
-    }
-}
-
 fn detect_isomorphs(
     label: &'static str,
     seq: &[Glyph],
     window: usize,
-) -> Result<IsomorphDetection, ControlsError> {
-    if window == 0 || window > seq.len() {
-        return Err(ControlsError::InvalidIsomorphWindow {
-            label,
-            window,
-            sequence_len: seq.len(),
-        });
-    }
-    if ISOMORPH_MIN_PERIOD > ISOMORPH_MAX_PERIOD {
-        return Err(ControlsError::InvalidPeriodSearch {
-            label,
-            min_period: ISOMORPH_MIN_PERIOD,
-            max_period: ISOMORPH_MAX_PERIOD,
-        });
-    }
-
-    let mut signature_positions: BTreeMap<PatternSignature, Vec<usize>> = BTreeMap::new();
-    let mut informative_windows = 0usize;
-    for (position, glyph_window) in seq.windows(window).enumerate() {
-        let signature = PatternSignature::from_window(glyph_window);
-        if signature.has_repeated_symbol() {
-            informative_windows += 1;
-            signature_positions
-                .entry(signature)
-                .or_default()
-                .push(position);
-        }
-    }
-
-    let groups = signature_positions
-        .into_iter()
-        .filter(|(_signature, occurrences)| occurrences.len() > 1)
-        .map(|(signature, occurrences)| SignatureGroup {
-            signature,
-            occurrences,
-        })
-        .collect::<Vec<_>>();
-    let mut period_signals = Vec::new();
-    for period in ISOMORPH_MIN_PERIOD..=ISOMORPH_MAX_PERIOD {
-        let mut matches = 0usize;
-        let mut signature_kinds = 0usize;
-        for group in &groups {
-            let group_matches = signature_period_matches(group, period);
-            if group_matches > 0 {
-                matches += group_matches;
-                signature_kinds += 1;
-            }
-        }
-        if matches > 0 {
-            period_signals.push(PeriodSignal {
-                period,
-                matches,
-                signature_kinds,
-            });
-        }
-    }
-
-    Ok(IsomorphDetection {
-        informative_windows,
-        groups,
-        period_signals,
-    })
-}
-
-fn signature_period_matches(group: &SignatureGroup, period: usize) -> usize {
-    if period == 0 {
-        return 0;
-    }
-
-    let mut matches = 0usize;
-    for (left_index, left) in group.occurrences.iter().enumerate() {
-        for right in group.occurrences.iter().skip(left_index + 1) {
-            let distance = right.saturating_sub(*left);
-            if distance >= period && distance % period == 0 {
-                matches += 1;
-            }
-        }
-    }
-    matches
+) -> Result<isomorph::IsomorphDetection, ControlsError> {
+    isomorph::detect_isomorphs(seq, window, ISOMORPH_MIN_PERIOD, ISOMORPH_MAX_PERIOD).map_err(
+        |error| match error {
+            IsomorphError::InvalidWindow {
+                window,
+                sequence_len,
+            } => ControlsError::InvalidIsomorphWindow {
+                label,
+                window,
+                sequence_len,
+            },
+            IsomorphError::InvalidPeriodSearch {
+                min_period,
+                max_period,
+            } => ControlsError::InvalidPeriodSearch {
+                label,
+                min_period,
+                max_period,
+            },
+        },
+    )
 }
 
 fn sorted_frequency_counts(seq: &[Glyph]) -> Vec<usize> {
@@ -1262,12 +1073,13 @@ mod tests {
     use super::{
         ALPHABET_SIZE, ControlsError, ISOMORPH_KEY_PERIOD, IsomorphControlConfig,
         MAX_ABSENT_PERIOD_MATCHES, MIN_PERIOD_MATCH_SEPARATION, MIN_PRESENT_PERIOD_MATCHES,
-        MonoalphabeticControlConfig, PatternSignature, SubstitutionKey, balanced_uniform_sequence,
-        detect_isomorphs, normalize_plaintext, run_isomorph_control, run_monoalphabetic_control,
+        MonoalphabeticControlConfig, SubstitutionKey, balanced_uniform_sequence, detect_isomorphs,
+        normalize_plaintext, run_isomorph_control, run_monoalphabetic_control,
         sorted_frequency_counts,
     };
     use crate::analysis;
     use crate::glyph::Glyph;
+    use crate::isomorph::PatternSignature;
 
     #[test]
     fn monoalphabetic_control_preserves_exact_statistics() {
@@ -1392,6 +1204,71 @@ mod tests {
         let second = run_isomorph_control(IsomorphControlConfig { seed: 0xf00d }).unwrap();
 
         assert_eq!(first, second);
+    }
+
+    #[test]
+    fn isomorph_control_default_seed_numbers_are_anchored() {
+        let report = run_isomorph_control(IsomorphControlConfig::default()).unwrap();
+
+        assert_eq!(report.vigenere.informative_windows, 1480);
+        assert_eq!(report.vigenere.repeated_signature_kinds, 49);
+        assert_eq!(report.vigenere.exact_repeated_windows, 38);
+        assert_eq!(report.vigenere.expected_period_matches, 923);
+        assert_eq!(
+            report.vigenere.best_period.map(|signal| signal.period),
+            Some(7)
+        );
+        assert_eq!(
+            report.vigenere.best_period.map(|signal| signal.matches),
+            Some(923)
+        );
+        assert_eq!(
+            report
+                .vigenere
+                .best_period
+                .map(|signal| signal.signature_kinds),
+            Some(44)
+        );
+
+        assert_eq!(report.autokey.informative_windows, 1479);
+        assert_eq!(report.autokey.repeated_signature_kinds, 16);
+        assert_eq!(report.autokey.exact_repeated_windows, 0);
+        assert_eq!(report.autokey.expected_period_matches, 7);
+        assert_eq!(
+            report.autokey.best_period.map(|signal| signal.period),
+            Some(2)
+        );
+        assert_eq!(
+            report.autokey.best_period.map(|signal| signal.matches),
+            Some(11)
+        );
+        assert_eq!(
+            report
+                .autokey
+                .best_period
+                .map(|signal| signal.signature_kinds),
+            Some(7)
+        );
+
+        assert_eq!(report.running_key.informative_windows, 1479);
+        assert_eq!(report.running_key.repeated_signature_kinds, 15);
+        assert_eq!(report.running_key.exact_repeated_windows, 0);
+        assert_eq!(report.running_key.expected_period_matches, 2);
+        assert_eq!(
+            report.running_key.best_period.map(|signal| signal.period),
+            Some(2)
+        );
+        assert_eq!(
+            report.running_key.best_period.map(|signal| signal.matches),
+            Some(10)
+        );
+        assert_eq!(
+            report
+                .running_key
+                .best_period
+                .map(|signal| signal.signature_kinds),
+            Some(10)
+        );
     }
 
     #[test]

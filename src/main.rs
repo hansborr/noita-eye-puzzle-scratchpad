@@ -7,7 +7,8 @@
 use std::process::ExitCode;
 
 use noita_eye_puzzle::{
-    analysis, controls, corpus, glyph::Sequence, null, orders, periodicity, pipeline_null,
+    analysis, controls, corpus, glyph::Sequence, isomorph_null, null, orders, periodicity,
+    pipeline_null,
 };
 
 const MIN_RELIABLE_PERIODICITY_NULL_TRIALS: usize = 50;
@@ -25,6 +26,8 @@ USAGE:
                                   Experiment 5A period/lag/Kasiski battery
     noita-eye pipelinenull [--seed <u64>] [--trials <n>]
                                   Base-7 pipeline null plus input-randomness control
+    noita-eye isomorphnull [--seed <u64>] [--trials <n>]
+                                  Experiment 7A real isomorphs vs within-message shuffle null
     noita-eye controls monoalphabetic [--seed <u64>]
                                   Experiment 11 monoalphabetic positive control
     noita-eye controls isomorph [--seed <u64>]
@@ -73,6 +76,13 @@ fn main() -> ExitCode {
                 None => &[],
             };
             run_pipelinenull(rest)
+        }
+        Some("isomorphnull") => {
+            let rest = match args.get(1..) {
+                Some(values) => values,
+                None => &[],
+            };
+            run_isomorphnull(rest)
         }
         Some("controls") => {
             let rest = match args.get(1..) {
@@ -171,6 +181,26 @@ fn run_pipelinenull(args: &[String]) -> ExitCode {
     print_pipeline_null_report(&pipeline_report);
     println!();
     print_input_randomness_report(&input_report);
+    ExitCode::SUCCESS
+}
+
+fn run_isomorphnull(args: &[String]) -> ExitCode {
+    let config = match parse_isomorph_null_config(args) {
+        Ok(config) => config,
+        Err(message) => {
+            eprintln!("{message}");
+            eprintln!("usage: noita-eye isomorphnull [--seed <u64>] [--trials <n>]");
+            return ExitCode::FAILURE;
+        }
+    };
+    let report = match isomorph_null::run_isomorph_null(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("isomorph null error: {}", format_isomorph_null_error(error));
+            return ExitCode::FAILURE;
+        }
+    };
+    print_isomorph_null_report(&report);
     ExitCode::SUCCESS
 }
 
@@ -316,6 +346,35 @@ fn parse_null_config(args: &[String], subcommand: &str) -> Result<null::NullConf
     Ok(null::NullConfig { seed, trials })
 }
 
+fn parse_isomorph_null_config(
+    args: &[String],
+) -> Result<isomorph_null::IsomorphNullConfig, String> {
+    let mut config = isomorph_null::IsomorphNullConfig::default();
+    let mut iter = args.iter();
+    while let Some(flag) = iter.next() {
+        match flag.as_str() {
+            "--seed" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --seed".to_owned());
+                };
+                config.seed = value
+                    .parse::<u64>()
+                    .map_err(|error| format!("invalid --seed value {value:?}: {error}"))?;
+            }
+            "--trials" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --trials".to_owned());
+                };
+                config.trials = value
+                    .parse::<usize>()
+                    .map_err(|error| format!("invalid --trials value {value:?}: {error}"))?;
+            }
+            other => return Err(format!("unknown isomorphnull flag {other:?}")),
+        }
+    }
+    Ok(config)
+}
+
 fn parse_periodicity_config(args: &[String]) -> Result<periodicity::PeriodicityConfig, String> {
     let mut config = periodicity::PeriodicityConfig::default();
     let mut iter = args.iter();
@@ -390,6 +449,27 @@ fn format_periodicity_error(error: periodicity::PeriodicityError) -> String {
         }
         periodicity::PeriodicityError::InvalidAlphabetSize { alphabet_size } => {
             format!("invalid null alphabet size {alphabet_size}; expected 1..=125")
+        }
+    }
+}
+
+fn format_isomorph_null_error(error: isomorph_null::IsomorphNullError) -> String {
+    match error {
+        isomorph_null::IsomorphNullError::Grid(grid_error) => {
+            format!("grid/order error: {grid_error:?}")
+        }
+        isomorph_null::IsomorphNullError::ZeroTrials => {
+            "at least one Monte-Carlo trial is required".to_owned()
+        }
+        isomorph_null::IsomorphNullError::InvalidWindowRange {
+            min_window,
+            max_window,
+        } => format!("invalid window range {min_window}..={max_window}"),
+        isomorph_null::IsomorphNullError::Isomorph(isomorph_error) => {
+            format!("detector configuration error: {isomorph_error:?}")
+        }
+        isomorph_null::IsomorphNullError::RandomBoundTooLarge { bound } => {
+            format!("shuffle bound {bound} is too large")
         }
     }
 }
@@ -1076,6 +1156,86 @@ fn print_pipeline_null_report(report: &null::NullReport) {
     println!(
         "Interpretation: the base-7 pipeline does not manufacture the bounded 0..=82 contiguity; uniform-random orientation cells do not either. The contiguity is therefore not explained as a generation artifact, but this is equally consistent with structured-but-meaningless data and is not evidence of a recoverable message."
     );
+}
+
+fn print_isomorph_null_report(report: &isomorph_null::IsomorphNullReport) {
+    println!("Experiment 7A isomorph shuffle null");
+    println!("order: {}", report.order.name());
+    println!("seed: {}", report.config.seed);
+    println!("trials: {}", report.config.trials);
+    println!(
+        "windows: {}..={}",
+        report.config.min_window, report.config.max_window
+    );
+    println!(
+        "message lengths: {}",
+        format_message_lengths(&report.message_lengths)
+    );
+    println!("pooled length: {}", report.total_length);
+    println!(
+        "boundary rule: detector runs within each message only; no window crosses a message join"
+    );
+    println!(
+        "null: Fisher-Yates shuffle within each message, preserving that message's exact symbol multiset and length"
+    );
+    println!(
+        "statistic: repeated informative first-occurrence signature kinds, summed over messages; all-distinct windows are ignored"
+    );
+    println!(
+        "longest repeated real isomorph in scanned range: {}",
+        report
+            .longest_real_repeated_isomorph
+            .map_or_else(|| "none".to_owned(), |window| window.to_string())
+    );
+    println!();
+    println!(
+        "{:>2} {:>10} {:>8} {:>10} {:>12} {:>8} {:>9}",
+        "k", "real kinds", "max rep", "null mean", "null 95%", "null max", "p>=real"
+    );
+    for row in &report.rows {
+        println!(
+            "{:>2} {:>10} {:>8} {:>10.2} {:>12} {:>8} {:>9.4}",
+            row.window,
+            row.real.repeated_signature_kinds,
+            row.real.max_repeat_count,
+            row.null.mean,
+            format_isomorph_band(row.null),
+            row.null.max,
+            row.empirical_p
+        );
+    }
+    println!();
+    print_isomorph_null_interpretation(report);
+}
+
+fn print_isomorph_null_interpretation(report: &isomorph_null::IsomorphNullReport) {
+    let pointwise_excesses = report
+        .rows
+        .iter()
+        .filter(|row| row.real.repeated_signature_kinds > row.null.q975)
+        .map(|row| format!("k={} (p={:.4})", row.window, row.empirical_p))
+        .collect::<Vec<_>>();
+
+    if pointwise_excesses.is_empty() {
+        println!(
+            "Interpretation: the real eye stream does not exceed the pointwise 95% within-message shuffle band for repeated-signature kind counts at the scanned k values. Short repeated isomorphs exist, but this run does not show arrangement structure beyond the same messages shuffled against themselves."
+        );
+    } else {
+        println!(
+            "Interpretation: the real eye stream exceeds the pointwise 95% within-message shuffle band at {}. That is an arrangement signal worth rechecking, not a decryption or plaintext claim.",
+            pointwise_excesses.join(", ")
+        );
+    }
+    println!(
+        "The shuffle null holds symbol frequencies fixed and randomizes only order, so it tests arrangement rather than frequency. The p values are empirical fractions over the configured shuffles and are pointwise over the scanned k values."
+    );
+    println!(
+        "Any striking excess should be rechecked against Experiment 0 transcription integrity before interpretation."
+    );
+}
+
+fn format_isomorph_band(band: isomorph_null::IsomorphNullBand) -> String {
+    format!("{}..{}", band.q025, band.q975)
 }
 
 fn yes_no(value: bool) -> &'static str {
