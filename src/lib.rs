@@ -8,8 +8,12 @@
 //! - [`analysis`]: encoding-agnostic cryptanalysis statistics (frequencies,
 //!   entropy, index of coincidence, n-grams).
 //! - [`corpus`]: the verified transcribed message data.
+//! - [`generator`]: the engine storage-layer base-7 decoder and vendored input
+//!   blocks used for corpus cross-checks.
 //! - [`null`]: deterministic null distributions for fixed reading-order
 //!   families.
+//! - [`pipeline_null`]: Experiment 2 nulls for testing whether the base-7
+//!   generation pipeline manufactures reading-layer statistics.
 //!
 //! Nothing here commits to a particular theory of how the glyphs encode
 //! meaning; the goal is to provide trustworthy primitives that constrain the
@@ -17,7 +21,9 @@
 
 pub mod analysis;
 pub mod corpus;
+pub mod generator;
 pub mod glyph;
 pub mod null;
 pub mod orders;
+pub mod pipeline_null;
 pub mod trigram;

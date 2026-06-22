@@ -135,10 +135,32 @@ pub struct NullReport {
 
 /// Runs the standard-36 reading-order null over synthetic uniform grids.
 ///
+/// Each synthetic corpus preserves the verified row-width structure while
+/// drawing every cell uniformly from orientation digits `0..=4`.
+///
 /// # Errors
 /// Returns [`GridError`] if the verified corpus grids cannot be reconstructed
 /// or if an order is incompatible with a generated grid.
 pub fn run_standard36_null(config: NullConfig) -> Result<NullReport, GridError> {
+    run_standard36_null_with(config, random_grids_like)
+}
+
+/// Runs the standard-36 reading-order null with a caller-supplied corpus
+/// generator.
+///
+/// `generate` receives the verified corpus grids (as width templates) plus the
+/// shared deterministic PRNG and must return one synthetic corpus per call. This
+/// lets alternative nulls — for example the base-7 pipeline null in
+/// [`crate::pipeline_null`] — reuse the identical reading-order statistics and
+/// report shape while varying only how synthetic cells are produced.
+///
+/// # Errors
+/// Returns [`GridError`] if the verified corpus grids cannot be reconstructed
+/// or if an order is incompatible with a generated grid.
+pub fn run_standard36_null_with(
+    config: NullConfig,
+    mut generate: impl FnMut(&[GlyphGrid], &mut SplitMix64) -> Vec<GlyphGrid>,
+) -> Result<NullReport, GridError> {
     let templates = corpus_grids()?;
     let orders = standard36_orders();
     let mut rng = SplitMix64::new(config.seed);
@@ -149,7 +171,7 @@ pub fn run_standard36_null(config: NullConfig) -> Result<NullReport, GridError> 
     let mut distance4_ratios = Vec::new();
 
     for _trial in 0..config.trials {
-        let grids = random_grids_like(&templates, &mut rng);
+        let grids = generate(&templates, &mut rng);
         let outcome = evaluate_trial(&grids, &orders)?;
         if outcome.headline_0_to_82 {
             headline_count += 1;
