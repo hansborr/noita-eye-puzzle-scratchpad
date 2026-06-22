@@ -293,3 +293,4 @@ cargo run -- nulltest --seed 12345 --trials 1000   # the multiple-comparisons nu
 - 2026-06-22: Experiment 5A interpretation fixes — verdict derived from null-envelope flags + explicit Experiment 1B distance-4 reconciliation (commit 8891ebf).
 - 2026-06-22: Experiment 5B-1 (English/Finnish n-gram language scorer) — held-out bigram MLL discriminates English -2.543859 vs Finnish-model -3.271251, Finnish -2.686381 vs English-model -3.187117 (commit 9e67f13).
 - 2026-06-22: Experiment 7A (isomorph shuffle null) — real eyes do not exceed their within-message shuffle null for k=3..=8 repeated-signature kind counts (commit 6ed61c318fb040ab2a25bc627bd2e7e30b69244b).
+- 2026-06-22: Experiment 7B (alphabet-chaining fail-signature) — eyes match the known-fail chaining signature across p=2..=16 under standard36-u012-d012, not the known-succeed Vigenere band (commit 3db4609626212d20827e46c6d466b5a88637bd9c).
