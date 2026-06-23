@@ -189,6 +189,8 @@ Before any experiment, obtain and cross-validate the raw glyph data. **Do not tr
 
 **Expected signal / interpretation:** Identical content across seeds = content is hardcoded/seed-invariant (the community assumption) [likely, not proven — no byte-for-byte cross-seed proof exists in any primary source]. Any per-seed content variation would be a major finding overturning the premise that there is a single fixed message to solve.
 
+**Primary-observer update (2026-06-22):** the repo owner reports, from direct in-game observation across **multiple world seeds**, that the eye-message content is **identical** — corroborating seed-invariance from primary observation, which no prior source had. This is a **qualitative** confirmation (eyeballed equivalence), not the byte-for-byte trigram diff across ≥2 named seeds that remains the gold standard. Status moves from "unproven assumption" toward "directly corroborated"; the stronger form is still open and would become in-scope for the std-only crate the moment a second-seed transcription is vendored under `research/data/` (the analysis half — a cross-seed diff test — needs no game access; only the second transcription does).
+
 ---
 
 ## Experiment 10 — Sprite-state extraction & clustering (verify the 0–4 orientation mapping)
@@ -205,6 +207,8 @@ Before any experiment, obtain and cross-validate the raw glyph data. **Do not tr
 **Expected signal / interpretation:**
 - 5 clean clusters confirms the 5-orientation model.
 - The exact **direction-per-digit** mapping is currently **only shown as an image** on the wiki/primary doc; no retrievable *text* source pins each pixel-direction to its digit, and one source (Cipherbrain) warns the numbering order is non-obvious [unverifiable from text — flagged in dossier verdicts]. This experiment is the *only* way to verify it from primary pixels rather than convention. Treat the popular mapping as **convention, not confirmed fact** until this is done [disputed/unverifiable].
+
+**Primary-observer update (2026-06-22):** the repo owner, from direct in-game observation, confirms **exactly 5 visually distinct orientations** (corroborates the already-`[confirmed]` 0–4 inventory) and independently concurs the **digit→direction labeling is arbitrary** ("no reason to prefer the encoding the community uses"). Net effect: the *count* sub-claim is corroborated; the *mapping* sub-claim resolves not as "verified" but as "there is no canonical mapping to verify — it is a labeling convention." Critically, this is **cryptanalytically immaterial**: all downstream statistics run on the engine-fixed integer digit sequence (cross-validated byte-for-byte in Experiment 0), so a relabeling of the direction names permutes no value and changes no result. The only thing that would still matter is a *mis-assignment of which integer belongs to which glyph during transcription* — and that is exactly what Experiment 0 already rules out.
 
 ---
 

@@ -89,7 +89,7 @@ This document sorts every significant claim about the Noita "Eye Messages" puzzl
 
 > **Verdict (on "content was obtained"): MIXED.** "reverse engineering revealed the GENERATION ALGORITHM and glyph-placement … and Cheat Engine reveals LOCATIONS … It did NOT yield a decrypted plaintext meaning. … the word CONTENT overstates what was achieved (glyph sequences/locations and the generator, not a solved/decrypted message)."
 
-- **Content is seed-invariant (only placement varies by seed).** [likely] Consistent with Xkeeper0's single hard-coded message set and Lymm's coordinate-only tool, but **no primary byte-for-byte cross-seed invariance proof was located.** (https://gist.githubusercontent.com/Xkeeper0/a6eda18571ef889be291822c400cc6c8/raw, https://gitlab.com/realgonzogames/lymms-binoculars)
+- **Content is seed-invariant (only placement varies by seed).** [likely → corroborated by direct observation] Consistent with Xkeeper0's single hard-coded message set and Lymm's coordinate-only tool. The repo owner reports, from direct in-game observation across **multiple world seeds**, that the eye-message content is identical — a primary-observer corroboration that lifts this from pure inference toward fact. It remains a **qualitative** observation: no byte-for-byte cross-seed trigram diff has been vendored, which would still be the stronger proof. (https://gist.githubusercontent.com/Xkeeper0/a6eda18571ef889be291822c400cc6c8/raw, https://gitlab.com/realgonzogames/lymms-binoculars; primary-observer report 2026-06-22)
 
 - **No Nolla developer (Purho / Harjola / Teikari / Tiihonen) has ever made an eye-specific statement** about meaning, cipher, intent, or solvability. [likely — proving a negative] By contrast, the adjacent Cauldron (Arvi's 2021 "don't be too concerned") and Orb-Room symbol (denied by Arvi, Antti, Olli) *do* have dev remarks. (https://en.wikipedia.org/wiki/Noita_(video_game), https://noita.wiki.gg/wiki/Mysteries_and_Oddities)
 
@@ -104,6 +104,8 @@ This document sorts every significant claim about the Noita "Eye Messages" puzzl
 - **The specific direction-per-digit mapping (0=center, 1=up, 2=right, 3=down, 4=left).** Presented only as an image in primary sources; no retrievable text pins each pixel-direction to its digit. [speculative]
 
 > **Verdict: UNVERIFIABLE.** "No primary source pins each pixel-direction to its digit … THE WIKI MAPPING IS IMAGE-ONLY … NO AUTHORITATIVE SOURCE EXPLICITLY STATES THE 0=center,1=up,2=right,3=down,4=left ORDERING. … Cipherbrain … explicitly warns … 'the five eye symbols are represented by the numbers 0 to 4. The order is different from the two pictures.'" The digit→orientation legend is an arbitrary labeling convention; the puzzle is unsolved regardless.
+
+> **Primary-observer update (2026-06-22):** the repo owner, from direct in-game observation, confirms there are exactly **5 visually distinct orientations** (corroborating the [confirmed] 0–4 inventory in §2) and independently concurs that the **digit→direction labeling is arbitrary** — "no reason to prefer the encoding the community uses." This is **cryptanalytically immaterial**: every statistic in the workbench runs on the engine-fixed integer digit sequence (cross-validated byte-for-byte in Experiment 0), not on the cosmetic direction names, so relabeling the directions changes no result.
 
 - **The octahedron / 3D-projection family.** Popular (motivated by meditation-cube imagery) but produces inconsistent, only vaguely-glyph-like results; unsubstantiated. [speculative] (https://noita.wiki.gg/wiki/Eye_Messages)
 
@@ -173,7 +175,7 @@ These are the structural risks that the most confident community write-ups under
 ## 8. Bottom line
 
 - **Solidly established [confirmed]:** 9 messages (5E/4W, no West 5); 0–4 orientations + 5=newline; eye counts ÷3; 1036 trigrams; engine-generated (not Lua, not in data.wak); base-7 internal generation reproduced; spawn conditions; monoalphabetic substitution ruled out; the puzzle is unsolved.
-- **Plausible but unproven [likely]:** the 0–82 reading-order anomaly; polyalphabetic/isomorph character; Ninji's Ghidra RE; seed-invariant content; absence of dev comment.
+- **Plausible but unproven [likely]:** the 0–82 reading-order anomaly; polyalphabetic/isomorph character; Ninji's Ghidra RE; seed-invariant content (now corroborated by direct in-game observation across multiple seeds — byte-for-byte cross-seed diff still pending); absence of dev comment.
 - **Not established [speculative]:** developer intentionality; the exact direction-per-digit mapping; octahedron and permutation-cipher models; ship date/first discovery.
 - **Should be retired or heavily qualified [disputed]:** "developers confirmed it's solvable" (traces to one unsourced HN line + AI-generated Grokipedia); "~83 internal states" (circular); "no doubles / distance-4 spike" (false on raw order); "two major secrets" (self-contradictory, Cauldron now resolved); "Pyry is a dev."
 

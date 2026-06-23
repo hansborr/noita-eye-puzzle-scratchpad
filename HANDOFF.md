@@ -302,6 +302,16 @@ estimate), honest interpretation in code/CLI docs, committed, progress logged.
    Seed-invariance needs the game/world-gen PRNG; sprite-state clustering is image
    work (better as a small Python side-tool). The crate can still *store* cross-seed
    transcriptions and diff them. Skip unless you can do them cleanly std-only.
+   - **Primary-observer update (2026-06-22):** the repo owner confirmed by direct
+     in-game observation that (a) eye-message **content is identical across multiple
+     world seeds** (Exp 9 — qualitative corroboration of seed-invariance; a vendored
+     byte-for-byte cross-seed diff is still the stronger form and stays the one
+     std-clean task worth doing here once a second-seed transcription exists), and
+     (b) there are exactly **5 visually distinct orientations** (Exp 10 count), with
+     the digit→direction labeling agreed to be an **arbitrary convention** — which is
+     cryptanalytically immaterial since all stats run on the Exp-0-verified integer
+     digit sequence, not the direction names. Recorded in `research/03` §§3–4 and
+     `research/05` Exp 9/10. No code change; nothing in the conclusions moves.
 
 When the queue is done: run a **completeness pass** — what's still asserted but
 unverified? what null is still missing? Add those as new queue items and continue.
@@ -354,3 +364,4 @@ cargo run -- nulltest --seed 12345 --trials 1000   # the multiple-comparisons nu
 - 2026-06-22: Experiment 8 (base-N grouping + independent state-count) — pairs are the nearest Latin-sized grouping but not entropy-compatible as raw plaintext; collision estimate 73..90 states overlaps 83 (commit 9c0372fa8e7ff52e489bc0f0334ee1978d3fecb0).
 - 2026-06-22: Experiment 12 (candidate ciphers + Caesar/Vigenere brute vs English/Finnish) — candidate scores are mapping-conditioned; 256-trial shuffle null shows only pointwise tail rows under guessed mappings, the harness positive-control recovers Caesar/Vigenere plants, and no credible solution is established (commit 8bc7bdf0cf401a76709f98b118b2a141d6089be0).
 - 2026-06-22: Experiment 12 interpretation rigor — pointwise tails now report the derived exceedance-rate diagnosis and eye-vs-plant effect-size contrast, keeping the result a clean negative rather than near-hits (commit b465dd3f182d076994dcbd1ee8442e1354f4f6a9).
+- 2026-06-22: Experiments 9 & 10 primary-observer report (repo owner, direct in-game observation) — content identical across multiple seeds (qualitative seed-invariance corroboration; byte-for-byte cross-seed diff still pending) and exactly 5 visually distinct orientations with the digit→direction labeling agreed arbitrary (cryptanalytically immaterial; stats run on the Exp-0-verified integer sequence). Docs-only update to research/03 §§3–4, research/05 Exp 9/10, and §6 item 8; no code change, conclusions unchanged.
