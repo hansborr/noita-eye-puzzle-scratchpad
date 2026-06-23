@@ -7,13 +7,15 @@
 //! PRNG. That proves the frequency and substitution tooling fires on a
 //! monoalphabetic cipher with ground truth.
 //!
-//! The isomorph/polyalphabetic control is also generated: an aperiodic
-//! natural-language plaintext is encrypted three ways. A short repeating-key
-//! Vigenere fixture is the known-present period case, while autokey and
-//! full-length running-key fixtures over the same plaintext are known-absent
-//! short-period contrasts. That proves the first-occurrence signature detector
-//! recovers a real Kasiski-style Vigenere period and stays quiet when that
-//! short repeating key is absent.
+//! The isomorph/polyalphabetic control is also generated: English prose
+//! containing a phrase repeated at offsets aligned to the Vigenere key period is
+//! encrypted three ways. A short repeating-key Vigenere fixture is the
+//! known-present period case, while autokey and full-length running-key fixtures
+//! over the same plaintext are known-absent short-period contrasts. The planted
+//! repeats are held constant, so the contrast tests whether the
+//! first-occurrence signature detector recovers the period when period-aligned
+//! repeats exist and stays quiet when the same repeats are encrypted without a
+//! short repeating key.
 //!
 //! The documented Common Glyphs plaintexts are included only as named
 //! round-trip vectors. Their upstream glyph-pixel mapping is not vendored here,
@@ -50,7 +52,11 @@ THE SAME COINCIDENCE RATE AND THE SAME BAG OF COUNTS. WHEN THE SAMPLE IS LONG
 ENOUGH THE ENGLISH FREQUENCY SHAPE STANDS ABOVE A UNIFORM STREAM. THAT IS THE
 ONLY CLAIM OF THIS CONTROL. IT CALIBRATES THE MEASUREMENT PATH AND IT DOES NOT
 SAY THAT THE EYE GLYPHS CONTAIN A RECOVERABLE SENTENCE.";
-const ISOMORPH_FIXTURE_LABEL: &str = "embedded natural-language isomorph plaintext";
+const ISOMORPH_FIXTURE_LABEL: &str = "English prose with period-aligned repeated phrase";
+// The recurring phrase below starts only at normalized letter offsets that are
+// multiples of the 7-symbol Vigenere period. That planted Kasiski signal is
+// held constant across Vigenere/autokey/running-key fixtures, so the contrast
+// isolates key structure rather than plaintext content.
 const ISOMORPH_FIXTURE_TEXT: &str = "\
 THE METHOD CHECKS THE KNOWN CIPHER BEFORE IT JUDGES THE UNKNOWN MESSAGE.
 A SIMPLE SUBSTITUTION CHANGES LETTER NAMES BUT IT DOES NOT CHANGE HOW OFTEN
@@ -447,10 +453,13 @@ pub fn run_monoalphabetic_control(
 
 /// Runs the isomorph/polyalphabetic positive control.
 ///
-/// The known-present fixture encrypts one natural-language plaintext with a
-/// short Vigenere key. Known-absent contrast fixtures encrypt the same
-/// plaintext with autokey and a full-length running key, removing the short
-/// repeating-key ground truth.
+/// The known-present fixture encrypts English prose containing a phrase
+/// repeated at offsets aligned to the 7-symbol key period with a short Vigenere
+/// key. Known-absent contrast fixtures encrypt the same plaintext with autokey
+/// and a full-length running key, removing the short repeating-key ground
+/// truth while keeping the planted repeats unchanged. This tests period
+/// recovery when Kasiski hooks exist, not detector sensitivity on arbitrary
+/// prose.
 ///
 /// # Errors
 /// Returns [`ControlsError`] if fixture generation fails or if the detector

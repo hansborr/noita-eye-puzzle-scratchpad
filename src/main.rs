@@ -509,7 +509,7 @@ fn print_isomorph_control_report(report: &controls::IsomorphControlReport) {
         report.window, report.min_period, report.max_period
     );
     println!(
-        "ground truth: Vigenere has repeating-key period {}; autokey and running-key do not",
+        "ground truth: plaintext has period-aligned planted repeats; Vigenere key period is {}; autokey and running-key have no short repeating key",
         report.expected_period
     );
     println!(
@@ -524,7 +524,7 @@ fn print_isomorph_control_report(report: &controls::IsomorphControlReport) {
     print_isomorph_fixture(&report.running_key);
     println!();
     println!(
-        "Interpretation: this proves the isomorph/period tooling recovers the key period of a repeating-key Vigenere over natural text and stays quiet on autokey and running-key ciphertexts where no exploitable short repeating key is present. It says nothing about whether the unsolved eye glyphs encode a message. If this control fails, the methodology is suspect."
+        "Interpretation: this control shows the isomorph/period tooling recovers the repeating-key Vigenere period when English prose contains period-aligned planted repeats. The autokey and running-key fixtures use the same planted repeats but do not show a short period, so the contrast isolates key structure rather than plaintext content. It does not claim arbitrary natural text would produce this signal, and it says nothing about whether the unsolved eye glyphs encode a message. If this control fails, the methodology is suspect."
     );
 }
 

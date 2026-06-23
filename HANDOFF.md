@@ -274,4 +274,5 @@ cargo run -- nulltest --seed 12345 --trials 1000   # the multiple-comparisons nu
 - 2026-06-22: Experiment 2 review fixes — unbiased matched-length sampler + honest analytic no-`-1` rate (commit 24df29d).
 - 2026-06-22: Experiment 11 (monoalphabetic positive control) — deterministic 1:1 substitution control preserves IoC/frequency multisets and recovers known-key plaintext without eye-message claims (commit 128c10c).
 - 2026-06-22: Experiment 11 (isomorph/polyalphabetic positive control) — first-occurrence signature detector fires on short-key Vigenere/autokey fixtures and stays quiet on the full-length running-key contrast (commit ee87dfb).
-- 2026-06-22: Experiment 11 isomorph control redesigned — Vigenere key-period recovery over natural text vs Kasiski-resistant autokey/running-key (commit 5af6b51).
+- 2026-06-22: Experiment 11 isomorph control redesigned — Vigenere key-period recovery with period-aligned planted repeats vs Kasiski-resistant autokey/running-key (commit 5af6b51).
+- 2026-06-22: Experiment 11 isomorph control — honest disclosure that the Kasiski signal uses period-aligned planted repeats (commit 6f7a2c).
