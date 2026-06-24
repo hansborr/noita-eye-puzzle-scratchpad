@@ -37,3 +37,11 @@ fn controls_polyalphabetic_alias_reports_isomorph_control() {
     );
     assert_contains(&stdout, "known-present Vigenere repeating-key fixture");
 }
+
+#[test]
+fn controls_seed_without_variant_defaults_to_monoalphabetic() {
+    let stdout = run_noita_eye(&["controls", "--seed", "123"]);
+
+    assert_contains(&stdout, "Experiment 11 monoalphabetic positive control");
+    assert_contains(&stdout, "seed: 123");
+}

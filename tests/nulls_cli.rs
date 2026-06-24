@@ -36,6 +36,14 @@ fn dofnull_subcommand_reports_researcher_dof_null() {
 }
 
 #[test]
+fn dofnull_calibration_trials_default_to_trials() {
+    let stdout = run_noita_eye(&["dofnull", "--trials", "1", "--seed", "123"]);
+
+    assert_contains(&stdout, "calibration trials (A): 1");
+    assert_contains(&stdout, "resampling trials (B): 1");
+}
+
+#[test]
 fn pipelinenull_subcommand_reports_pipeline_and_input_controls() {
     let stdout = run_noita_eye(&["pipelinenull", "--trials", "5", "--seed", "123"]);
 
