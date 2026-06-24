@@ -26,6 +26,8 @@
 //!   blocks used for corpus cross-checks.
 //! - [`grouping`]: Experiment 8 base-N grouping comparison and independent
 //!   collision-based state-count calibration.
+//! - [`honeycomb`]: fixed-order two-dimensional honeycomb lattice structure
+//!   test over physical row-pair coordinates.
 //! - [`language`]: English/Finnish n-gram language models for scoring
 //!   candidate plaintexts.
 //! - [`modular_diff`]: modular finite-difference structural fingerprinting
@@ -58,6 +60,7 @@ pub mod dof_null;
 pub mod generator;
 pub mod glyph;
 pub mod grouping;
+pub mod honeycomb;
 pub mod isomorph;
 pub mod isomorph_null;
 pub mod language;
