@@ -19,6 +19,8 @@
 //! - [`ciphers`]: Experiment 12 candidate-cipher primitives and exact
 //!   round-trip controls.
 //! - [`controls`]: positive-control fixtures for solved cipher classes.
+//! - [`conditional_structure`]: first-order transition-matrix and
+//!   successor-graph analysis against within-message shuffle nulls.
 //! - [`corpus`]: the verified transcribed message data.
 //! - [`dof_null`]: calibrated adaptive null for researcher degrees of freedom
 //!   across traversal, grouping, and headline-statistic choice.
@@ -56,6 +58,7 @@ pub mod analysis;
 pub mod chaining;
 pub mod cipher_attack;
 pub mod ciphers;
+pub mod conditional_structure;
 pub mod controls;
 pub mod corpus;
 pub mod dof_null;

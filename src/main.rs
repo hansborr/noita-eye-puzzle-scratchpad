@@ -8,9 +8,9 @@ use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
 use noita_eye_puzzle::{
-    chaining, cipher_attack, controls, corpus, dof_null, glyph::Sequence, grouping, honeycomb,
-    isomorph_null, modular_diff, null, orders, orientation_homogeneity, periodicity, perseus,
-    pipeline_null, report, tree_residual, zero_adjacency_null,
+    chaining, cipher_attack, conditional_structure, controls, corpus, dof_null, glyph::Sequence,
+    grouping, honeycomb, isomorph_null, modular_diff, null, orders, orientation_homogeneity,
+    periodicity, perseus, pipeline_null, report, tree_residual, zero_adjacency_null,
 };
 
 const DEFAULT_NULL_SEED: u64 = 0x6e6f_6974_612d_6579;
@@ -70,6 +70,8 @@ enum Command {
     /// Tree-residual cross-tail n-gram null.
     #[command(name = "treeresidual", alias = "tree-residual")]
     Treeresidual(TreeResidualArgs),
+    /// First-order transition matrix and successor-graph shuffle null.
+    Conditional(ConditionalArgs),
     /// Experiment 12 candidate-cipher language-scoring null harness.
     #[command(name = "cipherattack")]
     Cipherattack(CipherAttackArgs),
@@ -310,6 +312,30 @@ impl From<TreeResidualArgs> for tree_residual::TreeResidualConfig {
 }
 
 #[derive(Clone, Copy, Debug, Args)]
+struct ConditionalArgs {
+    #[arg(long, default_value_t = conditional_structure::DEFAULT_SEED)]
+    seed: u64,
+    #[arg(long = "seeds", default_value_t = conditional_structure::DEFAULT_SEED_COUNT)]
+    seed_count: usize,
+    #[arg(
+        long = "trials-per-seed",
+        default_value_t = conditional_structure::DEFAULT_TRIALS_PER_SEED
+    )]
+    trials_per_seed: usize,
+}
+
+impl From<ConditionalArgs> for conditional_structure::ConditionalStructureConfig {
+    fn from(args: ConditionalArgs) -> Self {
+        Self {
+            seed: args.seed,
+            seed_count: args.seed_count,
+            trials_per_seed: args.trials_per_seed,
+            ..Self::default()
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Args)]
 struct CipherAttackArgs {
     #[arg(long, default_value_t = cipher_attack::DEFAULT_SEED)]
     seed: u64,
@@ -395,6 +421,7 @@ fn main() -> ExitCode {
         Command::Perseus(args) => run_perseus(args.into()),
         Command::Zeroadjnull(args) => run_zeroadjnull(args.into()),
         Command::Treeresidual(args) => run_treeresidual(args.into()),
+        Command::Conditional(args) => run_conditional(args.into()),
         Command::Cipherattack(args) => run_cipherattack(args.into()),
         Command::Controls(args) => run_controls(args),
     }
@@ -599,6 +626,21 @@ fn run_treeresidual(config: tree_residual::TreeResidualConfig) -> ExitCode {
         }
     };
     report::print_tree_residual_report(&report);
+    ExitCode::SUCCESS
+}
+
+fn run_conditional(config: conditional_structure::ConditionalStructureConfig) -> ExitCode {
+    let report = match conditional_structure::run_conditional_structure(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!(
+                "conditional structure error: {}",
+                report::format_conditional_structure_error(error)
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    report::print_conditional_structure_report(&report);
     ExitCode::SUCCESS
 }
 
