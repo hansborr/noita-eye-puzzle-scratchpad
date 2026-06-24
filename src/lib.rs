@@ -37,6 +37,8 @@
 //! - [`pipeline_null`]: Experiment 2 nulls for testing whether the base-7
 //!   generation pipeline manufactures reading-layer statistics.
 //! - [`report`]: CLI report rendering and domain error formatting.
+//! - [`tree_residual`]: tree-residual cross-tail n-gram sharing after the
+//!   Experiment 7C shared-region mask, against a within-tail shuffle null.
 //!
 //! Nothing here commits to a particular theory of how the glyphs encode
 //! meaning; the goal is to provide trustworthy primitives that constrain the
@@ -61,4 +63,5 @@ pub mod periodicity;
 pub mod perseus;
 pub mod pipeline_null;
 pub mod report;
+pub mod tree_residual;
 pub mod trigram;
