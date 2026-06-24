@@ -9,7 +9,8 @@
 //! This corrects for grid-content randomness plus selection among the 36 fixed
 //! digit permutations. It does **not** correct for broader post-hoc researcher
 //! degrees of freedom such as the choice of honeycomb traversal family, trigram
-//! grouping rule, or which statistic to headline.
+//! grouping rule, or which statistic to headline. For that broader calibrated
+//! adaptive correction, see [`crate::dof_null`].
 
 use crate::glyph::Orientation;
 use crate::orders::{
@@ -240,6 +241,18 @@ pub fn analytic_headline_bounds(family_size: usize, trigrams: usize) -> Analytic
 }
 
 fn random_grids_like(templates: &[GlyphGrid], rng: &mut SplitMix64) -> Vec<GlyphGrid> {
+    random_orientation_grids_like(templates, rng)
+}
+
+/// Generates uniform random orientation grids with the same row widths.
+///
+/// Each output grid keeps the source message key and row structure while drawing
+/// every rendered cell independently from orientation digits `0..=4`.
+#[must_use]
+pub fn random_orientation_grids_like(
+    templates: &[GlyphGrid],
+    rng: &mut SplitMix64,
+) -> Vec<GlyphGrid> {
     let mut grids = Vec::new();
     for template in templates {
         let mut rows = Vec::new();

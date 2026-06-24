@@ -58,6 +58,21 @@ Before any experiment, obtain and cross-validate the raw glyph data. **Do not tr
 
 **Tools:** `ToboterXP/EyeGlyphs` brute-force script as a starting point; reimplement the null-distribution wrapper yourself (the community version does not do this).
 
+**Implementation status (2026-06-24):** the fixed standard36 null exists as
+`src/null.rs` / `cargo run -- nulltest`, and the broader configured
+researcher-degrees-of-freedom correction now exists as `src/dof_null.rs` /
+`cargo run -- dofnull`. The DoF null does **not** compare raw statistic values
+across incommensurable cells: each traversal/grouping/statistic cell is first
+mapped to its own same-shape random-grid marginal tail, then the eyes and every
+random grid take the minimum calibrated p-value over the same search space. With
+seed 12345 and 1000 trials, the eyes' adaptive min-p has **0/1000** random-grid
+exceedances (95% Wilson `0..0.003827`; median Sidak-equivalent comparisons
+≈138). The accepted honeycomb trigram contiguous-0..=82 cell is at the empirical
+floor (`1/1001`). This confirms rather than overturns the structural anomaly
+under the configured correction, while preserving the key nuance that the
+honeycomb traversal is data-independent; the newly calibrated exposure is mainly
+grouping/statistic choice plus non-honeycomb controls.
+
 ---
 
 ## Experiment 2 — Generation-pipeline artifact test (is the structure an encoding, or a side effect of hex→base-7?)

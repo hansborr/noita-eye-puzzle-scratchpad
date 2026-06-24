@@ -134,6 +134,12 @@ impl GlyphGrid {
         self.rows.iter().map(Vec::len).collect()
     }
 
+    /// Rendered orientation rows for this grid.
+    #[must_use]
+    pub fn orientation_rows(&self) -> &[Vec<Orientation>] {
+        &self.rows
+    }
+
     /// Number of rendered orientation digits in the grid.
     #[must_use]
     pub fn eye_count(&self) -> usize {
@@ -331,6 +337,13 @@ pub enum ReadingOrder {
         /// Whether alternate columns reverse local direction.
         mode: LineMode,
     },
+    /// Diagonal control over anti-diagonals where `row + column` is constant.
+    DiagonalMajor {
+        /// Diagonal traversal order.
+        diagonals: Direction,
+        /// Row traversal order within each diagonal.
+        rows: Direction,
+    },
     /// The fixed honeycomb walk used by `ToboterXP`, with independent
     /// permutations for the two alternating triangle shapes.
     HoneycombStandard {
@@ -357,6 +370,9 @@ impl ReadingOrder {
                 rows,
                 mode,
             } => format!("col-{}-{}-{}", columns.name(), rows.name(), mode.name()),
+            Self::DiagonalMajor { diagonals, rows } => {
+                format!("diag-{}-{}", diagonals.name(), rows.name())
+            }
             Self::HoneycombStandard { upper, lower } => {
                 format!("standard36-u{}-d{}", upper.name(), lower.name())
             }
@@ -416,6 +432,31 @@ pub fn audit_orders() -> Vec<ReadingOrder> {
     orders
 }
 
+/// Returns simple diagonal route controls over ragged rows.
+#[must_use]
+pub fn diagonal_orders() -> Vec<ReadingOrder> {
+    let mut orders = Vec::new();
+    for diagonals in [Direction::Forward, Direction::Reverse] {
+        for rows in [Direction::Forward, Direction::Reverse] {
+            orders.push(ReadingOrder::DiagonalMajor { diagonals, rows });
+        }
+    }
+    orders
+}
+
+/// Returns the traversal set used by the calibrated `DoF` null.
+///
+/// This is [`audit_orders`] plus diagonal route controls. The standard36
+/// honeycomb family remains data-independent: each honeycomb walk is determined
+/// by grid shape plus fixed digit-position permutations, not by the glyph
+/// contents.
+#[must_use]
+pub fn dof_candidate_orders() -> Vec<ReadingOrder> {
+    let mut orders = audit_orders();
+    orders.extend(diagonal_orders());
+    orders
+}
+
 /// Reads all grids with one order and returns the combined trigram value stream.
 ///
 /// # Errors
@@ -450,6 +491,27 @@ pub fn read_corpus_message_values(
     Ok(values)
 }
 
+/// Reads all grids with one order, preserving message boundaries as rendered
+/// orientation digits.
+///
+/// For honeycomb orders this returns the data-independent honeycomb digit
+/// stream after the order's trigram-position permutations have been applied.
+/// This lets non-trigram grouping rules reuse the same traversal family without
+/// inventing a separate honeycomb digit path.
+///
+/// # Errors
+/// Returns [`GridError`] if the order is incompatible with any grid shape.
+pub fn read_corpus_message_orientations(
+    grids: &[GlyphGrid],
+    order: ReadingOrder,
+) -> Result<Vec<Vec<Orientation>>, GridError> {
+    let mut messages = Vec::new();
+    for grid in grids {
+        messages.push(read_grid_orientations(grid, order)?);
+    }
+    Ok(messages)
+}
+
 /// Reads one grid with one order and returns its trigram values.
 ///
 /// # Errors
@@ -466,6 +528,23 @@ pub fn read_grid_values(
     }
 }
 
+/// Reads one grid with one order and returns rendered orientation digits.
+///
+/// # Errors
+/// Returns [`GridError`] if the order is incompatible with the grid shape.
+pub fn read_grid_orientations(
+    grid: &GlyphGrid,
+    order: ReadingOrder,
+) -> Result<Vec<Orientation>, GridError> {
+    match order {
+        ReadingOrder::HoneycombStandard { .. } => Ok(read_grid_values(grid, order)?
+            .into_iter()
+            .flat_map(orientations_from_value)
+            .collect()),
+        _ => read_grid_digits(grid, order),
+    }
+}
+
 fn read_grid_digits(grid: &GlyphGrid, order: ReadingOrder) -> Result<Vec<Orientation>, GridError> {
     match order {
         ReadingOrder::RawRows => Ok(grid.rows.iter().flatten().copied().collect()),
@@ -479,6 +558,9 @@ fn read_grid_digits(grid: &GlyphGrid, order: ReadingOrder) -> Result<Vec<Orienta
             rows,
             mode,
         } => read_column_major_digits(grid, columns, rows, mode),
+        ReadingOrder::DiagonalMajor { diagonals, rows } => {
+            read_diagonal_major_digits(grid, diagonals, rows)
+        }
         ReadingOrder::HoneycombStandard { .. } => Ok(Vec::new()),
     }
 }
@@ -518,6 +600,29 @@ fn read_column_major_digits(
     {
         let local_rows = line_indices(grid.row_count(), rows, mode, line_index);
         for row in local_rows {
+            if grid.rows.get(row).is_some_and(|cells| column < cells.len()) {
+                out.push(grid.cell(row, column)?);
+            }
+        }
+    }
+    Ok(out)
+}
+
+fn read_diagonal_major_digits(
+    grid: &GlyphGrid,
+    diagonals: Direction,
+    rows: Direction,
+) -> Result<Vec<Orientation>, GridError> {
+    let diagonal_count = grid
+        .row_count()
+        .saturating_add(grid.max_width())
+        .saturating_sub(1);
+    let mut out = Vec::new();
+    for diagonal in diagonals.ordered_indices(diagonal_count) {
+        for row in rows.ordered_indices(grid.row_count()) {
+            let Some(column) = diagonal.checked_sub(row) else {
+                continue;
+            };
             if grid.rows.get(row).is_some_and(|cells| column < cells.len()) {
                 out.push(grid.cell(row, column)?);
             }
@@ -631,6 +736,28 @@ fn digits_to_values(
 fn value_from_orientations(orientations: [Orientation; 3]) -> TrigramValue {
     let [first, second, third] = orientations;
     ReadingTrigram::new(first, second, third).value()
+}
+
+fn orientations_from_value(value: TrigramValue) -> [Orientation; 3] {
+    let raw = value.get();
+    let first = raw / 25;
+    let second = (raw % 25) / 5;
+    let third = raw % 5;
+    [
+        orientation_from_base5_digit(first),
+        orientation_from_base5_digit(second),
+        orientation_from_base5_digit(third),
+    ]
+}
+
+fn orientation_from_base5_digit(digit: u8) -> Orientation {
+    match digit {
+        0 => Orientation::Zero,
+        1 => Orientation::One,
+        2 => Orientation::Two,
+        3 => Orientation::Three,
+        _ => Orientation::Four,
+    }
 }
 
 /// Structural statistics for one trigram value stream.

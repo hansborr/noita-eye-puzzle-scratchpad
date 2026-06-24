@@ -78,12 +78,28 @@ Commits `ac0bcd7`→`2bdb0c0` on `master`, all gate-green. Verified independentl
   - Headline contiguous-0–82: **0/1000**. Min distinct ever reached: 122 (never
     near 83). Ceiling always 124 (never bounds at 82). Zero-adjacency: ~1–2/1000.
     Real distance-4 ratio 2.52 exceeds all 2000 random best-over-36 ratios.
-  - Bonferroni/Šidák over 36 orders = `2.10e-183`. **Conclusion (already
-    documented in the CLI):** the family-wise correction does NOT deflate the
-    per-order improbability; the dominant remaining deflationary risk is the
-    *unmodeled researcher-degrees-of-freedom* (the traversal family, grouping
-    rule, and headline statistic were chosen after seeing the data — the null
-    deliberately does not resample those). Keep this honesty in everything.
+  - Bonferroni/Šidák over 36 orders = `2.10e-183`. The fixed-family correction
+    does NOT deflate the per-order improbability.
+- **Researcher-DoF adaptive null:** `src/dof_null.rs` — calibrated min-p null over
+  the configured traversal x grouping x headline-statistic choice space. CLI:
+  `cargo run -- dofnull --seed <u64> --trials <n>`.
+  - Search space: standard36 honeycomb family, raw/linear controls, four diagonal
+    controls; single/pair/trigram/tetragram base-5 and engine base-7 grouping;
+    distinct count, contiguous-bounded-at-max, zero-adjacency rate, and best
+    distance-k recurrence ratio. Engine base-7 is valid only on raw stored rows,
+    and skipped combos are reported.
+  - Calibration rule: each cell gets its own same-shape random-grid marginal tail
+    before taking the adaptive min-p. No raw max/min across incommensurable
+    statistics.
+  - Seed 12345, 1000 trials: eyes min marginal p `1/1001`; adaptive p **0/1000**
+    (95% Wilson `0..0.003827`); median Sidak-equivalent comparisons **138.42**.
+    The accepted honeycomb trigram contiguous-0..=82 cell is also at `1/1001`.
+  - Interpretation: this confirms rather than overturns the bounded 83-state
+    structural anomaly under the configured DoF correction. It is still not a
+    plaintext/decryption claim, and the standard36 honeycomb walk is
+    data-independent (grid shape + fixed permutations), so the genuinely new
+    exposure is concentrated on grouping/statistic choice plus non-honeycomb
+    traversal controls.
 - **Review:** a `codex review` over the whole diff found only one P3 (silent
   trigram truncation), now fixed (`2bdb0c0`): `Message::trigrams()` errors on
   non-÷3 input.
@@ -134,12 +150,12 @@ A cross-experiment **completeness pass** (read-only audit) confirmed: gate green
 shared anchors agree across all modules, every statistic has a null/control, and no
 source text overstates. The synthesized conclusion lives in `README.md` (Results).
 
-Modules (17): `glyph.rs`, `trigram.rs`, `generator.rs`, `corpus.rs`, `analysis.rs`,
-`orders.rs`, `null.rs`, `pipeline_null.rs`, `isomorph.rs`, `isomorph_null.rs`,
+Modules (18): `glyph.rs`, `trigram.rs`, `generator.rs`, `corpus.rs`, `analysis.rs`,
+`orders.rs`, `null.rs`, `dof_null.rs`, `pipeline_null.rs`, `isomorph.rs`, `isomorph_null.rs`,
 `periodicity.rs`, `chaining.rs`, `grouping.rs`, `controls.rs`, `language.rs`,
 `ciphers.rs`, `cipher_attack.rs`. CLI (`main.rs`): `demo`, `stats`, `orders`,
-`nulltest`, `pipelinenull`, `periodicity`, `isomorphnull`, `chaining`, `grouping`,
-`cipherattack`, `controls {monoalphabetic|isomorph(=polyalphabetic)}`.
+`nulltest`, `dofnull`, `pipelinenull`, `periodicity`, `isomorphnull`, `chaining`,
+`grouping`, `cipherattack`, `controls {monoalphabetic|isomorph(=polyalphabetic)}`.
 
 ---
 
@@ -214,8 +230,10 @@ pre-existing history. The pre-commit hook (`make setup` installs it) runs the ga
   semantics into types or claims.
 - **The honeycomb traversal is data-independent** (depends only on grid shape) and
   is validated by reproducing the known 0–82 result — that's why it's fair to hold
-  it fixed in the null. If you add a *broader* order search, fold it into the SAME
-  null (don't report it as a free independent check).
+  it fixed in the original standard36 null. `dof_null.rs` now folds the configured
+  broader traversal/grouping/statistic search into one calibrated adaptive null;
+  any future broader search should extend that same construction rather than
+  being reported as a free independent check.
 - **Positive controls/nulls can be methodologically degenerate or tautological
   even when gate-green.** The first Experiment 11 isomorph control was
   reverse-engineered to a target periodic ciphertext, so its "Vigenere" and
@@ -341,6 +359,7 @@ make setup           # install pre-commit hook
 cargo test --locked  # authoritative test signal (use after each codex run)
 cargo run -- orders                          # per-order structural stats
 cargo run -- nulltest --seed 12345 --trials 1000   # the multiple-comparisons null
+cargo run -- dofnull --seed 12345 --trials 1000     # calibrated researcher-DoF null
 ```
 
 ---
@@ -365,3 +384,4 @@ cargo run -- nulltest --seed 12345 --trials 1000   # the multiple-comparisons nu
 - 2026-06-22: Experiment 12 (candidate ciphers + Caesar/Vigenere brute vs English/Finnish) — candidate scores are mapping-conditioned; 256-trial shuffle null shows only pointwise tail rows under guessed mappings, the harness positive-control recovers Caesar/Vigenere plants, and no credible solution is established (commit 8bc7bdf0cf401a76709f98b118b2a141d6089be0).
 - 2026-06-22: Experiment 12 interpretation rigor — pointwise tails now report the derived exceedance-rate diagnosis and eye-vs-plant effect-size contrast, keeping the result a clean negative rather than near-hits (commit b465dd3f182d076994dcbd1ee8442e1354f4f6a9).
 - 2026-06-22: Experiments 9 & 10 primary-observer report (repo owner, direct in-game observation) — content identical across multiple seeds (qualitative seed-invariance corroboration; byte-for-byte cross-seed diff still pending) and exactly 5 visually distinct orientations with the digit→direction labeling agreed arbitrary (cryptanalytically immaterial; stats run on the Exp-0-verified integer sequence). Docs-only update to research/03 §§3–4, research/05 Exp 9/10, and §6 item 8; no code change, conclusions unchanged.
+- 2026-06-24: Researcher-DoF adaptive null — calibrated min-p across traversal/grouping/statistic cells is implemented in `dof_null.rs`; seed 12345 / 1000 trials gives adaptive p 0/1000 (Wilson 0..0.003827), confirming rather than overturning the bounded 83-state structural anomaly under the configured look-elsewhere correction.

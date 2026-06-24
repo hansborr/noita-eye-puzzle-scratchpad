@@ -49,6 +49,7 @@ src/
   analysis.rs     frequencies, Shannon entropy, index of coincidence, n-grams, chi-square
   orders.rs       grid reconstruction; honeycomb walk + standard36 family; per-order stats
   null.rs         standard36 reading-order null (SplitMix64, Wilson intervals)
+  dof_null.rs     calibrated adaptive null for traversal/grouping/statistic researcher DoF
   pipeline_null.rs  Exp 2 — base-7 generation-pipeline artifact null + negative control
   isomorph.rs     first-occurrence pattern-signature isomorph detector
   isomorph_null.rs  Exp 7A — within-message shuffle null for isomorph structure
@@ -69,6 +70,7 @@ cargo run -- demo                  # analysis on the verified nine-message corpu
 cargo run -- stats <sequence>      # freq / entropy / IoC for rendered digits 0–4
 cargo run -- orders                # reading-order audit + Experiment 4 flatness
 cargo run -- nulltest      [--seed <u64>] [--trials <n>]    # Exp 1B multiple-comparisons null
+cargo run -- dofnull       [--seed <u64>] [--trials <n>]    # calibrated researcher-DoF null
 cargo run -- pipelinenull  [--seed <u64>] [--trials <n>]    # Exp 2 generation-pipeline null
 cargo run -- periodicity   [--seed <u64>] [--trials <n>] [--max-period <n>] [--max-lag <n>]
 cargo run -- isomorphnull  [--seed <u64>] [--trials <n>]    # Exp 7A shuffle null
@@ -82,14 +84,26 @@ cargo run -- controls isomorph       [--seed <u64>]         # (alias: polyalphab
 ## Results
 
 Each experiment pairs a measurement with a null or a positive control. The
-findings are uniformly **negative** for the eyes and **positive** for the
-calibration controls — i.e. the tools provably fire on known signal, and the eyes
-do not light them up:
+decryption/cipher findings are uniformly **negative** for the eyes and
+**positive** for the calibration controls — i.e. the tools provably fire on known
+signal, and the eyes do not light them up. The one positive structural result is
+the bounded 83-state reading-layer support, which survives the calibrated null
+below without becoming a plaintext claim:
 
 - **Exp 4 — frequency/entropy/IoC across orders.** Per-symbol frequency is flat
   (reproduces the community IoC ≈ 1.066, mean frequency 12.48); the honeycomb
   order is the only standard36 order fully inside 0–82. Flat frequency **rules out
   monoalphabetic substitution**; it does not rule a real message *in*.
+- **Researcher-DoF adaptive null.** `dofnull` calibrates each
+  traversal/grouping/statistic cell to its own random-grid marginal tail before
+  taking the best min-p across the configured search space (57 traversals, 5
+  groupings, 4 statistics; 916 valid cells after engine-storage skips). With
+  seed 12345 and 1000 trials, no random grid matched the eyes' calibrated min-p:
+  **0/1000**, Wilson **0..0.003827**, effective comparisons ≈ **138**. The
+  accepted honeycomb trigram contiguous-0..=82 row is at the empirical floor
+  (p = 1/1001). This confirms rather than overturns the structural anomaly, but
+  the honeycomb traversal itself is data-independent; the newly calibrated
+  exposure is mainly grouping/statistic choice plus non-honeycomb controls.
 - **Exp 5A — periodicity / autocorrelation.** No period or lag clears a random
   null band, beyond the order-contingent distance-4 spike (honestly reconciled
   with Exp 1B's targeted distance-4 result; family-wise vs pointwise).
@@ -113,11 +127,12 @@ do not light them up:
   Exp 5B-1 (English-vs-Finnish discrimination), and the Exp 12 plant all confirm
   the tooling recovers known signal — so the eye negatives are meaningful.
 
-**Caveat (carried from Exp 1B):** the traversal family, grouping rule, and headline
-statistics were chosen *after* seeing the data. The nulls correct for grid-content
-randomness and multiple comparisons within a fixed family, but deliberately do not
-resample those **researcher degrees of freedom**, which remain the dominant
-deflationary risk. Read every result with that in mind.
+**Caveat:** `dofnull` now resamples the configured
+traversal/grouping/statistic researcher degrees of freedom instead of leaving
+that as an unmodeled caveat. It is still finite-resolution Monte Carlo
+(default floor `1/(trials+1)`) and a configured search space, not a proof over
+every imaginable post-hoc analysis. It supports "structured data of unknown
+meaning," not "decoded message."
 
 ## Commands
 

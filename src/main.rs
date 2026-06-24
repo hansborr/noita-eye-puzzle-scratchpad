@@ -7,8 +7,8 @@
 use std::process::ExitCode;
 
 use noita_eye_puzzle::{
-    analysis, chaining, cipher_attack, controls, corpus, glyph::Sequence, grouping, isomorph_null,
-    null, orders, periodicity, pipeline_null,
+    analysis, chaining, cipher_attack, controls, corpus, dof_null, glyph::Sequence, grouping,
+    isomorph_null, null, orders, periodicity, pipeline_null,
 };
 
 const MIN_RELIABLE_PERIODICITY_NULL_TRIALS: usize = 50;
@@ -22,6 +22,8 @@ USAGE:
     noita-eye orders             Audit reading orders and Experiment 4 flatness
     noita-eye nulltest [--seed <u64>] [--trials <n>]
                                   Monte-Carlo null over random grids + standard36
+    noita-eye dofnull [--seed <u64>] [--trials <n>]
+                                  Calibrated adaptive null over traversal/grouping/statistic DoF
     noita-eye periodicity [--seed <u64>] [--trials <n>] [--max-period <n>] [--max-lag <n>]
                                   Experiment 5A period/lag/Kasiski battery
     noita-eye pipelinenull [--seed <u64>] [--trials <n>]
@@ -67,6 +69,13 @@ fn main() -> ExitCode {
                 None => &[],
             };
             run_nulltest(rest)
+        }
+        Some("dofnull") => {
+            let rest = match args.get(1..) {
+                Some(values) => values,
+                None => &[],
+            };
+            run_dofnull(rest)
         }
         Some("periodicity") => {
             let rest = match args.get(1..) {
@@ -150,6 +159,26 @@ fn run_nulltest(args: &[String]) -> ExitCode {
         }
     };
     print_null_report(&report);
+    ExitCode::SUCCESS
+}
+
+fn run_dofnull(args: &[String]) -> ExitCode {
+    let config = match parse_dof_null_config(args) {
+        Ok(config) => config,
+        Err(message) => {
+            eprintln!("{message}");
+            eprintln!("usage: noita-eye dofnull [--seed <u64>] [--trials <n>]");
+            return ExitCode::FAILURE;
+        }
+    };
+    let report = match dof_null::run_dof_null(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("DoF null error: {}", format_dof_null_error(&error));
+            return ExitCode::FAILURE;
+        }
+    };
+    print_dof_null_report(&report);
     ExitCode::SUCCESS
 }
 
@@ -425,6 +454,33 @@ fn parse_null_config(args: &[String], subcommand: &str) -> Result<null::NullConf
     Ok(null::NullConfig { seed, trials })
 }
 
+fn parse_dof_null_config(args: &[String]) -> Result<dof_null::DofNullConfig, String> {
+    let mut config = dof_null::DofNullConfig::default();
+    let mut iter = args.iter();
+    while let Some(flag) = iter.next() {
+        match flag.as_str() {
+            "--seed" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --seed".to_owned());
+                };
+                config.seed = value
+                    .parse::<u64>()
+                    .map_err(|error| format!("invalid --seed value {value:?}: {error}"))?;
+            }
+            "--trials" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --trials".to_owned());
+                };
+                config.trials = value
+                    .parse::<usize>()
+                    .map_err(|error| format!("invalid --trials value {value:?}: {error}"))?;
+            }
+            other => return Err(format!("unknown dofnull flag {other:?}")),
+        }
+    }
+    Ok(config)
+}
+
 fn parse_isomorph_null_config(
     args: &[String],
 ) -> Result<isomorph_null::IsomorphNullConfig, String> {
@@ -616,6 +672,33 @@ fn format_periodicity_error(error: periodicity::PeriodicityError) -> String {
         }
         periodicity::PeriodicityError::InvalidAlphabetSize { alphabet_size } => {
             format!("invalid null alphabet size {alphabet_size}; expected 1..=125")
+        }
+    }
+}
+
+fn format_dof_null_error(error: &dof_null::DofNullError) -> String {
+    match error {
+        dof_null::DofNullError::Grid(grid_error) => {
+            format!("grid/order error: {grid_error:?}")
+        }
+        dof_null::DofNullError::ZeroTrials => {
+            "at least one Monte-Carlo trial is required".to_owned()
+        }
+        dof_null::DofNullError::EmptySearchSpace => {
+            "the DoF search space must include at least one traversal, grouping, and statistic"
+                .to_owned()
+        }
+        dof_null::DofNullError::NoValidCells => {
+            "no compatible traversal/grouping/statistic cells remained".to_owned()
+        }
+        dof_null::DofNullError::ZeroGroupingWidth => {
+            "orientation grouping width must be at least 1".to_owned()
+        }
+        dof_null::DofNullError::GroupingAlphabetTooLarge { width } => {
+            format!("orientation grouping width {width} has too many base-5 states")
+        }
+        dof_null::DofNullError::InternalCellMismatch { expected, observed } => {
+            format!("internal DoF cell mismatch: expected {expected}, observed {observed}")
         }
     }
 }
@@ -843,6 +926,122 @@ fn print_null_report(report: &null::NullReport) {
     println!(
         "Interpretation: this corrects grid-content randomness and fixed standard36 digit-permutation selection only. It does not correct for broader researcher degrees of freedom such as choosing the traversal family, grouping rule, or headline statistic after looking at the data."
     );
+}
+
+fn print_dof_null_report(report: &dof_null::DofNullReport) {
+    println!("calibrated researcher-DoF random-grid null");
+    println!("seed: {}", report.config.seed);
+    println!("trials: {}", report.config.trials);
+    println!(
+        "configured axes: {} traversals x {} groupings x {} statistics",
+        report.configured_orders, report.configured_groupings, report.configured_statistics
+    );
+    println!("valid calibrated cells: {}", report.valid_cell_count);
+    println!(
+        "skipped traversal/grouping combos: {}",
+        report.skipped.len()
+    );
+    println!("resampled: verified row-width structure with uniform orientation cells 0..=4");
+    println!(
+        "calibration: each cell is mapped to its own empirical marginal tail before the cross-cell min-p search"
+    );
+    println!(
+        "scope nuance: the standard36 honeycomb walk is data-independent; the newly calibrated exposure is concentrated on grouping/statistic choice plus non-honeycomb controls"
+    );
+    println!();
+    println!(
+        "eyes min marginal p: {}",
+        format_probability(report.observed_min_p)
+    );
+    println!(
+        "best cell: {} / {} / {} ({}, real {}, null {}..{}..{})",
+        report.best_cell.order.name(),
+        report.best_cell.grouping.label(),
+        report.best_cell.statistic.label(),
+        report.best_cell.tail.label(),
+        format_statistic_value(report.best_cell.real_value),
+        format_statistic_value(report.best_cell.null_min),
+        format_statistic_value(report.best_cell.null_median),
+        format_statistic_value(report.best_cell.null_max)
+    );
+    print_interval("adaptive min-p <= eyes", report.adaptive_interval);
+    println!(
+        "effective independent comparisons (median Sidak-equivalent): {}",
+        format_effective_comparisons(report.effective_comparisons)
+    );
+    println!(
+        "random-grid min-p range: {}..{}..{}",
+        format_probability(report.null_min_p_min),
+        format_probability(report.null_min_p_median),
+        format_probability(report.null_min_p_max)
+    );
+    println!();
+    print_dof_skips(report);
+    println!();
+    print_dof_cell_breakdown(report);
+    println!();
+    println!(
+        "Interpretation: this is the look-elsewhere correction across the configured traversal, grouping, and headline-statistic choices. It still does not decode meaning; it only tests whether same-shape random grids can achieve an equally good calibrated best cell under the same adaptive search."
+    );
+}
+
+fn print_dof_skips(report: &dof_null::DofNullReport) {
+    if report.skipped.is_empty() {
+        println!("skipped combos: none");
+        return;
+    }
+    println!("skipped combos");
+    for skipped in &report.skipped {
+        println!(
+            "  {} / {}: {}",
+            skipped.order.name(),
+            skipped.grouping.label(),
+            skipped.reason
+        );
+    }
+}
+
+fn print_dof_cell_breakdown(report: &dof_null::DofNullReport) {
+    let mut cells = report.cells.iter().collect::<Vec<_>>();
+    cells.sort_by(|left, right| {
+        left.marginal_p
+            .total_cmp(&right.marginal_p)
+            .then_with(|| left.statistic.cmp(&right.statistic))
+            .then_with(|| left.grouping.cmp(&right.grouping))
+            .then_with(|| left.order.cmp(&right.order))
+    });
+    println!("per-cell marginal calibration");
+    println!(
+        "{:<24} {:<17} {:<24} {:>4} {:>7} {:>7} {:>10} {:>20} {:>11}",
+        "order",
+        "grouping",
+        "statistic",
+        "tail",
+        "symbols",
+        "drop",
+        "real",
+        "null min/med/max",
+        "p"
+    );
+    for cell in cells {
+        println!(
+            "{:<24} {:<17} {:<24} {:>4} {:>7} {:>7} {:>10} {:>20} {:>11}",
+            cell.order.name(),
+            cell.grouping.label(),
+            cell.statistic.label(),
+            cell.tail.label(),
+            cell.real_symbols,
+            cell.dropped_source_symbols,
+            format_statistic_value(cell.real_value),
+            format!(
+                "{}/{}/{}",
+                format_statistic_value(cell.null_min),
+                format_statistic_value(cell.null_median),
+                format_statistic_value(cell.null_max)
+            ),
+            format_probability(cell.marginal_p)
+        );
+    }
 }
 
 fn print_periodicity_report(report: &periodicity::PeriodicityReport) {
@@ -1786,6 +1985,30 @@ fn fraction(numerator: usize, denominator: usize) -> f64 {
 
 fn format_percent(fraction: f64) -> String {
     format!("{:.1}%", fraction * 100.0)
+}
+
+fn format_probability(value: f64) -> String {
+    if value < 0.001 {
+        format!("{value:.3e}")
+    } else {
+        format!("{value:.6}")
+    }
+}
+
+fn format_statistic_value(value: f64) -> String {
+    if (value - value.round()).abs() < 1e-9 {
+        format!("{value:.0}")
+    } else {
+        format!("{value:.4}")
+    }
+}
+
+fn format_effective_comparisons(value: f64) -> String {
+    if value.is_infinite() {
+        "infinite".to_owned()
+    } else {
+        format!("{value:.2}")
+    }
 }
 
 fn format_number_range(range: NumberRange, decimals: usize) -> String {
