@@ -68,3 +68,23 @@ fn isomorphnull_subcommand_reports_shuffle_null() {
     assert_contains(&stdout, "longest repeated real isomorph");
     assert_contains(&stdout, "Any striking excess should be rechecked");
 }
+
+#[test]
+fn zeroadjnull_subcommand_reports_forbidden_successor_null() {
+    let stdout = run_noita_eye(&["zeroadjnull"]);
+
+    assert_contains(
+        &stdout,
+        "Experiment 7D zero-adjacency forbidden-successor null",
+    );
+    assert_contains(&stdout, "total shuffles: 5000");
+    assert_contains(&stdout, "observed adjacent equal: 0/1027 = 0.000000");
+    assert_contains(&stdout, "analytic E from per-message multisets: 12.008220");
+    assert_contains(&stdout, "lower-tail add-one p: (0+1)/(5000+1) = 2.000e-4");
+    assert_contains(&stdout, "positive controls");
+    assert_contains(&stdout, "no-repeat-successor");
+    assert_contains(
+        &stdout,
+        "Interpretation: observed zero adjacent equal pairs sits below",
+    );
+}
