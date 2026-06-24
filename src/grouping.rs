@@ -15,7 +15,7 @@ use crate::generator::{self, ENGINE_MESSAGES};
 use crate::glyph::{Glyph, Orientation};
 use crate::isomorph::{self, IsomorphError};
 use crate::language::{self, LanguageError, LanguageModel};
-use crate::null::SplitMix64;
+use crate::null::{SplitMix64, random_index_below};
 use crate::orders::{self, GridError, ReadingOrder};
 use crate::trigram::TrigramValue;
 
@@ -74,6 +74,12 @@ impl From<LanguageError> for GroupingError {
 impl From<IsomorphError> for GroupingError {
     fn from(value: IsomorphError) -> Self {
         Self::Isomorph(value)
+    }
+}
+
+impl From<crate::null::RandomBoundError> for GroupingError {
+    fn from(error: crate::null::RandomBoundError) -> Self {
+        Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
 
@@ -897,23 +903,6 @@ fn synthetic_state_messages(
         messages.push(message);
     }
     Ok(messages)
-}
-
-fn random_index_below(bound: usize, rng: &mut SplitMix64) -> Result<usize, GroupingError> {
-    let bound_u64 =
-        u64::try_from(bound).map_err(|_error| GroupingError::RandomBoundTooLarge { bound })?;
-    if bound_u64 == 0 {
-        return Err(GroupingError::RandomBoundTooLarge { bound });
-    }
-    let rejection_threshold = u64::MAX - (u64::MAX % bound_u64);
-    loop {
-        let draw = rng.next_u64();
-        if draw < rejection_threshold {
-            let index_u64 = draw % bound_u64;
-            return usize::try_from(index_u64)
-                .map_err(|_error| GroupingError::RandomBoundTooLarge { bound });
-        }
-    }
 }
 
 fn flatten_messages(glyph_messages: &[Vec<Glyph>]) -> Vec<Glyph> {

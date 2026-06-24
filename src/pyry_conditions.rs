@@ -20,7 +20,7 @@ use crate::ciphers::{
 use crate::glyph::Glyph;
 use crate::isomorph::{self, PatternSignature};
 use crate::isomorph_null::{DEFAULT_MAX_WINDOW, DEFAULT_MIN_WINDOW};
-use crate::null::SplitMix64;
+use crate::null::{SplitMix64, random_index_below, shuffled_permutation};
 use crate::orders::{self, GlyphGrid, GridError, ReadingOrder, read_corpus_message_values};
 use crate::perseus;
 use crate::trigram::TrigramValue;
@@ -99,6 +99,12 @@ impl From<GridError> for PyryConditionsError {
 impl From<ciphers::CipherError> for PyryConditionsError {
     fn from(value: ciphers::CipherError) -> Self {
         Self::Cipher(value)
+    }
+}
+
+impl From<crate::null::RandomBoundError> for PyryConditionsError {
+    fn from(error: crate::null::RandomBoundError) -> Self {
+        Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
 
@@ -1302,46 +1308,6 @@ fn glyphs_from_values(values: &[TrigramValue]) -> Vec<Glyph> {
 
 fn flatten_values(message_values: &[Vec<TrigramValue>]) -> Vec<TrigramValue> {
     message_values.iter().flatten().copied().collect()
-}
-
-fn shuffled_permutation(
-    alphabet_size: usize,
-    rng: &mut SplitMix64,
-) -> Result<Vec<usize>, PyryConditionsError> {
-    let mut values = (0..alphabet_size).collect::<Vec<_>>();
-    fisher_yates_usize(&mut values, rng)?;
-    Ok(values)
-}
-
-fn fisher_yates_usize(
-    values: &mut [usize],
-    rng: &mut SplitMix64,
-) -> Result<(), PyryConditionsError> {
-    let mut unswapped = values.len();
-    while unswapped > 1 {
-        let last = unswapped - 1;
-        let partner = random_index_below(unswapped, rng)?;
-        values.swap(last, partner);
-        unswapped = last;
-    }
-    Ok(())
-}
-
-fn random_index_below(bound: usize, rng: &mut SplitMix64) -> Result<usize, PyryConditionsError> {
-    let bound_u64 = u64::try_from(bound)
-        .map_err(|_error| PyryConditionsError::RandomBoundTooLarge { bound })?;
-    if bound_u64 == 0 {
-        return Err(PyryConditionsError::RandomBoundTooLarge { bound });
-    }
-    let rejection_threshold = u64::MAX - (u64::MAX % bound_u64);
-    loop {
-        let draw = rng.next_u64();
-        if draw < rejection_threshold {
-            let index_u64 = draw % bound_u64;
-            return usize::try_from(index_u64)
-                .map_err(|_error| PyryConditionsError::RandomBoundTooLarge { bound });
-        }
-    }
 }
 
 fn mix_seed(seed: u64, tag: u64) -> u64 {

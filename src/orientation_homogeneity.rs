@@ -17,7 +17,7 @@ use crate::analysis;
 use crate::corpus;
 use crate::generator::{self, ENGINE_MESSAGES};
 use crate::glyph::StorageSymbol;
-use crate::null::SplitMix64;
+use crate::null::{SplitMix64, fisher_yates};
 
 /// Number of engine/rendered orientation digits.
 pub const ORIENTATION_BUCKETS: usize = 5;
@@ -103,6 +103,12 @@ pub enum OrientationHomogeneityError {
         /// Requested exclusive upper bound.
         bound: usize,
     },
+}
+
+impl From<crate::null::RandomBoundError> for OrientationHomogeneityError {
+    fn from(error: crate::null::RandomBoundError) -> Self {
+        Self::RandomBoundTooLarge { bound: error.bound }
+    }
 }
 
 /// Per-message count and relative-frequency profile.
@@ -550,40 +556,6 @@ fn repartition_table(
         rows.push(counts);
     }
     Ok(rows)
-}
-
-fn fisher_yates(
-    values: &mut [u8],
-    rng: &mut SplitMix64,
-) -> Result<(), OrientationHomogeneityError> {
-    let mut unswapped = values.len();
-    while unswapped > 1 {
-        let last = unswapped - 1;
-        let partner = random_index_below(unswapped, rng)?;
-        values.swap(last, partner);
-        unswapped = last;
-    }
-    Ok(())
-}
-
-fn random_index_below(
-    bound: usize,
-    rng: &mut SplitMix64,
-) -> Result<usize, OrientationHomogeneityError> {
-    let bound_u64 = u64::try_from(bound)
-        .map_err(|_error| OrientationHomogeneityError::RandomBoundTooLarge { bound })?;
-    if bound_u64 == 0 {
-        return Err(OrientationHomogeneityError::RandomBoundTooLarge { bound });
-    }
-    let rejection_threshold = u64::MAX - (u64::MAX % bound_u64);
-    loop {
-        let draw = rng.next_u64();
-        if draw < rejection_threshold {
-            let index_u64 = draw % bound_u64;
-            return usize::try_from(index_u64)
-                .map_err(|_error| OrientationHomogeneityError::RandomBoundTooLarge { bound });
-        }
-    }
 }
 
 fn null_comparison(

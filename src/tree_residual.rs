@@ -17,7 +17,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::mem::size_of;
 
-use crate::null::SplitMix64;
+use crate::null::{SplitMix64, fisher_yates};
 use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::perseus::{self, SharedPartition};
 use crate::trigram::TrigramValue;
@@ -114,6 +114,12 @@ impl From<GridError> for TreeResidualError {
 impl From<perseus::PerseusError> for TreeResidualError {
     fn from(value: perseus::PerseusError) -> Self {
         Self::Perseus(value)
+    }
+}
+
+impl From<crate::null::RandomBoundError> for TreeResidualError {
+    fn from(error: crate::null::RandomBoundError) -> Self {
+        Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
 
@@ -623,37 +629,6 @@ fn repartition_segments(values: Vec<TrigramValue>, lengths: &[usize]) -> Vec<Vec
         segments.push(segment);
     }
     segments
-}
-
-fn fisher_yates(
-    values: &mut [TrigramValue],
-    rng: &mut SplitMix64,
-) -> Result<(), TreeResidualError> {
-    let mut unswapped = values.len();
-    while unswapped > 1 {
-        let last = unswapped - 1;
-        let partner = random_index_below(unswapped, rng)?;
-        values.swap(last, partner);
-        unswapped = last;
-    }
-    Ok(())
-}
-
-fn random_index_below(bound: usize, rng: &mut SplitMix64) -> Result<usize, TreeResidualError> {
-    let bound_u64 =
-        u64::try_from(bound).map_err(|_error| TreeResidualError::RandomBoundTooLarge { bound })?;
-    if bound_u64 == 0 {
-        return Err(TreeResidualError::RandomBoundTooLarge { bound });
-    }
-    let rejection_threshold = u64::MAX - (u64::MAX % bound_u64);
-    loop {
-        let draw = rng.next_u64();
-        if draw < rejection_threshold {
-            let index_u64 = draw % bound_u64;
-            return usize::try_from(index_u64)
-                .map_err(|_error| TreeResidualError::RandomBoundTooLarge { bound });
-        }
-    }
 }
 
 fn seed_batches(seed: u64, seed_count: usize) -> Result<Vec<u64>, TreeResidualError> {

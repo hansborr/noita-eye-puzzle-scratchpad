@@ -15,7 +15,7 @@ use crate::ciphers::{
     incrementing_wheel_encrypt, vigenere_encrypt,
 };
 use crate::glyph::Glyph;
-use crate::null::SplitMix64;
+use crate::null::{SplitMix64, fisher_yates, random_index_below, shuffled_permutation};
 use crate::orders::{
     self, GlyphGrid, GridError, ReadingOrder, count_message_lag_comparisons,
     count_message_lag_matches, glyph_messages_from_values, read_corpus_message_values,
@@ -112,6 +112,12 @@ impl From<GridError> for ModularDiffError {
 impl From<ciphers::CipherError> for ModularDiffError {
     fn from(value: ciphers::CipherError) -> Self {
         Self::Cipher(value)
+    }
+}
+
+impl From<crate::null::RandomBoundError> for ModularDiffError {
+    fn from(error: crate::null::RandomBoundError) -> Self {
+        Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
 
@@ -1100,43 +1106,6 @@ impl SourceSampler {
             glyphs.push(Glyph(symbol as u16));
         }
         Ok(glyphs)
-    }
-}
-
-fn shuffled_permutation(
-    alphabet_size: usize,
-    rng: &mut SplitMix64,
-) -> Result<Vec<usize>, ModularDiffError> {
-    let mut values = (0..alphabet_size).collect::<Vec<_>>();
-    fisher_yates(&mut values, rng)?;
-    Ok(values)
-}
-
-fn fisher_yates<T>(values: &mut [T], rng: &mut SplitMix64) -> Result<(), ModularDiffError> {
-    let mut unswapped = values.len();
-    while unswapped > 1 {
-        let last = unswapped - 1;
-        let partner = random_index_below(unswapped, rng)?;
-        values.swap(last, partner);
-        unswapped = last;
-    }
-    Ok(())
-}
-
-fn random_index_below(bound: usize, rng: &mut SplitMix64) -> Result<usize, ModularDiffError> {
-    let bound_u64 =
-        u64::try_from(bound).map_err(|_error| ModularDiffError::RandomBoundTooLarge { bound })?;
-    if bound_u64 == 0 {
-        return Err(ModularDiffError::RandomBoundTooLarge { bound });
-    }
-    let rejection_threshold = u64::MAX - (u64::MAX % bound_u64);
-    loop {
-        let draw = rng.next_u64();
-        if draw < rejection_threshold {
-            let index_u64 = draw % bound_u64;
-            return usize::try_from(index_u64)
-                .map_err(|_error| ModularDiffError::RandomBoundTooLarge { bound });
-        }
     }
 }
 

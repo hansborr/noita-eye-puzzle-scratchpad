@@ -5,7 +5,7 @@
 //! tests arrangement only; symbol frequencies are held fixed.
 
 use crate::isomorph::{self, IsomorphError};
-use crate::null::SplitMix64;
+use crate::null::{SplitMix64, fisher_yates};
 use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::trigram::TrigramValue;
 
@@ -76,6 +76,12 @@ impl From<GridError> for IsomorphNullError {
 impl From<IsomorphError> for IsomorphNullError {
     fn from(value: IsomorphError) -> Self {
         Self::Isomorph(value)
+    }
+}
+
+impl From<crate::null::RandomBoundError> for IsomorphNullError {
+    fn from(error: crate::null::RandomBoundError) -> Self {
+        Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
 
@@ -295,37 +301,6 @@ fn shuffled_messages(
         fisher_yates(values, rng)?;
     }
     Ok(shuffled)
-}
-
-fn fisher_yates(
-    values: &mut [TrigramValue],
-    rng: &mut SplitMix64,
-) -> Result<(), IsomorphNullError> {
-    let mut unswapped = values.len();
-    while unswapped > 1 {
-        let last = unswapped - 1;
-        let partner = random_index_below(unswapped, rng)?;
-        values.swap(last, partner);
-        unswapped = last;
-    }
-    Ok(())
-}
-
-fn random_index_below(bound: usize, rng: &mut SplitMix64) -> Result<usize, IsomorphNullError> {
-    let bound_u64 =
-        u64::try_from(bound).map_err(|_error| IsomorphNullError::RandomBoundTooLarge { bound })?;
-    if bound_u64 == 0 {
-        return Err(IsomorphNullError::RandomBoundTooLarge { bound });
-    }
-    let rejection_threshold = u64::MAX - (u64::MAX % bound_u64);
-    loop {
-        let draw = rng.next_u64();
-        if draw < rejection_threshold {
-            let index_u64 = draw % bound_u64;
-            return usize::try_from(index_u64)
-                .map_err(|_error| IsomorphNullError::RandomBoundTooLarge { bound });
-        }
-    }
 }
 
 fn null_band(samples: &[usize]) -> IsomorphNullBand {

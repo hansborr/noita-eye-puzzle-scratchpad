@@ -16,7 +16,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::null::SplitMix64;
+use crate::null::{SplitMix64, fisher_yates};
 use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::trigram::TrigramValue;
 
@@ -91,6 +91,12 @@ pub enum PerseusError {
 impl From<GridError> for PerseusError {
     fn from(value: GridError) -> Self {
         Self::Grid(value)
+    }
+}
+
+impl From<crate::null::RandomBoundError> for PerseusError {
+    fn from(error: crate::null::RandomBoundError) -> Self {
+        Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
 
@@ -820,34 +826,6 @@ fn shuffled_messages(
         fisher_yates(values, rng)?;
     }
     Ok(shuffled)
-}
-
-fn fisher_yates(values: &mut [TrigramValue], rng: &mut SplitMix64) -> Result<(), PerseusError> {
-    let mut unswapped = values.len();
-    while unswapped > 1 {
-        let last = unswapped - 1;
-        let partner = random_index_below(unswapped, rng)?;
-        values.swap(last, partner);
-        unswapped = last;
-    }
-    Ok(())
-}
-
-fn random_index_below(bound: usize, rng: &mut SplitMix64) -> Result<usize, PerseusError> {
-    let bound_u64 =
-        u64::try_from(bound).map_err(|_error| PerseusError::RandomBoundTooLarge { bound })?;
-    if bound_u64 == 0 {
-        return Err(PerseusError::RandomBoundTooLarge { bound });
-    }
-    let rejection_threshold = u64::MAX - (u64::MAX % bound_u64);
-    loop {
-        let draw = rng.next_u64();
-        if draw < rejection_threshold {
-            let index_u64 = draw % bound_u64;
-            return usize::try_from(index_u64)
-                .map_err(|_error| PerseusError::RandomBoundTooLarge { bound });
-        }
-    }
 }
 
 fn recurrence_null_band(samples: &[usize], denominator: usize) -> RecurrenceNullBand {
