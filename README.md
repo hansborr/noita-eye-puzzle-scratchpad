@@ -70,7 +70,8 @@ cargo run -- demo                  # analysis on the verified nine-message corpu
 cargo run -- stats <sequence>      # freq / entropy / IoC for rendered digits 0–4
 cargo run -- orders                # reading-order audit + Experiment 4 flatness
 cargo run -- nulltest      [--seed <u64>] [--trials <n>]    # Exp 1B multiple-comparisons null
-cargo run -- dofnull       [--seed <u64>] [--trials <n>]    # calibrated researcher-DoF null
+cargo run -- dofnull       [--seed <u64>] [--trials <n>] [--calib-trials <n>]
+                                                                 # calibrated researcher-DoF null
 cargo run -- pipelinenull  [--seed <u64>] [--trials <n>]    # Exp 2 generation-pipeline null
 cargo run -- periodicity   [--seed <u64>] [--trials <n>] [--max-period <n>] [--max-lag <n>]
 cargo run -- isomorphnull  [--seed <u64>] [--trials <n>]    # Exp 7A shuffle null
@@ -86,24 +87,31 @@ cargo run -- controls isomorph       [--seed <u64>]         # (alias: polyalphab
 Each experiment pairs a measurement with a null or a positive control. The
 decryption/cipher findings are uniformly **negative** for the eyes and
 **positive** for the calibration controls — i.e. the tools provably fire on known
-signal, and the eyes do not light them up. The one positive structural result is
-the bounded 83-state reading-layer support, which survives the calibrated null
-below without becoming a plaintext claim:
+signal, and the eyes do not light them up. The strongest positive structural
+result remains the bounded 83-state reading-layer support under the fixed
+standard36 null; the broader calibrated researcher-DoF null below now correctly
+shows that this headline does not survive arbitrary traversal/grouping/statistic
+selection as a small adaptive p-value.
 
 - **Exp 4 — frequency/entropy/IoC across orders.** Per-symbol frequency is flat
   (reproduces the community IoC ≈ 1.066, mean frequency 12.48); the honeycomb
   order is the only standard36 order fully inside 0–82. Flat frequency **rules out
   monoalphabetic substitution**; it does not rule a real message *in*.
 - **Researcher-DoF adaptive null.** `dofnull` calibrates each
-  traversal/grouping/statistic cell to its own random-grid marginal tail before
-  taking the best min-p across the configured search space (57 traversals, 5
-  groupings, 4 statistics; 916 valid cells after engine-storage skips). With
-  seed 12345 and 1000 trials, no random grid matched the eyes' calibrated min-p:
-  **0/1000**, Wilson **0..0.003827**, effective comparisons ≈ **138**. The
-  accepted honeycomb trigram contiguous-0..=82 row is at the empirical floor
-  (p = 1/1001). This confirms rather than overturns the structural anomaly, but
-  the honeycomb traversal itself is data-independent; the newly calibrated
-  exposure is mainly grouping/statistic choice plus non-honeycomb controls.
+  traversal/grouping/statistic cell to its own calibration-set random-grid
+  marginal tail, then scores both the eyes and an independent resampling set
+  against that same external reference before taking the best min-p across the
+  configured search space (57 traversals, 5 groupings, 4 statistics; 916 valid
+  cells after engine-storage skips). With seed 12345, 1000 calibration trials,
+  and 1000 resampling trials, the eyes' min marginal p is at the calibration
+  floor (`1/1001`), but 199/1000 resampling grids also reach an equally small
+  calibrated min-p somewhere in the configured search. The add-one adaptive
+  p-value is **200/1001 = 0.199800**, Wilson **0.176198..0.225697**, effective
+  comparisons ≈ **173**. The accepted honeycomb trigram contiguous-0..=82 row
+  remains at the empirical floor, but it does not survive this broad configured
+  DoF correction as a small adaptive p-value. The fixed standard36 null remains
+  the relevant result if the honeycomb traversal family is treated as
+  data-independent rather than researcher-selected.
 - **Exp 5A — periodicity / autocorrelation.** No period or lag clears a random
   null band, beyond the order-contingent distance-4 spike (honestly reconciled
   with Exp 1B's targeted distance-4 result; family-wise vs pointwise).
@@ -130,9 +138,9 @@ below without becoming a plaintext claim:
 **Caveat:** `dofnull` now resamples the configured
 traversal/grouping/statistic researcher degrees of freedom instead of leaving
 that as an unmodeled caveat. It is still finite-resolution Monte Carlo
-(default floor `1/(trials+1)`) and a configured search space, not a proof over
-every imaginable post-hoc analysis. It supports "structured data of unknown
-meaning," not "decoded message."
+(default marginal floor `1/(calib-trials+1)`) and a configured search space, not
+a proof over every imaginable post-hoc analysis. It supports "structured data of
+unknown meaning," not "decoded message."
 
 ## Commands
 

@@ -63,15 +63,18 @@ Before any experiment, obtain and cross-validate the raw glyph data. **Do not tr
 researcher-degrees-of-freedom correction now exists as `src/dof_null.rs` /
 `cargo run -- dofnull`. The DoF null does **not** compare raw statistic values
 across incommensurable cells: each traversal/grouping/statistic cell is first
-mapped to its own same-shape random-grid marginal tail, then the eyes and every
-random grid take the minimum calibrated p-value over the same search space. With
-seed 12345 and 1000 trials, the eyes' adaptive min-p has **0/1000** random-grid
-exceedances (95% Wilson `0..0.003827`; median Sidak-equivalent comparisons
-≈138). The accepted honeycomb trigram contiguous-0..=82 cell is at the empirical
-floor (`1/1001`). This confirms rather than overturns the structural anomaly
-under the configured correction, while preserving the key nuance that the
-honeycomb traversal is data-independent; the newly calibrated exposure is mainly
-grouping/statistic choice plus non-honeycomb controls.
+mapped to its own same-shape random-grid marginal tail from calibration set A.
+The eyes and independent resampling set B then take the minimum calibrated
+p-value over the same search space while both are scored against A. With seed
+12345, 1000 calibration trials, and 1000 resampling trials, the eyes' min
+marginal p is at the empirical floor (`1/1001`), but 199/1000 resampling grids
+also reach an equally small calibrated min-p somewhere in the configured search.
+The add-one adaptive p-value is **200/1001 = 0.199800** (95% Wilson
+`0.176198..0.225697`; median Sidak-equivalent comparisons ≈173). The accepted
+honeycomb trigram contiguous-0..=82 cell is also at `1/1001`. The fixed
+standard36 null still supports the anomaly when the honeycomb family is treated
+as data-independent; the broader configured DoF correction no longer supports it
+as a small adaptive p-value over arbitrary traversal/grouping/statistic choice.
 
 ---
 

@@ -12,8 +12,9 @@
 //! that cell's marginal null scale. The real eye statistic is converted to an
 //! empirical one-sided tail probability inside that cell. The reported "best"
 //! eye result is the minimum calibrated marginal p-value across cells, and the
-//! adaptive p-value is the fraction of random grids whose own minimum calibrated
-//! p-value is at least as extreme.
+//! adaptive p-value is estimated from an independent second random-grid batch
+//! whose minimum calibrated p-values are scored against the same external
+//! calibration reference as the eyes.
 //!
 //! Important scope nuance: the standard36 honeycomb traversal is
 //! data-independent, depending only on grid shape and fixed trigram-position
@@ -36,7 +37,9 @@ const MAX_RECURRENCE_DISTANCE: usize = 6;
 pub struct DofNullConfig {
     /// Explicit deterministic PRNG seed.
     pub seed: u64,
-    /// Number of same-shape random corpora to sample.
+    /// Number of same-shape random corpora in calibration set A.
+    pub calibration_trials: usize,
+    /// Number of same-shape random corpora in resampling set B.
     pub trials: usize,
 }
 
@@ -44,6 +47,7 @@ impl Default for DofNullConfig {
     fn default() -> Self {
         Self {
             seed: DEFAULT_DOF_NULL_SEED,
+            calibration_trials: DEFAULT_DOF_NULL_TRIALS,
             trials: DEFAULT_DOF_NULL_TRIALS,
         }
     }
@@ -178,6 +182,8 @@ pub enum DofNullError {
     Grid(GridError),
     /// At least one Monte-Carlo trial is required.
     ZeroTrials,
+    /// At least one calibration trial is required.
+    ZeroCalibrationTrials,
     /// The configured search space has an empty axis.
     EmptySearchSpace,
     /// No compatible `(traversal, grouping, statistic)` cells remained.
@@ -196,6 +202,8 @@ pub enum DofNullError {
         /// Observed cell count.
         observed: usize,
     },
+    /// The add-one empirical denominator overflowed `usize`.
+    TrialCountTooLarge,
 }
 
 impl From<GridError> for DofNullError {
@@ -234,15 +242,15 @@ pub struct CellReport {
     pub dropped_source_symbols: usize,
     /// Raw real statistic value in this cell's native units.
     pub real_value: f64,
-    /// Number of random trials at least as extreme as the real statistic.
+    /// Number of calibration trials at least as extreme as the real statistic.
     pub marginal_extreme_count: usize,
     /// Rank-based empirical marginal tail probability of the real statistic.
     pub marginal_p: f64,
-    /// Smallest sampled null statistic value.
+    /// Smallest calibration-set null statistic value.
     pub null_min: f64,
-    /// Median sampled null statistic value.
+    /// Median calibration-set null statistic value.
     pub null_median: f64,
-    /// Largest sampled null statistic value.
+    /// Largest calibration-set null statistic value.
     pub null_max: f64,
 }
 
@@ -267,17 +275,17 @@ pub struct DofNullReport {
     pub best_cell: CellReport,
     /// Minimum calibrated marginal p-value for the real eyes.
     pub observed_min_p: f64,
-    /// Count of random grids whose own min-p is at least as extreme.
+    /// Count of resampling grids whose own min-p is at least as extreme.
     pub adaptive_extreme_count: usize,
-    /// Wilson interval for the adaptive p-value.
+    /// Wilson interval for the add-one adaptive p-value.
     pub adaptive_interval: WilsonInterval,
-    /// Sidak-equivalent independent comparisons from the null min-p median.
+    /// Sidak-equivalent independent comparisons from the resampling min-p median.
     pub effective_comparisons: f64,
-    /// Smallest random-grid min-p sampled under the adaptive null.
+    /// Smallest resampling-grid min-p sampled under the adaptive null.
     pub null_min_p_min: f64,
-    /// Median random-grid min-p sampled under the adaptive null.
+    /// Median resampling-grid min-p sampled under the adaptive null.
     pub null_min_p_median: f64,
-    /// Largest random-grid min-p sampled under the adaptive null.
+    /// Largest resampling-grid min-p sampled under the adaptive null.
     pub null_min_p_max: f64,
 }
 
@@ -321,14 +329,27 @@ fn run_dof_null_with(
     }
 
     let mut rng = SplitMix64::new(config.seed);
-    let mut samples_by_cell = vec![Vec::with_capacity(config.trials); prepared.cells.len()];
-    for _trial in 0..config.trials {
-        let grids = generate(real_grids, &mut rng);
-        push_trial_samples(&grids, space, &prepared.streams, &mut samples_by_cell)?;
-    }
+    let calibration_samples_by_cell = sample_statistics_by_cell(
+        config.calibration_trials,
+        real_grids,
+        space,
+        &prepared.streams,
+        prepared.cells.len(),
+        &mut rng,
+        &mut generate,
+    )?;
+    let resampling_samples_by_cell = sample_statistics_by_cell(
+        config.trials,
+        real_grids,
+        space,
+        &prepared.streams,
+        prepared.cells.len(),
+        &mut rng,
+        &mut generate,
+    )?;
 
-    let sorted_samples = sorted_samples_by_cell(&samples_by_cell);
-    let cells = calibrated_cell_reports(&prepared.cells, &sorted_samples)?;
+    let sorted_calibration_samples = sorted_samples_by_cell(&calibration_samples_by_cell);
+    let cells = calibrated_cell_reports(&prepared.cells, &sorted_calibration_samples)?;
     let observed_min_p = cells
         .iter()
         .map(|cell| cell.marginal_p)
@@ -345,13 +366,25 @@ fn run_dof_null_with(
         })
         .cloned()
         .ok_or(DofNullError::NoValidCells)?;
-    let null_min_ps = random_grid_min_ps(&prepared.cells, &samples_by_cell, &sorted_samples);
+    let null_min_ps = calibrated_sample_min_ps(
+        &prepared.cells,
+        &resampling_samples_by_cell,
+        &sorted_calibration_samples,
+    )?;
     let adaptive_extreme_count = null_min_ps
         .iter()
         .filter(|&&min_p| min_p <= observed_min_p)
         .count();
     let sorted_min_ps = sorted_f64(null_min_ps);
-    let adaptive_interval = wilson_95(adaptive_extreme_count, config.trials);
+    let adaptive_interval = wilson_95(
+        adaptive_extreme_count
+            .checked_add(1)
+            .ok_or(DofNullError::TrialCountTooLarge)?,
+        config
+            .trials
+            .checked_add(1)
+            .ok_or(DofNullError::TrialCountTooLarge)?,
+    );
     let effective_comparisons =
         median_effective_comparisons(sorted_quantile(&sorted_min_ps, Quantile::Median));
 
@@ -375,6 +408,9 @@ fn run_dof_null_with(
 }
 
 fn validate_config(config: DofNullConfig, space: &DofSearchSpace) -> Result<(), DofNullError> {
+    if config.calibration_trials == 0 {
+        return Err(DofNullError::ZeroCalibrationTrials);
+    }
     if config.trials == 0 {
         return Err(DofNullError::ZeroTrials);
     }
@@ -385,6 +421,25 @@ fn validate_config(config: DofNullConfig, space: &DofSearchSpace) -> Result<(), 
         let _alphabet_size = alphabet_size(*grouping)?;
     }
     Ok(())
+}
+
+fn sample_statistics_by_cell(
+    trials: usize,
+    templates: &[GlyphGrid],
+    space: &DofSearchSpace,
+    streams: &[StreamDefinition],
+    cell_count: usize,
+    rng: &mut SplitMix64,
+    generate: &mut impl FnMut(&[GlyphGrid], &mut SplitMix64) -> Vec<GlyphGrid>,
+) -> Result<Vec<Vec<f64>>, DofNullError> {
+    let mut samples_by_cell = (0..cell_count)
+        .map(|_cell| Vec::with_capacity(trials))
+        .collect::<Vec<_>>();
+    for _trial in 0..trials {
+        let grids = generate(templates, rng);
+        push_trial_samples(&grids, space, streams, &mut samples_by_cell)?;
+    }
+    Ok(samples_by_cell)
 }
 
 #[derive(Clone, Debug)]
@@ -776,20 +831,42 @@ fn calibrated_cell_reports(
     Ok(reports)
 }
 
-fn random_grid_min_ps(
+fn calibrated_sample_min_ps(
     cells: &[CellDefinition],
     samples_by_cell: &[Vec<f64>],
-    sorted_samples: &[Vec<f64>],
-) -> Vec<f64> {
+    sorted_calibration_samples: &[Vec<f64>],
+) -> Result<Vec<f64>, DofNullError> {
+    if samples_by_cell.len() != cells.len() {
+        return Err(DofNullError::InternalCellMismatch {
+            expected: cells.len(),
+            observed: samples_by_cell.len(),
+        });
+    }
+    if sorted_calibration_samples.len() != cells.len() {
+        return Err(DofNullError::InternalCellMismatch {
+            expected: cells.len(),
+            observed: sorted_calibration_samples.len(),
+        });
+    }
     let trials = samples_by_cell.first().map_or(0usize, std::vec::Vec::len);
     let mut min_ps = vec![1.0; trials];
-    for ((cell, raw_samples), sorted) in cells.iter().zip(samples_by_cell).zip(sorted_samples) {
+    for ((cell, raw_samples), sorted) in cells
+        .iter()
+        .zip(samples_by_cell)
+        .zip(sorted_calibration_samples)
+    {
+        if raw_samples.len() != trials {
+            return Err(DofNullError::InternalCellMismatch {
+                expected: trials,
+                observed: raw_samples.len(),
+            });
+        }
         for (min_p, &value) in min_ps.iter_mut().zip(raw_samples) {
             let p = empirical_tail_probability(sorted, value, cell.tail);
             *min_p = f64::min(*min_p, p);
         }
     }
-    min_ps
+    Ok(min_ps)
 }
 
 fn empirical_tail_probability(sorted_samples: &[f64], value: f64, tail: TailDirection) -> f64 {
@@ -888,11 +965,30 @@ mod tests {
         }
     }
 
+    fn compact_adaptive_space() -> DofSearchSpace {
+        DofSearchSpace {
+            orders: vec![ReadingOrder::RawRows],
+            groupings: vec![
+                GroupingRule::OrientationBase5 { width: 1 },
+                GroupingRule::OrientationBase5 { width: 2 },
+                GroupingRule::OrientationBase5 { width: 3 },
+                GroupingRule::OrientationBase5 { width: 4 },
+            ],
+            statistics: vec![
+                HeadlineStatistic::DistinctCount,
+                HeadlineStatistic::ContiguousBoundedAtMax,
+                HeadlineStatistic::ZeroAdjacencyRate,
+                HeadlineStatistic::BestRecurrenceRatio,
+            ],
+        }
+    }
+
     #[test]
     fn planted_structure_positive_control_has_small_adaptive_p() {
         let real = one_row_grid(&[0; 60]);
         let config = DofNullConfig {
             seed: 0x51a1,
+            calibration_trials: 64,
             trials: 64,
         };
         let report = run_dof_null_for_grids(
@@ -914,6 +1010,7 @@ mod tests {
         let real = random_orientation_grids_like(&template, &mut rng);
         let config = DofNullConfig {
             seed: 0x000d_ecaf_0001,
+            calibration_trials: 64,
             trials: 64,
         };
         let report = run_dof_null_for_grids(
@@ -932,6 +1029,7 @@ mod tests {
         let real = one_row_grid(&[0, 0, 0, 1, 1, 2, 3, 4]);
         let config = DofNullConfig {
             seed: 0x7072_6f62,
+            calibration_trials: 16,
             trials: 16,
         };
         let space = DofSearchSpace {
@@ -959,22 +1057,32 @@ mod tests {
     #[test]
     fn min_p_matches_hand_checked_toy_case() {
         let real = one_row_grid(&[0, 0, 0]);
-        let nulls = [
+        let calibration_nulls = [
             one_row_grid(&[0, 1, 2]),
             one_row_grid(&[0, 0, 1]),
             one_row_grid(&[2, 2, 2]),
         ];
+        let resampling_nulls = [
+            one_row_grid(&[0, 1, 2]),
+            one_row_grid(&[0, 0, 1]),
+            one_row_grid(&[2, 2, 2]),
+        ];
+        let mut draws = calibration_nulls
+            .iter()
+            .chain(resampling_nulls.iter())
+            .cloned();
         let mut index = 0usize;
         let config = DofNullConfig {
             seed: 0,
-            trials: nulls.len(),
+            calibration_trials: calibration_nulls.len(),
+            trials: resampling_nulls.len(),
         };
         let report = run_dof_null_with(
             config,
             &real,
             &one_cell_space(HeadlineStatistic::DistinctCount),
             |_templates, _rng| {
-                let grids = nulls.get(index).cloned().unwrap();
+                let grids = draws.next().unwrap();
                 index += 1;
                 grids
             },
@@ -985,6 +1093,45 @@ mod tests {
         assert_eq!(report.best_cell.marginal_extreme_count, 1);
         assert!((report.observed_min_p - 0.5).abs() < f64::EPSILON);
         assert_eq!(report.adaptive_extreme_count, 1);
-        assert!((report.adaptive_interval.estimate - (1.0 / 3.0)).abs() < f64::EPSILON);
+        assert!((report.adaptive_interval.estimate - 0.5).abs() < f64::EPSILON);
+        assert_eq!(index, config.calibration_trials + config.trials);
+    }
+
+    #[test]
+    fn fresh_null_observation_is_not_self_rank_pinned() {
+        let template = one_row_grid(&[0; 48]);
+        let space = compact_adaptive_space();
+        let seeds = [0xa11c_e123, 0xa11c_e124, 0xa11c_e125, 0xa11c_e126];
+        let mut seeds_with_resampling_hits = 0usize;
+
+        for seed in seeds {
+            let mut observed_rng = SplitMix64::new(seed ^ 0xffff_0000_aaaa_5555);
+            let observed = random_orientation_grids_like(&template, &mut observed_rng);
+            let config = DofNullConfig {
+                seed,
+                calibration_trials: 16,
+                trials: 96,
+            };
+            let mut generated = Vec::new();
+            let report = run_dof_null_with(config, &observed, &space, |templates, rng| {
+                let grids = random_orientation_grids_like(templates, rng);
+                generated.push(grids.clone());
+                grids
+            })
+            .unwrap();
+
+            assert_eq!(generated.len(), config.calibration_trials + config.trials);
+            let (calibration, resampling) = generated.split_at(config.calibration_trials);
+            assert!(
+                calibration
+                    .iter()
+                    .all(|left| resampling.iter().all(|right| left != right))
+            );
+            if report.adaptive_extreme_count > 0 {
+                seeds_with_resampling_hits += 1;
+            }
+        }
+
+        assert!(seeds_with_resampling_hits >= 2);
     }
 }

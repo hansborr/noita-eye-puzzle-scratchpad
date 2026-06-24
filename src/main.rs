@@ -22,7 +22,7 @@ USAGE:
     noita-eye orders             Audit reading orders and Experiment 4 flatness
     noita-eye nulltest [--seed <u64>] [--trials <n>]
                                   Monte-Carlo null over random grids + standard36
-    noita-eye dofnull [--seed <u64>] [--trials <n>]
+    noita-eye dofnull [--seed <u64>] [--trials <n>] [--calib-trials <n>]
                                   Calibrated adaptive null over traversal/grouping/statistic DoF
     noita-eye periodicity [--seed <u64>] [--trials <n>] [--max-period <n>] [--max-lag <n>]
                                   Experiment 5A period/lag/Kasiski battery
@@ -167,7 +167,9 @@ fn run_dofnull(args: &[String]) -> ExitCode {
         Ok(config) => config,
         Err(message) => {
             eprintln!("{message}");
-            eprintln!("usage: noita-eye dofnull [--seed <u64>] [--trials <n>]");
+            eprintln!(
+                "usage: noita-eye dofnull [--seed <u64>] [--trials <n>] [--calib-trials <n>]"
+            );
             return ExitCode::FAILURE;
         }
     };
@@ -456,6 +458,7 @@ fn parse_null_config(args: &[String], subcommand: &str) -> Result<null::NullConf
 
 fn parse_dof_null_config(args: &[String]) -> Result<dof_null::DofNullConfig, String> {
     let mut config = dof_null::DofNullConfig::default();
+    let mut calibration_trials = None;
     let mut iter = args.iter();
     while let Some(flag) = iter.next() {
         match flag.as_str() {
@@ -475,9 +478,19 @@ fn parse_dof_null_config(args: &[String]) -> Result<dof_null::DofNullConfig, Str
                     .parse::<usize>()
                     .map_err(|error| format!("invalid --trials value {value:?}: {error}"))?;
             }
+            "--calib-trials" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --calib-trials".to_owned());
+                };
+                calibration_trials =
+                    Some(value.parse::<usize>().map_err(|error| {
+                        format!("invalid --calib-trials value {value:?}: {error}")
+                    })?);
+            }
             other => return Err(format!("unknown dofnull flag {other:?}")),
         }
     }
+    config.calibration_trials = calibration_trials.unwrap_or(config.trials);
     Ok(config)
 }
 
@@ -682,7 +695,10 @@ fn format_dof_null_error(error: &dof_null::DofNullError) -> String {
             format!("grid/order error: {grid_error:?}")
         }
         dof_null::DofNullError::ZeroTrials => {
-            "at least one Monte-Carlo trial is required".to_owned()
+            "at least one DoF null resampling trial is required".to_owned()
+        }
+        dof_null::DofNullError::ZeroCalibrationTrials => {
+            "at least one DoF null calibration trial is required".to_owned()
         }
         dof_null::DofNullError::EmptySearchSpace => {
             "the DoF search space must include at least one traversal, grouping, and statistic"
@@ -699,6 +715,9 @@ fn format_dof_null_error(error: &dof_null::DofNullError) -> String {
         }
         dof_null::DofNullError::InternalCellMismatch { expected, observed } => {
             format!("internal DoF cell mismatch: expected {expected}, observed {observed}")
+        }
+        dof_null::DofNullError::TrialCountTooLarge => {
+            "DoF null trial count is too large for add-one calibration".to_owned()
         }
     }
 }
@@ -931,7 +950,11 @@ fn print_null_report(report: &null::NullReport) {
 fn print_dof_null_report(report: &dof_null::DofNullReport) {
     println!("calibrated researcher-DoF random-grid null");
     println!("seed: {}", report.config.seed);
-    println!("trials: {}", report.config.trials);
+    println!(
+        "calibration trials (A): {}",
+        report.config.calibration_trials
+    );
+    println!("resampling trials (B): {}", report.config.trials);
     println!(
         "configured axes: {} traversals x {} groupings x {} statistics",
         report.configured_orders, report.configured_groupings, report.configured_statistics
@@ -943,7 +966,7 @@ fn print_dof_null_report(report: &dof_null::DofNullReport) {
     );
     println!("resampled: verified row-width structure with uniform orientation cells 0..=4");
     println!(
-        "calibration: each cell is mapped to its own empirical marginal tail before the cross-cell min-p search"
+        "calibration: set A defines each cell's empirical marginal tail; the eyes and independent set B are both scored against A before the cross-cell min-p search"
     );
     println!(
         "scope nuance: the standard36 honeycomb walk is data-independent; the newly calibrated exposure is concentrated on grouping/statistic choice plus non-honeycomb controls"
@@ -964,13 +987,17 @@ fn print_dof_null_report(report: &dof_null::DofNullReport) {
         format_statistic_value(report.best_cell.null_median),
         format_statistic_value(report.best_cell.null_max)
     );
-    print_interval("adaptive min-p <= eyes", report.adaptive_interval);
+    println!(
+        "adaptive raw exceedances in B: {}/{}",
+        report.adaptive_extreme_count, report.config.trials
+    );
+    print_interval("adaptive add-one min-p <= eyes", report.adaptive_interval);
     println!(
         "effective independent comparisons (median Sidak-equivalent): {}",
         format_effective_comparisons(report.effective_comparisons)
     );
     println!(
-        "random-grid min-p range: {}..{}..{}",
+        "resampling-grid min-p range scored against A: {}..{}..{}",
         format_probability(report.null_min_p_min),
         format_probability(report.null_min_p_median),
         format_probability(report.null_min_p_max)
@@ -1010,7 +1037,7 @@ fn print_dof_cell_breakdown(report: &dof_null::DofNullReport) {
             .then_with(|| left.grouping.cmp(&right.grouping))
             .then_with(|| left.order.cmp(&right.order))
     });
-    println!("per-cell marginal calibration");
+    println!("per-cell marginal calibration from set A");
     println!(
         "{:<24} {:<17} {:<24} {:>4} {:>7} {:>7} {:>10} {:>20} {:>11}",
         "order",

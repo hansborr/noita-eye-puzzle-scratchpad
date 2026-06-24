@@ -82,24 +82,26 @@ Commits `ac0bcd7`→`2bdb0c0` on `master`, all gate-green. Verified independentl
     does NOT deflate the per-order improbability.
 - **Researcher-DoF adaptive null:** `src/dof_null.rs` — calibrated min-p null over
   the configured traversal x grouping x headline-statistic choice space. CLI:
-  `cargo run -- dofnull --seed <u64> --trials <n>`.
+  `cargo run -- dofnull --seed <u64> --trials <n> [--calib-trials <n>]`.
   - Search space: standard36 honeycomb family, raw/linear controls, four diagonal
     controls; single/pair/trigram/tetragram base-5 and engine base-7 grouping;
     distinct count, contiguous-bounded-at-max, zero-adjacency rate, and best
     distance-k recurrence ratio. Engine base-7 is valid only on raw stored rows,
     and skipped combos are reported.
-  - Calibration rule: each cell gets its own same-shape random-grid marginal tail
-    before taking the adaptive min-p. No raw max/min across incommensurable
-    statistics.
-  - Seed 12345, 1000 trials: eyes min marginal p `1/1001`; adaptive p **0/1000**
-    (95% Wilson `0..0.003827`); median Sidak-equivalent comparisons **138.42**.
-    The accepted honeycomb trigram contiguous-0..=82 cell is also at `1/1001`.
-  - Interpretation: this confirms rather than overturns the bounded 83-state
-    structural anomaly under the configured DoF correction. It is still not a
-    plaintext/decryption claim, and the standard36 honeycomb walk is
-    data-independent (grid shape + fixed permutations), so the genuinely new
-    exposure is concentrated on grouping/statistic choice plus non-honeycomb
-    traversal controls.
+  - Calibration rule: independent calibration set A defines each cell's
+    same-shape random-grid marginal tail; the eyes and independent resampling set
+    B are both scored against A before taking the adaptive min-p. No raw max/min
+    across incommensurable statistics, and no self-ranking of B against itself.
+  - Seed 12345, 1000 calibration trials, 1000 resampling trials: eyes min
+    marginal p `1/1001`; 199/1000 resampling grids are at least as extreme; the
+    add-one adaptive p is **200/1001 = 0.199800** (95% Wilson
+    `0.176198..0.225697`); median Sidak-equivalent comparisons **173.11**. The
+    accepted honeycomb trigram contiguous-0..=82 cell is also at `1/1001`.
+  - Interpretation: the fixed standard36 null still supports the bounded
+    83-state structural anomaly when that honeycomb family is treated as
+    data-independent, but the headline does **not** survive the broader
+    configured traversal/grouping/statistic researcher-DoF correction as a small
+    adaptive p-value. It is still not a plaintext/decryption claim.
 - **Review:** a `codex review` over the whole diff found only one P3 (silent
   trigram truncation), now fixed (`2bdb0c0`): `Message::trigrams()` errors on
   non-÷3 input.
@@ -359,7 +361,8 @@ make setup           # install pre-commit hook
 cargo test --locked  # authoritative test signal (use after each codex run)
 cargo run -- orders                          # per-order structural stats
 cargo run -- nulltest --seed 12345 --trials 1000   # the multiple-comparisons null
-cargo run -- dofnull --seed 12345 --trials 1000     # calibrated researcher-DoF null
+cargo run -- dofnull --seed 12345 --trials 1000 --calib-trials 1000
+                                                        # calibrated researcher-DoF null
 ```
 
 ---
@@ -384,4 +387,4 @@ cargo run -- dofnull --seed 12345 --trials 1000     # calibrated researcher-DoF 
 - 2026-06-22: Experiment 12 (candidate ciphers + Caesar/Vigenere brute vs English/Finnish) — candidate scores are mapping-conditioned; 256-trial shuffle null shows only pointwise tail rows under guessed mappings, the harness positive-control recovers Caesar/Vigenere plants, and no credible solution is established (commit 8bc7bdf0cf401a76709f98b118b2a141d6089be0).
 - 2026-06-22: Experiment 12 interpretation rigor — pointwise tails now report the derived exceedance-rate diagnosis and eye-vs-plant effect-size contrast, keeping the result a clean negative rather than near-hits (commit b465dd3f182d076994dcbd1ee8442e1354f4f6a9).
 - 2026-06-22: Experiments 9 & 10 primary-observer report (repo owner, direct in-game observation) — content identical across multiple seeds (qualitative seed-invariance corroboration; byte-for-byte cross-seed diff still pending) and exactly 5 visually distinct orientations with the digit→direction labeling agreed arbitrary (cryptanalytically immaterial; stats run on the Exp-0-verified integer sequence). Docs-only update to research/03 §§3–4, research/05 Exp 9/10, and §6 item 8; no code change, conclusions unchanged.
-- 2026-06-24: Researcher-DoF adaptive null — calibrated min-p across traversal/grouping/statistic cells is implemented in `dof_null.rs`; seed 12345 / 1000 trials gives adaptive p 0/1000 (Wilson 0..0.003827), confirming rather than overturning the bounded 83-state structural anomaly under the configured look-elsewhere correction.
+- 2026-06-24: Researcher-DoF adaptive null follow-up — fixed the original single-set self-ranking bug by splitting calibration set A from resampling set B; seed 12345 / 1000+1000 trials gives add-one adaptive p 200/1001 = 0.199800 (Wilson 0.176198..0.225697), so the bounded 0..=82 headline remains strong under the fixed standard36 null but no longer survives this broad configured researcher-DoF correction as a small adaptive p-value.
