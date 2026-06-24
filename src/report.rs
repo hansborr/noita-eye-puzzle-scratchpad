@@ -1238,8 +1238,8 @@ pub fn print_conditional_structure_report(
         report.observed.matrix.mean_symbols_per_value
     );
     println!(
-        "entropy correction: add-constant alpha={:.1} over the full 83-symbol next-state support; raw plug-in MI is shown only as a sparse-sample diagnostic",
-        report.observed.entropy.add_constant_alpha
+        "entropy correction: add-constant alpha={:.1} over the full {}-symbol next-state support; raw plug-in MI is shown only as a sparse-sample diagnostic",
+        report.observed.entropy.add_constant_alpha, report.config.alphabet_size
     );
     println!();
     print_conditional_observed(report);

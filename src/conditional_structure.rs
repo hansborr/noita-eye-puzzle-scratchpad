@@ -851,15 +851,12 @@ fn comparison_from_samples(
 }
 
 fn two_sided_add_one_p(lower_tail_count: usize, upper_tail_count: usize, trials: usize) -> f64 {
-    let numerator = lower_tail_count
-        .min(upper_tail_count)
-        .saturating_mul(2)
-        .saturating_add(1);
+    let tail_numerator = lower_tail_count.min(upper_tail_count).saturating_add(1);
     let denominator = trials.saturating_add(1);
     if denominator == 0 {
         1.0
     } else {
-        (numerator as f64 / denominator as f64).min(1.0)
+        (2.0 * tail_numerator as f64 / denominator as f64).min(1.0)
     }
 }
 
@@ -1250,6 +1247,19 @@ mod tests {
         assert_eq!(comparison.lower_tail_count, 2);
         assert_eq!(comparison.upper_tail_count, 2);
         assert!((comparison.two_sided_add_one_p - 1.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn two_sided_add_one_applies_correction_before_doubling() {
+        let comparison = comparison_from_samples(
+            ConditionalStatistic::TransitionChiSquare,
+            0.5,
+            &[1.0, 2.0, 3.0],
+        );
+
+        assert_eq!(comparison.lower_tail_count, 0);
+        assert_eq!(comparison.upper_tail_count, 3);
+        assert!((comparison.two_sided_add_one_p - 0.5).abs() < f64::EPSILON);
     }
 
     #[test]
