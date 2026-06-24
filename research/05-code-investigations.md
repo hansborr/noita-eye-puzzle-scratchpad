@@ -179,11 +179,18 @@ correction analytically.
 3. Attempt alphabet chaining on the discovered isomorphs and confirm it does not yield consistent plaintext [confirmed it fails per wiki].
 4. Test Perseus's permutation observation: symbols in non-shared sections allegedly never reappear in later size-≥2 shared sections (claimed p ≈ 0.192% by chance) — reconstruct aligned shared/non-shared regions and compare the empirical rate to a shuffle null [confirmed claim exists; null now done in `src/perseus.rs`].
 
+**Implementation status (2026-06-24): DONE.** The formerly missing nulls/controls
+now exist: `src/isomorph_null.rs` implements the within-message isomorph shuffle
+null, `src/chaining.rs` implements known-succeed/known-fail chaining controls,
+and `src/perseus.rs` implements the same-offset shared-region recurrence null.
+They constrain the cipher-family discussion but do not decode the eyes.
+
 **Expected signal / interpretation:**
 - **Isomorphs significant above null + chaining fails** is *consistent with* a non-commutative permutation cipher (Chaocipher/Hutton/S_83 family) but does **not** establish one [speculative]: chaining can also fail from a wrong reading order, misalignment, short/noisy isomorphs, a transcription error, an implementation bug, or a wrong-plaintext assumption. Before inferring a cipher class, run synthetic controls where alphabet chaining is *known* to succeed and *known* to fail, and confirm the eye corpus matches the known-fail control's signature — not merely that chaining "failed".
 - **Isomorphs at chance level** → the "structure" is weaker than claimed and the cipher inferences are overbuilt.
 - **Perseus recurrence null result:** the implemented operational definition treats same-offset common runs of length ≥2 as shared when they are in the earliest leading-family alignment or an East/West counterpart pair; all other positions are non-shared. Scanning each message left-to-right, a shared-position symbol is recurrent if it appeared earlier in a non-shared position in that same message. Under that definition, seed 12345 / 1000 within-message shuffles gives observed **0/185** recurrences and add-one lower-tail p **7/1001 = 0.006993**. This corroborates Perseus's structural constraint beyond the shuffle null but decodes nothing and remains conditional on the accepted honeycomb reading order and this documented-region interpretation.
-- Note the echo-chamber risk: nearly all isomorph work traces to Lymm + codewarrior0; an independent null distribution is genuinely missing from the corpus and is high-value to add.
+- **Global transposition note:** the accepted-honeycomb message lengths are all distinct (`99,103,118,102,137,124,119,120,114`), while the documented shared runs stay at the same ciphertext offsets across messages (all-nine `[66,5]` at offset 1; East/West counterpart runs of 24, 20, 2, and 5). A columnar/route/rail-fence transposition is a length-dependent permutation, so a single global transposition route would not naturally preserve those same-offset anchors across unequal lengths. This disfavors global transposition, including substitution-then-global-transposition under one shared route, as the eyes' mechanism. It is evidence against the natural global model, not an impossibility proof, and it does not rule out per-message or non-global schemes.
+- Note the echo-chamber risk: nearly all isomorph work traces to Lymm + codewarrior0. The independent null/control gap for Experiment 7 is now closed in this repo; the remaining blocker is not another pure-crate statistic but the unknown external meaning/key/mapping needed for any decode claim.
 
 ---
 
@@ -278,4 +285,4 @@ correction analytically.
 
 **Two standing caveats grounding all of the above:**
 - No primary Nolla/developer statement confirms the Eye Messages encode recoverable plaintext; "developers confirmed it's meaningful/solvable" traces to an **unsourced 2022 Hacker News intro line** and AI-generated/Grokipedia text, not a dev quote [confirmed — this is a debunked meta-claim]. The strongest honest statement is "structured data of unknown meaning, unsolved."
-- The entire technical corpus rests on a handful of analysts (Lymm, CodeWarrior0, Toboter, Pyry, Perseus) and a few repos/Google Docs; independent reproduction beyond this group is thin [confirmed]. Adding independent **null distributions** (Experiments 1, 2, 7) is the single most valuable contribution this code investigation can make.
+- The entire technical corpus rests on a handful of analysts (Lymm, CodeWarrior0, Toboter, Pyry, Perseus) and a few repos/Google Docs; independent reproduction beyond this group is thin [confirmed]. The crate has now added the key independent **null distributions** for Experiments 1, 2, and 7, including the researcher-DoF correction and Perseus recurrence null. The genuine remaining open items are external: a vendored byte-for-byte cross-seed transcription diff, and an in-game/developer anchor for the otherwise unknown 83-symbol-to-meaning mapping.

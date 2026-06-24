@@ -1225,6 +1225,41 @@ mod tests {
     }
 
     #[test]
+    fn accepted_honeycomb_message_lengths_are_distinct() {
+        let grids = corpus_grids().unwrap();
+        let values =
+            super::read_corpus_message_values(&grids, super::accepted_honeycomb_order()).unwrap();
+        let observed: Vec<(&str, usize)> = grids
+            .iter()
+            .zip(values.iter())
+            .map(|(grid, values)| (grid.message_key(), values.len()))
+            .collect();
+        assert_eq!(
+            observed,
+            vec![
+                ("east1", 99),
+                ("west1", 103),
+                ("east2", 118),
+                ("west2", 102),
+                ("east3", 137),
+                ("west3", 124),
+                ("east4", 119),
+                ("west4", 120),
+                ("east5", 114),
+            ]
+        );
+
+        let mut lengths: Vec<usize> = observed
+            .iter()
+            .map(|(_message_key, length)| *length)
+            .collect();
+        let message_count = lengths.len();
+        lengths.sort_unstable();
+        lengths.dedup();
+        assert_eq!(lengths.len(), message_count);
+    }
+
+    #[test]
     fn audit_family_has_one_standard36_contiguous_zero_to_82_order() {
         let grids = corpus_grids().unwrap();
         let stats = audit_order_stats(&grids).unwrap();

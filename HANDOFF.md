@@ -147,6 +147,13 @@ negative, all calibration controls fire. Full one-liners with SHAs are in §9.
   runs, size ≥2), the eyes have 0/185 non-shared→later-shared recurrences; seed
   12345 / 1000 within-message shuffles gives add-one lower-tail p 7/1001 =
   0.006993. Structural corroboration only; no decode.
+- **Global transposition note** (`orders.rs` test + docs): accepted-honeycomb
+  trigram-stream lengths are distinct across all nine messages, while the
+  documented shared runs stay at the same ciphertext offsets. Because
+  columnar/route/rail-fence transpositions are length-dependent permutations,
+  one shared global transposition route is disfavored under the natural model.
+  This is evidence against, not an impossibility proof; per-message/non-global
+  schemes remain possible.
 - **Exp 8 — base-N grouping + independent state count** (`grouping.rs`): no grouping
   is both alphabet- and entropy-compatible with a language; a collision estimator
   calibrated on known-N (not assuming 83) gives ≈ 73–90 ⇒ ~83 genuine near-uniform
@@ -276,6 +283,29 @@ estimate), honest interpretation in code/CLI docs, committed, progress logged.
 > documentation (README / AGENTS golden rule / this section / a results synthesis),
 > now addressed. The items below are retained for historical context.
 
+**Current open threads (2026-06-24):**
+
+- **CLOSED — Researcher-DoF resampling null.** `src/dof_null.rs` and `dofnull`
+  are built. The empirical adaptive p (`200/1001 = 0.199800`) is a
+  finite-resolution floor diagnostic, not a deflation; the analytic configured
+  correction remains ≈`6.653e-182` over 1140 configured cells and ≈`1.010e-182`
+  over the empirical effective-comparison count, so the bounded 0..=82 headline
+  survives the configured DoF correction.
+- **CLOSED — Perseus recurrence null.** `src/perseus.rs` and `perseus` are built.
+  The observed 0/185 non-shared->later-shared recurrences versus a shuffle-null
+  mean near 5 (add-one lower-tail p `7/1001 = 0.006993`) corroborate a structural
+  permutation direction only; they decode nothing.
+- **CLOSED — global transposition note.** The distinct stream lengths plus
+  same-offset shared anchors disfavor one shared global transposition route under
+  the natural model, without ruling out per-message or non-global schemes.
+- **OPEN — vendored byte-for-byte cross-seed transcription diff.** The repo owner
+  has qualitatively observed seed-invariant content in-game, but the stronger
+  std-clean crate task still needs a second-seed capture under `research/data/`.
+- **OPEN — external meaning/key anchor.** The unknown 83-symbol-to-meaning
+  mapping is the fundamental blocker. Pure cryptanalysis here can constrain
+  families and supply designed negatives, but it cannot supply an unverifiable
+  in-game/developer mapping on its own.
+
 1. **Experiment 2 — generation-pipeline artifact null (HIGH; do first).** Implement
    the documented base-7/64-bit generator; reproduce the wiki worked example
    (`acf686745634505c` → the 22-value sequence) as a test. Then feed it
@@ -308,14 +338,11 @@ estimate), honest interpretation in code/CLI docs, committed, progress logged.
    corpora under `research/data/`). Expect no dominant period / no readable output;
    a positive must be triple-checked against Exp 0 integrity before any claim.
 
-5. **Experiment 7 — isomorph detection WITH a shuffle null (MED-HIGH).** Detection
-   exists upstream; the *null* is the missing contribution. Locate repeated
-   relative-pattern segments across the 9 sequences; build a Monte-Carlo
-   shuffle null (how often do isomorphs of the observed length appear in shuffled
-   data of same alphabet/length?). Then confirm alphabet-chaining fails for a
-   structural reason — run synthetic controls where chaining is *known* to succeed
-   and *known* to fail, and check the eyes match the known-fail signature, not
-   merely that it "failed".
+5. **DONE — Experiment 7 isomorph/chaining/Perseus nulls.** Detection existed
+   upstream; this repo now adds the missing within-message isomorph shuffle null,
+   known-succeed/known-fail alphabet-chaining controls, and Perseus's
+   same-offset shared-region recurrence null. The result constrains the
+   non-commutative/permutation-cipher direction but does not decode the eyes.
 
 6. **Experiment 8 — base-N/grouping reinterpretation (MED).** Compare single-glyph
    base-5 / trigram base-5 / engine base-7 / pairs / tetragrams by used-alphabet
@@ -399,3 +426,4 @@ cargo run -- dofnull --seed 12345 --trials 1000 --calib-trials 1000
 - 2026-06-22: Experiments 9 & 10 primary-observer report (repo owner, direct in-game observation) — content identical across multiple seeds (qualitative seed-invariance corroboration; byte-for-byte cross-seed diff still pending) and exactly 5 visually distinct orientations with the digit→direction labeling agreed arbitrary (cryptanalytically immaterial; stats run on the Exp-0-verified integer sequence). Docs-only update to research/03 §§3–4, research/05 Exp 9/10, and §6 item 8; no code change, conclusions unchanged.
 - 2026-06-24: Researcher-DoF adaptive null follow-up — fixed the original single-set self-ranking bug by splitting calibration set A from resampling set B; seed 12345 / 1000+1000 trials gives add-one adaptive p 200/1001 = 0.199800 (Wilson 0.176198..0.225697), but that is a finite-resolution floor diagnostic (`1/1001`) rather than a deflation of the eyes' analytic `(83/125)^1036` effect. The follow-up analytic configured-DoF correction over 1140 cells is ≈6.653e-182 (≈1.010e-182 over the empirical effective comparisons), so the bounded 0..=82 headline survives analytically.
 - 2026-06-24: Experiment 7C (Perseus recurrence null) — pinned shared regions as same-offset size≥2 runs in the earliest leading-family alignment or East/West counterpart pairs; observed 0/185 non-shared→later-shared recurrences, seed 12345 / 1000 within-message shuffles gives add-one lower-tail p 7/1001 = 0.006993. Corroborates a structural permutation direction only; no decode.
+- 2026-06-24: Global transposition disfavored note — added a corpus-backed test for the nine distinct accepted-honeycomb trigram-stream lengths and documented why those unequal lengths plus same-offset shared anchors are evidence against one shared global transposition route under the natural model. No transposition module added; conclusions unchanged.

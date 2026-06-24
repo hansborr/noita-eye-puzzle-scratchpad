@@ -136,6 +136,15 @@ small.
   With seed 12345 and 1000 within-message shuffles, the add-one lower-tail
   p-value is **7/1001 = 0.006993**. This corroborates a structural
   permutation-cipher direction, but it decodes nothing.
+- **Global transposition check.** The accepted-honeycomb trigram streams have
+  distinct lengths (`east1=99`, `west1=103`, `east2=118`, `west2=102`,
+  `east3=137`, `west3=124`, `east4=119`, `west4=120`, `east5=114`), while the
+  documented shared runs sit at the same ciphertext offsets across unequal
+  messages. Since columnar/route/rail-fence transpositions are length-dependent
+  permutations, one shared global transposition route is disfavored under the
+  natural model. This is evidence against a global transposition mechanism, not
+  an impossibility proof, and it does not rule out per-message or non-global
+  schemes.
 - **Exp 8 — grouping + state count.** No grouping (single/pairs/trigrams/
   tetragrams/storage) is both alphabet- and entropy-compatible with a natural
   language. An independent collision estimator (calibrated on known-N ciphers,
@@ -158,6 +167,12 @@ a proof over every imaginable post-hoc analysis. For sub-floor effects like the
 bounded-contiguity headline, use the printed analytic DoF-corrected bound rather
 than the empirical floor diagnostic. It supports "structured data of unknown
 meaning," not "decoded message."
+
+**Remaining limitations:** the byte-for-byte vendored cross-seed transcription
+diff still needs a second-seed capture, which is an external/game dependency.
+The deeper blocker is the unknown 83-symbol-to-meaning mapping: no pure
+cryptanalysis step in this repo supplies that external anchor, so decode attempts
+remain designed negatives unless new in-game or developer evidence appears.
 
 ## Commands
 
