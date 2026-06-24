@@ -1,0 +1,2496 @@
+//! Report rendering for the Noita eye-puzzle command-line tools.
+//!
+//! The functions in this module intentionally keep presentation separate from
+//! the experiment engines. They render already-computed domain reports and
+//! convert domain errors into user-facing CLI text.
+
+use crate::glyph::Sequence;
+use crate::{
+    analysis, chaining, cipher_attack, controls, corpus, dof_null, grouping, isomorph_null, null,
+    orders, periodicity, perseus, pipeline_null,
+};
+
+const MIN_RELIABLE_PERIODICITY_NULL_TRIALS: usize = 50;
+
+/// Formats a verified-corpus parsing error for CLI output.
+#[must_use]
+pub fn format_corpus_error(error: corpus::CorpusError) -> String {
+    match error {
+        corpus::CorpusError::MalformedSymbol {
+            message_key,
+            symbol,
+        } => format!("corpus parse error in {message_key}: invalid symbol {symbol:?}"),
+        corpus::CorpusError::IncompleteTrigram {
+            message_key,
+            orientations,
+        } => format!(
+            "corpus parse error in {message_key}: {orientations} orientations cannot form complete trigrams"
+        ),
+    }
+}
+
+/// Formats an Experiment 5A periodicity error for CLI output.
+#[must_use]
+pub fn format_periodicity_error(error: periodicity::PeriodicityError) -> String {
+    match error {
+        periodicity::PeriodicityError::Grid(grid_error) => {
+            format!("grid/order error: {grid_error:?}")
+        }
+        periodicity::PeriodicityError::ZeroTrials => {
+            "at least one Monte-Carlo trial is required".to_owned()
+        }
+        periodicity::PeriodicityError::ZeroMaxPeriod => "max period must be at least 1".to_owned(),
+        periodicity::PeriodicityError::ZeroMaxLag => "max lag must be at least 1".to_owned(),
+        periodicity::PeriodicityError::InvalidNgramRange { min, max } => {
+            format!("invalid n-gram range {min}..={max}")
+        }
+        periodicity::PeriodicityError::InvalidAlphabetSize { alphabet_size } => {
+            format!("invalid null alphabet size {alphabet_size}; expected 1..=125")
+        }
+    }
+}
+
+/// Formats a calibrated researcher-`DoF` null error for CLI output.
+#[must_use]
+pub fn format_dof_null_error(error: &dof_null::DofNullError) -> String {
+    match error {
+        dof_null::DofNullError::Grid(grid_error) => {
+            format!("grid/order error: {grid_error:?}")
+        }
+        dof_null::DofNullError::ZeroTrials => {
+            "at least one DoF null resampling trial is required".to_owned()
+        }
+        dof_null::DofNullError::ZeroCalibrationTrials => {
+            "at least one DoF null calibration trial is required".to_owned()
+        }
+        dof_null::DofNullError::EmptySearchSpace => {
+            "the DoF search space must include at least one traversal, grouping, and statistic"
+                .to_owned()
+        }
+        dof_null::DofNullError::NoValidCells => {
+            "no compatible traversal/grouping/statistic cells remained".to_owned()
+        }
+        dof_null::DofNullError::ZeroGroupingWidth => {
+            "orientation grouping width must be at least 1".to_owned()
+        }
+        dof_null::DofNullError::GroupingAlphabetTooLarge { width } => {
+            format!("orientation grouping width {width} has too many base-5 states")
+        }
+        dof_null::DofNullError::InternalCellMismatch { expected, observed } => {
+            format!("internal DoF cell mismatch: expected {expected}, observed {observed}")
+        }
+        dof_null::DofNullError::TrialCountTooLarge => {
+            "DoF null trial count is too large for add-one calibration".to_owned()
+        }
+        dof_null::DofNullError::SearchSpaceTooLarge => {
+            "DoF null search-space cross-product is too large".to_owned()
+        }
+    }
+}
+
+/// Formats an Experiment 7A isomorph shuffle-null error for CLI output.
+#[must_use]
+pub fn format_isomorph_null_error(error: isomorph_null::IsomorphNullError) -> String {
+    match error {
+        isomorph_null::IsomorphNullError::Grid(grid_error) => {
+            format!("grid/order error: {grid_error:?}")
+        }
+        isomorph_null::IsomorphNullError::ZeroTrials => {
+            "at least one Monte-Carlo trial is required".to_owned()
+        }
+        isomorph_null::IsomorphNullError::InvalidWindowRange {
+            min_window,
+            max_window,
+        } => format!("invalid window range {min_window}..={max_window}"),
+        isomorph_null::IsomorphNullError::Isomorph(isomorph_error) => {
+            format!("detector configuration error: {isomorph_error:?}")
+        }
+        isomorph_null::IsomorphNullError::RandomBoundTooLarge { bound } => {
+            format!("shuffle bound {bound} is too large")
+        }
+    }
+}
+
+/// Formats an Experiment 7B alphabet-chaining error for CLI output.
+#[must_use]
+pub fn format_chaining_error(error: chaining::ChainingError) -> String {
+    match error {
+        chaining::ChainingError::Grid(grid_error) => {
+            format!("grid/order error: {grid_error:?}")
+        }
+        chaining::ChainingError::ZeroTrials => {
+            "at least one Monte-Carlo trial is required".to_owned()
+        }
+        chaining::ChainingError::InvalidPeriodRange {
+            min_period,
+            max_period,
+        } => format!("invalid period range {min_period}..={max_period}; use periods >= 2"),
+        chaining::ChainingError::InvalidAlphabetSize { alphabet_size } => {
+            format!("invalid alphabet size {alphabet_size}; expected 1..=125")
+        }
+        chaining::ChainingError::ValueOutsideAlphabet {
+            value,
+            alphabet_size,
+        } => format!("stream value {value} is outside configured alphabet size {alphabet_size}"),
+        chaining::ChainingError::ControlConstructionFailed => {
+            "generated control fixture could not be constructed".to_owned()
+        }
+        chaining::ChainingError::RandomBoundTooLarge { bound } => {
+            format!("random draw bound {bound} is too large")
+        }
+    }
+}
+
+/// Formats an Experiment 7C Perseus recurrence error for CLI output.
+#[must_use]
+pub fn format_perseus_error(error: perseus::PerseusError) -> String {
+    match error {
+        perseus::PerseusError::Grid(grid_error) => format!("grid/order error: {grid_error:?}"),
+        perseus::PerseusError::ZeroTrials => {
+            "at least one Monte-Carlo trial is required".to_owned()
+        }
+        perseus::PerseusError::KeyCountMismatch { keys, messages } => {
+            format!("internal key/message count mismatch: {keys} keys, {messages} messages")
+        }
+        perseus::PerseusError::MessageMaskMismatch { messages, masks } => {
+            format!("internal message/mask mismatch: {messages} messages, {masks} masks")
+        }
+        perseus::PerseusError::SharedRunOutOfBounds {
+            message_key,
+            start,
+            len,
+        } => {
+            format!("shared run {message_key}@{start}+{len} exceeds the message boundary")
+        }
+        perseus::PerseusError::RandomBoundTooLarge { bound } => {
+            format!("shuffle bound {bound} is too large")
+        }
+        perseus::PerseusError::TrialCountTooLarge => {
+            "trial count is too large for add-one p-value calibration".to_owned()
+        }
+    }
+}
+
+/// Formats an Experiment 12 candidate-cipher attack error for CLI output.
+#[must_use]
+pub fn format_cipher_attack_error(error: &cipher_attack::CipherAttackError) -> String {
+    error.to_string()
+}
+
+/// Formats an Experiment 8 grouping error for CLI output.
+#[must_use]
+pub fn format_grouping_error(error: grouping::GroupingError) -> String {
+    match error {
+        grouping::GroupingError::Grid(grid_error) => format!("grid/order error: {grid_error:?}"),
+        grouping::GroupingError::Language(language_error) => {
+            format!("language model error: {language_error}")
+        }
+        grouping::GroupingError::Isomorph(isomorph_error) => {
+            format!("isomorph detector error: {isomorph_error:?}")
+        }
+        grouping::GroupingError::InvalidStorageSymbol {
+            message_index,
+            symbol,
+        } => format!("storage message {message_index} decoded invalid symbol {symbol}"),
+        grouping::GroupingError::ZeroStateCount => {
+            "synthetic calibration state count must be at least 1".to_owned()
+        }
+        grouping::GroupingError::StateCountTooLarge { state_count } => {
+            format!("synthetic calibration state count {state_count} is too large")
+        }
+        grouping::GroupingError::RandomBoundTooLarge { bound } => {
+            format!("synthetic calibration random bound {bound} is too large")
+        }
+    }
+}
+
+/// Formats an Experiment 11 positive-control error for CLI output.
+#[must_use]
+pub fn format_controls_error(error: &controls::ControlsError) -> String {
+    match error {
+        controls::ControlsError::EmptyPlaintext { label } => {
+            format!("{label}: normalized plaintext is empty")
+        }
+        controls::ControlsError::UnsupportedPlaintextSymbol { label, symbol } => {
+            format!("{label}: unsupported plaintext symbol {symbol:?}")
+        }
+        controls::ControlsError::GlyphOutsideAlphabet {
+            label,
+            glyph,
+            alphabet_size,
+        } => format!("{label}: glyph {glyph} is outside alphabet size {alphabet_size}"),
+        controls::ControlsError::AlphabetTooLarge { alphabet_size } => {
+            format!("alphabet size {alphabet_size} is too large for this control")
+        }
+        controls::ControlsError::NonBijectiveKey {
+            seed,
+            alphabet_size,
+        } => {
+            format!("seed {seed} did not produce a bijection over alphabet size {alphabet_size}")
+        }
+        controls::ControlsError::IocNotPreserved {
+            label,
+            plaintext_bits,
+            ciphertext_bits,
+        } => format!(
+            "{label}: IoC changed across substitution ({plaintext_bits:#x} != {ciphertext_bits:#x})"
+        ),
+        controls::ControlsError::FrequencyMultisetChanged { label } => {
+            format!("{label}: frequency-count multiset changed across substitution")
+        }
+        controls::ControlsError::BigramMultisetChanged { label } => {
+            format!("{label}: bigram-count multiset changed across substitution")
+        }
+        controls::ControlsError::KnownKeyRecoveryFailed { label } => {
+            format!("{label}: known-key inverse did not recover the plaintext")
+        }
+        controls::ControlsError::RegimeSeparationFailed {
+            label,
+            plaintext_ioc,
+            flattened_ioc,
+            uniform_floor,
+        } => format!(
+            "{label}: IoC did not separate regimes (plain {plaintext_ioc:.6}, balanced uniform {flattened_ioc:.6}, floor {uniform_floor:.6})"
+        ),
+        controls::ControlsError::InvalidIsomorphWindow {
+            label,
+            window,
+            sequence_len,
+        } => {
+            format!("{label}: invalid isomorph window {window} for sequence length {sequence_len}")
+        }
+        controls::ControlsError::InvalidPeriodSearch {
+            label,
+            min_period,
+            max_period,
+        } => format!("{label}: invalid isomorph period search {min_period}..={max_period}"),
+        controls::ControlsError::IsomorphSignalMissing {
+            label,
+            expected_period,
+            observed_matches,
+            required_matches,
+        } => format!(
+            "{label}: expected period {expected_period} produced {observed_matches} signature matches, below required {required_matches}"
+        ),
+        controls::ControlsError::IsomorphPeriodRecoveryFailed {
+            label,
+            expected_period,
+            observed_period,
+            observed_matches,
+        } => {
+            let observed =
+                observed_period.map_or_else(|| "none".to_owned(), |period| period.to_string());
+            format!(
+                "{label}: strongest recovered period was {observed} with {observed_matches} signature matches, expected {expected_period}"
+            )
+        }
+        controls::ControlsError::IsomorphFalsePositive {
+            label,
+            observed_period,
+            observed_matches,
+            allowed_matches,
+        } => format!(
+            "{label}: expected-absent period signal {observed_period} produced {observed_matches} signature matches, above allowed {allowed_matches}"
+        ),
+        controls::ControlsError::IsomorphSeparationFailed {
+            present_label,
+            absent_label,
+            present_matches,
+            absent_matches,
+            required_gap,
+        } => format!(
+            "{present_label}: signature-period separation from {absent_label} was {present_matches} vs {absent_matches}, below required gap {required_gap}"
+        ),
+    }
+}
+
+/// Prints the standard36 random-grid null report.
+pub fn print_null_report(report: &null::NullReport) {
+    println!("standard36 random-grid null");
+    println!("seed: {}", report.config.seed);
+    println!("trials: {}", report.config.trials);
+    println!("orders searched per trial: {}", report.family_size);
+    println!("resampled: verified row-width structure with uniform orientation cells 0..=4");
+    println!("held fixed: honeycomb traversal, trigram grouping, and the statistic family");
+    println!();
+
+    print_interval(
+        "headline exact 0..=82",
+        null::wilson_95(report.headline_count, report.config.trials),
+    );
+    print_interval(
+        "some order adjacent_equal == 0",
+        null::wilson_95(report.adjacent_zero_count, report.config.trials),
+    );
+    println!(
+        "min distinct achieved over standard36: {}",
+        format_usize_histogram(&report.min_distinct_histogram)
+    );
+    println!(
+        "min ceiling achieved over standard36: {}",
+        format_u8_histogram(&report.min_ceiling_histogram)
+    );
+    println!(
+        "best distance-4 ratio d4/mean(d1..d6): min {:.3}, median {:.3}, max {:.3}",
+        report.distance4_ratio_min, report.distance4_ratio_median, report.distance4_ratio_max
+    );
+    println!();
+    println!("analytic fixed-order headline bounds under independent uniform trigrams:");
+    println!(
+        "  per-order (83/125)^1036: {:.6e}",
+        report.analytic_bounds.per_order
+    );
+    println!(
+        "  Bonferroni over {} orders: {:.6e}",
+        report.analytic_bounds.family_size, report.analytic_bounds.bonferroni
+    );
+    println!(
+        "  Sidak over {} orders: {:.6e}",
+        report.analytic_bounds.family_size, report.analytic_bounds.sidak
+    );
+    println!();
+    println!(
+        "Interpretation: this corrects grid-content randomness and fixed standard36 digit-permutation selection only. It does not correct for broader researcher degrees of freedom such as choosing the traversal family, grouping rule, or headline statistic after looking at the data."
+    );
+}
+
+/// Prints the calibrated researcher-`DoF` null report.
+pub fn print_dof_null_report(report: &dof_null::DofNullReport) {
+    println!("calibrated researcher-DoF random-grid null");
+    println!("seed: {}", report.config.seed);
+    println!(
+        "calibration trials (A): {}",
+        report.config.calibration_trials
+    );
+    println!("resampling trials (B): {}", report.config.trials);
+    println!(
+        "configured axes: {} traversals x {} groupings x {} statistics = {} total cells",
+        report.configured_orders,
+        report.configured_groupings,
+        report.configured_statistics,
+        report.configured_cell_count
+    );
+    println!("valid calibrated cells: {}", report.valid_cell_count);
+    println!(
+        "skipped traversal/grouping combos: {}",
+        report.skipped.len()
+    );
+    println!("resampled: verified row-width structure with uniform orientation cells 0..=4");
+    println!(
+        "calibration: set A defines each cell's empirical marginal tail; the eyes and independent set B are both scored against A before the cross-cell min-p search"
+    );
+    println!(
+        "scope nuance: the standard36 honeycomb walk is data-independent; the newly calibrated exposure is concentrated on grouping/statistic choice plus non-honeycomb controls"
+    );
+    println!(
+        "empirical marginal floor: {} = 1/(calibration trials + 1)",
+        format_probability(report.empirical_marginal_floor)
+    );
+    println!();
+    println!(
+        "eyes min marginal p: {}{}",
+        format_probability(report.observed_min_p),
+        floor_censored_suffix(report.observed_min_p, report.empirical_marginal_floor)
+    );
+    println!(
+        "best cell: {} / {} / {} ({}, real {}, null {}..{}..{})",
+        report.best_cell.order.name(),
+        report.best_cell.grouping.label(),
+        report.best_cell.statistic.label(),
+        report.best_cell.tail.label(),
+        format_statistic_value(report.best_cell.real_value),
+        format_statistic_value(report.best_cell.null_min),
+        format_statistic_value(report.best_cell.null_median),
+        format_statistic_value(report.best_cell.null_max)
+    );
+    println!(
+        "adaptive raw exceedances in B: {}/{}",
+        report.adaptive_extreme_count, report.config.trials
+    );
+    print_interval(
+        "resolution-limited adaptive min-p diagnostic",
+        report.adaptive_interval,
+    );
+    println!(
+        "effective independent comparisons (median Sidak-equivalent): {}",
+        format_effective_comparisons(report.effective_comparisons)
+    );
+    println!(
+        "resampling-grid min-p range scored against A: {}..{}..{}",
+        format_probability(report.null_min_p_min),
+        format_probability(report.null_min_p_median),
+        format_probability(report.null_min_p_max)
+    );
+    println!();
+    print_dof_analytic_headline(report);
+    println!();
+    print_dof_skips(report);
+    println!();
+    print_dof_cell_breakdown(report);
+    println!();
+    println!(
+        "Interpretation: the empirical adaptive value above is a finite-resolution diagnostic, not the headline significance. With this calibration size, any sub-floor cell is censored to the floor, so the diagnostic estimates how often random grids hit that floor somewhere after look-elsewhere multiplicity. The analytic bound is the appropriate correction for the known bounded-contiguity headline; it remains astronomically small and still does not decode meaning."
+    );
+}
+
+fn print_dof_analytic_headline(report: &dof_null::DofNullReport) {
+    let Some(bounds) = &report.analytic_headline_bounds else {
+        println!("analytic DoF-corrected headline bound: unavailable for this search space");
+        return;
+    };
+    let calibration_draws_to_resolve = if bounds.per_order > 0.0 {
+        1.0 / bounds.per_order
+    } else {
+        f64::INFINITY
+    };
+
+    println!("analytic DoF-corrected headline bound under independent uniform trigrams:");
+    println!(
+        "  headline cell: {} / {} / {} real {}, empirical p {}{} ({} calibration hits)",
+        bounds.cell.order.name(),
+        bounds.cell.grouping.label(),
+        bounds.cell.statistic.label(),
+        format_statistic_value(bounds.cell.real_value),
+        format_probability(bounds.cell.marginal_p),
+        floor_censored_suffix(bounds.cell.marginal_p, report.empirical_marginal_floor),
+        bounds.cell.marginal_extreme_count
+    );
+    println!(
+        "  per-order (83/125)^{}: {:.6e}",
+        bounds.trigrams, bounds.per_order
+    );
+    println!(
+        "  total configured cells (M={}): Bonferroni {:.6e}; Sidak {:.6e}",
+        bounds.total_configured_cells, bounds.total_bonferroni, bounds.total_sidak
+    );
+    println!(
+        "  effective comparisons (M={}): Bonferroni {:.6e}; Sidak {:.6e}",
+        format_effective_comparisons(bounds.effective_comparisons),
+        bounds.effective_bonferroni,
+        bounds.effective_sidak
+    );
+    println!(
+        "  calibration draws needed to resolve this per-order scale empirically: ~{calibration_draws_to_resolve:.3e}"
+    );
+    println!(
+        "  conclusion: the bounded 0..=82 headline survives the configured researcher-DoF correction analytically."
+    );
+}
+
+fn floor_censored_suffix(value: f64, floor: f64) -> &'static str {
+    if (value - floor).abs() <= f64::EPSILON * 8.0 {
+        " (floor-censored)"
+    } else {
+        ""
+    }
+}
+
+fn print_dof_skips(report: &dof_null::DofNullReport) {
+    if report.skipped.is_empty() {
+        println!("skipped combos: none");
+        return;
+    }
+    println!("skipped combos");
+    for skipped in &report.skipped {
+        println!(
+            "  {} / {}: {}",
+            skipped.order.name(),
+            skipped.grouping.label(),
+            skipped.reason
+        );
+    }
+}
+
+fn print_dof_cell_breakdown(report: &dof_null::DofNullReport) {
+    let mut cells = report.cells.iter().collect::<Vec<_>>();
+    cells.sort_by(|left, right| {
+        left.marginal_p
+            .total_cmp(&right.marginal_p)
+            .then_with(|| left.statistic.cmp(&right.statistic))
+            .then_with(|| left.grouping.cmp(&right.grouping))
+            .then_with(|| left.order.cmp(&right.order))
+    });
+    println!("per-cell marginal calibration from set A");
+    println!(
+        "{:<24} {:<17} {:<24} {:>4} {:>7} {:>7} {:>10} {:>20} {:>11}",
+        "order",
+        "grouping",
+        "statistic",
+        "tail",
+        "symbols",
+        "drop",
+        "real",
+        "null min/med/max",
+        "p"
+    );
+    for cell in cells {
+        println!(
+            "{:<24} {:<17} {:<24} {:>4} {:>7} {:>7} {:>10} {:>20} {:>11}",
+            cell.order.name(),
+            cell.grouping.label(),
+            cell.statistic.label(),
+            cell.tail.label(),
+            cell.real_symbols,
+            cell.dropped_source_symbols,
+            format_statistic_value(cell.real_value),
+            format!(
+                "{}/{}/{}",
+                format_statistic_value(cell.null_min),
+                format_statistic_value(cell.null_median),
+                format_statistic_value(cell.null_max)
+            ),
+            format_probability(cell.marginal_p)
+        );
+    }
+}
+
+/// Prints the Experiment 5A periodicity/autocorrelation report.
+pub fn print_periodicity_report(report: &periodicity::PeriodicityReport) {
+    println!("Experiment 5A periodicity/autocorrelation battery");
+    println!("order: {}", report.order.name());
+    println!("alphabet: reading-layer values 0..=82");
+    println!("seed: {}", report.config.seed);
+    println!("trials: {}", report.config.trials);
+    println!(
+        "periods: 1..={} ; lags: 1..={} ; Kasiski n-grams: {}..={}",
+        report.config.max_period,
+        report.config.max_lag,
+        report.config.min_ngram,
+        report.config.max_ngram
+    );
+    println!(
+        "message lengths: {}",
+        format_message_lengths(&report.message_lengths)
+    );
+    println!("pooled length: {}", report.pooled_length);
+    println!(
+        "boundary rule: pooled statistics aggregate within-message evidence only; no lag pairs, period columns, or n-grams cross message joins"
+    );
+    println!(
+        "IoC convention: analysis::index_of_coincidence probability form; x83 normalizes to the uniform 83-symbol baseline"
+    );
+    println!(
+        "sampled report-wide null envelopes: period x83 <= {:.3}; autocorrelation rate <= {:.6}",
+        report.period_null_envelope_max, report.autocorrelation_null_envelope_max
+    );
+    println!();
+
+    print_period_ioc_table("pooled IoC-by-period", &report.pooled_ioc_by_period);
+    println!();
+    print_autocorrelation_table(
+        "pooled autocorrelation profile",
+        &report.pooled_autocorrelation,
+    );
+    println!();
+    print_message_periodicity_summary(&report.messages);
+    println!();
+    print_kasiski_table("pooled Kasiski distances", &report.pooled_kasiski);
+    println!();
+    print_message_kasiski_summary(&report.messages);
+    println!();
+    print_periodicity_interpretation(report);
+}
+
+fn print_periodicity_interpretation(report: &periodicity::PeriodicityReport) {
+    let exceedance_labels = null_envelope_exceedance_labels(report);
+    if report.config.trials < MIN_RELIABLE_PERIODICITY_NULL_TRIALS {
+        println!(
+            "Caveat: only {} Monte-Carlo trial(s) were sampled (< {}); the report-wide null envelope is undersampled and the OUT/inside verdict is not reliable.",
+            report.config.trials, MIN_RELIABLE_PERIODICITY_NULL_TRIALS
+        );
+    }
+
+    if exceedance_labels.is_empty() {
+        println!(
+            "Interpretation: no pooled or per-message period/lag row exceeds the sampled report-wide random-null envelope (no OUT flags). That rules out a simple fixed-period polyalphabetic cipher under this honeycomb reading order; it does not prove the data is meaningless, and it says nothing about other reading orders or encodings."
+        );
+    } else {
+        let count = exceedance_labels.len();
+        println!(
+            "Interpretation: {count} pooled/per-message period/lag {} {} the sampled report-wide random-null envelope (OUT): {}. Because at least one row is OUT, this run does not support the no-exceedance verdict and does not rule out a simple fixed-period polyalphabetic cipher under this honeycomb reading order.",
+            counted_noun(count, "row", "rows"),
+            counted_verb(count, "exceeds", "exceed"),
+            exceedance_labels.join(", ")
+        );
+    }
+
+    println!(
+        "Near-uniform IoC-by-period is also exactly what a fixed permutation of structured data can produce. Pointwise pt95 rows are shown as noise candidates only; a peak inside the sampled envelope is not a period claim."
+    );
+    print_distance4_reconciliation(report, !exceedance_labels.is_empty());
+    println!(
+        "Any future striking period must be rechecked against Experiment 0 transcription integrity before interpretation."
+    );
+}
+
+fn null_envelope_exceedance_labels(report: &periodicity::PeriodicityReport) -> Vec<String> {
+    let mut labels = Vec::new();
+    append_period_exceedance_labels("pooled", &report.pooled_ioc_by_period, &mut labels);
+    append_autocorrelation_exceedance_labels("pooled", &report.pooled_autocorrelation, &mut labels);
+    for message in &report.messages {
+        append_period_exceedance_labels(message.message_key, &message.ioc_by_period, &mut labels);
+        append_autocorrelation_exceedance_labels(
+            message.message_key,
+            &message.autocorrelation,
+            &mut labels,
+        );
+    }
+    labels
+}
+
+fn append_period_exceedance_labels(
+    scope: &str,
+    rows: &[periodicity::PeriodIocRow],
+    labels: &mut Vec<String>,
+) {
+    for row in rows.iter().filter(|row| row.above_null_envelope) {
+        let period = row.period;
+        labels.push(format!("{scope} period p={period}"));
+    }
+}
+
+fn append_autocorrelation_exceedance_labels(
+    scope: &str,
+    rows: &[periodicity::AutocorrelationRow],
+    labels: &mut Vec<String>,
+) {
+    for row in rows.iter().filter(|row| row.above_null_envelope) {
+        let lag = row.lag;
+        labels.push(format!("{scope} lag={lag}"));
+    }
+}
+
+fn print_distance4_reconciliation(
+    report: &periodicity::PeriodicityReport,
+    has_envelope_exceedance: bool,
+) {
+    let lag4 = report
+        .pooled_autocorrelation
+        .iter()
+        .find(|row| row.lag == 4);
+    let strongest = strongest_autocorrelation_row(&report.pooled_autocorrelation);
+    let lag4_is_dominant = matches!((lag4, strongest), (Some(_), Some(row)) if row.lag == 4);
+
+    match (lag4, strongest) {
+        (Some(row), Some(strongest_row)) if strongest_row.lag == 4 => {
+            println!(
+                "Distance-4 reconciliation: lag 4 is the dominant pooled autocorrelation peak under this honeycomb order, consistent with Experiment 1B's distance-4 spike."
+            );
+            print_lag4_band_reconciliation(row);
+        }
+        (Some(row), Some(strongest_row)) => {
+            println!(
+                "Distance-4 reconciliation: lag 4 is included in this scan, but the strongest pooled autocorrelation peak in the configured range is lag {}. The usual lag-4-dominant wording therefore does not apply to this run.",
+                strongest_row.lag
+            );
+            print_lag4_band_reconciliation(row);
+        }
+        _ => println!(
+            "Distance-4 reconciliation: this configured lag range does not include lag 4, so this run cannot evaluate Experiment 1B's distance-4 spike."
+        ),
+    }
+
+    println!(
+        "Experiment 1B's targeted distance-4 test, appropriate for a pre-identified distance under the best-over-36 null, found d4 significant; this broad conservative sweep does not contradict it."
+    );
+    if has_envelope_exceedance {
+        println!(
+            "Because OUT rows are present in this configured run, the broad scan should not be summarized as showing no new family-wise period/lag signal. The d4 structure itself is order-contingent and is not a message claim."
+        );
+    } else if lag4_is_dominant {
+        println!(
+            "The broad scan still shows no new dominant period beyond the known d4 structure. The d4 structure itself is order-contingent and is not a message claim."
+        );
+    } else {
+        println!(
+            "This configured scan should not be used for a broad no-new-period statement beyond its scanned range. The d4 structure itself is order-contingent and is not a message claim."
+        );
+    }
+}
+
+fn print_lag4_band_reconciliation(row: &periodicity::AutocorrelationRow) {
+    if row.above_null_envelope {
+        println!(
+            "The report-wide envelope is a family-wise verdict over all scanned lags; lag 4 is OUT against that envelope in this configured run, and it exceeds its own per-lag band (pt95). Treat that as an envelope exceedance, not as a plaintext claim by itself."
+        );
+    } else if row.above_pointwise_band {
+        println!(
+            "The report-wide envelope is a family-wise verdict over all scanned lags; lag 4 is inside that envelope, but it still exceeds its own per-lag band (pt95). Therefore, no family-wise exceedance is not evidence that the d4 structure is absent."
+        );
+    } else {
+        println!(
+            "The report-wide envelope is a family-wise verdict over all scanned lags; lag 4 is inside that envelope and does not exceed its own per-lag band in this configured run."
+        );
+    }
+}
+
+fn counted_noun(count: usize, singular: &'static str, plural: &'static str) -> &'static str {
+    if count == 1 { singular } else { plural }
+}
+
+fn counted_verb(count: usize, singular: &'static str, plural: &'static str) -> &'static str {
+    if count == 1 { singular } else { plural }
+}
+
+fn print_period_ioc_table(label: &str, rows: &[periodicity::PeriodIocRow]) {
+    println!("{label}");
+    println!(
+        "{:>3} {:>10} {:>10} {:>19} {:>10} {:>7}",
+        "p", "IoC", "x83", "null x83 95%", "null max", "flag"
+    );
+    for row in rows {
+        println!(
+            "{:>3} {:>10.6} {:>10.3} {:>19} {:>10.3} {:>7}",
+            row.period,
+            row.mean_ioc,
+            row.normalized_ioc,
+            format_null_band(row.null_band),
+            row.null_band.max,
+            format_null_flag(row.above_pointwise_band, row.above_null_envelope)
+        );
+    }
+}
+
+fn print_autocorrelation_table(label: &str, rows: &[periodicity::AutocorrelationRow]) {
+    println!("{label}");
+    println!(
+        "{:>3} {:>11} {:>10} {:>10} {:>19} {:>10} {:>7}",
+        "lag", "matches", "rate", "x83", "null rate 95%", "null max", "flag"
+    );
+    for row in rows {
+        println!(
+            "{:>3} {:>11} {:>10.6} {:>10.3} {:>19} {:>10.6} {:>7}",
+            row.lag,
+            format_match_count(row.matches, row.comparisons),
+            row.rate,
+            row.normalized_rate,
+            format_null_band(row.null_band),
+            row.null_band.max,
+            format_null_flag(row.above_pointwise_band, row.above_null_envelope)
+        );
+    }
+}
+
+fn print_message_periodicity_summary(messages: &[periodicity::MessagePeriodicityReport]) {
+    println!("per-message strongest apparent rows");
+    println!(
+        "{:<6} {:>5} {:>8} {:>9} {:>7} {:>8} {:>11} {:>7}",
+        "msg", "len", "best p", "p x83", "p flag", "best lag", "lag rate", "lag flag"
+    );
+    for message in messages {
+        let period = strongest_period_row(&message.ioc_by_period);
+        let lag = strongest_autocorrelation_row(&message.autocorrelation);
+        println!(
+            "{:<6} {:>5} {:>8} {:>9} {:>7} {:>8} {:>11} {:>7}",
+            message.message_key,
+            message.length,
+            period.map_or_else(|| "none".to_owned(), |row| row.period.to_string()),
+            period.map_or_else(
+                || "n/a".to_owned(),
+                |row| format!("{:.3}", row.normalized_ioc)
+            ),
+            period.map_or("n/a", |row| {
+                format_null_flag(row.above_pointwise_band, row.above_null_envelope)
+            }),
+            lag.map_or_else(|| "none".to_owned(), |row| row.lag.to_string()),
+            lag.map_or_else(|| "n/a".to_owned(), |row| format!("{:.6}", row.rate)),
+            lag.map_or("n/a", |row| {
+                format_null_flag(row.above_pointwise_band, row.above_null_envelope)
+            })
+        );
+    }
+}
+
+fn print_kasiski_table(label: &str, rows: &[periodicity::KasiskiReport]) {
+    println!("{label}");
+    println!(
+        "{:>3} {:>9} {:>9} {:>9} {:>5} {:<28} {:<28} {:<28}",
+        "n", "repeat", "occurs", "dist", "gcd", "top distances", "per-ngram gcds", "top factors"
+    );
+    for row in rows {
+        println!(
+            "{:>3} {:>9} {:>9} {:>9} {:>5} {:<28} {:<28} {:<28}",
+            row.n,
+            row.repeated_ngram_kinds,
+            row.repeated_occurrences,
+            row.distance_count,
+            row.all_distance_gcd,
+            format_pair_counts(&row.top_distances),
+            format_pair_counts(&row.ngram_gcd_histogram),
+            format_top_factor_counts(&row.factor_counts)
+        );
+    }
+}
+
+fn print_message_kasiski_summary(messages: &[periodicity::MessagePeriodicityReport]) {
+    println!("per-message Kasiski summaries");
+    println!(
+        "{:<6} {:>3} {:>9} {:>9} {:>9} {:>5} {:<28}",
+        "msg", "n", "repeat", "occurs", "dist", "gcd", "top factors"
+    );
+    for message in messages {
+        for row in &message.kasiski {
+            println!(
+                "{:<6} {:>3} {:>9} {:>9} {:>9} {:>5} {:<28}",
+                message.message_key,
+                row.n,
+                row.repeated_ngram_kinds,
+                row.repeated_occurrences,
+                row.distance_count,
+                row.all_distance_gcd,
+                format_top_factor_counts(&row.factor_counts)
+            );
+        }
+    }
+}
+
+fn strongest_period_row(rows: &[periodicity::PeriodIocRow]) -> Option<&periodicity::PeriodIocRow> {
+    rows.iter()
+        .max_by(|left, right| left.normalized_ioc.total_cmp(&right.normalized_ioc))
+}
+
+fn strongest_autocorrelation_row(
+    rows: &[periodicity::AutocorrelationRow],
+) -> Option<&periodicity::AutocorrelationRow> {
+    rows.iter()
+        .max_by(|left, right| left.rate.total_cmp(&right.rate))
+}
+
+fn format_message_lengths(lengths: &[(&'static str, usize)]) -> String {
+    lengths
+        .iter()
+        .map(|(key, length)| format!("{key}:{length}"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn format_null_band(band: periodicity::NullBand) -> String {
+    format!("{:.3}..{:.3}", band.q025, band.q975)
+}
+
+fn format_null_flag(pointwise: bool, envelope: bool) -> &'static str {
+    if envelope {
+        "OUT"
+    } else if pointwise {
+        "pt95"
+    } else {
+        "inside"
+    }
+}
+
+fn format_match_count(matches: usize, comparisons: usize) -> String {
+    format!("{matches}/{comparisons}")
+}
+
+fn format_pair_counts(pairs: &[(usize, usize)]) -> String {
+    if pairs.is_empty() {
+        return "none".to_owned();
+    }
+    pairs
+        .iter()
+        .map(|(value, count)| format!("{value}:{count}"))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn format_top_factor_counts(pairs: &[(usize, usize)]) -> String {
+    let mut sorted = pairs
+        .iter()
+        .copied()
+        .filter(|(_factor, count)| *count > 0)
+        .collect::<Vec<_>>();
+    sorted.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
+    sorted.truncate(8);
+    format_pair_counts(&sorted)
+}
+
+/// Prints the Experiment 11 monoalphabetic positive-control report.
+pub fn print_monoalphabetic_control_report(report: &controls::MonoalphabeticControlReport) {
+    println!("Experiment 11 monoalphabetic positive control");
+    println!("seed: {}", report.config.seed);
+    println!(
+        "alphabet: {} symbols ({})",
+        report.alphabet_size, report.alphabet
+    );
+    println!("generated key: {}", report.key_mapping);
+    println!();
+    println!(
+        "long fixture: {} letters from {}",
+        report.long_fixture.length, report.long_fixture.label
+    );
+    println!(
+        "plaintext:  {}",
+        preview_text(&report.long_fixture.normalized_plaintext, 96)
+    );
+    println!(
+        "ciphertext: {}",
+        preview_text(&report.long_fixture.ciphertext, 96)
+    );
+    println!(
+        "recovered:  {}",
+        preview_text(&report.long_fixture.recovered_plaintext, 96)
+    );
+    println!();
+    println!(
+        "IoC plaintext/ciphertext: {:.6} / {:.6} (exactly preserved)",
+        report.long_fixture.plaintext_ioc, report.long_fixture.ciphertext_ioc
+    );
+    println!(
+        "IoC balanced uniform: {:.6}; uniform floor 1/k: {:.6}",
+        report.flattened_ioc, report.uniform_floor
+    );
+    println!(
+        "entropy plaintext/ciphertext/balanced uniform: {:.4} / {:.4} / {:.4} bits/symbol",
+        report.long_fixture.plaintext_entropy,
+        report.long_fixture.ciphertext_entropy,
+        report.flattened_entropy
+    );
+    println!(
+        "frequency multiset preserved: {}",
+        yes_no(report.long_fixture.frequency_multiset_preserved)
+    );
+    println!(
+        "bigram count multiset preserved: {}",
+        yes_no(report.long_fixture.bigram_multiset_preserved)
+    );
+    println!(
+        "known-key recovery: {}",
+        yes_no(report.long_fixture.known_key_recovered)
+    );
+    println!();
+    println!("documented Common Glyphs plaintext vectors (known-key exactness only):");
+    for fixture in &report.documented_vectors {
+        println!(
+            "  {}: {:?} -> {} -> {}",
+            fixture.label,
+            fixture.source_plaintext,
+            fixture.ciphertext,
+            fixture.recovered_plaintext
+        );
+    }
+    println!();
+    println!(
+        "Interpretation: this proves the frequency/substitution tooling is not systematically blind to a known monoalphabetic substitution fixture. It does not claim frequency-only recovery of the short Common Glyphs phrases, and it says nothing about whether the unsolved eye glyphs encode a message. If this control fails, the methodology is suspect."
+    );
+}
+
+/// Prints the Experiment 11 isomorph/polyalphabetic positive-control report.
+pub fn print_isomorph_control_report(report: &controls::IsomorphControlReport) {
+    println!("Experiment 11 isomorph/polyalphabetic positive control");
+    println!("seed: {}", report.config.seed);
+    println!(
+        "alphabet: {} symbols ({})",
+        report.alphabet_size, report.alphabet
+    );
+    println!(
+        "detector: first-occurrence signatures over {}-glyph windows; periods {}..={}",
+        report.window, report.min_period, report.max_period
+    );
+    println!(
+        "ground truth: plaintext has period-aligned planted repeats; Vigenere key period is {}; autokey and running-key have no short repeating key",
+        report.expected_period
+    );
+    println!(
+        "invariant: Vigenere period matches >= {}; each absent fixture max period matches <= {}",
+        report.required_present_matches, report.allowed_absent_matches
+    );
+    println!();
+    print_isomorph_fixture(&report.vigenere);
+    println!();
+    print_isomorph_fixture(&report.autokey);
+    println!();
+    print_isomorph_fixture(&report.running_key);
+    println!();
+    println!(
+        "Interpretation: this control shows the isomorph/period tooling recovers the repeating-key Vigenere period when English prose contains period-aligned planted repeats. The autokey and running-key fixtures use the same planted repeats but do not show a short period, so the contrast isolates key structure rather than plaintext content. It does not claim arbitrary natural text would produce this signal, and it says nothing about whether the unsolved eye glyphs encode a message. If this control fails, the methodology is suspect."
+    );
+}
+
+fn print_isomorph_fixture(fixture: &controls::IsomorphFixtureReport) {
+    println!("{} ({})", fixture.label, fixture.cipher);
+    println!("key: {}", fixture.key_summary);
+    println!("length: {} glyphs", fixture.length);
+    println!("plaintext:  {}", preview_text(&fixture.plaintext, 84));
+    println!("ciphertext: {}", preview_text(&fixture.ciphertext, 84));
+    println!(
+        "cipher entropy/IoC/distinct: {:.4} bits / {:.6} / {}",
+        fixture.ciphertext_entropy, fixture.ciphertext_ioc, fixture.distinct_cipher_symbols
+    );
+    println!("plaintext IoC: {:.6}", fixture.plaintext_ioc);
+    println!(
+        "informative windows: {}; repeated signature kinds: {}; exact repeated windows: {}",
+        fixture.informative_windows,
+        fixture.repeated_signature_kinds,
+        fixture.exact_repeated_windows
+    );
+    println!(
+        "period-{} signature matches: {}",
+        fixture.expected_period, fixture.expected_period_matches
+    );
+    match fixture.best_period {
+        Some(signal) => println!(
+            "best period: {} ({} matches across {} signatures)",
+            signal.period, signal.matches, signal.signature_kinds
+        ),
+        None => println!("best period: none"),
+    }
+    if !fixture.strongest_signatures.is_empty() {
+        println!("top period-{} signatures:", fixture.expected_period);
+        for signature in &fixture.strongest_signatures {
+            println!(
+                "  [{}] at {} ({} period matches)",
+                signature.signature,
+                format_positions(&signature.occurrences),
+                signature.expected_period_matches
+            );
+        }
+    }
+}
+
+/// Prints the base-7 generation-pipeline null report.
+pub fn print_pipeline_null_report(report: &null::NullReport) {
+    println!("base-7 generation-pipeline null");
+    println!("seed: {}", report.config.seed);
+    println!("trials: {}", report.config.trials);
+    println!("orders searched per trial: {}", report.family_size);
+    println!(
+        "resampled: matched engine pair lengths through the u64-capped base-7 decode, filtered to orientation cells 0..=4"
+    );
+    println!("held fixed: honeycomb traversal, trigram grouping, and the statistic family");
+    println!();
+
+    print_interval(
+        "headline exact 0..=82",
+        null::wilson_95(report.headline_count, report.config.trials),
+    );
+    print_interval(
+        "some order adjacent_equal == 0",
+        null::wilson_95(report.adjacent_zero_count, report.config.trials),
+    );
+    println!(
+        "min distinct achieved over standard36: {}",
+        format_usize_histogram(&report.min_distinct_histogram)
+    );
+    println!(
+        "min ceiling achieved over standard36: {}",
+        format_u8_histogram(&report.min_ceiling_histogram)
+    );
+    println!(
+        "best distance-4 ratio d4/mean(d1..d6): min {:.3}, median {:.3}, max {:.3}",
+        report.distance4_ratio_min, report.distance4_ratio_median, report.distance4_ratio_max
+    );
+    println!();
+    println!(
+        "Interpretation: the base-7 pipeline does not manufacture the bounded 0..=82 contiguity; uniform-random orientation cells do not either. The contiguity is therefore not explained as a generation artifact, but this is equally consistent with structured-but-meaningless data and is not evidence of a recoverable message."
+    );
+}
+
+/// Prints the Experiment 7A isomorph shuffle-null report.
+pub fn print_isomorph_null_report(report: &isomorph_null::IsomorphNullReport) {
+    println!("Experiment 7A isomorph shuffle null");
+    println!("order: {}", report.order.name());
+    println!("seed: {}", report.config.seed);
+    println!("trials: {}", report.config.trials);
+    println!(
+        "windows: {}..={}",
+        report.config.min_window, report.config.max_window
+    );
+    println!(
+        "message lengths: {}",
+        format_message_lengths(&report.message_lengths)
+    );
+    println!("pooled length: {}", report.total_length);
+    println!(
+        "boundary rule: detector runs within each message only; no window crosses a message join"
+    );
+    println!(
+        "null: Fisher-Yates shuffle within each message, preserving that message's exact symbol multiset and length"
+    );
+    println!(
+        "statistic: repeated informative first-occurrence signature kinds, summed over messages; all-distinct windows are ignored"
+    );
+    println!(
+        "longest repeated real isomorph in scanned range: {}",
+        report
+            .longest_real_repeated_isomorph
+            .map_or_else(|| "none".to_owned(), |window| window.to_string())
+    );
+    println!();
+    println!(
+        "{:>2} {:>10} {:>8} {:>10} {:>12} {:>8} {:>9}",
+        "k", "real kinds", "max rep", "null mean", "null 95%", "null max", "p>=real"
+    );
+    for row in &report.rows {
+        println!(
+            "{:>2} {:>10} {:>8} {:>10.2} {:>12} {:>8} {:>9.4}",
+            row.window,
+            row.real.repeated_signature_kinds,
+            row.real.max_repeat_count,
+            row.null.mean,
+            format_isomorph_band(row.null),
+            row.null.max,
+            row.empirical_p
+        );
+    }
+    println!();
+    print_isomorph_null_interpretation(report);
+}
+
+fn print_isomorph_null_interpretation(report: &isomorph_null::IsomorphNullReport) {
+    let pointwise_excesses = report
+        .rows
+        .iter()
+        .filter(|row| row.real.repeated_signature_kinds > row.null.q975)
+        .map(|row| format!("k={} (p={:.4})", row.window, row.empirical_p))
+        .collect::<Vec<_>>();
+
+    if pointwise_excesses.is_empty() {
+        println!(
+            "Interpretation: the real eye stream does not exceed the pointwise 95% within-message shuffle band for repeated-signature kind counts at the scanned k values. Short repeated isomorphs exist, but this run does not show arrangement structure beyond the same messages shuffled against themselves."
+        );
+    } else {
+        println!(
+            "Interpretation: the real eye stream exceeds the pointwise 95% within-message shuffle band at {}. That is an arrangement signal worth rechecking, not a decryption or plaintext claim.",
+            pointwise_excesses.join(", ")
+        );
+    }
+    println!(
+        "The shuffle null holds symbol frequencies fixed and randomizes only order, so it tests arrangement rather than frequency. The p values are empirical fractions over the configured shuffles and are pointwise over the scanned k values."
+    );
+    println!(
+        "Any striking excess should be rechecked against Experiment 0 transcription integrity before interpretation."
+    );
+}
+
+/// Prints the Experiment 7C Perseus recurrence-null report.
+pub fn print_perseus_report(report: &perseus::PerseusReport) {
+    println!("Experiment 7C Perseus recurrence null");
+    println!("order: {}", report.order.name());
+    println!("seed: {}", report.config.seed);
+    println!("trials: {}", report.config.trials);
+    println!(
+        "message lengths: {}",
+        format_message_lengths(&report.message_lengths)
+    );
+    println!("pooled length: {}", report.total_length);
+    println!(
+        "operational definition: same-offset common runs of length >= {} are shared if they are in the earliest leading-family alignment or in an East/West counterpart pair; all other positions are non-shared",
+        report.partition.min_shared_run_len
+    );
+    println!(
+        "recurrence statistic: while scanning each message left to right, count a shared-position symbol as recurrent if it appeared earlier in a non-shared position in that same message"
+    );
+    println!(
+        "null: keep the reconstructed position mask fixed and Fisher-Yates shuffle values within each message, preserving its exact multiset and length"
+    );
+    println!(
+        "documented reference only: community quote p~{} for strict no-recurrence if random; this run computes its own shuffle p-value",
+        format_probability(report.documented_reference_chance)
+    );
+    println!();
+    print_perseus_partition(report);
+    println!();
+    print_perseus_observed(report);
+    println!();
+    print_perseus_null(report);
+    println!();
+    print_perseus_interpretation(report);
+}
+
+fn print_perseus_partition(report: &perseus::PerseusReport) {
+    println!("partition summary");
+    println!(
+        "  leading shared start: {}",
+        report
+            .partition
+            .leading_start
+            .map_or_else(|| "none".to_owned(), |start| start.to_string())
+    );
+    match &report.partition.global_prefix {
+        Some(prefix) => println!(
+            "  all-message prefix: start {} len {} values {}",
+            prefix.start,
+            prefix.len,
+            format_u8_values(&prefix.values)
+        ),
+        None => println!("  all-message prefix: none"),
+    }
+    println!(
+        "  selected pair runs: {}",
+        report.partition.selected_pair_runs.len()
+    );
+    println!("  counterpart longest runs:");
+    for run in &report.partition.counterpart_runs {
+        println!(
+            "    {}/{} start {} len {}",
+            run.east_key, run.west_key, run.start, run.len
+        );
+    }
+    println!("  per-message spans:");
+    for message in &report.partition.messages {
+        println!(
+            "    {:<6} shared {:>3}/{:<3} spans {}",
+            message.message_key,
+            message.shared_symbols,
+            message.len,
+            format_shared_spans(&message.shared_spans)
+        );
+    }
+}
+
+fn print_perseus_observed(report: &perseus::PerseusReport) {
+    println!("observed recurrence statistic");
+    println!(
+        "  pooled: {}/{} = {:.6}",
+        report.observed.recurrent_occurrences,
+        report.observed.tested_shared_occurrences,
+        report.observed.rate
+    );
+    println!(
+        "  non-shared positions scanned: {}",
+        report.observed.non_shared_occurrences
+    );
+    println!(
+        "  recurrent symbol values: {}",
+        format_recurrent_symbols(&report.observed.recurrent_symbols)
+    );
+    println!(
+        "  {:<6} {:>10} {:>10} {:>10} {:>10} {:<16}",
+        "msg", "nonshared", "tested", "recur", "rate", "symbols"
+    );
+    for row in &report.observed.messages {
+        println!(
+            "  {:<6} {:>10} {:>10} {:>10} {:>10.6} {:<16}",
+            row.message_key,
+            row.non_shared_occurrences,
+            row.tested_shared_occurrences,
+            row.recurrent_occurrences,
+            row.rate,
+            format_recurrent_symbols(&row.recurrent_symbols)
+        );
+    }
+}
+
+fn print_perseus_null(report: &perseus::PerseusReport) {
+    println!("within-message shuffle null");
+    println!(
+        "  recurrence count: mean {:.2}, 95% {}..{}, median {:.1}, min {}, max {}",
+        report.null.count_mean,
+        report.null.count_q025,
+        report.null.count_q975,
+        report.null.count_median,
+        report.null.count_min,
+        report.null.count_max
+    );
+    println!(
+        "  recurrence rate: mean {:.6}, 95% {:.6}..{:.6}, median {:.6}",
+        report.null.rate_mean,
+        report.null.rate_q025,
+        report.null.rate_q975,
+        report.null.rate_median
+    );
+    println!(
+        "  lower-tail empirical p: ({extreme}+1)/({trials}+1) = {p}",
+        extreme = report.empirical_p_count,
+        trials = report.config.trials,
+        p = format_probability(report.empirical_p)
+    );
+}
+
+fn print_perseus_interpretation(report: &perseus::PerseusReport) {
+    if report.significant && report.observed.recurrent_occurrences == 0 {
+        println!(
+            "Interpretation: under this pinned partition, the strict Perseus no-recurrence constraint is present beyond the within-message shuffle null. This corroborates the non-commutative / plaintext-driven permutation direction, but it decodes nothing and does not identify a cipher."
+        );
+    } else if report.significant {
+        println!(
+            "Interpretation: recurrence is lower than the within-message shuffle null, but the strict 'never reappears' wording is not exact under this partition. Treat this as a structural corroboration only; it decodes nothing."
+        );
+    } else {
+        println!(
+            "Interpretation: this run does not show the Perseus recurrence constraint beyond the within-message shuffle null. That weakly retires this community claim under the pinned definition, and still decodes nothing."
+        );
+    }
+    println!(
+        "The result is conditional on the accepted honeycomb reading order and on the documented shared-region operationalization printed above."
+    );
+}
+
+/// Prints the Experiment 7B alphabet-chaining report.
+pub fn print_chaining_report(report: &chaining::ChainingReport) {
+    println!("Experiment 7B alphabet-chaining structural control");
+    println!("order: {}", report.order.name());
+    println!(
+        "alphabet: reading-layer values 0..={}",
+        report.config.alphabet_size.saturating_sub(1)
+    );
+    println!("seed: {}", report.config.seed);
+    println!("trials per period/control: {}", report.config.trials);
+    println!(
+        "periods: {}..={}",
+        report.config.min_period, report.config.max_period
+    );
+    println!(
+        "message lengths: {}",
+        format_message_lengths(&report.message_lengths)
+    );
+    println!("pooled length: {}", report.total_length);
+    println!(
+        "boundary rule: columns reset at each message; no column evidence crosses message joins"
+    );
+    println!(
+        "procedure: split by position mod p; estimate adjacent additive shifts by maximum circular distribution overlap"
+    );
+    println!(
+        "quality: best overlap minus second-best overlap; score = mean quality * cycle closure"
+    );
+    println!(
+        "controls: generated Vigenere known-succeed, independent per-column substitution known-fail, and within-column shuffled fail invariance check"
+    );
+    println!();
+    println!(
+        "{:>2} {:>10} {:>9} {:>7} {:>15} {:>15} {:>15} {:>12}",
+        "p",
+        "eye score",
+        "eye qual",
+        "resid",
+        "succeed 95%",
+        "fail 95%",
+        "shuf-fail 95%",
+        "verdict"
+    );
+    for row in &report.rows {
+        println!(
+            "{:>2} {:>10.4} {:>9.4} {:>7} {:>15} {:>15} {:>15} {:>12}",
+            row.period,
+            row.real.chain_score,
+            row.real.mean_alignment_quality,
+            format_residual(row.real.cycle_residual_distance, row.real.alphabet_size),
+            format_chaining_band(row.succeed.chain_score),
+            format_chaining_band(row.fail.chain_score),
+            format_chaining_band(row.shuffled_fail.chain_score),
+            format_chaining_classification(row.classification)
+        );
+    }
+    println!();
+    println!("calibration detail");
+    println!(
+        "{:>2} {:>17} {:>17} {:>17} {:>17} {:>17} {:>17}",
+        "p",
+        "succ qual 95%",
+        "fail qual 95%",
+        "succ ovlp 95%",
+        "fail ovlp 95%",
+        "succ resid 95%",
+        "fail resid 95%"
+    );
+    for row in &report.rows {
+        println!(
+            "{:>2} {:>17} {:>17} {:>17} {:>17} {:>17} {:>17}",
+            row.period,
+            format_chaining_band(row.succeed.mean_alignment_quality),
+            format_chaining_band(row.fail.mean_alignment_quality),
+            format_chaining_band(row.succeed.mean_best_overlap),
+            format_chaining_band(row.fail.mean_best_overlap),
+            format_residual_band(row.succeed.cycle_residual_distance),
+            format_residual_band(row.fail.cycle_residual_distance)
+        );
+    }
+    println!();
+    print_chaining_interpretation(report);
+}
+
+fn print_chaining_interpretation(report: &chaining::ChainingReport) {
+    let mut fail_matches = 0usize;
+    let mut succeed_matches = 0usize;
+    let mut between = 0usize;
+    let mut overlapping = 0usize;
+    for row in &report.rows {
+        match row.classification {
+            chaining::ChainingClassification::MatchesKnownFail => fail_matches += 1,
+            chaining::ChainingClassification::MatchesKnownSucceed => succeed_matches += 1,
+            chaining::ChainingClassification::BetweenBands => between += 1,
+            chaining::ChainingClassification::CalibrationOverlaps => overlapping += 1,
+        }
+    }
+    if overlapping > 0 {
+        println!(
+            "Interpretation: {overlapping} candidate {} had overlapping succeed/fail control bands, so those periods are not calibrated well enough for a verdict.",
+            counted_noun(overlapping, "period", "periods")
+        );
+    }
+    if fail_matches == report.rows.len() {
+        println!(
+            "Interpretation: across the scanned periods, the eye stream lands in the calibrated known-fail chaining band, not the known-succeed Vigenere band. Under this honeycomb reading order and fixed-period additive alphabet model, the eyes lack chainable additive-related-alphabet structure."
+        );
+    } else {
+        println!(
+            "Interpretation: period placement summary: {fail_matches} known-fail, {succeed_matches} known-succeed, {between} between separated bands, {overlapping} uncalibrated-overlap."
+        );
+    }
+    println!(
+        "This is a structural null result only. It does not prove the eyes are meaningless, and it does not rule out other encodings, period models, reading orders, transcription corrections, or non-additive alphabet relationships."
+    );
+}
+
+/// Prints the Experiment 12 candidate-cipher attack report.
+pub fn print_cipher_attack_report(report: &cipher_attack::CipherAttackReport) {
+    println!("Experiment 12 candidate-cipher language-scoring/null harness");
+    println!("order: {}", report.order_name);
+    println!("alphabet: eye reading-layer values 0..=82");
+    println!(
+        "fundamental limitation: English/Finnish scores require an unknown 83-symbol-to-letter mapping; every mapping below is an unverified guess"
+    );
+    println!("seed: {}", report.config.seed);
+    println!("sampled keys: {}", report.config.samples);
+    println!("shuffle null trials: {}", report.config.null_trials);
+    println!(
+        "Vigenere periods searched: 1..={}",
+        report.config.vigenere_max_period
+    );
+    println!(
+        "message lengths: {}",
+        format_message_lengths(&report.message_lengths)
+    );
+    println!("pooled length: {}", report.total_symbols);
+    println!("boundary rule: {}", report.boundary_rule);
+    println!("null model: {}", report.null_model);
+    println!();
+    println!(
+        "{:<19} {:<7} {:<14} {:>10} {:>10} {:>10} {:>8} {:>10} {:<28}",
+        "cipher", "lang", "mapping", "real", "null mean", "null q95", "p", "verdict", "best key"
+    );
+    for row in &report.rows {
+        println!(
+            "{:<19} {:<7} {:<14} {:>10.4} {:>10.4} {:>10.4} {:>8.4} {:>10} {:<28}",
+            row.cipher.label(),
+            row.language.label(),
+            row.mapping_label,
+            row.real.score.bigram_mean_log_likelihood,
+            row.null.mean,
+            row.null.q95,
+            row.null.empirical_p,
+            format_cipher_attack_verdict(row),
+            truncate_chars(&row.real.key, 28)
+        );
+    }
+    println!();
+    println!("search methods");
+    for summary in unique_cipher_search_summaries(&report.rows) {
+        println!(
+            "  {}: {} candidates; keyspace {}; {}",
+            summary.0.label(),
+            summary.1.candidates_evaluated,
+            summary.1.key_space,
+            summary.1.note
+        );
+    }
+    println!();
+    println!("mapping caveats");
+    for row in &report.rows {
+        println!(
+            "  {} / {} / {}: {}",
+            row.cipher.label(),
+            row.language.label(),
+            row.mapping_label,
+            row.mapping_note
+        );
+    }
+    println!();
+    print_positive_control_report(&report.positive_control);
+    println!();
+    println!(
+        "caveat: any apparent hit is not credible unless it has a fully reproducible, independently checkable method and is rechecked against Experiment 0 transcription integrity; this command makes no message claim"
+    );
+    print_cipher_attack_interpretation(report);
+}
+
+fn print_positive_control_report(report: &cipher_attack::PositiveControlReport) {
+    println!("positive control");
+    print_plant_recovery(&report.caesar);
+    print_plant_recovery(&report.vigenere);
+}
+
+fn print_plant_recovery(plant: &cipher_attack::PlantRecovery) {
+    println!(
+        "  {}: expected {}, recovered {}, score {:.4}, null max {:.4}, margin {:.4}, p {:.4}",
+        plant.cipher.label(),
+        plant.expected_key,
+        plant.recovered_key,
+        plant.real_score.bigram_mean_log_likelihood,
+        plant.null.max,
+        plant.margin_over_null_max,
+        plant.null.empirical_p
+    );
+}
+
+fn print_cipher_attack_interpretation(report: &cipher_attack::CipherAttackReport) {
+    for line in cipher_attack_interpretation_lines(report) {
+        println!("{line}");
+    }
+}
+
+fn cipher_attack_interpretation_lines(report: &cipher_attack::CipherAttackReport) -> Vec<String> {
+    let above_q95 = report
+        .rows
+        .iter()
+        .filter(|row| row.real.score.bigram_mean_log_likelihood > row.null.q95)
+        .count();
+    let above_max = report
+        .rows
+        .iter()
+        .filter(|row| row.real.score.bigram_mean_log_likelihood > row.null.max)
+        .count();
+    let row_count = report.rows.len();
+    let expected_rate = 0.05;
+    let exceedance_rate = fraction(above_q95, row_count);
+    let expected_rows = row_count as f64 * expected_rate;
+    let rate_multiple = exceedance_rate / expected_rate;
+    let total_key_evaluations = report
+        .rows
+        .iter()
+        .map(|row| row.search.candidates_evaluated)
+        .sum::<usize>();
+    let mut lines = Vec::new();
+    if above_q95 == 0 {
+        lines.push(format!(
+            "Interpretation: all {row_count} cipher/mapping/language rows are inside the one-sided 95% shuffled-null best-score band. Under these named ciphers and declared guessed mappings, this run shows no English/Finnish language signal above chance."
+        ));
+    } else {
+        lines.push(format!(
+            "Interpretation: {above_q95} of {row_count} rows ({}) exceed the one-sided 95% shuffled-null band, and {above_max} exceed the sampled null maximum. If the shuffle null were a valid no-difference reference for these selected best-score rows, only about {expected_rows:.1} of {row_count} rows (~5%) would be expected to clear that band; this run is far above that expectation at {:.1}x the rate. That is an exceedance-rate diagnostic, not {above_q95} near-solutions.",
+            format_percent(exceedance_rate),
+            rate_multiple
+        ));
+        lines.push(
+            "The null construction shuffles symbols within each message and reapplies the same key search, so it preserves message lengths and symbol counts but destroys local order. The defensible cause is that the bigram language score detects the eye stream's already documented mild local structure - the distance-4 recurrence / slight bigram non-uniformity established in Experiments 4, 5A, and 7A - relative to symbol-shuffled data. That known structural property is not cipher signal; the null does not use a smaller key search than the real rows.".to_owned(),
+        );
+    }
+
+    lines.push(cipher_attack_effect_size_line(report));
+    lines.push(format!(
+        "Multiple comparisons: this configured run scans {row_count} cipher/mapping/language rows and {total_key_evaluations} row-level key evaluations before selecting best scores. The reported p values are pointwise and uncorrected across the scanned ciphers, mappings, languages, and keyspaces; small values are expected by selection, and no family-wise-significant result exists in this report."
+    ));
+    lines.push(
+        "Overall conclusion: clean negative. No credible English/Finnish decryption is established, and there is no message claim. The run constrains only these candidate ciphers, this reading order, these sampled keyspaces, and these unverified symbol-to-letter mappings; any apparent hit still requires a fully reproducible, independently checkable method plus an Experiment 0 transcription-integrity recheck.".to_owned(),
+    );
+    lines
+}
+
+fn cipher_attack_effect_size_line(report: &cipher_attack::CipherAttackReport) -> String {
+    let plant_margins = [
+        report.positive_control.caesar.margin_over_null_max,
+        report.positive_control.vigenere.margin_over_null_max,
+    ];
+    let plant_range =
+        range_from_values(&plant_margins).unwrap_or(NumberRange { min: 0.0, max: 0.0 });
+    let eye_margins = report
+        .rows
+        .iter()
+        .map(|row| row.real.score.bigram_mean_log_likelihood - row.null.max)
+        .filter(|margin| *margin > 0.0)
+        .collect::<Vec<_>>();
+    if let Some(eye_range) = range_from_values(&eye_margins) {
+        let min_ratio = plant_range.min / eye_range.max;
+        let max_ratio = plant_range.max / eye_range.min;
+        format!(
+            "Effect-size contrast: eye rows that clear the sampled null maximum do so by only {} nats, while the same harness recovers positive-control plant margins of {} nats. The plant effect is about {} larger, so the eyes' best decryptions are nowhere near the scale of a genuine cipher hit.",
+            format_number_range(eye_range, 4),
+            format_number_range(plant_range, 4),
+            format_ratio_range(NumberRange {
+                min: min_ratio,
+                max: max_ratio,
+            })
+        )
+    } else {
+        let best_margin = report
+            .rows
+            .iter()
+            .map(|row| row.real.score.bigram_mean_log_likelihood - row.null.max)
+            .max_by(f64::total_cmp)
+            .unwrap_or(0.0);
+        format!(
+            "Effect-size contrast: no eye row clears the sampled null maximum; the best eye margin against that maximum is {best_margin:.4} nats, while the same harness recovers positive-control plant margins of {} nats. The eyes' best decryptions are nowhere near the scale of a genuine cipher hit.",
+            format_number_range(plant_range, 4)
+        )
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct NumberRange {
+    min: f64,
+    max: f64,
+}
+
+fn range_from_values(values: &[f64]) -> Option<NumberRange> {
+    let mut iter = values.iter().copied();
+    let first = iter.next()?;
+    let mut range = NumberRange {
+        min: first,
+        max: first,
+    };
+    for value in iter {
+        range.min = range.min.min(value);
+        range.max = range.max.max(value);
+    }
+    Some(range)
+}
+
+fn fraction(numerator: usize, denominator: usize) -> f64 {
+    if denominator == 0 {
+        0.0
+    } else {
+        numerator as f64 / denominator as f64
+    }
+}
+
+fn format_percent(fraction: f64) -> String {
+    format!("{:.1}%", fraction * 100.0)
+}
+
+fn format_probability(value: f64) -> String {
+    if value < 0.001 {
+        format!("{value:.3e}")
+    } else {
+        format!("{value:.6}")
+    }
+}
+
+fn format_statistic_value(value: f64) -> String {
+    if (value - value.round()).abs() < 1e-9 {
+        format!("{value:.0}")
+    } else {
+        format!("{value:.4}")
+    }
+}
+
+fn format_effective_comparisons(value: f64) -> String {
+    if value.is_infinite() {
+        "infinite".to_owned()
+    } else {
+        format!("{value:.2}")
+    }
+}
+
+fn format_number_range(range: NumberRange, decimals: usize) -> String {
+    if (range.max - range.min).abs() < f64::EPSILON {
+        format!("{:.*}", decimals, range.min)
+    } else {
+        format!("{:.*}..{:.*}", decimals, range.min, decimals, range.max)
+    }
+}
+
+fn format_ratio_range(range: NumberRange) -> String {
+    if (range.max - range.min).abs() < f64::EPSILON {
+        format!("{:.0}x", range.min)
+    } else {
+        format!("{:.0}x to {:.0}x", range.min, range.max)
+    }
+}
+
+fn format_cipher_attack_verdict(row: &cipher_attack::AttackRow) -> &'static str {
+    let real = row.real.score.bigram_mean_log_likelihood;
+    if real > row.null.max {
+        "above-max"
+    } else if real > row.null.q95 {
+        "above95"
+    } else {
+        "inside95"
+    }
+}
+
+fn unique_cipher_search_summaries(
+    rows: &[cipher_attack::AttackRow],
+) -> Vec<(cipher_attack::CipherFamily, cipher_attack::SearchSummary)> {
+    let mut summaries = Vec::new();
+    for row in rows {
+        if summaries
+            .iter()
+            .any(|(cipher, _summary)| *cipher == row.cipher)
+        {
+            continue;
+        }
+        summaries.push((row.cipher, row.search.clone()));
+    }
+    summaries
+}
+
+fn truncate_chars(value: &str, max_chars: usize) -> String {
+    let mut output = String::new();
+    let mut chars = value.chars();
+    for _position in 0..max_chars {
+        let Some(ch) = chars.next() else {
+            return output;
+        };
+        output.push(ch);
+    }
+    if chars.next().is_some() {
+        output.push_str("...");
+    }
+    output
+}
+
+fn format_chaining_band(band: chaining::ScalarBand) -> String {
+    format!("{:.4}..{:.4}", band.q025, band.q975)
+}
+
+fn format_residual_band(band: chaining::ResidualBand) -> String {
+    format!("{}..{}", band.q025, band.q975)
+}
+
+fn format_residual(distance: usize, alphabet_size: usize) -> String {
+    format!("{distance}/{}", alphabet_size / 2)
+}
+
+fn format_chaining_classification(
+    classification: chaining::ChainingClassification,
+) -> &'static str {
+    match classification {
+        chaining::ChainingClassification::CalibrationOverlaps => "overlap",
+        chaining::ChainingClassification::MatchesKnownFail => "known-fail",
+        chaining::ChainingClassification::MatchesKnownSucceed => "known-succeed",
+        chaining::ChainingClassification::BetweenBands => "between",
+    }
+}
+
+fn format_isomorph_band(band: isomorph_null::IsomorphNullBand) -> String {
+    format!("{}..{}", band.q025, band.q975)
+}
+
+fn format_u8_values(values: &[u8]) -> String {
+    if values.is_empty() {
+        return "none".to_owned();
+    }
+    values
+        .iter()
+        .map(u8::to_string)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn format_shared_spans(spans: &[perseus::SharedSpan]) -> String {
+    if spans.is_empty() {
+        return "none".to_owned();
+    }
+    spans
+        .iter()
+        .map(|span| format!("{}..{}", span.start, span.end()))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn format_recurrent_symbols(symbols: &[u8]) -> String {
+    if symbols.is_empty() {
+        "none".to_owned()
+    } else {
+        format_u8_values(symbols)
+    }
+}
+
+fn yes_no(value: bool) -> &'static str {
+    if value { "yes" } else { "no" }
+}
+
+fn preview_text(text: &str, max_chars: usize) -> String {
+    let mut preview = String::new();
+    let mut omitted = false;
+    for (index, symbol) in text.chars().enumerate() {
+        if index >= max_chars {
+            omitted = true;
+            break;
+        }
+        preview.push(symbol);
+    }
+    if omitted {
+        preview.push_str("...");
+    }
+    preview
+}
+
+fn format_positions(positions: &[usize]) -> String {
+    let mut rendered = positions
+        .iter()
+        .take(12)
+        .map(usize::to_string)
+        .collect::<Vec<_>>()
+        .join(",");
+    if positions.len() > 12 {
+        rendered.push_str(",...");
+    }
+    rendered
+}
+
+fn format_optional_f64(value: Option<f64>) -> String {
+    value.map_or_else(|| "n/a".to_owned(), |number| format!("{number:.2}"))
+}
+
+fn format_optional_usize(value: Option<usize>) -> String {
+    value.map_or_else(|| "none".to_owned(), |number| number.to_string())
+}
+
+/// Prints the base-7 engine-input randomness negative-control report.
+pub fn print_input_randomness_report(report: &pipeline_null::InputRandomnessReport) {
+    println!("engine-input randomness negative control");
+    println!("seed: {}", report.config.seed);
+    println!("trials: {}", report.config.trials);
+    println!("engine pairs: {}", report.pair_count);
+    println!("decoded storage symbols: {}", report.total_symbols);
+    println!(
+        "real storage histogram (-1..=5): {}",
+        format_storage_histogram(&report.real_symbol_histogram)
+    );
+    println!("real -1 controls: {}", report.real_minus_one);
+    println!("real delimiters: {}", report.real_delimiters);
+    println!(
+        "real chi-square vs uniform base-7 symbols: {:.3}",
+        report.real_chi_square_vs_uniform
+    );
+    println!(
+        "exact P(no -1 in capped matched random corpus): {:.6e}",
+        report.analytic_probability_no_minus_one
+    );
+    println!(
+        "matched random corpus mean -1 controls: {:.3}",
+        report.mc_mean_minus_one
+    );
+    println!(
+        "matched random corpus mean delimiters: {:.3}",
+        report.mc_mean_delimiters
+    );
+    println!(
+        "matched random corpora with zero -1 controls: {}/{}",
+        report.mc_corpora_with_zero_minus_one, report.config.trials
+    );
+    println!();
+    println!(
+        "Interpretation: this only shows the authored engine inputs live in the 0..=5 storage alphabet (zero -1 controls and 86 delimiters) instead of resembling capped matched-length random integers. The analytic no -1 probability is exact for that capped model, and the Monte-Carlo counts are the empirical check at the configured trial count; neither shows that the authored symbols encode anything."
+    );
+}
+
+/// Prints the Experiment 8 grouping and state-count report.
+pub fn print_grouping_report(report: &grouping::Experiment8Report) {
+    println!("Experiment 8 base-N grouping reinterpretation");
+    println!("order: {}", report.state_estimate.order.name());
+    println!(
+        "message lengths: {}",
+        format_message_lengths(&report.state_estimate.message_lengths)
+    );
+    println!(
+        "boundary rule: rendered groups are non-overlapping within each message; incomplete tails are dropped and no group crosses a message join"
+    );
+    println!(
+        "storage axis: engine base-7 decoded symbols 0..=5, including delimiter 5, reported separately from rendered orientations"
+    );
+    println!();
+    print_grouping_summary(report);
+    println!();
+    print_grouping_message_detail(report);
+    println!();
+    print_language_reference_rows(report);
+    println!();
+    print_grouping_compatibility(report);
+    println!();
+    print_state_count_estimate(report);
+    println!();
+    print_state_count_calibration(report);
+    println!();
+    print_grouping_interpretation(report);
+}
+
+fn print_grouping_summary(report: &grouping::Experiment8Report) {
+    println!("grouping summary");
+    println!(
+        "{:<24} {:>5} {:>7} {:>6} {:>5} {:>9} {:>8} {:>10} {:>9} {:>10}",
+        "grouping",
+        "base",
+        "symbols",
+        "drop",
+        "used",
+        "H bits",
+        "H/log2k",
+        "IoC pool",
+        "H msg",
+        "IoC msg"
+    );
+    for row in &report.groupings {
+        println!(
+            "{:<24} {:>5} {:>7} {:>6} {:>5} {:>9.4} {:>8.4} {:>10.6} {:>9.4} {:>10.6}",
+            row.axis.label(),
+            row.axis.nominal_base(),
+            row.pooled.symbols,
+            row.dropped_source_symbols,
+            row.pooled.used_alphabet,
+            row.pooled.entropy_bits_per_symbol,
+            row.pooled.normalized_entropy,
+            row.pooled.ioc,
+            row.message_weighted_entropy_bits_per_symbol,
+            row.message_weighted_ioc
+        );
+    }
+}
+
+fn print_grouping_message_detail(report: &grouping::Experiment8Report) {
+    println!("per-message grouping detail");
+    println!(
+        "{:<24} {:<6} {:>6} {:>4} {:>5} {:>9} {:>8} {:>10}",
+        "grouping", "msg", "symbols", "drop", "used", "H bits", "H/log2k", "IoC"
+    );
+    for row in &report.groupings {
+        for message in &row.messages {
+            println!(
+                "{:<24} {:<6} {:>6} {:>4} {:>5} {:>9.4} {:>8.4} {:>10.6}",
+                row.axis.label(),
+                message.message_key,
+                message.stats.symbols,
+                message.dropped_source_symbols,
+                message.stats.used_alphabet,
+                message.stats.entropy_bits_per_symbol,
+                message.stats.normalized_entropy,
+                message.stats.ioc
+            );
+        }
+    }
+}
+
+fn print_language_reference_rows(report: &grouping::Experiment8Report) {
+    println!("natural-language unigram references from bundled language models");
+    println!(
+        "{:<8} {:>7} {:>8} {:>7} {:>9} {:>8} {:>10} {:>9}",
+        "lang", "nom k", "obs k", "letters", "H bits", "H/log2k", "IoC", "1/IoC"
+    );
+    for reference in &report.language_references {
+        println!(
+            "{:<8} {:>7} {:>8} {:>7} {:>9.4} {:>8.4} {:>10.6} {:>9.2}",
+            reference.language,
+            reference.nominal_alphabet,
+            reference.observed_used_alphabet,
+            reference.symbols,
+            reference.entropy_bits_per_symbol,
+            reference.normalized_entropy,
+            reference.ioc,
+            reference.collision_effective_alphabet
+        );
+    }
+}
+
+fn print_grouping_compatibility(report: &grouping::Experiment8Report) {
+    println!("language-compatibility flags");
+    println!(
+        "derived bands: alphabet {}..={}, entropy {:.4}..{:.4} bits",
+        report.compatibility.alphabet_min,
+        report.compatibility.alphabet_max,
+        report.compatibility.entropy_min,
+        report.compatibility.entropy_max
+    );
+    println!(
+        "{:<24} {:>10} {:>10} {:>10}",
+        "grouping", "alphabet", "entropy", "both"
+    );
+    for row in &report.compatibility.rows {
+        let both = row.alphabet_compatible && row.entropy_compatible;
+        println!(
+            "{:<24} {:>10} {:>10} {:>10}",
+            row.grouping_label,
+            yes_no(row.alphabet_compatible),
+            yes_no(row.entropy_compatible),
+            yes_no(both)
+        );
+    }
+    let compatible = report.compatibility.fully_compatible_groupings();
+    if compatible.is_empty() {
+        println!("fully compatible groupings: none");
+    } else {
+        println!("fully compatible groupings: {}", compatible.join(", "));
+    }
+    println!(
+        "nearest alphabet-size match: {}",
+        report.compatibility.nearest_alphabet_grouping
+    );
+}
+
+fn print_state_count_estimate(report: &grouping::Experiment8Report) {
+    let estimate = &report.state_estimate;
+    let collision = estimate.collision;
+    println!("independent collision state-count estimate");
+    println!(
+        "pooled IoC: {:.6}; 1/IoC: {:.2}; collision entropy: {:.4} bits",
+        collision.pooled_ioc, collision.pooled_effective_states, collision.collision_entropy_bits
+    );
+    println!(
+        "message-weighted IoC: {:.6}; 1/IoC: {:.2}; pooled Shannon entropy: {:.4} bits",
+        collision.message_weighted_ioc,
+        collision.message_weighted_effective_states,
+        collision.pooled_entropy_bits_per_symbol
+    );
+    println!(
+        "calibrated range: {}..{} states; contains established reading-layer size {}: {}",
+        estimate.range.lower,
+        estimate.range.upper,
+        orders::READING_LAYER_ALPHABET_SIZE,
+        yes_no(estimate.range.includes_83)
+    );
+    println!(
+        "calibration margin applied: {:.1}%",
+        estimate.calibration_relative_margin * 100.0
+    );
+    println!(
+        "longest repeated isomorph in scanned k={}..={}: {}",
+        grouping_state_min_window(report),
+        grouping_state_max_window(report),
+        estimate
+            .longest_repeated_isomorph
+            .map_or_else(|| "none".to_owned(), |window| window.to_string())
+    );
+    println!();
+    println!("isomorph/window diagnostics");
+    println!(
+        "{:>2} {:>8} {:>8} {:>10} {:>8} {:>12}",
+        "k", "windows", "inform", "rep kinds", "max rep", "birthday N"
+    );
+    for row in &estimate.isomorph_rows {
+        println!(
+            "{:>2} {:>8} {:>8} {:>10} {:>8} {:>12}",
+            row.window,
+            row.windows,
+            row.informative_windows,
+            row.repeated_signature_kinds,
+            row.max_repeat_count,
+            format_optional_f64(row.birthday_effective_states)
+        );
+    }
+}
+
+fn print_state_count_calibration(report: &grouping::Experiment8Report) {
+    println!("synthetic N-state positive-control calibration");
+    println!("seed: {}", report.calibration.seed);
+    println!(
+        "model: real message lengths, uniform N-symbol plaintext through N deterministic rotational alphabets"
+    );
+    println!(
+        "{:>6} {:>5} {:>10} {:>10} {:>10} {:>8} {:>10}",
+        "true N", "used", "IoC pool", "N pool", "N msg", "rel err", "max iso"
+    );
+    for row in &report.calibration.rows {
+        println!(
+            "{:>6} {:>5} {:>10.6} {:>10.2} {:>10.2} {:>8.2}% {:>10}",
+            row.true_states,
+            row.used_alphabet,
+            row.pooled_ioc,
+            row.pooled_effective_states,
+            row.message_weighted_effective_states,
+            row.relative_error * 100.0,
+            format_optional_usize(row.longest_repeated_isomorph)
+        );
+    }
+    println!(
+        "max sampled relative error: {:.2}%; applied margin: {:.2}%",
+        report.calibration.max_relative_error * 100.0,
+        report.calibration.applied_relative_margin * 100.0
+    );
+}
+
+fn print_grouping_interpretation(report: &grouping::Experiment8Report) {
+    let compatible = report.compatibility.fully_compatible_groupings();
+    if compatible.is_empty() {
+        println!(
+            "Interpretation: no tested grouping matches both the bundled natural-language alphabet-size band and entropy band as raw plaintext. The nearest alphabet-size match is {}, but its entropy is measured separately above.",
+            report.compatibility.nearest_alphabet_grouping
+        );
+    } else {
+        println!(
+            "Interpretation: grouping(s) matching both measured language alphabet size and entropy: {}.",
+            compatible.join(", ")
+        );
+    }
+
+    let range = report.state_estimate.range;
+    let relation = if range.includes_83 {
+        "overlaps"
+    } else if range.upper < orders::READING_LAYER_ALPHABET_SIZE {
+        "falls below"
+    } else {
+        "sits above"
+    };
+    println!(
+        "The independent collision estimate gives an approximate {}..{} state range, which {relation} the established 83-symbol reading layer. This agreement check does not assume 83, and it does not decode meaning.",
+        range.lower, range.upper
+    );
+    println!(
+        "Near-uniform high entropy remains consistent with a permutation or other structured transformation of data, as in Experiment 4; these numbers constrain plausible encodings only."
+    );
+}
+
+fn grouping_state_min_window(report: &grouping::Experiment8Report) -> usize {
+    report
+        .state_estimate
+        .isomorph_rows
+        .iter()
+        .map(|row| row.window)
+        .min()
+        .unwrap_or_default()
+}
+
+fn grouping_state_max_window(report: &grouping::Experiment8Report) -> usize {
+    report
+        .state_estimate
+        .isomorph_rows
+        .iter()
+        .map(|row| row.window)
+        .max()
+        .unwrap_or_default()
+}
+
+fn print_interval(label: &str, interval: null::WilsonInterval) {
+    println!(
+        "{label}: {}/{} = {:.6} (95% Wilson {:.6}..{:.6})",
+        interval.count, interval.trials, interval.estimate, interval.lower, interval.upper
+    );
+}
+
+/// Prints the reading-order audit and Experiment 4 flatness report.
+pub fn print_orders_report(
+    summary: &orders::GridSummary,
+    stats: &[orders::NamedOrderStats],
+    flatness: &[orders::NamedReadingLayerFlatnessStats],
+) {
+    println!("grid row widths:");
+    for (key, widths) in &summary.row_widths {
+        println!("  {key}: {}", format_widths(widths));
+    }
+    println!("max row width: {}", summary.max_width);
+    println!(
+        "bottom two rows differ by <=1: {}",
+        summary.bottom_two_rows_differ_by_at_most_one
+    );
+    println!();
+    println!(
+        "{:<24} {:>5} {:>8} {:>11} {:>9} {:>5} {:>8} {:>23}",
+        "order", "total", "distinct", "contiguous", "span", ">82", "adj-eq", "recurrence d1..d6"
+    );
+
+    let mut winners = Vec::new();
+    for item in stats {
+        if item.stats.is_contiguous_0_to_82() {
+            winners.push(item.order.name());
+        }
+        println!(
+            "{:<24} {:>5} {:>8} {:>11} {:>9} {:>5} {:>8} {:>23}",
+            item.order.name(),
+            item.stats.total,
+            item.stats.distinct,
+            item.stats.contiguous,
+            format_span(item.stats.min, item.stats.max),
+            item.stats.values_above_82,
+            item.stats.adjacent_equal,
+            format_recurrence(&item.stats.recurrence_distance_1_to_6)
+        );
+    }
+    println!();
+    if winners.is_empty() {
+        println!("contiguous 0..=82 orders: none");
+    } else {
+        println!("contiguous 0..=82 orders: {}", winners.join(", "));
+    }
+
+    print_experiment_4_flatness_report(flatness);
+}
+
+/// Prints frequency, entropy, and `IoC` statistics for one rendered sequence.
+pub fn print_report(label: &str, seq: &Sequence) {
+    println!("{label}: {} glyphs", seq.len());
+    println!(
+        "  entropy:               {:.4} bits/glyph",
+        analysis::shannon_entropy(&seq.glyphs)
+    );
+    println!(
+        "  index of coincidence:  {:.4}",
+        analysis::index_of_coincidence(&seq.glyphs)
+    );
+    println!("  frequencies:");
+    for (glyph, count) in analysis::frequencies(&seq.glyphs) {
+        println!("    {glyph}: {count}");
+    }
+}
+
+fn format_widths(widths: &[usize]) -> String {
+    widths
+        .iter()
+        .map(usize::to_string)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn format_span(min: Option<u8>, max: Option<u8>) -> String {
+    match min.zip(max) {
+        Some((low, high)) => format!("{low}..{high}"),
+        None => "empty".to_owned(),
+    }
+}
+
+fn format_recurrence(recurrence: &[usize; 6]) -> String {
+    let [d1, d2, d3, d4, d5, d6] = *recurrence;
+    format!("{d1},{d2},{d3},{d4},{d5},{d6}")
+}
+
+fn print_experiment_4_flatness_report(flatness: &[orders::NamedReadingLayerFlatnessStats]) {
+    println!();
+    println!("Experiment 4 reading-layer flatness");
+    println!("alphabet: 83 reading-layer symbols, values 0..=82");
+    println!(
+        "frequency counts are pooled across the nine messages; entropy and IoC p/msg are message-weighted"
+    );
+    println!(
+        "IoC convention: probability form from analysis::index_of_coincidence; x83/all is the concatenated community-reference cross-check"
+    );
+    println!(
+        "{:<24} {:>5} {:>5} {:>7} {:>7} {:>13} {:>17} {:>10} {:>10} {:>10} {:>12} {:>7} {:>12}",
+        "order",
+        "total",
+        "in83",
+        "outside",
+        "mean",
+        "freq min..max",
+        "entropy/max",
+        "IoC p/msg",
+        "x83/msg",
+        "x83/all",
+        "chi2 83",
+        "df",
+        "p>=chi2"
+    );
+    for item in flatness
+        .iter()
+        .filter(|item| is_experiment_4_order(item.order))
+    {
+        println!(
+            "{:<24} {:>5} {:>5} {:>7} {:>7.2} {:>13} {:>17} {:>10.6} {:>10.3} {:>10.3} {:>12} {:>7} {:>12}",
+            item.order.name(),
+            item.flatness.total,
+            item.flatness.in_alphabet_total,
+            item.flatness.outside_alphabet_occurrences,
+            item.flatness.mean_frequency,
+            format_frequency_range(&item.flatness),
+            format_entropy_ratio(&item.flatness),
+            item.flatness.ioc_probability,
+            item.flatness.normalized_ioc,
+            item.flatness.concatenated_normalized_ioc,
+            format_chi_square(item.flatness.chi_square_vs_uniform),
+            item.flatness.chi_square_vs_uniform_degrees_of_freedom,
+            format_chi_square_p_value(item.flatness.chi_square_vs_uniform_upper_tail_p_value)
+        );
+    }
+    println!();
+    println!(
+        "Interpretation: the df-aware chi-square tail tests exact iid uniformity over the 83 buckets, not whether the stream is meaningful. Flat-ish per-symbol frequency still RULES MONOALPHABETIC OUT; it does NOT rule a real message IN, and structured-but-meaningless data can also be near-uniform. Do not present flatness as evidence of encoding."
+    );
+}
+
+fn is_experiment_4_order(order: orders::ReadingOrder) -> bool {
+    matches!(
+        order,
+        orders::ReadingOrder::RawRows | orders::ReadingOrder::HoneycombStandard { .. }
+    )
+}
+
+fn format_frequency_range(flatness: &orders::ReadingLayerFlatnessStats) -> String {
+    format!(
+        "{}..{} z{}",
+        flatness.min_frequency, flatness.max_frequency, flatness.zero_frequency_symbols
+    )
+}
+
+fn format_entropy_ratio(flatness: &orders::ReadingLayerFlatnessStats) -> String {
+    format!(
+        "{:.4}/{:.4}",
+        flatness.entropy_bits_per_symbol, flatness.max_entropy_bits_per_symbol
+    )
+}
+
+fn format_chi_square(value: f64) -> String {
+    if value.is_infinite() {
+        "inf(outside)".to_owned()
+    } else {
+        format!("{value:.3}")
+    }
+}
+
+fn format_chi_square_p_value(value: Option<f64>) -> String {
+    value.map_or_else(|| "n/a".to_owned(), |p_value| format!("{p_value:.6e}"))
+}
+
+fn format_usize_histogram(histogram: &[(usize, usize)]) -> String {
+    histogram
+        .iter()
+        .map(|(value, count)| format!("{value}:{count}"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn format_u8_histogram(histogram: &[(u8, usize)]) -> String {
+    histogram
+        .iter()
+        .map(|(value, count)| format!("{value}:{count}"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn format_storage_histogram(histogram: &[usize; 7]) -> String {
+    const STORAGE_LABELS: [&str; 7] = ["-1", "0", "1", "2", "3", "4", "5"];
+    STORAGE_LABELS
+        .iter()
+        .zip(histogram)
+        .map(|(label, count)| format!("{label}:{count}"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        cipher_attack_interpretation_lines, format_chi_square, format_chi_square_p_value,
+        format_match_count, format_null_flag, format_probability, format_span,
+        format_storage_histogram, format_u8_histogram, format_usize_histogram,
+    };
+    use crate::cipher_attack::{
+        AttackRow, BestCandidate, CandidateScore, CipherAttackConfig, CipherAttackReport,
+        CipherFamily, LanguageKind, PlantRecovery, PositiveControlReport, ScoreNull, SearchSummary,
+    };
+
+    #[test]
+    fn representative_scalar_formatters_are_stable() {
+        assert_eq!(format_probability(0.25), "0.250000");
+        assert_eq!(format_probability(0.000_25), "2.500e-4");
+        assert_eq!(format_chi_square(12.345_6), "12.346");
+        assert_eq!(format_chi_square(f64::INFINITY), "inf(outside)");
+        assert_eq!(format_chi_square_p_value(Some(0.125)), "1.250000e-1");
+        assert_eq!(format_chi_square_p_value(None), "n/a");
+    }
+
+    #[test]
+    fn representative_table_formatters_are_stable() {
+        assert_eq!(format_span(Some(0), Some(82)), "0..82");
+        assert_eq!(format_span(None, Some(82)), "empty");
+        assert_eq!(format_match_count(3, 99), "3/99");
+        assert_eq!(format_null_flag(false, false), "inside");
+        assert_eq!(format_null_flag(true, false), "pt95");
+        assert_eq!(format_null_flag(true, true), "OUT");
+    }
+
+    #[test]
+    fn representative_histogram_formatters_are_stable() {
+        assert_eq!(format_usize_histogram(&[(82, 1), (83, 2)]), "82:1, 83:2");
+        assert_eq!(format_u8_histogram(&[(0, 5), (4, 7)]), "0:5, 4:7");
+        assert_eq!(
+            format_storage_histogram(&[0, 1, 2, 3, 4, 5, 6]),
+            "-1:0, 0:1, 1:2, 2:3, 3:4, 4:5, 5:6"
+        );
+    }
+
+    #[test]
+    fn cipher_attack_interpretation_does_not_treat_small_pointwise_p_as_hit() {
+        let report = CipherAttackReport {
+            config: CipherAttackConfig::default(),
+            order_name: "standard36-u012-d012".to_owned(),
+            message_lengths: vec![("fixture", 100)],
+            total_symbols: 100,
+            boundary_rule: "fixture boundary",
+            null_model: "fixture null",
+            rows: vec![
+                attack_row(-2.9975, -3.0100, -3.0000, 0.0),
+                attack_row(-2.9800, -3.0100, -3.0000, 0.0),
+                attack_row(-3.0050, -3.0100, -3.0000, 0.25),
+                attack_row(-3.0200, -3.0100, -3.0000, 1.0),
+            ],
+            positive_control: PositiveControlReport {
+                caesar: plant_recovery(CipherFamily::Caesar, 0.4900),
+                vigenere: plant_recovery(CipherFamily::Vigenere, 0.6100),
+            },
+        };
+
+        let interpretation = cipher_attack_interpretation_lines(&report).join("\n");
+
+        assert!(
+            interpretation.contains("not 3 near-solutions"),
+            "{interpretation}"
+        );
+        assert!(
+            interpretation.contains("small values are expected by selection"),
+            "{interpretation}"
+        );
+        assert!(
+            interpretation.contains("no family-wise-significant result exists"),
+            "{interpretation}"
+        );
+        assert!(
+            interpretation.contains("No credible English/Finnish decryption is established"),
+            "{interpretation}"
+        );
+        assert!(
+            interpretation.contains("0.0025..0.0200 nats"),
+            "{interpretation}"
+        );
+        assert!(
+            interpretation.contains("positive-control plant margins of 0.4900..0.6100 nats"),
+            "{interpretation}"
+        );
+        assert!(
+            interpretation.contains("nowhere near the scale of a genuine cipher hit"),
+            "{interpretation}"
+        );
+    }
+
+    fn attack_row(real: f64, q95: f64, max: f64, empirical_p: f64) -> AttackRow {
+        AttackRow {
+            cipher: CipherFamily::Caesar,
+            language: LanguageKind::English,
+            mapping_label: "fixture".to_owned(),
+            mapping_note: "fixture mapping".to_owned(),
+            search: SearchSummary {
+                key_space: "fixture keyspace".to_owned(),
+                candidates_evaluated: 100,
+                exhaustive: true,
+                sampling_seed: None,
+                note: "fixture search".to_owned(),
+            },
+            real: BestCandidate {
+                score: candidate_score(real),
+                key: "fixture-key".to_owned(),
+            },
+            null: ScoreNull {
+                trials: 4,
+                mean: -3.0200,
+                q95,
+                max,
+                empirical_p_count: 0,
+                empirical_p,
+            },
+        }
+    }
+
+    fn plant_recovery(cipher: CipherFamily, margin_over_null_max: f64) -> PlantRecovery {
+        PlantRecovery {
+            cipher,
+            plaintext_symbols: 100,
+            expected_key: "expected".to_owned(),
+            recovered_key: "expected".to_owned(),
+            real_score: candidate_score(-2.5000),
+            null: ScoreNull {
+                trials: 4,
+                mean: -3.1000,
+                q95: -3.0000,
+                max: -2.5000 - margin_over_null_max,
+                empirical_p_count: 0,
+                empirical_p: 0.0,
+            },
+            margin_over_null_max,
+        }
+    }
+
+    fn candidate_score(bigram_mean_log_likelihood: f64) -> CandidateScore {
+        CandidateScore {
+            symbols: 100,
+            unigram_mean_log_likelihood: bigram_mean_log_likelihood,
+            bigram_mean_log_likelihood,
+        }
+    }
+}
