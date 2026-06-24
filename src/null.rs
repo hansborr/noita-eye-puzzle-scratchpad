@@ -454,6 +454,8 @@ mod tests {
     };
     use crate::orders::{corpus_grids, standard36_orders};
 
+    const STABILITY_SEEDS: [u64; 5] = [12_345, 67_890, 13_579, 24_680, 424_242];
+
     #[test]
     fn splitmix64_seed_is_reproducible() {
         let mut first = SplitMix64::new(12_345);
@@ -500,6 +502,18 @@ mod tests {
     }
 
     #[test]
+    fn standard36_headline_count_is_seed_stable_in_fast_sweep() {
+        for seed in STABILITY_SEEDS {
+            let report = run_standard36_null(NullConfig { seed, trials: 128 }).unwrap();
+
+            assert_eq!(
+                report.headline_count, 0,
+                "seed {seed} reproduced the contiguous 0..=82 headline"
+            );
+        }
+    }
+
+    #[test]
     #[ignore = "canonical 1000-trial Monte Carlo regression; run with cargo test -- --ignored"]
     fn standard36_seed_12345_null_matches_headline_regression() {
         let report = run_standard36_null(NullConfig {
@@ -535,5 +549,22 @@ mod tests {
             0x4006_4924_9249_2492
         );
         assert!(real_outcome.max_distance4_ratio > report.distance4_ratio_max);
+    }
+
+    #[test]
+    #[ignore = "multi-seed 1000-trial stability sweep; run with cargo test -- --ignored"]
+    fn standard36_headline_count_is_seed_stable_at_1000_trials() {
+        for seed in STABILITY_SEEDS {
+            let report = run_standard36_null(NullConfig {
+                seed,
+                trials: 1_000,
+            })
+            .unwrap();
+
+            assert_eq!(
+                report.headline_count, 0,
+                "seed {seed} reproduced the contiguous 0..=82 headline"
+            );
+        }
     }
 }

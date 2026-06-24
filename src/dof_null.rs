@@ -1054,6 +1054,8 @@ mod tests {
     use crate::null::{SplitMix64, random_orientation_grids_like};
     use crate::orders::{GlyphGrid, ReadingOrder};
 
+    const STABILITY_SEEDS: [u64; 5] = [12_345, 67_890, 13_579, 24_680, 424_242];
+
     fn row(digits: &[u8]) -> Vec<Orientation> {
         digits
             .iter()
@@ -1090,6 +1092,10 @@ mod tests {
                 HeadlineStatistic::BestRecurrenceRatio,
             ],
         }
+    }
+
+    fn is_floor_censored(value: f64, floor: f64) -> bool {
+        (value - floor).abs() <= f64::EPSILON * 8.0
     }
 
     #[test]
@@ -1262,6 +1268,38 @@ mod tests {
     }
 
     #[test]
+    fn dof_null_floor_censoring_is_seed_stable_in_fast_sweep() {
+        for seed in STABILITY_SEEDS {
+            let config = DofNullConfig {
+                seed,
+                calibration_trials: 8,
+                trials: 8,
+            };
+            let report = run_dof_null(config).unwrap();
+            let bounds = report.analytic_headline_bounds.as_ref().unwrap();
+
+            assert!(
+                is_floor_censored(report.observed_min_p, report.empirical_marginal_floor),
+                "seed {seed} moved the eyes' min p off the calibration floor: {} vs {}",
+                report.observed_min_p,
+                report.empirical_marginal_floor
+            );
+            assert!(
+                is_floor_censored(bounds.cell.marginal_p, report.empirical_marginal_floor),
+                "seed {seed} moved the headline cell off the calibration floor: {} vs {}",
+                bounds.cell.marginal_p,
+                report.empirical_marginal_floor
+            );
+            assert_eq!(bounds.cell.marginal_extreme_count, 0);
+            assert!(
+                (0.5..=1.0).contains(&report.adaptive_interval.estimate),
+                "seed {seed} moved the coarse adaptive diagnostic out of the floor-hit regime: {}",
+                report.adaptive_interval.estimate
+            );
+        }
+    }
+
+    #[test]
     #[ignore = "canonical 1000+1000-trial adaptive null regression; run with cargo test -- --ignored"]
     fn dof_null_seed_12345_matches_headline_regression() {
         let report = run_dof_null(DofNullConfig {
@@ -1324,5 +1362,42 @@ mod tests {
         );
         assert_eq!(bounds.effective_bonferroni.to_bits(), 0x1a25_7700_bf78_165a);
         assert_eq!(bounds.effective_sidak.to_bits(), 0x1a25_7700_bf78_165a);
+    }
+
+    #[test]
+    #[ignore = "multi-seed 256+128-trial adaptive stability sweep; run with cargo test -- --ignored"]
+    fn dof_null_floor_and_adaptive_regime_are_seed_stable_in_ignored_sweep() {
+        for seed in STABILITY_SEEDS {
+            let config = DofNullConfig {
+                seed,
+                calibration_trials: 256,
+                trials: 128,
+            };
+            let report = run_dof_null(config).unwrap();
+            let bounds = report.analytic_headline_bounds.as_ref().unwrap();
+
+            assert!(
+                is_floor_censored(report.observed_min_p, report.empirical_marginal_floor),
+                "seed {seed} moved the eyes' min p off the calibration floor: {} vs {}",
+                report.observed_min_p,
+                report.empirical_marginal_floor
+            );
+            assert!(
+                is_floor_censored(bounds.cell.marginal_p, report.empirical_marginal_floor),
+                "seed {seed} moved the headline cell off the calibration floor: {} vs {}",
+                bounds.cell.marginal_p,
+                report.empirical_marginal_floor
+            );
+            assert_eq!(bounds.cell.marginal_extreme_count, 0);
+            assert!(
+                (0.35..=0.80).contains(&report.adaptive_interval.estimate),
+                "seed {seed} moved the adaptive diagnostic out of the same broad regime: {}",
+                report.adaptive_interval.estimate
+            );
+            assert!(
+                report.adaptive_extreme_count > 0,
+                "seed {seed} produced no resampling floor hits"
+            );
+        }
     }
 }

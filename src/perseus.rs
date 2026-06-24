@@ -930,12 +930,14 @@ fn rate_f64(numerator: f64, denominator: usize) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::{
-        PerseusConfig, build_shared_partition, report_from_message_values, report_from_partition,
-        run_perseus, shuffled_messages,
+        PerseusConfig, SIGNIFICANCE_ALPHA, build_shared_partition, report_from_message_values,
+        report_from_partition, run_perseus, shuffled_messages,
     };
     use crate::null::SplitMix64;
     use crate::orders;
     use crate::trigram::TrigramValue;
+
+    const STABILITY_SEEDS: [u64; 5] = [12_345, 67_890, 13_579, 24_680, 424_242];
 
     #[test]
     fn reconstructs_documented_perseus_partition_anchors() {
@@ -1009,6 +1011,28 @@ mod tests {
     }
 
     #[test]
+    fn perseus_recurrence_signal_is_seed_stable_in_fast_sweep() {
+        for seed in STABILITY_SEEDS {
+            let report = run_perseus(PerseusConfig { seed, trials: 128 }).unwrap();
+
+            assert_eq!(report.observed.tested_shared_occurrences, 185);
+            assert_eq!(
+                report.observed.recurrent_occurrences, 0,
+                "seed {seed} changed the observed strict no-recurrence count"
+            );
+            assert!(
+                report.empirical_p < SIGNIFICANCE_ALPHA,
+                "seed {seed} was not significant: p={}",
+                report.empirical_p
+            );
+            assert!(
+                report.significant,
+                "seed {seed} lost the qualitative signal"
+            );
+        }
+    }
+
+    #[test]
     #[ignore = "canonical 1000-trial within-message shuffle regression; run with cargo test -- --ignored"]
     fn perseus_seed_12345_recurrence_null_matches_headline_regression() {
         let report = run_perseus(PerseusConfig {
@@ -1025,6 +1049,33 @@ mod tests {
         assert_eq!(report.empirical_p_count, 6);
         assert_eq!(report.empirical_p.to_bits(), 0x3f7c_a4b3_055e_e191);
         assert!(report.significant);
+    }
+
+    #[test]
+    #[ignore = "multi-seed 1000-trial within-message shuffle stability sweep; run with cargo test -- --ignored"]
+    fn perseus_recurrence_signal_is_seed_stable_at_1000_trials() {
+        for seed in STABILITY_SEEDS {
+            let report = run_perseus(PerseusConfig {
+                seed,
+                trials: 1_000,
+            })
+            .unwrap();
+
+            assert_eq!(report.observed.tested_shared_occurrences, 185);
+            assert_eq!(
+                report.observed.recurrent_occurrences, 0,
+                "seed {seed} changed the observed strict no-recurrence count"
+            );
+            assert!(
+                report.empirical_p <= 0.01,
+                "seed {seed} moved the lower-tail p out of the small-p regime: p={}",
+                report.empirical_p
+            );
+            assert!(
+                report.significant,
+                "seed {seed} lost the qualitative signal"
+            );
+        }
     }
 
     fn planted_no_recurrence_fixture() -> Vec<Vec<TrigramValue>> {

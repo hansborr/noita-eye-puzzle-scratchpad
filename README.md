@@ -96,7 +96,9 @@ result remains the bounded 83-state reading-layer support under the fixed
 standard36 null. The broader researcher-DoF correction does **not** deflate that
 headline: the empirical adaptive min-p run is finite-resolution and floor-censors
 the eyes, while the analytic multiplicity correction remains astronomically
-small.
+small. Seed-stability regressions over seeds 12345, 67890, 13579, 24680, and
+424242 keep the fixed-standard36 contiguous-0..=82 headline count at **0/1000**
+for every seed.
 
 - **Exp 4 — frequency/entropy/IoC across orders.** Per-symbol frequency is flat
   (reproduces the community IoC ≈ 1.066, mean frequency 12.48); the honeycomb
@@ -126,6 +128,12 @@ small.
   **1.010e-182**. Resolving that empirically would require about **1.7e184**
   calibration draws, so the analytic correction is the honest headline result:
   the bounded 0..=82 anomaly **survives** the configured DoF correction.
+  Multi-seed stability sweeps over seeds 12345, 67890, 13579, 24680, and 424242
+  keep the eyes' min marginal p and accepted headline cell at the calibration
+  floor; at 256 calibration / 128 resampling trials, the add-one adaptive
+  diagnostic stays in the same non-significant floor-hit regime
+  (**64/129..85/129 = 0.496124..0.658915**). The analytic correction is
+  seed-independent.
 - **Exp 5A — periodicity / autocorrelation.** No period or lag clears a random
   null band, beyond the order-contingent distance-4 spike (honestly reconciled
   with Exp 1B's targeted distance-4 result; family-wise vs pointwise).
@@ -139,8 +147,11 @@ small.
   runs of length ≥2 in the earliest leading-family alignment or an East/West
   counterpart pair, the eyes have **0/185** non-shared→later-shared recurrences.
   With seed 12345 and 1000 within-message shuffles, the add-one lower-tail
-  p-value is **7/1001 = 0.006993**. This corroborates a structural
-  permutation-cipher direction, but it decodes nothing.
+  p-value is **7/1001 = 0.006993**. Across seeds 12345, 67890, 13579, 24680,
+  and 424242 at the same 1000-shuffle size, the observed statistic stays
+  **0/185** and the add-one lower-tail p ranges **4/1001..9/1001 =
+  0.003996..0.008991**. This corroborates a structural permutation-cipher
+  direction, but it decodes nothing.
 - **Global transposition check.** The accepted-honeycomb trigram streams have
   distinct lengths (`east1=99`, `west1=103`, `east2=118`, `west2=102`,
   `east3=137`, `west3=124`, `east4=119`, `west4=120`, `east5=114`), while the

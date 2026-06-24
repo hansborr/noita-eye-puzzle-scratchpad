@@ -78,6 +78,9 @@ Commits `ac0bcd7`→`2bdb0c0` on `master`, all gate-green. Verified independentl
   - Headline contiguous-0–82: **0/1000**. Min distinct ever reached: 122 (never
     near 83). Ceiling always 124 (never bounds at 82). Zero-adjacency: ~1–2/1000.
     Real distance-4 ratio 2.52 exceeds all 2000 random best-over-36 ratios.
+  - Seed-stability over seeds 12345, 67890, 13579, 24680, and 424242 keeps the
+    contiguous-0..=82 headline count at **0/1000** for every seed; adjacent-zero
+    hits vary only 0..2/1000 and sampled best distance-4 maxima vary 2.211..2.533.
   - Bonferroni/Šidák over 36 orders = `2.10e-183`. The fixed-family correction
     does NOT deflate the per-order improbability.
 - **Researcher-DoF adaptive null:** `src/dof_null.rs` — calibrated min-p null over
@@ -97,6 +100,12 @@ Commits `ac0bcd7`→`2bdb0c0` on `master`, all gate-green. Verified independentl
     add-one adaptive p is **200/1001 = 0.199800** (95% Wilson
     `0.176198..0.225697`); median Sidak-equivalent comparisons **173.11**. The
     accepted honeycomb trigram contiguous-0..=82 cell is also at `1/1001`.
+  - Seed-stability over seeds 12345, 67890, 13579, 24680, and 424242 keeps the
+    eyes' min marginal p and accepted headline cell at the calibration floor. In
+    the opt-in 256 calibration / 128 resampling sweep, add-one adaptive p ranges
+    **64/129..85/129 = 0.496124..0.658915**, i.e. the same non-significant
+    finite-resolution floor-hit diagnostic; the analytic correction is
+    seed-independent.
   - Interpretation: the empirical adaptive p is a finite-resolution diagnostic,
     not the headline significance. With 1000 calibration grids, the eyes'
     analytic `(83/125)^1036 = 5.836e-185` effect is censored to the `1/1001`
@@ -146,7 +155,9 @@ negative, all calibration controls fire. Full one-liners with SHAs are in §9.
   documented-region definition (leading-family and East/West counterpart shared
   runs, size ≥2), the eyes have 0/185 non-shared→later-shared recurrences; seed
   12345 / 1000 within-message shuffles gives add-one lower-tail p 7/1001 =
-  0.006993. Structural corroboration only; no decode.
+  0.006993. Across seeds 12345, 67890, 13579, 24680, and 424242 at 1000 shuffles,
+  the observed statistic stays 0/185 and p ranges **4/1001..9/1001 =
+  0.003996..0.008991**. Structural corroboration only; no decode.
 - **Global transposition note** (`orders.rs` test + docs): accepted-honeycomb
   trigram-stream lengths are distinct across all nine messages, while the
   documented shared runs stay at the same ciphertext offsets. Because
@@ -290,11 +301,14 @@ estimate), honest interpretation in code/CLI docs, committed, progress logged.
   finite-resolution floor diagnostic, not a deflation; the analytic configured
   correction remains ≈`6.653e-182` over 1140 configured cells and ≈`1.010e-182`
   over the empirical effective-comparison count, so the bounded 0..=82 headline
-  survives the configured DoF correction.
+  survives the configured DoF correction. Multi-seed stability keeps the eyes and
+  accepted headline cell at the calibration floor; the analytic correction is
+  seed-independent.
 - **CLOSED — Perseus recurrence null.** `src/perseus.rs` and `perseus` are built.
   The observed 0/185 non-shared->later-shared recurrences versus a shuffle-null
-  mean near 5 (add-one lower-tail p `7/1001 = 0.006993`) corroborate a structural
-  permutation direction only; they decode nothing.
+  mean near 5 (seed-12345 add-one lower-tail p `7/1001 = 0.006993`; five-seed
+  1000-shuffle range `4/1001..9/1001`) corroborate a structural permutation
+  direction only; they decode nothing.
 - **CLOSED — global transposition note.** The distinct stream lengths plus
   same-offset shared anchors disfavor one shared global transposition route under
   the natural model, without ruling out per-message or non-global schemes.
@@ -425,5 +439,6 @@ cargo run -- dofnull --seed 12345 --trials 1000 --calib-trials 1000
 - 2026-06-22: Experiment 12 interpretation rigor — pointwise tails now report the derived exceedance-rate diagnosis and eye-vs-plant effect-size contrast, keeping the result a clean negative rather than near-hits (commit b465dd3f182d076994dcbd1ee8442e1354f4f6a9).
 - 2026-06-22: Experiments 9 & 10 primary-observer report (repo owner, direct in-game observation) — content identical across multiple seeds (qualitative seed-invariance corroboration; byte-for-byte cross-seed diff still pending) and exactly 5 visually distinct orientations with the digit→direction labeling agreed arbitrary (cryptanalytically immaterial; stats run on the Exp-0-verified integer sequence). Docs-only update to research/03 §§3–4, research/05 Exp 9/10, and §6 item 8; no code change, conclusions unchanged.
 - 2026-06-24: Researcher-DoF adaptive null follow-up — fixed the original single-set self-ranking bug by splitting calibration set A from resampling set B; seed 12345 / 1000+1000 trials gives add-one adaptive p 200/1001 = 0.199800 (Wilson 0.176198..0.225697), but that is a finite-resolution floor diagnostic (`1/1001`) rather than a deflation of the eyes' analytic `(83/125)^1036` effect. The follow-up analytic configured-DoF correction over 1140 cells is ≈6.653e-182 (≈1.010e-182 over the empirical effective comparisons), so the bounded 0..=82 headline survives analytically.
+- 2026-06-24: Seed-stability follow-up — seeds 12345, 67890, 13579, 24680, and 424242 keep the standard36 contiguous-0..=82 null hit count at 0/1000, keep DoF min marginal p / accepted headline cell at the calibration floor, and keep Perseus at observed 0/185 with 1000-shuffle p range 4/1001..9/1001. Corroborates robustness against seed cherry-picking; conclusions unchanged.
 - 2026-06-24: Experiment 7C (Perseus recurrence null) — pinned shared regions as same-offset size≥2 runs in the earliest leading-family alignment or East/West counterpart pairs; observed 0/185 non-shared→later-shared recurrences, seed 12345 / 1000 within-message shuffles gives add-one lower-tail p 7/1001 = 0.006993. Corroborates a structural permutation direction only; no decode.
 - 2026-06-24: Global transposition disfavored note — added a corpus-backed test for the nine distinct accepted-honeycomb trigram-stream lengths and documented why those unequal lengths plus same-offset shared anchors are evidence against one shared global transposition route under the natural model. No transposition module added; conclusions unchanged.

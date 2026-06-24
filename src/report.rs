@@ -352,6 +352,9 @@ pub fn print_null_report(report: &null::NullReport) {
     println!(
         "Interpretation: this corrects grid-content randomness and fixed standard36 digit-permutation selection only. It does not correct for broader researcher degrees of freedom such as choosing the traversal family, grouping rule, or headline statistic after looking at the data."
     );
+    println!(
+        "Seed-stability note: multi-seed regressions over seeds 12345, 67890, 13579, 24680, and 424242 keep the exact contiguous-0..=82 headline count at zero; changing seed only moves sampled null summaries."
+    );
 }
 
 /// Prints the calibrated researcher-`DoF` null report.
@@ -430,6 +433,9 @@ pub fn print_dof_null_report(report: &dof_null::DofNullReport) {
     println!();
     println!(
         "Interpretation: the empirical adaptive value above is a finite-resolution diagnostic, not the headline significance. With this calibration size, any sub-floor cell is censored to the floor, so the diagnostic estimates how often random grids hit that floor somewhere after look-elsewhere multiplicity. The analytic bound is the appropriate correction for the known bounded-contiguity headline; it remains astronomically small and still does not decode meaning."
+    );
+    println!(
+        "Seed-stability note: multi-seed regressions keep the eyes' min marginal p and accepted headline cell at the calibration floor, with the adaptive diagnostic staying in the same finite-resolution floor-hit regime. The analytic DoF-corrected headline bound is seed-independent."
     );
 }
 
@@ -1311,6 +1317,9 @@ fn print_perseus_interpretation(report: &perseus::PerseusReport) {
             "Interpretation: this run does not show the Perseus recurrence constraint beyond the within-message shuffle null. That weakly retires this community claim under the pinned definition, and still decodes nothing."
         );
     }
+    println!(
+        "Seed-stability note: 1000-shuffle multi-seed regressions over seeds 12345, 67890, 13579, 24680, and 424242 keep the observed statistic at 0/185 and the lower-tail p below 0.01."
+    );
     println!(
         "The result is conditional on the accepted honeycomb reading order and on the documented shared-region operationalization printed above."
     );
