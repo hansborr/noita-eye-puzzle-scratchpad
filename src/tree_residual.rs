@@ -15,6 +15,7 @@
 //! residual multiset.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::mem::size_of;
 
 use crate::null::SplitMix64;
 use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
@@ -31,6 +32,9 @@ pub const DEFAULT_SEED_COUNT: usize = 5;
 pub const K_VALUES: [usize; 2] = [3, 4];
 /// Conventional pointwise upper-tail significance cutoff.
 pub const SIGNIFICANCE_ALPHA: f64 = 0.05;
+
+const TREE_RESIDUAL_ROW_COUNT: usize = 2 * K_VALUES.len();
+const MAX_VEC_ALLOCATION_BYTES: usize = usize::MAX / 2;
 
 /// Configuration for the tree-residual cross-tail n-gram null.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -277,11 +281,8 @@ fn report_from_segment_messages(
     full_messages: &[MessageSegments],
 ) -> Result<TreeResidualReport, TreeResidualError> {
     validate_config(config)?;
-    let sample_count = config
-        .trials
-        .checked_mul(config.seed_count)
-        .ok_or(TreeResidualError::SampleCountTooLarge)?;
-    let seeds = seed_batches(config.seed, config.seed_count);
+    let sample_count = total_sample_count(config)?;
+    let seeds = seed_batches(config.seed, config.seed_count)?;
     let mut rows = initial_row_accumulators(residual_messages, full_messages, sample_count)?;
 
     for seed in &seeds {
@@ -325,7 +326,40 @@ fn validate_config(config: TreeResidualConfig) -> Result<(), TreeResidualError> 
     if config.seed_count == 0 {
         return Err(TreeResidualError::ZeroSeedCount);
     }
+    let sample_count = total_sample_count(config)?;
+    validate_vec_capacity::<usize>(sample_count)?;
+    validate_vec_capacity::<u64>(config.seed_count)?;
     Ok(())
+}
+
+fn total_sample_count(config: TreeResidualConfig) -> Result<usize, TreeResidualError> {
+    config
+        .trials
+        .checked_mul(config.seed_count)
+        .ok_or(TreeResidualError::SampleCountTooLarge)
+}
+
+fn reserve_exact<T>(values: &mut Vec<T>, capacity: usize) -> Result<(), TreeResidualError> {
+    validate_vec_capacity::<T>(capacity)?;
+    match values.try_reserve_exact(capacity) {
+        Ok(()) => Ok(()),
+        Err(_error) => Err(TreeResidualError::SampleCountTooLarge),
+    }
+}
+
+fn validate_vec_capacity<T>(capacity: usize) -> Result<(), TreeResidualError> {
+    if capacity > max_vec_capacity_for::<T>() {
+        return Err(TreeResidualError::SampleCountTooLarge);
+    }
+    Ok(())
+}
+
+fn max_vec_capacity_for<T>() -> usize {
+    let element_size = size_of::<T>();
+    if element_size == 0 {
+        return usize::MAX;
+    }
+    MAX_VEC_ALLOCATION_BYTES / element_size
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -392,17 +426,19 @@ fn initial_row_accumulators(
     full_messages: &[MessageSegments],
     sample_count: usize,
 ) -> Result<Vec<RowAccumulator>, TreeResidualError> {
-    let mut rows = Vec::new();
+    let mut rows = Vec::with_capacity(TREE_RESIDUAL_ROW_COUNT);
     for (scope, messages) in [
         (TreeResidualScope::ResidualTails, residual_messages),
         (TreeResidualScope::FullMessages, full_messages),
     ] {
         for k in K_VALUES {
+            let mut samples = Vec::new();
+            reserve_exact(&mut samples, sample_count)?;
             rows.push(RowAccumulator {
                 scope,
                 k,
                 observed: cross_message_statistic(messages, k)?,
-                samples: Vec::with_capacity(sample_count),
+                samples,
                 lower_tail_count: 0,
                 upper_tail_count: 0,
             });
@@ -620,17 +656,18 @@ fn random_index_below(bound: usize, rng: &mut SplitMix64) -> Result<usize, TreeR
     }
 }
 
-fn seed_batches(seed: u64, seed_count: usize) -> Vec<u64> {
-    let mut seeds = Vec::with_capacity(seed_count);
+fn seed_batches(seed: u64, seed_count: usize) -> Result<Vec<u64>, TreeResidualError> {
+    let mut seeds = Vec::new();
+    reserve_exact(&mut seeds, seed_count)?;
     if seed_count == 0 {
-        return seeds;
+        return Ok(seeds);
     }
     seeds.push(seed);
     let mut rng = SplitMix64::new(seed);
     while seeds.len() < seed_count {
         seeds.push(rng.next_u64());
     }
-    seeds
+    Ok(seeds)
 }
 
 fn null_band(samples: &[usize]) -> CrossTailNullBand {
@@ -703,9 +740,9 @@ fn scaled_quantile_index(len: usize, numerator: usize, denominator: usize) -> us
 #[cfg(test)]
 mod tests {
     use super::{
-        CrossTailStatistic, MessageSegments, TreeResidualConfig, TreeResidualScope,
-        cross_message_statistic, report_from_message_values, residual_segment_messages,
-        run_tree_residual,
+        CrossTailStatistic, MessageSegments, TreeResidualConfig, TreeResidualError,
+        TreeResidualScope, cross_message_statistic, max_vec_capacity_for,
+        report_from_message_values, residual_segment_messages, run_tree_residual, seed_batches,
     };
     use crate::null::SplitMix64;
     use crate::orders;
@@ -777,6 +814,33 @@ mod tests {
         let second = residual_iter.next().unwrap();
         assert_eq!(first.segments, vec![values(&[80]), values(&[10, 11, 12])]);
         assert_eq!(second.segments, vec![values(&[81]), values(&[20, 21, 22])]);
+    }
+
+    #[test]
+    fn oversized_sample_count_returns_error_without_capacity_panic() {
+        let too_many_samples = max_vec_capacity_for::<usize>() + 1;
+
+        let result = report_from_message_values(
+            TreeResidualConfig {
+                seed: 0,
+                trials: too_many_samples,
+                seed_count: 1,
+            },
+            orders::accepted_honeycomb_order(),
+            &[],
+            &[],
+        );
+
+        assert_eq!(result.err(), Some(TreeResidualError::SampleCountTooLarge));
+    }
+
+    #[test]
+    fn oversized_seed_count_returns_error_without_capacity_panic() {
+        let too_many_seeds = max_vec_capacity_for::<u64>() + 1;
+
+        let result = seed_batches(0, too_many_seeds);
+
+        assert_eq!(result.err(), Some(TreeResidualError::SampleCountTooLarge));
     }
 
     #[test]
