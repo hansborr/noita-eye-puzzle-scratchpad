@@ -13,6 +13,8 @@ use crate::trigram::TrigramValue;
 
 const REPORT_QUANTILE_DENOMINATOR: usize = 1_000;
 const ADD_CONSTANT_ALPHA: f64 = 1.0;
+const NO_REPEAT_BURN_IN_SWEEPS: usize = 100;
+const NO_REPEAT_SAMPLE_SWEEPS: usize = 20;
 const CONTROL_PATTERN: [usize; 24] = [
     0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 8, 9, 10, 11, 8, 9, 10, 11, 12, 13, 14, 15,
 ];
@@ -98,6 +100,12 @@ pub enum ConditionalStructureError {
         /// Requested exclusive upper bound.
         bound: usize,
     },
+    /// The no-repeat conditioned null was requested for a message that already
+    /// contains an adjacent-equal transition.
+    NoRepeatNullRequiresNoAdjacentEqual {
+        /// Message key for the offending message.
+        message_key: &'static str,
+    },
 }
 
 impl From<GridError> for ConditionalStructureError {
@@ -145,6 +153,38 @@ pub struct TransitionChiSquare {
     /// Included cells with expected count below `1`.
     pub expected_lt_1_cells: usize,
     /// Included cells with expected count below `5`.
+    pub expected_lt_5_cells: usize,
+}
+
+/// Diagonal contribution from adjacent-equal `x -> x` transitions.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DiagonalTransitionSummary {
+    /// Total observed self-transitions on the diagonal.
+    pub self_transitions: usize,
+    /// Diagonal cells with at least one observed self-transition.
+    pub self_transition_edges: usize,
+    /// Expected self-transition count under the fitted independence marginals.
+    pub expected_self_transitions_independence: f64,
+    /// Pearson statistic contribution from the diagonal cells.
+    pub chi_square_contribution: f64,
+}
+
+/// Transition summary after omitting diagonal `x -> x` cells.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct OffDiagonalTransitionSummary {
+    /// Off-diagonal matrix cells, `alphabet_size * (alphabet_size - 1)`.
+    pub matrix_cells: usize,
+    /// Nonzero directed successor edges with distinct source and target.
+    pub distinct_successor_edges: usize,
+    /// Nonzero off-diagonal edge density.
+    pub edge_density: f64,
+    /// Pearson statistic contribution after omitting diagonal cells.
+    pub chi_square_statistic: f64,
+    /// Active row/column off-diagonal cells included in the Pearson sum.
+    pub expected_cells: usize,
+    /// Included off-diagonal cells with expected count below `1`.
+    pub expected_lt_1_cells: usize,
+    /// Included off-diagonal cells with expected count below `5`.
     pub expected_lt_5_cells: usize,
 }
 
@@ -210,6 +250,10 @@ pub struct FirstOrderStats {
     pub entropy: EntropyEstimates,
     /// Transition-independence chi-square summary.
     pub chi_square: TransitionChiSquare,
+    /// Diagonal/self-transition contribution.
+    pub diagonal: DiagonalTransitionSummary,
+    /// Off-diagonal-only transition statistics.
+    pub off_diagonal: OffDiagonalTransitionSummary,
     /// Successor graph summary.
     pub graph: SuccessorGraphSummary,
 }
@@ -225,8 +269,14 @@ pub enum ConditionalStatistic {
     MutualInformationCorrected,
     /// Pearson transition-independence chi-square statistic.
     TransitionChiSquare,
+    /// Pearson transition statistic with diagonal cells omitted.
+    TransitionChiSquareOffDiagonal,
     /// Distinct directed successor edges.
     DistinctSuccessorEdges,
+    /// Distinct directed successor edges with diagonal cells omitted.
+    DistinctSuccessorEdgesOffDiagonal,
+    /// Total adjacent-equal self-transitions.
+    SelfTransitions,
     /// Unweighted mean per-source successor entropy.
     SuccessorEntropy,
     /// Greedy deterministic-FSM state lower bound.
@@ -242,7 +292,10 @@ impl ConditionalStatistic {
             Self::ConditionalEntropyCorrected => "H(next|cur) add-1 bits",
             Self::MutualInformationCorrected => "MI add-1 bits",
             Self::TransitionChiSquare => "transition chi2",
+            Self::TransitionChiSquareOffDiagonal => "offdiag transition chi2",
             Self::DistinctSuccessorEdges => "successor edges",
+            Self::DistinctSuccessorEdgesOffDiagonal => "offdiag successor edges",
+            Self::SelfTransitions => "self transitions",
             Self::SuccessorEntropy => "successor entropy",
             Self::GreedyFsmStateLowerBound => "FSM lower bound",
         }
@@ -328,6 +381,17 @@ pub struct PlantedControlsReport {
     pub deck_permuted: PlantedControlReport,
 }
 
+/// No-repeat-conditioned null based on a symmetric within-message swap chain.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NoRepeatNullReport {
+    /// Number of full-message swap sweeps discarded before sampling each seed.
+    pub burn_in_sweeps: usize,
+    /// Number of full-message swap sweeps between recorded samples.
+    pub sample_sweeps: usize,
+    /// Real-vs-null comparisons under the no-adjacent-equal constraint.
+    pub comparisons: Vec<NullComparison>,
+}
+
 /// Complete first-order conditional-structure report.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ConditionalStructureReport {
@@ -341,6 +405,8 @@ pub struct ConditionalStructureReport {
     pub observed: FirstOrderStats,
     /// Real-vs-shuffle comparisons for the eye stream.
     pub comparisons: Vec<NullComparison>,
+    /// Real-vs-shuffle comparisons after conditioning shuffles on no repeats.
+    pub no_repeat_null: NoRepeatNullReport,
     /// Flat-random bias calibration for the entropy estimator.
     pub bias_calibration: BiasCalibrationReport,
     /// Planted positive controls.
@@ -372,6 +438,7 @@ fn report_from_message_values(
     validate_config(config)?;
     let observed = first_order_stats(keys, messages, config.alphabet_size)?;
     let comparisons = null_comparisons(config, keys, messages, &observed)?;
+    let no_repeat_null = no_repeat_null_comparisons(config, keys, messages, &observed)?;
     let lengths = messages.iter().map(Vec::len).collect::<Vec<_>>();
     let bias_calibration = bias_calibration(config, &lengths)?;
     let controls = planted_controls(config, &lengths)?;
@@ -382,6 +449,7 @@ fn report_from_message_values(
         message_lengths: keys.iter().copied().zip(lengths).collect(),
         observed,
         comparisons,
+        no_repeat_null,
         bias_calibration,
         controls,
     })
@@ -414,6 +482,8 @@ fn first_order_stats(
         matrix: matrix_summary(&counts),
         entropy: entropy_estimates(&counts),
         chi_square: transition_chi_square(&counts),
+        diagonal: diagonal_transition_summary(&counts),
+        off_diagonal: off_diagonal_transition_summary(&counts),
         graph: successor_graph_summary(&counts),
     })
 }
@@ -428,7 +498,14 @@ fn statistic_value(stats: &FirstOrderStats, statistic: ConditionalStatistic) -> 
             stats.entropy.mutual_information_corrected_bits
         }
         ConditionalStatistic::TransitionChiSquare => stats.chi_square.statistic,
+        ConditionalStatistic::TransitionChiSquareOffDiagonal => {
+            stats.off_diagonal.chi_square_statistic
+        }
         ConditionalStatistic::DistinctSuccessorEdges => stats.graph.distinct_successor_edges as f64,
+        ConditionalStatistic::DistinctSuccessorEdgesOffDiagonal => {
+            stats.off_diagonal.distinct_successor_edges as f64
+        }
+        ConditionalStatistic::SelfTransitions => stats.diagonal.self_transitions as f64,
         ConditionalStatistic::SuccessorEntropy => stats.graph.successor_entropy_bits,
         ConditionalStatistic::GreedyFsmStateLowerBound => {
             stats.graph.greedy_fsm_state_lower_bound as f64
@@ -436,14 +513,24 @@ fn statistic_value(stats: &FirstOrderStats, statistic: ConditionalStatistic) -> 
     }
 }
 
-const COMPARISON_STATISTICS: [ConditionalStatistic; 7] = [
+const COMPARISON_STATISTICS: [ConditionalStatistic; 10] = [
     ConditionalStatistic::NextEntropyCorrected,
     ConditionalStatistic::ConditionalEntropyCorrected,
     ConditionalStatistic::MutualInformationCorrected,
     ConditionalStatistic::TransitionChiSquare,
+    ConditionalStatistic::TransitionChiSquareOffDiagonal,
     ConditionalStatistic::DistinctSuccessorEdges,
+    ConditionalStatistic::DistinctSuccessorEdgesOffDiagonal,
+    ConditionalStatistic::SelfTransitions,
     ConditionalStatistic::SuccessorEntropy,
     ConditionalStatistic::GreedyFsmStateLowerBound,
+];
+
+const NO_REPEAT_COMPARISON_STATISTICS: [ConditionalStatistic; 4] = [
+    ConditionalStatistic::SelfTransitions,
+    ConditionalStatistic::MutualInformationCorrected,
+    ConditionalStatistic::TransitionChiSquareOffDiagonal,
+    ConditionalStatistic::DistinctSuccessorEdgesOffDiagonal,
 ];
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -694,6 +781,112 @@ fn transition_chi_square(counts: &TransitionCounts) -> TransitionChiSquare {
     }
 }
 
+fn diagonal_transition_summary(counts: &TransitionCounts) -> DiagonalTransitionSummary {
+    if counts.transitions == 0 {
+        return DiagonalTransitionSummary {
+            self_transitions: 0,
+            self_transition_edges: 0,
+            expected_self_transitions_independence: 0.0,
+            chi_square_contribution: 0.0,
+        };
+    }
+
+    let mut self_transitions = 0usize;
+    let mut self_transition_edges = 0usize;
+    let mut expected_self_transitions_independence = 0.0;
+    let mut chi_square_contribution = 0.0;
+    for (index, (&row_total, &column_total)) in counts
+        .row_totals
+        .iter()
+        .zip(counts.column_totals.iter())
+        .enumerate()
+    {
+        let observed = counts.cell(index, index).unwrap_or(0);
+        self_transitions = self_transitions.saturating_add(observed);
+        if observed > 0 {
+            self_transition_edges = self_transition_edges.saturating_add(1);
+        }
+        let expected = row_total as f64 * column_total as f64 / counts.transitions as f64;
+        expected_self_transitions_independence += expected;
+        if expected > 0.0 {
+            let delta = observed as f64 - expected;
+            chi_square_contribution += delta * delta / expected;
+        }
+    }
+
+    DiagonalTransitionSummary {
+        self_transitions,
+        self_transition_edges,
+        expected_self_transitions_independence,
+        chi_square_contribution,
+    }
+}
+
+fn off_diagonal_transition_summary(counts: &TransitionCounts) -> OffDiagonalTransitionSummary {
+    let matrix_cells = counts.matrix.len().saturating_sub(counts.alphabet_size);
+    if counts.transitions == 0 {
+        return OffDiagonalTransitionSummary {
+            matrix_cells,
+            distinct_successor_edges: 0,
+            edge_density: 0.0,
+            chi_square_statistic: 0.0,
+            expected_cells: 0,
+            expected_lt_1_cells: 0,
+            expected_lt_5_cells: 0,
+        };
+    }
+
+    let mut distinct_successor_edges = 0usize;
+    let mut chi_square_statistic = 0.0;
+    let mut expected_cells = 0usize;
+    let mut expected_lt_1_cells = 0usize;
+    let mut expected_lt_5_cells = 0usize;
+    for (row_index, &row_total) in counts.row_totals.iter().enumerate() {
+        if row_total == 0 {
+            continue;
+        }
+        let Some(row) = counts.row(row_index) else {
+            continue;
+        };
+        for (column_index, (&observed, &column_total)) in
+            row.iter().zip(counts.column_totals.iter()).enumerate()
+        {
+            if row_index == column_index {
+                continue;
+            }
+            if observed > 0 {
+                distinct_successor_edges = distinct_successor_edges.saturating_add(1);
+            }
+            if column_total == 0 {
+                continue;
+            }
+            let expected = row_total as f64 * column_total as f64 / counts.transitions as f64;
+            if expected <= 0.0 {
+                continue;
+            }
+            expected_cells = expected_cells.saturating_add(1);
+            if expected < 1.0 {
+                expected_lt_1_cells = expected_lt_1_cells.saturating_add(1);
+            }
+            if expected < 5.0 {
+                expected_lt_5_cells = expected_lt_5_cells.saturating_add(1);
+            }
+            let delta = observed as f64 - expected;
+            chi_square_statistic += delta * delta / expected;
+        }
+    }
+
+    OffDiagonalTransitionSummary {
+        matrix_cells,
+        distinct_successor_edges,
+        edge_density: fraction(distinct_successor_edges, matrix_cells),
+        chi_square_statistic,
+        expected_cells,
+        expected_lt_1_cells,
+        expected_lt_5_cells,
+    }
+}
+
 fn successor_graph_summary(counts: &TransitionCounts) -> SuccessorGraphSummary {
     let mut out_degrees = Vec::with_capacity(counts.alphabet_size);
     let mut row_entropy_total = 0.0;
@@ -827,6 +1020,126 @@ fn null_comparisons(
             comparison_from_samples(statistic, observed_value, statistic_samples)
         })
         .collect())
+}
+
+fn no_repeat_null_comparisons(
+    config: ConditionalStructureConfig,
+    keys: &[&'static str],
+    messages: &[Vec<TrigramValue>],
+    observed: &FirstOrderStats,
+) -> Result<NoRepeatNullReport, ConditionalStructureError> {
+    validate_no_adjacent_equal(keys, messages)?;
+    let total_trials = config.total_trials()?;
+    let mut samples = vec![Vec::with_capacity(total_trials); NO_REPEAT_COMPARISON_STATISTICS.len()];
+
+    for seed_index in 0..config.seed_count {
+        let seed = derived_seed(config.seed ^ 0x6e6f_7265_7065_6174, seed_index)?;
+        let mut rng = SplitMix64::new(seed);
+        let mut chain = messages.to_vec();
+        run_no_repeat_sweeps(&mut chain, NO_REPEAT_BURN_IN_SWEEPS, &mut rng)?;
+        for _trial in 0..config.trials_per_seed {
+            run_no_repeat_sweeps(&mut chain, NO_REPEAT_SAMPLE_SWEEPS, &mut rng)?;
+            let stats = first_order_stats(keys, &chain, config.alphabet_size)?;
+            for (sample_row, &statistic) in samples
+                .iter_mut()
+                .zip(NO_REPEAT_COMPARISON_STATISTICS.iter())
+            {
+                sample_row.push(statistic_value(&stats, statistic));
+            }
+        }
+    }
+
+    let comparisons = NO_REPEAT_COMPARISON_STATISTICS
+        .iter()
+        .copied()
+        .zip(samples.iter())
+        .map(|(statistic, statistic_samples)| {
+            let observed_value = statistic_value(observed, statistic);
+            comparison_from_samples(statistic, observed_value, statistic_samples)
+        })
+        .collect();
+
+    Ok(NoRepeatNullReport {
+        burn_in_sweeps: NO_REPEAT_BURN_IN_SWEEPS,
+        sample_sweeps: NO_REPEAT_SAMPLE_SWEEPS,
+        comparisons,
+    })
+}
+
+fn validate_no_adjacent_equal(
+    keys: &[&'static str],
+    messages: &[Vec<TrigramValue>],
+) -> Result<(), ConditionalStructureError> {
+    for (message_index, values) in messages.iter().enumerate() {
+        if has_adjacent_equal(values) {
+            return Err(
+                ConditionalStructureError::NoRepeatNullRequiresNoAdjacentEqual {
+                    message_key: keys.get(message_index).copied().unwrap_or("synthetic"),
+                },
+            );
+        }
+    }
+    Ok(())
+}
+
+fn run_no_repeat_sweeps(
+    messages: &mut [Vec<TrigramValue>],
+    sweeps: usize,
+    rng: &mut SplitMix64,
+) -> Result<(), ConditionalStructureError> {
+    for _sweep in 0..sweeps {
+        for values in messages.iter_mut() {
+            run_no_repeat_message_sweep(values, rng)?;
+        }
+    }
+    Ok(())
+}
+
+fn run_no_repeat_message_sweep(
+    values: &mut [TrigramValue],
+    rng: &mut SplitMix64,
+) -> Result<(), ConditionalStructureError> {
+    for _proposal in 0..values.len() {
+        propose_no_repeat_swap(values, rng)?;
+    }
+    Ok(())
+}
+
+fn propose_no_repeat_swap(
+    values: &mut [TrigramValue],
+    rng: &mut SplitMix64,
+) -> Result<(), ConditionalStructureError> {
+    if values.len() < 2 {
+        return Ok(());
+    }
+    let left = random_index_below(values.len(), rng)?;
+    let right = random_index_below(values.len(), rng)?;
+    values.swap(left, right);
+    if has_adjacent_equal_around(values, left) || has_adjacent_equal_around(values, right) {
+        values.swap(left, right);
+    }
+    Ok(())
+}
+
+fn has_adjacent_equal(values: &[TrigramValue]) -> bool {
+    values.windows(2).any(|pair| {
+        let [left, right] = pair else {
+            return false;
+        };
+        left == right
+    })
+}
+
+fn has_adjacent_equal_around(values: &[TrigramValue], position: usize) -> bool {
+    let Some(current) = values.get(position) else {
+        return false;
+    };
+    let previous_equal = position
+        .checked_sub(1)
+        .and_then(|previous| values.get(previous))
+        == Some(current);
+    let next_equal = position.checked_add(1).and_then(|next| values.get(next)) == Some(current);
+    previous_equal || next_equal
 }
 
 fn comparison_from_samples(
@@ -1352,8 +1665,41 @@ mod tests {
         assert_eq!(report.observed.matrix.symbols, 1036);
         assert_eq!(report.observed.matrix.transitions, 1027);
         assert_eq!(report.observed.matrix.nonzero_cells, 850);
+        assert_eq!(report.observed.chi_square.degrees_of_freedom, 6724);
         assert_eq!(report.observed.graph.distinct_successor_edges, 850);
         assert_eq!(report.observed.graph.greedy_fsm_state_lower_bound, 850);
+        assert_eq!(report.observed.diagonal.self_transitions, 0);
+        assert_eq!(report.observed.diagonal.self_transition_edges, 0);
+        assert_eq!(report.observed.off_diagonal.matrix_cells, 6806);
+        assert_eq!(report.observed.off_diagonal.distinct_successor_edges, 850);
+        assert_eq!(report.observed.off_diagonal.expected_cells, 6806);
+        assert_eq!(report.observed.off_diagonal.expected_lt_1_cells, 6806);
+        assert_eq!(report.observed.off_diagonal.expected_lt_5_cells, 6806);
+        assert!(
+            (report
+                .observed
+                .diagonal
+                .expected_self_transitions_independence
+                - report.observed.diagonal.chi_square_contribution)
+                .abs()
+                < 1e-12
+        );
+        assert!(
+            (report.observed.diagonal.chi_square_contribution
+                + report.observed.off_diagonal.chi_square_statistic
+                - report.observed.chi_square.statistic)
+                .abs()
+                < 1e-9
+        );
+        let no_repeat_self_transitions = report
+            .no_repeat_null
+            .comparisons
+            .iter()
+            .find(|row| row.statistic == ConditionalStatistic::SelfTransitions)
+            .unwrap();
+        assert!(no_repeat_self_transitions.observed.abs() < f64::EPSILON);
+        assert!(no_repeat_self_transitions.null.min.abs() < f64::EPSILON);
+        assert!(no_repeat_self_transitions.null.max.abs() < f64::EPSILON);
         assert!(
             (report.observed.entropy.mutual_information_corrected_bits
                 - 0.000_726_184_362_833_670_6)

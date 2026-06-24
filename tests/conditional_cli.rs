@@ -22,6 +22,9 @@ fn conditional_subcommand_reports_first_order_panel() {
     );
     assert_contains(&stdout, "low-power caveat:");
     assert_contains(&stdout, "within-message shuffle comparisons");
+    assert_contains(&stdout, "diagonal/no-repeat accounting");
+    assert_contains(&stdout, "no-repeat-conditioned shuffle comparisons");
+    assert_contains(&stdout, "Sparse-table caveat:");
     assert_contains(&stdout, "flat-random estimator-bias calibration");
     assert_contains(&stdout, "planted structure controls");
     assert_contains(&stdout, "MI raw/corrected:");

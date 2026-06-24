@@ -338,6 +338,11 @@ pub fn format_conditional_structure_error(
         conditional_structure::ConditionalStructureError::RandomBoundTooLarge { bound } => {
             format!("random draw bound {bound} is too large")
         }
+        conditional_structure::ConditionalStructureError::NoRepeatNullRequiresNoAdjacentEqual {
+            message_key,
+        } => format!(
+            "{message_key}: no-repeat conditioned null requires an input with no adjacent-equal transitions"
+        ),
     }
 }
 
@@ -1201,6 +1206,16 @@ fn print_isomorph_null_interpretation(report: &isomorph_null::IsomorphNullReport
     );
 }
 
+const PRIMARY_CONDITIONAL_REPORT_STATISTICS: [conditional_structure::ConditionalStatistic; 7] = [
+    conditional_structure::ConditionalStatistic::NextEntropyCorrected,
+    conditional_structure::ConditionalStatistic::ConditionalEntropyCorrected,
+    conditional_structure::ConditionalStatistic::MutualInformationCorrected,
+    conditional_structure::ConditionalStatistic::TransitionChiSquare,
+    conditional_structure::ConditionalStatistic::DistinctSuccessorEdges,
+    conditional_structure::ConditionalStatistic::SuccessorEntropy,
+    conditional_structure::ConditionalStatistic::GreedyFsmStateLowerBound,
+];
+
 /// Prints the first-order conditional-structure and successor-graph report.
 pub fn print_conditional_structure_report(
     report: &conditional_structure::ConditionalStructureReport,
@@ -1221,6 +1236,10 @@ pub fn print_conditional_structure_report(
         report.config.seed_count, report.config.trials_per_seed, total_trials
     );
     println!(
+        "no-repeat null: symmetric swap-chain shuffles conditioned on zero adjacent-equal pairs ({} burn-in sweeps, {} sweeps/sample)",
+        report.no_repeat_null.burn_in_sweeps, report.no_repeat_null.sample_sweeps
+    );
+    println!(
         "message lengths: {}",
         format_message_lengths(&report.message_lengths)
     );
@@ -1228,7 +1247,7 @@ pub fn print_conditional_structure_report(
         "boundary rule: transitions are counted within each message only; no transition crosses a message join"
     );
     println!(
-        "low-power caveat: {} symbols, {} transitions, and {} cells in an {}x{} matrix (mean {:.3} transitions/cell; {:.2} symbols/value). Inside-shuffle means no detectable first-order structure at this corpus size, not proof of memorylessness.",
+        "low-power caveat: {} symbols, {} transitions, and {} cells in an {}x{} matrix (mean {:.3} transitions/cell; {:.2} symbols/value). An inside-shuffle row is only a null-comparison result at this corpus size, not proof of memorylessness.",
         report.observed.matrix.symbols,
         report.observed.matrix.transitions,
         report.observed.matrix.matrix_cells,
@@ -1245,6 +1264,10 @@ pub fn print_conditional_structure_report(
     print_conditional_observed(report);
     println!();
     print_conditional_comparisons(report);
+    println!();
+    print_conditional_diagonal_accounting(report);
+    println!();
+    print_conditional_no_repeat_comparisons(report);
     println!();
     print_conditional_bias_calibration(report);
     println!();
@@ -1278,10 +1301,34 @@ fn print_conditional_observed(report: &conditional_structure::ConditionalStructu
         observed.entropy.conditional_entropy_corrected_bits
     );
     println!(
-        "  MI raw/corrected: {:.4}/{:.6} bits; chi2: {:.3}",
+        "  MI raw/corrected: {:.4}/{:.6} bits; G raw/corrected from MI: {:.1}/{:.3}; Pearson chi2: {:.3}",
         observed.entropy.mutual_information_mle_bits,
         observed.entropy.mutual_information_corrected_bits,
+        likelihood_ratio_g_from_mi_bits(
+            observed.entropy.transitions,
+            observed.entropy.mutual_information_mle_bits
+        ),
+        likelihood_ratio_g_from_mi_bits(
+            observed.entropy.transitions,
+            observed.entropy.mutual_information_corrected_bits
+        ),
         observed.chi_square.statistic
+    );
+    println!(
+        "  diagonal: {} self-transitions in {} cells; fitted-independence expectation {:.2}; diagonal Pearson contribution {:.3}",
+        observed.diagonal.self_transitions,
+        report.config.alphabet_size,
+        observed.diagonal.expected_self_transitions_independence,
+        observed.diagonal.chi_square_contribution
+    );
+    println!(
+        "  off-diagonal: {} edges over {} cells ({:.3}% density); chi2 contribution {:.3}; expected cells <1/<5: {}/{}",
+        observed.off_diagonal.distinct_successor_edges,
+        observed.off_diagonal.matrix_cells,
+        observed.off_diagonal.edge_density * 100.0,
+        observed.off_diagonal.chi_square_statistic,
+        observed.off_diagonal.expected_lt_1_cells,
+        observed.off_diagonal.expected_lt_5_cells
     );
     println!(
         "  successor graph: {} edges, mean out-degree {:.2}, max out-degree {}, successor entropy {:.4} bits, out-degree entropy {:.4} bits, FSM lower bound {} states",
@@ -1295,30 +1342,102 @@ fn print_conditional_observed(report: &conditional_structure::ConditionalStructu
 }
 
 fn print_conditional_comparisons(report: &conditional_structure::ConditionalStructureReport) {
-    println!("within-message shuffle comparisons");
+    println!("within-message shuffle comparisons (unconstrained, diagonal included)");
     println!(
         "{:<25} {:>12} {:>12} {:>19} {:>12} {:>10}",
         "statistic", "observed", "null med", "null 95%", "p two-sided", "flag"
     );
-    for row in &report.comparisons {
-        println!(
-            "{:<25} {:>12} {:>12} {:>19} {:>12} {:>10}",
-            row.statistic.label(),
-            format_conditional_statistic(row.statistic, row.observed),
-            format_conditional_statistic(row.statistic, row.null.median),
-            format_conditional_band(row.statistic, row.null),
-            format_probability(row.two_sided_add_one_p),
-            if row.outside_pointwise_95 {
-                "pt95-out"
-            } else {
-                "inside"
-            }
-        );
+    for statistic in PRIMARY_CONDITIONAL_REPORT_STATISTICS {
+        if let Some(row) = comparison_for_statistic(&report.comparisons, statistic) {
+            print_conditional_comparison_row(row);
+        }
     }
     println!(
         "p-values are two-sided add-one empirical values and pointwise over {} displayed statistics; no family-wise correction is claimed.",
-        report.comparisons.len()
+        PRIMARY_CONDITIONAL_REPORT_STATISTICS.len()
     );
+}
+
+fn print_conditional_diagonal_accounting(
+    report: &conditional_structure::ConditionalStructureReport,
+) {
+    let observed = report.observed;
+    println!("diagonal/no-repeat accounting");
+    if let Some(row) = comparison_for_statistic(
+        &report.comparisons,
+        conditional_structure::ConditionalStatistic::SelfTransitions,
+    ) {
+        println!(
+            "  self transitions: eyes {}, unconstrained shuffle mean {:.2}, 95% {}, p {}; fitted-independence expectation {:.2}",
+            format_conditional_statistic(row.statistic, row.observed),
+            row.null.mean,
+            format_conditional_band(row.statistic, row.null),
+            format_probability(row.two_sided_add_one_p),
+            observed.diagonal.expected_self_transitions_independence
+        );
+    }
+    if let Some(row) = comparison_for_statistic(
+        &report.comparisons,
+        conditional_structure::ConditionalStatistic::DistinctSuccessorEdgesOffDiagonal,
+    ) {
+        println!(
+            "  off-diagonal successor edges vs unconstrained shuffle: eyes {}, 95% {}, flag {}",
+            format_conditional_statistic(row.statistic, row.observed),
+            format_conditional_band(row.statistic, row.null),
+            conditional_flag(row)
+        );
+    }
+    if let Some(row) = comparison_for_statistic(
+        &report.comparisons,
+        conditional_structure::ConditionalStatistic::TransitionChiSquareOffDiagonal,
+    ) {
+        println!(
+            "  off-diagonal Pearson contribution vs unconstrained shuffle: eyes {}, 95% {}, flag {}",
+            format_conditional_statistic(row.statistic, row.observed),
+            format_conditional_band(row.statistic, row.null),
+            conditional_flag(row)
+        );
+    }
+    println!(
+        "  diagonal Pearson contribution is {:.3} of the full {:.3}; dropping diagonal cells is a diagnostic, while the no-repeat null below conditions the shuffles on the known zero-adjacency constraint.",
+        observed.diagonal.chi_square_contribution, observed.chi_square.statistic
+    );
+}
+
+fn print_conditional_no_repeat_comparisons(
+    report: &conditional_structure::ConditionalStructureReport,
+) {
+    println!("no-repeat-conditioned shuffle comparisons");
+    println!(
+        "{:<25} {:>12} {:>12} {:>19} {:>12} {:>10}",
+        "statistic", "observed", "null med", "null 95%", "p two-sided", "flag"
+    );
+    for row in &report.no_repeat_null.comparisons {
+        print_conditional_comparison_row(row);
+    }
+    println!(
+        "The chain preserves each message multiset and rejects swaps that would create x->x; p-values are empirical over recorded chain states, not asymptotic chi-square tails."
+    );
+}
+
+fn print_conditional_comparison_row(row: &conditional_structure::NullComparison) {
+    println!(
+        "{:<25} {:>12} {:>12} {:>19} {:>12} {:>10}",
+        row.statistic.label(),
+        format_conditional_statistic(row.statistic, row.observed),
+        format_conditional_statistic(row.statistic, row.null.median),
+        format_conditional_band(row.statistic, row.null),
+        format_probability(row.two_sided_add_one_p),
+        conditional_flag(row)
+    );
+}
+
+fn conditional_flag(row: &conditional_structure::NullComparison) -> &'static str {
+    if row.outside_pointwise_95 {
+        "pt95-out"
+    } else {
+        "inside"
+    }
 }
 
 fn print_conditional_bias_calibration(report: &conditional_structure::ConditionalStructureReport) {
@@ -1406,44 +1525,189 @@ fn print_conditional_controls(report: &conditional_structure::ConditionalStructu
 }
 
 fn print_conditional_interpretation(report: &conditional_structure::ConditionalStructureReport) {
-    let outliers = report
+    let primary_outliers = conditional_primary_outliers(report);
+    let off_diagonal_outliers = conditional_off_diagonal_outliers(report);
+    let no_repeat_outliers = conditional_no_repeat_outliers(report);
+
+    print_conditional_outlier_framing(
+        report,
+        &primary_outliers,
+        &off_diagonal_outliers,
+        &no_repeat_outliers,
+    );
+    print_conditional_effect_size(report);
+    print_conditional_sparse_caveat(report);
+    println!(
+        "The pointwise exceedances are consistent with the known zero-adjacency constraint plus table sparsity, not a plaintext/decryption claim or evidence of novel first-order memory. The planted controls still verify directionality for truly first-order-structured fixtures."
+    );
+}
+
+fn conditional_primary_outliers(
+    report: &conditional_structure::ConditionalStructureReport,
+) -> Vec<String> {
+    PRIMARY_CONDITIONAL_REPORT_STATISTICS
+        .iter()
+        .filter_map(|&statistic| comparison_for_statistic(&report.comparisons, statistic))
+        .filter(|row| row.outside_pointwise_95)
+        .map(conditional_outlier_label)
+        .collect()
+}
+
+fn conditional_off_diagonal_outliers(
+    report: &conditional_structure::ConditionalStructureReport,
+) -> Vec<String> {
+    [
+        conditional_structure::ConditionalStatistic::TransitionChiSquareOffDiagonal,
+        conditional_structure::ConditionalStatistic::DistinctSuccessorEdgesOffDiagonal,
+    ]
+    .iter()
+    .filter_map(|&statistic| comparison_for_statistic(&report.comparisons, statistic))
+    .filter(|row| row.outside_pointwise_95)
+    .map(conditional_outlier_label)
+    .collect()
+}
+
+fn conditional_no_repeat_outliers(
+    report: &conditional_structure::ConditionalStructureReport,
+) -> Vec<String> {
+    report
+        .no_repeat_null
         .comparisons
         .iter()
-        .filter(|row| row.outside_pointwise_95)
-        .map(|row| {
-            format!(
-                "{} (p={})",
-                row.statistic.label(),
-                format_probability(row.two_sided_add_one_p)
-            )
+        .filter(|row| {
+            row.statistic != conditional_structure::ConditionalStatistic::SelfTransitions
+                && row.outside_pointwise_95
         })
-        .collect::<Vec<_>>();
-    if outliers.is_empty() {
+        .map(conditional_outlier_label)
+        .collect()
+}
+
+fn print_conditional_outlier_framing(
+    report: &conditional_structure::ConditionalStructureReport,
+    primary_outliers: &[String],
+    off_diagonal_outliers: &[String],
+    no_repeat_outliers: &[String],
+) {
+    print_conditional_primary_outliers(primary_outliers);
+    if let Some(row) = comparison_for_statistic(
+        &report.comparisons,
+        conditional_structure::ConditionalStatistic::SelfTransitions,
+    ) {
         println!(
-            "Interpretation: the eye stream has no displayed first-order statistic outside its within-message shuffle band. With this sparse 83x83 matrix, that means no detectable conditional structure at this corpus size."
+            "Diagonal confound: the accepted eye order has {} adjacent-equal self-transitions, while the unconstrained shuffle null averages {:.2} with 95% {}. Those raw exceedances are therefore dominated by the already-known zero-adjacency constraint.",
+            format_conditional_statistic(row.statistic, row.observed),
+            row.null.mean,
+            format_conditional_band(row.statistic, row.null)
         );
+    }
+    print_conditional_off_diagonal_framing(off_diagonal_outliers);
+    print_conditional_no_repeat_framing(no_repeat_outliers);
+}
+
+fn print_conditional_primary_outliers(primary_outliers: &[String]) {
+    if primary_outliers.is_empty() {
         println!(
-            "This is positive corroboration for the plaintext-driven permutation direction and evidence against a static substitution/transposition of a strongly first-order-structured source or a detectable low-state deterministic FSM."
+            "Interpretation: the original seven-row unconstrained shuffle table has no pointwise exceedances."
         );
     } else {
         println!(
-            "Interpretation: pointwise shuffle-band exceedances appear in {}. Treat this as a correction candidate, not a plaintext claim, and recheck Experiment 0 corpus integrity before using it.",
-            outliers.join(", ")
+            "Interpretation: the original seven-row unconstrained shuffle table has pointwise exceedances in {}.",
+            primary_outliers.join(", ")
         );
     }
+}
+
+fn print_conditional_off_diagonal_framing(off_diagonal_outliers: &[String]) {
+    if off_diagonal_outliers.is_empty() {
+        println!(
+            "Dropping diagonal cells removes the off-diagonal edge/chi-square pointwise flags against the unconstrained shuffle diagnostic."
+        );
+    } else {
+        println!(
+            "Dropping diagonal cells alone leaves unconstrained-shuffle diagnostic flags in {}; this is not the final control because that null still permits adjacent repeats.",
+            off_diagonal_outliers.join(", ")
+        );
+    }
+}
+
+fn print_conditional_no_repeat_framing(no_repeat_outliers: &[String]) {
+    if no_repeat_outliers.is_empty() {
+        println!(
+            "After conditioning the shuffle null on zero adjacent-equal pairs, no displayed MI/off-diagonal statistic is outside its pointwise 95% band; no first-order signal survives this control."
+        );
+    } else {
+        println!(
+            "After conditioning the shuffle null on zero adjacent-equal pairs, pointwise flags remain in {}. Treat them as sparse-sample diagnostics, not novel first-order memory.",
+            no_repeat_outliers.join(", ")
+        );
+    }
+}
+
+fn print_conditional_effect_size(report: &conditional_structure::ConditionalStructureReport) {
+    let observed = report.observed;
+    let raw_mi_excess = observed.entropy.mutual_information_mle_bits
+        - report.bias_calibration.mle_mutual_information.mean;
+    let corrected_mi_excess = observed.entropy.mutual_information_corrected_bits
+        - report.bias_calibration.corrected_mutual_information.mean;
+    let corrected_mi_fraction = if observed.entropy.max_entropy_bits > 0.0 {
+        observed.entropy.mutual_information_corrected_bits / observed.entropy.max_entropy_bits
+    } else {
+        0.0
+    };
     println!(
-        "The planted controls verify directionality: static monoalphabetic structure is exposed by raw/relative MI and successor bottlenecks, while the deck-permuted version collapses toward its own shuffle band."
+        "Effect size: corrected MI is {:.6} bits ({:.3e} of the {:.3}-bit maximum); raw plug-in MI exceeds the flat-random null mean by {:.3} bits and collapses to {:.6} bits after correction.",
+        observed.entropy.mutual_information_corrected_bits,
+        corrected_mi_fraction,
+        observed.entropy.max_entropy_bits,
+        raw_mi_excess,
+        corrected_mi_excess
     );
+}
+
+fn print_conditional_sparse_caveat(report: &conditional_structure::ConditionalStructureReport) {
+    let observed = report.observed;
+    println!(
+        "Sparse-table caveat: {}/{} Pearson expected cells are <1 (<5: {}), with mean {:.3}; the asymptotic chi-square df={} tail is invalid. The Pearson value {:.3} is a sparse-table inflation artifact relative to G=2*N*MI: {:.1} from raw MLE MI and {:.3} after add-1 correction.",
+        observed.chi_square.expected_lt_1_cells,
+        observed.chi_square.expected_cells,
+        observed.chi_square.expected_lt_5_cells,
+        fraction(
+            observed.entropy.transitions,
+            observed.chi_square.expected_cells
+        ),
+        observed.chi_square.degrees_of_freedom,
+        observed.chi_square.statistic,
+        likelihood_ratio_g_from_mi_bits(
+            observed.entropy.transitions,
+            observed.entropy.mutual_information_mle_bits
+        ),
+        likelihood_ratio_g_from_mi_bits(
+            observed.entropy.transitions,
+            observed.entropy.mutual_information_corrected_bits
+        )
+    );
+}
+
+fn conditional_outlier_label(row: &conditional_structure::NullComparison) -> String {
+    format!(
+        "{} (p={})",
+        row.statistic.label(),
+        format_probability(row.two_sided_add_one_p)
+    )
 }
 
 fn conditional_comparison(
     control: &conditional_structure::PlantedControlReport,
     statistic: conditional_structure::ConditionalStatistic,
 ) -> Option<&conditional_structure::NullComparison> {
-    control
-        .comparisons
-        .iter()
-        .find(|row| row.statistic == statistic)
+    comparison_for_statistic(&control.comparisons, statistic)
+}
+
+fn comparison_for_statistic(
+    comparisons: &[conditional_structure::NullComparison],
+    statistic: conditional_structure::ConditionalStatistic,
+) -> Option<&conditional_structure::NullComparison> {
+    comparisons.iter().find(|row| row.statistic == statistic)
 }
 
 fn conditional_control_verdict(
@@ -1470,6 +1734,10 @@ fn conditional_control_verdict(
     }
 }
 
+fn likelihood_ratio_g_from_mi_bits(transitions: usize, mutual_information_bits: f64) -> f64 {
+    2.0 * transitions as f64 * mutual_information_bits * std::f64::consts::LN_2
+}
+
 fn format_conditional_band(
     statistic: conditional_structure::ConditionalStatistic,
     band: conditional_structure::ScalarNullBand,
@@ -1486,9 +1754,14 @@ fn format_conditional_statistic(
     value: f64,
 ) -> String {
     match statistic {
-        conditional_structure::ConditionalStatistic::TransitionChiSquare => format!("{value:.2}"),
+        conditional_structure::ConditionalStatistic::TransitionChiSquare
+        | conditional_structure::ConditionalStatistic::TransitionChiSquareOffDiagonal => {
+            format!("{value:.2}")
+        }
         conditional_structure::ConditionalStatistic::DistinctSuccessorEdges
-        | conditional_structure::ConditionalStatistic::GreedyFsmStateLowerBound => {
+        | conditional_structure::ConditionalStatistic::DistinctSuccessorEdgesOffDiagonal
+        | conditional_structure::ConditionalStatistic::GreedyFsmStateLowerBound
+        | conditional_structure::ConditionalStatistic::SelfTransitions => {
             format!("{value:.0}")
         }
         _ => format!("{value:.6}"),
