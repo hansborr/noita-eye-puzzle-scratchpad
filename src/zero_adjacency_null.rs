@@ -374,8 +374,8 @@ fn adjacency_summary(
 }
 
 fn analytic_expected_adjacent_equal(values: &[TrigramValue]) -> f64 {
-    let denominator = values.len().saturating_sub(1);
-    if denominator == 0 {
+    let denominator = values.len();
+    if denominator < 2 {
         return 0.0;
     }
     let mut counts = BTreeMap::new();
@@ -632,7 +632,7 @@ mod tests {
 
         assert_eq!(summary.adjacent_equal, 3);
         assert_eq!(summary.comparisons, 4);
-        assert_relative_close(summary.analytic_expected, 2.0, "analytic expected");
+        assert_relative_close(summary.analytic_expected, 1.6, "analytic expected");
         assert_relative_close(summary.rate, 0.75, "rate");
     }
 
@@ -712,7 +712,7 @@ mod tests {
         assert_eq!(report.observed.comparisons, 1_027);
         assert_relative_close(
             report.observed.analytic_expected,
-            12.113_332_187_561_976,
+            12.008_220_182_690_058,
             "eye analytic expected",
         );
         assert_eq!(report.empirical_p_count, 0);
