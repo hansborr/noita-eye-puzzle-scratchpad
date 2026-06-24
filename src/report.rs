@@ -122,6 +122,9 @@ pub fn format_isomorph_null_error(error: isomorph_null::IsomorphNullError) -> St
         isomorph_null::IsomorphNullError::RandomBoundTooLarge { bound } => {
             format!("shuffle bound {bound} is too large")
         }
+        isomorph_null::IsomorphNullError::TrialCountTooLarge => {
+            "trial count is too large for add-one p-value calibration".to_owned()
+        }
     }
 }
 
