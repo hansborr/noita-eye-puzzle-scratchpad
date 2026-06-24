@@ -1898,7 +1898,7 @@ fn print_conditional_interpretation(report: &conditional_structure::ConditionalS
     print_conditional_effect_size(report);
     print_conditional_sparse_caveat(report);
     println!(
-        "The pointwise exceedances are consistent with the known zero-adjacency constraint plus table sparsity, not a plaintext/decryption claim or evidence of novel first-order memory. The planted controls still verify directionality for truly first-order-structured fixtures."
+        "Raw unconstrained exceedances are dominated by the known zero-adjacency constraint (above). Any exceedances that survive the no-repeat-conditioned null are not attributable to zero-adjacency (that null controls it) nor to table sparsity (those tails are empirical, not asymptotic); they reflect only a tiny residual arrangement effect whose honest effect size is negligible (corrected MI near zero, above). None of this is a plaintext/decryption claim or evidence of novel first-order memory. The planted controls still verify directionality for truly first-order-structured fixtures."
     );
 }
 
@@ -1997,7 +1997,7 @@ fn print_conditional_no_repeat_framing(no_repeat_outliers: &[String]) {
         );
     } else {
         println!(
-            "After conditioning the shuffle null on zero adjacent-equal pairs, pointwise flags remain in {}. Treat them as sparse-sample diagnostics, not novel first-order memory.",
+            "After conditioning the shuffle null on zero adjacent-equal pairs, pointwise flags remain in {}. Treat them as a tiny residual arrangement effect with negligible effect size (corrected MI near zero, below), not novel first-order memory.",
             no_repeat_outliers.join(", ")
         );
     }
@@ -2990,6 +2990,9 @@ fn print_pyry_interpretation(report: &pyry_conditions::PyryConditionsReport) {
             "Self-modifying direction: autokey/Alberti-style fixtures passed all nine in {}/{} draws. This specifically tests whether a plaintext-dependent state can produce the differing-first/shared-second pattern while keeping later same-offset material aligned.",
             self_modifying.all_conditions_pass_count,
             self_modifying.draws.len()
+        );
+        println!(
+            "Fixture caveat: this autokey C8 (no-doubled-trigram) pass is partly structural to the fixture. Plaintext-autokey produces equal adjacent ciphertext only when the plaintext repeats at distance two, and the sampled plaintext is constructed to avoid distance-two repeats, so the 'consistent' verdict reflects compatibility under that source construction rather than a pure-cipher guarantee."
         );
     }
 
