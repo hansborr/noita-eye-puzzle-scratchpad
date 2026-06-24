@@ -9,7 +9,7 @@ use std::process::ExitCode;
 use clap::{Args, Parser, Subcommand};
 use noita_eye_puzzle::{
     chaining, cipher_attack, controls, corpus, dof_null, glyph::Sequence, grouping, isomorph_null,
-    null, orders, periodicity, perseus, pipeline_null, report,
+    null, orders, periodicity, perseus, pipeline_null, report, zero_adjacency_null,
 };
 
 const DEFAULT_NULL_SEED: u64 = 0x6e6f_6974_612d_6579;
@@ -56,6 +56,9 @@ enum Command {
     Chaining(ChainingArgs),
     /// Experiment 7C Perseus shared-region recurrence null.
     Perseus(PerseusArgs),
+    /// Experiment 7D zero adjacency vs within-message multiset shuffle null.
+    #[command(name = "zeroadjnull", alias = "zero-adjacency-null")]
+    Zeroadjnull(ZeroAdjacencyNullArgs),
     /// Experiment 12 candidate-cipher language-scoring null harness.
     #[command(name = "cipherattack")]
     Cipherattack(CipherAttackArgs),
@@ -196,6 +199,26 @@ impl From<PerseusArgs> for perseus::PerseusConfig {
 }
 
 #[derive(Clone, Copy, Debug, Args)]
+struct ZeroAdjacencyNullArgs {
+    #[arg(long, default_value_t = zero_adjacency_null::DEFAULT_SEED)]
+    seed: u64,
+    #[arg(long, default_value_t = zero_adjacency_null::DEFAULT_TRIALS_PER_SEED)]
+    trials: usize,
+    #[arg(long, default_value_t = zero_adjacency_null::DEFAULT_SEED_COUNT)]
+    seeds: usize,
+}
+
+impl From<ZeroAdjacencyNullArgs> for zero_adjacency_null::ZeroAdjacencyNullConfig {
+    fn from(args: ZeroAdjacencyNullArgs) -> Self {
+        Self {
+            seed: args.seed,
+            trials_per_seed: args.trials,
+            seed_count: args.seeds,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Args)]
 struct CipherAttackArgs {
     #[arg(long, default_value_t = cipher_attack::DEFAULT_SEED)]
     seed: u64,
@@ -276,6 +299,7 @@ fn main() -> ExitCode {
         Command::Isomorphnull(args) => run_isomorphnull(args.into()),
         Command::Chaining(args) => run_chaining(args.into()),
         Command::Perseus(args) => run_perseus(args.into()),
+        Command::Zeroadjnull(args) => run_zeroadjnull(args.into()),
         Command::Cipherattack(args) => run_cipherattack(args.into()),
         Command::Controls(args) => run_controls(args),
     }
@@ -405,6 +429,21 @@ fn run_perseus(config: perseus::PerseusConfig) -> ExitCode {
         }
     };
     report::print_perseus_report(&report);
+    ExitCode::SUCCESS
+}
+
+fn run_zeroadjnull(config: zero_adjacency_null::ZeroAdjacencyNullConfig) -> ExitCode {
+    let report = match zero_adjacency_null::run_zero_adjacency_null(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!(
+                "zero-adjacency null error: {}",
+                report::format_zero_adjacency_null_error(error)
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    report::print_zero_adjacency_null_report(&report);
     ExitCode::SUCCESS
 }
 
