@@ -16,9 +16,9 @@ pub fn run_noita_eye(args: &[&str]) -> String {
 }
 
 /// Asserts that CLI output contains a stable report label.
-pub fn assert_contains(stdout: &str, needle: &str) {
+pub fn assert_contains(output: &str, needle: &str) {
     assert!(
-        stdout.contains(needle),
-        "missing {needle:?}\nstdout:\n{stdout}"
+        output.contains(needle),
+        "missing {needle:?}\noutput:\n{output}"
     );
 }

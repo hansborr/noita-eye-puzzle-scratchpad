@@ -426,10 +426,18 @@ fn run_cipherattack(config: cipher_attack::CipherAttackConfig) -> ExitCode {
 
 fn run_controls(args: ControlsArgs) -> ExitCode {
     let ControlsArgs { seed, target } = args;
-    match target {
-        Some(ControlTarget::Monoalphabetic(config)) => run_monoalphabetic_control(config.into()),
-        Some(ControlTarget::Isomorph(config)) => run_isomorph_control(config.into()),
-        None => {
+    match (seed, target) {
+        (Some(_), Some(_)) => {
+            eprintln!(
+                "controls error: pass --seed after the selected target: controls <target> --seed N"
+            );
+            ExitCode::FAILURE
+        }
+        (None, Some(ControlTarget::Monoalphabetic(config))) => {
+            run_monoalphabetic_control(config.into())
+        }
+        (None, Some(ControlTarget::Isomorph(config))) => run_isomorph_control(config.into()),
+        (seed, None) => {
             let config = monoalphabetic_control_config(seed);
             run_monoalphabetic_control(config)
         }
