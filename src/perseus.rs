@@ -211,6 +211,12 @@ pub struct SharedPartition {
     masks: Vec<Vec<bool>>,
 }
 
+impl SharedPartition {
+    pub(crate) fn masks(&self) -> &[Vec<bool>] {
+        &self.masks
+    }
+}
+
 /// Per-message recurrence summary.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MessageRecurrenceSummary {
@@ -381,7 +387,7 @@ fn validate_config(config: PerseusConfig) -> Result<(), PerseusError> {
     Ok(())
 }
 
-fn build_shared_partition(
+pub(crate) fn build_shared_partition(
     keys: &[&'static str],
     message_values: &[Vec<TrigramValue>],
 ) -> Result<SharedPartition, PerseusError> {

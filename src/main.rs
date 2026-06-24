@@ -10,7 +10,7 @@ use clap::{Args, Parser, Subcommand};
 use noita_eye_puzzle::{
     chaining, cipher_attack, controls, corpus, dof_null, glyph::Sequence, grouping, honeycomb,
     isomorph_null, modular_diff, null, orders, orientation_homogeneity, periodicity, perseus,
-    pipeline_null, report, zero_adjacency_null,
+    pipeline_null, report, tree_residual, zero_adjacency_null,
 };
 
 const DEFAULT_NULL_SEED: u64 = 0x6e6f_6974_612d_6579;
@@ -67,6 +67,9 @@ enum Command {
     /// Experiment 7D zero adjacency vs within-message multiset shuffle null.
     #[command(name = "zeroadjnull", alias = "zero-adjacency-null")]
     Zeroadjnull(ZeroAdjacencyNullArgs),
+    /// Tree-residual cross-tail n-gram null.
+    #[command(name = "treeresidual", alias = "tree-residual")]
+    Treeresidual(TreeResidualArgs),
     /// Experiment 12 candidate-cipher language-scoring null harness.
     #[command(name = "cipherattack")]
     Cipherattack(CipherAttackArgs),
@@ -287,6 +290,26 @@ impl From<ZeroAdjacencyNullArgs> for zero_adjacency_null::ZeroAdjacencyNullConfi
 }
 
 #[derive(Clone, Copy, Debug, Args)]
+struct TreeResidualArgs {
+    #[arg(long, default_value_t = tree_residual::DEFAULT_SEED)]
+    seed: u64,
+    #[arg(long, default_value_t = tree_residual::DEFAULT_TRIALS)]
+    trials: usize,
+    #[arg(long = "seed-count", default_value_t = tree_residual::DEFAULT_SEED_COUNT)]
+    seed_count: usize,
+}
+
+impl From<TreeResidualArgs> for tree_residual::TreeResidualConfig {
+    fn from(args: TreeResidualArgs) -> Self {
+        Self {
+            seed: args.seed,
+            trials: args.trials,
+            seed_count: args.seed_count,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Args)]
 struct CipherAttackArgs {
     #[arg(long, default_value_t = cipher_attack::DEFAULT_SEED)]
     seed: u64,
@@ -371,6 +394,7 @@ fn main() -> ExitCode {
         Command::Moddiff(args) => run_moddiff(args.into()),
         Command::Perseus(args) => run_perseus(args.into()),
         Command::Zeroadjnull(args) => run_zeroadjnull(args.into()),
+        Command::Treeresidual(args) => run_treeresidual(args.into()),
         Command::Cipherattack(args) => run_cipherattack(args.into()),
         Command::Controls(args) => run_controls(args),
     }
@@ -560,6 +584,21 @@ fn run_zeroadjnull(config: zero_adjacency_null::ZeroAdjacencyNullConfig) -> Exit
         }
     };
     report::print_zero_adjacency_null_report(&report);
+    ExitCode::SUCCESS
+}
+
+fn run_treeresidual(config: tree_residual::TreeResidualConfig) -> ExitCode {
+    let report = match tree_residual::run_tree_residual(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!(
+                "tree-residual null error: {}",
+                report::format_tree_residual_error(error)
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    report::print_tree_residual_report(&report);
     ExitCode::SUCCESS
 }
 
