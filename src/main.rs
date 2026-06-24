@@ -10,7 +10,8 @@ use clap::{Args, Parser, Subcommand};
 use noita_eye_puzzle::{
     chaining, cipher_attack, conditional_structure, controls, corpus, dof_null, glyph::Sequence,
     grouping, honeycomb, isomorph_null, modular_diff, null, orders, orientation_homogeneity,
-    periodicity, perseus, pipeline_null, report, tree_residual, zero_adjacency_null,
+    periodicity, perseus, pipeline_null, pyry_conditions, report, tree_residual,
+    zero_adjacency_null,
 };
 
 const DEFAULT_NULL_SEED: u64 = 0x6e6f_6974_612d_6579;
@@ -75,6 +76,9 @@ enum Command {
     /// Experiment 12 candidate-cipher language-scoring null harness.
     #[command(name = "cipherattack")]
     Cipherattack(CipherAttackArgs),
+    /// Pyry's Conditions structural falsification harness.
+    #[command(name = "pyry", alias = "pyryconditions", alias = "pyry-conditions")]
+    Pyry(PyryConditionsArgs),
     /// Experiment 11 positive controls.
     Controls(ControlsArgs),
 }
@@ -361,6 +365,23 @@ impl From<CipherAttackArgs> for cipher_attack::CipherAttackConfig {
     }
 }
 
+#[derive(Clone, Copy, Debug, Args)]
+struct PyryConditionsArgs {
+    #[arg(long, default_value_t = pyry_conditions::DEFAULT_SEED)]
+    seed: u64,
+    #[arg(long = "draws", default_value_t = pyry_conditions::DEFAULT_FIXTURE_DRAWS)]
+    fixture_draws: usize,
+}
+
+impl From<PyryConditionsArgs> for pyry_conditions::PyryConditionsConfig {
+    fn from(args: PyryConditionsArgs) -> Self {
+        Self {
+            seed: args.seed,
+            fixture_draws: args.fixture_draws,
+        }
+    }
+}
+
 #[derive(Debug, Args)]
 #[command(args_conflicts_with_subcommands = true)]
 struct ControlsArgs {
@@ -423,6 +444,7 @@ fn main() -> ExitCode {
         Command::Treeresidual(args) => run_treeresidual(args.into()),
         Command::Conditional(args) => run_conditional(args.into()),
         Command::Cipherattack(args) => run_cipherattack(args.into()),
+        Command::Pyry(args) => run_pyry(args.into()),
         Command::Controls(args) => run_controls(args),
     }
 }
@@ -656,6 +678,21 @@ fn run_cipherattack(config: cipher_attack::CipherAttackConfig) -> ExitCode {
         }
     };
     report::print_cipher_attack_report(&report);
+    ExitCode::SUCCESS
+}
+
+fn run_pyry(config: pyry_conditions::PyryConditionsConfig) -> ExitCode {
+    let report = match pyry_conditions::run_pyry_conditions(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!(
+                "Pyry's Conditions error: {}",
+                report::format_pyry_conditions_error(&error)
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    report::print_pyry_conditions_report(&report);
     ExitCode::SUCCESS
 }
 
