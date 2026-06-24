@@ -549,7 +549,14 @@ fn build_autocorrelation_rows(
         .collect()
 }
 
-fn normalized_ioc_by_period_values(
+/// Computes normalized mean column `IoC` values for candidate periods.
+///
+/// Message boundaries reset the period column counter: column `0` in one
+/// message is never joined to column `0` in another before computing a column
+/// `IoC`. Each returned value is multiplied by `alphabet_size`, so an
+/// independent uniform stream is expected near `1.0`.
+#[must_use]
+pub fn normalized_ioc_by_period_values(
     message_values: &[Vec<TrigramValue>],
     max_period: usize,
     alphabet_size: usize,
@@ -587,7 +594,12 @@ fn mean_column_ioc(message_glyphs: &[Vec<Glyph>], period: usize) -> f64 {
     }
 }
 
-fn autocorrelation_values(message_values: &[Vec<TrigramValue>], max_lag: usize) -> Vec<f64> {
+/// Computes exact-symbol autocorrelation rates for lags `1..=max_lag`.
+///
+/// Message boundaries are preserved: a lag pair is counted only when both
+/// positions are inside the same message.
+#[must_use]
+pub fn autocorrelation_values(message_values: &[Vec<TrigramValue>], max_lag: usize) -> Vec<f64> {
     (1..=max_lag)
         .map(|lag| {
             let comparisons = count_message_lag_comparisons(message_values, lag);

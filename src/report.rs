@@ -6,8 +6,8 @@
 
 use crate::glyph::Sequence;
 use crate::{
-    analysis, chaining, cipher_attack, controls, corpus, dof_null, grouping, isomorph_null, null,
-    orders, periodicity, perseus, pipeline_null, zero_adjacency_null,
+    analysis, chaining, cipher_attack, controls, corpus, dof_null, grouping, isomorph_null,
+    modular_diff, null, orders, periodicity, perseus, pipeline_null, zero_adjacency_null,
 };
 
 const MIN_RELIABLE_PERIODICITY_NULL_TRIALS: usize = 50;
@@ -136,6 +136,33 @@ pub fn format_chaining_error(error: chaining::ChainingError) -> String {
             "generated control fixture could not be constructed".to_owned()
         }
         chaining::ChainingError::RandomBoundTooLarge { bound } => {
+            format!("random draw bound {bound} is too large")
+        }
+    }
+}
+
+/// Formats a modular-difference fingerprint error for CLI output.
+#[must_use]
+pub fn format_modular_diff_error(error: modular_diff::ModularDiffError) -> String {
+    match error {
+        modular_diff::ModularDiffError::Grid(grid_error) => {
+            format!("grid/order error: {grid_error:?}")
+        }
+        modular_diff::ModularDiffError::ZeroTrials => {
+            "at least one generated fixture and shuffle trial is required".to_owned()
+        }
+        modular_diff::ModularDiffError::ZeroMaxPeriod => "max period must be at least 1".to_owned(),
+        modular_diff::ModularDiffError::ZeroMaxLag => "max lag must be at least 1".to_owned(),
+        modular_diff::ModularDiffError::InvalidModulus { modulus } => {
+            format!("invalid modulus {modulus}; expected 1..=125")
+        }
+        modular_diff::ModularDiffError::ValueOutsideModulus { value, modulus } => {
+            format!("stream value {value} is outside configured modulus {modulus}")
+        }
+        modular_diff::ModularDiffError::Cipher(cipher_error) => {
+            format!("generated fixture cipher error: {cipher_error}")
+        }
+        modular_diff::ModularDiffError::RandomBoundTooLarge { bound } => {
             format!("random draw bound {bound} is too large")
         }
     }
@@ -1584,6 +1611,181 @@ fn print_chaining_interpretation(report: &chaining::ChainingReport) {
     );
 }
 
+/// Prints the modular-difference family fingerprint report.
+pub fn print_modular_diff_report(report: &modular_diff::ModularDiffReport) {
+    println!("Experiment 13 modular-difference family fingerprint");
+    println!("order: {}", report.order.name());
+    println!("headline modulus: 83-symbol accepted honeycomb alphabet");
+    println!("secondary modulus: 125-symbol base-5 trigram space");
+    println!("seed: {}", report.config.seed);
+    println!("trials per control/shuffle row: {}", report.config.trials);
+    println!("max period: {}", report.config.max_period);
+    println!("max lag: {}", report.config.max_lag);
+    println!(
+        "message lengths: {}",
+        format_message_lengths(&report.message_lengths)
+    );
+    println!("pooled raw length: {}", report.total_length);
+    println!(
+        "boundary rule: every modular difference resets at message starts; no pair crosses a message join"
+    );
+    println!(
+        "mapping rule: a global additive offset cancels in the difference stream; no symbol-to-language mapping is scored"
+    );
+    println!(
+        "controls: generated wheel, period-7 Vigenere, S83 deck-keystream, flat random, plus within-message multiset-preserving shuffles"
+    );
+    println!();
+    print_modular_diff_modulus("primary mod-83 differenced streams", &report.primary);
+    println!();
+    print_modular_diff_modulus("secondary mod-125 differenced streams", &report.secondary);
+    println!();
+    print_modular_diff_calibration(report);
+    println!();
+    print_modular_diff_interpretation(report);
+}
+
+fn print_modular_diff_modulus(title: &str, modulus: &modular_diff::ModulusReport) {
+    println!("{title}");
+    println!(
+        "  raw message-weighted IoC: {:.6} (normalized {:.3})",
+        modulus.raw_ioc,
+        modulus.raw_ioc * modulus.modulus as f64
+    );
+    println!(
+        "  {:>1} {:>5} {:>8} {:>7} {:>10} {:>9} {:>4} {:>8} {:>7} {:>9} {:>9} {:>13}",
+        "k",
+        "len",
+        "IoC",
+        "norm",
+        "delta",
+        "chi2",
+        "supp",
+        "top",
+        "topx",
+        "bestP",
+        "bestLag",
+        "shuf struct"
+    );
+    for row in &modulus.differences {
+        let stats = &row.stats;
+        println!(
+            "  {:>1} {:>5} {:>8.6} {:>7.3} {:>+10.6} {:>9.2} {:>4} {:>8} {:>7.3} {:>9} {:>9} {:>13}",
+            row.difference_order,
+            stats.length,
+            stats.ioc,
+            stats.normalized_ioc,
+            stats.delta_ioc,
+            stats.chi_square_uniform,
+            stats.distinct_support_size,
+            format_moddiff_peak(stats.top_difference),
+            stats.top_difference.over_uniform,
+            format_moddiff_period(stats.best_period_ioc),
+            format_moddiff_lag(stats.best_autocorrelation),
+            format_moddiff_band(row.shuffle_baseline.structure_score)
+        );
+    }
+}
+
+fn print_modular_diff_calibration(report: &modular_diff::ModularDiffReport) {
+    println!("primary fixture calibration");
+    print_modular_diff_fixture_keys(report);
+    println!(
+        "  {:>1} {:>11} {:>13} {:>13} {:>13} {:>13} {:>8} {:>13}",
+        "k",
+        "wheel top",
+        "Vig p-excess",
+        "deck struct",
+        "flat struct",
+        "shuffle struct",
+        "sep",
+        "eye band"
+    );
+    for control in &report.controls {
+        println!(
+            "  {:>1} {:>11} {:>13} {:>13} {:>13} {:>13} {:>8} {:>13}",
+            control.difference_order,
+            format_family_metric(
+                &control.family_bands,
+                modular_diff::ControlFamily::IncrementingWheel,
+                |band| band.fingerprint.top_rate
+            ),
+            format_family_metric(
+                &control.family_bands,
+                modular_diff::ControlFamily::PeriodicVigenere,
+                |band| band.fingerprint.period_excess
+            ),
+            format_family_metric(
+                &control.family_bands,
+                modular_diff::ControlFamily::DeckS83Keystream,
+                |band| band.fingerprint.structure_score
+            ),
+            format_family_metric(
+                &control.family_bands,
+                modular_diff::ControlFamily::FlatRandom,
+                |band| band.fingerprint.structure_score
+            ),
+            format_primary_shuffle_structure(report, control.difference_order),
+            format_moddiff_separation(control.separation),
+            control.eye_placement.label()
+        );
+    }
+    println!(
+        "  deck and flat are treated as a shared structureless band; their overlap is a calibration check, not a failure."
+    );
+}
+
+fn print_modular_diff_fixture_keys(report: &modular_diff::ModularDiffReport) {
+    let Some(first) = report.controls.first() else {
+        return;
+    };
+    println!("  fixture keys:");
+    for band in &first.family_bands {
+        println!("    {}: {}", band.family.label(), band.key_summary);
+    }
+}
+
+fn print_modular_diff_interpretation(report: &modular_diff::ModularDiffReport) {
+    if let Some(row) = report
+        .primary
+        .differences
+        .iter()
+        .find(|row| row.difference_order == 1)
+    {
+        let stats = &row.stats;
+        println!(
+            "Headline k=1 mod-83: top difference {} occurs {}/{} ({:.4}); delta-IoC {:+.6}; placement {}.",
+            stats.top_difference.value,
+            stats.top_difference.count,
+            stats.length,
+            stats.top_difference.rate,
+            stats.delta_ioc,
+            report.headline_placement.label()
+        );
+    }
+
+    match report.headline_placement {
+        modular_diff::FamilyPlacement::StructurelessLike => println!(
+            "Interpretation: the first-difference eye stream lands in the calibrated structureless deck/flat/shuffle band, not the incrementing-wheel band. It has no dominant constant difference, which disfavors the simple incrementing-wheel fingerprint specifically while remaining consistent with deck, autokey, flat substitution, or other non-wheel structures."
+        ),
+        modular_diff::FamilyPlacement::WheelLike => println!(
+            "Interpretation: the first-difference eye stream has a dominant constant-difference signature. That would be a near-decode lead only after rechecking the Experiment-0 corpus and transcription integrity."
+        ),
+        modular_diff::FamilyPlacement::VigenereLike => println!(
+            "Interpretation: the first-difference eye stream matches the generated periodic-key difference fingerprint. This is structural evidence only; it does not identify plaintext or a symbol mapping."
+        ),
+        modular_diff::FamilyPlacement::BetweenBands => println!(
+            "Interpretation: the first-difference eye stream falls between separated fixture bands. Treat this as unresolved structural placement, not a decode."
+        ),
+        modular_diff::FamilyPlacement::Uncalibrated => println!(
+            "Interpretation: the generated positive controls did not separate enough for a calibrated placement, so no family verdict is reported."
+        ),
+    }
+    println!(
+        "This experiment is mapping-independent and structural. It scores no language model and makes no plaintext claim."
+    );
+}
+
 /// Prints the Experiment 12 candidate-cipher attack report.
 pub fn print_cipher_attack_report(report: &cipher_attack::CipherAttackReport) {
     println!("Experiment 12 candidate-cipher language-scoring/null harness");
@@ -1901,6 +2103,62 @@ fn format_chaining_classification(
         chaining::ChainingClassification::MatchesKnownFail => "known-fail",
         chaining::ChainingClassification::MatchesKnownSucceed => "known-succeed",
         chaining::ChainingClassification::BetweenBands => "between",
+    }
+}
+
+fn format_moddiff_peak(peak: modular_diff::ValuePeak) -> String {
+    format!("{}:{}", peak.value, peak.count)
+}
+
+fn format_moddiff_period(row: Option<modular_diff::PeriodIoc>) -> String {
+    row.map_or_else(
+        || "none".to_owned(),
+        |period| format!("p{}={:.3}", period.period, period.normalized_ioc),
+    )
+}
+
+fn format_moddiff_lag(row: Option<modular_diff::LagAutocorrelation>) -> String {
+    row.map_or_else(
+        || "none".to_owned(),
+        |lag| format!("l{}={:.3}", lag.lag, lag.normalized_rate),
+    )
+}
+
+fn format_moddiff_band(band: modular_diff::ScalarBand) -> String {
+    format!("{:.3}..{:.3}", band.q025, band.q975)
+}
+
+fn format_family_metric(
+    bands: &[modular_diff::ControlFamilyBand],
+    family: modular_diff::ControlFamily,
+    metric: impl Fn(&modular_diff::ControlFamilyBand) -> modular_diff::ScalarBand,
+) -> String {
+    bands.iter().find(|band| band.family == family).map_or_else(
+        || "n/a".to_owned(),
+        |band| format_moddiff_band(metric(band)),
+    )
+}
+
+fn format_primary_shuffle_structure(
+    report: &modular_diff::ModularDiffReport,
+    difference_order: usize,
+) -> String {
+    report
+        .primary
+        .differences
+        .iter()
+        .find(|row| row.difference_order == difference_order)
+        .map_or_else(
+            || "n/a".to_owned(),
+            |row| format_moddiff_band(row.shuffle_baseline.structure_score),
+        )
+}
+
+fn format_moddiff_separation(separation: modular_diff::ControlSeparation) -> &'static str {
+    if separation.is_calibrated() {
+        "ok"
+    } else {
+        "overlap"
     }
 }
 

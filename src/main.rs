@@ -9,7 +9,7 @@ use std::process::ExitCode;
 use clap::{Args, Parser, Subcommand};
 use noita_eye_puzzle::{
     chaining, cipher_attack, controls, corpus, dof_null, glyph::Sequence, grouping, isomorph_null,
-    null, orders, periodicity, perseus, pipeline_null, report, zero_adjacency_null,
+    modular_diff, null, orders, periodicity, perseus, pipeline_null, report, zero_adjacency_null,
 };
 
 const DEFAULT_NULL_SEED: u64 = 0x6e6f_6974_612d_6579;
@@ -54,6 +54,9 @@ enum Command {
     Isomorphnull(IsomorphNullArgs),
     /// Experiment 7B alphabet-chaining structural control.
     Chaining(ChainingArgs),
+    /// Modular-difference family fingerprint.
+    #[command(name = "moddiff")]
+    Moddiff(ModularDiffArgs),
     /// Experiment 7C Perseus shared-region recurrence null.
     Perseus(PerseusArgs),
     /// Experiment 7D zero adjacency vs within-message multiset shuffle null.
@@ -182,6 +185,29 @@ impl From<ChainingArgs> for chaining::ChainingConfig {
 }
 
 #[derive(Clone, Copy, Debug, Args)]
+struct ModularDiffArgs {
+    #[arg(long, default_value_t = modular_diff::DEFAULT_SEED)]
+    seed: u64,
+    #[arg(long, default_value_t = modular_diff::DEFAULT_TRIALS)]
+    trials: usize,
+    #[arg(long = "max-period", default_value_t = modular_diff::DEFAULT_MAX_PERIOD)]
+    max_period: usize,
+    #[arg(long = "max-lag", default_value_t = modular_diff::DEFAULT_MAX_LAG)]
+    max_lag: usize,
+}
+
+impl From<ModularDiffArgs> for modular_diff::ModularDiffConfig {
+    fn from(args: ModularDiffArgs) -> Self {
+        Self {
+            seed: args.seed,
+            trials: args.trials,
+            max_period: args.max_period,
+            max_lag: args.max_lag,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Args)]
 struct PerseusArgs {
     #[arg(long, default_value_t = perseus::DEFAULT_SEED)]
     seed: u64,
@@ -298,6 +324,7 @@ fn main() -> ExitCode {
         Command::Grouping => run_grouping(),
         Command::Isomorphnull(args) => run_isomorphnull(args.into()),
         Command::Chaining(args) => run_chaining(args.into()),
+        Command::Moddiff(args) => run_moddiff(args.into()),
         Command::Perseus(args) => run_perseus(args.into()),
         Command::Zeroadjnull(args) => run_zeroadjnull(args.into()),
         Command::Cipherattack(args) => run_cipherattack(args.into()),
@@ -414,6 +441,21 @@ fn run_chaining(config: chaining::ChainingConfig) -> ExitCode {
         }
     };
     report::print_chaining_report(&report);
+    ExitCode::SUCCESS
+}
+
+fn run_moddiff(config: modular_diff::ModularDiffConfig) -> ExitCode {
+    let report = match modular_diff::run_modular_diff(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!(
+                "modular-difference error: {}",
+                report::format_modular_diff_error(error)
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    report::print_modular_diff_report(&report);
     ExitCode::SUCCESS
 }
 
