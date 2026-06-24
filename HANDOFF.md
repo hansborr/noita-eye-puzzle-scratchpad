@@ -315,13 +315,22 @@ estimate), honest interpretation in code/CLI docs, committed, progress logged.
 - **CLOSED — global transposition note.** The distinct stream lengths plus
   same-offset shared anchors disfavor one shared global transposition route under
   the natural model, without ruling out per-message or non-global schemes.
-- **OPEN — vendored byte-for-byte cross-seed transcription diff.** The repo owner
-  has qualitatively observed seed-invariant content in-game, but the stronger
-  std-clean crate task still needs a second-seed capture under `research/data/`.
-- **OPEN — external meaning/key anchor.** The unknown 83-symbol-to-meaning
-  mapping is the fundamental blocker. Pure cryptanalysis here can constrain
-  families and supply designed negatives, but it cannot supply an unverifiable
-  in-game/developer mapping on its own.
+- **RESOLVED (binary-confirmed) — cross-seed content invariance.** First-party
+  Ghidra of the shipping `noita.exe` (2026-06-24) shows the nine messages are
+  hardcoded `(low, high)` u32 constants (`FUN_0061ed60`, switch on message id 0..8,
+  values stored as `mov` immediates), with message id the only input — no seed/RNG.
+  All 150 of Xkeeper0's pairs match the decompiled immediates byte-for-byte; the
+  placement loop (`FUN_0061fe80`, Park–Miller MINSTD) only randomizes *where* eyes
+  appear. So content is seed-invariant **by construction** (stronger than any diff
+  test), and the transcription — the project's #1 risk — is validated against the
+  shipping binary. See memory `noita-eye-binary-confirmation`.
+- **OPEN (binary-confirmed closed for pure cryptanalysis) — external meaning/key
+  anchor.** The unknown 83-symbol-to-meaning mapping remains the fundamental
+  blocker. The Ghidra trace shows the storage path stores opaque u64s with **no
+  symbol→meaning table** (the base-7 decode is downstream / in `data.wak` Lua,
+  untraced), so the anchor is absent from the binary at the storage layer. Pure
+  cryptanalysis can constrain families and supply designed negatives; it cannot
+  supply the mapping.
 
 1. **Experiment 2 — generation-pipeline artifact null (HIGH; do first).** Implement
    the documented base-7/64-bit generator; reproduce the wiki worked example
@@ -445,3 +454,12 @@ cargo run -- dofnull --seed 12345 --trials 1000 --calib-trials 1000
 - 2026-06-24: Seed-stability follow-up — seeds 12345, 67890, 13579, 24680, and 424242 keep the standard36 contiguous-0..=82 null hit count at 0/1000, keep DoF min marginal p / accepted headline cell at the calibration floor, and keep Perseus at observed 0/185 with 1000-shuffle p range 4/1001..9/1001. Corroborates robustness against seed cherry-picking; conclusions unchanged.
 - 2026-06-24: Experiment 7C (Perseus recurrence null) — pinned shared regions as same-offset size≥2 runs in the earliest leading-family alignment or East/West counterpart pairs; observed 0/185 non-shared→later-shared recurrences, seed 12345 / 1000 within-message shuffles gives add-one lower-tail p 7/1001 = 0.006993. Corroborates a structural permutation direction only; no decode.
 - 2026-06-24: Global transposition disfavored note — added a corpus-backed test for the nine distinct accepted-honeycomb trigram-stream lengths and documented why those unequal lengths plus same-offset shared anchors are evidence against one shared global transposition route under the natural model. No transposition module added; conclusions unchanged.
+- 2026-06-24: New structural battery (7 experiments, built via parallel codex worktrees, each independently audited + fixed + merged). All on the engine-fixed integer sequence, per-message, under the fixed honeycomb order; mapping-independent; none decode:
+  - Exp 7D zero-adjacency forbidden-successor null (`zeroadjnull`, src/zero_adjacency_null.rs) — observed 0/1027 adjacent-equal vs within-message multiset shuffle band ~6..19, analytic E=12.008, add-one lower-tail p=2.0e-4; genuine forbidden-successor constraint, NOT a flatness artifact. The one new positive structural result. (merge 853a7b5; analytic-E denominator fix d328d33.)
+  - Modular-difference family fingerprint (`moddiff`, src/modular_diff.rs) — k=1 mod-83 stream structureless (top diff 7 at 25/1027), lands in deck/flat band; DISFAVORS the incrementing-wheel fingerprint. Fixtures' band separation demonstrated before classifying. (merge 47810fe.)
+  - First-order conditional structure / successor graph (`conditional`, src/conditional_structure.rs) — corrected MI≈0.000726 bits (~1e-4 of max); under a no-repeat-conditioned null a vanishingly small residual off-diagonal arrangement effect remains, dismissed by its negligible effect size; raw Pearson chi-square is a sparse-table artifact (caveated vs G=2N·MI). No first-order memory beyond the known no-adjacent-repeat constraint. (merge 35ccfe3; confound/sparsity/framing fixes 581782b/c23e332; interpretation precision tightened post-audit.)
+  - Honeycomb 2D lattice (`honeycomb`, src/honeycomb.rs) — no isolated 2D structure; vertical same-position equality collapses to a 1D autocorrelation (disclosed confound), parity unremarkable, position chi-square a borderline non-finding. (merge 0f4bd20; framing fix 69ec57c.)
+  - Tree-residual cross-tail n-gram null (`treeresidual`, src/tree_residual.rs) — after masking the Perseus trunk, residual tails show only a marginal k=3 sharing excess (p=0.0186) that does not survive multiplicity; consistent with a slightly incomplete trunk mask, not a second reused-key layer. (merge 33f0e4e; hedge + no-panic guard 6d62eaf/827366e.)
+  - Cross-message orientation homogeneity (`homogeneity`, src/orientation_homogeneity.rs), order-independent on the base-5 orientation layer — 9×5 table in the null bulk (two-sided p=0.188); constrains source homogeneity, not meaning. (merge c1f68df.)
+  - Capstone: Pyry's-9-conditions falsification harness (`pyry`, src/pyry_conditions.rs) — encodes the wiki's named 9-point checklist as predicates; monoalphabetic/Vigenère/deck-S₈₃/incrementing-wheel fixtures each falsified (flat-IoC or the ~4e-6 zero-doubled-trigram floor), only autokey/Alberti consistent with all nine; favors the plaintext-dependent self-modifying direction. Candidate-consistency only, not a decode. Audit confirmed the deck/wheel falsifications are genuine, not fixture artifacts. (commits 78aa62e/b971888.)
+- 2026-06-24: Binary confirmation (first-party Ghidra of shipping noita.exe, repo owner) — content is hardcoded `(low,high)` u32 constants (`FUN_0061ed60`), seed only randomizes placement (`FUN_0061fe80`), 150 pairs match decompiled immediates byte-for-byte; storage path has no symbol→meaning table. Resolves the cross-seed-diff item; decode block is binary-confirmed (not an RE gap). See memory `noita-eye-binary-confirmation`. Conclusions unchanged in direction, strengthened in certainty: the new battery tightens the cipher-family space toward a non-commutative / no-fixed-successor / self-modifying direction while decoding nothing.

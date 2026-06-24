@@ -21,9 +21,14 @@ and verified** — see below.
 ## The strongest defensible claim
 
 > The eye data is **deterministic, engine-generated, strikingly structured data
-> of unknown meaning**. Under the honeycomb reading order (`standard36-u012-d012`)
-> it shows **no recoverable simple-cipher signal**. The puzzle is **unsolved**;
-> no primary developer source confirms it encodes recoverable plaintext.
+> of unknown meaning** — its content is **hardcoded constants, confirmed at the
+> binary level** (the world seed only randomizes placement). Under the honeycomb
+> reading order (`standard36-u012-d012`) it shows **no recoverable simple-cipher
+> signal**; the structural battery **disfavors monoalphabetic and fixed-keystream
+> additive ciphers and favors a plaintext-dependent (self-modifying) permutation
+> direction**, but **decodes nothing**. The puzzle is **unsolved**; no primary
+> developer source confirms it encodes recoverable plaintext, and the
+> 83-symbol→meaning mapping is **absent from the binary's storage layer**.
 
 Nothing in this repo prints anything stronger. See [Results](#results).
 
@@ -35,6 +40,15 @@ integer pairs and asserts it equals the ngraham20 transcription **byte-for-byte
 for all nine messages**. Vendored raw inputs live in
 `research/data/eye-messages/` (`ng_eyes.json`, `xk_eye.php`). Transcription is the
 single biggest risk in this kind of work, so it is cross-validated, not trusted.
+
+As of 2026-06-24 this is corroborated at the **binary level**: first-party Ghidra of
+the shipping `noita.exe` shows the nine messages are hardcoded `(low, high)` u32
+constants (`FUN_0061ed60`, a switch on message id 0–8), and all 150 of Xkeeper0's
+pairs match the decompiled `mov` immediates **byte-for-byte**. The seed only
+randomizes *placement* (`FUN_0061fe80`, a Park–Miller MINSTD loop), so content is
+**seed-invariant by construction**. The storage path carries **no symbol→meaning
+table** (the base-7 decode is downstream / in `data.wak` Lua), so the decode blocker
+is confirmed at the binary, not an artifact of incomplete reverse engineering.
 
 ## Layout
 
@@ -84,6 +98,14 @@ cargo run -- grouping                                       # Exp 8 grouping + s
 cargo run -- cipherattack  [--seed <u64>] [--samples <n>] [--null-trials <n>]
 cargo run -- controls monoalphabetic [--seed <u64>]         # Exp 11 positive control
 cargo run -- controls isomorph       [--seed <u64>]         # (alias: polyalphabetic)
+# 2026-06-24 structural battery (engine-fixed sequence, fixed honeycomb order, no decode):
+cargo run -- zeroadjnull   [--seed <u64>]                   # zero-adjacency forbidden-successor null
+cargo run -- moddiff                                        # modular-difference family fingerprint
+cargo run -- conditional   [--seed <u64>] [--trials <n>]    # first-order transition / successor graph
+cargo run -- honeycomb     [--seed <u64>] [--trials <n>]    # 2D honeycomb-lattice structure null
+cargo run -- treeresidual  [--seed <u64>] [--trials <n>]    # tree-residual cross-tail n-gram null
+cargo run -- homogeneity   [--seed <u64>]                   # cross-message orientation homogeneity
+cargo run -- pyry          [--seed <u64>] [--draws <n>]     # Pyry's nine-condition falsification matrix
 ```
 
 ## Results
@@ -175,6 +197,48 @@ for every seed.
   Exp 5B-1 (English-vs-Finnish discrimination), and the Exp 12 plant all confirm
   the tooling recovers known signal — so the eye negatives are meaningful.
 
+### New structural battery (2026-06-24)
+
+Seven further experiments, each on the engine-fixed integer sequence, per-message,
+under the fixed honeycomb order (mapping-independent; none decode):
+
+- **Zero-adjacency forbidden-successor null** (`zeroadjnull`). The eyes' **0/1027**
+  adjacent-equal trigrams sit **below** the within-message multiset-preserving
+  shuffle band (~6..19; analytic E = 12.008), add-one lower-tail **p = 2.0e-4**. The
+  no-doubled-trigram property is a **genuine forbidden-successor constraint**, not a
+  frequency-flatness artifact — the one new *positive* structural result.
+- **Modular-difference family fingerprint** (`moddiff`). The k=1 mod-83 difference
+  stream is structureless (top difference 7 at 25/1027, ~2× uniform) and lands in
+  the deck/flat band, **disfavoring the incrementing-wheel** fingerprint (which
+  would show one dominant constant difference). Mapping-independent.
+- **First-order conditional structure** (`conditional`). Mutual information is ≈0
+  (corrected 0.000726 bits, ~1e-4 of max). Under a no-repeat-conditioned null a
+  vanishingly small residual off-diagonal arrangement effect remains, dismissed by
+  its negligible effect size — **no first-order memory** beyond the known
+  no-adjacent-repeat constraint; the raw "out-of-band" Pearson chi-square is a
+  sparse-table artifact (caveated against G = 2N·MI).
+- **Honeycomb 2D lattice** (`honeycomb`). **No isolated 2D structure**: vertical
+  same-position equality collapses to a 1D autocorrelation (disclosed confound),
+  parity split unremarkable, position chi-square a borderline non-finding.
+- **Tree-residual cross-tail null** (`treeresidual`). After masking the Perseus
+  trunk, residual tails show only a **marginal** k=3 sharing excess (p = 0.0186)
+  that does not survive multiplicity — consistent with a slightly incomplete trunk
+  mask, **not** a second reused-key layer.
+- **Cross-message orientation homogeneity** (`homogeneity`), order-independent on
+  the base-5 orientation layer. The 9×5 frequency table is in the **null bulk**
+  (two-sided p = 0.188) — unremarkable; constrains source homogeneity, not meaning.
+- **Pyry's nine conditions** (`pyry`). Encoding the community's named 9-point
+  checklist as predicates and running candidate cipher families: monoalphabetic,
+  Vigenère, deck/S₈₃, and incrementing-wheel fixtures are each **falsified** (by
+  flat-IoC or the zero-doubled-trigram floor, P ≈ 4e-6), while only the
+  **autokey/Alberti self-modifying family is consistent** with all nine. A
+  structural consistency screen that **favors the plaintext-dependent
+  self-modifying direction** — candidate-consistency only, not a decode.
+
+Together these **tighten the cipher-family space** toward a non-commutative /
+no-fixed-successor / self-modifying direction, consistent across the battery, while
+**decoding nothing**.
+
 **Caveat:** `dofnull` now resamples the configured
 traversal/grouping/statistic researcher degrees of freedom instead of leaving
 that as an unmodeled caveat. It is still finite-resolution Monte Carlo
@@ -184,11 +248,15 @@ bounded-contiguity headline, use the printed analytic DoF-corrected bound rather
 than the empirical floor diagnostic. It supports "structured data of unknown
 meaning," not "decoded message."
 
-**Remaining limitations:** the byte-for-byte vendored cross-seed transcription
-diff still needs a second-seed capture, which is an external/game dependency.
-The deeper blocker is the unknown 83-symbol-to-meaning mapping: no pure
-cryptanalysis step in this repo supplies that external anchor, so decode attempts
-remain designed negatives unless new in-game or developer evidence appears.
+**Remaining limitations:** the one deep blocker is the unknown 83-symbol-to-meaning
+mapping. First-party Ghidra of the shipping `noita.exe` (2026-06-24) confirms the
+nine messages are hardcoded constants with **no symbol→meaning table** in the
+storage path, so the anchor is absent from the binary — no pure cryptanalysis step
+in this repo can supply it, and decode attempts remain designed negatives unless new
+in-game or developer evidence appears. (The former cross-seed-transcription-diff
+limitation is now **resolved**: content is hardcoded and seed-invariant by
+construction, the seed only randomizes placement, and the 150 vendored integer pairs
+match the decompiled immediates byte-for-byte.)
 
 ## Commands
 
