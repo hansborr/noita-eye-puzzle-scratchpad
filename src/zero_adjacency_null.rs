@@ -1,0 +1,735 @@
+//! Experiment 7D: zero-adjacency forbidden-successor null.
+//!
+//! This module tests whether the accepted honeycomb eye stream's lack of
+//! adjacent equal reading-layer values is explained by each message's own
+//! symbol frequencies, or whether it is lower than expected for a free
+//! arrangement of those exact per-message multisets. The null is deliberately
+//! narrow: it preserves every message's exact value multiset and length, then
+//! Fisher-Yates shuffles values only within that message.
+//!
+//! The statistic is counted per message and then pooled. Adjacent pairs are
+//! never counted across message joins, the accepted honeycomb order is held
+//! fixed, and all values are the engine-verified integer reading-layer values.
+
+use std::collections::BTreeMap;
+
+use crate::null::SplitMix64;
+use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
+use crate::trigram::TrigramValue;
+
+/// Default deterministic base seed for the zero-adjacency null.
+pub const DEFAULT_SEED: u64 = 0x7a65_726f_6164_6a00;
+/// Default number of within-message shuffles sampled for each seed stream.
+pub const DEFAULT_TRIALS_PER_SEED: usize = 1_000;
+/// Default number of deterministic seed streams sampled.
+pub const DEFAULT_SEED_COUNT: usize = 5;
+/// Conventional pointwise lower-tail significance cutoff.
+pub const SIGNIFICANCE_ALPHA: f64 = 0.05;
+
+const CONTROL_ALPHABET_SIZE: u8 = 12;
+const CONTROL_COPIES_PER_SYMBOL: usize = 10;
+
+/// Configuration for the zero-adjacency forbidden-successor null.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ZeroAdjacencyNullConfig {
+    /// Base deterministic PRNG seed used to derive seed streams.
+    pub seed: u64,
+    /// Number of Fisher-Yates shuffles to sample for each seed stream.
+    pub trials_per_seed: usize,
+    /// Number of deterministic seed streams to sample.
+    pub seed_count: usize,
+}
+
+impl Default for ZeroAdjacencyNullConfig {
+    fn default() -> Self {
+        Self {
+            seed: DEFAULT_SEED,
+            trials_per_seed: DEFAULT_TRIALS_PER_SEED,
+            seed_count: DEFAULT_SEED_COUNT,
+        }
+    }
+}
+
+/// Error returned by the zero-adjacency forbidden-successor null.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ZeroAdjacencyNullError {
+    /// The verified corpus could not be reconstructed or read.
+    Grid(GridError),
+    /// At least one shuffle trial per seed is required.
+    ZeroTrials,
+    /// At least one seed stream is required.
+    ZeroSeedCount,
+    /// The caller supplied a different number of keys and message streams.
+    KeyCountMismatch {
+        /// Number of message keys.
+        keys: usize,
+        /// Number of message streams.
+        messages: usize,
+    },
+    /// A shuffle bound did not fit in the PRNG draw helper.
+    RandomBoundTooLarge {
+        /// Requested exclusive upper bound.
+        bound: usize,
+    },
+    /// The configured trial count was too large for add-one calibration.
+    TrialCountTooLarge,
+    /// A positive-control fixture attempted to construct an invalid trigram.
+    ControlValueOutOfRange {
+        /// Invalid raw trigram value.
+        value: u8,
+    },
+}
+
+impl From<GridError> for ZeroAdjacencyNullError {
+    fn from(value: GridError) -> Self {
+        Self::Grid(value)
+    }
+}
+
+/// Per-message adjacent-equal summary.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MessageAdjacencySummary {
+    /// Message key.
+    pub message_key: &'static str,
+    /// Reading-layer stream length.
+    pub len: usize,
+    /// Number of adjacent-pair comparisons inside this message.
+    pub comparisons: usize,
+    /// Count of adjacent equal value pairs inside this message.
+    pub adjacent_equal: usize,
+    /// Expected adjacent equal count for a random arrangement of this
+    /// message's exact value multiset.
+    pub analytic_expected: f64,
+}
+
+/// Pooled adjacent-equal statistic plus per-message rows.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AdjacencySummary {
+    /// Count of adjacent equal value pairs, pooled over messages.
+    pub adjacent_equal: usize,
+    /// Number of adjacent-pair comparisons, pooled over messages.
+    pub comparisons: usize,
+    /// `adjacent_equal / comparisons`.
+    pub rate: f64,
+    /// Expected adjacent equal count for random arrangements of the exact
+    /// per-message value multisets.
+    pub analytic_expected: f64,
+    /// Per-message rows.
+    pub messages: Vec<MessageAdjacencySummary>,
+}
+
+/// Monte-Carlo distribution for pooled adjacent-equal counts.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AdjacencyNullBand {
+    /// Number of within-message shuffle trials sampled.
+    pub trials: usize,
+    /// Mean adjacent-equal count across shuffles.
+    pub mean: f64,
+    /// Smallest sampled adjacent-equal count.
+    pub min: usize,
+    /// Lower pointwise 95% percentile edge.
+    pub q025: usize,
+    /// Sample median.
+    pub median: f64,
+    /// Upper pointwise 95% percentile edge.
+    pub q975: usize,
+    /// Largest sampled adjacent-equal count.
+    pub max: usize,
+}
+
+/// Position of the observed statistic relative to the shuffle band.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ShuffleBandPosition {
+    /// The observed count is below the lower pointwise 95% shuffle edge.
+    Below,
+    /// The observed count is inside the pointwise 95% shuffle band.
+    Within,
+    /// The observed count is above the upper pointwise 95% shuffle edge.
+    Above,
+}
+
+impl ShuffleBandPosition {
+    /// Human-readable label for reports.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Below => "below",
+            Self::Within => "within",
+            Self::Above => "above",
+        }
+    }
+}
+
+/// Positive-control report for one planted fixture.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PositiveControlReport {
+    /// Short control label.
+    pub label: &'static str,
+    /// Control construction summary.
+    pub description: &'static str,
+    /// Observed adjacent-equal statistic for the planted fixture.
+    pub observed: AdjacencySummary,
+    /// Shuffle-null band for the planted fixture's own multiset.
+    pub null: AdjacencyNullBand,
+    /// Number of shuffles with adjacent-equal count less than or equal to the
+    /// planted observation.
+    pub empirical_p_count: usize,
+    /// Add-one lower-tail empirical p-value.
+    pub empirical_p: f64,
+    /// Position of the planted observation relative to its shuffle band.
+    pub band_position: ShuffleBandPosition,
+}
+
+/// Positive controls paired with the zero-adjacency null.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ZeroAdjacencyPositiveControls {
+    /// A free-permutation draw from a fixed multiset, expected to sit inside
+    /// the shuffle band near the analytic expectation.
+    pub free_permutation: PositiveControlReport,
+    /// A no-repeat-successor arrangement of the same multiset, expected to sit
+    /// below the shuffle band with zero adjacent equal pairs.
+    pub no_repeat_successor: PositiveControlReport,
+}
+
+/// Complete zero-adjacency forbidden-successor null report.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ZeroAdjacencyNullReport {
+    /// Configuration used for the run.
+    pub config: ZeroAdjacencyNullConfig,
+    /// Reading order used for the real and shuffled streams.
+    pub order: ReadingOrder,
+    /// Per-message stream lengths in corpus order.
+    pub message_lengths: Vec<(&'static str, usize)>,
+    /// Total number of reading-layer symbols across messages.
+    pub total_length: usize,
+    /// Observed adjacent-equal statistic.
+    pub observed: AdjacencySummary,
+    /// Shuffle-null band.
+    pub null: AdjacencyNullBand,
+    /// Number of shuffles with adjacent-equal count less than or equal to the
+    /// observed count.
+    pub empirical_p_count: usize,
+    /// Add-one lower-tail empirical p-value.
+    pub empirical_p: f64,
+    /// Position of the real observation relative to its shuffle band.
+    pub band_position: ShuffleBandPosition,
+    /// Whether the lower-tail result is pointwise significant at 5%.
+    pub significant: bool,
+    /// Positive controls that show the null distinguishes free arrangements
+    /// from no-repeat-successor arrangements when the expected count is nonzero.
+    pub controls: ZeroAdjacencyPositiveControls,
+}
+
+/// Runs the zero-adjacency forbidden-successor null on the verified eye corpus.
+///
+/// # Errors
+/// Returns [`ZeroAdjacencyNullError`] when the corpus cannot be reconstructed,
+/// the accepted reading order is incompatible with a grid, or the
+/// configuration is invalid.
+pub fn run_zero_adjacency_null(
+    config: ZeroAdjacencyNullConfig,
+) -> Result<ZeroAdjacencyNullReport, ZeroAdjacencyNullError> {
+    validate_config(config)?;
+    let grids = orders::corpus_grids()?;
+    let keys: Vec<&'static str> = grids
+        .iter()
+        .map(crate::orders::GlyphGrid::message_key)
+        .collect();
+    let order = orders::accepted_honeycomb_order();
+    let message_values = read_corpus_message_values(&grids, order)?;
+    report_from_message_values(config, order, &keys, &message_values)
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct ZeroAdjacencyAnalysis {
+    observed: AdjacencySummary,
+    null: AdjacencyNullBand,
+    empirical_p_count: usize,
+    empirical_p: f64,
+    band_position: ShuffleBandPosition,
+}
+
+fn report_from_message_values(
+    config: ZeroAdjacencyNullConfig,
+    order: ReadingOrder,
+    keys: &[&'static str],
+    message_values: &[Vec<TrigramValue>],
+) -> Result<ZeroAdjacencyNullReport, ZeroAdjacencyNullError> {
+    let analysis = analyze_message_values(config, keys, message_values)?;
+    let controls = positive_controls(config)?;
+    let lengths = message_values.iter().map(Vec::len).collect::<Vec<_>>();
+    let total_length = lengths.iter().sum();
+    let significant = analysis.band_position == ShuffleBandPosition::Below
+        && analysis.empirical_p <= SIGNIFICANCE_ALPHA;
+
+    Ok(ZeroAdjacencyNullReport {
+        config,
+        order,
+        message_lengths: keys.iter().copied().zip(lengths).collect(),
+        total_length,
+        observed: analysis.observed,
+        null: analysis.null,
+        empirical_p_count: analysis.empirical_p_count,
+        empirical_p: analysis.empirical_p,
+        band_position: analysis.band_position,
+        significant,
+        controls,
+    })
+}
+
+fn analyze_message_values(
+    config: ZeroAdjacencyNullConfig,
+    keys: &[&'static str],
+    message_values: &[Vec<TrigramValue>],
+) -> Result<ZeroAdjacencyAnalysis, ZeroAdjacencyNullError> {
+    validate_config(config)?;
+    let total_trials = total_trials(config)?;
+    let observed = adjacency_summary(keys, message_values)?;
+    let mut samples = Vec::with_capacity(total_trials);
+    let mut empirical_p_count = 0usize;
+    let mut stream_rng = SplitMix64::new(config.seed);
+
+    for _stream in 0..config.seed_count {
+        let mut rng = SplitMix64::new(stream_rng.next_u64());
+        for _trial in 0..config.trials_per_seed {
+            let shuffled = shuffled_messages(message_values, &mut rng)?;
+            let count = total_adjacent_equal(&shuffled);
+            if count <= observed.adjacent_equal {
+                empirical_p_count += 1;
+            }
+            samples.push(count);
+        }
+    }
+
+    let null = null_band(&samples);
+    let empirical_p = add_one_p_value(empirical_p_count, total_trials)?;
+    let band_position = classify_band_position(observed.adjacent_equal, null);
+
+    Ok(ZeroAdjacencyAnalysis {
+        observed,
+        null,
+        empirical_p_count,
+        empirical_p,
+        band_position,
+    })
+}
+
+fn validate_config(config: ZeroAdjacencyNullConfig) -> Result<(), ZeroAdjacencyNullError> {
+    if config.trials_per_seed == 0 {
+        return Err(ZeroAdjacencyNullError::ZeroTrials);
+    }
+    if config.seed_count == 0 {
+        return Err(ZeroAdjacencyNullError::ZeroSeedCount);
+    }
+    let _total_trials = total_trials(config)?;
+    Ok(())
+}
+
+fn total_trials(config: ZeroAdjacencyNullConfig) -> Result<usize, ZeroAdjacencyNullError> {
+    config
+        .trials_per_seed
+        .checked_mul(config.seed_count)
+        .ok_or(ZeroAdjacencyNullError::TrialCountTooLarge)
+}
+
+fn adjacency_summary(
+    keys: &[&'static str],
+    message_values: &[Vec<TrigramValue>],
+) -> Result<AdjacencySummary, ZeroAdjacencyNullError> {
+    if keys.len() != message_values.len() {
+        return Err(ZeroAdjacencyNullError::KeyCountMismatch {
+            keys: keys.len(),
+            messages: message_values.len(),
+        });
+    }
+
+    let mut adjacent_equal = 0usize;
+    let mut comparisons = 0usize;
+    let mut analytic_expected = 0.0;
+    let mut messages = Vec::new();
+
+    for (message_key, values) in keys.iter().copied().zip(message_values) {
+        let row_adjacent_equal = count_adjacent_equal(values);
+        let row_comparisons = values.len().saturating_sub(1);
+        let row_expected = analytic_expected_adjacent_equal(values);
+        adjacent_equal += row_adjacent_equal;
+        comparisons += row_comparisons;
+        analytic_expected += row_expected;
+        messages.push(MessageAdjacencySummary {
+            message_key,
+            len: values.len(),
+            comparisons: row_comparisons,
+            adjacent_equal: row_adjacent_equal,
+            analytic_expected: row_expected,
+        });
+    }
+
+    Ok(AdjacencySummary {
+        adjacent_equal,
+        comparisons,
+        rate: rate(adjacent_equal, comparisons),
+        analytic_expected,
+        messages,
+    })
+}
+
+fn analytic_expected_adjacent_equal(values: &[TrigramValue]) -> f64 {
+    let denominator = values.len().saturating_sub(1);
+    if denominator == 0 {
+        return 0.0;
+    }
+    let mut counts = BTreeMap::new();
+    for value in values {
+        let entry = counts.entry(value.get()).or_insert(0usize);
+        *entry += 1;
+    }
+    counts
+        .values()
+        .map(|&count| count.saturating_mul(count.saturating_sub(1)) as f64 / denominator as f64)
+        .sum()
+}
+
+fn total_adjacent_equal(message_values: &[Vec<TrigramValue>]) -> usize {
+    message_values
+        .iter()
+        .map(|values| count_adjacent_equal(values))
+        .sum()
+}
+
+fn count_adjacent_equal(values: &[TrigramValue]) -> usize {
+    values
+        .windows(2)
+        .filter(|window| matches!(window, [left, right] if left == right))
+        .count()
+}
+
+fn shuffled_messages(
+    message_values: &[Vec<TrigramValue>],
+    rng: &mut SplitMix64,
+) -> Result<Vec<Vec<TrigramValue>>, ZeroAdjacencyNullError> {
+    let mut shuffled = message_values.to_vec();
+    for values in &mut shuffled {
+        fisher_yates(values, rng)?;
+    }
+    Ok(shuffled)
+}
+
+fn fisher_yates(
+    values: &mut [TrigramValue],
+    rng: &mut SplitMix64,
+) -> Result<(), ZeroAdjacencyNullError> {
+    let mut unswapped = values.len();
+    while unswapped > 1 {
+        let last = unswapped - 1;
+        let partner = random_index_below(unswapped, rng)?;
+        values.swap(last, partner);
+        unswapped = last;
+    }
+    Ok(())
+}
+
+fn random_index_below(bound: usize, rng: &mut SplitMix64) -> Result<usize, ZeroAdjacencyNullError> {
+    let bound_u64 = u64::try_from(bound)
+        .map_err(|_error| ZeroAdjacencyNullError::RandomBoundTooLarge { bound })?;
+    if bound_u64 == 0 {
+        return Err(ZeroAdjacencyNullError::RandomBoundTooLarge { bound });
+    }
+    let rejection_threshold = u64::MAX - (u64::MAX % bound_u64);
+    loop {
+        let draw = rng.next_u64();
+        if draw < rejection_threshold {
+            let index_u64 = draw % bound_u64;
+            return usize::try_from(index_u64)
+                .map_err(|_error| ZeroAdjacencyNullError::RandomBoundTooLarge { bound });
+        }
+    }
+}
+
+fn null_band(samples: &[usize]) -> AdjacencyNullBand {
+    let mut sorted = samples.to_vec();
+    sorted.sort_unstable();
+    AdjacencyNullBand {
+        trials: samples.len(),
+        mean: mean(samples),
+        min: sorted.first().copied().unwrap_or_default(),
+        q025: quantile_from_sorted(&sorted, 25, 1_000),
+        median: median(&sorted),
+        q975: quantile_from_sorted(&sorted, 975, 1_000),
+        max: sorted.last().copied().unwrap_or_default(),
+    }
+}
+
+fn mean(samples: &[usize]) -> f64 {
+    if samples.is_empty() {
+        return 0.0;
+    }
+    samples.iter().sum::<usize>() as f64 / samples.len() as f64
+}
+
+fn median(sorted: &[usize]) -> f64 {
+    let len = sorted.len();
+    if len == 0 {
+        return 0.0;
+    }
+    let middle = len / 2;
+    if len.is_multiple_of(2) {
+        match (
+            sorted.get(middle.saturating_sub(1)).copied(),
+            sorted.get(middle).copied(),
+        ) {
+            (Some(left), Some(right)) => f64::midpoint(left as f64, right as f64),
+            _ => 0.0,
+        }
+    } else {
+        sorted
+            .get(middle)
+            .copied()
+            .map_or(0.0, |value| value as f64)
+    }
+}
+
+fn quantile_from_sorted(sorted: &[usize], numerator: usize, denominator: usize) -> usize {
+    sorted
+        .get(scaled_quantile_index(sorted.len(), numerator, denominator))
+        .copied()
+        .unwrap_or_default()
+}
+
+fn scaled_quantile_index(len: usize, numerator: usize, denominator: usize) -> usize {
+    if len == 0 || denominator == 0 {
+        return 0;
+    }
+    len.saturating_sub(1).saturating_mul(numerator) / denominator
+}
+
+fn add_one_p_value(count: usize, trials: usize) -> Result<f64, ZeroAdjacencyNullError> {
+    let numerator = count
+        .checked_add(1)
+        .ok_or(ZeroAdjacencyNullError::TrialCountTooLarge)?;
+    let denominator = trials
+        .checked_add(1)
+        .ok_or(ZeroAdjacencyNullError::TrialCountTooLarge)?;
+    Ok(numerator as f64 / denominator as f64)
+}
+
+fn classify_band_position(observed: usize, null: AdjacencyNullBand) -> ShuffleBandPosition {
+    if observed < null.q025 {
+        ShuffleBandPosition::Below
+    } else if observed > null.q975 {
+        ShuffleBandPosition::Above
+    } else {
+        ShuffleBandPosition::Within
+    }
+}
+
+fn rate(numerator: usize, denominator: usize) -> f64 {
+    if denominator == 0 {
+        0.0
+    } else {
+        numerator as f64 / denominator as f64
+    }
+}
+
+fn positive_controls(
+    config: ZeroAdjacencyNullConfig,
+) -> Result<ZeroAdjacencyPositiveControls, ZeroAdjacencyNullError> {
+    let mut free_message = repeated_multiset_message()?;
+    let mut fixture_rng = SplitMix64::new(config.seed ^ 0x6672_6565_7065_726d);
+    fisher_yates(&mut free_message, &mut fixture_rng)?;
+
+    Ok(ZeroAdjacencyPositiveControls {
+        free_permutation: control_report(
+            config,
+            "free-permutation",
+            "one Fisher-Yates draw from a 12-symbol x10 multiset",
+            free_message,
+        )?,
+        no_repeat_successor: control_report(
+            config,
+            "no-repeat-successor",
+            "round-robin arrangement of the same 12-symbol x10 multiset",
+            no_repeat_successor_message()?,
+        )?,
+    })
+}
+
+fn control_report(
+    config: ZeroAdjacencyNullConfig,
+    label: &'static str,
+    description: &'static str,
+    message: Vec<TrigramValue>,
+) -> Result<PositiveControlReport, ZeroAdjacencyNullError> {
+    let keys = ["control"];
+    let messages = vec![message];
+    let analysis = analyze_message_values(config, &keys, &messages)?;
+    Ok(PositiveControlReport {
+        label,
+        description,
+        observed: analysis.observed,
+        null: analysis.null,
+        empirical_p_count: analysis.empirical_p_count,
+        empirical_p: analysis.empirical_p,
+        band_position: analysis.band_position,
+    })
+}
+
+fn repeated_multiset_message() -> Result<Vec<TrigramValue>, ZeroAdjacencyNullError> {
+    let mut values = Vec::new();
+    for raw in 0..CONTROL_ALPHABET_SIZE {
+        for _copy in 0..CONTROL_COPIES_PER_SYMBOL {
+            push_control_value(&mut values, raw)?;
+        }
+    }
+    Ok(values)
+}
+
+fn no_repeat_successor_message() -> Result<Vec<TrigramValue>, ZeroAdjacencyNullError> {
+    let mut values = Vec::new();
+    for _copy in 0..CONTROL_COPIES_PER_SYMBOL {
+        for raw in 0..CONTROL_ALPHABET_SIZE {
+            push_control_value(&mut values, raw)?;
+        }
+    }
+    Ok(values)
+}
+
+fn push_control_value(
+    values: &mut Vec<TrigramValue>,
+    raw: u8,
+) -> Result<(), ZeroAdjacencyNullError> {
+    let value = TrigramValue::new(raw)
+        .map_err(|value| ZeroAdjacencyNullError::ControlValueOutOfRange { value })?;
+    values.push(value);
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        ShuffleBandPosition, ZeroAdjacencyNullConfig, adjacency_summary, analyze_message_values,
+        positive_controls, run_zero_adjacency_null, shuffled_messages,
+    };
+    use crate::null::SplitMix64;
+    use crate::trigram::TrigramValue;
+
+    const FLOAT_RELATIVE_EPSILON: f64 = 1.0e-12;
+
+    fn assert_relative_close(actual: f64, expected: f64, label: &str) {
+        let tolerance = expected.abs() * FLOAT_RELATIVE_EPSILON;
+        let difference = (actual - expected).abs();
+        assert!(
+            difference <= tolerance,
+            "{label} changed: actual={actual:.17e} expected={expected:.17e} diff={difference:.17e} tolerance={tolerance:.17e}"
+        );
+    }
+
+    #[test]
+    fn analytic_expected_count_matches_hand_calculation() {
+        let keys = ["toy"];
+        let messages = vec![values(&[1, 1, 1, 2, 2])];
+
+        let summary = adjacency_summary(&keys, &messages).unwrap();
+
+        assert_eq!(summary.adjacent_equal, 3);
+        assert_eq!(summary.comparisons, 4);
+        assert_relative_close(summary.analytic_expected, 2.0, "analytic expected");
+        assert_relative_close(summary.rate, 0.75, "rate");
+    }
+
+    #[test]
+    fn shuffle_null_preserves_message_multisets_and_lengths() {
+        let messages = vec![values(&[0, 0, 1, 1, 2, 2]), values(&[3, 3, 4])];
+        let mut rng = SplitMix64::new(0x5151);
+
+        let shuffled = shuffled_messages(&messages, &mut rng).unwrap();
+
+        assert_eq!(shuffled.len(), messages.len());
+        for (original, shuffled_message) in messages.iter().zip(&shuffled) {
+            let mut original_sorted = original.clone();
+            let mut shuffled_sorted = shuffled_message.clone();
+            original_sorted.sort_unstable();
+            shuffled_sorted.sort_unstable();
+            assert_eq!(shuffled_message.len(), original.len());
+            assert_eq!(shuffled_sorted, original_sorted);
+        }
+    }
+
+    #[test]
+    fn shuffle_null_is_reproducible_for_fixed_seed() {
+        let config = ZeroAdjacencyNullConfig {
+            seed: 0x5eed,
+            trials_per_seed: 16,
+            seed_count: 2,
+        };
+        let keys = ["toy"];
+        let messages = vec![values(&[0, 0, 0, 1, 1, 1, 2, 2, 2])];
+
+        let first = analyze_message_values(config, &keys, &messages).unwrap();
+        let second = analyze_message_values(config, &keys, &messages).unwrap();
+
+        assert_eq!(first, second);
+        assert_eq!(first.null.trials, 32);
+        assert!(first.null.mean > 0.0);
+    }
+
+    #[test]
+    fn positive_controls_separate_free_and_no_repeat_regimes() {
+        let config = ZeroAdjacencyNullConfig {
+            seed: 0x5150,
+            trials_per_seed: 256,
+            seed_count: 2,
+        };
+
+        let controls = positive_controls(config).unwrap();
+
+        assert_eq!(
+            controls.free_permutation.band_position,
+            ShuffleBandPosition::Within
+        );
+        assert!(
+            controls.free_permutation.observed.adjacent_equal > 0,
+            "free control should contain ordinary adjacent equal pairs"
+        );
+        assert_eq!(
+            controls.no_repeat_successor.band_position,
+            ShuffleBandPosition::Below
+        );
+        assert_eq!(controls.no_repeat_successor.observed.adjacent_equal, 0);
+        assert!(controls.no_repeat_successor.null.q025 > 0);
+        assert!(
+            controls.no_repeat_successor.empirical_p <= 0.01,
+            "p={}",
+            controls.no_repeat_successor.empirical_p
+        );
+    }
+
+    #[test]
+    fn eye_zero_adjacency_headline_numbers_are_pinned() {
+        let report = run_zero_adjacency_null(ZeroAdjacencyNullConfig::default()).unwrap();
+
+        assert_eq!(report.order.name(), "standard36-u012-d012");
+        assert_eq!(report.observed.adjacent_equal, 0);
+        assert_eq!(report.observed.comparisons, 1_027);
+        assert_relative_close(
+            report.observed.analytic_expected,
+            12.113_332_187_561_976,
+            "eye analytic expected",
+        );
+        assert_eq!(report.empirical_p_count, 0);
+        assert_relative_close(
+            report.empirical_p,
+            0.000_199_960_007_998_400_3,
+            "eye empirical p",
+        );
+        assert_eq!(report.band_position, ShuffleBandPosition::Below);
+        assert!(report.significant);
+    }
+
+    fn values(raw_values: &[u8]) -> Vec<TrigramValue> {
+        raw_values
+            .iter()
+            .copied()
+            .map(|raw| TrigramValue::new(raw).unwrap())
+            .collect()
+    }
+}
