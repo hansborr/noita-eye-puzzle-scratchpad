@@ -16,6 +16,13 @@
 //! whose minimum calibrated p-values are scored against the same external
 //! calibration reference as the eyes.
 //!
+//! This empirical min-p diagnostic has finite resolution: with `N`
+//! calibration grids, any cell's marginal p-value is floored at `1 / (N + 1)`.
+//! It therefore cannot represent the eye corpus's analytic
+//! `(83 / 125)^1036` bounded-contiguity probability. For that headline cell,
+//! this module also reports an analytic multiplicity correction across the
+//! configured researcher-`DoF` search space.
+//!
 //! Important scope nuance: the standard36 honeycomb traversal is
 //! data-independent, depending only on grid shape and fixed trigram-position
 //! permutations. The genuinely new exposure being calibrated here is therefore
@@ -23,7 +30,7 @@
 //! non-honeycomb traversal controls.
 
 use crate::glyph::Orientation;
-use crate::null::{SplitMix64, WilsonInterval, random_orientation_grids_like, wilson_95};
+use crate::null::{self, SplitMix64, WilsonInterval, random_orientation_grids_like, wilson_95};
 use crate::orders::{self, GlyphGrid, GridError, ReadingOrder};
 
 const DEFAULT_DOF_NULL_SEED: u64 = 0x646f_666e_756c_6c00;
@@ -31,6 +38,7 @@ const DEFAULT_DOF_NULL_TRIALS: usize = 1_000;
 const ORIENTATION_BASE: usize = 5;
 const ENGINE_STORAGE_BASE: usize = 7;
 const MAX_RECURRENCE_DISTANCE: usize = 6;
+const ANALYTIC_HEADLINE_CEILING: f64 = 82.0;
 
 /// Configuration for the calibrated `DoF` null.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -204,6 +212,8 @@ pub enum DofNullError {
     },
     /// The add-one empirical denominator overflowed `usize`.
     TrialCountTooLarge,
+    /// The configured traversal/grouping/statistic cross-product overflowed `usize`.
+    SearchSpaceTooLarge,
 }
 
 impl From<GridError> for DofNullError {
@@ -254,6 +264,29 @@ pub struct CellReport {
     pub null_max: f64,
 }
 
+/// Analytic multiplicity correction for the known bounded-contiguity headline.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DofAnalyticHeadlineBounds {
+    /// Empirical cell used as the anchor for the analytic correction.
+    pub cell: CellReport,
+    /// Number of non-overlapping trigrams in the headline cell.
+    pub trigrams: usize,
+    /// Probability bound for one fixed order under independent uniform trigrams.
+    pub per_order: f64,
+    /// Total configured traversal × grouping × statistic cells before skips.
+    pub total_configured_cells: usize,
+    /// Bonferroni bound over all configured cells.
+    pub total_bonferroni: f64,
+    /// Sidak family-wise probability over all configured cells.
+    pub total_sidak: f64,
+    /// Empirical Sidak-equivalent comparison count from the resampling min-p median.
+    pub effective_comparisons: f64,
+    /// Bonferroni bound over the empirical effective comparison count.
+    pub effective_bonferroni: f64,
+    /// Sidak family-wise probability over the empirical effective comparison count.
+    pub effective_sidak: f64,
+}
+
 /// Complete calibrated `DoF` null report.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DofNullReport {
@@ -265,6 +298,8 @@ pub struct DofNullReport {
     pub configured_groupings: usize,
     /// Number of headline statistics configured.
     pub configured_statistics: usize,
+    /// Configured traversal × grouping × statistic cells before compatibility skips.
+    pub configured_cell_count: usize,
     /// Number of calibrated valid cells.
     pub valid_cell_count: usize,
     /// Traversal/grouping combinations skipped as undefined.
@@ -275,6 +310,8 @@ pub struct DofNullReport {
     pub best_cell: CellReport,
     /// Minimum calibrated marginal p-value for the real eyes.
     pub observed_min_p: f64,
+    /// Smallest representable empirical marginal p-value for this calibration set.
+    pub empirical_marginal_floor: f64,
     /// Count of resampling grids whose own min-p is at least as extreme.
     pub adaptive_extreme_count: usize,
     /// Wilson interval for the add-one adaptive p-value.
@@ -287,6 +324,8 @@ pub struct DofNullReport {
     pub null_min_p_median: f64,
     /// Largest resampling-grid min-p sampled under the adaptive null.
     pub null_min_p_max: f64,
+    /// Analytic multiplicity correction for the known bounded-contiguity headline.
+    pub analytic_headline_bounds: Option<DofAnalyticHeadlineBounds>,
 }
 
 /// Runs the calibrated `DoF` null on the verified eye corpus.
@@ -323,6 +362,8 @@ fn run_dof_null_with(
     mut generate: impl FnMut(&[GlyphGrid], &mut SplitMix64) -> Vec<GlyphGrid>,
 ) -> Result<DofNullReport, DofNullError> {
     validate_config(config, space)?;
+    let configured_cell_count = configured_cell_count(space)?;
+    let empirical_marginal_floor = empirical_marginal_floor(config.calibration_trials)?;
     let prepared = prepare_cells(real_grids, space)?;
     if prepared.cells.is_empty() {
         return Err(DofNullError::NoValidCells);
@@ -387,24 +428,92 @@ fn run_dof_null_with(
     );
     let effective_comparisons =
         median_effective_comparisons(sorted_quantile(&sorted_min_ps, Quantile::Median));
+    let analytic_headline_bounds =
+        analytic_headline_bounds(&cells, configured_cell_count, effective_comparisons);
 
     Ok(DofNullReport {
         config,
         configured_orders: space.orders.len(),
         configured_groupings: space.groupings.len(),
         configured_statistics: space.statistics.len(),
+        configured_cell_count,
         valid_cell_count: cells.len(),
         skipped: prepared.skipped,
         cells,
         best_cell,
         observed_min_p,
+        empirical_marginal_floor,
         adaptive_extreme_count,
         adaptive_interval,
         effective_comparisons,
         null_min_p_min: sorted_quantile(&sorted_min_ps, Quantile::Min),
         null_min_p_median: sorted_quantile(&sorted_min_ps, Quantile::Median),
         null_min_p_max: sorted_quantile(&sorted_min_ps, Quantile::Max),
+        analytic_headline_bounds,
     })
+}
+
+fn configured_cell_count(space: &DofSearchSpace) -> Result<usize, DofNullError> {
+    space
+        .orders
+        .len()
+        .checked_mul(space.groupings.len())
+        .and_then(|count| count.checked_mul(space.statistics.len()))
+        .ok_or(DofNullError::SearchSpaceTooLarge)
+}
+
+fn empirical_marginal_floor(calibration_trials: usize) -> Result<f64, DofNullError> {
+    let denominator = calibration_trials
+        .checked_add(1)
+        .ok_or(DofNullError::TrialCountTooLarge)?;
+    Ok(1.0 / denominator as f64)
+}
+
+fn analytic_headline_bounds(
+    cells: &[CellReport],
+    total_configured_cells: usize,
+    effective_comparisons: f64,
+) -> Option<DofAnalyticHeadlineBounds> {
+    let cell = cells
+        .iter()
+        .find(|cell| {
+            cell.order == orders::accepted_honeycomb_order()
+                && cell.grouping == (GroupingRule::OrientationBase5 { width: 3 })
+                && cell.statistic == HeadlineStatistic::ContiguousBoundedAtMax
+                && (cell.real_value - ANALYTIC_HEADLINE_CEILING).abs() <= f64::EPSILON
+        })?
+        .clone();
+    let fixed = null::analytic_headline_bounds(1, cell.real_symbols);
+    let total_comparisons = total_configured_cells as f64;
+    Some(DofAnalyticHeadlineBounds {
+        trigrams: cell.real_symbols,
+        per_order: fixed.per_order,
+        total_configured_cells,
+        total_bonferroni: bonferroni_bound(fixed.per_order, total_comparisons),
+        total_sidak: sidak_bound(fixed.per_order, total_comparisons),
+        effective_comparisons,
+        effective_bonferroni: bonferroni_bound(fixed.per_order, effective_comparisons),
+        effective_sidak: sidak_bound(fixed.per_order, effective_comparisons),
+        cell,
+    })
+}
+
+fn bonferroni_bound(per_comparison: f64, comparisons: f64) -> f64 {
+    if per_comparison <= 0.0 || comparisons <= 0.0 {
+        0.0
+    } else {
+        (per_comparison * comparisons).min(1.0)
+    }
+}
+
+fn sidak_bound(per_comparison: f64, comparisons: f64) -> f64 {
+    if per_comparison <= 0.0 || comparisons <= 0.0 {
+        0.0
+    } else if per_comparison >= 1.0 {
+        1.0
+    } else {
+        -f64::exp_m1(comparisons * f64::ln_1p(-per_comparison))
+    }
 }
 
 fn validate_config(config: DofNullConfig, space: &DofSearchSpace) -> Result<(), DofNullError> {
@@ -938,8 +1047,8 @@ fn median(sorted: &[f64]) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::{
-        DofNullConfig, DofSearchSpace, GroupingRule, HeadlineStatistic, run_dof_null_for_grids,
-        run_dof_null_with,
+        DofNullConfig, DofSearchSpace, GroupingRule, HeadlineStatistic, run_dof_null,
+        run_dof_null_for_grids, run_dof_null_with,
     };
     use crate::glyph::Orientation;
     use crate::null::{SplitMix64, random_orientation_grids_like};
@@ -1133,5 +1242,24 @@ mod tests {
         }
 
         assert!(seeds_with_resampling_hits >= 2);
+    }
+
+    #[test]
+    fn analytic_configured_dof_bound_is_astronomically_small_for_eyes() {
+        let report = run_dof_null(DofNullConfig {
+            seed: 0x4d55_0001,
+            calibration_trials: 1,
+            trials: 1,
+        })
+        .unwrap();
+        let bounds = report.analytic_headline_bounds.unwrap();
+
+        assert_eq!(bounds.trigrams, 1036);
+        assert_eq!(bounds.total_configured_cells, 1_140);
+        assert!(bounds.per_order < 1e-180);
+        assert!(bounds.total_bonferroni < 1e-100);
+        assert!(bounds.total_sidak < 1e-100);
+        assert!(bounds.effective_bonferroni < 1e-100);
+        assert!(bounds.effective_sidak < 1e-100);
     }
 }

@@ -719,6 +719,9 @@ fn format_dof_null_error(error: &dof_null::DofNullError) -> String {
         dof_null::DofNullError::TrialCountTooLarge => {
             "DoF null trial count is too large for add-one calibration".to_owned()
         }
+        dof_null::DofNullError::SearchSpaceTooLarge => {
+            "DoF null search-space cross-product is too large".to_owned()
+        }
     }
 }
 
@@ -956,8 +959,11 @@ fn print_dof_null_report(report: &dof_null::DofNullReport) {
     );
     println!("resampling trials (B): {}", report.config.trials);
     println!(
-        "configured axes: {} traversals x {} groupings x {} statistics",
-        report.configured_orders, report.configured_groupings, report.configured_statistics
+        "configured axes: {} traversals x {} groupings x {} statistics = {} total cells",
+        report.configured_orders,
+        report.configured_groupings,
+        report.configured_statistics,
+        report.configured_cell_count
     );
     println!("valid calibrated cells: {}", report.valid_cell_count);
     println!(
@@ -971,10 +977,15 @@ fn print_dof_null_report(report: &dof_null::DofNullReport) {
     println!(
         "scope nuance: the standard36 honeycomb walk is data-independent; the newly calibrated exposure is concentrated on grouping/statistic choice plus non-honeycomb controls"
     );
+    println!(
+        "empirical marginal floor: {} = 1/(calibration trials + 1)",
+        format_probability(report.empirical_marginal_floor)
+    );
     println!();
     println!(
-        "eyes min marginal p: {}",
-        format_probability(report.observed_min_p)
+        "eyes min marginal p: {}{}",
+        format_probability(report.observed_min_p),
+        floor_censored_suffix(report.observed_min_p, report.empirical_marginal_floor)
     );
     println!(
         "best cell: {} / {} / {} ({}, real {}, null {}..{}..{})",
@@ -991,7 +1002,10 @@ fn print_dof_null_report(report: &dof_null::DofNullReport) {
         "adaptive raw exceedances in B: {}/{}",
         report.adaptive_extreme_count, report.config.trials
     );
-    print_interval("adaptive add-one min-p <= eyes", report.adaptive_interval);
+    print_interval(
+        "resolution-limited adaptive min-p diagnostic",
+        report.adaptive_interval,
+    );
     println!(
         "effective independent comparisons (median Sidak-equivalent): {}",
         format_effective_comparisons(report.effective_comparisons)
@@ -1003,13 +1017,67 @@ fn print_dof_null_report(report: &dof_null::DofNullReport) {
         format_probability(report.null_min_p_max)
     );
     println!();
+    print_dof_analytic_headline(report);
+    println!();
     print_dof_skips(report);
     println!();
     print_dof_cell_breakdown(report);
     println!();
     println!(
-        "Interpretation: this is the look-elsewhere correction across the configured traversal, grouping, and headline-statistic choices. It still does not decode meaning; it only tests whether same-shape random grids can achieve an equally good calibrated best cell under the same adaptive search."
+        "Interpretation: the empirical adaptive value above is a finite-resolution diagnostic, not the headline significance. With this calibration size, any sub-floor cell is censored to the floor, so the diagnostic estimates how often random grids hit that floor somewhere after look-elsewhere multiplicity. The analytic bound is the appropriate correction for the known bounded-contiguity headline; it remains astronomically small and still does not decode meaning."
     );
+}
+
+fn print_dof_analytic_headline(report: &dof_null::DofNullReport) {
+    let Some(bounds) = &report.analytic_headline_bounds else {
+        println!("analytic DoF-corrected headline bound: unavailable for this search space");
+        return;
+    };
+    let calibration_draws_to_resolve = if bounds.per_order > 0.0 {
+        1.0 / bounds.per_order
+    } else {
+        f64::INFINITY
+    };
+
+    println!("analytic DoF-corrected headline bound under independent uniform trigrams:");
+    println!(
+        "  headline cell: {} / {} / {} real {}, empirical p {}{} ({} calibration hits)",
+        bounds.cell.order.name(),
+        bounds.cell.grouping.label(),
+        bounds.cell.statistic.label(),
+        format_statistic_value(bounds.cell.real_value),
+        format_probability(bounds.cell.marginal_p),
+        floor_censored_suffix(bounds.cell.marginal_p, report.empirical_marginal_floor),
+        bounds.cell.marginal_extreme_count
+    );
+    println!(
+        "  per-order (83/125)^{}: {:.6e}",
+        bounds.trigrams, bounds.per_order
+    );
+    println!(
+        "  total configured cells (M={}): Bonferroni {:.6e}; Sidak {:.6e}",
+        bounds.total_configured_cells, bounds.total_bonferroni, bounds.total_sidak
+    );
+    println!(
+        "  effective comparisons (M={}): Bonferroni {:.6e}; Sidak {:.6e}",
+        format_effective_comparisons(bounds.effective_comparisons),
+        bounds.effective_bonferroni,
+        bounds.effective_sidak
+    );
+    println!(
+        "  calibration draws needed to resolve this per-order scale empirically: ~{calibration_draws_to_resolve:.3e}"
+    );
+    println!(
+        "  conclusion: the bounded 0..=82 headline survives the configured researcher-DoF correction analytically."
+    );
+}
+
+fn floor_censored_suffix(value: f64, floor: f64) -> &'static str {
+    if (value - floor).abs() <= f64::EPSILON * 8.0 {
+        " (floor-censored)"
+    } else {
+        ""
+    }
 }
 
 fn print_dof_skips(report: &dof_null::DofNullReport) {

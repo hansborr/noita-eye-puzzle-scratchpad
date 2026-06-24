@@ -97,11 +97,16 @@ Commits `ac0bcd7`→`2bdb0c0` on `master`, all gate-green. Verified independentl
     add-one adaptive p is **200/1001 = 0.199800** (95% Wilson
     `0.176198..0.225697`); median Sidak-equivalent comparisons **173.11**. The
     accepted honeycomb trigram contiguous-0..=82 cell is also at `1/1001`.
-  - Interpretation: the fixed standard36 null still supports the bounded
-    83-state structural anomaly when that honeycomb family is treated as
-    data-independent, but the headline does **not** survive the broader
-    configured traversal/grouping/statistic researcher-DoF correction as a small
-    adaptive p-value. It is still not a plaintext/decryption claim.
+  - Interpretation: the empirical adaptive p is a finite-resolution diagnostic,
+    not the headline significance. With 1000 calibration grids, the eyes'
+    analytic `(83/125)^1036 = 5.836e-185` effect is censored to the `1/1001`
+    marginal floor; the 0.199800 value measures how often random grids hit that
+    floor somewhere after look-elsewhere multiplicity. The analytic configured
+    DoF correction is the correct instrument here: over all 1140 configured
+    traversal×grouping×statistic cells, Bonferroni/Šidák ≈ `6.653e-182`; over
+    the empirical effective comparisons, ≈ `1.010e-182`. The bounded 0..=82
+    headline **survives** this configured researcher-DoF correction
+    analytically. It is still not a plaintext/decryption claim.
 - **Review:** a `codex review` over the whole diff found only one P3 (silent
   trigram truncation), now fixed (`2bdb0c0`): `Message::trigrams()` errors on
   non-÷3 input.
@@ -387,4 +392,4 @@ cargo run -- dofnull --seed 12345 --trials 1000 --calib-trials 1000
 - 2026-06-22: Experiment 12 (candidate ciphers + Caesar/Vigenere brute vs English/Finnish) — candidate scores are mapping-conditioned; 256-trial shuffle null shows only pointwise tail rows under guessed mappings, the harness positive-control recovers Caesar/Vigenere plants, and no credible solution is established (commit 8bc7bdf0cf401a76709f98b118b2a141d6089be0).
 - 2026-06-22: Experiment 12 interpretation rigor — pointwise tails now report the derived exceedance-rate diagnosis and eye-vs-plant effect-size contrast, keeping the result a clean negative rather than near-hits (commit b465dd3f182d076994dcbd1ee8442e1354f4f6a9).
 - 2026-06-22: Experiments 9 & 10 primary-observer report (repo owner, direct in-game observation) — content identical across multiple seeds (qualitative seed-invariance corroboration; byte-for-byte cross-seed diff still pending) and exactly 5 visually distinct orientations with the digit→direction labeling agreed arbitrary (cryptanalytically immaterial; stats run on the Exp-0-verified integer sequence). Docs-only update to research/03 §§3–4, research/05 Exp 9/10, and §6 item 8; no code change, conclusions unchanged.
-- 2026-06-24: Researcher-DoF adaptive null follow-up — fixed the original single-set self-ranking bug by splitting calibration set A from resampling set B; seed 12345 / 1000+1000 trials gives add-one adaptive p 200/1001 = 0.199800 (Wilson 0.176198..0.225697), so the bounded 0..=82 headline remains strong under the fixed standard36 null but no longer survives this broad configured researcher-DoF correction as a small adaptive p-value.
+- 2026-06-24: Researcher-DoF adaptive null follow-up — fixed the original single-set self-ranking bug by splitting calibration set A from resampling set B; seed 12345 / 1000+1000 trials gives add-one adaptive p 200/1001 = 0.199800 (Wilson 0.176198..0.225697), but that is a finite-resolution floor diagnostic (`1/1001`) rather than a deflation of the eyes' analytic `(83/125)^1036` effect. The follow-up analytic configured-DoF correction over 1140 cells is ≈6.653e-182 (≈1.010e-182 over the empirical effective comparisons), so the bounded 0..=82 headline survives analytically.

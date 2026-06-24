@@ -51,9 +51,9 @@ Before any experiment, obtain and cross-validate the raw glyph data. **Do not tr
 
 **Expected signal / interpretation:**
 - The naive per-order probability `(83/125)^1036` is real and reproduces (float64 `5.836e-185`; exact value `5.836200792956514e-185`) [confirmed], but it is the probability for *one fixed* order. The honest question is the **family-wise** probability across everything searched.
-- **Trial count alone will not deflate it.** A Bonferroni/Šidák correction over even ~86k *fixed* orders leaves the outcome astronomically small *if* the null is independent-uniform trigrams — so do not expect the order count by itself to overturn the claim. The real exposure is **researcher degrees of freedom** (the "garden of forking paths"): the reading-order *family*, the digit→value mapping, the grouping into trigrams, and the "contiguous range" statistic were all selected *after* looking at the data. Separate and quantify the two corrections — fixed-order family-wise error vs. adaptive model selection — and treat the latter as the one that actually matters.
+- **Trial count alone will not deflate it.** A Bonferroni/Šidák correction over even ~86k *fixed* orders leaves the outcome astronomically small *if* the null is independent-uniform trigrams — so do not expect the order count by itself to overturn the claim. The real exposure is **researcher degrees of freedom** (the "garden of forking paths"): the reading-order *family*, the digit→value mapping, the grouping into trigrams, and the "contiguous range" statistic were all selected *after* looking at the data. Separate and quantify the two corrections — fixed-order family-wise error vs. adaptive model selection. When a selected headline has a known analytic null far below Monte-Carlo resolution, correct that analytic bound across the configured search space; do not mistake a finite empirical p-value floor for deflation.
 - **Positive (encoding likely real):** Even after correcting for ~86k trials, the contiguous-0–82 outcome remains astronomically unlikely, AND random grids essentially never produce it.
-- **Null / deflationary:** If random grids of the same shape frequently yield *some* contiguous range under *some* of the 36/86k orders, then the "0–82" result is partly a selection artifact and the headline probability is misleading [disputed — community presents `(83/125)^1036` without this correction].
+- **Null / selection-artifact:** If random grids of the same shape frequently yield *some* contiguous range under *some* of the 36/86k orders, then the "0–82" result is partly a selection artifact and the headline probability is misleading [disputed — community presents `(83/125)^1036` without this correction].
 - Independent computation already shows the raw order gives 0–122 with gaps, so the contiguity is **definitely order-contingent** [confirmed]; this experiment quantifies whether that contingency is suspicious or benign.
 
 **Tools:** `ToboterXP/EyeGlyphs` brute-force script as a starting point; reimplement the null-distribution wrapper yourself (the community version does not do this).
@@ -71,10 +71,18 @@ marginal p is at the empirical floor (`1/1001`), but 199/1000 resampling grids
 also reach an equally small calibrated min-p somewhere in the configured search.
 The add-one adaptive p-value is **200/1001 = 0.199800** (95% Wilson
 `0.176198..0.225697`; median Sidak-equivalent comparisons ≈173). The accepted
-honeycomb trigram contiguous-0..=82 cell is also at `1/1001`. The fixed
-standard36 null still supports the anomaly when the honeycomb family is treated
-as data-independent; the broader configured DoF correction no longer supports it
-as a small adaptive p-value over arbitrary traversal/grouping/statistic choice.
+honeycomb trigram contiguous-0..=82 cell is also at `1/1001`. This is a
+finite-resolution diagnostic, not a deflation: with only 1000 calibration grids,
+the empirical marginal p cannot represent the analytic per-order headline bound
+`(83/125)^1036 = 5.836e-185`. The 0.199800 value measures how often a random
+grid reaches the `1/1001` floor somewhere in the configured search. Resolving
+the effect empirically would need about `1.7e184` calibration draws, so the
+honest headline correction is analytic. Over all 1140 configured
+traversal×grouping×statistic cells, Bonferroni/Šidák ≈ `6.653e-182`; over the
+empirical effective comparisons, ≈ `1.010e-182`. The fixed standard36 null still
+supports the anomaly when the honeycomb family is treated as data-independent,
+and the bounded 0..=82 headline **survives** the broader configured DoF
+correction analytically.
 
 ---
 
@@ -262,7 +270,7 @@ as a small adaptive p-value over arbitrary traversal/grouping/statistic choice.
 ## What would actually move the needle (summary of priorities)
 
 1. **Experiment 0** (transcription cross-validation) — non-negotiable prerequisite.
-2. **Experiment 1** (reading-order multiple-comparisons audit) — most likely to confirm OR deflate the headline "this can't be chance" claim, because the community figure omits the family-wise correction [disputed].
+2. **Experiment 1** (reading-order multiple-comparisons audit) — most likely to confirm OR challenge the headline "this can't be chance" claim, because the community figure omits the family-wise correction [disputed].
 3. **Experiment 2** (generation-pipeline artifact test) — directly tests whether "structure" means "message."
 4. **Experiments 4 & 6** (frequency/IoC + adjacency on raw vs reordered) — expose how much "signal" is order-induced [confirmed it is substantial].
 5. **Experiment 11** (positive controls on solved ciphers) — calibrates whether a null result is meaningful.

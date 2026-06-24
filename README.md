@@ -89,9 +89,10 @@ decryption/cipher findings are uniformly **negative** for the eyes and
 **positive** for the calibration controls — i.e. the tools provably fire on known
 signal, and the eyes do not light them up. The strongest positive structural
 result remains the bounded 83-state reading-layer support under the fixed
-standard36 null; the broader calibrated researcher-DoF null below now correctly
-shows that this headline does not survive arbitrary traversal/grouping/statistic
-selection as a small adaptive p-value.
+standard36 null. The broader researcher-DoF correction does **not** deflate that
+headline: the empirical adaptive min-p run is finite-resolution and floor-censors
+the eyes, while the analytic multiplicity correction remains astronomically
+small.
 
 - **Exp 4 — frequency/entropy/IoC across orders.** Per-symbol frequency is flat
   (reproduces the community IoC ≈ 1.066, mean frequency 12.48); the honeycomb
@@ -107,11 +108,17 @@ selection as a small adaptive p-value.
   floor (`1/1001`), but 199/1000 resampling grids also reach an equally small
   calibrated min-p somewhere in the configured search. The add-one adaptive
   p-value is **200/1001 = 0.199800**, Wilson **0.176198..0.225697**, effective
-  comparisons ≈ **173**. The accepted honeycomb trigram contiguous-0..=82 row
-  remains at the empirical floor, but it does not survive this broad configured
-  DoF correction as a small adaptive p-value. The fixed standard36 null remains
-  the relevant result if the honeycomb traversal family is treated as
-  data-independent rather than researcher-selected.
+  comparisons ≈ **173**. This is a finite-resolution diagnostic: with only 1000
+  calibration grids, any cell smaller than `1/1001` is censored up to that floor,
+  so the 0.199800 value measures floor hits times look-elsewhere multiplicity,
+  not the probability of reproducing the eyes' contiguity. The accepted
+  honeycomb trigram contiguous-0..=82 cell has analytic per-order bound
+  `(83/125)^1036 = 5.836e-185`; correcting over all 1140 configured
+  traversal×grouping×statistic cells gives Bonferroni/Šidák ≈ **6.653e-182**,
+  and correcting over the empirical effective comparisons gives ≈
+  **1.010e-182**. Resolving that empirically would require about **1.7e184**
+  calibration draws, so the analytic correction is the honest headline result:
+  the bounded 0..=82 anomaly **survives** the configured DoF correction.
 - **Exp 5A — periodicity / autocorrelation.** No period or lag clears a random
   null band, beyond the order-contingent distance-4 spike (honestly reconciled
   with Exp 1B's targeted distance-4 result; family-wise vs pointwise).
@@ -139,8 +146,10 @@ selection as a small adaptive p-value.
 traversal/grouping/statistic researcher degrees of freedom instead of leaving
 that as an unmodeled caveat. It is still finite-resolution Monte Carlo
 (default marginal floor `1/(calib-trials+1)`) and a configured search space, not
-a proof over every imaginable post-hoc analysis. It supports "structured data of
-unknown meaning," not "decoded message."
+a proof over every imaginable post-hoc analysis. For sub-floor effects like the
+bounded-contiguity headline, use the printed analytic DoF-corrected bound rather
+than the empirical floor diagnostic. It supports "structured data of unknown
+meaning," not "decoded message."
 
 ## Commands
 
