@@ -60,6 +60,17 @@ impl SplitMix64 {
     }
 }
 
+/// Hashes a single seed to one pseudo-random `u64` via a fresh [`SplitMix64`].
+///
+/// This is the stateless one-shot form used by control-construction code that
+/// needs a deterministic, well-mixed value per seed (for example per-symbol
+/// source weights) without threading a mutable generator. It is equivalent to
+/// `SplitMix64::new(seed).next_u64()`.
+#[must_use]
+pub fn stateless_splitmix(seed: u64) -> u64 {
+    SplitMix64::new(seed).next_u64()
+}
+
 /// Error returned by the shared index-draw helpers when a bound cannot be used.
 ///
 /// Carries the offending `bound` so each caller can surface it through its own

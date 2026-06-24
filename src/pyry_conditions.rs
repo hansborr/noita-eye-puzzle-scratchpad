@@ -20,7 +20,7 @@ use crate::ciphers::{
 use crate::glyph::Glyph;
 use crate::isomorph::{self, PatternSignature};
 use crate::isomorph_null::{DEFAULT_MAX_WINDOW, DEFAULT_MIN_WINDOW};
-use crate::null::{SplitMix64, random_index_below, shuffled_permutation};
+use crate::null::{SplitMix64, random_index_below, shuffled_permutation, stateless_splitmix};
 use crate::orders::{self, GlyphGrid, GridError, ReadingOrder, read_corpus_message_values};
 use crate::perseus;
 use crate::trigram::TrigramValue;
@@ -1312,11 +1312,6 @@ fn flatten_values(message_values: &[Vec<TrigramValue>]) -> Vec<TrigramValue> {
 
 fn mix_seed(seed: u64, tag: u64) -> u64 {
     stateless_splitmix(seed ^ tag)
-}
-
-fn stateless_splitmix(seed: u64) -> u64 {
-    let mut rng = SplitMix64::new(seed);
-    rng.next_u64()
 }
 
 fn render_usize_list(values: &[usize]) -> String {

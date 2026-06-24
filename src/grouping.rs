@@ -476,7 +476,9 @@ fn grouping_row(
         axis,
         dropped_source_symbols: dropped.iter().sum(),
         pooled,
-        message_weighted_entropy_bits_per_symbol: message_weighted_entropy(glyph_messages),
+        message_weighted_entropy_bits_per_symbol: analysis::message_weighted_entropy(
+            glyph_messages,
+        ),
         message_weighted_normalized_entropy: message_weighted_normalized_entropy(glyph_messages),
         message_weighted_ioc: analysis::message_weighted_index_of_coincidence(glyph_messages),
         messages,
@@ -909,24 +911,6 @@ fn flatten_messages(glyph_messages: &[Vec<Glyph>]) -> Vec<Glyph> {
     glyph_messages.iter().flatten().copied().collect()
 }
 
-fn message_weighted_entropy(glyph_messages: &[Vec<Glyph>]) -> f64 {
-    let mut weighted = 0.0;
-    let mut total = 0usize;
-    for glyphs in glyph_messages {
-        let len = glyphs.len();
-        if len == 0 {
-            continue;
-        }
-        weighted += analysis::shannon_entropy(glyphs) * len as f64;
-        total += len;
-    }
-    if total == 0 {
-        0.0
-    } else {
-        weighted / total as f64
-    }
-}
-
 /// Longest scanned window that still contains a repeated isomorph signature.
 fn longest_repeated_isomorph(rows: &[IsomorphStateRow]) -> Option<usize> {
     rows.iter()
@@ -943,9 +927,7 @@ fn message_weighted_normalized_entropy(glyph_messages: &[Vec<Glyph>]) -> f64 {
         if len == 0 {
             continue;
         }
-        let entropy = analysis::shannon_entropy(glyphs);
-        let used_alphabet = analysis::frequencies(glyphs).len();
-        weighted += normalized_entropy(entropy, used_alphabet) * len as f64;
+        weighted += normalized_shannon_entropy(glyphs) * len as f64;
         total += len;
     }
     if total == 0 {
@@ -953,6 +935,17 @@ fn message_weighted_normalized_entropy(glyph_messages: &[Vec<Glyph>]) -> f64 {
     } else {
         weighted / total as f64
     }
+}
+
+/// Shannon entropy of `glyphs` normalized by `log2` of the number of distinct
+/// glyphs observed. This is the same quantity as the per-message
+/// `normalized_entropy` field, computed directly so the message-weighted
+/// aggregate skips the index-of-coincidence pass that `from_glyphs` also runs.
+fn normalized_shannon_entropy(glyphs: &[Glyph]) -> f64 {
+    normalized_entropy(
+        analysis::shannon_entropy(glyphs),
+        analysis::frequencies(glyphs).len(),
+    )
 }
 
 fn normalized_entropy(entropy_bits: f64, used_alphabet: usize) -> f64 {

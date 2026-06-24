@@ -15,7 +15,9 @@ use crate::ciphers::{
     incrementing_wheel_encrypt, vigenere_encrypt,
 };
 use crate::glyph::Glyph;
-use crate::null::{SplitMix64, fisher_yates, random_index_below, shuffled_permutation};
+use crate::null::{
+    SplitMix64, fisher_yates, random_index_below, shuffled_permutation, stateless_splitmix,
+};
 use crate::orders::{
     self, GlyphGrid, GridError, ReadingOrder, count_message_lag_comparisons,
     count_message_lag_matches, glyph_messages_from_values, read_corpus_message_values,
@@ -1241,10 +1243,6 @@ fn max_f64(values: impl IntoIterator<Item = f64>) -> f64 {
 
 fn mix_seed(seed: u64, tag: u64) -> u64 {
     stateless_splitmix(seed ^ tag.wrapping_mul(0x9e37_79b9_7f4a_7c15))
-}
-
-fn stateless_splitmix(seed: u64) -> u64 {
-    SplitMix64::new(seed).next_u64()
 }
 
 #[cfg(test)]

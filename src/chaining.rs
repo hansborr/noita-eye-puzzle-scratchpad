@@ -31,7 +31,7 @@
 //! this chaining signature uses only column distributions, that shuffle is an
 //! invariance check rather than a separate order-sensitive signal.
 
-use crate::null::{SplitMix64, fisher_yates, random_index_below};
+use crate::null::{SplitMix64, fisher_yates, random_index_below, stateless_splitmix};
 use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::trigram::TrigramValue;
 
@@ -572,10 +572,6 @@ fn source_weights(alphabet_size: usize) -> Vec<usize> {
             3 + (mixed % 47) as usize
         })
         .collect()
-}
-
-fn stateless_splitmix(seed: u64) -> u64 {
-    SplitMix64::new(seed).next_u64()
 }
 
 fn coprime_stride(total: usize, alphabet_size: usize) -> usize {
