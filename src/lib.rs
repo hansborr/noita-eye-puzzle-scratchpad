@@ -44,6 +44,8 @@
 //!   within-message shuffle null.
 //! - [`pipeline_null`]: Experiment 2 nulls for testing whether the base-7
 //!   generation pipeline manufactures reading-layer statistics.
+//! - [`pyry_conditions`]: capstone structural falsification harness encoding
+//!   Pyry's nine-condition checklist across generated cipher-family fixtures.
 //! - [`report`]: CLI report rendering and domain error formatting.
 //! - [`zero_adjacency_null`]: Experiment 7D zero-adjacency
 //!   forbidden-successor null against within-message multiset shuffles.
@@ -76,6 +78,7 @@ pub mod orientation_homogeneity;
 pub mod periodicity;
 pub mod perseus;
 pub mod pipeline_null;
+pub mod pyry_conditions;
 pub mod report;
 pub mod tree_residual;
 pub mod trigram;

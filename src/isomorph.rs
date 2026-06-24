@@ -80,6 +80,12 @@ impl PatternSignature {
             .collect::<Vec<_>>()
             .join(",")
     }
+
+    /// Returns the first-occurrence ordinal vector.
+    #[must_use]
+    pub fn values(&self) -> &[usize] {
+        &self.values
+    }
 }
 
 /// All starts where one repeated isomorph signature occurs.
