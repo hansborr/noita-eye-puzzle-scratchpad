@@ -32,6 +32,8 @@
 //!   with generated cipher-family controls.
 //! - [`null`]: deterministic null distributions for fixed reading-order
 //!   families.
+//! - [`orientation_homogeneity`]: order-independent cross-message
+//!   homogeneity test over engine-fixed single-orientation frequencies.
 //! - [`periodicity`]: Experiment 5A periodicity, autocorrelation, and Kasiski
 //!   tests against same-shape random null streams.
 //! - [`perseus`]: Experiment 7C Perseus shared-region recurrence statistic and
@@ -62,6 +64,7 @@ pub mod language;
 pub mod modular_diff;
 pub mod null;
 pub mod orders;
+pub mod orientation_homogeneity;
 pub mod periodicity;
 pub mod perseus;
 pub mod pipeline_null;

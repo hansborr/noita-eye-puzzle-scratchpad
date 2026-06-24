@@ -9,7 +9,8 @@ use std::process::ExitCode;
 use clap::{Args, Parser, Subcommand};
 use noita_eye_puzzle::{
     chaining, cipher_attack, controls, corpus, dof_null, glyph::Sequence, grouping, isomorph_null,
-    modular_diff, null, orders, periodicity, perseus, pipeline_null, report, zero_adjacency_null,
+    modular_diff, null, orders, orientation_homogeneity, periodicity, perseus, pipeline_null,
+    report, zero_adjacency_null,
 };
 
 const DEFAULT_NULL_SEED: u64 = 0x6e6f_6974_612d_6579;
@@ -49,6 +50,8 @@ enum Command {
     Pipelinenull(NullArgs),
     /// Experiment 8 base-N grouping plus state-count estimate.
     Grouping,
+    /// Cross-message orientation-frequency homogeneity null.
+    Homogeneity(HomogeneityArgs),
     /// Experiment 7A real isomorphs vs within-message shuffle null.
     #[command(name = "isomorphnull")]
     Isomorphnull(IsomorphNullArgs),
@@ -225,6 +228,26 @@ impl From<PerseusArgs> for perseus::PerseusConfig {
 }
 
 #[derive(Clone, Copy, Debug, Args)]
+struct HomogeneityArgs {
+    #[arg(long, default_value_t = orientation_homogeneity::DEFAULT_SEED)]
+    seed: u64,
+    #[arg(long, default_value_t = orientation_homogeneity::DEFAULT_TRIALS_PER_SEED)]
+    trials: usize,
+    #[arg(long, default_value_t = orientation_homogeneity::DEFAULT_SEED_COUNT)]
+    seeds: usize,
+}
+
+impl From<HomogeneityArgs> for orientation_homogeneity::OrientationHomogeneityConfig {
+    fn from(args: HomogeneityArgs) -> Self {
+        Self {
+            seed: args.seed,
+            trials_per_seed: args.trials,
+            seed_count: args.seeds,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Args)]
 struct ZeroAdjacencyNullArgs {
     #[arg(long, default_value_t = zero_adjacency_null::DEFAULT_SEED)]
     seed: u64,
@@ -322,6 +345,7 @@ fn main() -> ExitCode {
         Command::Periodicity(args) => run_periodicity(args.into()),
         Command::Pipelinenull(args) => run_pipelinenull(args.into()),
         Command::Grouping => run_grouping(),
+        Command::Homogeneity(args) => run_homogeneity(args.into()),
         Command::Isomorphnull(args) => run_isomorphnull(args.into()),
         Command::Chaining(args) => run_chaining(args.into()),
         Command::Moddiff(args) => run_moddiff(args.into()),
@@ -414,6 +438,21 @@ fn run_grouping() -> ExitCode {
         }
     };
     report::print_grouping_report(&report);
+    ExitCode::SUCCESS
+}
+
+fn run_homogeneity(config: orientation_homogeneity::OrientationHomogeneityConfig) -> ExitCode {
+    let report = match orientation_homogeneity::run_orientation_homogeneity(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!(
+                "orientation homogeneity error: {}",
+                report::format_orientation_homogeneity_error(error)
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    report::print_orientation_homogeneity_report(&report);
     ExitCode::SUCCESS
 }
 
