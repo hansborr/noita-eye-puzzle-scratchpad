@@ -16,8 +16,6 @@ const DEFAULT_NULL_SEED: u64 = 0x6e6f_6974_612d_6579;
 const DEFAULT_NULL_TRIALS: usize = 1_000;
 const DEFAULT_DOF_NULL_SEED: u64 = 0x646f_666e_756c_6c00;
 const DEFAULT_DOF_NULL_TRIALS: usize = 1_000;
-const DEFAULT_MONOALPHABETIC_CONTROL_SEED: u64 = 0x6d6f_6e6f_616c_7068;
-const DEFAULT_ISOMORPH_CONTROL_SEED: u64 = 0x6973_6f6d_6f72_7068;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -224,6 +222,7 @@ impl From<CipherAttackArgs> for cipher_attack::CipherAttackConfig {
 }
 
 #[derive(Debug, Args)]
+#[command(args_conflicts_with_subcommands = true)]
 struct ControlsArgs {
     #[arg(long)]
     seed: Option<u64>,
@@ -242,7 +241,7 @@ enum ControlTarget {
 
 #[derive(Clone, Copy, Debug, Args)]
 struct MonoalphabeticControlArgs {
-    #[arg(long, default_value_t = DEFAULT_MONOALPHABETIC_CONTROL_SEED)]
+    #[arg(long, default_value_t = controls::DEFAULT_MONOALPHABETIC_SEED)]
     seed: u64,
 }
 
@@ -254,7 +253,7 @@ impl From<MonoalphabeticControlArgs> for controls::MonoalphabeticControlConfig {
 
 #[derive(Clone, Copy, Debug, Args)]
 struct IsomorphControlArgs {
-    #[arg(long, default_value_t = DEFAULT_ISOMORPH_CONTROL_SEED)]
+    #[arg(long, default_value_t = controls::DEFAULT_ISOMORPH_SEED)]
     seed: u64,
 }
 
@@ -426,30 +425,16 @@ fn run_cipherattack(config: cipher_attack::CipherAttackConfig) -> ExitCode {
 
 fn run_controls(args: ControlsArgs) -> ExitCode {
     let ControlsArgs { seed, target } = args;
-    match (seed, target) {
-        (Some(_), Some(_)) => {
-            eprintln!(
-                "controls error: pass --seed after the selected target: controls <target> --seed N"
-            );
-            ExitCode::FAILURE
-        }
-        (None, Some(ControlTarget::Monoalphabetic(config))) => {
-            run_monoalphabetic_control(config.into())
-        }
-        (None, Some(ControlTarget::Isomorph(config))) => run_isomorph_control(config.into()),
-        (seed, None) => {
-            let config = monoalphabetic_control_config(seed);
+    match target {
+        Some(ControlTarget::Monoalphabetic(config)) => run_monoalphabetic_control(config.into()),
+        Some(ControlTarget::Isomorph(config)) => run_isomorph_control(config.into()),
+        None => {
+            let config = controls::MonoalphabeticControlConfig {
+                seed: seed.unwrap_or(controls::DEFAULT_MONOALPHABETIC_SEED),
+            };
             run_monoalphabetic_control(config)
         }
     }
-}
-
-fn monoalphabetic_control_config(seed: Option<u64>) -> controls::MonoalphabeticControlConfig {
-    let mut config = controls::MonoalphabeticControlConfig::default();
-    if let Some(seed) = seed {
-        config.seed = seed;
-    }
-    config
 }
 
 fn run_monoalphabetic_control(config: controls::MonoalphabeticControlConfig) -> ExitCode {

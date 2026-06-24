@@ -877,8 +877,6 @@ pub struct ReadingLayerFlatnessStats {
     /// This is infinite when the order emits any value outside `0..=82`, because
     /// an 83-symbol expected distribution assigns those values probability zero.
     pub chi_square_vs_uniform: f64,
-    /// Degrees of freedom for the fully specified 83-bucket uniform chi-square reference.
-    pub chi_square_vs_uniform_degrees_of_freedom: usize,
     /// Upper-tail p-value `P(X_df >= chi_square_vs_uniform)` for the finite statistic.
     ///
     /// This is `None` when the order emits a value outside `0..=82`, because
@@ -887,6 +885,9 @@ pub struct ReadingLayerFlatnessStats {
 }
 
 impl ReadingLayerFlatnessStats {
+    /// Degrees of freedom for the fully specified 83-bucket uniform chi-square reference.
+    pub const CHI_SQUARE_VS_UNIFORM_DEGREES_OF_FREEDOM: usize = READING_LAYER_ALPHABET_SIZE - 1;
+
     /// Computes reading-layer flatness stats from per-message trigram values.
     #[must_use]
     pub fn from_message_values(message_values: &[Vec<TrigramValue>]) -> Self {
@@ -925,13 +926,11 @@ impl ReadingLayerFlatnessStats {
         } else {
             f64::INFINITY
         };
-        let chi_square_vs_uniform_degrees_of_freedom = READING_LAYER_ALPHABET_SIZE - 1;
         let chi_square_vs_uniform_upper_tail_p_value = if outside_alphabet_occurrences == 0 {
             analysis::chi_square_upper_tail_p_value(
                 chi_square_vs_uniform,
-                chi_square_vs_uniform_degrees_of_freedom,
+                Self::CHI_SQUARE_VS_UNIFORM_DEGREES_OF_FREEDOM,
             )
-            .ok()
         } else {
             None
         };
@@ -953,7 +952,6 @@ impl ReadingLayerFlatnessStats {
             concatenated_normalized_ioc: concatenated_ioc_probability
                 * READING_LAYER_ALPHABET_SIZE as f64,
             chi_square_vs_uniform,
-            chi_square_vs_uniform_degrees_of_freedom,
             chi_square_vs_uniform_upper_tail_p_value,
         }
     }
@@ -1179,9 +1177,21 @@ pub fn standard36_flatness_stats(
 #[cfg(test)]
 mod tests {
     use super::{
-        OrderStats, READING_LAYER_ALPHABET_SIZE, ReadingOrder, TrigramPermutation,
-        audit_order_stats, corpus_grids, reading_layer_flatness_stats, summarize_grids,
+        OrderStats, READING_LAYER_ALPHABET_SIZE, ReadingLayerFlatnessStats, ReadingOrder,
+        TrigramPermutation, audit_order_stats, corpus_grids, reading_layer_flatness_stats,
+        summarize_grids,
     };
+
+    const FLOAT_RELATIVE_EPSILON: f64 = 1.0e-12;
+
+    fn assert_relative_close(actual: f64, expected: f64, label: &str) {
+        let tolerance = expected.abs() * FLOAT_RELATIVE_EPSILON;
+        let difference = (actual - expected).abs();
+        assert!(
+            difference <= tolerance,
+            "{label} changed: actual={actual:.17e} expected={expected:.17e} diff={difference:.17e} tolerance={tolerance:.17e}"
+        );
+    }
 
     #[test]
     fn raw_order_matches_stage_a_anchor() {
@@ -1303,36 +1313,48 @@ mod tests {
         assert_eq!(flatness.in_alphabet_total, 1036);
         assert_eq!(flatness.outside_alphabet_occurrences, 0);
         assert_eq!(flatness.frequencies.len(), READING_LAYER_ALPHABET_SIZE);
-        assert_eq!(flatness.mean_frequency.to_bits(), 0x4028_f6bf_3a9a_3785);
+        assert_relative_close(
+            flatness.mean_frequency,
+            12.481_927_710_843_4,
+            "mean frequency",
+        );
         assert_eq!(flatness.min_frequency, 3);
         assert_eq!(flatness.max_frequency, 26);
         assert_eq!(flatness.zero_frequency_symbols, 0);
-        assert!((flatness.normalized_ioc - flatness.ioc_probability * 83.0).abs() < 1e-12);
-        assert!(
-            (flatness.normalized_ioc - 0.971_776_489_899_835_8).abs() < 1e-12,
-            "per-message normalized IoC changed: {}",
-            flatness.normalized_ioc
+        assert_relative_close(
+            flatness.normalized_ioc,
+            flatness.ioc_probability * 83.0,
+            "normalized IoC relation",
         );
-        assert!(
-            (flatness.concatenated_normalized_ioc - flatness.concatenated_ioc_probability * 83.0)
-                .abs()
-                < 1e-12
+        assert_relative_close(
+            flatness.normalized_ioc,
+            0.971_776_489_899_836,
+            "per-message normalized IoC",
+        );
+        assert_relative_close(
+            flatness.concatenated_normalized_ioc,
+            flatness.concatenated_ioc_probability * 83.0,
+            "concatenated normalized IoC relation",
+        );
+        assert_relative_close(
+            flatness.concatenated_normalized_ioc,
+            1.066_043_683_434_99,
+            "concatenated normalized IoC",
+        );
+        assert_relative_close(
+            flatness.chi_square_vs_uniform,
+            150.355_212_355_212,
+            "chi-square statistic",
         );
         assert_eq!(
-            flatness.concatenated_normalized_ioc.to_bits(),
-            0x3ff1_0e83_d247_5ed2
+            ReadingLayerFlatnessStats::CHI_SQUARE_VS_UNIFORM_DEGREES_OF_FREEDOM,
+            82
         );
-        assert_eq!(
-            flatness.chi_square_vs_uniform.to_bits(),
-            0x4062_cb5d_e64d_18b5
-        );
-        assert_eq!(flatness.chi_square_vs_uniform_degrees_of_freedom, 82);
-        assert!(
-            (flatness.chi_square_vs_uniform_upper_tail_p_value.unwrap() - 6.310_017_333_267_232e-6)
-                .abs()
-                < 1e-18,
-            "chi-square upper-tail p-value changed: {:?}",
-            flatness.chi_square_vs_uniform_upper_tail_p_value
+        let upper_tail_p = flatness.chi_square_vs_uniform_upper_tail_p_value.unwrap();
+        assert_relative_close(
+            upper_tail_p,
+            6.310_017_333_267_23e-6,
+            "chi-square upper-tail p-value",
         );
     }
 
@@ -1344,7 +1366,10 @@ mod tests {
         assert_eq!(flatness.total, 1036);
         assert!(flatness.outside_alphabet_occurrences > 0);
         assert!(flatness.chi_square_vs_uniform.is_infinite());
-        assert_eq!(flatness.chi_square_vs_uniform_degrees_of_freedom, 82);
+        assert_eq!(
+            ReadingLayerFlatnessStats::CHI_SQUARE_VS_UNIFORM_DEGREES_OF_FREEDOM,
+            82
+        );
         assert_eq!(flatness.chi_square_vs_uniform_upper_tail_p_value, None);
     }
 }

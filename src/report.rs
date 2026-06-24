@@ -324,11 +324,11 @@ pub fn print_null_report(report: &null::NullReport) {
     );
     println!(
         "min distinct achieved over standard36: {}",
-        format_usize_histogram(&report.min_distinct_histogram)
+        format_histogram(&report.min_distinct_histogram)
     );
     println!(
         "min ceiling achieved over standard36: {}",
-        format_u8_histogram(&report.min_ceiling_histogram)
+        format_histogram(&report.min_ceiling_histogram)
     );
     println!(
         "best distance-4 ratio d4/mean(d1..d6): min {:.3}, median {:.3}, max {:.3}",
@@ -614,8 +614,8 @@ fn print_periodicity_interpretation(report: &periodicity::PeriodicityReport) {
         let count = exceedance_labels.len();
         println!(
             "Interpretation: {count} pooled/per-message period/lag {} {} the sampled report-wide random-null envelope (OUT): {}. Because at least one row is OUT, this run does not support the no-exceedance verdict and does not rule out a simple fixed-period polyalphabetic cipher under this honeycomb reading order.",
-            counted_noun(count, "row", "rows"),
-            counted_verb(count, "exceeds", "exceed"),
+            counted_form(count, "row", "rows"),
+            counted_form(count, "exceeds", "exceed"),
             exceedance_labels.join(", ")
         );
     }
@@ -730,11 +730,7 @@ fn print_lag4_band_reconciliation(row: &periodicity::AutocorrelationRow) {
     }
 }
 
-fn counted_noun(count: usize, singular: &'static str, plural: &'static str) -> &'static str {
-    if count == 1 { singular } else { plural }
-}
-
-fn counted_verb(count: usize, singular: &'static str, plural: &'static str) -> &'static str {
+fn counted_form(count: usize, singular: &'static str, plural: &'static str) -> &'static str {
     if count == 1 { singular } else { plural }
 }
 
@@ -1075,11 +1071,11 @@ pub fn print_pipeline_null_report(report: &null::NullReport) {
     );
     println!(
         "min distinct achieved over standard36: {}",
-        format_usize_histogram(&report.min_distinct_histogram)
+        format_histogram(&report.min_distinct_histogram)
     );
     println!(
         "min ceiling achieved over standard36: {}",
-        format_u8_histogram(&report.min_ceiling_histogram)
+        format_histogram(&report.min_ceiling_histogram)
     );
     println!(
         "best distance-4 ratio d4/mean(d1..d6): min {:.3}, median {:.3}, max {:.3}",
@@ -1258,7 +1254,7 @@ fn print_perseus_observed(report: &perseus::PerseusReport) {
     );
     println!(
         "  recurrent symbol values: {}",
-        format_recurrent_symbols(&report.observed.recurrent_symbols)
+        format_u8_values(&report.observed.recurrent_symbols)
     );
     println!(
         "  {:<6} {:>10} {:>10} {:>10} {:>10} {:<16}",
@@ -1272,7 +1268,7 @@ fn print_perseus_observed(report: &perseus::PerseusReport) {
             row.tested_shared_occurrences,
             row.recurrent_occurrences,
             row.rate,
-            format_recurrent_symbols(&row.recurrent_symbols)
+            format_u8_values(&row.recurrent_symbols)
         );
     }
 }
@@ -1425,7 +1421,7 @@ fn print_chaining_interpretation(report: &chaining::ChainingReport) {
     if overlapping > 0 {
         println!(
             "Interpretation: {overlapping} candidate {} had overlapping succeed/fail control bands, so those periods are not calibrated well enough for a verdict.",
-            counted_noun(overlapping, "period", "periods")
+            counted_form(overlapping, "period", "periods")
         );
     }
     if fail_matches == report.rows.len() {
@@ -1786,14 +1782,6 @@ fn format_shared_spans(spans: &[perseus::SharedSpan]) -> String {
         .map(|span| format!("{}..{}", span.start, span.end()))
         .collect::<Vec<_>>()
         .join(",")
-}
-
-fn format_recurrent_symbols(symbols: &[u8]) -> String {
-    if symbols.is_empty() {
-        "none".to_owned()
-    } else {
-        format_u8_values(symbols)
-    }
 }
 
 fn yes_no(value: bool) -> &'static str {
@@ -2284,7 +2272,7 @@ fn print_experiment_4_flatness_report(flatness: &[orders::NamedReadingLayerFlatn
             item.flatness.normalized_ioc,
             item.flatness.concatenated_normalized_ioc,
             format_chi_square(item.flatness.chi_square_vs_uniform),
-            item.flatness.chi_square_vs_uniform_degrees_of_freedom,
+            orders::ReadingLayerFlatnessStats::CHI_SQUARE_VS_UNIFORM_DEGREES_OF_FREEDOM,
             format_chi_square_p_value(item.flatness.chi_square_vs_uniform_upper_tail_p_value)
         );
     }
@@ -2327,15 +2315,7 @@ fn format_chi_square_p_value(value: Option<f64>) -> String {
     value.map_or_else(|| "n/a".to_owned(), |p_value| format!("{p_value:.6e}"))
 }
 
-fn format_usize_histogram(histogram: &[(usize, usize)]) -> String {
-    histogram
-        .iter()
-        .map(|(value, count)| format!("{value}:{count}"))
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
-fn format_u8_histogram(histogram: &[(u8, usize)]) -> String {
+fn format_histogram<T: std::fmt::Display>(histogram: &[(T, usize)]) -> String {
     histogram
         .iter()
         .map(|(value, count)| format!("{value}:{count}"))
@@ -2357,8 +2337,8 @@ fn format_storage_histogram(histogram: &[usize; 7]) -> String {
 mod tests {
     use super::{
         cipher_attack_interpretation_lines, format_chi_square, format_chi_square_p_value,
-        format_match_count, format_null_flag, format_probability, format_span,
-        format_storage_histogram, format_u8_histogram, format_usize_histogram,
+        format_histogram, format_match_count, format_null_flag, format_probability, format_span,
+        format_storage_histogram,
     };
     use crate::cipher_attack::{
         AttackRow, BestCandidate, CandidateScore, CipherAttackConfig, CipherAttackReport,
@@ -2387,8 +2367,11 @@ mod tests {
 
     #[test]
     fn representative_histogram_formatters_are_stable() {
-        assert_eq!(format_usize_histogram(&[(82, 1), (83, 2)]), "82:1, 83:2");
-        assert_eq!(format_u8_histogram(&[(0, 5), (4, 7)]), "0:5, 4:7");
+        assert_eq!(
+            format_histogram(&[(82_usize, 1), (83_usize, 2)]),
+            "82:1, 83:2"
+        );
+        assert_eq!(format_histogram(&[(0_u8, 5), (4_u8, 7)]), "0:5, 4:7");
         assert_eq!(
             format_storage_histogram(&[0, 1, 2, 3, 4, 5, 6]),
             "-1:0, 0:1, 1:2, 2:3, 3:4, 4:5, 5:6"

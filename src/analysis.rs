@@ -36,26 +36,6 @@ pub enum ChiSquareError {
     },
 }
 
-/// Error returned by [`chi_square_upper_tail_p_value`].
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum ChiSquarePValueError {
-    /// The chi-square reference distribution needs at least one degree of freedom.
-    NonPositiveDegreesOfFreedom {
-        /// Degrees of freedom supplied by the caller.
-        degrees_of_freedom: usize,
-    },
-    /// The statistic was undefined.
-    UndefinedStatistic {
-        /// The invalid statistic.
-        statistic: f64,
-    },
-    /// The statistic was negative, which is outside the chi-square support.
-    NegativeStatistic {
-        /// The invalid statistic.
-        statistic: f64,
-    },
-}
-
 /// Counts how often each glyph occurs.
 #[must_use]
 pub fn frequencies(seq: &[Glyph]) -> BTreeMap<Glyph, usize> {
@@ -177,30 +157,16 @@ pub fn chi_square_goodness_of_fit(
 /// with the supplied degrees of freedom. Positive infinity is accepted as the
 /// limiting statistic and returns a zero tail probability.
 ///
-/// # Errors
-/// Returns [`ChiSquarePValueError`] if `degrees_of_freedom` is zero, if
-/// `statistic` is `NaN`, or if `statistic` is negative.
-pub fn chi_square_upper_tail_p_value(
-    statistic: f64,
-    degrees_of_freedom: usize,
-) -> Result<f64, ChiSquarePValueError> {
-    if degrees_of_freedom == 0 {
-        return Err(ChiSquarePValueError::NonPositiveDegreesOfFreedom { degrees_of_freedom });
-    }
-    if statistic.is_nan() {
-        return Err(ChiSquarePValueError::UndefinedStatistic { statistic });
-    }
-    if statistic < 0.0 {
-        return Err(ChiSquarePValueError::NegativeStatistic { statistic });
+/// Returns [`None`] if `degrees_of_freedom` is zero, if `statistic` is `NaN`,
+/// or if `statistic` is negative.
+#[must_use]
+pub fn chi_square_upper_tail_p_value(statistic: f64, degrees_of_freedom: usize) -> Option<f64> {
+    if statistic.is_nan() || statistic < 0.0 {
+        return None;
     }
 
-    let distribution = match ChiSquared::new(degrees_of_freedom as f64) {
-        Ok(distribution) => distribution,
-        Err(_error) => {
-            return Err(ChiSquarePValueError::NonPositiveDegreesOfFreedom { degrees_of_freedom });
-        }
-    };
-    Ok(distribution.sf(statistic))
+    let distribution = ChiSquared::new(degrees_of_freedom as f64).ok()?;
+    Some(distribution.sf(statistic))
 }
 
 /// Counts contiguous n-grams of length `n`.
@@ -221,9 +187,8 @@ pub fn ngrams(seq: &[Glyph], n: usize) -> BTreeMap<Vec<Glyph>, usize> {
 #[cfg(test)]
 mod tests {
     use super::{
-        ChiSquareError, ChiSquarePValueError, chi_square_goodness_of_fit,
-        chi_square_goodness_of_fit_uniform, chi_square_upper_tail_p_value, frequencies,
-        index_of_coincidence, ngrams, shannon_entropy,
+        ChiSquareError, chi_square_goodness_of_fit, chi_square_goodness_of_fit_uniform,
+        chi_square_upper_tail_p_value, frequencies, index_of_coincidence, ngrams, shannon_entropy,
     };
     use crate::glyph::Glyph;
 
@@ -279,21 +244,9 @@ mod tests {
 
     #[test]
     fn chi_square_upper_tail_rejects_invalid_inputs() {
-        assert_eq!(
-            chi_square_upper_tail_p_value(1.0, 0),
-            Err(ChiSquarePValueError::NonPositiveDegreesOfFreedom {
-                degrees_of_freedom: 0,
-            })
-        );
-        assert!(matches!(
-            chi_square_upper_tail_p_value(f64::NAN, 1),
-            Err(ChiSquarePValueError::UndefinedStatistic { statistic })
-                if statistic.is_nan()
-        ));
-        assert_eq!(
-            chi_square_upper_tail_p_value(-1.0, 1),
-            Err(ChiSquarePValueError::NegativeStatistic { statistic: -1.0 })
-        );
+        assert_eq!(chi_square_upper_tail_p_value(1.0, 0), None);
+        assert_eq!(chi_square_upper_tail_p_value(f64::NAN, 1), None);
+        assert_eq!(chi_square_upper_tail_p_value(-1.0, 1), None);
     }
 
     #[test]

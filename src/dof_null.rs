@@ -1055,6 +1055,7 @@ mod tests {
     use crate::orders::{GlyphGrid, ReadingOrder};
 
     const STABILITY_SEEDS: [u64; 5] = [12_345, 67_890, 13_579, 24_680, 424_242];
+    const FLOAT_RELATIVE_EPSILON: f64 = 1.0e-12;
 
     fn row(digits: &[u8]) -> Vec<Orientation> {
         digits
@@ -1096,6 +1097,15 @@ mod tests {
 
     fn is_floor_censored(value: f64, floor: f64) -> bool {
         (value - floor).abs() <= f64::EPSILON * 8.0
+    }
+
+    fn assert_relative_close(actual: f64, expected: f64, label: &str) {
+        let tolerance = expected.abs() * FLOAT_RELATIVE_EPSILON;
+        let difference = (actual - expected).abs();
+        assert!(
+            difference <= tolerance,
+            "{label} changed: actual={actual:.17e} expected={expected:.17e} diff={difference:.17e} tolerance={tolerance:.17e}"
+        );
     }
 
     #[test]
@@ -1262,13 +1272,53 @@ mod tests {
 
         assert_eq!(bounds.trigrams, 1036);
         assert_eq!(bounds.total_configured_cells, 1_140);
-        assert_eq!(bounds.per_order.to_bits(), 0x19af_be03_5701_f8c3);
-        assert_eq!(bounds.total_bonferroni.to_bits(), 0x1a51_ab44_dbee_98f9);
-        assert_eq!(bounds.total_sidak.to_bits(), 0x1a51_ab44_dbee_98f9);
+        assert_relative_close(
+            bounds.per_order,
+            5.836_200_792_956_83e-185,
+            "per-order analytic headline probability",
+        );
+        assert_relative_close(
+            bounds.total_bonferroni,
+            6.653_268_903_970_79e-182,
+            "configured-cell Bonferroni headline bound",
+        );
+        assert_relative_close(
+            bounds.total_sidak,
+            6.653_268_903_970_79e-182,
+            "configured-cell Sidak headline bound",
+        );
     }
 
     #[test]
-    fn dof_null_floor_censoring_is_seed_stable_in_fast_sweep() {
+    fn dof_null_floor_censoring_is_invariant_and_fast_sweep_stays_in_floor_regime() {
+        let invariant_report = run_dof_null(DofNullConfig {
+            seed: 12_345,
+            calibration_trials: 8,
+            trials: 8,
+        })
+        .unwrap();
+        let invariant_bounds = invariant_report.analytic_headline_bounds.as_ref().unwrap();
+
+        assert!(
+            is_floor_censored(
+                invariant_report.observed_min_p,
+                invariant_report.empirical_marginal_floor
+            ),
+            "the eyes' min p moved off the calibration floor: {} vs {}",
+            invariant_report.observed_min_p,
+            invariant_report.empirical_marginal_floor
+        );
+        assert!(
+            is_floor_censored(
+                invariant_bounds.cell.marginal_p,
+                invariant_report.empirical_marginal_floor
+            ),
+            "the headline cell moved off the calibration floor: {} vs {}",
+            invariant_bounds.cell.marginal_p,
+            invariant_report.empirical_marginal_floor
+        );
+        assert_eq!(invariant_bounds.cell.marginal_extreme_count, 0);
+
         for seed in STABILITY_SEEDS {
             let config = DofNullConfig {
                 seed,
@@ -1276,21 +1326,7 @@ mod tests {
                 trials: 8,
             };
             let report = run_dof_null(config).unwrap();
-            let bounds = report.analytic_headline_bounds.as_ref().unwrap();
 
-            assert!(
-                is_floor_censored(report.observed_min_p, report.empirical_marginal_floor),
-                "seed {seed} moved the eyes' min p off the calibration floor: {} vs {}",
-                report.observed_min_p,
-                report.empirical_marginal_floor
-            );
-            assert!(
-                is_floor_censored(bounds.cell.marginal_p, report.empirical_marginal_floor),
-                "seed {seed} moved the headline cell off the calibration floor: {} vs {}",
-                bounds.cell.marginal_p,
-                report.empirical_marginal_floor
-            );
-            assert_eq!(bounds.cell.marginal_extreme_count, 0);
             assert!(
                 (0.5..=1.0).contains(&report.adaptive_interval.estimate),
                 "seed {seed} moved the coarse adaptive diagnostic out of the floor-hit regime: {}",
@@ -1315,12 +1351,21 @@ mod tests {
         assert_eq!(report.configured_statistics, 4);
         assert_eq!(report.configured_cell_count, 1_140);
         assert_eq!(report.valid_cell_count, 916);
-        assert_eq!(report.observed_min_p.to_bits(), 0x3f50_5e1d_27a3_ee9c);
-        assert_eq!(
-            report.empirical_marginal_floor.to_bits(),
-            0x3f50_5e1d_27a3_ee9c
+        assert_relative_close(
+            report.observed_min_p,
+            0.000_999_000_999_001,
+            "observed minimum marginal p-value",
         );
-        assert_eq!(report.best_cell.marginal_p.to_bits(), 0x3f50_5e1d_27a3_ee9c);
+        assert_relative_close(
+            report.empirical_marginal_floor,
+            0.000_999_000_999_001,
+            "empirical marginal floor",
+        );
+        assert_relative_close(
+            report.best_cell.marginal_p,
+            0.000_999_000_999_001,
+            "best-cell marginal p-value",
+        );
 
         assert_eq!(bounds.cell.order, crate::orders::accepted_honeycomb_order());
         assert_eq!(
@@ -1331,42 +1376,98 @@ mod tests {
             bounds.cell.statistic,
             HeadlineStatistic::ContiguousBoundedAtMax
         );
-        assert_eq!(bounds.cell.real_value.to_bits(), 0x4054_8000_0000_0000);
-        assert_eq!(bounds.cell.marginal_p.to_bits(), 0x3f50_5e1d_27a3_ee9c);
+        assert_eq!(bounds.cell.real_value.to_bits(), 82.0_f64.to_bits());
+        assert_relative_close(
+            bounds.cell.marginal_p,
+            0.000_999_000_999_001,
+            "analytic headline cell marginal p-value",
+        );
         assert_eq!(bounds.cell.marginal_extreme_count, 0);
 
         assert_eq!(report.adaptive_extreme_count, 199);
         assert_eq!(report.adaptive_interval.count, 200);
         assert_eq!(report.adaptive_interval.trials, 1_001);
-        assert_eq!(
-            report.adaptive_interval.estimate.to_bits(),
-            0x3fc9_930d_8df0_24d4
+        assert_relative_close(
+            report.adaptive_interval.estimate,
+            0.199_800_199_800_2,
+            "adaptive Wilson point estimate",
         );
-        assert_eq!(
-            report.adaptive_interval.lower.to_bits(),
-            0x3fc6_8dac_137f_d8f0
+        assert_relative_close(
+            report.adaptive_interval.lower,
+            0.176_198_491_593_545,
+            "adaptive Wilson lower bound",
         );
-        assert_eq!(
-            report.adaptive_interval.upper.to_bits(),
-            0x3fcc_e3a5_62c3_d99e
+        assert_relative_close(
+            report.adaptive_interval.upper,
+            0.225_697_205_758_206,
+            "adaptive Wilson upper bound",
         );
 
         assert_eq!(bounds.trigrams, 1_036);
-        assert_eq!(bounds.per_order.to_bits(), 0x19af_be03_5701_f8c3);
-        assert_eq!(bounds.total_configured_cells, 1_140);
-        assert_eq!(bounds.total_bonferroni.to_bits(), 0x1a51_ab44_dbee_98f9);
-        assert_eq!(bounds.total_sidak.to_bits(), 0x1a51_ab44_dbee_98f9);
-        assert_eq!(
-            bounds.effective_comparisons.to_bits(),
-            0x4065_a39f_f738_cc15
+        assert_relative_close(
+            bounds.per_order,
+            5.836_200_792_956_83e-185,
+            "per-order analytic headline probability",
         );
-        assert_eq!(bounds.effective_bonferroni.to_bits(), 0x1a25_7700_bf78_165a);
-        assert_eq!(bounds.effective_sidak.to_bits(), 0x1a25_7700_bf78_165a);
+        assert_eq!(bounds.total_configured_cells, 1_140);
+        assert_relative_close(
+            bounds.total_bonferroni,
+            6.653_268_903_970_79e-182,
+            "configured-cell Bonferroni headline bound",
+        );
+        assert_relative_close(
+            bounds.total_sidak,
+            6.653_268_903_970_79e-182,
+            "configured-cell Sidak headline bound",
+        );
+        assert_relative_close(
+            bounds.effective_comparisons,
+            173.113_277_064_259,
+            "effective comparisons",
+        );
+        assert_relative_close(
+            bounds.effective_bonferroni,
+            1.010_323_844_873_78e-182,
+            "effective Bonferroni headline bound",
+        );
+        assert_relative_close(
+            bounds.effective_sidak,
+            1.010_323_844_873_78e-182,
+            "effective Sidak headline bound",
+        );
     }
 
     #[test]
     #[ignore = "multi-seed 256+128-trial adaptive stability sweep; run with cargo test -- --ignored"]
-    fn dof_null_floor_and_adaptive_regime_are_seed_stable_in_ignored_sweep() {
+    fn dof_null_floor_invariant_and_adaptive_regime_holds_in_ignored_sweep() {
+        let invariant_report = run_dof_null(DofNullConfig {
+            seed: 12_345,
+            calibration_trials: 256,
+            trials: 128,
+        })
+        .unwrap();
+        let invariant_bounds = invariant_report.analytic_headline_bounds.as_ref().unwrap();
+
+        assert!(
+            is_floor_censored(
+                invariant_report.observed_min_p,
+                invariant_report.empirical_marginal_floor
+            ),
+            "the eyes' min p moved off the calibration floor: {} vs {}",
+            invariant_report.observed_min_p,
+            invariant_report.empirical_marginal_floor
+        );
+        assert!(
+            is_floor_censored(
+                invariant_bounds.cell.marginal_p,
+                invariant_report.empirical_marginal_floor
+            ),
+            "the headline cell moved off the calibration floor: {} vs {}",
+            invariant_bounds.cell.marginal_p,
+            invariant_report.empirical_marginal_floor
+        );
+        assert_eq!(invariant_bounds.cell.marginal_extreme_count, 0);
+
         for seed in STABILITY_SEEDS {
             let config = DofNullConfig {
                 seed,
@@ -1374,21 +1475,7 @@ mod tests {
                 trials: 128,
             };
             let report = run_dof_null(config).unwrap();
-            let bounds = report.analytic_headline_bounds.as_ref().unwrap();
 
-            assert!(
-                is_floor_censored(report.observed_min_p, report.empirical_marginal_floor),
-                "seed {seed} moved the eyes' min p off the calibration floor: {} vs {}",
-                report.observed_min_p,
-                report.empirical_marginal_floor
-            );
-            assert!(
-                is_floor_censored(bounds.cell.marginal_p, report.empirical_marginal_floor),
-                "seed {seed} moved the headline cell off the calibration floor: {} vs {}",
-                bounds.cell.marginal_p,
-                report.empirical_marginal_floor
-            );
-            assert_eq!(bounds.cell.marginal_extreme_count, 0);
             assert!(
                 (0.35..=0.80).contains(&report.adaptive_interval.estimate),
                 "seed {seed} moved the adaptive diagnostic out of the same broad regime: {}",

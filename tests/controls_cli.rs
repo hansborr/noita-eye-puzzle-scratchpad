@@ -2,24 +2,7 @@
 
 mod common;
 
-use std::process::Command;
-
-use common::{assert_contains, run_noita_eye};
-
-fn run_noita_eye_failure(args: &[&str]) -> String {
-    let output = Command::new(env!("CARGO_BIN_EXE_noita-eye"))
-        .args(args)
-        .output()
-        .expect("noita-eye command should run");
-
-    assert!(
-        !output.status.success(),
-        "args: {args:?}\nstdout:\n{}",
-        String::from_utf8_lossy(&output.stdout)
-    );
-
-    String::from_utf8_lossy(&output.stderr).into_owned()
-}
+use common::{assert_contains, run_noita_eye, run_noita_eye_failure};
 
 #[test]
 fn controls_monoalphabetic_reports_positive_control() {
@@ -70,10 +53,9 @@ fn controls_seed_without_variant_defaults_to_monoalphabetic() {
 fn controls_parent_seed_with_isomorph_target_errors() {
     let stderr = run_noita_eye_failure(&["controls", "--seed", "123", "isomorph"]);
 
-    assert_contains(&stderr, "controls error");
     assert_contains(
         &stderr,
-        "pass --seed after the selected target: controls <target> --seed N",
+        "error: the subcommand 'isomorph' cannot be used with '--seed <SEED>'",
     );
 }
 
@@ -81,9 +63,8 @@ fn controls_parent_seed_with_isomorph_target_errors() {
 fn controls_parent_seed_with_monoalphabetic_target_errors() {
     let stderr = run_noita_eye_failure(&["controls", "--seed", "123", "monoalphabetic"]);
 
-    assert_contains(&stderr, "controls error");
     assert_contains(
         &stderr,
-        "pass --seed after the selected target: controls <target> --seed N",
+        "error: the subcommand 'monoalphabetic' cannot be used with '--seed <SEED>'",
     );
 }

@@ -32,8 +32,10 @@ pub use crate::isomorph::{PeriodSignal, SignatureSummary};
 
 const ENGLISH_ALPHABET: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const ALPHABET_SIZE: usize = 26;
-const DEFAULT_MONOALPHABETIC_SEED: u64 = 0x6d6f_6e6f_616c_7068;
-const DEFAULT_ISOMORPH_SEED: u64 = 0x6973_6f6d_6f72_7068;
+/// Default seed for the monoalphabetic positive-control fixture.
+pub const DEFAULT_MONOALPHABETIC_SEED: u64 = 0x6d6f_6e6f_616c_7068;
+/// Default seed for the isomorph/polyalphabetic positive-control fixtures.
+pub const DEFAULT_ISOMORPH_SEED: u64 = 0x6973_6f6d_6f72_7068;
 const U64_DRAW_DOMAIN: u128 = 1u128 << 64;
 const MIN_IOC_SEPARATION: f64 = 0.015;
 const ISOMORPH_KEY_PERIOD: usize = 7;

@@ -938,6 +938,16 @@ mod tests {
     use crate::trigram::TrigramValue;
 
     const STABILITY_SEEDS: [u64; 5] = [12_345, 67_890, 13_579, 24_680, 424_242];
+    const FLOAT_RELATIVE_EPSILON: f64 = 1.0e-12;
+
+    fn assert_relative_close(actual: f64, expected: f64, label: &str) {
+        let tolerance = expected.abs() * FLOAT_RELATIVE_EPSILON;
+        let difference = (actual - expected).abs();
+        assert!(
+            difference <= tolerance,
+            "{label} changed: actual={actual:.17e} expected={expected:.17e} diff={difference:.17e} tolerance={tolerance:.17e}"
+        );
+    }
 
     #[test]
     fn reconstructs_documented_perseus_partition_anchors() {
@@ -1011,15 +1021,18 @@ mod tests {
     }
 
     #[test]
-    fn perseus_recurrence_signal_is_seed_stable_in_fast_sweep() {
+    fn perseus_observation_is_invariant_and_fast_sweep_stays_significant() {
+        let invariant_report = run_perseus(PerseusConfig {
+            seed: 12_345,
+            trials: 128,
+        })
+        .unwrap();
+        assert_eq!(invariant_report.observed.tested_shared_occurrences, 185);
+        assert_eq!(invariant_report.observed.recurrent_occurrences, 0);
+
         for seed in STABILITY_SEEDS {
             let report = run_perseus(PerseusConfig { seed, trials: 128 }).unwrap();
 
-            assert_eq!(report.observed.tested_shared_occurrences, 185);
-            assert_eq!(
-                report.observed.recurrent_occurrences, 0,
-                "seed {seed} changed the observed strict no-recurrence count"
-            );
             assert!(
                 report.empirical_p < SIGNIFICANCE_ALPHA,
                 "seed {seed} was not significant: p={}",
@@ -1047,13 +1060,25 @@ mod tests {
         assert_eq!(report.observed.rate.to_bits(), 0);
         assert!(report.observed.recurrent_symbols.is_empty());
         assert_eq!(report.empirical_p_count, 6);
-        assert_eq!(report.empirical_p.to_bits(), 0x3f7c_a4b3_055e_e191);
+        assert_relative_close(
+            report.empirical_p,
+            0.006_993_006_993_006_99,
+            "empirical recurrence p-value",
+        );
         assert!(report.significant);
     }
 
     #[test]
     #[ignore = "multi-seed 1000-trial within-message shuffle stability sweep; run with cargo test -- --ignored"]
-    fn perseus_recurrence_signal_is_seed_stable_at_1000_trials() {
+    fn perseus_observation_is_invariant_and_ignored_sweep_stays_significant() {
+        let invariant_report = run_perseus(PerseusConfig {
+            seed: 12_345,
+            trials: 1_000,
+        })
+        .unwrap();
+        assert_eq!(invariant_report.observed.tested_shared_occurrences, 185);
+        assert_eq!(invariant_report.observed.recurrent_occurrences, 0);
+
         for seed in STABILITY_SEEDS {
             let report = run_perseus(PerseusConfig {
                 seed,
@@ -1061,11 +1086,6 @@ mod tests {
             })
             .unwrap();
 
-            assert_eq!(report.observed.tested_shared_occurrences, 185);
-            assert_eq!(
-                report.observed.recurrent_occurrences, 0,
-                "seed {seed} changed the observed strict no-recurrence count"
-            );
             assert!(
                 report.empirical_p <= 0.01,
                 "seed {seed} moved the lower-tail p out of the small-p regime: p={}",

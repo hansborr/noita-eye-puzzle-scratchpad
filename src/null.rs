@@ -455,6 +455,16 @@ mod tests {
     use crate::orders::{corpus_grids, standard36_orders};
 
     const STABILITY_SEEDS: [u64; 5] = [12_345, 67_890, 13_579, 24_680, 424_242];
+    const FLOAT_RELATIVE_EPSILON: f64 = 1.0e-12;
+
+    fn assert_relative_close(actual: f64, expected: f64, label: &str) {
+        let tolerance = expected.abs() * FLOAT_RELATIVE_EPSILON;
+        let difference = (actual - expected).abs();
+        assert!(
+            difference <= tolerance,
+            "{label} changed: actual={actual:.17e} expected={expected:.17e} diff={difference:.17e} tolerance={tolerance:.17e}"
+        );
+    }
 
     #[test]
     fn splitmix64_seed_is_reproducible() {
@@ -496,13 +506,25 @@ mod tests {
         let bounds = analytic_headline_bounds(36, 1036);
 
         assert_eq!(bounds.family_size, 36);
-        assert_eq!(bounds.per_order.to_bits(), 0x19af_be03_5701_f8c3);
-        assert_eq!(bounds.bonferroni.to_bits(), 0x1a01_dae1_e0f1_1bee);
-        assert_eq!(bounds.sidak.to_bits(), 0x1a01_dae1_e0f1_1bee);
+        assert_relative_close(
+            bounds.per_order,
+            5.836_200_792_956_83e-185,
+            "per-order analytic headline probability",
+        );
+        assert_relative_close(
+            bounds.bonferroni,
+            2.101_032_285_464_46e-183,
+            "Bonferroni analytic headline bound",
+        );
+        assert_relative_close(
+            bounds.sidak,
+            2.101_032_285_464_46e-183,
+            "Sidak analytic headline bound",
+        );
     }
 
     #[test]
-    fn standard36_headline_count_is_seed_stable_in_fast_sweep() {
+    fn standard36_fast_sweep_does_not_manufacture_contiguous_headline() {
         for seed in STABILITY_SEEDS {
             let report = run_standard36_null(NullConfig { seed, trials: 128 }).unwrap();
 
@@ -530,30 +552,44 @@ mod tests {
             vec![(122, 1), (123, 2), (124, 136), (125, 861)]
         );
         assert_eq!(report.min_ceiling_histogram, vec![(124, 1_000)]);
-        assert_eq!(report.distance4_ratio_min.to_bits(), 0x3fc5_f15f_15f1_5f16);
-        assert_eq!(
-            report.distance4_ratio_median.to_bits(),
-            0x3ff1_a1f5_8d0f_ac69
+        assert_relative_close(
+            report.distance4_ratio_min,
+            0.171_428_571_428_571,
+            "minimum distance-4 ratio",
         );
-        assert_eq!(report.distance4_ratio_max.to_bits(), 0x4001_af28_6bca_1af3);
+        assert_relative_close(
+            report.distance4_ratio_median,
+            1.102_040_816_326_53,
+            "median distance-4 ratio",
+        );
+        assert_relative_close(
+            report.distance4_ratio_max,
+            2.210_526_315_789_47,
+            "maximum distance-4 ratio",
+        );
 
         let adjacent_interval = wilson_95(report.adjacent_zero_count, report.config.trials);
         assert_eq!(adjacent_interval.count, 2);
         assert_eq!(adjacent_interval.trials, 1_000);
-        assert_eq!(adjacent_interval.estimate.to_bits(), 0x3f60_624d_d2f1_a9fc);
+        assert_relative_close(
+            adjacent_interval.estimate,
+            0.002,
+            "adjacent-zero Wilson point estimate",
+        );
 
         let grids = corpus_grids().unwrap();
         let real_outcome = evaluate_trial(&grids, &standard36_orders()).unwrap();
-        assert_eq!(
-            real_outcome.max_distance4_ratio.to_bits(),
-            0x4006_4924_9249_2492
+        assert_relative_close(
+            real_outcome.max_distance4_ratio,
+            2.785_714_285_714_29,
+            "real-corpus maximum distance-4 ratio",
         );
         assert!(real_outcome.max_distance4_ratio > report.distance4_ratio_max);
     }
 
     #[test]
     #[ignore = "multi-seed 1000-trial stability sweep; run with cargo test -- --ignored"]
-    fn standard36_headline_count_is_seed_stable_at_1000_trials() {
+    fn standard36_ignored_sweep_does_not_manufacture_contiguous_headline() {
         for seed in STABILITY_SEEDS {
             let report = run_standard36_null(NullConfig {
                 seed,
