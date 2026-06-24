@@ -24,7 +24,7 @@ allow = [
     "MPL-2.0",
 ]
 confidence-threshold = 0.93
-# We have no dependencies yet, so most allowed licenses are unused; don't warn.
+# Keep the permissive allow-list quiet while dependencies are vetted case by case.
 unused-allowed-license = "allow"
 
 [bans]

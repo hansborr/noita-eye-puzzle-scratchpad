@@ -12,9 +12,11 @@ control so a negative result is meaningful rather than a blind spot.
 ## Status
 
 The analysis library and a nine-experiment investigation are complete, tested,
-independently reviewed, and gate-green. The crate is **`std`-only** (an in-crate
-`SplitMix64` PRNG; no external crates — crates.io was unreachable at init and the
-design stayed dependency-free). The corpus is **real and verified** — see below.
+independently reviewed, and gate-green. The crate now allows vetted, minimal
+external crates: `statrs` is used for analytic chi-square tail probabilities,
+and `clap` may replace the hand-rolled CLI parsing in a follow-up. The in-crate
+`SplitMix64` PRNG remains for deterministic null models. The corpus is **real
+and verified** — see below.
 
 ## The strongest defensible claim
 
@@ -46,7 +48,7 @@ src/
   trigram.rs      base-5 reading layer (trigram values 0–124)
   generator.rs    engine storage-layer base-7 decode (cross-checks the corpus)
   corpus.rs       the nine verified eye messages + provenance
-  analysis.rs     frequencies, Shannon entropy, index of coincidence, n-grams, chi-square
+  analysis.rs     frequencies, Shannon entropy, index of coincidence, n-grams, chi-square tails
   orders.rs       grid reconstruction; honeycomb walk + standard36 family; per-order stats
   null.rs         standard36 reading-order null (SplitMix64, Wilson intervals)
   dof_null.rs     calibrated adaptive null for traversal/grouping/statistic researcher DoF
@@ -61,7 +63,7 @@ src/
   language.rs     Exp 5B-1 — English/Finnish n-gram language scorer (calibrated)
   ciphers.rs      Exp 12 — candidate cipher primitives (+ inverses, round-trip tested)
   cipher_attack.rs  Exp 12 — attack/language-scoring/null harness with a positive control
-  main.rs         thin std-only CLI (`noita-eye`)
+  main.rs         thin CLI (`noita-eye`)
 ```
 
 ## CLI
@@ -98,8 +100,11 @@ small.
 
 - **Exp 4 — frequency/entropy/IoC across orders.** Per-symbol frequency is flat
   (reproduces the community IoC ≈ 1.066, mean frequency 12.48); the honeycomb
-  order is the only standard36 order fully inside 0–82. Flat frequency **rules out
-  monoalphabetic substitution**; it does not rule a real message *in*.
+  order is the only standard36 order fully inside 0–82. The df-aware chi-square
+  check against exact 83-bucket uniformity reports statistic **150.355** on
+  **82** df, upper-tail **p = 6.310e-6**. Flat-ish frequency **rules out
+  monoalphabetic substitution**; the chi-square p-value does not rule a real
+  message *in*.
 - **Researcher-DoF adaptive null.** `dofnull` calibrates each
   traversal/grouping/statistic cell to its own calibration-set random-grid
   marginal tail, then scores both the eyes and an independent resampling set

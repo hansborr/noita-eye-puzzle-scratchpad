@@ -76,7 +76,7 @@ pub enum CipherAttackError {
         /// Offending value.
         value: u16,
     },
-    /// A random draw bound was zero or too large for the std-only sampler.
+    /// A random draw bound was zero or too large for the in-crate sampler.
     RandomBoundTooLarge {
         /// Requested exclusive upper bound.
         bound: usize,

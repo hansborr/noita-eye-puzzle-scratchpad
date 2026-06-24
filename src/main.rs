@@ -2,7 +2,7 @@
 //!
 //! This is intentionally a thin wrapper over the library so that all logic
 //! stays testable in [`noita_eye_puzzle`]. A richer CLI (subcommands, flags)
-//! will move to `clap` once crates.io is reachable; see `Cargo.toml`.
+//! may move to `clap` as the command surface grows.
 
 use std::process::ExitCode;
 
@@ -2958,7 +2958,7 @@ fn print_experiment_4_flatness_report(flatness: &[orders::NamedReadingLayerFlatn
         "IoC convention: probability form from analysis::index_of_coincidence; x83/all is the concatenated community-reference cross-check"
     );
     println!(
-        "{:<24} {:>5} {:>5} {:>7} {:>7} {:>13} {:>17} {:>10} {:>10} {:>10} {:>12}",
+        "{:<24} {:>5} {:>5} {:>7} {:>7} {:>13} {:>17} {:>10} {:>10} {:>10} {:>12} {:>7} {:>12}",
         "order",
         "total",
         "in83",
@@ -2969,14 +2969,16 @@ fn print_experiment_4_flatness_report(flatness: &[orders::NamedReadingLayerFlatn
         "IoC p/msg",
         "x83/msg",
         "x83/all",
-        "chi2 83"
+        "chi2 83",
+        "df",
+        "p>=chi2"
     );
     for item in flatness
         .iter()
         .filter(|item| is_experiment_4_order(item.order))
     {
         println!(
-            "{:<24} {:>5} {:>5} {:>7} {:>7.2} {:>13} {:>17} {:>10.6} {:>10.3} {:>10.3} {:>12}",
+            "{:<24} {:>5} {:>5} {:>7} {:>7.2} {:>13} {:>17} {:>10.6} {:>10.3} {:>10.3} {:>12} {:>7} {:>12}",
             item.order.name(),
             item.flatness.total,
             item.flatness.in_alphabet_total,
@@ -2987,12 +2989,14 @@ fn print_experiment_4_flatness_report(flatness: &[orders::NamedReadingLayerFlatn
             item.flatness.ioc_probability,
             item.flatness.normalized_ioc,
             item.flatness.concatenated_normalized_ioc,
-            format_chi_square(item.flatness.chi_square_vs_uniform)
+            format_chi_square(item.flatness.chi_square_vs_uniform),
+            item.flatness.chi_square_vs_uniform_degrees_of_freedom,
+            format_chi_square_p_value(item.flatness.chi_square_vs_uniform_upper_tail_p_value)
         );
     }
     println!();
     println!(
-        "Interpretation: flat per-symbol frequency RULES MONOALPHABETIC OUT; it does NOT rule a real message IN, and near-uniformity is exactly what a fixed honeycomb permutation of structured data also produces. A LOW chi-square (good fit to uniform) is consistent with both a polyalphabetic cipher AND structured-but-meaningless data; do not present flatness as evidence of encoding."
+        "Interpretation: the df-aware chi-square tail tests exact iid uniformity over the 83 buckets, not whether the stream is meaningful. Flat-ish per-symbol frequency still RULES MONOALPHABETIC OUT; it does NOT rule a real message IN, and structured-but-meaningless data can also be near-uniform. Do not present flatness as evidence of encoding."
     );
 }
 
@@ -3023,6 +3027,10 @@ fn format_chi_square(value: f64) -> String {
     } else {
         format!("{value:.3}")
     }
+}
+
+fn format_chi_square_p_value(value: Option<f64>) -> String {
+    value.map_or_else(|| "n/a".to_owned(), |p_value| format!("{p_value:.6e}"))
 }
 
 fn format_usize_histogram(histogram: &[(usize, usize)]) -> String {

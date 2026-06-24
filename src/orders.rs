@@ -877,6 +877,13 @@ pub struct ReadingLayerFlatnessStats {
     /// This is infinite when the order emits any value outside `0..=82`, because
     /// an 83-symbol expected distribution assigns those values probability zero.
     pub chi_square_vs_uniform: f64,
+    /// Degrees of freedom for the fully specified 83-bucket uniform chi-square reference.
+    pub chi_square_vs_uniform_degrees_of_freedom: usize,
+    /// Upper-tail p-value `P(X_df >= chi_square_vs_uniform)` for the finite statistic.
+    ///
+    /// This is `None` when the order emits a value outside `0..=82`, because
+    /// that observation is outside the support of the 83-symbol reference model.
+    pub chi_square_vs_uniform_upper_tail_p_value: Option<f64>,
 }
 
 impl ReadingLayerFlatnessStats {
@@ -918,6 +925,16 @@ impl ReadingLayerFlatnessStats {
         } else {
             f64::INFINITY
         };
+        let chi_square_vs_uniform_degrees_of_freedom = READING_LAYER_ALPHABET_SIZE - 1;
+        let chi_square_vs_uniform_upper_tail_p_value = if outside_alphabet_occurrences == 0 {
+            analysis::chi_square_upper_tail_p_value(
+                chi_square_vs_uniform,
+                chi_square_vs_uniform_degrees_of_freedom,
+            )
+            .ok()
+        } else {
+            None
+        };
 
         Self {
             total,
@@ -936,6 +953,8 @@ impl ReadingLayerFlatnessStats {
             concatenated_normalized_ioc: concatenated_ioc_probability
                 * READING_LAYER_ALPHABET_SIZE as f64,
             chi_square_vs_uniform,
+            chi_square_vs_uniform_degrees_of_freedom,
+            chi_square_vs_uniform_upper_tail_p_value,
         }
     }
 }
@@ -1307,6 +1326,14 @@ mod tests {
             flatness.chi_square_vs_uniform.to_bits(),
             0x4062_cb5d_e64d_18b5
         );
+        assert_eq!(flatness.chi_square_vs_uniform_degrees_of_freedom, 82);
+        assert!(
+            (flatness.chi_square_vs_uniform_upper_tail_p_value.unwrap() - 6.310_017_333_267_232e-6)
+                .abs()
+                < 1e-18,
+            "chi-square upper-tail p-value changed: {:?}",
+            flatness.chi_square_vs_uniform_upper_tail_p_value
+        );
     }
 
     #[test]
@@ -1317,5 +1344,7 @@ mod tests {
         assert_eq!(flatness.total, 1036);
         assert!(flatness.outside_alphabet_occurrences > 0);
         assert!(flatness.chi_square_vs_uniform.is_infinite());
+        assert_eq!(flatness.chi_square_vs_uniform_degrees_of_freedom, 82);
+        assert_eq!(flatness.chi_square_vs_uniform_upper_tail_p_value, None);
     }
 }

@@ -82,11 +82,10 @@ Priorities mirror §"What would actually move the needle" in
    then a **null-distribution harness**: generate many random grids of identical
    dimensions and measure how often *some* order yields a contiguous range. This is
    the family-wise correction the community's `(83/125)^1036` omits.
-   - **std-only note:** the crate has no `rand` yet (crates.io was offline at init).
-     Add a tiny in-crate deterministic PRNG (e.g. SplitMix64 / xorshift128+, ~15
-     lines, no `unsafe`) seeded from a CLI flag so null runs are reproducible. This
-     keeps `--locked` clean and fits the "no hidden nondeterminism" ethos. Swap to
-     the `rand` crate later if desired.
+   - **Reproducibility note:** vetted crates are allowed now, but keep null-run
+     randomness on the tiny in-crate deterministic PRNG unless there is a measured
+     reason to change it. Seed it from a CLI flag so null runs are reproducible;
+     this fits the "no hidden nondeterminism" ethos and keeps `--locked` honest.
 
 3. **`generator` (Experiment 2)** — implement the documented base-7 / 64-bit
    generator and reproduce the wiki worked example
@@ -136,7 +135,7 @@ Priorities mirror §"What would actually move the needle" in
 - **Experiment 9** (seed-invariance) needs the game or its world-gen PRNG; the crate
   can still *store* cross-seed transcriptions and diff them.
 - **Experiment 10** (sprite-state clustering) is image work; better as a small
-  Python side-tool than inside this std-only crate.
+  Python side-tool than inside the core Rust crate.
 
 ## First three commits, concretely
 

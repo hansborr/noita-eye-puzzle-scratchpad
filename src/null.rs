@@ -22,7 +22,7 @@ const TRIGRAM_ALPHABET_SIZE: f64 = 125.0;
 const HEADLINE_ALPHABET_SIZE: f64 = 83.0;
 const WILSON_Z_95: f64 = 1.959_963_984_540_054;
 
-/// Deterministic std-only `SplitMix64` pseudo-random number generator.
+/// Deterministic in-crate `SplitMix64` pseudo-random number generator.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SplitMix64 {
     state: u64,

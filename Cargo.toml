@@ -17,16 +17,15 @@ name = "noita_eye_puzzle"
 path = "src/lib.rs"
 
 [dependencies]
-# Network access to crates.io was unavailable when this repo was initialized,
-# so the crate is std-only for now. Add these (and run `cargo build` once
-# online) as the work needs them:
-#   clap       = { version = "4", features = ["derive"] }  # CLI parsing
-#   rayon      = "1"                                        # data-parallel search
-#   serde      = { version = "1", features = ["derive"] }  # (de)serialize corpora
-#   serde_json = "1"
-#   anyhow     = "1"                                        # error handling
+# Vetted, minimal external crates are allowed. The supply chain is gated by
+# `cargo-deny`, and lockfile changes must be deliberate. The in-crate
+# `SplitMix64` PRNG remains for reproducible null models, not because crates.io
+# is unavailable.
+statrs = { version = "0.18.0", default-features = false }
 
 [dev-dependencies]
+# Add dev tooling only when it carries its weight; `cargo-deny` and
+# `cargo-machete` should stay green after every dependency change.
 #   proptest = "1"   # property-based tests for any codecs we add
 
 # --- Guardrails -------------------------------------------------------------

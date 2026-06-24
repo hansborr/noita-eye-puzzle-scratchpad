@@ -8,6 +8,7 @@
 use std::collections::BTreeMap;
 
 use crate::glyph::Glyph;
+use statrs::distribution::{ChiSquared, ContinuousCDF};
 
 /// Error returned by [`chi_square_goodness_of_fit`].
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -32,6 +33,26 @@ pub enum ChiSquareError {
         index: usize,
         /// The invalid expected weight.
         weight: f64,
+    },
+}
+
+/// Error returned by [`chi_square_upper_tail_p_value`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ChiSquarePValueError {
+    /// The chi-square reference distribution needs at least one degree of freedom.
+    NonPositiveDegreesOfFreedom {
+        /// Degrees of freedom supplied by the caller.
+        degrees_of_freedom: usize,
+    },
+    /// The statistic was undefined.
+    UndefinedStatistic {
+        /// The invalid statistic.
+        statistic: f64,
+    },
+    /// The statistic was negative, which is outside the chi-square support.
+    NegativeStatistic {
+        /// The invalid statistic.
+        statistic: f64,
     },
 }
 
@@ -150,6 +171,38 @@ pub fn chi_square_goodness_of_fit(
         .sum())
 }
 
+/// Upper-tail p-value for a chi-square statistic and reference distribution.
+///
+/// Returns `P(X_df >= statistic)`, where `X_df` is a chi-square random variable
+/// with the supplied degrees of freedom. Positive infinity is accepted as the
+/// limiting statistic and returns a zero tail probability.
+///
+/// # Errors
+/// Returns [`ChiSquarePValueError`] if `degrees_of_freedom` is zero, if
+/// `statistic` is `NaN`, or if `statistic` is negative.
+pub fn chi_square_upper_tail_p_value(
+    statistic: f64,
+    degrees_of_freedom: usize,
+) -> Result<f64, ChiSquarePValueError> {
+    if degrees_of_freedom == 0 {
+        return Err(ChiSquarePValueError::NonPositiveDegreesOfFreedom { degrees_of_freedom });
+    }
+    if statistic.is_nan() {
+        return Err(ChiSquarePValueError::UndefinedStatistic { statistic });
+    }
+    if statistic < 0.0 {
+        return Err(ChiSquarePValueError::NegativeStatistic { statistic });
+    }
+
+    let distribution = match ChiSquared::new(degrees_of_freedom as f64) {
+        Ok(distribution) => distribution,
+        Err(_error) => {
+            return Err(ChiSquarePValueError::NonPositiveDegreesOfFreedom { degrees_of_freedom });
+        }
+    };
+    Ok(distribution.sf(statistic))
+}
+
 /// Counts contiguous n-grams of length `n`.
 ///
 /// Returns an empty map if `n` is zero or larger than the sequence length.
@@ -168,8 +221,9 @@ pub fn ngrams(seq: &[Glyph], n: usize) -> BTreeMap<Vec<Glyph>, usize> {
 #[cfg(test)]
 mod tests {
     use super::{
-        ChiSquareError, chi_square_goodness_of_fit, chi_square_goodness_of_fit_uniform,
-        frequencies, index_of_coincidence, ngrams, shannon_entropy,
+        ChiSquareError, ChiSquarePValueError, chi_square_goodness_of_fit,
+        chi_square_goodness_of_fit_uniform, chi_square_upper_tail_p_value, frequencies,
+        index_of_coincidence, ngrams, shannon_entropy,
     };
     use crate::glyph::Glyph;
 
@@ -211,6 +265,35 @@ mod tests {
     fn chi_square_arbitrary_expected_distribution_normalizes_weights() {
         let statistic = chi_square_goodness_of_fit(&[9, 1], &[3.0, 1.0]).unwrap();
         assert!((statistic - 1.2).abs() < 1e-9, "got {statistic}");
+    }
+
+    #[test]
+    fn chi_square_upper_tail_matches_known_distribution() {
+        let p_value = chi_square_upper_tail_p_value(10.0, 2).unwrap();
+        let expected = (-5.0_f64).exp();
+        assert!(
+            (p_value - expected).abs() < 1e-15,
+            "got {p_value}, expected {expected}"
+        );
+    }
+
+    #[test]
+    fn chi_square_upper_tail_rejects_invalid_inputs() {
+        assert_eq!(
+            chi_square_upper_tail_p_value(1.0, 0),
+            Err(ChiSquarePValueError::NonPositiveDegreesOfFreedom {
+                degrees_of_freedom: 0,
+            })
+        );
+        assert!(matches!(
+            chi_square_upper_tail_p_value(f64::NAN, 1),
+            Err(ChiSquarePValueError::UndefinedStatistic { statistic })
+                if statistic.is_nan()
+        ));
+        assert_eq!(
+            chi_square_upper_tail_p_value(-1.0, 1),
+            Err(ChiSquarePValueError::NegativeStatistic { statistic: -1.0 })
+        );
     }
 
     #[test]
