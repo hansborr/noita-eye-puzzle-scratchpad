@@ -92,7 +92,7 @@ pub fn random_index_below(bound: usize, rng: &mut SplitMix64) -> Result<usize, R
     }
 }
 
-/// Shuffles `values` in place with a Fisher–Yates shuffle driven by `rng`.
+/// Shuffles `values` in place with a Fisher-Yates shuffle driven by `rng`.
 ///
 /// # Errors
 /// Returns [`RandomBoundError`] if an index draw fails; this is unreachable for

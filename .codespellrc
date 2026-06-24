@@ -4,4 +4,4 @@ skip = ./target,.git,Cargo.lock,./research/data/lang
 # especially Finnish source text, are not altered to satisfy an English
 # spelling dictionary.
 # Domain words / abbreviations that are not typos.
-ignore-words-list = crate,ser,noita,nd,wont,Statics,substition
+ignore-words-list = crate,ser,noita,nd,wont,Statics,substition,periodioc
