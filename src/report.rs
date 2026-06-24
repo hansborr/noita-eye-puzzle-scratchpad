@@ -6,8 +6,8 @@
 
 use crate::glyph::Sequence;
 use crate::{
-    analysis, chaining, cipher_attack, controls, corpus, dof_null, grouping, isomorph_null, null,
-    orders, periodicity, perseus, pipeline_null,
+    analysis, chaining, cipher_attack, conditional_structure, controls, corpus, dof_null, grouping,
+    isomorph_null, null, orders, periodicity, perseus, pipeline_null,
 };
 
 const MIN_RELIABLE_PERIODICITY_NULL_TRIALS: usize = 50;
@@ -301,6 +301,43 @@ pub fn format_controls_error(error: &controls::ControlsError) -> String {
         } => format!(
             "{present_label}: signature-period separation from {absent_label} was {present_matches} vs {absent_matches}, below required gap {required_gap}"
         ),
+    }
+}
+
+/// Formats a first-order conditional-structure error for CLI output.
+#[must_use]
+pub fn format_conditional_structure_error(
+    error: conditional_structure::ConditionalStructureError,
+) -> String {
+    match error {
+        conditional_structure::ConditionalStructureError::Grid(grid_error) => {
+            format!("grid/order error: {grid_error:?}")
+        }
+        conditional_structure::ConditionalStructureError::ZeroSeeds => {
+            "at least one seed stream is required".to_owned()
+        }
+        conditional_structure::ConditionalStructureError::ZeroTrials => {
+            "at least one shuffle trial per seed is required".to_owned()
+        }
+        conditional_structure::ConditionalStructureError::InvalidAlphabetSize { alphabet_size } => {
+            format!("invalid alphabet size {alphabet_size}; expected 1..=125")
+        }
+        conditional_structure::ConditionalStructureError::TrialCountTooLarge => {
+            "Monte-Carlo trial count is too large".to_owned()
+        }
+        conditional_structure::ConditionalStructureError::MatrixTooLarge { alphabet_size } => {
+            format!("transition matrix for alphabet size {alphabet_size} is too large")
+        }
+        conditional_structure::ConditionalStructureError::ValueOutsideAlphabet {
+            message_key,
+            value,
+            alphabet_size,
+        } => format!(
+            "{message_key}: reading-layer value {value} is outside alphabet size {alphabet_size}"
+        ),
+        conditional_structure::ConditionalStructureError::RandomBoundTooLarge { bound } => {
+            format!("random draw bound {bound} is too large")
+        }
     }
 }
 
@@ -1162,6 +1199,300 @@ fn print_isomorph_null_interpretation(report: &isomorph_null::IsomorphNullReport
     println!(
         "Any striking excess should be rechecked against Experiment 0 transcription integrity before interpretation."
     );
+}
+
+/// Prints the first-order conditional-structure and successor-graph report.
+pub fn print_conditional_structure_report(
+    report: &conditional_structure::ConditionalStructureReport,
+) {
+    let total_trials = report
+        .config
+        .seed_count
+        .saturating_mul(report.config.trials_per_seed);
+    println!("first-order conditional structure & successor graph");
+    println!("order: {}", report.order.name());
+    println!(
+        "alphabet: accepted honeycomb reading-layer values 0..={}",
+        report.config.alphabet_size.saturating_sub(1)
+    );
+    println!("base seed: {}", report.config.seed);
+    println!(
+        "shuffle null: {} seeds x {} trials/seed = {} within-message multiset-preserving shuffles",
+        report.config.seed_count, report.config.trials_per_seed, total_trials
+    );
+    println!(
+        "message lengths: {}",
+        format_message_lengths(&report.message_lengths)
+    );
+    println!(
+        "boundary rule: transitions are counted within each message only; no transition crosses a message join"
+    );
+    println!(
+        "low-power caveat: {} symbols, {} transitions, and {} cells in an {}x{} matrix (mean {:.3} transitions/cell; {:.2} symbols/value). Inside-shuffle means no detectable first-order structure at this corpus size, not proof of memorylessness.",
+        report.observed.matrix.symbols,
+        report.observed.matrix.transitions,
+        report.observed.matrix.matrix_cells,
+        report.observed.matrix.alphabet_size,
+        report.observed.matrix.alphabet_size,
+        report.observed.matrix.mean_transitions_per_cell,
+        report.observed.matrix.mean_symbols_per_value
+    );
+    println!(
+        "entropy correction: add-constant alpha={:.1} over the full 83-symbol next-state support; raw plug-in MI is shown only as a sparse-sample diagnostic",
+        report.observed.entropy.add_constant_alpha
+    );
+    println!();
+    print_conditional_observed(report);
+    println!();
+    print_conditional_comparisons(report);
+    println!();
+    print_conditional_bias_calibration(report);
+    println!();
+    print_conditional_controls(report);
+    println!();
+    print_conditional_interpretation(report);
+}
+
+fn print_conditional_observed(report: &conditional_structure::ConditionalStructureReport) {
+    let observed = report.observed;
+    println!("observed transition matrix");
+    println!(
+        "  nonzero cells: {}/{} ({:.3}% density)",
+        observed.matrix.nonzero_cells,
+        observed.matrix.matrix_cells,
+        observed.matrix.density * 100.0
+    );
+    println!(
+        "  active rows/cols: {}/{}; chi2 df {}; expected cells <1/<5: {}/{}",
+        observed.chi_square.active_rows,
+        observed.chi_square.active_columns,
+        observed.chi_square.degrees_of_freedom,
+        observed.chi_square.expected_lt_1_cells,
+        observed.chi_square.expected_lt_5_cells
+    );
+    println!(
+        "  H(next) raw/corrected: {:.4}/{:.4} bits; H(next|current) raw/corrected: {:.4}/{:.4} bits",
+        observed.entropy.next_entropy_mle_bits,
+        observed.entropy.next_entropy_corrected_bits,
+        observed.entropy.conditional_entropy_mle_bits,
+        observed.entropy.conditional_entropy_corrected_bits
+    );
+    println!(
+        "  MI raw/corrected: {:.4}/{:.6} bits; chi2: {:.3}",
+        observed.entropy.mutual_information_mle_bits,
+        observed.entropy.mutual_information_corrected_bits,
+        observed.chi_square.statistic
+    );
+    println!(
+        "  successor graph: {} edges, mean out-degree {:.2}, max out-degree {}, successor entropy {:.4} bits, out-degree entropy {:.4} bits, FSM lower bound {} states",
+        observed.graph.distinct_successor_edges,
+        observed.graph.mean_out_degree,
+        observed.graph.max_out_degree,
+        observed.graph.successor_entropy_bits,
+        observed.graph.out_degree_entropy_bits,
+        observed.graph.greedy_fsm_state_lower_bound
+    );
+}
+
+fn print_conditional_comparisons(report: &conditional_structure::ConditionalStructureReport) {
+    println!("within-message shuffle comparisons");
+    println!(
+        "{:<25} {:>12} {:>12} {:>19} {:>12} {:>10}",
+        "statistic", "observed", "null med", "null 95%", "p two-sided", "flag"
+    );
+    for row in &report.comparisons {
+        println!(
+            "{:<25} {:>12} {:>12} {:>19} {:>12} {:>10}",
+            row.statistic.label(),
+            format_conditional_statistic(row.statistic, row.observed),
+            format_conditional_statistic(row.statistic, row.null.median),
+            format_conditional_band(row.statistic, row.null),
+            format_probability(row.two_sided_add_one_p),
+            if row.outside_pointwise_95 {
+                "pt95-out"
+            } else {
+                "inside"
+            }
+        );
+    }
+    println!(
+        "p-values are two-sided add-one empirical values and pointwise over {} displayed statistics; no family-wise correction is claimed.",
+        report.comparisons.len()
+    );
+}
+
+fn print_conditional_bias_calibration(report: &conditional_structure::ConditionalStructureReport) {
+    let calibration = report.bias_calibration;
+    println!("flat-random estimator-bias calibration (true MI = 0)");
+    println!(
+        "  trials: {}; alphabet: {}; matched message lengths",
+        calibration.trials, calibration.alphabet_size
+    );
+    println!(
+        "  plug-in MI mean {:.4}, abs-mean {:.4}, 95% {}",
+        calibration.mle_mutual_information.mean,
+        calibration.mle_mean_abs_mutual_information_bits,
+        format_conditional_band(
+            conditional_structure::ConditionalStatistic::MutualInformationCorrected,
+            calibration.mle_mutual_information
+        )
+    );
+    println!(
+        "  add-1 MI mean {:.6}, abs-mean {:.6}, 95% {}",
+        calibration.corrected_mutual_information.mean,
+        calibration.corrected_mean_abs_mutual_information_bits,
+        format_conditional_band(
+            conditional_structure::ConditionalStatistic::MutualInformationCorrected,
+            calibration.corrected_mutual_information
+        )
+    );
+}
+
+fn print_conditional_controls(report: &conditional_structure::ConditionalStructureReport) {
+    println!("planted structure controls");
+    println!(
+        "{:<27} {:>8} {:>10} {:>19} {:>8} {:>17} {:>9} {:>10}",
+        "control",
+        "MI raw",
+        "MI add-1",
+        "MI null 95%",
+        "edges",
+        "edge null 95%",
+        "FSM lb",
+        "verdict"
+    );
+    for control in [
+        &report.controls.static_monoalphabetic,
+        &report.controls.deck_permuted,
+    ] {
+        let mi = conditional_comparison(
+            control,
+            conditional_structure::ConditionalStatistic::MutualInformationCorrected,
+        );
+        let edges = conditional_comparison(
+            control,
+            conditional_structure::ConditionalStatistic::DistinctSuccessorEdges,
+        );
+        let verdict = conditional_control_verdict(control);
+        println!(
+            "{:<27} {:>8.3} {:>10} {:>19} {:>8} {:>17} {:>9} {:>10}",
+            control.label,
+            control.observed.entropy.mutual_information_mle_bits,
+            mi.map_or_else(
+                || "n/a".to_owned(),
+                |row| format_conditional_statistic(row.statistic, row.observed)
+            ),
+            mi.map_or_else(
+                || "n/a".to_owned(),
+                |row| format_conditional_band(row.statistic, row.null)
+            ),
+            edges.map_or_else(
+                || "n/a".to_owned(),
+                |row| format_conditional_statistic(row.statistic, row.observed)
+            ),
+            edges.map_or_else(
+                || "n/a".to_owned(),
+                |row| format_conditional_band(row.statistic, row.null)
+            ),
+            control.observed.graph.greedy_fsm_state_lower_bound,
+            verdict
+        );
+    }
+    println!(
+        "control construction: {}; {}.",
+        report.controls.static_monoalphabetic.construction,
+        report.controls.deck_permuted.construction
+    );
+}
+
+fn print_conditional_interpretation(report: &conditional_structure::ConditionalStructureReport) {
+    let outliers = report
+        .comparisons
+        .iter()
+        .filter(|row| row.outside_pointwise_95)
+        .map(|row| {
+            format!(
+                "{} (p={})",
+                row.statistic.label(),
+                format_probability(row.two_sided_add_one_p)
+            )
+        })
+        .collect::<Vec<_>>();
+    if outliers.is_empty() {
+        println!(
+            "Interpretation: the eye stream has no displayed first-order statistic outside its within-message shuffle band. With this sparse 83x83 matrix, that means no detectable conditional structure at this corpus size."
+        );
+        println!(
+            "This is positive corroboration for the plaintext-driven permutation direction and evidence against a static substitution/transposition of a strongly first-order-structured source or a detectable low-state deterministic FSM."
+        );
+    } else {
+        println!(
+            "Interpretation: pointwise shuffle-band exceedances appear in {}. Treat this as a correction candidate, not a plaintext claim, and recheck Experiment 0 corpus integrity before using it.",
+            outliers.join(", ")
+        );
+    }
+    println!(
+        "The planted controls verify directionality: static monoalphabetic structure is exposed by raw/relative MI and successor bottlenecks, while the deck-permuted version collapses toward its own shuffle band."
+    );
+}
+
+fn conditional_comparison(
+    control: &conditional_structure::PlantedControlReport,
+    statistic: conditional_structure::ConditionalStatistic,
+) -> Option<&conditional_structure::NullComparison> {
+    control
+        .comparisons
+        .iter()
+        .find(|row| row.statistic == statistic)
+}
+
+fn conditional_control_verdict(
+    control: &conditional_structure::PlantedControlReport,
+) -> &'static str {
+    let mi = conditional_comparison(
+        control,
+        conditional_structure::ConditionalStatistic::MutualInformationCorrected,
+    );
+    let edges = conditional_comparison(
+        control,
+        conditional_structure::ConditionalStatistic::DistinctSuccessorEdges,
+    );
+    match (mi, edges) {
+        (Some(mi), Some(edges))
+            if mi.observed > mi.null.q975 && edges.observed < edges.null.q025 =>
+        {
+            "separated"
+        }
+        (Some(mi), Some(edges)) if !mi.outside_pointwise_95 && !edges.outside_pointwise_95 => {
+            "inside"
+        }
+        _ => "check",
+    }
+}
+
+fn format_conditional_band(
+    statistic: conditional_structure::ConditionalStatistic,
+    band: conditional_structure::ScalarNullBand,
+) -> String {
+    format!(
+        "{}..{}",
+        format_conditional_statistic(statistic, band.q025),
+        format_conditional_statistic(statistic, band.q975)
+    )
+}
+
+fn format_conditional_statistic(
+    statistic: conditional_structure::ConditionalStatistic,
+    value: f64,
+) -> String {
+    match statistic {
+        conditional_structure::ConditionalStatistic::TransitionChiSquare => format!("{value:.2}"),
+        conditional_structure::ConditionalStatistic::DistinctSuccessorEdges
+        | conditional_structure::ConditionalStatistic::GreedyFsmStateLowerBound => {
+            format!("{value:.0}")
+        }
+        _ => format!("{value:.6}"),
+    }
 }
 
 /// Prints the Experiment 7C Perseus recurrence-null report.
