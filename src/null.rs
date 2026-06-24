@@ -448,7 +448,11 @@ fn median(sorted: &[f64]) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{NullConfig, SplitMix64, analytic_headline_bounds, run_standard36_null};
+    use super::{
+        NullConfig, SplitMix64, analytic_headline_bounds, evaluate_trial, run_standard36_null,
+        wilson_95,
+    };
+    use crate::orders::{corpus_grids, standard36_orders};
 
     #[test]
     fn splitmix64_seed_is_reproducible() {
@@ -488,11 +492,48 @@ mod tests {
     #[test]
     fn analytic_bound_matches_stage_a_headline_scale() {
         let bounds = analytic_headline_bounds(36, 1036);
-        assert!(bounds.per_order > 5.83e-185);
-        assert!(bounds.per_order < 5.84e-185);
-        assert!(bounds.bonferroni > 2.10e-183);
-        assert!(bounds.bonferroni < 2.11e-183);
-        assert!(bounds.sidak > 2.10e-183);
-        assert!(bounds.sidak < 2.11e-183);
+
+        assert_eq!(bounds.family_size, 36);
+        assert_eq!(bounds.per_order.to_bits(), 0x19af_be03_5701_f8c3);
+        assert_eq!(bounds.bonferroni.to_bits(), 0x1a01_dae1_e0f1_1bee);
+        assert_eq!(bounds.sidak.to_bits(), 0x1a01_dae1_e0f1_1bee);
+    }
+
+    #[test]
+    #[ignore = "canonical 1000-trial Monte Carlo regression; run with cargo test -- --ignored"]
+    fn standard36_seed_12345_null_matches_headline_regression() {
+        let report = run_standard36_null(NullConfig {
+            seed: 12_345,
+            trials: 1_000,
+        })
+        .unwrap();
+
+        assert_eq!(report.family_size, 36);
+        assert_eq!(report.headline_count, 0);
+        assert_eq!(report.adjacent_zero_count, 2);
+        assert_eq!(
+            report.min_distinct_histogram,
+            vec![(122, 1), (123, 2), (124, 136), (125, 861)]
+        );
+        assert_eq!(report.min_ceiling_histogram, vec![(124, 1_000)]);
+        assert_eq!(report.distance4_ratio_min.to_bits(), 0x3fc5_f15f_15f1_5f16);
+        assert_eq!(
+            report.distance4_ratio_median.to_bits(),
+            0x3ff1_a1f5_8d0f_ac69
+        );
+        assert_eq!(report.distance4_ratio_max.to_bits(), 0x4001_af28_6bca_1af3);
+
+        let adjacent_interval = wilson_95(report.adjacent_zero_count, report.config.trials);
+        assert_eq!(adjacent_interval.count, 2);
+        assert_eq!(adjacent_interval.trials, 1_000);
+        assert_eq!(adjacent_interval.estimate.to_bits(), 0x3f60_624d_d2f1_a9fc);
+
+        let grids = corpus_grids().unwrap();
+        let real_outcome = evaluate_trial(&grids, &standard36_orders()).unwrap();
+        assert_eq!(
+            real_outcome.max_distance4_ratio.to_bits(),
+            0x4006_4924_9249_2492
+        );
+        assert!(real_outcome.max_distance4_ratio > report.distance4_ratio_max);
     }
 }

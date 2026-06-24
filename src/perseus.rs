@@ -1008,6 +1008,25 @@ mod tests {
         );
     }
 
+    #[test]
+    #[ignore = "canonical 1000-trial within-message shuffle regression; run with cargo test -- --ignored"]
+    fn perseus_seed_12345_recurrence_null_matches_headline_regression() {
+        let report = run_perseus(PerseusConfig {
+            seed: 12_345,
+            trials: 1_000,
+        })
+        .unwrap();
+
+        assert_eq!(report.observed.non_shared_occurrences, 851);
+        assert_eq!(report.observed.tested_shared_occurrences, 185);
+        assert_eq!(report.observed.recurrent_occurrences, 0);
+        assert_eq!(report.observed.rate.to_bits(), 0);
+        assert!(report.observed.recurrent_symbols.is_empty());
+        assert_eq!(report.empirical_p_count, 6);
+        assert_eq!(report.empirical_p.to_bits(), 0x3f7c_a4b3_055e_e191);
+        assert!(report.significant);
+    }
+
     fn planted_no_recurrence_fixture() -> Vec<Vec<TrigramValue>> {
         let mut east = Vec::new();
         let mut west = Vec::new();

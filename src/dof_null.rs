@@ -1256,10 +1256,73 @@ mod tests {
 
         assert_eq!(bounds.trigrams, 1036);
         assert_eq!(bounds.total_configured_cells, 1_140);
-        assert!(bounds.per_order < 1e-180);
-        assert!(bounds.total_bonferroni < 1e-100);
-        assert!(bounds.total_sidak < 1e-100);
-        assert!(bounds.effective_bonferroni < 1e-100);
-        assert!(bounds.effective_sidak < 1e-100);
+        assert_eq!(bounds.per_order.to_bits(), 0x19af_be03_5701_f8c3);
+        assert_eq!(bounds.total_bonferroni.to_bits(), 0x1a51_ab44_dbee_98f9);
+        assert_eq!(bounds.total_sidak.to_bits(), 0x1a51_ab44_dbee_98f9);
+    }
+
+    #[test]
+    #[ignore = "canonical 1000+1000-trial adaptive null regression; run with cargo test -- --ignored"]
+    fn dof_null_seed_12345_matches_headline_regression() {
+        let report = run_dof_null(DofNullConfig {
+            seed: 12_345,
+            calibration_trials: 1_000,
+            trials: 1_000,
+        })
+        .unwrap();
+        let bounds = report.analytic_headline_bounds.unwrap();
+
+        assert_eq!(report.configured_orders, 57);
+        assert_eq!(report.configured_groupings, 5);
+        assert_eq!(report.configured_statistics, 4);
+        assert_eq!(report.configured_cell_count, 1_140);
+        assert_eq!(report.valid_cell_count, 916);
+        assert_eq!(report.observed_min_p.to_bits(), 0x3f50_5e1d_27a3_ee9c);
+        assert_eq!(
+            report.empirical_marginal_floor.to_bits(),
+            0x3f50_5e1d_27a3_ee9c
+        );
+        assert_eq!(report.best_cell.marginal_p.to_bits(), 0x3f50_5e1d_27a3_ee9c);
+
+        assert_eq!(bounds.cell.order, crate::orders::accepted_honeycomb_order());
+        assert_eq!(
+            bounds.cell.grouping,
+            GroupingRule::OrientationBase5 { width: 3 }
+        );
+        assert_eq!(
+            bounds.cell.statistic,
+            HeadlineStatistic::ContiguousBoundedAtMax
+        );
+        assert_eq!(bounds.cell.real_value.to_bits(), 0x4054_8000_0000_0000);
+        assert_eq!(bounds.cell.marginal_p.to_bits(), 0x3f50_5e1d_27a3_ee9c);
+        assert_eq!(bounds.cell.marginal_extreme_count, 0);
+
+        assert_eq!(report.adaptive_extreme_count, 199);
+        assert_eq!(report.adaptive_interval.count, 200);
+        assert_eq!(report.adaptive_interval.trials, 1_001);
+        assert_eq!(
+            report.adaptive_interval.estimate.to_bits(),
+            0x3fc9_930d_8df0_24d4
+        );
+        assert_eq!(
+            report.adaptive_interval.lower.to_bits(),
+            0x3fc6_8dac_137f_d8f0
+        );
+        assert_eq!(
+            report.adaptive_interval.upper.to_bits(),
+            0x3fcc_e3a5_62c3_d99e
+        );
+
+        assert_eq!(bounds.trigrams, 1_036);
+        assert_eq!(bounds.per_order.to_bits(), 0x19af_be03_5701_f8c3);
+        assert_eq!(bounds.total_configured_cells, 1_140);
+        assert_eq!(bounds.total_bonferroni.to_bits(), 0x1a51_ab44_dbee_98f9);
+        assert_eq!(bounds.total_sidak.to_bits(), 0x1a51_ab44_dbee_98f9);
+        assert_eq!(
+            bounds.effective_comparisons.to_bits(),
+            0x4065_a39f_f738_cc15
+        );
+        assert_eq!(bounds.effective_bonferroni.to_bits(), 0x1a25_7700_bf78_165a);
+        assert_eq!(bounds.effective_sidak.to_bits(), 0x1a25_7700_bf78_165a);
     }
 }

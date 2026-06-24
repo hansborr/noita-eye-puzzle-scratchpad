@@ -1284,7 +1284,10 @@ mod tests {
         assert_eq!(flatness.in_alphabet_total, 1036);
         assert_eq!(flatness.outside_alphabet_occurrences, 0);
         assert_eq!(flatness.frequencies.len(), READING_LAYER_ALPHABET_SIZE);
-        assert!((flatness.mean_frequency - (1036.0 / 83.0)).abs() < 1e-12);
+        assert_eq!(flatness.mean_frequency.to_bits(), 0x4028_f6bf_3a9a_3785);
+        assert_eq!(flatness.min_frequency, 3);
+        assert_eq!(flatness.max_frequency, 26);
+        assert_eq!(flatness.zero_frequency_symbols, 0);
         assert!((flatness.normalized_ioc - flatness.ioc_probability * 83.0).abs() < 1e-12);
         assert!(
             (flatness.normalized_ioc - 0.971_776_489_899_835_8).abs() < 1e-12,
@@ -1296,12 +1299,14 @@ mod tests {
                 .abs()
                 < 1e-12
         );
-        assert!(
-            (flatness.concatenated_normalized_ioc - 1.066).abs() < 0.002,
-            "concatenated normalized IoC drifted from the community reference: {}",
-            flatness.concatenated_normalized_ioc
+        assert_eq!(
+            flatness.concatenated_normalized_ioc.to_bits(),
+            0x3ff1_0e83_d247_5ed2
         );
-        assert!(flatness.chi_square_vs_uniform.is_finite());
+        assert_eq!(
+            flatness.chi_square_vs_uniform.to_bits(),
+            0x4062_cb5d_e64d_18b5
+        );
     }
 
     #[test]
