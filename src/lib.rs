@@ -28,6 +28,8 @@
 //!   collision-based state-count calibration.
 //! - [`language`]: English/Finnish n-gram language models for scoring
 //!   candidate plaintexts.
+//! - [`modular_diff`]: modular finite-difference structural fingerprinting
+//!   with generated cipher-family controls.
 //! - [`null`]: deterministic null distributions for fixed reading-order
 //!   families.
 //! - [`periodicity`]: Experiment 5A periodicity, autocorrelation, and Kasiski
@@ -55,6 +57,7 @@ pub mod grouping;
 pub mod isomorph;
 pub mod isomorph_null;
 pub mod language;
+pub mod modular_diff;
 pub mod null;
 pub mod orders;
 pub mod periodicity;
