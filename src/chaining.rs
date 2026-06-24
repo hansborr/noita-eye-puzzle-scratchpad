@@ -313,7 +313,6 @@ pub fn chaining_signature(
         ));
     }
 
-    let pair_count = pair_alignments.len();
     let mean_best_overlap = mean_f64(pair_alignments.iter().map(|pair| pair.best_overlap));
     let mean_alignment_quality = mean_f64(pair_alignments.iter().map(|pair| pair.quality));
     let shift_sum = pair_alignments
@@ -324,13 +323,6 @@ pub fn chaining_signature(
     let cycle_residual_distance = cycle_distance(cycle_residual, alphabet_size);
     let cycle_closure = cycle_closure(cycle_residual_distance, alphabet_size);
     let chain_score = mean_alignment_quality * cycle_closure;
-
-    if pair_count == 0 {
-        return Err(ChainingError::InvalidPeriodRange {
-            min_period: period,
-            max_period: period,
-        });
-    }
 
     Ok(ChainingSignature {
         period,
@@ -577,10 +569,7 @@ fn source_weights(alphabet_size: usize) -> Vec<usize> {
 }
 
 fn stateless_splitmix(seed: u64) -> u64 {
-    let mut value = seed.wrapping_add(0x9e37_79b9_7f4a_7c15);
-    value = (value ^ (value >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-    value = (value ^ (value >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
-    value ^ (value >> 31)
+    SplitMix64::new(seed).next_u64()
 }
 
 fn coprime_stride(total: usize, alphabet_size: usize) -> usize {
@@ -735,7 +724,7 @@ fn random_column_substitutions(
     let mut substitutions = Vec::with_capacity(period);
     for _column in 0..period {
         let mut substitution = (0..alphabet_size).collect::<Vec<_>>();
-        fisher_yates_usize(&mut substitution, rng)?;
+        fisher_yates(&mut substitution, rng)?;
         substitutions.push(substitution);
     }
     Ok(substitutions)
@@ -757,7 +746,7 @@ fn shuffle_within_period_columns(
         }
     }
     for column in &mut columns {
-        fisher_yates_trigram(column, rng)?;
+        fisher_yates(column, rng)?;
     }
 
     let mut column_offsets = vec![0usize; period];
@@ -783,21 +772,7 @@ fn shuffle_within_period_columns(
     Ok(shuffled)
 }
 
-fn fisher_yates_usize(values: &mut [usize], rng: &mut SplitMix64) -> Result<(), ChainingError> {
-    let mut unswapped = values.len();
-    while unswapped > 1 {
-        let last = unswapped - 1;
-        let partner = random_index_below(unswapped, rng)?;
-        values.swap(last, partner);
-        unswapped = last;
-    }
-    Ok(())
-}
-
-fn fisher_yates_trigram(
-    values: &mut [TrigramValue],
-    rng: &mut SplitMix64,
-) -> Result<(), ChainingError> {
+fn fisher_yates<T>(values: &mut [T], rng: &mut SplitMix64) -> Result<(), ChainingError> {
     let mut unswapped = values.len();
     while unswapped > 1 {
         let last = unswapped - 1;

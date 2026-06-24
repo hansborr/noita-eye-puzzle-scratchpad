@@ -3042,7 +3042,7 @@ pub fn print_cipher_attack_report(report: &cipher_attack::CipherAttackReport) {
             row.null.q95,
             row.null.empirical_p,
             format_cipher_attack_verdict(row),
-            truncate_chars(&row.real.key, 28)
+            preview_text(&row.real.key, 28)
         );
     }
     println!();
@@ -3286,21 +3286,6 @@ fn unique_cipher_search_summaries(
     summaries
 }
 
-fn truncate_chars(value: &str, max_chars: usize) -> String {
-    let mut output = String::new();
-    let mut chars = value.chars();
-    for _position in 0..max_chars {
-        let Some(ch) = chars.next() else {
-            return output;
-        };
-        output.push(ch);
-    }
-    if chars.next().is_some() {
-        output.push_str("...");
-    }
-    output
-}
-
 fn format_chaining_band(band: chaining::ScalarBand) -> String {
     format!("{:.4}..{:.4}", band.q025, band.q975)
 }
@@ -3525,7 +3510,10 @@ pub fn print_orientation_homogeneity_report(
     println!("trials per seed: {}", report.config.trials_per_seed);
     println!(
         "total repartitions: {}",
-        report.config.trials_per_seed * report.config.seed_count
+        report
+            .config
+            .trials_per_seed
+            .saturating_mul(report.config.seed_count)
     );
     println!(
         "message lengths: {}",

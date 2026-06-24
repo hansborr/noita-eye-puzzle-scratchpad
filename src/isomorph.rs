@@ -93,7 +93,8 @@ impl PatternSignature {
 pub struct SignatureGroup {
     /// The first-occurrence equality pattern.
     pub signature: PatternSignature,
-    /// Zero-based window start positions where this signature occurs.
+    /// Zero-based window start positions where this signature occurs, stored in
+    /// ascending order.
     pub occurrences: Vec<usize>,
 }
 
@@ -277,6 +278,10 @@ pub fn detect_isomorphs<T: Eq + Copy>(
 
 /// Counts occurrence pairs whose start-distance is a positive multiple of
 /// `period`.
+///
+/// Assumes `group.occurrences` is sorted ascending (as produced by
+/// [`detect_isomorphs`]); distances are computed as the later start minus the
+/// earlier one. An unsorted group would silently undercount.
 #[must_use]
 pub fn signature_period_matches(group: &SignatureGroup, period: usize) -> usize {
     if period == 0 {

@@ -472,7 +472,7 @@ fn grouping_row(
         pooled,
         message_weighted_entropy_bits_per_symbol: message_weighted_entropy(glyph_messages),
         message_weighted_normalized_entropy: message_weighted_normalized_entropy(glyph_messages),
-        message_weighted_ioc: message_weighted_ioc(glyph_messages),
+        message_weighted_ioc: analysis::message_weighted_index_of_coincidence(glyph_messages),
         messages,
     }
 }
@@ -678,11 +678,7 @@ fn state_count_estimate(
         DEFAULT_STATE_MIN_WINDOW,
         DEFAULT_STATE_MAX_WINDOW,
     )?;
-    let longest_repeated_isomorph = isomorph_rows
-        .iter()
-        .filter(|row| row.repeated_signature_kinds > 0)
-        .map(|row| row.window)
-        .max();
+    let longest_repeated_isomorph = longest_repeated_isomorph(&isomorph_rows);
     let range = estimate_range(&collision, calibration_relative_margin);
 
     Ok(StateCountEstimateReport {
@@ -699,7 +695,7 @@ fn state_count_estimate(
 fn collision_state_estimate(glyph_messages: &[Vec<Glyph>]) -> CollisionStateEstimate {
     let pooled = flatten_messages(glyph_messages);
     let pooled_ioc = analysis::index_of_coincidence(&pooled);
-    let message_weighted_ioc = message_weighted_ioc(glyph_messages);
+    let message_weighted_ioc = analysis::message_weighted_index_of_coincidence(glyph_messages);
     CollisionStateEstimate {
         pooled_ioc,
         pooled_effective_states: effective_alphabet_from_ioc(pooled_ioc),
@@ -768,11 +764,7 @@ fn calibration_row(
         DEFAULT_STATE_MIN_WINDOW,
         DEFAULT_STATE_MAX_WINDOW,
     )?;
-    let longest_repeated_isomorph = isomorph_rows
-        .iter()
-        .filter(|row| row.repeated_signature_kinds > 0)
-        .map(|row| row.window)
-        .max();
+    let longest_repeated_isomorph = longest_repeated_isomorph(&isomorph_rows);
     let relative_error = f64::max(
         relative_error(collision.pooled_effective_states, true_states),
         relative_error(collision.message_weighted_effective_states, true_states),
@@ -946,6 +938,14 @@ fn message_weighted_entropy(glyph_messages: &[Vec<Glyph>]) -> f64 {
     }
 }
 
+/// Longest scanned window that still contains a repeated isomorph signature.
+fn longest_repeated_isomorph(rows: &[IsomorphStateRow]) -> Option<usize> {
+    rows.iter()
+        .filter(|row| row.repeated_signature_kinds > 0)
+        .map(|row| row.window)
+        .max()
+}
+
 fn message_weighted_normalized_entropy(glyph_messages: &[Vec<Glyph>]) -> f64 {
     let mut weighted = 0.0;
     let mut total = 0usize;
@@ -954,33 +954,15 @@ fn message_weighted_normalized_entropy(glyph_messages: &[Vec<Glyph>]) -> f64 {
         if len == 0 {
             continue;
         }
-        let stats = SymbolStats::from_glyphs(glyphs);
-        weighted += stats.normalized_entropy * len as f64;
+        let entropy = analysis::shannon_entropy(glyphs);
+        let used_alphabet = analysis::frequencies(glyphs).len();
+        weighted += normalized_entropy(entropy, used_alphabet) * len as f64;
         total += len;
     }
     if total == 0 {
         0.0
     } else {
         weighted / total as f64
-    }
-}
-
-fn message_weighted_ioc(glyph_messages: &[Vec<Glyph>]) -> f64 {
-    let mut weighted = 0.0;
-    let mut pair_count_total = 0usize;
-    for glyphs in glyph_messages {
-        let n = glyphs.len();
-        if n < 2 {
-            continue;
-        }
-        let pair_count = n * (n - 1);
-        weighted += analysis::index_of_coincidence(glyphs) * pair_count as f64;
-        pair_count_total += pair_count;
-    }
-    if pair_count_total == 0 {
-        0.0
-    } else {
-        weighted / pair_count_total as f64
     }
 }
 

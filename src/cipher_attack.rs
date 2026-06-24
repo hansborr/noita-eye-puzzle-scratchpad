@@ -1126,7 +1126,7 @@ fn shuffled_messages(
     Ok(shuffled)
 }
 
-fn fisher_yates(values: &mut [Glyph], rng: &mut SplitMix64) -> Result<(), CipherAttackError> {
+fn fisher_yates<T>(values: &mut [T], rng: &mut SplitMix64) -> Result<(), CipherAttackError> {
     let mut unswapped = values.len();
     while unswapped > 1 {
         let last = unswapped - 1;
@@ -1142,13 +1142,7 @@ fn random_permutation(
     rng: &mut SplitMix64,
 ) -> Result<Vec<usize>, CipherAttackError> {
     let mut values = (0..alphabet_size).collect::<Vec<_>>();
-    let mut unswapped = values.len();
-    while unswapped > 1 {
-        let last = unswapped - 1;
-        let partner = random_index_below(unswapped, rng)?;
-        values.swap(last, partner);
-        unswapped = last;
-    }
+    fisher_yates(&mut values, rng)?;
     Ok(values)
 }
 

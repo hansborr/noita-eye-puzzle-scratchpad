@@ -89,7 +89,8 @@ impl Message {
     /// Parses all rendered symbols, preserving row delimiters.
     ///
     /// # Errors
-    /// Returns [`CorpusError`] if any digit is outside `0..=5`.
+    /// Returns [`CorpusError`] if a byte is not a corpus digit or is outside
+    /// `0..=5`.
     pub fn rendered_symbols(&self) -> Result<Vec<RenderedSymbol>, CorpusError> {
         let mut symbols = Vec::new();
         for byte in self.digits.bytes() {

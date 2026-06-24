@@ -1,6 +1,6 @@
 //! Toolkit for analyzing and attempting to decode the Noita eye-glyph puzzle.
 //!
-//! The crate is organized in three layers:
+//! The crate is organized into the following modules:
 //!
 //! - [`glyph`]: the alphabet and sequence types used to represent transcribed
 //!   eye messages, including the verified rendered orientation symbols.
@@ -36,6 +36,9 @@
 //!   with generated cipher-family controls.
 //! - [`null`]: deterministic null distributions for fixed reading-order
 //!   families.
+//! - [`orders`]: reading-order experiments that reconstruct the rendered 2D
+//!   glyph grids (splitting on the `5` row delimiter) and read them under
+//!   documented order families.
 //! - [`orientation_homogeneity`]: order-independent cross-message
 //!   homogeneity test over engine-fixed single-orientation frequencies.
 //! - [`periodicity`]: Experiment 5A periodicity, autocorrelation, and Kasiski

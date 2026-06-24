@@ -853,18 +853,22 @@ fn random_index_below(bound: usize, rng: &mut SplitMix64) -> Result<usize, Perse
 fn recurrence_null_band(samples: &[usize], denominator: usize) -> RecurrenceNullBand {
     let mut sorted = samples.to_vec();
     sorted.sort_unstable();
+    let count_mean = mean_usize(samples);
+    let count_median = median_usize(&sorted);
+    let count_q025 = quantile_from_sorted(&sorted, 25, 1_000);
+    let count_q975 = quantile_from_sorted(&sorted, 975, 1_000);
     RecurrenceNullBand {
         trials: samples.len(),
-        count_mean: mean_usize(samples),
+        count_mean,
         count_min: sorted.first().copied().unwrap_or_default(),
-        count_q025: quantile_from_sorted(&sorted, 25, 1_000),
-        count_median: median_usize(&sorted),
-        count_q975: quantile_from_sorted(&sorted, 975, 1_000),
+        count_q025,
+        count_median,
+        count_q975,
         count_max: sorted.last().copied().unwrap_or_default(),
-        rate_mean: rate_f64(mean_usize(samples), denominator),
-        rate_q025: rate(quantile_from_sorted(&sorted, 25, 1_000), denominator),
-        rate_median: rate_f64(median_usize(&sorted), denominator),
-        rate_q975: rate(quantile_from_sorted(&sorted, 975, 1_000), denominator),
+        rate_mean: rate_f64(count_mean, denominator),
+        rate_q025: rate(count_q025, denominator),
+        rate_median: rate_f64(count_median, denominator),
+        rate_q975: rate(count_q975, denominator),
     }
 }
 

@@ -791,8 +791,9 @@ impl OrderStats {
         let contiguous = min
             .zip(max)
             .is_some_and(|(low, high)| usize::from(high - low + 1) == distinct_values.len());
+        let adjacent_equal = count_recurrence(values, 1);
         let recurrence = [
-            count_recurrence(values, 1),
+            adjacent_equal,
             count_recurrence(values, 2),
             count_recurrence(values, 3),
             count_recurrence(values, 4),
@@ -806,7 +807,7 @@ impl OrderStats {
             max,
             contiguous,
             values_above_82: distinct_values.iter().filter(|&&value| value > 82).count(),
-            adjacent_equal: count_recurrence(values, 1),
+            adjacent_equal,
             recurrence_distance_1_to_6: recurrence,
         }
     }
@@ -817,15 +818,16 @@ impl OrderStats {
     pub fn from_message_values(message_values: &[Vec<TrigramValue>]) -> Self {
         let values: Vec<TrigramValue> = message_values.iter().flatten().copied().collect();
         let mut stats = Self::from_values(&values);
+        let adjacent_equal = count_message_recurrence(message_values, 1);
         let recurrence = [
-            count_message_recurrence(message_values, 1),
+            adjacent_equal,
             count_message_recurrence(message_values, 2),
             count_message_recurrence(message_values, 3),
             count_message_recurrence(message_values, 4),
             count_message_recurrence(message_values, 5),
             count_message_recurrence(message_values, 6),
         ];
-        stats.adjacent_equal = count_message_recurrence(message_values, 1);
+        stats.adjacent_equal = adjacent_equal;
         stats.recurrence_distance_1_to_6 = recurrence;
         stats
     }

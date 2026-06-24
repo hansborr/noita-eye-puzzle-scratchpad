@@ -421,7 +421,6 @@ pub struct ConditionalStructureReport {
 pub fn run_conditional_structure(
     config: ConditionalStructureConfig,
 ) -> Result<ConditionalStructureReport, ConditionalStructureError> {
-    validate_config(config)?;
     let grids = orders::corpus_grids()?;
     let keys = grids.iter().map(GlyphGrid::message_key).collect::<Vec<_>>();
     let order = orders::accepted_honeycomb_order();

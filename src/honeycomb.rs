@@ -815,13 +815,15 @@ fn tail_report(observed: f64, samples: &[f64], tail: Tail) -> TailReport {
 }
 
 fn null_band(samples: &[f64]) -> NullBand {
+    let mut sorted = samples.to_vec();
+    sorted.sort_by(f64::total_cmp);
     NullBand {
         trials: samples.len(),
-        min: quantile_from_samples(samples, Quantile::Min),
-        q025: quantile_from_samples(samples, Quantile::Q025),
-        median: quantile_from_samples(samples, Quantile::Median),
-        q975: quantile_from_samples(samples, Quantile::Q975),
-        max: quantile_from_samples(samples, Quantile::Max),
+        min: quantile_from_sorted(&sorted, Quantile::Min),
+        q025: quantile_from_sorted(&sorted, Quantile::Q025),
+        median: quantile_from_sorted(&sorted, Quantile::Median),
+        q975: quantile_from_sorted(&sorted, Quantile::Q975),
+        max: quantile_from_sorted(&sorted, Quantile::Max),
     }
 }
 
@@ -832,12 +834,6 @@ enum Quantile {
     Median,
     Q975,
     Max,
-}
-
-fn quantile_from_samples(samples: &[f64], quantile: Quantile) -> f64 {
-    let mut sorted = samples.to_vec();
-    sorted.sort_by(f64::total_cmp);
-    quantile_from_sorted(&sorted, quantile)
 }
 
 fn quantile_from_sorted(sorted: &[f64], quantile: Quantile) -> f64 {

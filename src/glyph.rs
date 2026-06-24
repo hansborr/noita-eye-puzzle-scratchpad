@@ -159,7 +159,9 @@ impl Alphabet {
     /// The character at position `i` becomes `Glyph(i)`.
     ///
     /// # Errors
-    /// Returns the offending character if the same one appears twice.
+    /// Returns the offending character if the same one appears twice, or if more
+    /// than 65536 distinct characters are supplied (the index would exceed
+    /// [`u16::MAX`]).
     pub fn from_chars(chars: &str) -> Result<Self, char> {
         let mut to_char = Vec::new();
         let mut from_char = BTreeMap::new();

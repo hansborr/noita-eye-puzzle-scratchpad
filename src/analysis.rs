@@ -82,6 +82,31 @@ pub fn index_of_coincidence(seq: &[Glyph]) -> f64 {
     numerator as f64 / (n * (n - 1)) as f64
 }
 
+/// Pair-count-weighted index of coincidence pooled across messages.
+///
+/// Each message contributes its [`index_of_coincidence`] weighted by its number
+/// of ordered glyph pairs `len * (len - 1)`; messages shorter than two glyphs
+/// are skipped. Returns `0.0` when no message has at least two glyphs.
+#[must_use]
+pub fn message_weighted_index_of_coincidence(message_glyphs: &[Vec<Glyph>]) -> f64 {
+    let mut weighted = 0.0;
+    let mut pair_count_total = 0usize;
+    for glyphs in message_glyphs {
+        let len = glyphs.len();
+        if len < 2 {
+            continue;
+        }
+        let pair_count = len * (len - 1);
+        weighted += index_of_coincidence(glyphs) * pair_count as f64;
+        pair_count_total += pair_count;
+    }
+    if pair_count_total == 0 {
+        0.0
+    } else {
+        weighted / pair_count_total as f64
+    }
+}
+
 /// Pearson chi-square goodness-of-fit statistic against a uniform distribution.
 ///
 /// Each observed bucket is compared with the same expected count,

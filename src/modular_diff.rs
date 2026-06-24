@@ -543,10 +543,7 @@ fn first_difference_messages(
     for values in message_values {
         let mut message = Vec::with_capacity(values.len().saturating_sub(1));
         for pair in values.windows(2) {
-            let Some(previous) = pair.first().copied() else {
-                continue;
-            };
-            let Some(current) = pair.get(1).copied() else {
+            let [previous, current] = pair else {
                 continue;
             };
             let raw =
@@ -702,26 +699,7 @@ fn autocorrelation_rows(
 
 fn message_weighted_ioc_values(message_values: &[Vec<TrigramValue>]) -> f64 {
     let message_glyphs = glyph_messages_from_values(message_values);
-    message_weighted_ioc_glyphs(&message_glyphs)
-}
-
-fn message_weighted_ioc_glyphs(message_glyphs: &[Vec<Glyph>]) -> f64 {
-    let mut weighted_ioc = 0.0;
-    let mut pair_count_total = 0usize;
-    for glyphs in message_glyphs {
-        let len = glyphs.len();
-        if len < 2 {
-            continue;
-        }
-        let pair_count = len * (len - 1);
-        weighted_ioc += analysis::index_of_coincidence(glyphs) * pair_count as f64;
-        pair_count_total += pair_count;
-    }
-    if pair_count_total == 0 {
-        0.0
-    } else {
-        weighted_ioc / pair_count_total as f64
-    }
+    analysis::message_weighted_index_of_coincidence(&message_glyphs)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -1005,7 +983,7 @@ fn shuffled_messages(
 ) -> Result<Vec<Vec<TrigramValue>>, ModularDiffError> {
     let mut shuffled = message_values.to_vec();
     for values in &mut shuffled {
-        fisher_yates_trigram(values, rng)?;
+        fisher_yates(values, rng)?;
     }
     Ok(shuffled)
 }
@@ -1130,25 +1108,11 @@ fn shuffled_permutation(
     rng: &mut SplitMix64,
 ) -> Result<Vec<usize>, ModularDiffError> {
     let mut values = (0..alphabet_size).collect::<Vec<_>>();
-    fisher_yates_usize(&mut values, rng)?;
+    fisher_yates(&mut values, rng)?;
     Ok(values)
 }
 
-fn fisher_yates_usize(values: &mut [usize], rng: &mut SplitMix64) -> Result<(), ModularDiffError> {
-    let mut unswapped = values.len();
-    while unswapped > 1 {
-        let last = unswapped - 1;
-        let partner = random_index_below(unswapped, rng)?;
-        values.swap(last, partner);
-        unswapped = last;
-    }
-    Ok(())
-}
-
-fn fisher_yates_trigram(
-    values: &mut [TrigramValue],
-    rng: &mut SplitMix64,
-) -> Result<(), ModularDiffError> {
+fn fisher_yates<T>(values: &mut [T], rng: &mut SplitMix64) -> Result<(), ModularDiffError> {
     let mut unswapped = values.len();
     while unswapped > 1 {
         let last = unswapped - 1;
@@ -1311,10 +1275,7 @@ fn mix_seed(seed: u64, tag: u64) -> u64 {
 }
 
 fn stateless_splitmix(seed: u64) -> u64 {
-    let mut value = seed.wrapping_add(0x9e37_79b9_7f4a_7c15);
-    value = (value ^ (value >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-    value = (value ^ (value >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
-    value ^ (value >> 31)
+    SplitMix64::new(seed).next_u64()
 }
 
 #[cfg(test)]

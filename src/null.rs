@@ -46,6 +46,10 @@ impl SplitMix64 {
     }
 
     fn orientation(&mut self) -> Orientation {
+        // Modulo reduction carries a negligible bias here (2^64 mod 5 == 1, so
+        // digit 0 is favored by ~5e-20). It is kept intentionally: switching to
+        // rejection sampling would change the deterministic PRNG stream and
+        // break the regression-locked null statistics.
         match self.next_u64() % 5 {
             0 => Orientation::Zero,
             1 => Orientation::One,
@@ -190,8 +194,8 @@ pub fn run_standard36_null_with(
         family_size: orders.len(),
         headline_count,
         adjacent_zero_count,
-        min_distinct_histogram: usize_histogram(&min_distinct_values),
-        min_ceiling_histogram: u8_histogram(&min_ceiling_values),
+        min_distinct_histogram: run_length_histogram(&min_distinct_values),
+        min_ceiling_histogram: run_length_histogram(&min_ceiling_values),
         distance4_ratio_min: sorted_quantile(&distance4_ratios, Quantile::Min),
         distance4_ratio_median: sorted_quantile(&distance4_ratios, Quantile::Median),
         distance4_ratio_max: sorted_quantile(&distance4_ratios, Quantile::Max),
@@ -378,23 +382,7 @@ fn total_trigrams(grids: &[GlyphGrid]) -> usize {
     grids.iter().map(GlyphGrid::eye_count).sum::<usize>() / 3
 }
 
-fn usize_histogram(values: &[usize]) -> Vec<(usize, usize)> {
-    let mut sorted = values.to_vec();
-    sorted.sort_unstable();
-    let mut histogram = Vec::new();
-    for value in sorted {
-        if let Some((last_value, count)) = histogram.last_mut()
-            && *last_value == value
-        {
-            *count += 1;
-            continue;
-        }
-        histogram.push((value, 1));
-    }
-    histogram
-}
-
-fn u8_histogram(values: &[u8]) -> Vec<(u8, usize)> {
+fn run_length_histogram<K: Ord + Copy>(values: &[K]) -> Vec<(K, usize)> {
     let mut sorted = values.to_vec();
     sorted.sort_unstable();
     let mut histogram = Vec::new();
