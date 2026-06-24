@@ -9,7 +9,7 @@ use std::process::ExitCode;
 use clap::{Args, Parser, Subcommand};
 use noita_eye_puzzle::{
     chaining, cipher_attack, controls, corpus, dof_null, glyph::Sequence, grouping, isomorph_null,
-    null, orders, periodicity, perseus, pipeline_null, report,
+    null, orders, periodicity, perseus, pipeline_null, report, tree_residual,
 };
 
 const DEFAULT_NULL_SEED: u64 = 0x6e6f_6974_612d_6579;
@@ -56,6 +56,9 @@ enum Command {
     Chaining(ChainingArgs),
     /// Experiment 7C Perseus shared-region recurrence null.
     Perseus(PerseusArgs),
+    /// Tree-residual cross-tail n-gram null.
+    #[command(name = "treeresidual", alias = "tree-residual")]
+    Treeresidual(TreeResidualArgs),
     /// Experiment 12 candidate-cipher language-scoring null harness.
     #[command(name = "cipherattack")]
     Cipherattack(CipherAttackArgs),
@@ -196,6 +199,26 @@ impl From<PerseusArgs> for perseus::PerseusConfig {
 }
 
 #[derive(Clone, Copy, Debug, Args)]
+struct TreeResidualArgs {
+    #[arg(long, default_value_t = tree_residual::DEFAULT_SEED)]
+    seed: u64,
+    #[arg(long, default_value_t = tree_residual::DEFAULT_TRIALS)]
+    trials: usize,
+    #[arg(long = "seed-count", default_value_t = tree_residual::DEFAULT_SEED_COUNT)]
+    seed_count: usize,
+}
+
+impl From<TreeResidualArgs> for tree_residual::TreeResidualConfig {
+    fn from(args: TreeResidualArgs) -> Self {
+        Self {
+            seed: args.seed,
+            trials: args.trials,
+            seed_count: args.seed_count,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Args)]
 struct CipherAttackArgs {
     #[arg(long, default_value_t = cipher_attack::DEFAULT_SEED)]
     seed: u64,
@@ -276,6 +299,7 @@ fn main() -> ExitCode {
         Command::Isomorphnull(args) => run_isomorphnull(args.into()),
         Command::Chaining(args) => run_chaining(args.into()),
         Command::Perseus(args) => run_perseus(args.into()),
+        Command::Treeresidual(args) => run_treeresidual(args.into()),
         Command::Cipherattack(args) => run_cipherattack(args.into()),
         Command::Controls(args) => run_controls(args),
     }
@@ -405,6 +429,21 @@ fn run_perseus(config: perseus::PerseusConfig) -> ExitCode {
         }
     };
     report::print_perseus_report(&report);
+    ExitCode::SUCCESS
+}
+
+fn run_treeresidual(config: tree_residual::TreeResidualConfig) -> ExitCode {
+    let report = match tree_residual::run_tree_residual(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!(
+                "tree-residual null error: {}",
+                report::format_tree_residual_error(error)
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    report::print_tree_residual_report(&report);
     ExitCode::SUCCESS
 }
 
