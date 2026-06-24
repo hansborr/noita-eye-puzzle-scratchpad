@@ -632,12 +632,15 @@ fn print_honeycomb_position_section(report: &honeycomb::HoneycombReport) {
     let stats = report.observed.position_conditioning;
     println!("position-in-band conditioning");
     println!(
-        "  trigrams: {}; positions: {}; value deciles: {}; chi-square: {:.3}; df: {}",
+        "  trigrams: {}; positions: {}; value bands: {}; chi-square: {:.3}; df: {}",
         stats.total,
         stats.positions,
         stats.value_deciles,
         stats.chi_square,
         stats.degrees_of_freedom
+    );
+    println!(
+        "  value-band note: only 7 of 10 decile buckets are reachable because reading-layer values are bounded to 0..=82"
     );
     print_tail_line("  chi-square null", report.null.position_chi_square);
 }
@@ -674,16 +677,28 @@ fn format_honeycomb_band(band: honeycomb::NullBand) -> String {
 }
 
 fn print_honeycomb_interpretation(report: &honeycomb::HoneycombReport) {
+    const POINTWISE_ALPHA: f64 = 0.05;
+    const BORDERLINE_MARGIN: f64 = 0.01;
+
     let isolated_2d_tails = [
         report.null.position_chi_square.empirical_p,
         report.null.parity_chi_square.empirical_p,
         report.null.parity_ioc_abs_diff.empirical_p,
     ];
     let strongest_isolated_2d_tail = isolated_2d_tails.iter().copied().fold(1.0, f64::min);
-    let vertical_tail_is_small = report.null.vertical_equal_rate.empirical_p <= 0.05
-        || report.null.vertical_mean_abs_diff.empirical_p <= 0.05;
+    let strongest_isolated_2d_tail_is_borderline =
+        (strongest_isolated_2d_tail - POINTWISE_ALPHA).abs() <= BORDERLINE_MARGIN;
+    let vertical_tail_is_small = report.null.vertical_equal_rate.empirical_p <= POINTWISE_ALPHA
+        || report.null.vertical_mean_abs_diff.empirical_p <= POINTWISE_ALPHA;
 
-    if strongest_isolated_2d_tail <= 0.05 {
+    println!(
+        "Multiplicity note: this experiment evaluates 7 one-sided 5% statistics (at least one pointwise hit is about 30% under the null), so a single p near 0.05 is expected and is not a finding."
+    );
+    if strongest_isolated_2d_tail_is_borderline {
+        println!(
+            "Interpretation: the strongest position/parity lattice statistic is a borderline pointwise marginal near the 5% threshold, seed-sensitive at the configured trial count. Recheck only after multiplicity adjustment; this is not a plaintext or decryption claim."
+        );
+    } else if strongest_isolated_2d_tail <= POINTWISE_ALPHA {
         println!(
             "Interpretation: at least one position/parity lattice statistic is outside a one-sided 5% Monte-Carlo tail. Treat that as a structural anomaly to recheck against transcription and configuration choices, not as a plaintext or decryption claim."
         );

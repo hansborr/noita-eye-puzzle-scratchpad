@@ -15,10 +15,16 @@ fn honeycomb_subcommand_reports_fixed_order_lattice_null() {
     );
     assert_contains(&stdout, "vertical same pos: 13/802 = 0.016209");
     assert_contains(&stdout, "same-distance 1D control");
+    assert_contains(&stdout, "value bands: 7; chi-square: 260.202; df: 150");
+    assert_contains(&stdout, "only 7 of 10 decile buckets are reachable");
     assert_contains(&stdout, "chi-square: 260.202; df: 150");
     assert_contains(
         &stdout,
         "upper/lower trigrams: 520/516; chi-square: 113.162",
+    );
+    assert_contains(
+        &stdout,
+        "single p near 0.05 is expected and is not a finding",
     );
     assert_contains(
         &stdout,
