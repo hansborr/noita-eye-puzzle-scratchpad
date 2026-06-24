@@ -31,7 +31,7 @@
 //! this chaining signature uses only column distributions, that shuffle is an
 //! invariance check rather than a separate order-sensitive signal.
 
-use crate::null::SplitMix64;
+use crate::null::{SplitMix64, fisher_yates, random_index_below, stateless_splitmix};
 use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::trigram::TrigramValue;
 
@@ -111,6 +111,12 @@ pub enum ChainingError {
 impl From<GridError> for ChainingError {
     fn from(value: GridError) -> Self {
         Self::Grid(value)
+    }
+}
+
+impl From<crate::null::RandomBoundError> for ChainingError {
+    fn from(error: crate::null::RandomBoundError) -> Self {
+        Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
 
@@ -568,10 +574,6 @@ fn source_weights(alphabet_size: usize) -> Vec<usize> {
         .collect()
 }
 
-fn stateless_splitmix(seed: u64) -> u64 {
-    SplitMix64::new(seed).next_u64()
-}
-
 fn coprime_stride(total: usize, alphabet_size: usize) -> usize {
     let mut stride = alphabet_size.max(3);
     if stride.is_multiple_of(2) {
@@ -770,34 +772,6 @@ fn shuffle_within_period_columns(
         shuffled.push(message);
     }
     Ok(shuffled)
-}
-
-fn fisher_yates<T>(values: &mut [T], rng: &mut SplitMix64) -> Result<(), ChainingError> {
-    let mut unswapped = values.len();
-    while unswapped > 1 {
-        let last = unswapped - 1;
-        let partner = random_index_below(unswapped, rng)?;
-        values.swap(last, partner);
-        unswapped = last;
-    }
-    Ok(())
-}
-
-fn random_index_below(bound: usize, rng: &mut SplitMix64) -> Result<usize, ChainingError> {
-    let bound_u64 =
-        u64::try_from(bound).map_err(|_error| ChainingError::RandomBoundTooLarge { bound })?;
-    if bound_u64 == 0 {
-        return Err(ChainingError::RandomBoundTooLarge { bound });
-    }
-    let rejection_threshold = u64::MAX - (u64::MAX % bound_u64);
-    loop {
-        let draw = rng.next_u64();
-        if draw < rejection_threshold {
-            let index_u64 = draw % bound_u64;
-            return usize::try_from(index_u64)
-                .map_err(|_error| ChainingError::RandomBoundTooLarge { bound });
-        }
-    }
 }
 
 fn trigram_from_usize(value: usize, alphabet_size: usize) -> Result<TrigramValue, ChainingError> {

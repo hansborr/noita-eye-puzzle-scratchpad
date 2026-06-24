@@ -107,6 +107,31 @@ pub fn message_weighted_index_of_coincidence(message_glyphs: &[Vec<Glyph>]) -> f
     }
 }
 
+/// Length-weighted Shannon entropy (bits per symbol) pooled across messages.
+///
+/// Each message contributes its [`shannon_entropy`] weighted by its glyph count;
+/// empty messages are skipped. Returns `0.0` when every message is empty. This
+/// keeps message boundaries intact so per-message entropies are not contaminated
+/// by artificial cross-join statistics.
+#[must_use]
+pub fn message_weighted_entropy(message_glyphs: &[Vec<Glyph>]) -> f64 {
+    let mut weighted = 0.0;
+    let mut total = 0usize;
+    for glyphs in message_glyphs {
+        let len = glyphs.len();
+        if len == 0 {
+            continue;
+        }
+        weighted += shannon_entropy(glyphs) * len as f64;
+        total += len;
+    }
+    if total == 0 {
+        0.0
+    } else {
+        weighted / total as f64
+    }
+}
+
 /// Pearson chi-square goodness-of-fit statistic against a uniform distribution.
 ///
 /// Each observed bucket is compared with the same expected count,

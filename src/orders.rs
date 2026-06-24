@@ -921,7 +921,7 @@ impl ReadingLayerFlatnessStats {
             .count();
         let frequency_counts: Vec<usize> =
             frequencies.iter().map(|(_value, count)| *count).collect();
-        let ioc_probability = message_weighted_ioc(&message_glyphs);
+        let ioc_probability = analysis::message_weighted_index_of_coincidence(&message_glyphs);
         let concatenated_ioc_probability = analysis::index_of_coincidence(&glyphs);
         let chi_square_vs_uniform = if outside_alphabet_occurrences == 0 {
             analysis::chi_square_goodness_of_fit_uniform(&frequency_counts)
@@ -946,7 +946,7 @@ impl ReadingLayerFlatnessStats {
             min_frequency,
             max_frequency,
             zero_frequency_symbols,
-            entropy_bits_per_symbol: message_weighted_entropy(&message_glyphs),
+            entropy_bits_per_symbol: analysis::message_weighted_entropy(&message_glyphs),
             max_entropy_bits_per_symbol: (READING_LAYER_ALPHABET_SIZE as f64).log2(),
             ioc_probability,
             normalized_ioc: ioc_probability * READING_LAYER_ALPHABET_SIZE as f64,
@@ -974,43 +974,6 @@ pub fn glyph_messages_from_values(message_values: &[Vec<TrigramValue>]) -> Vec<V
                 .collect()
         })
         .collect()
-}
-
-fn message_weighted_ioc(message_glyphs: &[Vec<Glyph>]) -> f64 {
-    let mut weighted_ioc = 0.0;
-    let mut pair_count_total = 0usize;
-    for glyphs in message_glyphs {
-        let n = glyphs.len();
-        if n < 2 {
-            continue;
-        }
-        let pair_count = n * (n - 1);
-        weighted_ioc += analysis::index_of_coincidence(glyphs) * pair_count as f64;
-        pair_count_total += pair_count;
-    }
-    if pair_count_total == 0 {
-        0.0
-    } else {
-        weighted_ioc / pair_count_total as f64
-    }
-}
-
-fn message_weighted_entropy(message_glyphs: &[Vec<Glyph>]) -> f64 {
-    let mut weighted_entropy = 0.0;
-    let mut total = 0usize;
-    for glyphs in message_glyphs {
-        let len = glyphs.len();
-        if len == 0 {
-            continue;
-        }
-        weighted_entropy += analysis::shannon_entropy(glyphs) * len as f64;
-        total += len;
-    }
-    if total == 0 {
-        0.0
-    } else {
-        weighted_entropy / total as f64
-    }
 }
 
 /// Counts values whose previous occurrence was exactly `distance` positions ago.

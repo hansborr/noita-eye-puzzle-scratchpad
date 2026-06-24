@@ -30,7 +30,7 @@ use crate::ciphers::{
 };
 use crate::glyph::Glyph;
 use crate::language::{LanguageError, LanguageModel, LanguageScore, english_model, finnish_model};
-use crate::null::SplitMix64;
+use crate::null::{SplitMix64, fisher_yates, random_index_below};
 use crate::orders::{self, GridError, ReadingOrder};
 use crate::trigram::TrigramValue;
 
@@ -116,6 +116,12 @@ impl From<LanguageError> for CipherAttackError {
 impl From<CipherError> for CipherAttackError {
     fn from(value: CipherError) -> Self {
         Self::Cipher(value)
+    }
+}
+
+impl From<crate::null::RandomBoundError> for CipherAttackError {
+    fn from(error: crate::null::RandomBoundError) -> Self {
+        Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
 
@@ -1126,17 +1132,6 @@ fn shuffled_messages(
     Ok(shuffled)
 }
 
-fn fisher_yates<T>(values: &mut [T], rng: &mut SplitMix64) -> Result<(), CipherAttackError> {
-    let mut unswapped = values.len();
-    while unswapped > 1 {
-        let last = unswapped - 1;
-        let partner = random_index_below(unswapped, rng)?;
-        values.swap(last, partner);
-        unswapped = last;
-    }
-    Ok(())
-}
-
 fn random_permutation(
     alphabet_size: usize,
     rng: &mut SplitMix64,
@@ -1154,23 +1149,6 @@ fn random_distinct_control(
         let control_b = random_index_below(EYE_READING_ALPHABET_SIZE, rng)?;
         if control_b != control_a {
             return Ok(control_b);
-        }
-    }
-}
-
-fn random_index_below(bound: usize, rng: &mut SplitMix64) -> Result<usize, CipherAttackError> {
-    if bound == 0 {
-        return Err(CipherAttackError::RandomBoundTooLarge { bound });
-    }
-    let bound_u64 =
-        u64::try_from(bound).map_err(|_error| CipherAttackError::RandomBoundTooLarge { bound })?;
-    let threshold = u64::MAX - (u64::MAX % bound_u64);
-    loop {
-        let draw = rng.next_u64();
-        if draw < threshold {
-            let value = draw % bound_u64;
-            return usize::try_from(value)
-                .map_err(|_error| CipherAttackError::RandomBoundTooLarge { bound });
         }
     }
 }

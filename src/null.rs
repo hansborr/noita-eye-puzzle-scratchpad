@@ -60,6 +60,79 @@ impl SplitMix64 {
     }
 }
 
+/// Hashes a single seed to one pseudo-random `u64` via a fresh [`SplitMix64`].
+///
+/// This is the stateless one-shot form used by control-construction code that
+/// needs a deterministic, well-mixed value per seed (for example per-symbol
+/// source weights) without threading a mutable generator. It is equivalent to
+/// `SplitMix64::new(seed).next_u64()`.
+#[must_use]
+pub fn stateless_splitmix(seed: u64) -> u64 {
+    SplitMix64::new(seed).next_u64()
+}
+
+/// Error returned by the shared index-draw helpers when a bound cannot be used.
+///
+/// Carries the offending `bound` so each caller can surface it through its own
+/// error type (every Monte-Carlo module maps this into its
+/// `RandomBoundTooLarge { bound }` variant).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RandomBoundError {
+    /// The bound that was zero or too large to represent as a `u64`.
+    pub bound: usize,
+}
+
+/// Draws a uniformly-distributed index in `0..bound` from `rng` using rejection
+/// sampling (no modulo bias).
+///
+/// # Errors
+/// Returns [`RandomBoundError`] if `bound` is `0` or cannot be represented as a
+/// `u64`.
+pub fn random_index_below(bound: usize, rng: &mut SplitMix64) -> Result<usize, RandomBoundError> {
+    let bound_u64 = u64::try_from(bound).map_err(|_error| RandomBoundError { bound })?;
+    if bound_u64 == 0 {
+        return Err(RandomBoundError { bound });
+    }
+    let rejection_threshold = u64::MAX - (u64::MAX % bound_u64);
+    loop {
+        let draw = rng.next_u64();
+        if draw < rejection_threshold {
+            let index_u64 = draw % bound_u64;
+            return usize::try_from(index_u64).map_err(|_error| RandomBoundError { bound });
+        }
+    }
+}
+
+/// Shuffles `values` in place with a Fisher-Yates shuffle driven by `rng`.
+///
+/// # Errors
+/// Returns [`RandomBoundError`] if an index draw fails; this is unreachable for
+/// in-bounds slices on 64-bit targets.
+pub fn fisher_yates<T>(values: &mut [T], rng: &mut SplitMix64) -> Result<(), RandomBoundError> {
+    let mut unswapped = values.len();
+    while unswapped > 1 {
+        let last = unswapped - 1;
+        let partner = random_index_below(unswapped, rng)?;
+        values.swap(last, partner);
+        unswapped = last;
+    }
+    Ok(())
+}
+
+/// Returns a uniformly random permutation of `0..n` driven by `rng`.
+///
+/// # Errors
+/// Returns [`RandomBoundError`] if an index draw fails (see
+/// [`random_index_below`]).
+pub fn shuffled_permutation(
+    n: usize,
+    rng: &mut SplitMix64,
+) -> Result<Vec<usize>, RandomBoundError> {
+    let mut values = (0..n).collect::<Vec<_>>();
+    fisher_yates(&mut values, rng)?;
+    Ok(values)
+}
+
 /// Configuration for a reading-order null run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct NullConfig {

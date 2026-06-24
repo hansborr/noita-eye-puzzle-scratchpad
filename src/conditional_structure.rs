@@ -7,7 +7,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::null::SplitMix64;
+use crate::null::{SplitMix64, fisher_yates, random_index_below};
 use crate::orders::{self, GlyphGrid, GridError, ReadingOrder, read_corpus_message_values};
 use crate::trigram::TrigramValue;
 
@@ -111,6 +111,12 @@ pub enum ConditionalStructureError {
 impl From<GridError> for ConditionalStructureError {
     fn from(value: GridError) -> Self {
         Self::Grid(value)
+    }
+}
+
+impl From<crate::null::RandomBoundError> for ConditionalStructureError {
+    fn from(error: crate::null::RandomBoundError) -> Self {
+        Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
 
@@ -1407,40 +1413,6 @@ fn shuffled_messages(
         fisher_yates(values, rng)?;
     }
     Ok(shuffled)
-}
-
-fn fisher_yates<T>(
-    values: &mut [T],
-    rng: &mut SplitMix64,
-) -> Result<(), ConditionalStructureError> {
-    let mut unswapped = values.len();
-    while unswapped > 1 {
-        let last = unswapped - 1;
-        let partner = random_index_below(unswapped, rng)?;
-        values.swap(last, partner);
-        unswapped = last;
-    }
-    Ok(())
-}
-
-fn random_index_below(
-    bound: usize,
-    rng: &mut SplitMix64,
-) -> Result<usize, ConditionalStructureError> {
-    let bound_u64 = u64::try_from(bound)
-        .map_err(|_error| ConditionalStructureError::RandomBoundTooLarge { bound })?;
-    if bound_u64 == 0 {
-        return Err(ConditionalStructureError::RandomBoundTooLarge { bound });
-    }
-    let rejection_threshold = u64::MAX - (u64::MAX % bound_u64);
-    loop {
-        let draw = rng.next_u64();
-        if draw < rejection_threshold {
-            let index_u64 = draw % bound_u64;
-            return usize::try_from(index_u64)
-                .map_err(|_error| ConditionalStructureError::RandomBoundTooLarge { bound });
-        }
-    }
 }
 
 fn trigram_from_index(index: usize) -> Result<TrigramValue, ConditionalStructureError> {
