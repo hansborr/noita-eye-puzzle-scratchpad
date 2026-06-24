@@ -66,6 +66,7 @@ adversarially. Result: **5 supported, 8 mixed, 1 unverifiable** (full reasoning 
 | [05-code-investigations.md](05-code-investigations.md) | **The key deliverable.** 13 prioritized experiments to test/confirm/deny the findings in code, each with a hypothesis, method, expected-vs-null interpretation, tools, and difficulty. |
 | [06-sources.md](06-sources.md) | 57 deduplicated sources grouped by type. |
 | [07-workbench-bridge.md](07-workbench-bridge.md) | How to implement the experiments in the existing Rust crate: module-by-module build order and the first three commits. |
+| [gak-threads/](gak-threads/README.md) | **2026-06-24 next-work package.** Six self-contained, hand-off-ready threads from the community wiki's Group-Autokey (GAK) framework, which independently converges with our workbench. Start at `gak-threads/README.md`. |
 | [data/](data/) | Raw structured outputs: `facts.json` (126), `verdicts.json` (14), `code-testable.json` (47), `sources.json` (57) — for downstream tooling to ingest. |
 
 ## Where to start (code)
