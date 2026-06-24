@@ -77,7 +77,10 @@ Commits `ac0bcd7`→`2bdb0c0` on `master`, all gate-green. Verified independentl
   Bonferroni/Šidák. CLI: `cargo run -- nulltest --seed <u64> --trials <n>`.
   - Headline contiguous-0–82: **0/1000**. Min distinct ever reached: 122 (never
     near 83). Ceiling always 124 (never bounds at 82). Zero-adjacency: ~1–2/1000.
-    Real distance-4 ratio 2.52 exceeds all 2000 random best-over-36 ratios.
+    Real eyes' best-over-36 distance-4 ratio **2.79** (the accepted honeycomb
+    order's own ratio is 2.52) exceeds all 2000 random best-over-36 ratios —
+    consistent with the random maxima topping out at 2.533 below. Pinned in
+    `null.rs` as `real_outcome.max_distance4_ratio` (= 0x4006_4924_9249_2492).
   - Seed-stability over seeds 12345, 67890, 13579, 24680, and 424242 keeps the
     contiguous-0..=82 headline count at **0/1000** for every seed; adjacent-zero
     hits vary only 0..2/1000 and sampled best distance-4 maxima vary 2.211..2.533.
