@@ -802,11 +802,41 @@ mod tests {
             .iter()
             .map(|profile| profile.length)
             .collect::<Vec<_>>();
+        let counts = report
+            .profiles
+            .iter()
+            .map(|profile| profile.counts)
+            .collect::<Vec<_>>();
 
         assert_eq!(lengths, vec![297, 309, 354, 306, 411, 372, 357, 360, 342]);
+        assert_eq!(
+            counts,
+            vec![
+                [70, 76, 55, 50, 46],
+                [70, 69, 72, 53, 45],
+                [93, 83, 78, 53, 47],
+                [75, 77, 77, 44, 33],
+                [111, 89, 96, 65, 50],
+                [85, 94, 86, 58, 49],
+                [93, 72, 81, 69, 42],
+                [93, 86, 80, 54, 47],
+                [84, 93, 74, 44, 47],
+            ]
+        );
         assert_eq!(report.total_orientations, 3_108);
         assert_eq!(report.total_eye_count, 3_108);
-        assert_eq!(report.pooled_uniform.counts.iter().sum::<usize>(), 3_108);
+        assert_eq!(report.pooled_uniform.counts, [774, 739, 699, 490, 406]);
+        assert_close(
+            report.pooled_uniform.chi_square_vs_uniform,
+            171.816_602_316_602_3,
+            1e-12,
+        );
+        assert_close(
+            report.homogeneity.pearson_chi_square,
+            21.916_794_741_888_925,
+            1e-12,
+        );
+        assert_close(report.homogeneity.g_test, 21.999_082_968_340_836, 1e-12);
         assert_eq!(report.pooled_uniform.counts.len(), ORIENTATION_BUCKETS);
     }
 

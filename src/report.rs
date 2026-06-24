@@ -7,7 +7,7 @@
 use crate::glyph::Sequence;
 use crate::{
     analysis, chaining, cipher_attack, controls, corpus, dof_null, grouping, isomorph_null, null,
-    orders, periodicity, perseus, pipeline_null,
+    orders, orientation_homogeneity, periodicity, perseus, pipeline_null,
 };
 
 const MIN_RELIABLE_PERIODICITY_NULL_TRIALS: usize = 50;
@@ -200,6 +200,48 @@ pub fn format_grouping_error(error: grouping::GroupingError) -> String {
         }
         grouping::GroupingError::RandomBoundTooLarge { bound } => {
             format!("synthetic calibration random bound {bound} is too large")
+        }
+    }
+}
+
+/// Formats an orientation homogeneity error for CLI output.
+#[must_use]
+pub fn format_orientation_homogeneity_error(
+    error: orientation_homogeneity::OrientationHomogeneityError,
+) -> String {
+    match error {
+        orientation_homogeneity::OrientationHomogeneityError::ZeroTrials => {
+            "at least one repartition trial per seed is required".to_owned()
+        }
+        orientation_homogeneity::OrientationHomogeneityError::ZeroSeedCount => {
+            "at least one deterministic seed stream is required".to_owned()
+        }
+        orientation_homogeneity::OrientationHomogeneityError::TrialCountTooLarge => {
+            "trial count is too large for add-one p-value calibration".to_owned()
+        }
+        orientation_homogeneity::OrientationHomogeneityError::MessageCountMismatch {
+            expected,
+            observed,
+        } => format!("expected {expected} verified messages, observed {observed}"),
+        orientation_homogeneity::OrientationHomogeneityError::InvalidStorageSymbol {
+            message_index,
+            symbol,
+        } => format!("storage message {message_index} decoded invalid symbol {symbol}"),
+        orientation_homogeneity::OrientationHomogeneityError::EyeCountMismatch {
+            message_key,
+            expected,
+            observed,
+        } => format!(
+            "{message_key} engine-derived orientation count {observed} did not match verified eye count {expected}"
+        ),
+        orientation_homogeneity::OrientationHomogeneityError::LengthTotalMismatch {
+            lengths_total,
+            pooled_total,
+        } => format!(
+            "per-message lengths sum to {lengths_total}, but pooled orientation count is {pooled_total}"
+        ),
+        orientation_homogeneity::OrientationHomogeneityError::RandomBoundTooLarge { bound } => {
+            format!("random draw bound {bound} is too large")
         }
     }
 }
@@ -1862,6 +1904,222 @@ pub fn print_input_randomness_report(report: &pipeline_null::InputRandomnessRepo
     println!(
         "Interpretation: this only shows the authored engine inputs live in the 0..=5 storage alphabet (zero -1 controls and 86 delimiters) instead of resembling capped matched-length random integers. The analytic no -1 probability is exact for that capped model, and the Monte-Carlo counts are the empirical check at the configured trial count; neither shows that the authored symbols encode anything."
     );
+}
+
+/// Prints the cross-message orientation-frequency homogeneity report.
+pub fn print_orientation_homogeneity_report(
+    report: &orientation_homogeneity::OrientationHomogeneityReport,
+) {
+    println!("cross-message orientation-frequency homogeneity");
+    println!("layer: engine-fixed single orientations 0..=4; delimiter 5 stripped");
+    println!(
+        "order independence: no honeycomb traversal, no trigram reading layer, no symbol-to-meaning guess"
+    );
+    println!("seed: {}", report.config.seed);
+    println!("seed streams: {}", report.config.seed_count);
+    println!("trials per seed: {}", report.config.trials_per_seed);
+    println!(
+        "total repartitions: {}",
+        report.config.trials_per_seed * report.config.seed_count
+    );
+    println!(
+        "message lengths: {}",
+        format_orientation_profile_lengths(&report.profiles)
+    );
+    println!(
+        "total orientations: {} (verified eye-count sum {})",
+        report.total_orientations, report.total_eye_count
+    );
+    println!(
+        "null: shuffle the pooled orientation multiset and repartition into the true message lengths"
+    );
+    println!();
+    print_orientation_profiles(report);
+    println!();
+    print_orientation_uniform_context(report);
+    println!();
+    print_orientation_homogeneity_statistics(report);
+    println!();
+    print_orientation_repartition_null(report);
+    println!();
+    print_orientation_positive_control(report);
+    println!();
+    print_orientation_homogeneity_interpretation(report);
+}
+
+fn print_orientation_profiles(report: &orientation_homogeneity::OrientationHomogeneityReport) {
+    println!("per-message orientation profiles");
+    println!(
+        "{:<6} {:>5} {:>5} {:>5} {:>5} {:>5} {:>5} {:>8} {:>8} {:>8} {:>8} {:>8}",
+        "msg", "len", "c0", "c1", "c2", "c3", "c4", "f0", "f1", "f2", "f3", "f4"
+    );
+    for profile in &report.profiles {
+        let [c0, c1, c2, c3, c4] = profile.counts;
+        let [f0, f1, f2, f3, f4] = profile.frequencies;
+        println!(
+            "{:<6} {:>5} {:>5} {:>5} {:>5} {:>5} {:>5} {:>8.4} {:>8.4} {:>8.4} {:>8.4} {:>8.4}",
+            profile.message_key, profile.length, c0, c1, c2, c3, c4, f0, f1, f2, f3, f4
+        );
+    }
+}
+
+fn print_orientation_uniform_context(
+    report: &orientation_homogeneity::OrientationHomogeneityReport,
+) {
+    let uniform = report.pooled_uniform;
+    println!("pooled orientation-frequency context");
+    println!(
+        "pooled counts: {}",
+        format_orientation_counts(&uniform.counts)
+    );
+    println!(
+        "pooled chi-square vs uniform: {} df {} p>=chi2 {}",
+        format_chi_square(uniform.chi_square_vs_uniform),
+        uniform.degrees_of_freedom,
+        format_chi_square_p_value(uniform.asymptotic_upper_tail_p)
+    );
+}
+
+fn print_orientation_homogeneity_statistics(
+    report: &orientation_homogeneity::OrientationHomogeneityReport,
+) {
+    let homogeneity = report.homogeneity;
+    println!("observed cross-message homogeneity statistics");
+    println!(
+        "Pearson X^2: {} df {} asymptotic p>=X^2 {}",
+        format_chi_square(homogeneity.pearson_chi_square),
+        homogeneity.degrees_of_freedom,
+        format_chi_square_p_value(homogeneity.pearson_asymptotic_upper_tail_p)
+    );
+    println!(
+        "G-test: {} df {} asymptotic p>=G {}",
+        format_chi_square(homogeneity.g_test),
+        homogeneity.degrees_of_freedom,
+        format_chi_square_p_value(homogeneity.g_test_asymptotic_upper_tail_p)
+    );
+}
+
+fn print_orientation_repartition_null(
+    report: &orientation_homogeneity::OrientationHomogeneityReport,
+) {
+    println!("length-matched repartition null");
+    println!(
+        "{:<12} {:>10} {:>10} {:>19} {:>20} {:>10} {:>10} {:>10}",
+        "stat", "observed", "mean", "null 95%", "null min/med/max", "p<=obs", "p>=obs", "p2"
+    );
+    print_homogeneity_null_row("Pearson X^2", report.pearson_null);
+    print_homogeneity_null_row("G-test", report.g_test_null);
+}
+
+fn print_homogeneity_null_row(
+    label: &str,
+    comparison: orientation_homogeneity::HomogeneityNullComparison,
+) {
+    println!(
+        "{:<12} {:>10} {:>10.3} {:>19} {:>20} {:>10} {:>10} {:>10}",
+        label,
+        format_chi_square(comparison.observed),
+        comparison.null.mean,
+        format_null_band_f64(comparison.null.q025, comparison.null.q975),
+        format_null_min_median_max(comparison.null),
+        format_probability(comparison.lower_tail_add_one_p),
+        format_probability(comparison.upper_tail_add_one_p),
+        format_probability(comparison.two_sided_add_one_p)
+    );
+}
+
+fn print_orientation_positive_control(
+    report: &orientation_homogeneity::OrientationHomogeneityReport,
+) {
+    println!("heterogeneous positive control");
+    println!(
+        "fixture: same nine lengths, but each synthetic message has a deliberately different dominant orientation"
+    );
+    println!(
+        "{:<12} {:>10} {:>19} {:>10} {:>10}",
+        "stat", "observed", "null 95%", "p>=obs", "verdict"
+    );
+    print_positive_homogeneity_row("Pearson X^2", report.positive_control.pearson);
+    print_positive_homogeneity_row("G-test", report.positive_control.g_test);
+}
+
+fn print_positive_homogeneity_row(
+    label: &str,
+    comparison: orientation_homogeneity::HomogeneityNullComparison,
+) {
+    let verdict = if comparison.observed > comparison.null.q975 {
+        "upper-tail"
+    } else {
+        "inside"
+    };
+    println!(
+        "{:<12} {:>10} {:>19} {:>10} {:>10}",
+        label,
+        format_chi_square(comparison.observed),
+        format_null_band_f64(comparison.null.q025, comparison.null.q975),
+        format_probability(comparison.upper_tail_add_one_p),
+        verdict
+    );
+}
+
+fn print_orientation_homogeneity_interpretation(
+    report: &orientation_homogeneity::OrientationHomogeneityReport,
+) {
+    let pearson = report.pearson_null;
+    let g_test = report.g_test_null;
+    if pearson.observed < pearson.null.median && pearson.lower_tail_add_one_p <= 0.05 {
+        println!(
+            "Interpretation: the Pearson statistic is in the lower tail of the length-matched repartition null, so the nine messages are more homogeneous in orientation frequencies than random repartitions of the same pooled symbols. The G-test lower-tail p is {}.",
+            format_probability(g_test.lower_tail_add_one_p)
+        );
+        println!(
+            "That is an order-independent shared-source distribution signature. It constrains source homogeneity only; it does not imply meaning, and a single deterministic generator emitting structured-but-meaningless data remains an equally valid explanation."
+        );
+    } else if pearson.observed > pearson.null.median && pearson.upper_tail_add_one_p <= 0.05 {
+        println!(
+            "Interpretation: the Pearson statistic is in the upper tail of the length-matched repartition null, so the messages are more heterogeneous in orientation frequencies than a shared pooled distribution would predict. The G-test upper-tail p is {}.",
+            format_probability(g_test.upper_tail_add_one_p)
+        );
+        println!(
+            "This would argue against unusually tight cross-message homogeneity, but it still says nothing about plaintext or symbol meaning."
+        );
+    } else {
+        println!(
+            "Interpretation: the observed homogeneity statistic lands in the bulk of the length-matched repartition null. Similar-looking per-message profiles are therefore unremarkable at this sampling depth."
+        );
+    }
+    println!(
+        "Decode potential: none directly. This is structural evidence at the orientation-frequency layer, not a language or cipher attack."
+    );
+}
+
+fn format_orientation_profile_lengths(
+    profiles: &[orientation_homogeneity::OrientationProfile],
+) -> String {
+    profiles
+        .iter()
+        .map(|profile| format!("{}:{}", profile.message_key, profile.length))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn format_orientation_counts(
+    counts: &[usize; orientation_homogeneity::ORIENTATION_BUCKETS],
+) -> String {
+    counts
+        .iter()
+        .enumerate()
+        .map(|(digit, count)| format!("{digit}:{count}"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn format_null_band_f64(q025: f64, q975: f64) -> String {
+    format!("{q025:.3}..{q975:.3}")
+}
+
+fn format_null_min_median_max(band: orientation_homogeneity::ScalarNullBand) -> String {
+    format!("{:.3}/{:.3}/{:.3}", band.min, band.median, band.max)
 }
 
 /// Prints the Experiment 8 grouping and state-count report.
