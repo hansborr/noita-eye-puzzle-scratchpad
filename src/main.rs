@@ -8,8 +8,8 @@ use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
 use noita_eye_puzzle::{
-    chaining, cipher_attack, controls, corpus, dof_null, glyph::Sequence, grouping, isomorph_null,
-    null, orders, periodicity, perseus, pipeline_null, report,
+    chaining, cipher_attack, controls, corpus, dof_null, glyph::Sequence, grouping, honeycomb,
+    isomorph_null, null, orders, periodicity, perseus, pipeline_null, report,
 };
 
 const DEFAULT_NULL_SEED: u64 = 0x6e6f_6974_612d_6579;
@@ -44,6 +44,8 @@ enum Command {
     Dofnull(DofNullArgs),
     /// Experiment 5A period/lag/Kasiski battery.
     Periodicity(PeriodicityArgs),
+    /// Honeycomb 2D lattice-structure null.
+    Honeycomb(HoneycombArgs),
     /// Base-7 pipeline null plus input-randomness control.
     #[command(name = "pipelinenull")]
     Pipelinenull(NullArgs),
@@ -132,6 +134,23 @@ impl From<PeriodicityArgs> for periodicity::PeriodicityConfig {
             min_ngram: args.min_ngram,
             max_ngram: args.max_ngram,
             ..Self::default()
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Args)]
+struct HoneycombArgs {
+    #[arg(long, default_value_t = honeycomb::DEFAULT_SEED)]
+    seed: u64,
+    #[arg(long, default_value_t = honeycomb::DEFAULT_TRIALS)]
+    trials: usize,
+}
+
+impl From<HoneycombArgs> for honeycomb::HoneycombConfig {
+    fn from(args: HoneycombArgs) -> Self {
+        Self {
+            seed: args.seed,
+            trials: args.trials,
         }
     }
 }
@@ -271,6 +290,7 @@ fn main() -> ExitCode {
         Command::Nulltest(args) => run_nulltest(args.into()),
         Command::Dofnull(args) => run_dofnull(args.into()),
         Command::Periodicity(args) => run_periodicity(args.into()),
+        Command::Honeycomb(args) => run_honeycomb(args.into()),
         Command::Pipelinenull(args) => run_pipelinenull(args.into()),
         Command::Grouping => run_grouping(),
         Command::Isomorphnull(args) => run_isomorphnull(args.into()),
@@ -330,6 +350,21 @@ fn run_periodicity(config: periodicity::PeriodicityConfig) -> ExitCode {
         }
     };
     report::print_periodicity_report(&report);
+    ExitCode::SUCCESS
+}
+
+fn run_honeycomb(config: honeycomb::HoneycombConfig) -> ExitCode {
+    let report = match honeycomb::run_honeycomb(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!(
+                "honeycomb lattice error: {}",
+                report::format_honeycomb_error(error)
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    report::print_honeycomb_report(&report);
     ExitCode::SUCCESS
 }
 
