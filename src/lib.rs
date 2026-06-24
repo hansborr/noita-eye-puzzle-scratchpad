@@ -32,6 +32,8 @@
 //!   families.
 //! - [`periodicity`]: Experiment 5A periodicity, autocorrelation, and Kasiski
 //!   tests against same-shape random null streams.
+//! - [`perseus`]: Experiment 7C Perseus shared-region recurrence statistic and
+//!   within-message shuffle null.
 //! - [`pipeline_null`]: Experiment 2 nulls for testing whether the base-7
 //!   generation pipeline manufactures reading-layer statistics.
 //!
@@ -55,5 +57,6 @@ pub mod language;
 pub mod null;
 pub mod orders;
 pub mod periodicity;
+pub mod perseus;
 pub mod pipeline_null;
 pub mod trigram;

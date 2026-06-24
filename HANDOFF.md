@@ -142,6 +142,11 @@ negative, all calibration controls fire. Full one-liners with SHAs are in §9.
   — the missing community null, computed and negative.
 - **Exp 7B — alphabet chaining** (`chaining.rs`): the eyes match the known-fail
   chaining signature, not the known-succeed Vigenère band (additive model).
+- **Exp 7C — Perseus recurrence null** (`perseus.rs`): under the pinned
+  documented-region definition (leading-family and East/West counterpart shared
+  runs, size ≥2), the eyes have 0/185 non-shared→later-shared recurrences; seed
+  12345 / 1000 within-message shuffles gives add-one lower-tail p 7/1001 =
+  0.006993. Structural corroboration only; no decode.
 - **Exp 8 — base-N grouping + independent state count** (`grouping.rs`): no grouping
   is both alphabet- and entropy-compatible with a language; a collision estimator
   calibrated on known-N (not assuming 83) gives ≈ 73–90 ⇒ ~83 genuine near-uniform
@@ -157,11 +162,11 @@ A cross-experiment **completeness pass** (read-only audit) confirmed: gate green
 shared anchors agree across all modules, every statistic has a null/control, and no
 source text overstates. The synthesized conclusion lives in `README.md` (Results).
 
-Modules (18): `glyph.rs`, `trigram.rs`, `generator.rs`, `corpus.rs`, `analysis.rs`,
+Modules (19): `glyph.rs`, `trigram.rs`, `generator.rs`, `corpus.rs`, `analysis.rs`,
 `orders.rs`, `null.rs`, `dof_null.rs`, `pipeline_null.rs`, `isomorph.rs`, `isomorph_null.rs`,
-`periodicity.rs`, `chaining.rs`, `grouping.rs`, `controls.rs`, `language.rs`,
+`periodicity.rs`, `chaining.rs`, `perseus.rs`, `grouping.rs`, `controls.rs`, `language.rs`,
 `ciphers.rs`, `cipher_attack.rs`. CLI (`main.rs`): `demo`, `stats`, `orders`,
-`nulltest`, `dofnull`, `pipelinenull`, `periodicity`, `isomorphnull`, `chaining`,
+`nulltest`, `dofnull`, `pipelinenull`, `periodicity`, `isomorphnull`, `chaining`, `perseus`,
 `grouping`, `cipherattack`, `controls {monoalphabetic|isomorph(=polyalphabetic)}`.
 
 ---
@@ -393,3 +398,4 @@ cargo run -- dofnull --seed 12345 --trials 1000 --calib-trials 1000
 - 2026-06-22: Experiment 12 interpretation rigor — pointwise tails now report the derived exceedance-rate diagnosis and eye-vs-plant effect-size contrast, keeping the result a clean negative rather than near-hits (commit b465dd3f182d076994dcbd1ee8442e1354f4f6a9).
 - 2026-06-22: Experiments 9 & 10 primary-observer report (repo owner, direct in-game observation) — content identical across multiple seeds (qualitative seed-invariance corroboration; byte-for-byte cross-seed diff still pending) and exactly 5 visually distinct orientations with the digit→direction labeling agreed arbitrary (cryptanalytically immaterial; stats run on the Exp-0-verified integer sequence). Docs-only update to research/03 §§3–4, research/05 Exp 9/10, and §6 item 8; no code change, conclusions unchanged.
 - 2026-06-24: Researcher-DoF adaptive null follow-up — fixed the original single-set self-ranking bug by splitting calibration set A from resampling set B; seed 12345 / 1000+1000 trials gives add-one adaptive p 200/1001 = 0.199800 (Wilson 0.176198..0.225697), but that is a finite-resolution floor diagnostic (`1/1001`) rather than a deflation of the eyes' analytic `(83/125)^1036` effect. The follow-up analytic configured-DoF correction over 1140 cells is ≈6.653e-182 (≈1.010e-182 over the empirical effective comparisons), so the bounded 0..=82 headline survives analytically.
+- 2026-06-24: Experiment 7C (Perseus recurrence null) — pinned shared regions as same-offset size≥2 runs in the earliest leading-family alignment or East/West counterpart pairs; observed 0/185 non-shared→later-shared recurrences, seed 12345 / 1000 within-message shuffles gives add-one lower-tail p 7/1001 = 0.006993. Corroborates a structural permutation direction only; no decode.

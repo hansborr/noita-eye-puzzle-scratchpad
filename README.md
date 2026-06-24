@@ -53,6 +53,7 @@ src/
   pipeline_null.rs  Exp 2 — base-7 generation-pipeline artifact null + negative control
   isomorph.rs     first-occurrence pattern-signature isomorph detector
   isomorph_null.rs  Exp 7A — within-message shuffle null for isomorph structure
+  perseus.rs      Exp 7C — Perseus shared-region recurrence null
   periodicity.rs  Exp 5A — IoC-by-period / autocorrelation / Kasiski vs a random null band
   chaining.rs     Exp 7B — alphabet-chaining success/fail signatures
   grouping.rs     Exp 8 — base-N grouping comparison + independent state-count estimate
@@ -76,6 +77,7 @@ cargo run -- pipelinenull  [--seed <u64>] [--trials <n>]    # Exp 2 generation-p
 cargo run -- periodicity   [--seed <u64>] [--trials <n>] [--max-period <n>] [--max-lag <n>]
 cargo run -- isomorphnull  [--seed <u64>] [--trials <n>]    # Exp 7A shuffle null
 cargo run -- chaining      [--seed <u64>] [--trials <n>] [--min-period <n>] [--max-period <n>]
+cargo run -- perseus       [--seed <u64>] [--trials <n>]    # Exp 7C recurrence null
 cargo run -- grouping                                       # Exp 8 grouping + state-count
 cargo run -- cipherattack  [--seed <u64>] [--samples <n>] [--null-trials <n>]
 cargo run -- controls monoalphabetic [--seed <u64>]         # Exp 11 positive control
@@ -128,6 +130,12 @@ small.
 - **Exp 7B — alphabet chaining.** The eyes match the **known-fail signature** of
   data with unrelated alphabets, not the known-succeed Vigenère signature (for the
   additive-relationship model).
+- **Exp 7C — Perseus recurrence null.** Operationalized as same-offset shared
+  runs of length ≥2 in the earliest leading-family alignment or an East/West
+  counterpart pair, the eyes have **0/185** non-shared→later-shared recurrences.
+  With seed 12345 and 1000 within-message shuffles, the add-one lower-tail
+  p-value is **7/1001 = 0.006993**. This corroborates a structural
+  permutation-cipher direction, but it decodes nothing.
 - **Exp 8 — grouping + state count.** No grouping (single/pairs/trigrams/
   tetragrams/storage) is both alphabet- and entropy-compatible with a natural
   language. An independent collision estimator (calibrated on known-N ciphers,

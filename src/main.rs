@@ -8,7 +8,7 @@ use std::process::ExitCode;
 
 use noita_eye_puzzle::{
     analysis, chaining, cipher_attack, controls, corpus, dof_null, glyph::Sequence, grouping,
-    isomorph_null, null, orders, periodicity, pipeline_null,
+    isomorph_null, null, orders, periodicity, perseus, pipeline_null,
 };
 
 const MIN_RELIABLE_PERIODICITY_NULL_TRIALS: usize = 50;
@@ -33,6 +33,8 @@ USAGE:
                                   Experiment 7A real isomorphs vs within-message shuffle null
     noita-eye chaining [--seed <u64>] [--trials <n>] [--min-period <n>] [--max-period <n>]
                                   Experiment 7B alphabet-chaining structural control
+    noita-eye perseus [--seed <u64>] [--trials <n>]
+                                  Experiment 7C Perseus shared-region recurrence null
     noita-eye cipherattack [--seed <u64>] [--samples <n>] [--null-trials <n>]
                                   Experiment 12 candidate-cipher language-scoring null harness
     noita-eye controls monoalphabetic [--seed <u64>]
@@ -105,6 +107,13 @@ fn main() -> ExitCode {
                 None => &[],
             };
             run_chaining(rest)
+        }
+        Some("perseus") => {
+            let rest = match args.get(1..) {
+                Some(values) => values,
+                None => &[],
+            };
+            run_perseus(rest)
         }
         Some("cipherattack") => {
             let rest = match args.get(1..) {
@@ -286,6 +295,26 @@ fn run_chaining(args: &[String]) -> ExitCode {
         }
     };
     print_chaining_report(&report);
+    ExitCode::SUCCESS
+}
+
+fn run_perseus(args: &[String]) -> ExitCode {
+    let config = match parse_perseus_config(args) {
+        Ok(config) => config,
+        Err(message) => {
+            eprintln!("{message}");
+            eprintln!("usage: noita-eye perseus [--seed <u64>] [--trials <n>]");
+            return ExitCode::FAILURE;
+        }
+    };
+    let report = match perseus::run_perseus(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("Perseus recurrence error: {}", format_perseus_error(error));
+            return ExitCode::FAILURE;
+        }
+    };
+    print_perseus_report(&report);
     ExitCode::SUCCESS
 }
 
@@ -566,6 +595,33 @@ fn parse_chaining_config(args: &[String]) -> Result<chaining::ChainingConfig, St
     Ok(config)
 }
 
+fn parse_perseus_config(args: &[String]) -> Result<perseus::PerseusConfig, String> {
+    let mut config = perseus::PerseusConfig::default();
+    let mut iter = args.iter();
+    while let Some(flag) = iter.next() {
+        match flag.as_str() {
+            "--seed" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --seed".to_owned());
+                };
+                config.seed = value
+                    .parse::<u64>()
+                    .map_err(|error| format!("invalid --seed value {value:?}: {error}"))?;
+            }
+            "--trials" => {
+                let Some(value) = iter.next() else {
+                    return Err("missing value for --trials".to_owned());
+                };
+                config.trials = value
+                    .parse::<usize>()
+                    .map_err(|error| format!("invalid --trials value {value:?}: {error}"))?;
+            }
+            other => return Err(format!("unknown perseus flag {other:?}")),
+        }
+    }
+    Ok(config)
+}
+
 fn parse_cipher_attack_config(
     args: &[String],
 ) -> Result<cipher_attack::CipherAttackConfig, String> {
@@ -770,6 +826,34 @@ fn format_chaining_error(error: chaining::ChainingError) -> String {
         }
         chaining::ChainingError::RandomBoundTooLarge { bound } => {
             format!("random draw bound {bound} is too large")
+        }
+    }
+}
+
+fn format_perseus_error(error: perseus::PerseusError) -> String {
+    match error {
+        perseus::PerseusError::Grid(grid_error) => format!("grid/order error: {grid_error:?}"),
+        perseus::PerseusError::ZeroTrials => {
+            "at least one Monte-Carlo trial is required".to_owned()
+        }
+        perseus::PerseusError::KeyCountMismatch { keys, messages } => {
+            format!("internal key/message count mismatch: {keys} keys, {messages} messages")
+        }
+        perseus::PerseusError::MessageMaskMismatch { messages, masks } => {
+            format!("internal message/mask mismatch: {messages} messages, {masks} masks")
+        }
+        perseus::PerseusError::SharedRunOutOfBounds {
+            message_key,
+            start,
+            len,
+        } => {
+            format!("shared run {message_key}@{start}+{len} exceeds the message boundary")
+        }
+        perseus::PerseusError::RandomBoundTooLarge { bound } => {
+            format!("shuffle bound {bound} is too large")
+        }
+        perseus::PerseusError::TrialCountTooLarge => {
+            "trial count is too large for add-one p-value calibration".to_owned()
         }
     }
 }
@@ -1752,6 +1836,159 @@ fn print_isomorph_null_interpretation(report: &isomorph_null::IsomorphNullReport
     );
 }
 
+fn print_perseus_report(report: &perseus::PerseusReport) {
+    println!("Experiment 7C Perseus recurrence null");
+    println!("order: {}", report.order.name());
+    println!("seed: {}", report.config.seed);
+    println!("trials: {}", report.config.trials);
+    println!(
+        "message lengths: {}",
+        format_message_lengths(&report.message_lengths)
+    );
+    println!("pooled length: {}", report.total_length);
+    println!(
+        "operational definition: same-offset common runs of length >= {} are shared if they are in the earliest leading-family alignment or in an East/West counterpart pair; all other positions are non-shared",
+        report.partition.min_shared_run_len
+    );
+    println!(
+        "recurrence statistic: while scanning each message left to right, count a shared-position symbol as recurrent if it appeared earlier in a non-shared position in that same message"
+    );
+    println!(
+        "null: keep the reconstructed position mask fixed and Fisher-Yates shuffle values within each message, preserving its exact multiset and length"
+    );
+    println!(
+        "documented reference only: community quote p~{} for strict no-recurrence if random; this run computes its own shuffle p-value",
+        format_probability(report.documented_reference_chance)
+    );
+    println!();
+    print_perseus_partition(report);
+    println!();
+    print_perseus_observed(report);
+    println!();
+    print_perseus_null(report);
+    println!();
+    print_perseus_interpretation(report);
+}
+
+fn print_perseus_partition(report: &perseus::PerseusReport) {
+    println!("partition summary");
+    println!(
+        "  leading shared start: {}",
+        report
+            .partition
+            .leading_start
+            .map_or_else(|| "none".to_owned(), |start| start.to_string())
+    );
+    match &report.partition.global_prefix {
+        Some(prefix) => println!(
+            "  all-message prefix: start {} len {} values {}",
+            prefix.start,
+            prefix.len,
+            format_u8_values(&prefix.values)
+        ),
+        None => println!("  all-message prefix: none"),
+    }
+    println!(
+        "  selected pair runs: {}",
+        report.partition.selected_pair_runs.len()
+    );
+    println!("  counterpart longest runs:");
+    for run in &report.partition.counterpart_runs {
+        println!(
+            "    {}/{} start {} len {}",
+            run.east_key, run.west_key, run.start, run.len
+        );
+    }
+    println!("  per-message spans:");
+    for message in &report.partition.messages {
+        println!(
+            "    {:<6} shared {:>3}/{:<3} spans {}",
+            message.message_key,
+            message.shared_symbols,
+            message.len,
+            format_shared_spans(&message.shared_spans)
+        );
+    }
+}
+
+fn print_perseus_observed(report: &perseus::PerseusReport) {
+    println!("observed recurrence statistic");
+    println!(
+        "  pooled: {}/{} = {:.6}",
+        report.observed.recurrent_occurrences,
+        report.observed.tested_shared_occurrences,
+        report.observed.rate
+    );
+    println!(
+        "  non-shared positions scanned: {}",
+        report.observed.non_shared_occurrences
+    );
+    println!(
+        "  recurrent symbol values: {}",
+        format_recurrent_symbols(&report.observed.recurrent_symbols)
+    );
+    println!(
+        "  {:<6} {:>10} {:>10} {:>10} {:>10} {:<16}",
+        "msg", "nonshared", "tested", "recur", "rate", "symbols"
+    );
+    for row in &report.observed.messages {
+        println!(
+            "  {:<6} {:>10} {:>10} {:>10} {:>10.6} {:<16}",
+            row.message_key,
+            row.non_shared_occurrences,
+            row.tested_shared_occurrences,
+            row.recurrent_occurrences,
+            row.rate,
+            format_recurrent_symbols(&row.recurrent_symbols)
+        );
+    }
+}
+
+fn print_perseus_null(report: &perseus::PerseusReport) {
+    println!("within-message shuffle null");
+    println!(
+        "  recurrence count: mean {:.2}, 95% {}..{}, median {:.1}, min {}, max {}",
+        report.null.count_mean,
+        report.null.count_q025,
+        report.null.count_q975,
+        report.null.count_median,
+        report.null.count_min,
+        report.null.count_max
+    );
+    println!(
+        "  recurrence rate: mean {:.6}, 95% {:.6}..{:.6}, median {:.6}",
+        report.null.rate_mean,
+        report.null.rate_q025,
+        report.null.rate_q975,
+        report.null.rate_median
+    );
+    println!(
+        "  lower-tail empirical p: ({extreme}+1)/({trials}+1) = {p}",
+        extreme = report.empirical_p_count,
+        trials = report.config.trials,
+        p = format_probability(report.empirical_p)
+    );
+}
+
+fn print_perseus_interpretation(report: &perseus::PerseusReport) {
+    if report.significant && report.observed.recurrent_occurrences == 0 {
+        println!(
+            "Interpretation: under this pinned partition, the strict Perseus no-recurrence constraint is present beyond the within-message shuffle null. This corroborates the non-commutative / plaintext-driven permutation direction, but it decodes nothing and does not identify a cipher."
+        );
+    } else if report.significant {
+        println!(
+            "Interpretation: recurrence is lower than the within-message shuffle null, but the strict 'never reappears' wording is not exact under this partition. Treat this as a structural corroboration only; it decodes nothing."
+        );
+    } else {
+        println!(
+            "Interpretation: this run does not show the Perseus recurrence constraint beyond the within-message shuffle null. That weakly retires this community claim under the pinned definition, and still decodes nothing."
+        );
+    }
+    println!(
+        "The result is conditional on the accepted honeycomb reading order and on the documented shared-region operationalization printed above."
+    );
+}
+
 fn print_chaining_report(report: &chaining::ChainingReport) {
     println!("Experiment 7B alphabet-chaining structural control");
     println!("order: {}", report.order.name());
@@ -2189,6 +2426,36 @@ fn format_chaining_classification(
 
 fn format_isomorph_band(band: isomorph_null::IsomorphNullBand) -> String {
     format!("{}..{}", band.q025, band.q975)
+}
+
+fn format_u8_values(values: &[u8]) -> String {
+    if values.is_empty() {
+        return "none".to_owned();
+    }
+    values
+        .iter()
+        .map(u8::to_string)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn format_shared_spans(spans: &[perseus::SharedSpan]) -> String {
+    if spans.is_empty() {
+        return "none".to_owned();
+    }
+    spans
+        .iter()
+        .map(|span| format!("{}..{}", span.start, span.end()))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn format_recurrent_symbols(symbols: &[u8]) -> String {
+    if symbols.is_empty() {
+        "none".to_owned()
+    } else {
+        format_u8_values(symbols)
+    }
 }
 
 fn yes_no(value: bool) -> &'static str {
