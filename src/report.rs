@@ -135,25 +135,6 @@ pub fn format_periodicity_error(error: periodicity::PeriodicityError) -> String 
     }
 }
 
-/// Formats a null-run configuration error for CLI output.
-#[must_use]
-pub fn format_null_config_error(error: null::NullConfigError) -> String {
-    match error {
-        null::NullConfigError::ZeroTrials => {
-            "at least one Monte-Carlo trial is required".to_owned()
-        }
-    }
-}
-
-/// Formats a Monte-Carlo null run error for CLI output.
-#[must_use]
-pub fn format_null_run_error(error: null::NullRunError) -> String {
-    match error {
-        null::NullRunError::Config(config_error) => format_null_config_error(config_error),
-        null::NullRunError::Grid(grid_error) => format!("grid/order error: {grid_error:?}"),
-    }
-}
-
 /// Formats a calibrated researcher-`DoF` null error for CLI output.
 #[must_use]
 pub fn format_dof_null_error(error: &dof_null::DofNullError) -> String {
@@ -401,59 +382,6 @@ pub fn format_conditional_structure_error(
             "{message_key}: no-repeat conditioned null requires an input with no adjacent-equal transitions"
         ),
     }
-}
-
-/// Prints the standard36 random-grid null report.
-pub fn print_null_report(report: &null::NullReport) {
-    println!("standard36 random-grid null");
-    println!("seed: {}", report.config.seed);
-    println!("trials: {}", report.config.trials);
-    println!("orders searched per trial: {}", report.family_size);
-    println!("resampled: verified row-width structure with uniform orientation cells 0..=4");
-    println!("held fixed: honeycomb traversal, trigram grouping, and the statistic family");
-    println!();
-
-    print_interval(
-        "headline exact 0..=82",
-        null::wilson_95(report.headline_count, report.config.trials),
-    );
-    print_interval(
-        "some order adjacent_equal == 0",
-        null::wilson_95(report.adjacent_zero_count, report.config.trials),
-    );
-    println!(
-        "min distinct achieved over standard36: {}",
-        format_histogram(&report.min_distinct_histogram)
-    );
-    println!(
-        "min ceiling achieved over standard36: {}",
-        format_histogram(&report.min_ceiling_histogram)
-    );
-    println!(
-        "best distance-4 ratio d4/mean(d1..d6): min {:.3}, median {:.3}, max {:.3}",
-        report.distance4_ratio_min, report.distance4_ratio_median, report.distance4_ratio_max
-    );
-    println!();
-    println!("analytic fixed-order headline bounds under independent uniform trigrams:");
-    println!(
-        "  per-order (83/125)^1036: {:.6e}",
-        report.analytic_bounds.per_order
-    );
-    println!(
-        "  Bonferroni over {} orders: {:.6e}",
-        report.analytic_bounds.family_size, report.analytic_bounds.bonferroni
-    );
-    println!(
-        "  Sidak over {} orders: {:.6e}",
-        report.analytic_bounds.family_size, report.analytic_bounds.sidak
-    );
-    println!();
-    println!(
-        "Interpretation: this corrects grid-content randomness and fixed standard36 digit-permutation selection only. It does not correct for broader researcher degrees of freedom such as choosing the traversal family, grouping rule, or headline statistic after looking at the data."
-    );
-    println!(
-        "Seed-stability note: multi-seed regressions over seeds 12345, 67890, 13579, 24680, and 424242 keep the exact contiguous-0..=82 headline count at zero; changing seed only moves sampled null summaries."
-    );
 }
 
 /// Prints the calibrated researcher-`DoF` null report.
@@ -3006,7 +2934,7 @@ fn format_chi_square_p_value(value: Option<f64>) -> String {
     value.map_or_else(|| "n/a".to_owned(), |p_value| format!("{p_value:.6e}"))
 }
 
-fn format_histogram<T: std::fmt::Display>(histogram: &[(T, usize)]) -> String {
+pub(crate) fn format_histogram<T: std::fmt::Display>(histogram: &[(T, usize)]) -> String {
     histogram
         .iter()
         .map(|(value, count)| format!("{value}:{count}"))

@@ -12,10 +12,13 @@
 //! grouping rule, or which statistic to headline. For that broader calibrated
 //! adaptive correction, see [`crate::dof_null`].
 
+use std::fmt;
+
 use crate::glyph::Orientation;
 use crate::orders::{
     GlyphGrid, GridError, corpus_grids, read_corpus_message_values, standard36_orders,
 };
+use crate::report::{self, Report};
 use crate::trigram::TrigramValue;
 
 const TRIGRAM_ALPHABET_SIZE: f64 = 125.0;
@@ -181,6 +184,16 @@ pub enum NullConfigError {
     ZeroTrials,
 }
 
+impl fmt::Display for NullConfigError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ZeroTrials => write!(f, "at least one Monte-Carlo trial is required"),
+        }
+    }
+}
+
+impl std::error::Error for NullConfigError {}
+
 impl NullConfig {
     /// Validates that the configuration can drive a Monte-Carlo null run.
     ///
@@ -216,6 +229,17 @@ pub enum NullRunError {
     /// The verified corpus grids could not be reconstructed or read.
     Grid(GridError),
 }
+
+impl fmt::Display for NullRunError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Config(config_error) => write!(f, "{config_error}"),
+            Self::Grid(grid_error) => write!(f, "grid/order error: {grid_error:?}"),
+        }
+    }
+}
+
+impl std::error::Error for NullRunError {}
 
 impl From<NullConfigError> for NullRunError {
     fn from(error: NullConfigError) -> Self {
@@ -296,6 +320,97 @@ pub struct NullReport {
     pub distance4_ratio_max: f64,
     /// Analytic fixed-order probability bounds for the headline event.
     pub analytic_bounds: AnalyticBounds,
+}
+
+impl Report for NullReport {
+    fn render(&self) -> String {
+        let mut out = String::new();
+        report::appendln!(&mut out, "standard36 random-grid null");
+        report::appendln!(&mut out, "seed: {}", self.config.seed);
+        report::appendln!(&mut out, "trials: {}", self.config.trials);
+        report::appendln!(&mut out, "orders searched per trial: {}", self.family_size);
+        report::appendln!(
+            &mut out,
+            "resampled: verified row-width structure with uniform orientation cells 0..=4"
+        );
+        report::appendln!(
+            &mut out,
+            "held fixed: honeycomb traversal, trigram grouping, and the statistic family"
+        );
+        report::appendln!(&mut out);
+
+        append_interval(
+            &mut out,
+            "headline exact 0..=82",
+            wilson_95(self.headline_count, self.config.trials),
+        );
+        append_interval(
+            &mut out,
+            "some order adjacent_equal == 0",
+            wilson_95(self.adjacent_zero_count, self.config.trials),
+        );
+        report::appendln!(
+            &mut out,
+            "min distinct achieved over standard36: {}",
+            report::format_histogram(&self.min_distinct_histogram)
+        );
+        report::appendln!(
+            &mut out,
+            "min ceiling achieved over standard36: {}",
+            report::format_histogram(&self.min_ceiling_histogram)
+        );
+        report::appendln!(
+            &mut out,
+            "best distance-4 ratio d4/mean(d1..d6): min {:.3}, median {:.3}, max {:.3}",
+            self.distance4_ratio_min,
+            self.distance4_ratio_median,
+            self.distance4_ratio_max
+        );
+        report::appendln!(&mut out);
+        report::appendln!(
+            &mut out,
+            "analytic fixed-order headline bounds under independent uniform trigrams:"
+        );
+        report::appendln!(
+            &mut out,
+            "  per-order (83/125)^1036: {:.6e}",
+            self.analytic_bounds.per_order
+        );
+        report::appendln!(
+            &mut out,
+            "  Bonferroni over {} orders: {:.6e}",
+            self.analytic_bounds.family_size,
+            self.analytic_bounds.bonferroni
+        );
+        report::appendln!(
+            &mut out,
+            "  Sidak over {} orders: {:.6e}",
+            self.analytic_bounds.family_size,
+            self.analytic_bounds.sidak
+        );
+        report::appendln!(&mut out);
+        report::appendln!(
+            &mut out,
+            "Interpretation: this corrects grid-content randomness and fixed standard36 digit-permutation selection only. It does not correct for broader researcher degrees of freedom such as choosing the traversal family, grouping rule, or headline statistic after looking at the data."
+        );
+        report::appendln!(
+            &mut out,
+            "Seed-stability note: multi-seed regressions over seeds 12345, 67890, 13579, 24680, and 424242 keep the exact contiguous-0..=82 headline count at zero; changing seed only moves sampled null summaries."
+        );
+        out
+    }
+}
+
+fn append_interval(out: &mut String, label: &str, interval: WilsonInterval) {
+    report::appendln!(
+        out,
+        "{label}: {}/{} = {:.6} (95% Wilson {:.6}..{:.6})",
+        interval.count,
+        interval.trials,
+        interval.estimate,
+        interval.lower,
+        interval.upper
+    );
 }
 
 /// Runs the standard-36 reading-order null over synthetic uniform grids.
