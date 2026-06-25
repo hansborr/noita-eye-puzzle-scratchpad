@@ -64,13 +64,36 @@ about):
 state group:    G = AGL(1,83) = { (a,b) : a ∈ Z₈₃*, b ∈ Z₈₃ },  |G| = 82·83 = 6806
 group op:       (a,b)·(c,d) = (a·c mod 83, a·d + b mod 83)        (compose ax+b)
 action on pt:   (a,b).x = a·x + b mod 83
-identity:       (1,0);   inverse of (a,b) = (a⁻¹, −a⁻¹·b)
+identity:       (1,0);   inverse of (a,b) = (a⁻¹,  neg_mod(a⁻¹·b, 83))
+                         where neg_mod(t,n) = (n − (t mod n)) mod n   ← non-underflowing −t
 reference pt:   x₀ = 0  (fixed)
 hidden subgrp:  H = Stab(x₀) = { (a,0) : a ∈ Z₈₃* },  |H| = 82  (C₈₃:C₈₂ case)
 state update:   g_{i+1} = g_i · p(aᵢ)                 ← RIGHT multiplication
 CT output:      c_i = (g_{i+1}).x₀ = b-component when x₀=0   ← MOVED REFERENCE POINT
 coset frame:    c is constant on LEFT cosets gH;  c(g)=c(g') ⟺ g⁻¹g' ∈ H
 ```
+
+> **Unsigned-arithmetic discipline (load-bearing — the repo forbids panics, and a
+> debug build PANICS on `usize` overflow/underflow).** Every operand is reduced
+> `mod n` first, so it lies in `0..n`. Then:
+> - `add`: `(a + b) % n` — safe (`a + b < 2n`, no overflow for these small `n`).
+> - `mul`: `(a * b) % n` — safe (`a * b < n²` ≤ `82·82` ≪ `usize::MAX`).
+> - **`sub`/`neg`: NEVER write `a − b` or `1 − d_a` directly — both underflow in
+>   `usize` whenever the result would be negative (e.g. `1 − d_a` for `d_a > 1`).
+>   Use the wrap-free forms below.** A `usize` `a − b` with `b > a` panics in
+>   debug and yields a wrong residue (`usize::MAX − …`) in release; `% n` does
+>   **not** repair it (`(usize::MAX) % 83 ≠ (a − b) mod n`).
+>
+> ```
+> sub_mod(a, b, n) = (a + n − (b mod n)) % n     // a,b already < n ⇒ a + n − b ≥ 0
+> neg_mod(t, n)    = (n − (t mod n)) % n          // = sub_mod(0, t, n); neg_mod(0,n)=0
+> ```
+>
+> Equivalently use a checked/`rem_euclid` construction (e.g. cast to a wide signed
+> type, `rem_euclid(n)`, cast back) — but the `sub_mod`/`neg_mod` forms above stay
+> in `usize` and are the canonical recipe for this spec. The `% n`-after-each-op
+> rule (§2.3, §7) covers ONLY `*` and `+`; subtraction/negation **must** use
+> `sub_mod`/`neg_mod`.
 
 For **`C₈₃:C₄₁`**: restrict the multiplier `a` to the order-41 multiplicative
 subgroup of `Z₈₃*` (the quadratic residues). Then `|G|=3403`, `|H|=41`,
@@ -95,6 +118,25 @@ resyncs `x₀→y*`, every later shared letter lies in `H`. The simultaneous
 9-message form is: **all nine post-first-letter states lie in one common left
 coset of a single point-stabilizer `Stab(y*)`.** This is the genuine,
 falsifiable constraint Part A tests.
+
+> **Fixed-point computation — exact panic-free recipe (load-bearing).** `1 − d_a`
+> underflows in `usize` for every `d_a ∈ {2,…,n−1}`, and `d_a = 1` is a
+> divide-by-zero. Compute `y*` as:
+> ```
+> // d_a, d_b already reduced into 0..n
+> let denom = sub_mod(1, d_a, n);              // = (1 + n − d_a) % n, never underflows
+> if denom == 0 {                              // d_a == 1: NO fixed point (pure translation)
+>     // condition (i) fails ⇒ no shared section; do NOT divide. Return "no y*".
+> } else {
+>     let inv = mul_inverse_mod(denom, n)?;    // n prime ⇒ denom is a unit (denom ≠ 0)
+>     let y_star = (d_b * inv) % n;            // d_b/(1−d_a)
+> }
+> ```
+> The `denom == 0` guard is exactly the `d_a == 1` pure-translation branch
+> (condition (i) failure): it must be tested **before** calling `mul_inverse_mod`,
+> so `mul_inverse_mod` is only ever invoked on a nonzero (hence invertible)
+> argument and `agl_apply`/the division never hit a zero denominator. `d_b/(1−d_a)`
+> is `d_b · (1−d_a)⁻¹ mod n`; never written as a literal `/`.
 
 ---
 
@@ -187,12 +229,40 @@ fn agl_inverse(g: (usize,usize), n: usize) -> Option<(usize,usize)>;            
 fn agl_apply(g: (usize,usize), x: usize, n: usize) -> usize;                     // a·x+b
 fn agl_coset_symbol(g: (usize,usize), x0: usize, n: usize) -> usize;             // c(g) = g.x0  (MOVED REF POINT)
 fn mul_inverse_mod(a: usize, n: usize) -> Option<usize>;                         // n prime → a^(n-2)
+fn sub_mod(a: usize, b: usize, n: usize) -> usize;                               // (a + n − (b%n)) % n  (no underflow)
+fn neg_mod(t: usize, n: usize) -> usize;                                         // (n − (t%n)) % n      (no underflow)
 fn quadratic_residues_mod(n: usize) -> Vec<usize>;                               // the 41-subgroup for n=83
 ```
 
-`mul_inverse_mod` via Fermat (`pow_mod(a, n-2, n)`) since `n` is prime — avoids
-extended-Euclid edge cases and never panics. All arithmetic in `usize` with
-`% n` after each `*`/`+` to stay in range; no `indexing_slicing` (use `.get`).
+**Modular-arithmetic recipe (binding for ALL of §2–§4; the repo forbids panics
+and a debug build panics on `usize` overflow/underflow).** Reduce every operand
+`mod n` first (so it is in `0..n`), then:
+
+- **`*` and `+`:** `(a * b) % n`, `(a + b) % n` — safe in `usize` for these `n`
+  (`a*b < n² ≤ 82·82`; `a+b < 2n`), as before.
+- **`−` and unary negation:** **never** write `a − b` or `1 − d_a` in `usize`.
+  Use `sub_mod(a, b, n) = (a + n − (b % n)) % n` and
+  `neg_mod(t, n) = (n − (t % n)) % n`. With operands already reduced, `a + n − b
+  ≥ 0`, so no underflow; `% n` then gives the correct residue. (Writing `a − b`
+  panics in debug when `b > a` and wraps to a wrong residue in release — `% n`
+  cannot repair it.)
+
+Critical-path uses that **must** go through these helpers:
+
+- `agl_inverse(g=(a,b), n)`: `a⁻¹ = mul_inverse_mod(a, n)?`; the translation part
+  is `neg_mod((a⁻¹ * b) % n, n)` — i.e. `−a⁻¹·b mod n`, **not** `n − a⁻¹·b` and
+  **not** a bare `−`. Return `None` iff `mul_inverse_mod` returns `None`.
+- the fixed point `d_b/(1−d_a)`: denominator is `sub_mod(1, d_a, n)`; see the
+  panic-free recipe under §1 (guard `denom == 0` ⇒ `d_a==1` ⇒ no fixed point,
+  **before** any inverse/division).
+
+`mul_inverse_mod` via Fermat: `Some(pow_mod(a % n, n − 2, n))` when `n ≥ 2` **and**
+`a % n != 0`; `None` otherwise (so the `n − 2` exponent never underflows and the
+result is only ever used as a genuine inverse). Implement `pow_mod` by
+square-and-multiply with the accumulator reduced `% n` after **every** multiply
+(each factor `< n`, so each product `< n²`, no overflow); `pow_mod(_, 0, n) = 1 %
+n`. This avoids extended-Euclid edge cases and never panics. No `indexing_slicing`
+(use `.get`).
 
 ### 2.4 Encrypt / decrypt (free fns, mirroring `deck_cipher_encrypt/_decrypt`)
 
@@ -385,7 +455,11 @@ pub fn run_agl_gak(config: AglGakConfig) -> Result<AglGakReport, AglGakError>;
    run length `L`?* Operationally:
    - For each candidate `y*` (83 values), and each pair (message m, message m'),
      compute the discrepancy class and test condition (i) (`D` not a pure
-     translation) + (ii) (`K_t.x₀ = y*` realizable for `t=1…L`). Because the key
+     translation) + (ii) (`K_t.x₀ = y*` realizable for `t=1…L`). Compute
+     `D = (g₁ᴹ)⁻¹·g₁ᴺ` via `agl_inverse` + `agl_compose` and any fixed point via
+     the §1 panic-free recipe; **never** open-code `−` / `1 − d_a` here (use
+     `sub_mod`/`neg_mod`). Condition (i) is the comparison `d_a != 1` (no
+     arithmetic); the `d_a == 1` case is "pure translation ⇒ fails (i)". Because the key
      map is free, (ii) is always satisfiable once (i) holds and the first symbols
      are realizable from a common `Stab(y*)` coset (note 2c). So the **decisive**
      test is: **is there a single `y*` whose stabilizer coset realizes all nine
@@ -570,8 +644,13 @@ simultaneous across all nine messages, so the report must carry all nine.
   runs `-D warnings`).
 - No `unwrap`/`expect`/`panic`/`indexing_slicing`/`string_slice`/`integer_arithmetic`
   overflow in lib/CLI: index via `.get(i)` + `let Some(x) = … else { return
-  Err(CipherError::InternalInvariant{ context }) }`; modular arithmetic stays in
-  range by `% n` after each op. Relaxed only inside `#[cfg(test)]`.
+  Err(CipherError::InternalInvariant{ context }) }`. **Modular arithmetic:** `% n`
+  after each `*`/`+` keeps those in range, **but subtraction/negation must use
+  `sub_mod`/`neg_mod` (§1, §2.3) — a bare `a − b` / `1 − d_a` in `usize` panics in
+  debug (the gate runs debug tests) and yields a wrong residue in release.** Guard
+  `mul_inverse_mod` so the Fermat exponent `n − 2` (needs `n ≥ 2`) and the
+  divide-by-`(1−d_a)` never hit zero (`denom == 0` ⇒ `d_a == 1` ⇒ no fixed point;
+  return before dividing). Relaxed only inside `#[cfg(test)]`.
 - `unused_results`/`let_underscore_must_use`: bind dropped `#[must_use]`
   results (`let _inserted = map.insert(k, v);`).
 - `panic_in_result_fn`: the `-> Result<…>` fns must not panic.

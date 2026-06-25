@@ -91,14 +91,15 @@ Three new compile units, plus reuse:
    nulls, and the held-out evaluation. Mirrors `cipher_attack.rs` /
    `pyry_conditions.rs` shape (Config / Report / Error / `run_gak_attack`).
 
-3. **Dependency on Thread 5's `chaining_graph` module** (`src/chaining_graph.rs`,
-   **not yet built** — it is a Thread-5 deliverable). Thread 4 consumes its chain-link
-   extraction, conflict catalogue, and connected-component coverage. **Hard
-   sequencing constraint:** if `chaining_graph` does not yet exist, Thread 4 builds
-   the synthetic analogue it needs internally and flags the dependency; it must not
-   silently reimplement a second, divergent chaining-graph for the eyes. Thread 4 is
-   staffed **only after Threads 1/3/5** confirm the family and supply the graph
-   (per the thread-4 brief), else we risk attacking the wrong cipher family.
+3. **Hard dependency on Thread 5's `chaining_graph` module** (`src/chaining_graph.rs`,
+   **landed in commit 248fb32**). Thread 4 must import and reuse the shared
+   chain-link primitive directly — it must never reimplement a second, divergent
+   chaining-graph. The public items to consume are:
+   `chaining_graph::ChainLink`, `chaining_graph::AlignedOccurrence`,
+   `chaining_graph::chain_links_for_pair`, `chaining_graph::ConflictCatalogue`,
+   and `chaining_graph::CoverageReport`. Thread 4 is staffed **only after Threads
+   1/3/5** confirm the family and supply the graph (per the thread-4 brief), else
+   we risk attacking the wrong cipher family.
 
 The whole spike runs on **synthetic GAK we generate** (known plaintext, known
 per-letter permutations, known initial state) so every intermediate claim is

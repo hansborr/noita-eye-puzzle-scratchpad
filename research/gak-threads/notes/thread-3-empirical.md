@@ -43,11 +43,14 @@ multiset preserved; 2000 iterations) attaches significance.
 
 | pattern (window) | repeats | occurrences | messages | matched-null max-occ (2000 it.) | empirical p (add-one) |
 |---|---|---|---|---|---|
-| `A.B.CB.AC` (w9) | 3 | **6** | east1, west1, east2 | 1 | **< 5e-4** |
-| `ABC.DC.AD.B` (w11) | 4 | **4** | west1, east2 | 1 | **< 5e-4** |
+| `A.B.CB.AC` (w9) | 3 | **6** | east1, west1, east2 | 1 | **≈ 1/2001 (add-one floor)** |
+| `ABC.DC.AD.B` (w11) | 4 | **4** | west1, east2 | 1 | **≈ 1/2001 (add-one floor)** |
 
-The null never produced even **2** occurrences of any matching-profile pattern in 2000
-shuffles (max = 1). This recomputes the wiki's intuition under our matched null rather
+The null **never reached ≥2** occurrences of any matching-profile pattern in the 2000
+shuffles (max = 1), so zero shuffles met-or-exceeded the observed count and the add-one
+estimator pins at its resolution floor `(0+1)/(2000+1) = 1/2001 ≈ 4.9975e-4`. (Quoting a
+strict "< 5e-4" would read as sub-floor resolution this null cannot deliver; the honest
+statement is "at the add-one floor".) This recomputes the wiki's intuition under our matched null rather
 than quoting the wiki's ~3×10⁻²⁰ figure as a finding. A correct detector **must** fire
 on `A.B.CB.AC`; it does. Weaker (2-repeat) patterns are labelled coincidental-prone by
 the same null (e.g. `A.B..B.A`, see regression below).

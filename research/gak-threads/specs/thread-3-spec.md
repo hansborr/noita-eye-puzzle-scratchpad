@@ -72,18 +72,47 @@ enumerates:
 ```rust
 /// Default deterministic seed for the internal-violation null and any sampling.
 pub const DEFAULT_SEED: u64;                    // distinct 8-byte tag, e.g. b"perfiso\0"
-/// Default within-message shuffle trials for the matched null.
-pub const DEFAULT_TRIALS: usize = 1_000;        // match isomorph_null::DEFAULT_TRIALS
-/// Minimum gap-pattern window length scanned for cross-message isomorphs.
-pub const DEFAULT_MIN_WINDOW: usize = 3;        // = isomorph_null::DEFAULT_MIN_WINDOW
-/// Maximum gap-pattern window length scanned for cross-message isomorphs.
-pub const DEFAULT_MAX_WINDOW: usize = 8;        // = isomorph_null::DEFAULT_MAX_WINDOW
+/// Default within-message shuffle trials for the matched internal-violation null.
+/// The empirical headline (§4) used 3000 shuffles for the internal-violation null
+/// and 2000 for the catalog-significance null; this default reproduces the headline
+/// regime. Do NOT drop to a smaller count silently — the add-one p floor scales as
+/// `1/(trials+1)` and the strong-tier zero-event headline needs the larger regime.
+pub const DEFAULT_TRIALS: usize = 3_000;        // empirical headline null = 3000 shuffles
+/// Minimum gap-pattern window length scanned for cross-message isomorphs. The
+/// empirical catalog scanned windows 8/9/11; smaller windows are admitted only to
+/// host the lower-window wiki regression checks (e.g. the 8-window `A.B..B.A`
+/// 2-repeat cross-cut), never to seed strong isomorphs.
+pub const DEFAULT_MIN_WINDOW: usize = 8;        // empirical scanned windows 8/9/11
+/// Maximum gap-pattern window length scanned for cross-message isomorphs. MUST be
+/// >= 11 so the mandatory positive controls — the w9 `A.B.CB.AC` and the w11
+/// `ABC.DC.AD.B` isomorphs — can form their literal `windows(window)` spans. A
+/// max of 8 forms no 9- or 11-span window, so the main-isomorph positive control
+/// can never fire and the strong-bar headline becomes vacuous.
+pub const DEFAULT_MAX_WINDOW: usize = 11;       // empirical scanned windows 8/9/11
 /// Minimum same-offset agreement run flanking a break for it to count "internal".
 pub const MIN_TWO_SIDED_FLANK: usize = 2;       // = perseus::MIN_SHARED_RUN_LEN
+/// Maximum desync-island width (in columns) an internal-violation candidate may
+/// span. The empirical's regression-hardened discriminator requires a SHORT island
+/// (<=2 columns); wider differing-plaintext gaps are boundary allomorphs, not
+/// violations (empirical §2-3, over-extension trap #1).
+pub const MAX_ISLAND_COLS: usize = 2;           // empirical "short island (<=2 cols)"
+/// Minimum length of the re-synced isomorphic FAR RUN that must follow the island
+/// for an internal-violation candidate, carrying a shared cross-island back-reference.
+/// Without this guard the classifier reintroduces over-extension trap #2 — late
+/// re-convergence on DIFFERENT plaintext faking a violation (the wiki's "3A" case) —
+/// which manufactures spurious internal-violation candidates and would break the
+/// "0 robust internal violations" headline. The empirical's `POST_MIN = 8` rule is
+/// exactly what evaporated the spurious intra-west1 self-pair candidate.
+pub const POST_MIN: usize = 8;                  // empirical regression-hardened far-run guard
 /// Fixed reading-layer alphabet size (values 0..=82).
 pub const ALPHABET_SIZE: usize;                 // = orders::READING_LAYER_ALPHABET_SIZE
-/// Minimum repeated symbols in a gap pattern for "strong" classification.
-pub const STRONG_MIN_REPEATS: usize = 2;
+/// Minimum repeated symbols in a gap pattern for "strong" classification. The
+/// empirical defines strong = >=3 repeats vs loose = >=2 (§4 table); the two strong
+/// controls carry 3 (`A.B.CB.AC`) and 4 (`ABC.DC.AD.B`) repeats. At =2 the strong
+/// tier would absorb the loose tier — including the loose-bar east4@65/west4@67
+/// candidate (null p ≈ 0.049) — and FLIP the headline from "0 robust strong-bar
+/// internal violations" to surfacing that benign Stutter-Section candidate.
+pub const STRONG_MIN_REPEATS: usize = 3;        // empirical strong bar = >=3 repeats
 /// Minimum cross-message occurrence count for "strong".
 pub const STRONG_MIN_OCCURRENCES: usize = 2;
 /// Pointwise significance threshold for the internal-violation tail.
@@ -105,6 +134,13 @@ pub struct PerfectIsomorphismConfig {
     pub max_window: usize,
 }
 impl Default for PerfectIsomorphismConfig { /* fills from DEFAULT_* */ }
+// NOTE (empirical fidelity): the prototype scanned the discrete window set
+// {8, 9, 11}, NOT a contiguous 8..=11 (window 10 was never enumerated). With the
+// default `min_window = 8 .. max_window = 11`, the scan range as a naive inclusive
+// span would also visit window 10. To reproduce the empirical catalog exactly,
+// enumerate windows {8, 9, 11} (the two strong controls live at 9 and 11); a
+// contiguous 8..=11 is a permissible superset only if window-10 hits are reported
+// as new/unvetted, never folded into the strong-bar headline without their own null.
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PerfectIsomorphismError {
@@ -169,8 +205,13 @@ pub enum BreakClass {
     /// consistent with perfect isomorphism (Allomorphs.md line 1).
     Boundary,
     /// Divergence flanked on BOTH sides by continuing isomorphic agreement —
-    /// candidate perfect-isomorphism violation. Not promoted to a finding until
-    /// it survives the three benign-desync gates and exceeds the null.
+    /// candidate perfect-isomorphism violation. Requires the full regression-hardened
+    /// discriminator: (a) a SHORT desync island (<= `MAX_ISLAND_COLS` columns), AND
+    /// (b) a substantial re-synced isomorphic far run (>= `POST_MIN` columns) that
+    /// carries a shared cross-island back-reference identical in both occurrences.
+    /// The far-run guard (b) rejects over-extension trap #2 (late re-convergence on
+    /// DIFFERENT plaintext faking a violation — the wiki's "3A" case). Not promoted
+    /// to a finding until it also survives the three benign-desync gates and the null.
     InternalCandidate,
     /// Internal-looking, but explained by a named benign desync region.
     BenignDesync { region: BenignDesyncRegion },
@@ -200,6 +241,15 @@ pub struct BreakLocalization {
     pub right_flank: usize,
     /// First index (relative to the extended window) where gap patterns diverge.
     pub break_index: usize,
+    /// Width of the desync island in columns (the contiguous diverging span before
+    /// re-sync). An `InternalCandidate` requires `island_cols <= MAX_ISLAND_COLS`;
+    /// a wider island is a `Boundary` allomorph.
+    pub island_cols: usize,
+    /// Length of the re-synced isomorphic far run AFTER the island that carries a
+    /// shared cross-island back-reference. An `InternalCandidate` requires
+    /// `far_run >= POST_MIN`; a shorter far run is late coincidental re-convergence
+    /// (over-extension trap #2 / wiki "3A") and stays `Boundary`.
+    pub far_run: usize,
     /// Classification.
     pub class: BreakClass,
 }
@@ -237,7 +287,10 @@ pub struct InternalViolationNullBand {
 pub enum WikiRegressionCheck {
     /// 3A: East1/West1 shared section `A..BC.D....AB.......DC...` vs `…DC..D`.
     Messages12SharedAllomorph,
-    /// 3B: East4/West4/East5 `*` extra-repeat rows + `+/?` annotation.
+    /// 3B: East4/West4/East5 shared tail isomorph `.AB......B.A` (@35) + msg7's
+    /// extra `O…O` repeat. Asserts the two load-bearing claims, NOT the wiki's
+    /// `*`-annotated rows verbatim (those use `*` relabeling and do not match a
+    /// plain gap string character-for-character — empirical §5).
     Messages789ExtraRepeat,
     /// 3C: single-deletion bound `+++++xxxxx?????x++++++++++++` (HYPOTHESIS).
     CorruptionTheoryBound,
@@ -253,7 +306,10 @@ pub struct WikiRegressionResult {
     pub produced: Vec<String>,
     /// The verbatim wiki strings expected.
     pub expected: Vec<String>,
-    /// True iff produced == expected character-for-character.
+    /// True iff produced == expected character-for-character. (Exception: 3B
+    /// asserts its two load-bearing claims — shared `.AB......B.A` tail + msg7's
+    /// extra `O…O` repeat — not verbatim equality of the wiki's `*`-relabeled rows,
+    /// which do not match a plain gap string char-for-char; empirical §5.)
     pub reproduced: bool,
     /// For 3C only: carries the explicit "hypothesis, conditional on
     /// single-deletion assumption" label; empty otherwise.
@@ -277,7 +333,12 @@ pub struct PerfectIsomorphismReport {
     /// Add-one tail: shuffles whose internal-candidate count >= observed.
     pub empirical_p_count: usize,
     pub empirical_p: f64,
-    /// Safe-isomorph extents exported to Threads 1B / 5.
+    /// Safe-isomorph extents exported to Threads 1B / 5. Each entry is anchored on
+    /// a strong (>=3-repeat) seed and extended left+right to the first divergence
+    /// using the conservative (tightest) right boundary over all partners. Empirical
+    /// reproducibility anchor: **16 spans**, all in the messages 1–3 (east1/west1/
+    /// east2) main-isomorph cluster (empirical §6). This count is deterministic given
+    /// the corpus + constants, not a Monte-Carlo estimate.
     pub safe_extents: Vec<SafeIsomorphExtent>,
     /// Wiki regression checks (all must reproduce or the run errors).
     pub regression: Vec<WikiRegressionResult>,
@@ -379,9 +440,18 @@ are complementary, not redundant.
 ### Matched internal-violation null (mandatory, matched)
 
 - **Statistic:** count of *internal-violation candidates* — breaks classified
-  `InternalCandidate` (two-sided flank ≥ `MIN_TWO_SIDED_FLANK` on both sides, not
-  inside a named benign desync region) — produced by the **same** catalog →
-  extend → localize → classify pipeline.
+  `InternalCandidate` — produced by the **same** catalog → extend → localize →
+  classify pipeline. A break is an `InternalCandidate` iff ALL of: (i) two-sided
+  continuing agreement, each flank ≥ `MIN_TWO_SIDED_FLANK`; (ii) a SHORT desync
+  island, `island_cols ≤ MAX_ISLAND_COLS`; (iii) a substantial re-synced isomorphic
+  far run, `far_run ≥ POST_MIN`, carrying a shared cross-island back-reference
+  identical in both occurrences; AND (iv) it is not inside a named benign desync
+  region. Guards (ii)+(iii) are the empirical's regression-hardened discriminator
+  (§2-3): without the `far_run ≥ POST_MIN` guard, late re-convergence on DIFFERENT
+  plaintext across the island fakes a violation (over-extension trap #2, wiki "3A")
+  and manufactures spurious candidates. Distinct events are deduplicated by break
+  column (overlapping seeds pinning one desync count once), matching the empirical
+  headline.
 - **Null model string** (carry on the report like `cipher_attack`): *"within
   each message, preserve the exact symbol multiset and length, shuffle order,
   recompute the internal-candidate count."* This destroys real shared plaintext
@@ -421,6 +491,13 @@ are complementary, not redundant.
 Each is a `WikiRegressionResult`; a mismatch is `RegressionCheckFailed`
 (validates the wiki's data handling and our `isomorph.rs` simultaneously).
 
+**Regression strings are computed over fixed cited spans, NOT the catalog scan
+range.** Each check encodes a gap pattern via `PatternSignature::from_window` over
+the wiki's cited (offset, length) span directly — e.g. 3A's 24-column window at
+offset 1 — which deliberately exceeds `DEFAULT_MAX_WINDOW` (= 11). The `[min_window,
+max_window]` range governs only the cross-message strong-isomorph catalog scan; do
+NOT source these verbatim strings from that bounded scan or 3A/3C can never reproduce.
+
 - **3A — `Messages12SharedAllomorph`** (`Allomorphs.md:4-10`,
   `notes/thread-3-perfectiso-verification.md` §3A). Catalog's aligned gap-pattern
   strings for the East1/West1 shared section must equal **verbatim**:
@@ -429,14 +506,20 @@ Each is a `WikiRegressionResult`; a mismatch is `RegressionCheckFailed`
   Classifier must label the **sole differing (last)** position **Boundary**, not
   internal. Assert both strings + the `Boundary` label.
 - **3B — `Messages789ExtraRepeat`** (`Allomorphs.md:12-31`, verification §3B).
-  Reproduce **verbatim**, `*` annotations included:
-  - msg 7: `A...A.....B.....BC.D....C.BD`
-  - msg 8: `.A..*A.........*..BC.D....C.BD`
-  - msg 9: `A..*A.........*..BC.D....C.BD`
-  - `+/?` row: `+++++???????????++++++++++++`
-  Classifier must (i) confirm the shared `BC.D....C.BD` tail isomorph across
+  **Assert only the load-bearing claims, NOT the `*`-annotated rows verbatim.** The
+  empirical found that the wiki's `*`-annotated rows use wiki-specific `*` relabeling
+  and **do not match a plain gap string character-for-character**; only the two
+  load-bearing facts reproduce, so those are what the check pins:
+  - the strong tail isomorph `.AB......B.A` is **identical across all of 7/8/9**
+    (anchored @35); and
+  - msg 7 carries an extra `O…O` repeat (anchor-relative positions 10, 16, 26) that
+    8/9 lack — the allomorphic feature.
+  The classifier must (i) confirm the shared `.AB......B.A` tail isomorph across
   7/8/9, (ii) flag msg 7's `O…O` repeat as the allomorphic feature, (iii) **not**
-  promote anything to internal (it's pre-isomorph / `StutterSection` benign).
+  promote anything to internal (it is allomorphic *before* the strong tail —
+  `StutterSection` benign). Do NOT gate on verbatim equality of the `*`-annotated
+  rows; pinning those would fail the regression check on a relabeling artefact, not
+  a real data error.
 - **3C — `CorruptionTheoryBound`** (`Allomorphs.md:31-37`, verification §3C).
   **STATUS: HYPOTHESIS** — `hypothesis_label` must carry "conditional on
   single-deletion assumption; bounds where a difference must be, does not locate
@@ -570,8 +653,11 @@ pub mod perfect_isomorphism;
 - **Eye pin:** `total_length == 1_036`; nine message lengths match
   `reading-streams.md` (`east1=99 … east5=114`); 83 distinct global symbols
   (`pyry_conditions.rs:1430` idiom).
-- **All four wiki regression checks reproduce** verbatim (3A/3B/3C +
-  `A.B.CB.AC`), else the run errors. 3C carries its hypothesis label.
+- **All four wiki regression checks reproduce**, else the run errors. 3A, 3C and
+  the `A.B.CB.AC` control reproduce **verbatim** (character-for-character); 3B
+  reproduces its two **load-bearing claims** (shared `.AB......B.A` tail + msg7's
+  extra `O…O` repeat), NOT the wiki's `*`-relabeled rows verbatim (empirical §5).
+  3C carries its hypothesis label.
 - **Positive control fires:** `A.B.CB.AC` is catalogued `strong == true` with a
   margin over the null; classified `Boundary` at its trailing divergence
   (`cipher_attack.rs:1334` idiom). Failure ⇒ `PositiveControlFailed`.

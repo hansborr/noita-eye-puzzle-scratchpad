@@ -71,7 +71,7 @@ multiset-shuffle null; each positive control fired on known signal.
   Section); matched null P(≥1) = **0.049** (mean 0.053, max 3) — **within chance
   collision**, classified benign. **Net: zero robust internal violations survive.**
 - Positive control: `A.B.CB.AC` (6 occ) and `ABC.DC.AD.B` (4 occ) both fire at
-  empirical p **< 5e-4** (null never produced ≥2 occurrences in 2000 shuffles).
+  empirical p **≈ 1/2001 (add-one floor); null never reached ≥2 in 2000 shuffles**.
   *(We recompute under our own matched null rather than quoting the wiki's
   ~3×10⁻²⁰ figure.)*
 
