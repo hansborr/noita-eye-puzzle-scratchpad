@@ -1,0 +1,35 @@
+# Rust files over the 600-line default budget, pinned at their current size so
+# they can only SHRINK. Lower the number as you remove lines; delete the line
+# once the file drops to <= 600 (the ratchet enforces this). Every entry needs a
+# "# reason". See docs/refactor/09-file-size-ratchet.md.
+#
+# A pin may be BUMPED UP only with a reason in the same commit (e.g. brief 08 may
+# grow main.rs before splitting it; a series may grow a file mid-way). The bump
+# shows up in `git diff` and is reviewed — never a silent carve-out.
+#
+# <path>                            <max-lines>  # reason / retiring brief
+src/gak_attack.rs                   8147  # god-file; split by brief 07a
+src/report.rs                       5694  # god-file; dissolved by brief 06
+src/ciphers.rs                      3395  # cipher zoo; +Cipher trait (brief 02); shrinks under briefs 02, 07b
+src/perfect_isomorphism.rs          1749  # structural experiment; briefs 05, 07b
+src/conditional_structure.rs        1664  # structural experiment; briefs 05, 07b
+src/chaining_graph.rs               1590  # structural experiment; briefs 05, 07b
+src/dof_null.rs                     1473  # matched-null driver; brief 05
+src/pyry_conditions.rs              1465  # structural experiment; briefs 05, 07b
+src/modular_diff.rs                 1353  # structural experiment; briefs 05, 07b
+src/cipher_attack.rs                1342  # attack scorer; briefs 04, 07b
+src/orders.rs                       1340  # reading layer; briefs 04a, 07b
+src/controls.rs                     1304  # positive controls; briefs 05, 07b
+src/main.rs                         1137  # CLI dispatch; brief 08
+src/grouping.rs                     1129  # structural analysis; brief 07b
+src/honeycomb.rs                    1085  # structural analysis; brief 07b
+src/perseus.rs                      1077  # matched-null driver; brief 05
+src/chaining.rs                     1036  # structural analysis; brief 07b
+src/agl_gak.rs                      1011  # attack; brief 07b
+src/tree_residual.rs                992   # matched-null driver; brief 05
+src/periodicity.rs                  924   # structural experiment; briefs 05, 07b
+src/null.rs                         832   # matched-null core; brief 05
+src/orientation_homogeneity.rs      822   # structural experiment; briefs 05, 07b
+src/zero_adjacency_null.rs          671   # matched-null driver; brief 05
+src/language.rs                     618   # language scorer; brief 04
+src/ingest.rs                       610   # new (brief 03); trim under 600 next
