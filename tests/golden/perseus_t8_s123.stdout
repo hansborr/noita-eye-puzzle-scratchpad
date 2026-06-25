@@ -1,0 +1,54 @@
+Experiment 7C Perseus recurrence null
+order: standard36-u012-d012
+seed: 123
+trials: 8
+message lengths: east1:99, west1:103, east2:118, west2:102, east3:137, west3:124, east4:119, west4:120, east5:114
+pooled length: 1036
+operational definition: same-offset common runs of length >= 2 are shared if they are in the earliest leading-family alignment or in an East/West counterpart pair; all other positions are non-shared
+recurrence statistic: while scanning each message left to right, count a shared-position symbol as recurrent if it appeared earlier in a non-shared position in that same message
+null: keep the reconstructed position mask fixed and Fisher-Yates shuffle values within each message, preserving its exact multiset and length
+documented reference only: community quote p~0.001920 for strict no-recurrence if random; this run computes its own shuffle p-value
+
+partition summary
+  leading shared start: 1
+  all-message prefix: start 1 len 2 values 66,5
+  selected pair runs: 38
+  counterpart longest runs:
+    east1/west1 start 1 len 24
+    east2/west2 start 1 len 2
+    east3/west3 start 1 len 5
+    east4/west4 start 1 len 20
+  per-message spans:
+    east1  shared  41/99  spans 1..25,29..33,37..50
+    west1  shared  41/103 spans 1..25,29..33,37..50
+    east2  shared  24/118 spans 1..25
+    west2  shared   5/102 spans 1..6
+    east3  shared   9/137 spans 1..10
+    west3  shared   5/124 spans 1..6
+    east4  shared  20/119 spans 1..21
+    west4  shared  20/120 spans 1..21
+    east5  shared  20/114 spans 1..21
+
+observed recurrence statistic
+  pooled: 0/185 = 0.000000
+  non-shared positions scanned: 851
+  recurrent symbol values: none
+  msg     nonshared     tested      recur       rate symbols         
+  east1          58         41          0   0.000000 none            
+  west1          62         41          0   0.000000 none            
+  east2          94         24          0   0.000000 none            
+  west2          97          5          0   0.000000 none            
+  east3         128          9          0   0.000000 none            
+  west3         119          5          0   0.000000 none            
+  east4          99         20          0   0.000000 none            
+  west4         100         20          0   0.000000 none            
+  east5          94         20          0   0.000000 none            
+
+within-message shuffle null
+  recurrence count: mean 5.62, 95% 1..7, median 6.0, min 1, max 8
+  recurrence rate: mean 0.030405, 95% 0.005405..0.037838, median 0.032432
+  lower-tail empirical p: (0+1)/(8+1) = 0.111111
+
+Interpretation: this run does not show the Perseus recurrence constraint beyond the within-message shuffle null. That weakly retires this community claim under the pinned definition, and still decodes nothing.
+Seed-stability note: 1000-shuffle multi-seed regressions over seeds 12345, 67890, 13579, 24680, and 424242 keep the observed statistic at 0/185 and the lower-tail p below 0.01.
+The result is conditional on the accepted honeycomb reading order and on the documented shared-region operationalization printed above.

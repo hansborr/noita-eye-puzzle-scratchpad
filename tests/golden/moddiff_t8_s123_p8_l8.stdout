@@ -1,0 +1,43 @@
+Experiment 13 modular-difference family fingerprint
+order: standard36-u012-d012
+headline modulus: 83-symbol accepted honeycomb alphabet
+secondary modulus: 125-symbol base-5 trigram space
+seed: 123
+trials per control/shuffle row: 8
+max period: 8
+max lag: 8
+message lengths: east1:99, west1:103, east2:118, west2:102, east3:137, west3:124, east4:119, west4:120, east5:114
+pooled raw length: 1036
+boundary rule: every modular difference resets at message starts; no pair crosses a message join
+mapping rule: a global additive offset cancels in the difference stream; no symbol-to-language mapping is scored
+controls: generated wheel, period-7 Vigenere, S83 deck-keystream, flat random, plus within-message multiset-preserving shuffles
+
+primary mod-83 differenced streams
+  raw message-weighted IoC: 0.011708 (normalized 0.972)
+  k   len      IoC    norm      delta      chi2 supp      top    topx     bestP   bestLag   shuf struct
+  1  1027 0.012152   1.009  +0.000444    120.53   82     7:25   2.020  p7=1.093  l2=1.563  1.455..1.843
+  2  1018 0.013494   1.120  +0.001785    161.77   83    27:31   2.528  p6=1.306  l5=1.450  1.549..1.875
+  3  1009 0.012410   1.030  +0.000702    121.00   83    54:33   2.715  p1=1.017  l2=1.508  1.563..1.859
+
+secondary mod-125 differenced streams
+  raw message-weighted IoC: 0.011708 (normalized 1.464)
+  k   len      IoC    norm      delta      chi2 supp      top    topx     bestP   bestLag   shuf struct
+  1  1027 0.008470   1.059  -0.003238    237.48  124   107:23   2.799  p7=1.148  l2=1.487  1.947..2.434
+  2  1018 0.008551   1.069  -0.003158    199.09  125    42:18   2.210  p8=1.318  l8=1.453  1.719..2.333
+  3  1009 0.007979   0.997  -0.003729    158.62  125     2:19   2.354  p1=0.992  l5=1.556  1.858..2.354
+
+primary fixture calibration
+  fixture keys:
+    wheel: step=17, random per-message starts
+    Vigenere: period=7 shifts=3,41,12,64,5,28,77
+    deck/S83: SplitMix64-shuffled S83 deck, controls 81/82
+    flat: SplitMix64 iid uniform values
+  k   wheel top  Vig p-excess   deck struct   flat struct shuffle struct      sep      eye band
+  1 1.000..1.000 71.771..71.771  1.616..1.859  1.536..1.859  1.455..1.843       ok structureless
+  2 1.000..1.000 71.776..71.776  1.549..1.794  1.631..1.875  1.549..1.875       ok       between
+  3 1.000..1.000 68.344..68.344  1.645..2.221  1.550..1.974  1.563..1.859       ok       between
+  deck and flat are treated as a shared structureless band; their overlap is a calibration check, not a failure.
+
+Headline k=1 mod-83: top difference 7 occurs 25/1027 (0.0243); delta-IoC +0.000444; placement structureless.
+Interpretation: the first-difference eye stream lands in the calibrated structureless deck/flat/shuffle band, not the incrementing-wheel band. It has no dominant constant difference, which disfavors the simple incrementing-wheel fingerprint specifically while remaining consistent with deck, autokey, flat substitution, or other non-wheel structures.
+This experiment is mapping-independent and structural. It scores no language model and makes no plaintext claim.

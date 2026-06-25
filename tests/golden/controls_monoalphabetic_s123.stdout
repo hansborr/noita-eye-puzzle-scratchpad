@@ -1,0 +1,22 @@
+Experiment 11 monoalphabetic positive control
+seed: 123
+alphabet: 26 symbols (ABCDEFGHIJKLMNOPQRSTUVWXYZ)
+generated key: A->D B->J C->I D->T E->M F->S G->Z H->B I->L J->Y K->V L->H M->W N->E O->A P->F Q->K R->N S->R T->U U->O V->C W->G X->Q Y->X Z->P
+
+long fixture: 420 letters from embedded English-like calibration plaintext
+plaintext:  THEMETHODCHECKSTHEKNOWNCIPHERBEFOREITJUDGESTHEUNKNOWNMESSAGEASIMPLESUBSTITUTIONCHANGESLETTERNAME...
+ciphertext: UBMWMUBATIBMIVRUBMVEAGEILFBMNJMSANMLUYOTZMRUBMOEVEAGEWMRRDZMDRLWFHMROJRULUOULAEIBDEZMRHMUUMNEDWM...
+recovered:  THEMETHODCHECKSTHEKNOWNCIPHERBEFOREITJUDGESTHEUNKNOWNMESSAGEASIMPLESUBSTITUTIONCHANGESLETTERNAME...
+
+IoC plaintext/ciphertext: 0.072951 / 0.072951 (exactly preserved)
+IoC balanced uniform: 0.036186; uniform floor 1/k: 0.038462
+entropy plaintext/ciphertext/balanced uniform: 4.0602 / 4.0602 / 4.7001 bits/symbol
+frequency multiset preserved: yes
+bigram count multiset preserved: yes
+known-key recovery: yes
+
+documented Common Glyphs plaintext vectors (known-key exactness only):
+  Common Glyphs / seek the end: "SEEK THE END" -> RMMVUBMMET -> SEEKTHEEND
+  Common Glyphs / bring the treasure here: "BRING THE TREASURE HERE" -> JNLEZUBMUNMDRONMBMNM -> BRINGTHETREASUREHERE
+
+Interpretation: this proves the frequency/substitution tooling is not systematically blind to a known monoalphabetic substitution fixture. It does not claim frequency-only recovery of the short Common Glyphs phrases, and it says nothing about whether the unsolved eye glyphs encode a message. If this control fails, the methodology is suspect.

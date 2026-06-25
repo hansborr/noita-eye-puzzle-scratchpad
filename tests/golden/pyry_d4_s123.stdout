@@ -1,0 +1,51 @@
+Pyry's Conditions falsification harness
+order: standard36-u012-d012
+fixed alphabet: accepted honeycomb reading-layer values 0..=82
+seed: 123
+fixture draws per family: 4
+message lengths: east1:99, west1:103, east2:118, west2:102, east3:137, west3:124, east4:119, west4:120, east5:114
+pooled eye length: 1036
+boundary rule: predicates run per message where adjacency or windows matter; no window crosses a message join
+fixture source: deterministic non-uniform 83-symbol plaintext with planted same-offset repeated sections, sampled with SplitMix64
+scope: structural falsification only; no language scoring, no symbol-to-meaning mapping, no reading-order re-selection
+
+condition encoding
+  C1: flat IoC
+  C2: 0..82 support
+  C3: aligned shared runs
+  C4: isomorphs
+  C5: shared after varying prefix
+  C6: near-isomorphs
+  C7: differing first, shared second
+  C8: no doubled trigrams
+  C9: non-shared isomorphs differ
+  C1 threshold: pooled IoC x83 <= 1.120
+  C3/C5 shared-section threshold: same-offset run length >= 2
+
+falsification matrix
+row                           C1      C2      C3      C4      C5      C6      C7      C8      C9     all9    verdict
+eyes                         yes     yes     yes     yes     yes     yes     yes     yes     yes      9/9     sanity
+monoalphabetic               0/4     1/4     4/4     4/4     4/4     4/4     4/4     4/4     4/4      0/4  falsified
+periodic Vigenere            1/4     4/4     4/4     4/4     4/4     4/4     4/4     0/4     4/4      0/4  falsified
+autokey/Alberti              3/4     4/4     4/4     4/4     4/4     4/4     4/4     4/4     4/4      3/4 consistent
+deck/S83                     2/4     4/4     4/4     4/4     4/4     4/4     4/4     0/4     4/4      0/4  falsified
+incrementing wheel           4/4     4/4     3/4     4/4     2/4     4/4     4/4     0/4     4/4      0/4  falsified
+
+eye scalar diagnostics
+  IoC 0.012844 (x83 1.066); support 83/83, outside 0, range 0..82
+  shared runs 41, longest 24, varying-prefix 41, differing-first/shared-second 113
+  isomorph groups 179, longest Some(8); near pairs 215; adjacent equals 0
+  non-shared isomorph groups 56, exact-duplicate groups 0
+
+fixture key/source summaries from draw 0
+  monoalphabetic: random S83 substitution permutation
+  periodic Vigenere: period-7 shifts [3, 41, 12, 64, 5, 28, 77]
+  autokey/Alberti: plaintext-autokey additive seed shift 0
+  deck/S83: SplitMix64-shuffled S83 deck, controls 81/82
+  incrementing wheel: step 17, per-message starts 37,27,1,43,22,22,56,38,57
+
+Interpretation: sampled fixture rows with at least one all-nine pass: autokey/Alberti. That is candidate-consistency only; it does not identify the cipher.
+Self-modifying direction: autokey/Alberti-style fixtures passed all nine in 3/4 draws. This specifically tests whether a plaintext-dependent state can produce the differing-first/shared-second pattern while keeping later same-offset material aligned.
+Fixture caveat: this autokey C8 (no-doubled-trigram) pass is partly structural to the fixture. Plaintext-autokey produces equal adjacent ciphertext only when the plaintext repeats at distance two, and the sampled plaintext is constructed to avoid distance-two repeats, so the 'consistent' verdict reflects compatibility under that source construction rather than a pure-cipher guarantee.
+Caveat: the nine conditions were abstracted from the eyes, so the eye row is a sanity baseline, not evidence. Fixture failures depend on sampled plaintexts and keys; fixture passes are not solutions.
+Layer caveat: all rows use engine-fixed integer trigram values under the accepted honeycomb order. The rendered orientation layer and the 83-value reading layer are not conflated.

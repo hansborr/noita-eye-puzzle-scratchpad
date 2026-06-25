@@ -1,0 +1,30 @@
+base-7 generation-pipeline null
+seed: 123
+trials: 5
+orders searched per trial: 36
+resampled: matched engine pair lengths through the u64-capped base-7 decode, filtered to orientation cells 0..=4
+held fixed: honeycomb traversal, trigram grouping, and the statistic family
+
+headline exact 0..=82: 0/5 = 0.000000 (95% Wilson 0.000000..0.434482)
+some order adjacent_equal == 0: 0/5 = 0.000000 (95% Wilson 0.000000..0.434482)
+min distinct achieved over standard36: 124:1, 125:4
+min ceiling achieved over standard36: 124:5
+best distance-4 ratio d4/mean(d1..d6): min 0.667, median 1.171, max 1.333
+
+Interpretation: the base-7 pipeline does not manufacture the bounded 0..=82 contiguity; uniform-random orientation cells do not either. The contiguity is therefore not explained as a generation artifact, but this is equally consistent with structured-but-meaningless data and is not evidence of a recoverable message.
+
+engine-input randomness negative control
+seed: 123
+trials: 5
+engine pairs: 150
+decoded storage symbols: 3194
+real storage histogram (-1..=5): -1:0, 0:774, 1:739, 2:699, 3:490, 4:406, 5:86
+real -1 controls: 0
+real delimiters: 86
+real chi-square vs uniform base-7 symbols: 1290.317
+exact P(no -1 in capped matched random corpus): 3.443691e-205
+matched random corpus mean -1 controls: 450.200
+matched random corpus mean delimiters: 444.200
+matched random corpora with zero -1 controls: 0/5
+
+Interpretation: this only shows the authored engine inputs live in the 0..=5 storage alphabet (zero -1 controls and 86 delimiters) instead of resembling capped matched-length random integers. The analytic no -1 probability is exact for that capped model, and the Monte-Carlo counts are the empirical check at the configured trial count; neither shows that the authored symbols encode anything.

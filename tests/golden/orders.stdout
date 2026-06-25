@@ -1,0 +1,114 @@
+grid row widths:
+  east1: 39,39,39,39,39,39,32,31
+  west1: 39,39,39,39,39,39,38,37
+  east2: 39,39,39,39,39,39,39,39,21,21
+  west2: 39,39,39,39,39,39,36,36
+  east3: 39,39,39,39,39,39,39,39,39,39,11,10
+  west3: 39,39,39,39,39,39,39,39,30,30
+  east4: 39,39,39,39,39,39,39,39,23,22
+  west4: 39,39,39,39,39,39,39,39,24,24
+  east5: 39,39,39,39,39,39,39,39,15,15
+max row width: 39
+bottom two rows differ by <=1: true
+
+order                    total distinct  contiguous      span   >82   adj-eq       recurrence d1..d6
+raw-rows                  1036      114       false    0..122    31       17        17,12,15,10,10,9
+row-fwd-fwd-straight      1036      114       false    0..122    31       17        17,12,15,10,10,9
+row-fwd-fwd-boustro       1036       85        true     0..84     2       16        16,13,10,9,14,10
+row-fwd-rev-straight      1036      115       false    0..122    32       16          16,13,9,8,10,6
+row-fwd-rev-boustro       1036       99       false    0..122    32       16        16,13,11,9,13,10
+row-rev-fwd-straight      1036      115       false    0..122    32       16          16,13,9,8,10,6
+row-rev-fwd-boustro       1036       85       false    0..122    27       16        16,13,10,9,14,10
+row-rev-rev-straight      1036      114       false    0..122    31       17        17,12,15,10,10,9
+row-rev-rev-boustro       1036       99       false    0..115    16       16        16,13,11,9,13,10
+col-fwd-fwd-straight      1036      125        true    0..124    42        5          5,11,11,6,13,9
+col-fwd-fwd-boustro       1036      121       false    0..124    38        5             5,8,9,5,9,7
+col-fwd-rev-straight      1036      123       false    0..124    40        8           8,7,5,6,11,12
+col-fwd-rev-boustro       1036      120       false    0..124    39        8         8,13,11,13,10,8
+col-rev-fwd-straight      1036      123       false    0..124    40        8           8,7,5,6,11,12
+col-rev-fwd-boustro       1036      120       false    0..124    38        8         8,13,11,13,10,8
+col-rev-rev-straight      1036      125        true    0..124    42        5          5,11,11,6,13,9
+col-rev-rev-boustro       1036      121       false    0..124    40        5             5,8,9,5,9,7
+standard36-u012-d012      1036       83        true     0..82     0        0          0,5,9,26,11,11
+standard36-u012-d021      1036       87       false     0..95     4       14         14,5,8,25,10,10
+standard36-u012-d102      1036      105       false    0..114    22        5          5,5,4,26,12,11
+standard36-u012-d120      1036      107       false    0..122    24        7           7,5,7,26,9,11
+standard36-u012-d201      1036      107       false    0..115    24        5           5,5,2,26,12,9
+standard36-u012-d210      1036      108       false    0..122    25        4           4,5,5,26,5,11
+standard36-u021-d012      1036       87       false     0..95     4       14         14,5,8,25,10,10
+standard36-u021-d021      1036       83       false     0..95     4        0          0,5,9,26,11,11
+standard36-u021-d102      1036      107       false    0..114    24        7           7,5,7,26,9,11
+standard36-u021-d120      1036      105       false    0..122    24        5          5,5,4,26,12,11
+standard36-u021-d201      1036      108       false    0..115    25        4           4,5,5,26,5,11
+standard36-u021-d210      1036      107       false    0..122    25        5           5,5,2,26,12,9
+standard36-u102-d012      1036      105       false    0..114    22        5          5,5,4,26,12,11
+standard36-u102-d021      1036      107       false    0..114    24        5           5,5,2,26,12,9
+standard36-u102-d102      1036       83       false    0..114    22        0          0,5,9,26,11,11
+standard36-u102-d120      1036      108       false    0..122    34        4           4,5,5,26,5,11
+standard36-u102-d201      1036       87       false    0..115    24       14         14,5,8,25,10,10
+standard36-u102-d210      1036      107       false    0..122    34        7           7,5,7,26,9,11
+standard36-u120-d012      1036      107       false    0..122    24        5           5,5,2,26,12,9
+standard36-u120-d021      1036      105       false    0..122    24        5          5,5,4,26,12,11
+standard36-u120-d102      1036      108       false    0..122    34        4           4,5,5,26,5,11
+standard36-u120-d120      1036       83       false    0..122    24        0          0,5,9,26,11,11
+standard36-u120-d201      1036      107       false    0..122    34        7           7,5,7,26,9,11
+standard36-u120-d210      1036       87       false    0..122    25       14         14,5,8,25,10,10
+standard36-u201-d012      1036      107       false    0..115    24        7           7,5,7,26,9,11
+standard36-u201-d021      1036      108       false    0..115    25        4           4,5,5,26,5,11
+standard36-u201-d102      1036       87       false    0..115    24       14         14,5,8,25,10,10
+standard36-u201-d120      1036      107       false    0..122    34        5           5,5,2,26,12,9
+standard36-u201-d201      1036       83       false    0..115    24        0          0,5,9,26,11,11
+standard36-u201-d210      1036      105       false    0..122    34        5          5,5,4,26,12,11
+standard36-u210-d012      1036      108       false    0..122    25        4           4,5,5,26,5,11
+standard36-u210-d021      1036      107       false    0..122    25        7           7,5,7,26,9,11
+standard36-u210-d102      1036      107       false    0..122    34        5           5,5,2,26,12,9
+standard36-u210-d120      1036       87       false    0..122    25       14         14,5,8,25,10,10
+standard36-u210-d201      1036      105       false    0..122    34        5          5,5,4,26,12,11
+standard36-u210-d210      1036       83       false    0..122    25        0          0,5,9,26,11,11
+
+contiguous 0..=82 orders: standard36-u012-d012
+
+Experiment 4 reading-layer flatness
+alphabet: 83 reading-layer symbols, values 0..=82
+frequency counts are pooled across the nine messages; entropy and IoC p/msg are message-weighted
+IoC convention: probability form from analysis::index_of_coincidence; x83/all is the concatenated community-reference cross-check
+order                    total  in83 outside    mean freq min..max       entropy/max  IoC p/msg    x83/msg    x83/all      chi2 83      df      p>=chi2
+raw-rows                  1036   881     155   12.48      2..23 z0     5.9401/6.3750   0.009899      0.822      0.865 inf(outside)      82          n/a
+standard36-u012-d012      1036  1036       0   12.48      3..26 z0     5.7932/6.3750   0.011708      0.972      1.066      150.355      82  6.310017e-6
+standard36-u012-d021      1036  1013      23   12.48      2..25 z0     5.8270/6.3750   0.011256      0.934      1.025 inf(outside)      82          n/a
+standard36-u012-d102      1036   884     152   12.48      2..28 z0     5.9037/6.3750   0.010603      0.880      0.927 inf(outside)      82          n/a
+standard36-u012-d120      1036   873     163   12.48      2..25 z0     5.9393/6.3750   0.010150      0.842      0.897 inf(outside)      82          n/a
+standard36-u012-d201      1036   870     166   12.48      2..28 z0     5.9304/6.3750   0.010167      0.844      0.898 inf(outside)      82          n/a
+standard36-u012-d210      1036   852     184   12.48      2..26 z0     5.9434/6.3750   0.009732      0.808      0.879 inf(outside)      82          n/a
+standard36-u021-d012      1036  1017      19   12.48      2..25 z0     5.8270/6.3750   0.011256      0.934      1.025 inf(outside)      82          n/a
+standard36-u021-d021      1036   994      42   12.48      0..26 z4     5.7932/6.3750   0.011708      0.972      1.066 inf(outside)      82          n/a
+standard36-u021-d102      1036   865     171   12.48      2..25 z0     5.9393/6.3750   0.010150      0.842      0.897 inf(outside)      82          n/a
+standard36-u021-d120      1036   854     182   12.48      0..28 z2     5.9037/6.3750   0.010603      0.880      0.927 inf(outside)      82          n/a
+standard36-u021-d201      1036   851     185   12.48      2..26 z0     5.9434/6.3750   0.009732      0.808      0.879 inf(outside)      82          n/a
+standard36-u021-d210      1036   833     203   12.48      0..28 z1     5.9304/6.3750   0.010167      0.844      0.898 inf(outside)      82          n/a
+standard36-u102-d012      1036   902     134   12.48      2..28 z0     5.9037/6.3750   0.010603      0.880      0.927 inf(outside)      82          n/a
+standard36-u102-d021      1036   879     157   12.48      2..28 z0     5.9304/6.3750   0.010167      0.844      0.898 inf(outside)      82          n/a
+standard36-u102-d102      1036   750     286   12.48     0..26 z22     5.7932/6.3750   0.011708      0.972      1.066 inf(outside)      82          n/a
+standard36-u102-d120      1036   739     297   12.48      0..26 z9     5.9434/6.3750   0.009732      0.808      0.879 inf(outside)      82          n/a
+standard36-u102-d201      1036   736     300   12.48     0..25 z20     5.8270/6.3750   0.011256      0.934      1.025 inf(outside)      82          n/a
+standard36-u102-d210      1036   718     318   12.48     0..25 z10     5.9393/6.3750   0.010150      0.842      0.897 inf(outside)      82          n/a
+standard36-u120-d012      1036   885     151   12.48      2..28 z0     5.9304/6.3750   0.010167      0.844      0.898 inf(outside)      82          n/a
+standard36-u120-d021      1036   862     174   12.48      0..28 z2     5.9037/6.3750   0.010603      0.880      0.927 inf(outside)      82          n/a
+standard36-u120-d102      1036   733     303   12.48      0..26 z9     5.9434/6.3750   0.009732      0.808      0.879 inf(outside)      82          n/a
+standard36-u120-d120      1036   722     314   12.48     0..26 z24     5.7932/6.3750   0.011708      0.972      1.066 inf(outside)      82          n/a
+standard36-u120-d201      1036   719     317   12.48     0..25 z10     5.9393/6.3750   0.010150      0.842      0.897 inf(outside)      82          n/a
+standard36-u120-d210      1036   701     335   12.48     0..25 z21     5.8270/6.3750   0.011256      0.934      1.025 inf(outside)      82          n/a
+standard36-u201-d012      1036   887     149   12.48      3..25 z0     5.9393/6.3750   0.010150      0.842      0.897 inf(outside)      82          n/a
+standard36-u201-d021      1036   864     172   12.48      3..26 z0     5.9434/6.3750   0.009732      0.808      0.879 inf(outside)      82          n/a
+standard36-u201-d102      1036   735     301   12.48     0..25 z20     5.8270/6.3750   0.011256      0.934      1.025 inf(outside)      82          n/a
+standard36-u201-d120      1036   724     312   12.48     0..28 z10     5.9304/6.3750   0.010167      0.844      0.898 inf(outside)      82          n/a
+standard36-u201-d201      1036   721     315   12.48     0..26 z24     5.7932/6.3750   0.011708      0.972      1.066 inf(outside)      82          n/a
+standard36-u201-d210      1036   703     333   12.48     0..28 z12     5.9037/6.3750   0.010603      0.880      0.927 inf(outside)      82          n/a
+standard36-u210-d012      1036   878     158   12.48      3..26 z0     5.9434/6.3750   0.009732      0.808      0.879 inf(outside)      82          n/a
+standard36-u210-d021      1036   855     181   12.48      0..25 z1     5.9393/6.3750   0.010150      0.842      0.897 inf(outside)      82          n/a
+standard36-u210-d102      1036   726     310   12.48     0..28 z10     5.9304/6.3750   0.010167      0.844      0.898 inf(outside)      82          n/a
+standard36-u210-d120      1036   715     321   12.48     0..25 z21     5.8270/6.3750   0.011256      0.934      1.025 inf(outside)      82          n/a
+standard36-u210-d201      1036   712     324   12.48     0..28 z12     5.9037/6.3750   0.010603      0.880      0.927 inf(outside)      82          n/a
+standard36-u210-d210      1036   694     342   12.48     0..26 z25     5.7932/6.3750   0.011708      0.972      1.066 inf(outside)      82          n/a
+
+Interpretation: the df-aware chi-square tail tests exact iid uniformity over the 83 buckets, not whether the stream is meaningful. Flat-ish per-symbol frequency still RULES MONOALPHABETIC OUT; it does NOT rule a real message IN, and structured-but-meaningless data can also be near-uniform. Do not present flatness as evidence of encoding.

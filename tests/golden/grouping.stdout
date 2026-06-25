@@ -1,0 +1,108 @@
+Experiment 8 base-N grouping reinterpretation
+order: standard36-u012-d012
+message lengths: east1:99, west1:103, east2:118, west2:102, east3:137, west3:124, east4:119, west4:120, east5:114
+boundary rule: rendered groups are non-overlapping within each message; incomplete tails are dropped and no group crosses a message join
+storage axis: engine base-7 decoded symbols 0..=5, including delimiter 5, reported separately from rendered orientations
+
+grouping summary
+grouping                  base symbols   drop  used    H bits  H/log2k   IoC pool     H msg    IoC msg
+single N=1 base5             5    3108      0     5    2.2801   0.9820   0.210802    2.2750   0.210256
+pairs N=2 base25            25    1552      4    25    4.5414   0.9779   0.044642    4.4612   0.044390
+trigrams N=3 base125       125    1036      0    83    6.2725   0.9839   0.012844    5.7932   0.011708
+tetragrams N=4 base625     625     774     12   375    8.2622   0.9663   0.002744    6.2622   0.002107
+engine storage base7         7    3194      0     6    2.3974   0.9275   0.200318    2.3924   0.199697
+
+per-message grouping detail
+grouping                 msg    symbols drop  used    H bits  H/log2k        IoC
+single N=1 base5         east1     297    0     5    2.2946   0.9882   0.204978
+single N=1 base5         west1     309    0     5    2.2990   0.9901   0.203526
+single N=1 base5         east2     354    0     5    2.2750   0.9798   0.210352
+single N=1 base5         west2     306    0     5    2.2478   0.9681   0.216458
+single N=1 base5         east3     411    0     5    2.2686   0.9770   0.212284
+single N=1 base5         west3     372    0     5    2.2798   0.9819   0.209040
+single N=1 base5         east4     357    0     5    2.2785   0.9813   0.208998
+single N=1 base5         west4     360    0     5    2.2741   0.9794   0.210539
+single N=1 base5         east5     342    0     5    2.2603   0.9735   0.214231
+pairs N=2 base25         east1     148    1    25    4.5114   0.9715   0.041092
+pairs N=2 base25         west1     154    1    25    4.5213   0.9736   0.039980
+pairs N=2 base25         east2     177    0    25    4.4929   0.9675   0.042373
+pairs N=2 base25         west2     153    0    25    4.4180   0.9514   0.046698
+pairs N=2 base25         east3     205    1    25    4.4222   0.9523   0.046724
+pairs N=2 base25         west3     186    0    24    4.4535   0.9713   0.044580
+pairs N=2 base25         east4     178    1    25    4.4836   0.9655   0.043103
+pairs N=2 base25         west4     180    0    25    4.4492   0.9581   0.045065
+pairs N=2 base25         east5     171    0    25    4.4140   0.9505   0.047816
+trigrams N=3 base125     east1      99    0    57    5.6821   0.9742   0.011544
+trigrams N=3 base125     west1     103    0    57    5.6646   0.9711   0.012564
+trigrams N=3 base125     east2     118    0    62    5.7953   0.9733   0.011444
+trigrams N=3 base125     west2     102    0    61    5.7605   0.9713   0.011066
+trigrams N=3 base125     east3     137    0    67    5.8633   0.9666   0.012344
+trigrams N=3 base125     west3     124    0    65    5.8338   0.9687   0.011933
+trigrams N=3 base125     east4     119    0    62    5.7590   0.9672   0.012534
+trigrams N=3 base125     west4     120    0    68    5.9153   0.9717   0.010504
+trigrams N=3 base125     east5     114    0    63    5.8118   0.9723   0.011178
+tetragrams N=4 base625   east1      74    1    70    6.1013   0.9954   0.001481
+tetragrams N=4 base625   west1      77    1    74    6.1889   0.9967   0.001025
+tetragrams N=4 base625   east2      88    2    81    6.2918   0.9924   0.002090
+tetragrams N=4 base625   west2      76    2    66    5.9848   0.9901   0.003509
+tetragrams N=4 base625   east3     102    3    91    6.4493   0.9910   0.002330
+tetragrams N=4 base625   west3      93    0    83    6.3079   0.9895   0.002805
+tetragrams N=4 base625   east4      89    1    84    6.3549   0.9941   0.001532
+tetragrams N=4 base625   west4      90    0    82    6.3057   0.9918   0.002247
+tetragrams N=4 base625   east5      85    2    79    6.2682   0.9944   0.001681
+engine storage base7     east1     305    0     6    2.4096   0.9321   0.194953
+engine storage base7     west1     317    0     6    2.4109   0.9327   0.193926
+engine storage base7     east2     364    0     6    2.3941   0.9262   0.199619
+engine storage base7     west2     314    0     6    2.3617   0.9136   0.206121
+engine storage base7     east3     423    0     6    2.3904   0.9247   0.201136
+engine storage base7     west3     382    0     6    2.3950   0.9265   0.198843
+engine storage base7     east4     367    0     6    2.3968   0.9272   0.198419
+engine storage base7     west4     370    0     6    2.3919   0.9253   0.199956
+engine storage base7     east5     352    0     6    2.3825   0.9217   0.202943
+
+natural-language unigram references from bundled language models
+lang       nom k    obs k letters    H bits  H/log2k        IoC     1/IoC
+English       26       25    2210    4.1310   0.8896   0.067401     14.84
+Finnish       29       20    1378    3.9442   0.9126   0.074337     13.45
+
+language-compatibility flags
+derived bands: alphabet 25..=30, entropy 3.7574..4.3178 bits
+grouping                   alphabet    entropy       both
+single N=1 base5                 no         no         no
+pairs N=2 base25                yes         no         no
+trigrams N=3 base125             no         no         no
+tetragrams N=4 base625           no         no         no
+engine storage base7             no         no         no
+fully compatible groupings: none
+nearest alphabet-size match: pairs N=2 base25
+
+independent collision state-count estimate
+pooled IoC: 0.012844; 1/IoC: 77.86; collision entropy: 6.2828 bits
+message-weighted IoC: 0.011708; 1/IoC: 85.41; pooled Shannon entropy: 6.2725 bits
+calibrated range: 73..90 states; contains established reading-layer size 83: yes
+calibration margin applied: 5.0%
+longest repeated isomorph in scanned k=3..=8: 8
+
+isomorph/window diagnostics
+ k  windows   inform  rep kinds  max rep   birthday N
+ 3     1018        5          1        3       610.13
+ 4     1009       19          5        3       316.79
+ 5     1000       59         18        4       165.95
+ 6      991      109         35        4       130.58
+ 7      982      161         51        4       119.46
+ 8      973      218         69        4       112.91
+
+synthetic N-state positive-control calibration
+seed: 7311717382793486708
+model: real message lengths, uniform N-symbol plaintext through N deterministic rotational alphabets
+true N  used   IoC pool     N pool      N msg  rel err    max iso
+     5     5   0.200019       5.00       5.05     0.95%          8
+    25    25   0.039774      25.14      25.39     1.58%          8
+    50    50   0.019820      50.45      48.86     2.29%          8
+    83    83   0.012077      82.80      83.97     1.17%          8
+   125   125   0.007959     125.65     120.12     3.90%          8
+max sampled relative error: 3.90%; applied margin: 5.00%
+
+Interpretation: no tested grouping matches both the bundled natural-language alphabet-size band and entropy band as raw plaintext. The nearest alphabet-size match is pairs N=2 base25, but its entropy is measured separately above.
+The independent collision estimate gives an approximate 73..90 state range, which overlaps the established 83-symbol reading layer. This agreement check does not assume 83, and it does not decode meaning.
+Near-uniform high entropy remains consistent with a permutation or other structured transformation of data, as in Experiment 4; these numbers constrain plausible encodings only.

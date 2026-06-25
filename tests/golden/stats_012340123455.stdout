@@ -1,0 +1,9 @@
+input: 10 glyphs
+  entropy:               2.3219 bits/glyph
+  index of coincidence:  0.1111
+  frequencies:
+    g0: 2
+    g1: 2
+    g2: 2
+    g3: 2
+    g4: 2

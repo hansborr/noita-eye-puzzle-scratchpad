@@ -1,0 +1,96 @@
+Thread 3 perfect-isomorphism / allomorph-consistency scan
+order: standard36-u012-d012
+seed: 123
+trials: 32
+message lengths: east1:99, west1:103, east2:118, west2:102, east3:137, west3:124, east4:119, west4:120, east5:114
+pooled length: 1036
+catalog windows: vetted discrete set {8, 9, 11} filtered by configured range 8..=11
+null: within each message, preserve the exact symbol multiset and length, shuffle order, recompute the internal-candidate count
+mapping-independent scope: ciphertext symbol equality and gap structure only; no symbol-to-meaning mapping or language scoring
+
+cross-message gap-pattern catalog
+  signature     win repeats  occ  nullmax          p       tier
+  ABC.DC.AD.B    11       4    4        0   0.030303     strong
+    occurrences: west1@40, west1@70, east2@45, east2@80
+  A.B.CB.AC       9       3    6        0   0.030303     strong
+    occurrences: east1@40, east1@68, west1@40, west1@70, east2@45, east2@80
+  ..A.B.CB.AC    11       3    6        0   0.030303     strong
+    occurrences: east1@38, east1@66, west1@38, west1@68, east2@43, east2@78
+  .A.B.CB.AC.    11       3    6        0   0.030303     strong
+    occurrences: east1@39, east1@67, west1@39, west1@69, east2@44, east2@79
+  AB.CB..C.A.    11       3    4        1   0.030303     strong
+    occurrences: west1@41, west1@71, east2@46, east2@81
+  A.B..B.A        8       2    7        1   0.030303 coincidental-class
+    occurrences: east1@40, east1@68, west1@40, west1@70, east2@45, east2@80, east3@101
+  .A.B..B.A       9       2    7        1   0.030303 coincidental-class
+    occurrences: east1@39, east1@67, west1@39, west1@69, east2@44, east2@79, east3@100
+  ...A.B..B.A    11       2    7        1   0.030303 coincidental-class
+    occurrences: east1@37, east1@65, west1@37, west1@67, east2@42, east2@77, east3@98
+  .A.BA..B        8       2    6        2   0.030303 coincidental-class
+    occurrences: east1@41, east1@69, west1@41, west1@71, east2@46, east2@81
+  A.BA..B.        8       2    6        2   0.030303 coincidental-class
+    occurrences: east1@42, east1@70, west1@42, west1@72, east2@47, east2@82
+  .A.BA..B.       9       2    6        2   0.030303 coincidental-class
+    occurrences: east1@41, east1@69, west1@41, west1@71, east2@46, east2@81
+  A.BA..B..       9       2    6        2   0.030303 coincidental-class
+    occurrences: east1@42, east1@70, west1@42, west1@72, east2@47, east2@82
+  A.BA..B....    11       2    6        2   0.030303 coincidental-class
+    occurrences: east1@42, east1@70, west1@42, west1@72, east2@47, east2@82
+  A.B....A..B    11       2    3        1   0.030303 coincidental-class
+    occurrences: east4@52, west4@54, east5@53
+  AB......B.A    11       2    3        1   0.030303 coincidental-class
+    occurrences: east4@51, west4@53, east5@52
+
+maximal-extension break localization
+  pair               left     right   idx island    far   flank class             
+  east1/east2          29        34    21      1      6      21 Boundary          
+  east1/east2          32        72    18      1      6      18 Boundary          
+  east1/east2          53        65    25      1      6      25 Boundary          
+  east1/east2          60        37    18      1      6      18 Boundary          
+  east1/west1          28        28    22      1      8      22 Boundary          
+  east1/west1          32        62    18      1      8      18 Boundary          
+  east1/west1          58        60    20      1      8      20 Boundary          
+  east1/west1          60        32    18      1      8      18 Boundary          
+  west1/east2          29        34    28      1     10      28 Boundary          
+  west1/east2          32        72    25      2      9      25 Boundary          
+  west1/east2          60        70    27      2     10      27 Boundary          
+  west1/east2          62        37    25      1     11      25 Boundary          
+
+headline internal-violation null
+  robust strong-bar internal violations: 0
+  matched null count: mean 0.000, median 0.0, q97.5 0, max 0
+  upper-tail add-one p: (32+1)/(32+1) = 1.000000
+  loose-bar note: the vetted empirical loose candidate is east4@65/west4@67 in the Stutter Section; it is benign and within the chance-collision null, so it is not promoted to the strong headline
+  result: 0 robust internal violations -> SUPPORTS (does not prove) perfect isomorphism
+
+safe-isomorph extent export
+  count: 16
+  pair                  left        right bound             
+  east1/east2         29..50       34..55 Boundary@21       
+  east1/east2         32..50       72..90 Boundary@18       
+  east1/east2         53..78       65..90 Boundary@25       
+  east1/east2         60..78       37..55 Boundary@18       
+  east1/west1         28..50       28..50 Boundary@22       
+  east1/west1         32..50       62..80 Boundary@18       
+  east1/west1         58..78       60..80 Boundary@20       
+  east1/west1         60..78       32..50 Boundary@18       
+  west1/east2         29..50       34..55 Boundary@28       
+  west1/east2         29..50       34..55 Boundary@28       
+  west1/east2         32..50       72..90 Boundary@25       
+  west1/east2         32..50       72..90 Boundary@25       
+  west1/east2         60..80       70..90 Boundary@27       
+  west1/east2         60..80       70..90 Boundary@27       
+  west1/east2         62..80       37..55 Boundary@25       
+  west1/east2         62..80       37..55 Boundary@25       
+
+wiki regression checks
+  3A messages 1/2                PASS produced [A..BC.D....AB.......DC... | A..BC.D....AB.......DC..D | Boundary@24]
+  3B messages 7/8/9              PASS produced [.AB......B.A | .AB......B.A | .AB......B.A | msg7 O-repeat @10/16/26 | no InternalCandidate in fixed 7/8/9 region]
+  3C bound hypothesis (fixed annotation) PASS produced [+++++xxxxx?????x++++++++++++]
+    hypothesis: fixed cited annotation from Allomorphs.md; conditional on single-deletion assumption; bounds where a difference must be, does not locate it
+  main isomorph control          PASS produced [A.B.CB.AC | 6]
+  positive control: fired
+
+Multiplicity note: multiple isomorph signatures, occurrence pairs, and vetted windows are tested; pointwise rows are labels for structural triage, while the matched null calibrates the internal-violation count.
+Interpretation: Perfect-Isomorphism.md and Allomorphs.md make this a family-selection check, not a decode. The observed 0 robust strong-bar internal violations SUPPORTS (does not prove) perfect isomorphism and keeps the GAK family viable; it does not imply "the eyes are GAK." A clean internal violation would disfavor the proven CTAK..XGAK family, but XGAK's upper edge is <=, not equality.
+Claim ceiling: the eyes remain deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext.

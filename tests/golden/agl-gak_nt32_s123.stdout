@@ -1,0 +1,64 @@
+Thread 2 AGL(1,83)-GAK stress test
+order: standard36-u012-d012
+seed: 123
+forward-simulation trials per subgroup: 32
+subgroups: C83:C82 and C83:C41 (preferred display order starts with C83:C82)
+mode: feasibility-only
+wiki pages under test: Affine-General-Linear-Group-(AGL).md; The-Transitivity-Restriction-(6-Groups-for-83).md; Message-Starts.md; Shared-Sections.md; Isomorphic-Cipher-Hierarchy.md
+
+observed mapping-independent structure
+  first symbols: east1:50, west1:80, east2:36, west2:76, east3:63, west3:34, east4:27, west4:77, east5:33
+  all-message shared prefix: start 1 len 2 values 66,5 distinct 2/2
+  selected shared-run lengths: 24,4,13,24,2,2,2,2,2,2,24,2,2,2,2,2,2,2,2,2,2,2,2,5,5,5,5,5,5,9,9,9,5,5,5,20,20,20
+  selected varying-run anchors:
+    east1/west1 start 1 len 24 distinct 20/24 role leading+counterpart
+    east1/west1 start 29 len 4 distinct 4/4 role counterpart
+    east1/west1 start 37 len 13 distinct 10/13 role counterpart
+    east1/east2 start 1 len 24 distinct 20/24 role leading-family
+    east1/west2 start 1 len 2 distinct 2/2 role leading-family
+    east1/east3 start 1 len 2 distinct 2/2 role leading-family
+    east1/west3 start 1 len 2 distinct 2/2 role leading-family
+    east1/east4 start 1 len 2 distinct 2/2 role leading-family
+    east1/west4 start 1 len 2 distinct 2/2 role leading-family
+    east1/east5 start 1 len 2 distinct 2/2 role leading-family
+    west1/east2 start 1 len 24 distinct 20/24 role leading-family
+    west1/west2 start 1 len 2 distinct 2/2 role leading-family
+    west1/east3 start 1 len 2 distinct 2/2 role leading-family
+    west1/west3 start 1 len 2 distinct 2/2 role leading-family
+    west1/east4 start 1 len 2 distinct 2/2 role leading-family
+    west1/west4 start 1 len 2 distinct 2/2 role leading-family
+    west1/east5 start 1 len 2 distinct 2/2 role leading-family
+    east2/west2 start 1 len 2 distinct 2/2 role leading+counterpart
+    east2/east3 start 1 len 2 distinct 2/2 role leading-family
+    east2/west3 start 1 len 2 distinct 2/2 role leading-family
+    east2/east4 start 1 len 2 distinct 2/2 role leading-family
+    east2/west4 start 1 len 2 distinct 2/2 role leading-family
+    east2/east5 start 1 len 2 distinct 2/2 role leading-family
+    west2/east3 start 1 len 5 distinct 5/5 role leading-family
+    west2/west3 start 1 len 5 distinct 5/5 role leading-family
+    west2/east4 start 1 len 5 distinct 5/5 role leading-family
+    west2/west4 start 1 len 5 distinct 5/5 role leading-family
+    west2/east5 start 1 len 5 distinct 5/5 role leading-family
+    east3/west3 start 1 len 5 distinct 5/5 role leading+counterpart
+    east3/east4 start 1 len 9 distinct 9/9 role leading-family
+    east3/west4 start 1 len 9 distinct 9/9 role leading-family
+    east3/east5 start 1 len 9 distinct 9/9 role leading-family
+    west3/east4 start 1 len 5 distinct 5/5 role leading-family
+    west3/west4 start 1 len 5 distinct 5/5 role leading-family
+    west3/east5 start 1 len 5 distinct 5/5 role leading-family
+    east4/west4 start 1 len 20 distinct 18/20 role leading+counterpart
+    east4/east5 start 1 len 20 distinct 18/20 role leading-family
+    west4/east5 start 1 len 20 distinct 18/20 role leading-family
+
+subgroup verdicts
+  group    verdict      agreement          forward fixed>=2/universe      max fixed controls    
+  C83:C82  excluded      0/40000        0/32             0/6724                   1 ok          
+    obstruction: east1/west1 start 1 len 2 distinct 2/2 after predecessors 50 vs 80
+    forward add-one p for a varying shared run: 0.030303
+  C83:C41  excluded      0/40000        0/32             0/3362                   1 ok          
+    obstruction: east1/west1 start 1 len 2 distinct 2/2 after predecessors 50 vs 80
+    forward add-one p for a varying shared run: 0.030303
+
+Interpretation: AGL(1,83)-GAK is rigorously excluded for both C83:C82 and C83:C41 under the verified right-multiplication / left-coset model. The wiki's tentative message-start exclusion was over-conceded / weaker than needed: the rigorous kill is the varying-shared-run mechanism. After a differing start, an affine discrepancy can fix at most one point, so any AGL shared run must be constant; the eyes' shared runs vary.
+Claim ceiling: this excludes one candidate group family and narrows the transitive GAK candidate set toward {A83, S83}, with D166 conditional elsewhere. It says nothing about recoverable plaintext; the eyes remain deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext. Scope: this excludes the point-stabilizer AGL-GAK family (output = moved reference point, single shared running key); it does not speak to non-GAK affine constructions or a non-point-stabilizer hidden subgroup.
+Multiplicity note: both AGL multiplier variants are tested, and the repeated tails reported here are structural/exhaustive checks rather than language-scoring claims.

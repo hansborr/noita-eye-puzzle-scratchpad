@@ -1,0 +1,23 @@
+Experiment 7A isomorph shuffle null
+order: standard36-u012-d012
+seed: 123
+trials: 5
+windows: 3..=8
+message lengths: east1:99, west1:103, east2:118, west2:102, east3:137, west3:124, east4:119, west4:120, east5:114
+pooled length: 1036
+boundary rule: detector runs within each message only; no window crosses a message join
+null: Fisher-Yates shuffle within each message, preserving that message's exact symbol multiset and length
+statistic: repeated informative first-occurrence signature kinds, summed over messages; all-distinct windows are ignored
+longest repeated real isomorph in scanned range: 8
+
+ k real kinds  max rep  null mean     null 95% null max   p>=real
+ 3          1        3      10.00        5..12       16    1.0000
+ 4          5        3      18.40       11..22       28    1.0000
+ 5         18        4      28.60       20..35       39    1.0000
+ 6         35        4      40.20       29..49       53    0.8333
+ 7         51        4      51.20       39..62       63    0.5000
+ 8         69        4      62.00       50..69       75    0.5000
+
+Interpretation: the real eye stream does not exceed the pointwise 95% within-message shuffle band for repeated-signature kind counts at the scanned k values. Short repeated isomorphs exist, but this run does not show arrangement structure beyond the same messages shuffled against themselves.
+The shuffle null holds symbol frequencies fixed and randomizes only order, so it tests arrangement rather than frequency. The p values are empirical fractions over the configured shuffles and are pointwise over the scanned k values.
+Any striking excess should be rechecked against Experiment 0 transcription integrity before interpretation.

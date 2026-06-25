@@ -1,0 +1,44 @@
+cross-message orientation-frequency homogeneity
+layer: engine-fixed single orientations 0..=4; delimiter 5 stripped
+order independence: no honeycomb traversal, no trigram reading layer, no symbol-to-meaning guess
+seed: 7525353827737954609
+seed streams: 2
+trials per seed: 8
+total repartitions: 16
+message lengths: east1:297, west1:309, east2:354, west2:306, east3:411, west3:372, east4:357, west4:360, east5:342
+total orientations: 3108 (verified eye-count sum 3108)
+null: shuffle the pooled orientation multiset and repartition into the true message lengths
+
+per-message orientation profiles
+msg      len    c0    c1    c2    c3    c4       f0       f1       f2       f3       f4
+east1    297    70    76    55    50    46   0.2357   0.2559   0.1852   0.1684   0.1549
+west1    309    70    69    72    53    45   0.2265   0.2233   0.2330   0.1715   0.1456
+east2    354    93    83    78    53    47   0.2627   0.2345   0.2203   0.1497   0.1328
+west2    306    75    77    77    44    33   0.2451   0.2516   0.2516   0.1438   0.1078
+east3    411   111    89    96    65    50   0.2701   0.2165   0.2336   0.1582   0.1217
+west3    372    85    94    86    58    49   0.2285   0.2527   0.2312   0.1559   0.1317
+east4    357    93    72    81    69    42   0.2605   0.2017   0.2269   0.1933   0.1176
+west4    360    93    86    80    54    47   0.2583   0.2389   0.2222   0.1500   0.1306
+east5    342    84    93    74    44    47   0.2456   0.2719   0.2164   0.1287   0.1374
+
+pooled orientation-frequency context
+pooled counts: 0:774, 1:739, 2:699, 3:490, 4:406
+pooled chi-square vs uniform: 171.817 df 4 p>=chi2 4.261477e-36
+
+observed cross-message homogeneity statistics
+Pearson X^2: 21.917 df 32 asymptotic p>=X^2 9.095989e-1
+G-test: 21.999 df 32 asymptotic p>=G 9.074206e-1
+
+length-matched repartition null
+stat           observed       mean            null 95%     null min/med/max     p<=obs     p>=obs         p2
+Pearson X^2      21.917     33.008      26.450..40.978 26.450/32.241/46.677   0.058824   1.000000   0.117647
+G-test           21.999     33.123      26.253..41.132 26.253/32.212/47.439   0.058824   1.000000   0.117647
+
+heterogeneous positive control
+fixture: same nine lengths, but each synthetic message has a deliberately different dominant orientation
+stat           observed            null 95%     p>=obs    verdict
+Pearson X^2    6975.521      19.477..38.099   0.058824 upper-tail
+G-test         5153.271      19.598..38.270   0.058824 upper-tail
+
+Interpretation: the observed homogeneity statistic lands in the bulk of the length-matched repartition null. Similar-looking per-message profiles are therefore unremarkable at this sampling depth.
+Decode potential: none directly. This is structural evidence at the orientation-frequency layer, not a language or cipher attack.

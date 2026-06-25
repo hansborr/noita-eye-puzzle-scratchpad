@@ -1,0 +1,40 @@
+Experiment 7D zero-adjacency forbidden-successor null
+order: standard36-u012-d012
+base seed: 8819581267975891456
+seed streams: 5
+trials per seed: 1000
+total shuffles: 5000
+message lengths: east1:99, west1:103, east2:118, west2:102, east3:137, west3:124, east4:119, west4:120, east5:114
+pooled length: 1036
+boundary rule: adjacent pairs are counted within each message only; no pair crosses a message join
+null: Fisher-Yates shuffle within each message, preserving that message's exact value multiset and length
+statistic: pooled adjacent-equal reading-layer value pairs under the fixed accepted honeycomb order
+
+observed eye statistic
+  observed adjacent equal: 0/1027 = 0.000000
+  analytic E from per-message multisets: 12.008220
+  position vs shuffle band: below
+  msg       len    pairs      adj          E
+  east1      99       98        0      1.131
+  west1     103      102        0      1.282
+  east2     118      117        0      1.339
+  west2     102      101        0      1.118
+  east3     137      136        0      1.679
+  west3     124      123        0      1.468
+  east4     119      118        0      1.479
+  west4     120      119        0      1.250
+  east5     114      113        0      1.263
+
+within-message shuffle null
+  adjacent-equal count: mean 11.94, 95% 6..19, median 12.0, min 2, max 25
+  lower-tail add-one p: (0+1)/(5000+1) = 2.000e-4
+
+positive controls
+  control                   adj          E     null95      p<=obs     band
+  free-permutation           10      9.000      4..15    0.700460   within
+    one Fisher-Yates draw from a 12-symbol x10 multiset
+  no-repeat-successor         0      9.000      4..15    3.999e-4    below
+    round-robin arrangement of the same 12-symbol x10 multiset
+
+Interpretation: observed zero adjacent equal pairs sits below the within-message multiset shuffle band while analytic E=12.008220. That is structural evidence for a no-fixed-successor / forbidden-successor mechanism beyond frequency flatness, but it decodes nothing and does not identify a cipher.
+The result is conditional on the Experiment-0-verified transcription and the fixed accepted honeycomb order; the null randomizes arrangement within each message, not reading order or symbol meaning.

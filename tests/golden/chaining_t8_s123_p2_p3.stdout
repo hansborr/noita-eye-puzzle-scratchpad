@@ -1,0 +1,24 @@
+Experiment 7B alphabet-chaining structural control
+order: standard36-u012-d012
+alphabet: reading-layer values 0..=82
+seed: 123
+trials per period/control: 8
+periods: 2..=3
+message lengths: east1:99, west1:103, east2:118, west2:102, east3:137, west3:124, east4:119, west4:120, east5:114
+pooled length: 1036
+boundary rule: columns reset at each message; no column evidence crosses message joins
+procedure: split by position mod p; estimate adjacent additive shifts by maximum circular distribution overlap
+quality: best overlap minus second-best overlap; score = mean quality * cycle closure
+controls: generated Vigenere known-succeed, independent per-column substitution known-fail, and within-column shuffled fail invariance check
+
+ p  eye score  eye qual   resid     succeed 95%        fail 95%   shuf-fail 95%      verdict
+ 2     0.0020    0.0020    0/41  0.2688..0.2906  0.0000..0.0216  0.0000..0.0216   known-fail
+ 3     0.0103    0.0112    3/41  0.2860..0.3379  0.0036..0.0086  0.0036..0.0086      between
+
+calibration detail
+ p     succ qual 95%     fail qual 95%     succ ovlp 95%     fail ovlp 95%    succ resid 95%    fail resid 95%
+ 2    0.2688..0.2906    0.0000..0.0216    0.9927..0.9928    0.6795..0.7158              0..0              0..0
+ 3    0.2860..0.3379    0.0038..0.0156    0.9908..0.9911    0.6511..0.6704              0..0             2..22
+
+Interpretation: period placement summary: 1 known-fail, 0 known-succeed, 1 between separated bands, 0 uncalibrated-overlap.
+This is a structural null result only. It does not prove the eyes are meaningless, and it does not rule out other encodings, period models, reading orders, transcription corrections, or non-additive alphabet relationships.

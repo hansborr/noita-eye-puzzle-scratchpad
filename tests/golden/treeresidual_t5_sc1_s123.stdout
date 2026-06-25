@@ -1,0 +1,26 @@
+tree-residual cross-tail n-gram null
+order: standard36-u012-d012
+seed: 123
+seed batches: 1
+trials per seed: 5
+null samples per row: 5
+message lengths: east1:99, west1:103, east2:118, west2:102, east3:137, west3:124, east4:119, west4:120, east5:114
+pooled full length: 1036
+residual tail lengths: east1:58(4 segs,max 49), west1:62(4 segs,max 53), east2:94(2 segs,max 93), west2:97(2 segs,max 96), east3:128(2 segs,max 127), west3:119(2 segs,max 118), east4:99(2 segs,max 98), west4:100(2 segs,max 99), east5:94(2 segs,max 93)
+pooled residual length: 851
+mask reused: Experiment 7C Perseus shared-region definition, same-offset runs len >= 2 in the earliest leading-family alignment or East/West counterpart pairs
+boundary rule: k-grams are built within one message residual segment at a time; no k-gram crosses a message join or a masked shared span
+statistic: distinct k-gram kinds occurring in >=2 different messages, position-independent across message tails
+null: Fisher-Yates shuffle within each message tail, preserving residual segment lengths and that message's exact residual symbol multiset
+full-message sanity: the same statistic and shuffle are also run on unmasked messages to verify that the aligned trunk drives the known sharing
+sampled seeds: 123
+
+scope            k   shared  distinct  maxmsg  null mean     null 95% null max    p>=obs        p2  verdict
+residual-tails   3        3       813       2       0.20         0..0        1  0.166667  0.333333   inside
+residual-tails   4        0       803       1       0.00         0..0        0  1.000000  1.000000   inside
+full-messages    3       56       909       6       1.20         0..2        3  0.166667  0.333333   inside
+full-messages    4       49       912       6       0.00         0..0        0  0.166667  0.333333   inside
+
+Interpretation: after the Experiment 7C shared-region mask is removed, the divergent tails do not show a pointwise upper-tail excess of position-independent shared k-grams at the scanned k values. This supports the negative hypothesis: the cross-message sharing is explained by the aligned trunk rather than by a second floating reused-key or repeated-motif layer.
+Sanity cross-check: full unmasked messages did not exceed the shuffle band in this configured run, so this run does not validate the trunk-driving expectation.
+The result is conditional on the fixed engine-verified honeycomb streams and on the Perseus shared-region operationalization printed above. It uses only integer reading-layer values, with no symbol-meaning guesses or language scoring.

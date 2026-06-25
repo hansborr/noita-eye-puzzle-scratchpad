@@ -1,0 +1,51 @@
+Experiment 11 isomorph/polyalphabetic positive control
+seed: 123
+alphabet: 26 symbols (ABCDEFGHIJKLMNOPQRSTUVWXYZ)
+detector: first-occurrence signatures over 16-glyph windows; periods 2..=16
+ground truth: plaintext has period-aligned planted repeats; Vigenere key period is 7; autokey and running-key have no short repeating key
+invariant: Vigenere period matches >= 850; each absent fixture max period matches <= 64
+
+known-present Vigenere repeating-key fixture (Vigenere)
+key: period-7 key JRGABMH
+length: 1496 glyphs
+plaintext:  THEMETHODCHECKSTHEKNOWNCIPHERBEFOREITJUDGESTHEUNKNOWNMESSAGEASIMPLESUBSTITUTIONCHANG...
+ciphertext: CYKMFFOXUIHFORBKNELZVFEIIQTLASKFPDLRKPUESLBKNEVZRWFCNNQZBRMEBEPVGRETGIBKOTVFPXEIHBZN...
+cipher entropy/IoC/distinct: 4.6371 bits / 0.041206 / 26
+plaintext IoC: 0.074423
+informative windows: 1480; repeated signature kinds: 50; exact repeated windows: 38
+period-7 signature matches: 928
+best period: 7 (928 matches across 44 signatures)
+top period-7 signatures:
+  [0,0,1,1,2,3,2,4,5,6,7,8,9,2,2,8] at 434,539,644,749,854,966,1064,1176,1288 (36 period matches)
+  [0,0,1,2,0,3,4,0,0,5,5,4,6,4,7,8] at 427,532,637,742,847,959,1057,1169,1281 (36 period matches)
+  [0,0,1,2,1,3,4,5,6,7,8,1,1,7,9,8] at 436,541,646,751,856,968,1066,1178,1290 (36 period matches)
+
+known-absent autokey short-seed fixture (autokey)
+key: 43-symbol seed HZAVYEEYWOKBWVKRXPABZDYGAKCGWYEHJEYDBGTSEMH
+length: 1496 glyphs
+plaintext:  THEMETHODCHECKSTHEKNOWNCIPHERBEFOREITJUDGESTHEUNKNOWNMESSAGEASIMPLESUBSTITUTIONCHANG...
+ciphertext: AGEHCXLMZQRFYFCKETKONZLIIZJKNZIMXVCLUPNVKQZMOIGRDUCZPTIUCSZLECVALYGAJIWKJXZHZSVVQUQM...
+cipher entropy/IoC/distinct: 4.6428 bits / 0.040788 / 26
+plaintext IoC: 0.074423
+informative windows: 1479; repeated signature kinds: 16; exact repeated windows: 0
+period-7 signature matches: 9
+best period: 2 (14 matches across 10 signatures)
+top period-7 signatures:
+  [0,1,2,3,4,2,5,6,7,8,9,10,11,12,13,14] at 925,1310,1373 (3 period matches)
+  [0,1,2,3,4,5,3,6,7,8,9,10,11,12,13,14] at 924,1309,1372 (3 period matches)
+  [0,1,2,3,4,5,6,7,8,9,10,11,12,13,1,14] at 35,235,238 (1 period matches)
+
+known-absent full-length running-key fixture (running key)
+key: 1496-symbol full-length key stream
+length: 1496 glyphs
+plaintext:  THEMETHODCHECKSTHEKNOWNCIPHERBEFOREITJUDGESTHEUNKNOWNMESSAGEASIMPLESUBSTITUTIONCHANG...
+ciphertext: ECKERCWZKAVTZBHBWUPHIELWWGZMHAYKRBAFGJWZUDUEGDNEMBSHKGHDGLAMMWZRQZACTYFOSGGSOJHEDQGL...
+cipher entropy/IoC/distinct: 4.6901 bits / 0.038377 / 26
+plaintext IoC: 0.074423
+informative windows: 1477; repeated signature kinds: 3; exact repeated windows: 0
+period-7 signature matches: 1
+best period: 11 (3 matches across 3 signatures)
+top period-7 signatures:
+  [0,1,2,3,4,5,6,7,8,9,10,11,2,12,13,14] at 275,506 (1 period matches)
+
+Interpretation: this control shows the isomorph/period tooling recovers the repeating-key Vigenere period when English prose contains period-aligned planted repeats. The autokey and running-key fixtures use the same planted repeats but do not show a short period, so the contrast isolates key structure rather than plaintext content. It does not claim arbitrary natural text would produce this signal, and it says nothing about whether the unsolved eye glyphs encode a message. If this control fails, the methodology is suspect.

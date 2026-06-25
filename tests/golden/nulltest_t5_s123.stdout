@@ -1,0 +1,20 @@
+standard36 random-grid null
+seed: 123
+trials: 5
+orders searched per trial: 36
+resampled: verified row-width structure with uniform orientation cells 0..=4
+held fixed: honeycomb traversal, trigram grouping, and the statistic family
+
+headline exact 0..=82: 0/5 = 0.000000 (95% Wilson 0.000000..0.434482)
+some order adjacent_equal == 0: 0/5 = 0.000000 (95% Wilson 0.000000..0.434482)
+min distinct achieved over standard36: 125:5
+min ceiling achieved over standard36: 124:5
+best distance-4 ratio d4/mean(d1..d6): min 0.600, median 0.732, max 1.286
+
+analytic fixed-order headline bounds under independent uniform trigrams:
+  per-order (83/125)^1036: 5.836201e-185
+  Bonferroni over 36 orders: 2.101032e-183
+  Sidak over 36 orders: 2.101032e-183
+
+Interpretation: this corrects grid-content randomness and fixed standard36 digit-permutation selection only. It does not correct for broader researcher degrees of freedom such as choosing the traversal family, grouping rule, or headline statistic after looking at the data.
+Seed-stability note: multi-seed regressions over seeds 12345, 67890, 13579, 24680, and 424242 keep the exact contiguous-0..=82 headline count at zero; changing seed only moves sampled null summaries.

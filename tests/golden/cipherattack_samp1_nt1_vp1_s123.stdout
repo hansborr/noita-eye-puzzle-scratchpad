@@ -1,0 +1,74 @@
+Experiment 12 candidate-cipher language-scoring/null harness
+order: standard36-u012-d012
+alphabet: eye reading-layer values 0..=82
+fundamental limitation: English/Finnish scores require an unknown 83-symbol-to-letter mapping; every mapping below is an unverified guess
+seed: 123
+sampled keys: 1
+shuffle null trials: 1
+Vigenere periods searched: 1..=1
+message lengths: east1:99, west1:103, east2:118, west2:102, east3:137, west3:124, east4:119, west4:120, east5:114
+pooled length: 1036
+boundary rule: stateful ciphers reset per message; language scores are weighted per message and never form bigrams across joins
+null model: within-message shuffle of the accepted eye stream, preserving message lengths and symbol counts, with the same key search reapplied
+
+cipher              lang    mapping              real  null mean   null q95        p    verdict best key                    
+Caesar              English mod26             -3.6581    -3.6630    -3.6630   0.0000  above-max shift=78                    
+Caesar              English rankfreq-cdf26    -3.1481    -3.1583    -3.1583   0.0000  above-max shift=54                    
+Caesar              Finnish mod29             -3.6131    -3.6422    -3.6422   0.0000  above-max shift=59                    
+Caesar              Finnish rankfreq-cdf29    -2.9762    -2.9682    -2.9682   1.0000   inside95 shift=39                    
+incrementing-wheel  English mod26             -3.6004    -3.6362    -3.6362   0.0000  above-max start=32 step=15            
+incrementing-wheel  English rankfreq-cdf26    -3.0819    -3.1085    -3.1085   0.0000  above-max start=70 step=59            
+incrementing-wheel  Finnish mod29             -3.5870    -3.6006    -3.6006   0.0000  above-max start=65 step=28            
+incrementing-wheel  Finnish rankfreq-cdf29    -2.9141    -2.9388    -2.9388   0.0000  above-max start=41 step=61            
+Vigenere            English mod26             -3.7150    -3.6603    -3.6603   1.0000   inside95 period=1 shifts=48          
+Vigenere            English rankfreq-cdf26    -3.1638    -3.1403    -3.1403   1.0000   inside95 period=1 shifts=48          
+Vigenere            Finnish mod29             -3.6975    -3.7215    -3.7215   0.0000  above-max period=1 shifts=48          
+Vigenere            Finnish rankfreq-cdf29    -3.0412    -2.9902    -2.9902   1.0000   inside95 period=1 shifts=48          
+Chaocipher          English mod26             -3.6911    -3.7142    -3.7142   0.0000  above-max sample=0 seed=11555586871258...
+Chaocipher          English rankfreq-cdf26    -3.2112    -3.2286    -3.2286   0.0000  above-max sample=0 seed=11555586871258...
+Chaocipher          Finnish mod29             -3.7038    -3.7026    -3.7026   1.0000   inside95 sample=0 seed=11555586871258...
+Chaocipher          Finnish rankfreq-cdf29    -3.0093    -3.0287    -3.0287   0.0000  above-max sample=0 seed=11555586871258...
+S_N deck            English mod26             -3.6733    -3.7402    -3.7402   0.0000  above-max sample=0 seed=18388262451724...
+S_N deck            English rankfreq-cdf26    -3.1712    -3.2812    -3.2812   0.0000  above-max sample=0 seed=18388262451724...
+S_N deck            Finnish mod29             -3.6734    -3.6545    -3.6545   1.0000   inside95 sample=0 seed=18388262451724...
+S_N deck            Finnish rankfreq-cdf29    -3.0011    -3.0726    -3.0726   0.0000  above-max sample=0 seed=18388262451724...
+
+search methods
+  Caesar: 83 candidates; keyspace 83 shifts; brute-forced all 83 shifts
+  incrementing-wheel: 6889 candidates; keyspace 83 x 83 start/step pairs; brute-forced every start and step
+  Vigenere: 1 candidates; keyspace sum 83^p for p=1..=1 (83 keys); sampled 1 short-period Vigenere keys with SplitMix64
+  Chaocipher: 1 candidates; keyspace about 83! x 83! initial alphabet pairs; sampled 1 Chaocipher keys with SplitMix64; this is not a brute force
+  S_N deck: 1 candidates; keyspace about 83! deck permutations times 83 x 82 controls; sampled 1 deck keys with SplitMix64; this is not a brute force
+
+mapping caveats
+  Caesar / English / mod26: unverified guess: map each 83-symbol candidate value by value modulo the target letter count
+  Caesar / English / rankfreq-cdf26: unverified guess: rank candidate 83-symbol frequencies and bucket them into language letter-frequency mass
+  Caesar / Finnish / mod29: unverified guess: map each 83-symbol candidate value by value modulo the target letter count
+  Caesar / Finnish / rankfreq-cdf29: unverified guess: rank candidate 83-symbol frequencies and bucket them into language letter-frequency mass
+  incrementing-wheel / English / mod26: unverified guess: map each 83-symbol candidate value by value modulo the target letter count
+  incrementing-wheel / English / rankfreq-cdf26: unverified guess: rank candidate 83-symbol frequencies and bucket them into language letter-frequency mass
+  incrementing-wheel / Finnish / mod29: unverified guess: map each 83-symbol candidate value by value modulo the target letter count
+  incrementing-wheel / Finnish / rankfreq-cdf29: unverified guess: rank candidate 83-symbol frequencies and bucket them into language letter-frequency mass
+  Vigenere / English / mod26: unverified guess: map each 83-symbol candidate value by value modulo the target letter count
+  Vigenere / English / rankfreq-cdf26: unverified guess: rank candidate 83-symbol frequencies and bucket them into language letter-frequency mass
+  Vigenere / Finnish / mod29: unverified guess: map each 83-symbol candidate value by value modulo the target letter count
+  Vigenere / Finnish / rankfreq-cdf29: unverified guess: rank candidate 83-symbol frequencies and bucket them into language letter-frequency mass
+  Chaocipher / English / mod26: unverified guess: map each 83-symbol candidate value by value modulo the target letter count
+  Chaocipher / English / rankfreq-cdf26: unverified guess: rank candidate 83-symbol frequencies and bucket them into language letter-frequency mass
+  Chaocipher / Finnish / mod29: unverified guess: map each 83-symbol candidate value by value modulo the target letter count
+  Chaocipher / Finnish / rankfreq-cdf29: unverified guess: rank candidate 83-symbol frequencies and bucket them into language letter-frequency mass
+  S_N deck / English / mod26: unverified guess: map each 83-symbol candidate value by value modulo the target letter count
+  S_N deck / English / rankfreq-cdf26: unverified guess: rank candidate 83-symbol frequencies and bucket them into language letter-frequency mass
+  S_N deck / Finnish / mod29: unverified guess: map each 83-symbol candidate value by value modulo the target letter count
+  S_N deck / Finnish / rankfreq-cdf29: unverified guess: rank candidate 83-symbol frequencies and bucket them into language letter-frequency mass
+
+positive control
+  Caesar: expected shift=17, recovered shift=17, score -2.7736, null max -3.2809, margin 0.5073, p 0.0000
+  Vigenere: expected period=2 shifts=3,11, recovered period=2 shifts=3,11, score -2.7736, null max -3.3675, margin 0.5939, p 0.0000
+
+caveat: any apparent hit is not credible unless it has a fully reproducible, independently checkable method and is rechecked against Experiment 0 transcription integrity; this command makes no message claim
+Interpretation: 14 of 20 rows (70.0%) exceed the one-sided 95% shuffled-null band, and 14 exceed the sampled null maximum. If the shuffle null were a valid no-difference reference for these selected best-score rows, only about 1.0 of 20 rows (~5%) would be expected to clear that band; this run is far above that expectation at 14.0x the rate. That is an exceedance-rate diagnostic, not 14 near-solutions.
+The null construction shuffles symbols within each message and reapplies the same key search, so it preserves message lengths and symbol counts but destroys local order. The defensible cause is that the bigram language score detects the eye stream's already documented mild local structure - the distance-4 recurrence / slight bigram non-uniformity established in Experiments 4, 5A, and 7A - relative to symbol-shuffled data. That known structural property is not cipher signal; the null does not use a smaller key search than the real rows.
+Effect-size contrast: eye rows that clear the sampled null maximum do so by only 0.0049..0.1100 nats, while the same harness recovers positive-control plant margins of 0.5073..0.5939 nats. The plant effect is about 5x to 122x larger, so the eyes' best decryptions are nowhere near the scale of a genuine cipher hit.
+Multiple comparisons: this configured run scans 20 cipher/mapping/language rows and 27900 row-level key evaluations before selecting best scores. The reported p values are pointwise and uncorrected across the scanned ciphers, mappings, languages, and keyspaces; small values are expected by selection, and no family-wise-significant result exists in this report.
+Overall conclusion: clean negative. No credible English/Finnish decryption is established, and there is no message claim. The run constrains only these candidate ciphers, this reading order, these sampled keyspaces, and these unverified symbol-to-letter mappings; any apparent hit still requires a fully reproducible, independently checkable method plus an Experiment 0 transcription-integrity recheck.

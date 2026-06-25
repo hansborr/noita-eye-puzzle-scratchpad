@@ -1,0 +1,63 @@
+first-order conditional structure & successor graph
+order: standard36-u012-d012
+alphabet: accepted honeycomb reading-layer values 0..=82
+base seed: 123
+shuffle null: 2 seeds x 2 trials/seed = 4 within-message multiset-preserving shuffles
+no-repeat null: symmetric swap-chain shuffles conditioned on zero adjacent-equal pairs (100 burn-in sweeps, 20 sweeps/sample)
+message lengths: east1:99, west1:103, east2:118, west2:102, east3:137, west3:124, east4:119, west4:120, east5:114
+boundary rule: transitions are counted within each message only; no transition crosses a message join
+low-power caveat: 1036 symbols, 1027 transitions, and 6889 cells in an 83x83 matrix (mean 0.149 transitions/cell; 12.48 symbols/value). An inside-shuffle row is only a null-comparison result at this corpus size, not proof of memorylessness.
+entropy correction: add-constant alpha=1.0 over the full 83-symbol next-state support; raw plug-in MI is shown only as a sparse-sample diagnostic
+
+observed transition matrix
+  nonzero cells: 850/6889 (12.339% density)
+  active rows/cols: 83/83; chi2 df 6724; expected cells <1/<5: 6889/6889
+  H(next) raw/corrected: 6.2671/6.2831 bits; H(next|current) raw/corrected: 3.3154/6.2824 bits
+  MI raw/corrected: 2.9518/0.000726 bits; G raw/corrected from MI: 4202.5/1.034; Pearson chi2: 8481.321
+  diagonal: 0 self-transitions in 83 cells; fitted-independence expectation 14.22; diagonal Pearson contribution 14.215
+  off-diagonal: 850 edges over 6806 cells (12.489% density); chi2 contribution 8467.106; expected cells <1/<5: 6806/6806
+  successor graph: 850 edges, mean out-degree 10.24, max out-degree 19, successor entropy 3.1863 bits, out-degree entropy 3.5965 bits, FSM lower bound 850 states
+
+within-message shuffle comparisons (unconstrained, diagonal included)
+statistic                     observed     null med            null 95%  p two-sided       flag
+H(next) add-1 bits            6.283129     6.288188  6.285937..6.288526     0.400000   pt95-out
+H(next|cur) add-1 bits        6.282403     6.303907  6.301505..6.304146     0.400000   pt95-out
+MI add-1 bits                 0.000726    -0.015636 -0.017732..-0.015619     0.400000   pt95-out
+transition chi2                8481.32      6799.76    6515.74..6863.64     0.400000   pt95-out
+successor edges                    850          946            932..948     0.400000   pt95-out
+successor entropy             3.186264     3.380033  3.356340..3.382719     0.400000   pt95-out
+FSM lower bound                    850          946            932..948     0.400000   pt95-out
+p-values are two-sided add-one empirical values and pointwise over 7 displayed statistics; no family-wise correction is claimed.
+
+diagonal/no-repeat accounting
+  self transitions: eyes 0, unconstrained shuffle mean 12.00, 95% 11..12, p 0.400000; fitted-independence expectation 14.22
+  off-diagonal successor edges vs unconstrained shuffle: eyes 850, 95% 921..936, flag pt95-out
+  off-diagonal Pearson contribution vs unconstrained shuffle: eyes 8467.11, 95% 6453.63..6816.08, flag pt95-out
+  diagonal Pearson contribution is 14.215 of the full 8481.321; dropping diagonal cells is a diagnostic, while the no-repeat null below conditions the shuffles on the known zero-adjacency constraint.
+
+no-repeat-conditioned shuffle comparisons
+statistic                     observed     null med            null 95%  p two-sided       flag
+self transitions                     0            0                0..0     1.000000     inside
+MI add-1 bits                 0.000726    -0.013896 -0.014873..-0.013665     0.400000   pt95-out
+offdiag transition chi2        8467.11      6747.79    6676.85..6790.74     0.400000   pt95-out
+offdiag successor edges            850          942            930..943     0.400000   pt95-out
+The chain preserves each message multiset and rejects swaps that would create x->x; p-values are empirical over recorded chain states, not asymptotic chi-square tails.
+
+flat-random estimator-bias calibration (true MI = 0)
+  trials: 4; alphabet: 83; matched message lengths
+  plug-in MI mean 2.7781, abs-mean 2.7781, 95% 2.764628..2.786791
+  add-1 MI mean 0.019898, abs-mean 0.019898, 95% 0.014334..0.022383
+
+planted structure controls
+control                       MI raw   MI add-1         MI null 95%    edges     edge null 95%    FSM lb    verdict
+structured monoalphabetic      3.745  -0.110988 -1.436792..-1.432089       18          240..242        18  separated
+structured deck-permuted       2.804   0.025595  0.022670..0.024088      945          946..959       945  separated
+control construction: fixed monoalphabetic substitution of a low-successor structured source; same structured source under a position-dependent additive alphabet permutation.
+
+Interpretation: the original seven-row unconstrained shuffle table has pointwise exceedances in H(next) add-1 bits (p=0.400000), H(next|cur) add-1 bits (p=0.400000), MI add-1 bits (p=0.400000), transition chi2 (p=0.400000), successor edges (p=0.400000), successor entropy (p=0.400000), FSM lower bound (p=0.400000).
+Diagonal confound: the accepted eye order has 0 adjacent-equal self-transitions, while the unconstrained shuffle null averages 12.00 with 95% 11..12. Those raw exceedances are therefore dominated by the already-known zero-adjacency constraint.
+Dropping diagonal cells alone leaves unconstrained-shuffle diagnostic flags in offdiag transition chi2 (p=0.400000), offdiag successor edges (p=0.400000); this is not the final control because that null still permits adjacent repeats.
+After conditioning the shuffle null on zero adjacent-equal pairs, pointwise flags remain in MI add-1 bits (p=0.400000), offdiag transition chi2 (p=0.400000), offdiag successor edges (p=0.400000). Treat them as a tiny residual arrangement effect with negligible effect size (corrected MI near zero, below), not novel first-order memory.
+Effect size: corrected MI is 0.000726 bits (1.139e-4 of the 6.375-bit maximum); raw plug-in MI exceeds the flat-random null mean by 0.174 bits and collapses to -0.019171 bits after correction.
+Sparse-table caveat: 6889/6889 Pearson expected cells are <1 (<5: 6889), with mean 0.149; the asymptotic chi-square df=6724 tail is invalid. The Pearson value 8481.321 is a sparse-table inflation artifact relative to G=2*N*MI: 4202.5 from raw MLE MI and 1.034 after add-1 correction.
+Raw unconstrained exceedances are dominated by the known zero-adjacency constraint (above). Any exceedances that survive the no-repeat-conditioned null are not attributable to zero-adjacency (that null controls it) nor to table sparsity (those tails are empirical, not asymptotic); they reflect only a tiny residual arrangement effect whose honest effect size is negligible (corrected MI near zero, above). None of this is a plaintext/decryption claim or evidence of novel first-order memory. The planted controls still verify directionality for truly first-order-structured fixtures.

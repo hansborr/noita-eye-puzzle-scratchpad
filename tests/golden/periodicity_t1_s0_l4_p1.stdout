@@ -1,0 +1,89 @@
+Experiment 5A periodicity/autocorrelation battery
+order: standard36-u012-d012
+alphabet: reading-layer values 0..=82
+seed: 0
+trials: 1
+periods: 1..=1 ; lags: 1..=4 ; Kasiski n-grams: 2..=5
+message lengths: east1:99, west1:103, east2:118, west2:102, east3:137, west3:124, east4:119, west4:120, east5:114
+pooled length: 1036
+boundary rule: pooled statistics aggregate within-message evidence only; no lag pairs, period columns, or n-grams cross message joins
+IoC convention: analysis::index_of_coincidence probability form; x83 normalizes to the uniform 83-symbol baseline
+sampled report-wide null envelopes: period x83 <= 1.300; autocorrelation rate <= 0.034188
+
+pooled IoC-by-period
+  p        IoC        x83        null x83 95%   null max    flag
+  1   0.011679      0.969        1.072..1.072      1.072  inside
+
+pooled autocorrelation profile
+lag     matches       rate        x83       null rate 95%   null max    flag
+  1      0/1027   0.000000      0.000        0.009..0.009   0.008763  inside
+  2      5/1018   0.004912      0.408        0.011..0.011   0.010806  inside
+  3      9/1009   0.008920      0.740        0.013..0.013   0.012884  inside
+  4     26/1000   0.026000      2.158        0.012..0.012   0.012000    pt95
+
+per-message strongest apparent rows
+msg      len   best p     p x83  p flag best lag    lag rate lag flag
+east1     99        1     0.958  inside        4    0.021053    pt95
+west1    103        1     1.043  inside        4    0.030303    pt95
+east2    118        1     0.950  inside        4    0.017544    pt95
+west2    102        1     0.918  inside        4    0.020408    pt95
+east3    137        1     1.025    pt95        4    0.022556  inside
+west3    124        1     0.990  inside        2    0.024590  inside
+east4    119        1     1.040    pt95        4    0.034783     OUT
+west4    120        1     0.872  inside        4    0.034483     OUT
+east5    114        1     0.928  inside        4    0.036364     OUT
+
+pooled Kasiski distances
+  n    repeat    occurs      dist   gcd top distances                per-ngram gcds               top factors                 
+  2         9        18         9     1 31:2,27:1,28:1,29:1,34:1,49:1,63:1,71:1 31:2,27:1,28:1,29:1,34:1,49:1,63:1,71:1 none                        
+  3         0         0         0     0 none                         none                         none                        
+  4         0         0         0     0 none                         none                         none                        
+  5         0         0         0     0 none                         none                         none                        
+
+per-message Kasiski summaries
+msg      n    repeat    occurs      dist   gcd top factors                 
+east1    2         0         0         0     0 none                        
+east1    3         0         0         0     0 none                        
+east1    4         0         0         0     0 none                        
+east1    5         0         0         0     0 none                        
+west1    2         0         0         0     0 none                        
+west1    3         0         0         0     0 none                        
+west1    4         0         0         0     0 none                        
+west1    5         0         0         0     0 none                        
+east2    2         0         0         0     0 none                        
+east2    3         0         0         0     0 none                        
+east2    4         0         0         0     0 none                        
+east2    5         0         0         0     0 none                        
+west2    2         2         4         2     1 none                        
+west2    3         0         0         0     0 none                        
+west2    4         0         0         0     0 none                        
+west2    5         0         0         0     0 none                        
+east3    2         2         4         2     1 none                        
+east3    3         0         0         0     0 none                        
+east3    4         0         0         0     0 none                        
+east3    5         0         0         0     0 none                        
+west3    2         0         0         0     0 none                        
+west3    3         0         0         0     0 none                        
+west3    4         0         0         0     0 none                        
+west3    5         0         0         0     0 none                        
+east4    2         1         2         1    27 none                        
+east4    3         0         0         0     0 none                        
+east4    4         0         0         0     0 none                        
+east4    5         0         0         0     0 none                        
+west4    2         2         4         2     1 none                        
+west4    3         0         0         0     0 none                        
+west4    4         0         0         0     0 none                        
+west4    5         0         0         0     0 none                        
+east5    2         2         4         2     1 none                        
+east5    3         0         0         0     0 none                        
+east5    4         0         0         0     0 none                        
+east5    5         0         0         0     0 none                        
+
+Caveat: only 1 Monte-Carlo trial(s) were sampled (< 50); the report-wide null envelope is undersampled and the OUT/inside verdict is not reliable.
+Interpretation: 3 pooled/per-message period/lag rows exceed the sampled report-wide random-null envelope (OUT): east4 lag=4, west4 lag=4, east5 lag=4. Because at least one row is OUT, this run does not support the no-exceedance verdict and does not rule out a simple fixed-period polyalphabetic cipher under this honeycomb reading order.
+Near-uniform IoC-by-period is also exactly what a fixed permutation of structured data can produce. Pointwise pt95 rows are shown as noise candidates only; a peak inside the sampled envelope is not a period claim.
+Distance-4 reconciliation: lag 4 is the dominant pooled autocorrelation peak under this honeycomb order, consistent with Experiment 1B's distance-4 spike.
+The report-wide envelope is a family-wise verdict over all scanned lags; lag 4 is inside that envelope, but it still exceeds its own per-lag band (pt95). Therefore, no family-wise exceedance is not evidence that the d4 structure is absent.
+Experiment 1B's targeted distance-4 test, appropriate for a pre-identified distance under the best-over-36 null, found d4 significant; this broad conservative sweep does not contradict it.
+Because OUT rows are present in this configured run, the broad scan should not be summarized as showing no new family-wise period/lag signal. The d4 structure itself is order-contingent and is not a message claim.
+Any future striking period must be rechecked against Experiment 0 transcription integrity before interpretation.

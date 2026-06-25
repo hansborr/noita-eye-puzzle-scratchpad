@@ -1,0 +1,45 @@
+Experiment 20 honeycomb 2D lattice structure
+order: standard36-u012-d012
+seed: 123
+trials: 5
+message lengths: east1:99, west1:103, east2:118, west2:102, east3:137, west3:124, east4:119, west4:120, east5:114
+pooled length: 1036
+band widths:
+  east1: 26,26,26,21
+  west1: 26,26,26,25
+  east2: 26,26,26,26,14
+  west2: 26,26,26,24
+  east3: 26,26,26,26,26,7
+  west3: 26,26,26,26,20
+  east4: 26,26,26,26,15
+  west4: 26,26,26,26,16
+  east5: 26,26,26,26,10
+held fixed: accepted honeycomb traversal and trigram digit order; no standard36 re-selection
+null: verified row-width structure with uniform orientation cells 0..=4, read under the same fixed order
+boundary rule: vertical and same-distance sequence pairs are formed within messages only
+
+vertical adjacency
+  vertical same pos: 13/802 = 0.016209; mean |diff| 26.863
+  equality null: observed 0.016209; null 95% 0.003741..0.008728; p>=real 0.333333 (1/5)
+  mean-diff null: observed 26.862843; null 95% 37.857855..41.512469; p<=real 0.166667 (0/5)
+same-distance 1D control
+  same lag sequence: 13/802 = 0.016209; mean |diff| 26.863
+  equality null: observed 0.016209; null 95% 0.003741..0.008728; p>=real 0.333333 (1/5)
+  mean-diff null: observed 26.862843; null 95% 37.857855..41.512469; p<=real 0.166667 (0/5)
+same-lag note: for the verified accepted honeycomb geometry, the sequence-distance-matched lag pool coincides with the vertical pool; this exposes the sequence-distance confound instead of treating it as independent evidence
+mean-diff caveat: value differences are range-sensitive because the accepted eye stream is bounded to 0..=82 while the uniform cell null can emit 0..=124
+
+position-in-band conditioning
+  trigrams: 1036; positions: 26; value bands: 7; chi-square: 260.202; df: 150
+  value-band note: only 7 of 10 decile buckets are reachable because reading-layer values are bounded to 0..=82
+  chi-square null: observed 260.202406; null 95% 201.880405..240.777849; p>=real 0.166667 (0/5)
+
+interlock-parity split
+  upper/lower trigrams: 520/516; chi-square: 113.162; df: 82
+  chi-square null: observed 113.161659; null 95% 103.948349..125.203039; p>=real 0.833333 (4/5)
+  IoC upper/lower/diff: 0.013250 / 0.013637 / 0.000387
+  IoC-diff null: observed 0.000387; null 95% 0.000022..0.000504; p>=real 0.500000 (2/5)
+
+Multiplicity note: this experiment evaluates 7 one-sided 5% statistics (at least one pointwise hit is about 30% under the null), so a single p near 0.05 is expected and is not a finding.
+Interpretation: the position-in-band and parity statistics are inside the sampled fixed-order uniform-grid null at the configured resolution. Together with the same-distance control below, this is a negative isolated-2D spatial-layout result for this accepted honeycomb order, not proof that the glyphs are meaningless.
+The test is conditional on the accepted honeycomb reading order and deliberately avoids order circularity by not searching or reselecting an order for either eyes or null grids.
