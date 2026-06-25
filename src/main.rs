@@ -774,7 +774,7 @@ fn run_pipelinenull(config: null::NullConfig) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    report::print_pipeline_null_report(&pipeline_report);
+    print!("{}", pipeline_report.render());
     println!();
     print!("{}", input_report.render());
     ExitCode::SUCCESS

@@ -43,7 +43,10 @@
 use crate::analysis;
 use crate::generator::{self, ENGINE_MESSAGES};
 use crate::glyph::Orientation;
-use crate::null::{NullConfig, NullReport, NullRunError, SplitMix64, run_standard36_null_with};
+use crate::null::{
+    NullConfig, NullReport, NullRunError, SplitMix64, WilsonInterval, run_standard36_null_with,
+    wilson_95,
+};
 use crate::orders::{GlyphGrid, GridError};
 use crate::report::{self, Report};
 
@@ -60,26 +63,105 @@ pub fn real_symbol_total() -> usize {
         .sum()
 }
 
+/// Report for the structure-matched base-7 pipeline null.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PipelineNullReport {
+    /// Standard-36 null statistics computed from pipeline-sampled grids.
+    pub null: NullReport,
+}
+
+impl Report for PipelineNullReport {
+    fn render(&self) -> String {
+        let report = &self.null;
+        let mut out = String::new();
+        report::appendln!(&mut out, "base-7 generation-pipeline null");
+        report::appendln!(&mut out, "seed: {}", report.config.seed);
+        report::appendln!(&mut out, "trials: {}", report.config.trials);
+        report::appendln!(
+            &mut out,
+            "orders searched per trial: {}",
+            report.family_size
+        );
+        report::appendln!(
+            &mut out,
+            "resampled: matched engine pair lengths through the u64-capped base-7 decode, filtered to orientation cells 0..=4"
+        );
+        report::appendln!(
+            &mut out,
+            "held fixed: honeycomb traversal, trigram grouping, and the statistic family"
+        );
+        report::appendln!(&mut out);
+
+        append_interval(
+            &mut out,
+            "headline exact 0..=82",
+            wilson_95(report.headline_count, report.config.trials),
+        );
+        append_interval(
+            &mut out,
+            "some order adjacent_equal == 0",
+            wilson_95(report.adjacent_zero_count, report.config.trials),
+        );
+        report::appendln!(
+            &mut out,
+            "min distinct achieved over standard36: {}",
+            report::format_histogram(&report.min_distinct_histogram)
+        );
+        report::appendln!(
+            &mut out,
+            "min ceiling achieved over standard36: {}",
+            report::format_histogram(&report.min_ceiling_histogram)
+        );
+        report::appendln!(
+            &mut out,
+            "best distance-4 ratio d4/mean(d1..d6): min {:.3}, median {:.3}, max {:.3}",
+            report.distance4_ratio_min,
+            report.distance4_ratio_median,
+            report.distance4_ratio_max
+        );
+        report::appendln!(&mut out);
+        report::appendln!(
+            &mut out,
+            "Interpretation: the base-7 pipeline does not manufacture the bounded 0..=82 contiguity; uniform-random orientation cells do not either. The contiguity is therefore not explained as a generation artifact, but this is equally consistent with structured-but-meaningless data and is not evidence of a recoverable message."
+        );
+        out
+    }
+}
+
+fn append_interval(out: &mut String, label: &str, interval: WilsonInterval) {
+    report::appendln!(
+        out,
+        "{label}: {}/{} = {:.6} (95% Wilson {:.6}..{:.6})",
+        interval.count,
+        interval.trials,
+        interval.estimate,
+        interval.lower,
+        interval.upper
+    );
+}
+
 /// Runs the structure-matched base-7 pipeline null over the standard-36 family.
 ///
 /// Synthetic corpora preserve the verified row-width structure; each cell is an
 /// orientation harvested from decoding uniformly sampled matched-length 64-bit
 /// integers whose per-pair base-7 output lengths cycle through the verified
-/// engine block lengths. The returned [`NullReport`] uses the same statistics
-/// as [`crate::null::run_standard36_null`] so the two are directly comparable.
+/// engine block lengths. The returned [`PipelineNullReport`] uses the same
+/// statistics as [`crate::null::run_standard36_null`] so the two nulls are
+/// directly comparable.
 ///
 /// # Errors
 /// Returns [`NullRunError::Config`] if `config.trials == 0`, or
 /// [`NullRunError::Grid`] if the verified corpus grids cannot be reconstructed
 /// or an order is incompatible with a generated grid.
-pub fn run_pipeline_null(config: NullConfig) -> Result<NullReport, NullRunError> {
+pub fn run_pipeline_null(config: NullConfig) -> Result<PipelineNullReport, NullRunError> {
     let lengths: Vec<usize> = generator::engine_pair_lengths()
         .into_iter()
         .flatten()
         .collect();
-    run_standard36_null_with(config, |templates, rng| {
+    let null = run_standard36_null_with(config, |templates, rng| {
         pipeline_grids_like(templates, rng, &lengths)
-    })
+    })?;
+    Ok(PipelineNullReport { null })
 }
 
 fn pipeline_grids_like(
@@ -554,13 +636,17 @@ mod tests {
         };
         let first = run_pipeline_null(config).unwrap();
         let second = run_pipeline_null(config).unwrap();
-        assert_eq!(first.headline_count, second.headline_count);
-        assert_eq!(first.min_distinct_histogram, second.min_distinct_histogram);
+        assert_eq!(first.null.headline_count, second.null.headline_count);
+        assert_eq!(
+            first.null.min_distinct_histogram,
+            second.null.min_distinct_histogram
+        );
 
         // Like the uniform null, the base-7 pipeline never produces the bounded
         // 0..=82 range, and the minimum distinct count stays far above 83.
-        assert_eq!(first.headline_count, 0);
+        assert_eq!(first.null.headline_count, 0);
         let reached_83 = first
+            .null
             .min_distinct_histogram
             .iter()
             .any(|&(distinct, _count)| distinct <= 83);

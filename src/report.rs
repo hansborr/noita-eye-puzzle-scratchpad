@@ -1082,44 +1082,6 @@ fn print_isomorph_fixture(fixture: &controls::IsomorphFixtureReport) {
     }
 }
 
-/// Prints the base-7 generation-pipeline null report.
-pub fn print_pipeline_null_report(report: &null::NullReport) {
-    println!("base-7 generation-pipeline null");
-    println!("seed: {}", report.config.seed);
-    println!("trials: {}", report.config.trials);
-    println!("orders searched per trial: {}", report.family_size);
-    println!(
-        "resampled: matched engine pair lengths through the u64-capped base-7 decode, filtered to orientation cells 0..=4"
-    );
-    println!("held fixed: honeycomb traversal, trigram grouping, and the statistic family");
-    println!();
-
-    print_interval(
-        "headline exact 0..=82",
-        null::wilson_95(report.headline_count, report.config.trials),
-    );
-    print_interval(
-        "some order adjacent_equal == 0",
-        null::wilson_95(report.adjacent_zero_count, report.config.trials),
-    );
-    println!(
-        "min distinct achieved over standard36: {}",
-        format_histogram(&report.min_distinct_histogram)
-    );
-    println!(
-        "min ceiling achieved over standard36: {}",
-        format_histogram(&report.min_ceiling_histogram)
-    );
-    println!(
-        "best distance-4 ratio d4/mean(d1..d6): min {:.3}, median {:.3}, max {:.3}",
-        report.distance4_ratio_min, report.distance4_ratio_median, report.distance4_ratio_max
-    );
-    println!();
-    println!(
-        "Interpretation: the base-7 pipeline does not manufacture the bounded 0..=82 contiguity; uniform-random orientation cells do not either. The contiguity is therefore not explained as a generation artifact, but this is equally consistent with structured-but-meaningless data and is not evidence of a recoverable message."
-    );
-}
-
 const PRIMARY_CONDITIONAL_REPORT_STATISTICS: [conditional_structure::ConditionalStatistic; 7] = [
     conditional_structure::ConditionalStatistic::NextEntropyCorrected,
     conditional_structure::ConditionalStatistic::ConditionalEntropyCorrected,
