@@ -490,7 +490,7 @@ impl ProfileSamples {
     fn bands(&self) -> Vec<NullBand> {
         self.per_row
             .iter()
-            .map(|samples| null_band(samples))
+            .map(|samples| NullBand::from(f64_band(samples)))
             .collect()
     }
 }
@@ -791,10 +791,6 @@ fn gcd(mut left: usize, mut right: usize) -> usize {
         right = remainder;
     }
     left
-}
-
-fn null_band(samples: &[f64]) -> NullBand {
-    NullBand::from(f64_band(samples))
 }
 
 #[cfg(test)]
