@@ -850,14 +850,11 @@ fn run_moddiff(config: modular_diff::ModularDiffConfig) -> ExitCode {
     let report = match modular_diff::run_modular_diff(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "modular-difference error: {}",
-                report::format_modular_diff_error(error)
-            );
+            eprintln!("modular-difference error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_modular_diff_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
