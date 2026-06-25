@@ -958,14 +958,11 @@ fn run_pyry(config: pyry_conditions::PyryConditionsConfig) -> ExitCode {
     let report = match pyry_conditions::run_pyry_conditions(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "Pyry's Conditions error: {}",
-                report::format_pyry_conditions_error(&error)
-            );
+            eprintln!("Pyry's Conditions error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_pyry_conditions_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 

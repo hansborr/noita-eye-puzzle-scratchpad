@@ -7,8 +7,7 @@
 use crate::glyph::Sequence;
 use crate::{
     analysis, chaining_graph, conditional_structure, controls, dof_null, gak_attack, grouping,
-    null, orders, orientation_homogeneity, periodicity, perseus, pyry_conditions, transitivity,
-    tree_residual,
+    null, orders, orientation_homogeneity, periodicity, perseus, transitivity, tree_residual,
 };
 
 const MIN_RELIABLE_PERIODICITY_NULL_TRIALS: usize = 50;
@@ -190,29 +189,6 @@ pub fn format_dof_null_error(error: &dof_null::DofNullError) -> String {
         dof_null::DofNullError::SearchSpaceTooLarge => {
             "DoF null search-space cross-product is too large".to_owned()
         }
-    }
-}
-
-/// Formats a Pyry's Conditions harness error for CLI output.
-#[must_use]
-pub fn format_pyry_conditions_error(error: &pyry_conditions::PyryConditionsError) -> String {
-    match error {
-        pyry_conditions::PyryConditionsError::Grid(grid_error) => {
-            format!("grid/order error: {grid_error:?}")
-        }
-        pyry_conditions::PyryConditionsError::ZeroFixtureDraws => {
-            "at least one generated fixture draw is required".to_owned()
-        }
-        pyry_conditions::PyryConditionsError::Cipher(cipher_error) => {
-            format!("generated fixture cipher error: {cipher_error}")
-        }
-        pyry_conditions::PyryConditionsError::RandomBoundTooLarge { bound } => {
-            format!("random draw bound {bound} is too large")
-        }
-        pyry_conditions::PyryConditionsError::GeneratedSymbolOutsideAlphabet {
-            symbol,
-            alphabet_size,
-        } => format!("generated symbol {symbol} is outside alphabet size {alphabet_size}"),
     }
 }
 
@@ -2260,197 +2236,6 @@ fn format_symbol(value: chaining_graph::SymbolValue) -> String {
     format!("{} ({display:?})", value.get())
 }
 
-/// Prints the Pyry's Conditions falsification harness report.
-pub fn print_pyry_conditions_report(report: &pyry_conditions::PyryConditionsReport) {
-    println!("Pyry's Conditions falsification harness");
-    println!("order: {}", report.order.name());
-    println!("fixed alphabet: accepted honeycomb reading-layer values 0..=82");
-    println!("seed: {}", report.config.seed);
-    println!("fixture draws per family: {}", report.config.fixture_draws);
-    println!(
-        "message lengths: {}",
-        format_message_lengths(&report.message_lengths)
-    );
-    println!("pooled eye length: {}", report.total_length);
-    println!(
-        "boundary rule: predicates run per message where adjacency or windows matter; no window crosses a message join"
-    );
-    println!(
-        "fixture source: deterministic non-uniform 83-symbol plaintext with planted same-offset repeated sections, sampled with SplitMix64"
-    );
-    println!(
-        "scope: structural falsification only; no language scoring, no symbol-to-meaning mapping, no reading-order re-selection"
-    );
-    println!();
-    print_pyry_condition_legend();
-    println!();
-    print_pyry_matrix(report);
-    println!();
-    print_pyry_eye_scalars(&report.eyes);
-    println!();
-    print_pyry_fixture_keys(report);
-    println!();
-    print_pyry_interpretation(report);
-}
-
-fn print_pyry_condition_legend() {
-    println!("condition encoding");
-    for condition in pyry_conditions::PyryCondition::all() {
-        println!("  {}: {}", condition.short_label(), condition.label());
-    }
-    println!(
-        "  C1 threshold: pooled IoC x83 <= {:.3}",
-        pyry_conditions::FLAT_IOC_NORMALIZED_CEILING
-    );
-    println!(
-        "  C3/C5 shared-section threshold: same-offset run length >= {}",
-        pyry_conditions::MIN_SHARED_RUN_LEN
-    );
-}
-
-fn print_pyry_matrix(report: &pyry_conditions::PyryConditionsReport) {
-    println!("falsification matrix");
-    print!("{:<24}", "row");
-    for condition in pyry_conditions::PyryCondition::all() {
-        print!(" {:>7}", condition.short_label());
-    }
-    println!(" {:>8} {:>10}", "all9", "verdict");
-    print_pyry_eye_matrix_row(&report.eyes);
-    for family in &report.families {
-        print_pyry_family_matrix_row(family);
-    }
-}
-
-fn print_pyry_eye_matrix_row(evaluation: &pyry_conditions::ConditionEvaluation) {
-    print!("{:<24}", "eyes");
-    for condition in pyry_conditions::PyryCondition::all() {
-        print!(" {:>7}", yes_no(evaluation.vector.get(condition)));
-    }
-    let verdict = if evaluation.vector.all_pass() {
-        "sanity"
-    } else {
-        "partial"
-    };
-    println!(
-        " {:>8} {:>10}",
-        format!("{}/9", evaluation.vector.passed_count()),
-        verdict
-    );
-}
-
-fn print_pyry_family_matrix_row(family: &pyry_conditions::FamilyFixtureReport) {
-    let draws = family.draws.len();
-    print!("{:<24}", family.family.label());
-    for condition in pyry_conditions::PyryCondition::all() {
-        let count = condition_pass_count(family, condition);
-        print!(" {:>7}", format!("{count}/{draws}"));
-    }
-    let verdict = if family.all_conditions_pass_count > 0 {
-        "consistent"
-    } else {
-        "falsified"
-    };
-    println!(
-        " {:>8} {:>10}",
-        format!("{}/{}", family.all_conditions_pass_count, draws),
-        verdict
-    );
-}
-
-fn condition_pass_count(
-    family: &pyry_conditions::FamilyFixtureReport,
-    condition: pyry_conditions::PyryCondition,
-) -> usize {
-    family
-        .condition_pass_counts
-        .get(condition.number().saturating_sub(1))
-        .copied()
-        .unwrap_or_default()
-}
-
-fn print_pyry_eye_scalars(evaluation: &pyry_conditions::ConditionEvaluation) {
-    let metrics = &evaluation.metrics;
-    println!("eye scalar diagnostics");
-    println!(
-        "  IoC {:.6} (x83 {:.3}); support {}/83, outside {}, range {}",
-        metrics.pooled_ioc,
-        metrics.normalized_ioc,
-        metrics.distinct_in_alphabet,
-        metrics.outside_alphabet,
-        format_optional_u8_range(metrics.min_value, metrics.max_value)
-    );
-    println!(
-        "  shared runs {}, longest {}, varying-prefix {}, differing-first/shared-second {}",
-        metrics.shared_run_count,
-        metrics.longest_shared_run,
-        metrics.varying_prefix_shared_runs,
-        metrics.differing_first_shared_second_cases
-    );
-    println!(
-        "  isomorph groups {}, longest {:?}; near pairs {}; adjacent equals {}",
-        metrics.repeated_isomorph_groups,
-        metrics.longest_repeated_isomorph,
-        metrics.near_isomorph_pairs,
-        metrics.adjacent_equal_count
-    );
-    println!(
-        "  non-shared isomorph groups {}, exact-duplicate groups {}",
-        metrics.non_shared_isomorph_groups, metrics.non_shared_exact_duplicate_groups
-    );
-}
-
-fn print_pyry_fixture_keys(report: &pyry_conditions::PyryConditionsReport) {
-    println!("fixture key/source summaries from draw 0");
-    for family in &report.families {
-        let summary = family
-            .draws
-            .first()
-            .map_or("n/a", |draw| draw.key_summary.as_str());
-        println!("  {}: {}", family.family.label(), summary);
-    }
-}
-
-fn print_pyry_interpretation(report: &pyry_conditions::PyryConditionsReport) {
-    let consistent = report
-        .families
-        .iter()
-        .filter(|family| family.all_conditions_pass_count > 0)
-        .map(|family| family.family.label())
-        .collect::<Vec<_>>();
-    if consistent.is_empty() {
-        println!(
-            "Interpretation: no generated family jointly satisfied all nine conditions in this seeded fixture battery. That is a sample-conditional falsification signal, not a proof that the family is impossible."
-        );
-    } else {
-        println!(
-            "Interpretation: sampled fixture rows with at least one all-nine pass: {}. That is candidate-consistency only; it does not identify the cipher.",
-            consistent.join(", ")
-        );
-    }
-
-    if let Some(self_modifying) = report
-        .families
-        .iter()
-        .find(|family| family.family == pyry_conditions::CandidateFamily::AutokeyAlbertiStyle)
-    {
-        println!(
-            "Self-modifying direction: autokey/Alberti-style fixtures passed all nine in {}/{} draws. This specifically tests whether a plaintext-dependent state can produce the differing-first/shared-second pattern while keeping later same-offset material aligned.",
-            self_modifying.all_conditions_pass_count,
-            self_modifying.draws.len()
-        );
-        println!(
-            "Fixture caveat: this autokey C8 (no-doubled-trigram) pass is partly structural to the fixture. Plaintext-autokey produces equal adjacent ciphertext only when the plaintext repeats at distance two, and the sampled plaintext is constructed to avoid distance-two repeats, so the 'consistent' verdict reflects compatibility under that source construction rather than a pure-cipher guarantee."
-        );
-    }
-
-    println!(
-        "Caveat: the nine conditions were abstracted from the eyes, so the eye row is a sanity baseline, not evidence. Fixture failures depend on sampled plaintexts and keys; fixture passes are not solutions."
-    );
-    println!(
-        "Layer caveat: all rows use engine-fixed integer trigram values under the accepted honeycomb order. The rendered orientation layer and the 83-value reading layer are not conflated."
-    );
-}
-
 /// Returns `numerator / denominator`, with zero for an empty denominator.
 pub(crate) fn fraction(numerator: usize, denominator: usize) -> f64 {
     if denominator == 0 {
@@ -3061,13 +2846,6 @@ fn format_optional_f64(value: Option<f64>) -> String {
 
 fn format_optional_usize(value: Option<usize>) -> String {
     value.map_or_else(|| "none".to_owned(), |number| number.to_string())
-}
-
-fn format_optional_u8_range(min: Option<u8>, max: Option<u8>) -> String {
-    match (min, max) {
-        (Some(min), Some(max)) => format!("{min}..{max}"),
-        _ => "n/a".to_owned(),
-    }
 }
 
 /// Prints the cross-message orientation-frequency homogeneity report.
