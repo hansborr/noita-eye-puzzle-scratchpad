@@ -10,8 +10,8 @@ use clap::{Args, Parser, Subcommand};
 use noita_eye_puzzle::{
     chaining, chaining_graph, cipher_attack, conditional_structure, controls, corpus, dof_null,
     glyph::Sequence, grouping, honeycomb, isomorph_null, modular_diff, null, orders,
-    orientation_homogeneity, periodicity, perseus, pipeline_null, pyry_conditions, report,
-    transitivity, tree_residual, zero_adjacency_null,
+    orientation_homogeneity, perfect_isomorphism, periodicity, perseus, pipeline_null,
+    pyry_conditions, report, transitivity, tree_residual, zero_adjacency_null,
 };
 
 const DEFAULT_NULL_SEED: u64 = 0x6e6f_6974_612d_6579;
@@ -68,6 +68,9 @@ enum Command {
     Moddiff(ModularDiffArgs),
     /// Experiment 7C Perseus shared-region recurrence null.
     Perseus(PerseusArgs),
+    /// Thread 3 perfect-isomorphism / allomorph-consistency scan.
+    #[command(name = "perfectiso", alias = "perfect-isomorphism")]
+    Perfectiso(PerfectIsomorphismArgs),
     /// Experiment 7D zero adjacency vs within-message multiset shuffle null.
     #[command(name = "zeroadjnull", alias = "zero-adjacency-null")]
     Zeroadjnull(ZeroAdjacencyNullArgs),
@@ -280,6 +283,29 @@ impl From<PerseusArgs> for perseus::PerseusConfig {
 }
 
 #[derive(Clone, Copy, Debug, Args)]
+struct PerfectIsomorphismArgs {
+    #[arg(long, default_value_t = perfect_isomorphism::DEFAULT_SEED)]
+    seed: u64,
+    #[arg(long, default_value_t = perfect_isomorphism::DEFAULT_TRIALS)]
+    trials: usize,
+    #[arg(long = "min-window", default_value_t = perfect_isomorphism::DEFAULT_MIN_WINDOW)]
+    min_window: usize,
+    #[arg(long = "max-window", default_value_t = perfect_isomorphism::DEFAULT_MAX_WINDOW)]
+    max_window: usize,
+}
+
+impl From<PerfectIsomorphismArgs> for perfect_isomorphism::PerfectIsomorphismConfig {
+    fn from(args: PerfectIsomorphismArgs) -> Self {
+        Self {
+            seed: args.seed,
+            trials: args.trials,
+            min_window: args.min_window,
+            max_window: args.max_window,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Args)]
 struct HomogeneityArgs {
     #[arg(long, default_value_t = orientation_homogeneity::DEFAULT_SEED)]
     seed: u64,
@@ -482,6 +508,7 @@ fn main() -> ExitCode {
         Command::ChainingGraph(args) => run_chaining_graph(args.into()),
         Command::Moddiff(args) => run_moddiff(args.into()),
         Command::Perseus(args) => run_perseus(args.into()),
+        Command::Perfectiso(args) => run_perfectiso(args.into()),
         Command::Zeroadjnull(args) => run_zeroadjnull(args.into()),
         Command::Treeresidual(args) => run_treeresidual(args.into()),
         Command::Transitivity(args) => run_transitivity(args.into()),
@@ -676,6 +703,21 @@ fn run_perseus(config: perseus::PerseusConfig) -> ExitCode {
         }
     };
     report::print_perseus_report(&report);
+    ExitCode::SUCCESS
+}
+
+fn run_perfectiso(config: perfect_isomorphism::PerfectIsomorphismConfig) -> ExitCode {
+    let report = match perfect_isomorphism::run_perfect_isomorphism(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!(
+                "perfect-isomorphism error: {}",
+                report::format_perfect_isomorphism_error(&error)
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    report::print_perfect_isomorphism_report(&report);
     ExitCode::SUCCESS
 }
 
