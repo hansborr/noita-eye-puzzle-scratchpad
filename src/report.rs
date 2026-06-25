@@ -6,9 +6,9 @@
 
 use crate::glyph::Sequence;
 use crate::{
-    agl_gak, analysis, chaining, chaining_graph, cipher_attack, ciphers, conditional_structure,
-    controls, corpus, dof_null, gak_attack, grouping, honeycomb, isomorph_null, modular_diff, null,
-    orders, orientation_homogeneity, perfect_isomorphism, periodicity, perseus, pipeline_null,
+    agl_gak, analysis, chaining, chaining_graph, ciphers, conditional_structure, controls, corpus,
+    dof_null, gak_attack, grouping, honeycomb, isomorph_null, modular_diff, null, orders,
+    orientation_homogeneity, perfect_isomorphism, periodicity, perseus, pipeline_null,
     pyry_conditions, transitivity, tree_residual, zero_adjacency_null,
 };
 
@@ -41,6 +41,8 @@ macro_rules! appendln {
         $crate::report::append_line($out, format_args!($($arg)*))
     };
 }
+
+pub(crate) use appendln;
 
 /// Formats a verified-corpus parsing error for CLI output.
 #[must_use]
@@ -536,12 +538,6 @@ pub fn format_tree_residual_error(error: tree_residual::TreeResidualError) -> St
             "tree-residual sample count is too large".to_owned()
         }
     }
-}
-
-/// Formats an Experiment 12 candidate-cipher attack error for CLI output.
-#[must_use]
-pub fn format_cipher_attack_error(error: &cipher_attack::CipherAttackError) -> String {
-    error.to_string()
 }
 
 /// Formats an Experiment 8 grouping error for CLI output.
@@ -1485,7 +1481,8 @@ fn strongest_autocorrelation_row(
         .max_by(|left, right| left.rate.total_cmp(&right.rate))
 }
 
-fn format_message_lengths(lengths: &[(&'static str, usize)]) -> String {
+/// Formats keyed message lengths for report output.
+pub(crate) fn format_message_lengths(lengths: &[(&'static str, usize)]) -> String {
     lengths
         .iter()
         .map(|(key, length)| format!("{key}:{length}"))
@@ -3721,240 +3718,8 @@ fn print_pyry_interpretation(report: &pyry_conditions::PyryConditionsReport) {
     );
 }
 
-/// Renders the Experiment 12 candidate-cipher attack report.
-#[must_use]
-pub fn render_cipher_attack_report(report: &cipher_attack::CipherAttackReport) -> String {
-    let mut out = String::new();
-    appendln!(
-        &mut out,
-        "Experiment 12 candidate-cipher language-scoring/null harness"
-    );
-    appendln!(&mut out, "order: {}", report.order_name);
-    appendln!(&mut out, "alphabet: eye reading-layer values 0..=82");
-    appendln!(
-        &mut out,
-        "fundamental limitation: English/Finnish scores require an unknown 83-symbol-to-letter mapping; every mapping below is an unverified guess"
-    );
-    appendln!(&mut out, "seed: {}", report.config.seed);
-    appendln!(&mut out, "sampled keys: {}", report.config.samples);
-    appendln!(
-        &mut out,
-        "shuffle null trials: {}",
-        report.config.null_trials
-    );
-    appendln!(
-        &mut out,
-        "Vigenere periods searched: 1..={}",
-        report.config.vigenere_max_period
-    );
-    appendln!(
-        &mut out,
-        "message lengths: {}",
-        format_message_lengths(&report.message_lengths)
-    );
-    appendln!(&mut out, "pooled length: {}", report.total_symbols);
-    appendln!(&mut out, "boundary rule: {}", report.boundary_rule);
-    appendln!(&mut out, "null model: {}", report.null_model);
-    appendln!(&mut out);
-    appendln!(
-        &mut out,
-        "{:<19} {:<7} {:<14} {:>10} {:>10} {:>10} {:>8} {:>10} {:<28}",
-        "cipher",
-        "lang",
-        "mapping",
-        "real",
-        "null mean",
-        "null q95",
-        "p",
-        "verdict",
-        "best key"
-    );
-    for row in &report.rows {
-        appendln!(
-            &mut out,
-            "{:<19} {:<7} {:<14} {:>10.4} {:>10.4} {:>10.4} {:>8.4} {:>10} {:<28}",
-            row.cipher.label(),
-            row.language.label(),
-            row.mapping_label,
-            row.real.score.bigram_mean_log_likelihood,
-            row.null.mean,
-            row.null.q95,
-            row.null.empirical_p,
-            format_cipher_attack_verdict(row),
-            preview_text(&row.real.key, 28)
-        );
-    }
-    appendln!(&mut out);
-    appendln!(&mut out, "search methods");
-    for summary in unique_cipher_search_summaries(&report.rows) {
-        appendln!(
-            &mut out,
-            "  {}: {} candidates; keyspace {}; {}",
-            summary.0.label(),
-            summary.1.candidates_evaluated,
-            summary.1.key_space,
-            summary.1.note
-        );
-    }
-    appendln!(&mut out);
-    appendln!(&mut out, "mapping caveats");
-    for row in &report.rows {
-        appendln!(
-            &mut out,
-            "  {} / {} / {}: {}",
-            row.cipher.label(),
-            row.language.label(),
-            row.mapping_label,
-            row.mapping_note
-        );
-    }
-    appendln!(&mut out);
-    append_positive_control_report(&mut out, &report.positive_control);
-    appendln!(&mut out);
-    appendln!(
-        &mut out,
-        "caveat: any apparent hit is not credible unless it has a fully reproducible, independently checkable method and is rechecked against Experiment 0 transcription integrity; this command makes no message claim"
-    );
-    append_cipher_attack_interpretation(&mut out, report);
-    out
-}
-
-fn append_positive_control_report(out: &mut String, report: &cipher_attack::PositiveControlReport) {
-    appendln!(out, "positive control");
-    append_plant_recovery(out, &report.caesar);
-    append_plant_recovery(out, &report.vigenere);
-}
-
-fn append_plant_recovery(out: &mut String, plant: &cipher_attack::PlantRecovery) {
-    appendln!(
-        out,
-        "  {}: expected {}, recovered {}, score {:.4}, null max {:.4}, margin {:.4}, p {:.4}",
-        plant.cipher.label(),
-        plant.expected_key,
-        plant.recovered_key,
-        plant.real_score.bigram_mean_log_likelihood,
-        plant.null.max,
-        plant.margin_over_null_max,
-        plant.null.empirical_p
-    );
-}
-
-fn append_cipher_attack_interpretation(
-    out: &mut String,
-    report: &cipher_attack::CipherAttackReport,
-) {
-    for line in cipher_attack_interpretation_lines(report) {
-        appendln!(out, "{line}");
-    }
-}
-
-fn cipher_attack_interpretation_lines(report: &cipher_attack::CipherAttackReport) -> Vec<String> {
-    let above_q95 = report
-        .rows
-        .iter()
-        .filter(|row| row.real.score.bigram_mean_log_likelihood > row.null.q95)
-        .count();
-    let above_max = report
-        .rows
-        .iter()
-        .filter(|row| row.real.score.bigram_mean_log_likelihood > row.null.max)
-        .count();
-    let row_count = report.rows.len();
-    let expected_rate = 0.05;
-    let exceedance_rate = fraction(above_q95, row_count);
-    let expected_rows = row_count as f64 * expected_rate;
-    let rate_multiple = exceedance_rate / expected_rate;
-    let total_key_evaluations = report
-        .rows
-        .iter()
-        .map(|row| row.search.candidates_evaluated)
-        .sum::<usize>();
-    let mut lines = Vec::new();
-    if above_q95 == 0 {
-        lines.push(format!(
-            "Interpretation: all {row_count} cipher/mapping/language rows are inside the one-sided 95% shuffled-null best-score band. Under these named ciphers and declared guessed mappings, this run shows no English/Finnish language signal above chance."
-        ));
-    } else {
-        lines.push(format!(
-            "Interpretation: {above_q95} of {row_count} rows ({}) exceed the one-sided 95% shuffled-null band, and {above_max} exceed the sampled null maximum. If the shuffle null were a valid no-difference reference for these selected best-score rows, only about {expected_rows:.1} of {row_count} rows (~5%) would be expected to clear that band; this run is far above that expectation at {:.1}x the rate. That is an exceedance-rate diagnostic, not {above_q95} near-solutions.",
-            format_percent(exceedance_rate),
-            rate_multiple
-        ));
-        lines.push(
-            "The null construction shuffles symbols within each message and reapplies the same key search, so it preserves message lengths and symbol counts but destroys local order. The defensible cause is that the bigram language score detects the eye stream's already documented mild local structure - the distance-4 recurrence / slight bigram non-uniformity established in Experiments 4, 5A, and 7A - relative to symbol-shuffled data. That known structural property is not cipher signal; the null does not use a smaller key search than the real rows.".to_owned(),
-        );
-    }
-
-    lines.push(cipher_attack_effect_size_line(report));
-    lines.push(format!(
-        "Multiple comparisons: this configured run scans {row_count} cipher/mapping/language rows and {total_key_evaluations} row-level key evaluations before selecting best scores. The reported p values are pointwise and uncorrected across the scanned ciphers, mappings, languages, and keyspaces; small values are expected by selection, and no family-wise-significant result exists in this report."
-    ));
-    lines.push(
-        "Overall conclusion: clean negative. No credible English/Finnish decryption is established, and there is no message claim. The run constrains only these candidate ciphers, this reading order, these sampled keyspaces, and these unverified symbol-to-letter mappings; any apparent hit still requires a fully reproducible, independently checkable method plus an Experiment 0 transcription-integrity recheck.".to_owned(),
-    );
-    lines
-}
-
-fn cipher_attack_effect_size_line(report: &cipher_attack::CipherAttackReport) -> String {
-    let plant_margins = [
-        report.positive_control.caesar.margin_over_null_max,
-        report.positive_control.vigenere.margin_over_null_max,
-    ];
-    let plant_range =
-        range_from_values(&plant_margins).unwrap_or(NumberRange { min: 0.0, max: 0.0 });
-    let eye_margins = report
-        .rows
-        .iter()
-        .map(|row| row.real.score.bigram_mean_log_likelihood - row.null.max)
-        .filter(|margin| *margin > 0.0)
-        .collect::<Vec<_>>();
-    if let Some(eye_range) = range_from_values(&eye_margins) {
-        let min_ratio = plant_range.min / eye_range.max;
-        let max_ratio = plant_range.max / eye_range.min;
-        format!(
-            "Effect-size contrast: eye rows that clear the sampled null maximum do so by only {} nats, while the same harness recovers positive-control plant margins of {} nats. The plant effect is about {} larger, so the eyes' best decryptions are nowhere near the scale of a genuine cipher hit.",
-            format_number_range(eye_range, 4),
-            format_number_range(plant_range, 4),
-            format_ratio_range(NumberRange {
-                min: min_ratio,
-                max: max_ratio,
-            })
-        )
-    } else {
-        let best_margin = report
-            .rows
-            .iter()
-            .map(|row| row.real.score.bigram_mean_log_likelihood - row.null.max)
-            .max_by(f64::total_cmp)
-            .unwrap_or(0.0);
-        format!(
-            "Effect-size contrast: no eye row clears the sampled null maximum; the best eye margin against that maximum is {best_margin:.4} nats, while the same harness recovers positive-control plant margins of {} nats. The eyes' best decryptions are nowhere near the scale of a genuine cipher hit.",
-            format_number_range(plant_range, 4)
-        )
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct NumberRange {
-    min: f64,
-    max: f64,
-}
-
-fn range_from_values(values: &[f64]) -> Option<NumberRange> {
-    let mut iter = values.iter().copied();
-    let first = iter.next()?;
-    let mut range = NumberRange {
-        min: first,
-        max: first,
-    };
-    for value in iter {
-        range.min = range.min.min(value);
-        range.max = range.max.max(value);
-    }
-    Some(range)
-}
-
-fn fraction(numerator: usize, denominator: usize) -> f64 {
+/// Returns `numerator / denominator`, with zero for an empty denominator.
+pub(crate) fn fraction(numerator: usize, denominator: usize) -> f64 {
     if denominator == 0 {
         0.0
     } else {
@@ -3962,7 +3727,8 @@ fn fraction(numerator: usize, denominator: usize) -> f64 {
     }
 }
 
-fn format_percent(fraction: f64) -> String {
+/// Formats a fraction as a one-decimal percentage.
+pub(crate) fn format_percent(fraction: f64) -> String {
     format!("{:.1}%", fraction * 100.0)
 }
 
@@ -4645,49 +4411,6 @@ fn format_effective_comparisons(value: f64) -> String {
     }
 }
 
-fn format_number_range(range: NumberRange, decimals: usize) -> String {
-    if (range.max - range.min).abs() < f64::EPSILON {
-        format!("{:.*}", decimals, range.min)
-    } else {
-        format!("{:.*}..{:.*}", decimals, range.min, decimals, range.max)
-    }
-}
-
-fn format_ratio_range(range: NumberRange) -> String {
-    if (range.max - range.min).abs() < f64::EPSILON {
-        format!("{:.0}x", range.min)
-    } else {
-        format!("{:.0}x to {:.0}x", range.min, range.max)
-    }
-}
-
-fn format_cipher_attack_verdict(row: &cipher_attack::AttackRow) -> &'static str {
-    let real = row.real.score.bigram_mean_log_likelihood;
-    if real > row.null.max {
-        "above-max"
-    } else if real > row.null.q95 {
-        "above95"
-    } else {
-        "inside95"
-    }
-}
-
-fn unique_cipher_search_summaries(
-    rows: &[cipher_attack::AttackRow],
-) -> Vec<(cipher_attack::CipherFamily, cipher_attack::SearchSummary)> {
-    let mut summaries = Vec::new();
-    for row in rows {
-        if summaries
-            .iter()
-            .any(|(cipher, _summary)| *cipher == row.cipher)
-        {
-            continue;
-        }
-        summaries.push((row.cipher, row.search.clone()));
-    }
-    summaries
-}
-
 fn format_chaining_band(band: chaining::ScalarBand) -> String {
     format!("{:.4}..{:.4}", band.q025, band.q975)
 }
@@ -4826,7 +4549,8 @@ fn yes_no(value: bool) -> &'static str {
     if value { "yes" } else { "no" }
 }
 
-fn preview_text(text: &str, max_chars: usize) -> String {
+/// Returns a report-safe preview of `text`, truncating at a character boundary.
+pub(crate) fn preview_text(text: &str, max_chars: usize) -> String {
     let mut preview = String::new();
     let mut omitted = false;
     for (index, symbol) in text.chars().enumerate() {
@@ -5600,13 +5324,8 @@ fn format_storage_histogram(histogram: &[usize; 7]) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        cipher_attack_interpretation_lines, format_chi_square, format_chi_square_p_value,
-        format_histogram, format_match_count, format_null_flag, format_probability, format_span,
-        format_storage_histogram,
-    };
-    use crate::cipher_attack::{
-        AttackRow, BestCandidate, CandidateScore, CipherAttackConfig, CipherAttackReport,
-        CipherFamily, LanguageKind, PlantRecovery, PositiveControlReport, ScoreNull, SearchSummary,
+        format_chi_square, format_chi_square_p_value, format_histogram, format_match_count,
+        format_null_flag, format_probability, format_span, format_storage_histogram,
     };
 
     #[test]
@@ -5640,113 +5359,5 @@ mod tests {
             format_storage_histogram(&[0, 1, 2, 3, 4, 5, 6]),
             "-1:0, 0:1, 1:2, 2:3, 3:4, 4:5, 5:6"
         );
-    }
-
-    #[test]
-    fn cipher_attack_interpretation_does_not_treat_small_pointwise_p_as_hit() {
-        let report = CipherAttackReport {
-            config: CipherAttackConfig::default(),
-            order_name: "standard36-u012-d012".to_owned(),
-            message_lengths: vec![("fixture", 100)],
-            total_symbols: 100,
-            boundary_rule: "fixture boundary",
-            null_model: "fixture null",
-            rows: vec![
-                attack_row(-2.9975, -3.0100, -3.0000, 0.0),
-                attack_row(-2.9800, -3.0100, -3.0000, 0.0),
-                attack_row(-3.0050, -3.0100, -3.0000, 0.25),
-                attack_row(-3.0200, -3.0100, -3.0000, 1.0),
-            ],
-            positive_control: PositiveControlReport {
-                caesar: plant_recovery(CipherFamily::Caesar, 0.4900),
-                vigenere: plant_recovery(CipherFamily::Vigenere, 0.6100),
-            },
-        };
-
-        let interpretation = cipher_attack_interpretation_lines(&report).join("\n");
-
-        assert!(
-            interpretation.contains("not 3 near-solutions"),
-            "{interpretation}"
-        );
-        assert!(
-            interpretation.contains("small values are expected by selection"),
-            "{interpretation}"
-        );
-        assert!(
-            interpretation.contains("no family-wise-significant result exists"),
-            "{interpretation}"
-        );
-        assert!(
-            interpretation.contains("No credible English/Finnish decryption is established"),
-            "{interpretation}"
-        );
-        assert!(
-            interpretation.contains("0.0025..0.0200 nats"),
-            "{interpretation}"
-        );
-        assert!(
-            interpretation.contains("positive-control plant margins of 0.4900..0.6100 nats"),
-            "{interpretation}"
-        );
-        assert!(
-            interpretation.contains("nowhere near the scale of a genuine cipher hit"),
-            "{interpretation}"
-        );
-    }
-
-    fn attack_row(real: f64, q95: f64, max: f64, empirical_p: f64) -> AttackRow {
-        AttackRow {
-            cipher: CipherFamily::Caesar,
-            language: LanguageKind::English,
-            mapping_label: "fixture".to_owned(),
-            mapping_note: "fixture mapping".to_owned(),
-            search: SearchSummary {
-                key_space: "fixture keyspace".to_owned(),
-                candidates_evaluated: 100,
-                exhaustive: true,
-                sampling_seed: None,
-                note: "fixture search".to_owned(),
-            },
-            real: BestCandidate {
-                score: candidate_score(real),
-                key: "fixture-key".to_owned(),
-            },
-            null: ScoreNull {
-                trials: 4,
-                mean: -3.0200,
-                q95,
-                max,
-                empirical_p_count: 0,
-                empirical_p,
-            },
-        }
-    }
-
-    fn plant_recovery(cipher: CipherFamily, margin_over_null_max: f64) -> PlantRecovery {
-        PlantRecovery {
-            cipher,
-            plaintext_symbols: 100,
-            expected_key: "expected".to_owned(),
-            recovered_key: "expected".to_owned(),
-            real_score: candidate_score(-2.5000),
-            null: ScoreNull {
-                trials: 4,
-                mean: -3.1000,
-                q95: -3.0000,
-                max: -2.5000 - margin_over_null_max,
-                empirical_p_count: 0,
-                empirical_p: 0.0,
-            },
-            margin_over_null_max,
-        }
-    }
-
-    fn candidate_score(bigram_mean_log_likelihood: f64) -> CandidateScore {
-        CandidateScore {
-            symbols: 100,
-            unigram_mean_log_likelihood: bigram_mean_log_likelihood,
-            bigram_mean_log_likelihood,
-        }
     }
 }

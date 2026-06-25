@@ -9,9 +9,12 @@ use std::process::ExitCode;
 use clap::{Args, Parser, Subcommand};
 use noita_eye_puzzle::{
     agl_gak, chaining, chaining_graph, cipher_attack, ciphers, conditional_structure, controls,
-    corpus, dof_null, gak_attack, glyph::Sequence, grouping, honeycomb, isomorph_null,
-    modular_diff, null, orders, orientation_homogeneity, perfect_isomorphism, periodicity, perseus,
-    pipeline_null, pyry_conditions, report, transitivity, tree_residual, zero_adjacency_null,
+    corpus, dof_null, gak_attack,
+    glyph::Sequence,
+    grouping, honeycomb, isomorph_null, modular_diff, null, orders, orientation_homogeneity,
+    perfect_isomorphism, periodicity, perseus, pipeline_null, pyry_conditions,
+    report::{self, Report},
+    transitivity, tree_residual, zero_adjacency_null,
 };
 
 const DEFAULT_NULL_SEED: u64 = 0x6e6f_6974_612d_6579;
@@ -958,14 +961,11 @@ fn run_cipherattack(config: cipher_attack::CipherAttackConfig) -> ExitCode {
     let report = match cipher_attack::run_cipher_attack(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "cipher attack error: {}",
-                report::format_cipher_attack_error(&error)
-            );
+            eprintln!("cipher attack error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    print!("{}", report::render_cipher_attack_report(&report));
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
