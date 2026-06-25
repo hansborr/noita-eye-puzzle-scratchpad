@@ -193,46 +193,6 @@ pub fn format_dof_null_error(error: &dof_null::DofNullError) -> String {
     }
 }
 
-/// Formats a graph-chaining audit error for CLI output.
-#[must_use]
-pub fn format_chaining_graph_error(error: &chaining_graph::ChainingGraphError) -> String {
-    match error {
-        chaining_graph::ChainingGraphError::Grid(grid_error) => {
-            format!("grid/order error: {grid_error:?}")
-        }
-        chaining_graph::ChainingGraphError::ZeroTrials => {
-            "at least one Monte-Carlo trial is required".to_owned()
-        }
-        chaining_graph::ChainingGraphError::RandomBoundTooLarge { bound } => {
-            format!("random draw bound {bound} is too large")
-        }
-        chaining_graph::ChainingGraphError::WindowLengthMismatch => {
-            "aligned isomorph windows had different lengths".to_owned()
-        }
-        chaining_graph::ChainingGraphError::InvalidWindowConfig {
-            window_len,
-            core_len,
-        } => format!(
-            "invalid isomorph window/core configuration: window {window_len}, core {core_len}"
-        ),
-        chaining_graph::ChainingGraphError::ContextCountTooLarge { contexts } => {
-            format!("generated {contexts} contexts, more than the ContextId range can represent")
-        }
-        chaining_graph::ChainingGraphError::ControlSymbolOutOfRange { value } => {
-            format!("positive-control symbol {value} is outside the reading-layer range")
-        }
-        chaining_graph::ChainingGraphError::PositiveControlFailed {
-            conflicts,
-            null_max_conflicts,
-            required_margin,
-            expected_symbols,
-            observed_symbols,
-        } => format!(
-            "positive control failed: real conflicts {conflicts}, null max {null_max_conflicts}, required margin {required_margin}, expected {expected_symbols} touched symbols, observed {observed_symbols}"
-        ),
-    }
-}
-
 /// Formats a modular-difference fingerprint error for CLI output.
 #[must_use]
 pub fn format_modular_diff_error(error: modular_diff::ModularDiffError) -> String {
@@ -575,10 +535,7 @@ pub fn format_transitivity_error(error: &transitivity::TransitivityError) -> Str
             format!("grid/order error: {grid_error:?}")
         }
         transitivity::TransitivityError::ChainingGraph(chaining_error) => {
-            format!(
-                "delegated chaining-graph gate failed: {}",
-                format_chaining_graph_error(chaining_error)
-            )
+            format!("delegated chaining-graph gate failed: {chaining_error}")
         }
         transitivity::TransitivityError::ZeroTrials => {
             "at least one delegated Monte-Carlo trial is required".to_owned()
@@ -2239,123 +2196,6 @@ fn tree_residual_excess_labels(
         .filter(|row| row.scope == scope && row.significant_excess)
         .map(|row| format!("k={} (p>={})", row.k, format_probability(row.upper_tail_p)))
         .collect()
-}
-
-/// Prints the graph-chaining conflict and coverage audit report.
-pub fn print_chaining_graph_report(report: &chaining_graph::ChainingGraphReport) {
-    println!("Thread 5 graph-chaining audit");
-    println!("order: {}", report.order.name());
-    println!("seed: {}", report.config.seed);
-    println!("shuffle trials: {}", report.config.trials);
-    println!(
-        "window/core: {}/{}",
-        report.config.window_len, report.config.core_len
-    );
-    println!(
-        "message lengths: {}",
-        format_message_lengths(&report.message_lengths)
-    );
-    println!(
-        "wiki pages under test: Graph-Chaining.md, Alphabet-Chaining.md, Chaining-Conflicts.md, Chaining-Conflict-Rates.md"
-    );
-    println!("scope: ciphertext symbol equality plus observed context actions only");
-    println!(
-        "scope caveat: broad window-11/shared-pivot gap-isomorph audit; same-plaintext support is not established by the broad graph."
-    );
-    println!(
-        "canonical-orientation caveat: each unordered occurrence pair contributes one sorted-order directed context; reverse orientations are not expanded."
-    );
-    println!();
-    println!("broad window-11/shared-pivot gap-isomorph conflict catalogue");
-    println!("  total: {}", report.catalogue.total);
-    println!(
-        "  distinct-column conflict paths: {}",
-        report.catalogue.independent
-    );
-    println!("  fragile over-extension: {}", report.catalogue.fragile);
-    println!(
-        "  label note: distinct-column paths are provenance separation, not independent same-plaintext witnesses."
-    );
-    println!();
-    println!("broad window-11/shared-pivot gap-isomorph coverage");
-    println!(
-        "  symbols touched: {}/{}",
-        report.coverage.symbols_touched, report.coverage.alphabet_size
-    );
-    println!("  largest component: {}", report.coverage.largest_component);
-    println!(
-        "  components among touched symbols: {}",
-        report.coverage.component_count
-    );
-    println!("core-supported repeated-core coverage");
-    println!(
-        "  symbols touched: {}/{}",
-        report.coverage.core_supported_symbols, report.coverage.alphabet_size
-    );
-    println!(
-        "  largest component: {}",
-        report.coverage.core_largest_component
-    );
-    println!(
-        "  components among touched symbols: {}",
-        report.coverage.core_supported_components
-    );
-    println!(
-        "  label note: repeated-core support is a provenance filter inside this Rust audit, not wave-1's same-plaintext genuine tier."
-    );
-    println!();
-    println!("matched within-message multiset-shuffle null");
-    print_null_stat("total conflicts (upper tail)", report.null.total_conflicts);
-    print_null_stat(
-        "distinct-column conflict paths (upper tail)",
-        report.null.independent_conflicts,
-    );
-    print_null_stat("symbols touched (upper tail)", report.null.symbols_touched);
-    print_null_stat(
-        "largest component (upper tail)",
-        report.null.largest_component,
-    );
-    print_null_stat("component count (lower tail)", report.null.component_count);
-    println!();
-    println!("positive control");
-    println!(
-        "  synthetic non-commutative GAK stream fixture: passed={} conflicts={} null_max_conflicts={} conflict_margin={} required_margin={} planted_symbols={} observed_symbols={}",
-        report.positive_control.passed,
-        report.positive_control.conflicts,
-        report.positive_control.null_max_conflicts,
-        report.positive_control.conflict_margin,
-        report.positive_control.required_margin,
-        report.positive_control.planted_symbols,
-        report.positive_control.observed_symbols
-    );
-    println!();
-    println!(
-        "Interpretation: broad conflict counts quantify window-11/shared-pivot gap-isomorph non-commutativity, including coincidental collisions; they are not same-plaintext evidence. Core-supported coverage is printed as a repeated-core guardrail, while same-plaintext support is not established by the broad graph. Coverage is evidence, not proof, for the transitivity premise."
-    );
-    println!(
-        "Wave-1 comparability note: this Rust audit is window-11 + shared-pivot only and is not directly comparable to wave-1's L=10..15 broad survey (17,124 conflicts, 79/83 coverage) nor its genuine tier (~1 conflict witness, ~28/83 coverage); the figures measure different search spaces."
-    );
-    println!(
-        "Claim ceiling: the eyes remain deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext."
-    );
-    println!(
-        "Multiplicity note: the report shows several descriptive tails from the same matched null; read them as an audit panel, not independent discoveries."
-    );
-}
-
-fn print_null_stat(label: &str, statistic: chaining_graph::NullStatistic) {
-    println!(
-        "  {label}: real {} null mean {:.2} q025 {} median {:.2} q975 {} max {} p {} ({}/{})",
-        statistic.real,
-        statistic.band.mean,
-        statistic.band.q025,
-        statistic.band.median,
-        statistic.band.q975,
-        statistic.band.max,
-        format_probability(statistic.empirical_p),
-        statistic.empirical_p_count,
-        statistic.band.trials
-    );
 }
 
 /// Prints the transitivity / conditional dihedral-exclusion audit report.

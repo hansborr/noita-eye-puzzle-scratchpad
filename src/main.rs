@@ -838,14 +838,11 @@ fn run_chaining_graph(config: chaining_graph::ChainingGraphConfig) -> ExitCode {
     let report = match chaining_graph::run_chaining_graph(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "chaining-graph error: {}",
-                report::format_chaining_graph_error(&error)
-            );
+            eprintln!("chaining-graph error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_chaining_graph_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
