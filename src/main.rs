@@ -653,11 +653,14 @@ fn main() -> ExitCode {
 fn run_demo() -> ExitCode {
     match corpus::combined_sequence() {
         Ok(seq) => {
-            report::print_report("verified eye corpus", &seq);
+            print!(
+                "{}",
+                report::render_sequence_report("verified eye corpus", &seq)
+            );
             ExitCode::SUCCESS
         }
         Err(error) => {
-            eprintln!("{}", report::format_corpus_error(error));
+            eprintln!("{error}");
             ExitCode::FAILURE
         }
     }
@@ -1055,7 +1058,7 @@ fn run_orders() -> ExitCode {
 fn run_stats(text: &str) -> ExitCode {
     match parse_rendered_sequence(text) {
         Ok(seq) => {
-            report::print_report("input", &seq);
+            print!("{}", report::render_sequence_report("input", &seq));
             ExitCode::SUCCESS
         }
         Err(c) => {

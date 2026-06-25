@@ -6,10 +6,10 @@
 
 use crate::glyph::Sequence;
 use crate::{
-    analysis, chaining, chaining_graph, conditional_structure, controls, corpus, dof_null,
-    gak_attack, grouping, honeycomb, isomorph_null, modular_diff, null, orders,
-    orientation_homogeneity, periodicity, perseus, pipeline_null, pyry_conditions, transitivity,
-    tree_residual, zero_adjacency_null,
+    analysis, chaining, chaining_graph, conditional_structure, controls, dof_null, gak_attack,
+    grouping, honeycomb, isomorph_null, modular_diff, null, orders, orientation_homogeneity,
+    periodicity, perseus, pipeline_null, pyry_conditions, transitivity, tree_residual,
+    zero_adjacency_null,
 };
 
 const MIN_RELIABLE_PERIODICITY_NULL_TRIALS: usize = 50;
@@ -43,23 +43,6 @@ macro_rules! appendln {
 }
 
 pub(crate) use appendln;
-
-/// Formats a verified-corpus parsing error for CLI output.
-#[must_use]
-pub fn format_corpus_error(error: corpus::CorpusError) -> String {
-    match error {
-        corpus::CorpusError::MalformedSymbol {
-            message_key,
-            symbol,
-        } => format!("corpus parse error in {message_key}: invalid symbol {symbol:?}"),
-        corpus::CorpusError::IncompleteTrigram {
-            message_key,
-            orientations,
-        } => format!(
-            "corpus parse error in {message_key}: {orientations} orientations cannot form complete trigrams"
-        ),
-    }
-}
 
 /// Formats a Thread 4 synthetic GAK-attack (GCTAK gate) error for CLI output.
 #[must_use]
@@ -4678,21 +4661,26 @@ pub fn print_orders_report(
     print_experiment_4_flatness_report(flatness);
 }
 
-/// Prints frequency, entropy, and `IoC` statistics for one rendered sequence.
-pub fn print_report(label: &str, seq: &Sequence) {
-    println!("{label}: {} glyphs", seq.len());
-    println!(
+/// Renders frequency, entropy, and `IoC` statistics for one rendered sequence.
+#[must_use]
+pub fn render_sequence_report(label: &str, seq: &Sequence) -> String {
+    let mut out = String::new();
+    appendln!(&mut out, "{label}: {} glyphs", seq.len());
+    appendln!(
+        &mut out,
         "  entropy:               {:.4} bits/glyph",
         analysis::shannon_entropy(&seq.glyphs)
     );
-    println!(
+    appendln!(
+        &mut out,
         "  index of coincidence:  {:.4}",
         analysis::index_of_coincidence(&seq.glyphs)
     );
-    println!("  frequencies:");
+    appendln!(&mut out, "  frequencies:");
     for (glyph, count) in analysis::frequencies(&seq.glyphs) {
-        println!("    {glyph}: {count}");
+        appendln!(&mut out, "    {glyph}: {count}");
     }
+    out
 }
 
 fn format_widths(widths: &[usize]) -> String {
