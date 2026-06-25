@@ -16,7 +16,7 @@ use crate::ciphers::{
 };
 use crate::glyph::Glyph;
 use crate::null::{
-    SplitMix64, fisher_yates, median_f64, random_index_below, scaled_quantile_index,
+    F64Band, NullSampler, SplitMix64, WithinMessageShuffle, f64_band, random_index_below,
     shuffled_permutation, stateless_splitmix,
 };
 use crate::orders::{
@@ -236,6 +236,20 @@ pub struct ScalarBand {
     pub q975: f64,
     /// Largest sampled value.
     pub max: f64,
+}
+
+impl From<F64Band> for ScalarBand {
+    fn from(band: F64Band) -> Self {
+        Self {
+            trials: band.trials,
+            min: band.min,
+            mean: band.mean,
+            q025: band.q025,
+            median: band.median,
+            q975: band.q975,
+            max: band.max,
+        }
+    }
 }
 
 /// Calibration bands for the scalar fingerprint used by classification.
@@ -970,8 +984,11 @@ fn shuffle_baseline(
         0x7368_7566_666c_6500 ^ ((modulus as u64) << 8) ^ difference_order as u64,
     ));
     let mut samples = Vec::with_capacity(config.trials);
+    let shuffle = WithinMessageShuffle {
+        messages: message_values,
+    };
     for _trial in 0..config.trials {
-        let shuffled = shuffled_messages(message_values, &mut rng)?;
+        let shuffled = shuffle.sample(&mut rng)?;
         let differenced = modular_difference_messages(&shuffled, difference_order, modulus)?;
         let stats = summarize_difference_stream(
             &differenced,
@@ -984,17 +1001,6 @@ fn shuffle_baseline(
         samples.push(Fingerprint::from_stats(&stats));
     }
     Ok(fingerprint_band(&samples))
-}
-
-fn shuffled_messages(
-    message_values: &[Vec<TrigramValue>],
-    rng: &mut SplitMix64,
-) -> Result<Vec<Vec<TrigramValue>>, ModularDiffError> {
-    let mut shuffled = message_values.to_vec();
-    for values in &mut shuffled {
-        fisher_yates(values, rng)?;
-    }
-    Ok(shuffled)
 }
 
 fn build_control_fixture(
@@ -1136,80 +1142,18 @@ fn trigram_from_usize(value: usize, modulus: usize) -> Result<TrigramValue, Modu
 }
 
 fn fingerprint_band(samples: &[Fingerprint]) -> FingerprintBand {
+    let band = |select: fn(&Fingerprint) -> f64| {
+        ScalarBand::from(f64_band(&samples.iter().map(select).collect::<Vec<_>>()))
+    };
     FingerprintBand {
-        ioc: scalar_band(&samples.iter().map(|sample| sample.ioc).collect::<Vec<_>>()),
-        delta_ioc: scalar_band(
-            &samples
-                .iter()
-                .map(|sample| sample.delta_ioc)
-                .collect::<Vec<_>>(),
-        ),
-        top_rate: scalar_band(
-            &samples
-                .iter()
-                .map(|sample| sample.top_rate)
-                .collect::<Vec<_>>(),
-        ),
-        top_over_uniform: scalar_band(
-            &samples
-                .iter()
-                .map(|sample| sample.top_over_uniform)
-                .collect::<Vec<_>>(),
-        ),
-        period_excess: scalar_band(
-            &samples
-                .iter()
-                .map(|sample| sample.period_excess)
-                .collect::<Vec<_>>(),
-        ),
-        best_lag_normalized_rate: scalar_band(
-            &samples
-                .iter()
-                .map(|sample| sample.best_lag_normalized_rate)
-                .collect::<Vec<_>>(),
-        ),
-        structure_score: scalar_band(
-            &samples
-                .iter()
-                .map(|sample| sample.structure_score)
-                .collect::<Vec<_>>(),
-        ),
+        ioc: band(|sample| sample.ioc),
+        delta_ioc: band(|sample| sample.delta_ioc),
+        top_rate: band(|sample| sample.top_rate),
+        top_over_uniform: band(|sample| sample.top_over_uniform),
+        period_excess: band(|sample| sample.period_excess),
+        best_lag_normalized_rate: band(|sample| sample.best_lag_normalized_rate),
+        structure_score: band(|sample| sample.structure_score),
     }
-}
-
-fn scalar_band(samples: &[f64]) -> ScalarBand {
-    let mut sorted = samples.to_vec();
-    sorted.sort_by(f64::total_cmp);
-    ScalarBand {
-        trials: samples.len(),
-        min: sorted.first().copied().unwrap_or(0.0),
-        mean: mean_f64(samples.iter().copied()),
-        q025: quantile_f64(&sorted, 25, 1_000),
-        median: median_f64(&sorted),
-        q975: quantile_f64(&sorted, 975, 1_000),
-        max: sorted.last().copied().unwrap_or(0.0),
-    }
-}
-
-fn mean_f64(values: impl IntoIterator<Item = f64>) -> f64 {
-    let mut total = 0.0;
-    let mut count = 0usize;
-    for value in values {
-        total += value;
-        count += 1;
-    }
-    if count == 0 {
-        0.0
-    } else {
-        total / count as f64
-    }
-}
-
-fn quantile_f64(sorted: &[f64], numerator: usize, denominator: usize) -> f64 {
-    sorted
-        .get(scaled_quantile_index(sorted.len(), numerator, denominator))
-        .copied()
-        .unwrap_or(0.0)
 }
 
 fn max_f64(values: impl IntoIterator<Item = f64>) -> f64 {
