@@ -14,6 +14,12 @@ use crate::{
 
 const MIN_RELIABLE_PERIODICITY_NULL_TRIALS: usize = 50;
 
+/// A domain report that can render itself to user-facing CLI text.
+pub trait Report {
+    /// Renders this report as a complete, newline-terminated block of text.
+    fn render(&self) -> String;
+}
+
 /// Formats a verified-corpus parsing error for CLI output.
 #[must_use]
 pub fn format_corpus_error(error: corpus::CorpusError) -> String {
