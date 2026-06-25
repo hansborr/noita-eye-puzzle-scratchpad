@@ -43,6 +43,8 @@
 //!   documented order families.
 //! - [`orientation_homogeneity`]: order-independent cross-message
 //!   homogeneity test over engine-fixed single-orientation frequencies.
+//! - [`perfect_isomorphism`]: Thread 3 perfect-isomorphism and allomorph
+//!   consistency scan over cross-message gap-pattern isomorphs.
 //! - [`periodicity`]: Experiment 5A periodicity, autocorrelation, and Kasiski
 //!   tests against same-shape random null streams.
 //! - [`perseus`]: Experiment 7C Perseus shared-region recurrence statistic and
@@ -83,6 +85,7 @@ pub mod modular_diff;
 pub mod null;
 pub mod orders;
 pub mod orientation_homogeneity;
+pub mod perfect_isomorphism;
 pub mod periodicity;
 pub mod perseus;
 pub mod pipeline_null;

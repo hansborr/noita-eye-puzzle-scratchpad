@@ -8,8 +8,8 @@ use crate::glyph::Sequence;
 use crate::{
     analysis, chaining, chaining_graph, cipher_attack, conditional_structure, controls, corpus,
     dof_null, grouping, honeycomb, isomorph_null, modular_diff, null, orders,
-    orientation_homogeneity, periodicity, perseus, pipeline_null, pyry_conditions, transitivity,
-    tree_residual, zero_adjacency_null,
+    orientation_homogeneity, perfect_isomorphism, periodicity, perseus, pipeline_null,
+    pyry_conditions, transitivity, tree_residual, zero_adjacency_null,
 };
 
 const MIN_RELIABLE_PERIODICITY_NULL_TRIALS: usize = 50;
@@ -279,6 +279,39 @@ pub fn format_perseus_error(error: perseus::PerseusError) -> String {
         }
         perseus::PerseusError::RandomBoundTooLarge { bound } => {
             format!("shuffle bound {bound} is too large")
+        }
+    }
+}
+
+/// Formats a Thread 3 perfect-isomorphism scan error for CLI output.
+#[must_use]
+pub fn format_perfect_isomorphism_error(
+    error: &perfect_isomorphism::PerfectIsomorphismError,
+) -> String {
+    match error {
+        perfect_isomorphism::PerfectIsomorphismError::Grid(grid_error) => {
+            format!("grid/order error: {grid_error:?}")
+        }
+        perfect_isomorphism::PerfectIsomorphismError::ZeroTrials => {
+            "at least one within-message shuffle trial is required".to_owned()
+        }
+        perfect_isomorphism::PerfectIsomorphismError::InvalidWindowRange {
+            min_window,
+            max_window,
+        } => format!(
+            "invalid perfect-isomorphism window range {min_window}..={max_window}; the vetted catalog windows are 8, 9, and 11"
+        ),
+        perfect_isomorphism::PerfectIsomorphismError::RandomBoundTooLarge { bound } => {
+            format!("shuffle bound {bound} is too large")
+        }
+        perfect_isomorphism::PerfectIsomorphismError::Isomorph(isomorph_error) => {
+            format!("isomorph detector configuration error: {isomorph_error:?}")
+        }
+        perfect_isomorphism::PerfectIsomorphismError::RegressionCheckFailed { check } => format!(
+            "wiki regression check {check:?} failed; methodology/transcription is suspect, not a finding"
+        ),
+        perfect_isomorphism::PerfectIsomorphismError::PositiveControlFailed { detail } => {
+            format!("positive control failed ({detail}); methodology is suspect, not a finding")
         }
     }
 }
@@ -2353,6 +2386,268 @@ fn print_perseus_interpretation(report: &perseus::PerseusReport) {
     println!(
         "The result is conditional on the accepted honeycomb reading order and on the documented shared-region operationalization printed above."
     );
+}
+
+/// Prints the Thread 3 perfect-isomorphism / allomorph-consistency report.
+pub fn print_perfect_isomorphism_report(report: &perfect_isomorphism::PerfectIsomorphismReport) {
+    println!("Thread 3 perfect-isomorphism / allomorph-consistency scan");
+    println!("order: {}", report.order.name());
+    println!("seed: {}", report.config.seed);
+    println!("trials: {}", report.config.trials);
+    println!(
+        "message lengths: {}",
+        format_message_lengths(&report.message_lengths)
+    );
+    println!("pooled length: {}", report.total_length);
+    println!(
+        "catalog windows: vetted discrete set {{8, 9, 11}} filtered by configured range {}..={}",
+        report.config.min_window, report.config.max_window
+    );
+    println!(
+        "null: within each message, preserve the exact symbol multiset and length, shuffle order, recompute the internal-candidate count"
+    );
+    println!(
+        "mapping-independent scope: ciphertext symbol equality and gap structure only; no symbol-to-meaning mapping or language scoring"
+    );
+    println!();
+    print_perfect_catalog(report);
+    println!();
+    print_perfect_breaks(report);
+    println!();
+    print_perfect_headline(report);
+    println!();
+    print_perfect_safe_extents(report);
+    println!();
+    print_perfect_regressions(report);
+    println!();
+    print_perfect_interpretation(report);
+}
+
+fn print_perfect_catalog(report: &perfect_isomorphism::PerfectIsomorphismReport) {
+    println!("cross-message gap-pattern catalog");
+    println!(
+        "  {:<13} {:>3} {:>7} {:>4} {:>8} {:>10} {:>10}",
+        "signature", "win", "repeats", "occ", "nullmax", "p", "tier"
+    );
+    for (entry, row) in report.catalog.iter().zip(&report.significance) {
+        let tier = if row.strong {
+            "strong"
+        } else {
+            "coincidental-class"
+        };
+        println!(
+            "  {:<13} {:>3} {:>7} {:>4} {:>8} {:>10} {:>10}",
+            entry.signature,
+            entry.window,
+            entry.repeat_count,
+            entry.occurrences.len(),
+            row.null_max_occurrences,
+            format_probability(row.empirical_p),
+            tier
+        );
+        println!("    occurrences: {}", format_catalog_occurrences(entry));
+    }
+}
+
+fn print_perfect_breaks(report: &perfect_isomorphism::PerfectIsomorphismReport) {
+    println!("maximal-extension break localization");
+    if report.breaks.is_empty() {
+        println!("  no bounded breaks in strong extents");
+        return;
+    }
+    println!(
+        "  {:<13} {:>9} {:>9} {:>5} {:>6} {:>6} {:>7} {:<18}",
+        "pair", "left", "right", "idx", "island", "far", "flank", "class"
+    );
+    for break_row in &report.breaks {
+        println!(
+            "  {:<13} {:>9} {:>9} {:>5} {:>6} {:>6} {:>7} {:<18}",
+            format!("{}/{}", break_row.pair.0, break_row.pair.1),
+            break_row.anchor.0,
+            break_row.anchor.1,
+            break_row.break_index,
+            break_row.island_cols,
+            break_row.far_run,
+            break_row.left_flank,
+            format_perfect_break_class(break_row.class)
+        );
+    }
+}
+
+fn print_perfect_headline(report: &perfect_isomorphism::PerfectIsomorphismReport) {
+    println!("headline internal-violation null");
+    println!(
+        "  robust strong-bar internal violations: {}",
+        report.robust_internal_violations
+    );
+    println!(
+        "  matched null count: mean {:.3}, median {:.1}, q97.5 {}, max {}",
+        report.internal_violation_null.count_mean,
+        report.internal_violation_null.count_median,
+        report.internal_violation_null.count_q975,
+        report.internal_violation_null.count_max
+    );
+    println!(
+        "  upper-tail add-one p: ({extreme}+1)/({trials}+1) = {p}",
+        extreme = report.empirical_p_count,
+        trials = report.internal_violation_null.trials,
+        p = format_probability(report.empirical_p)
+    );
+    println!(
+        "  loose-bar note: the vetted empirical loose candidate is east4@65/west4@67 in the Stutter Section; it is benign and within the chance-collision null, so it is not promoted to the strong headline"
+    );
+    println!("  result: {}", perfect_headline_result(report));
+}
+
+fn perfect_headline_result(report: &perfect_isomorphism::PerfectIsomorphismReport) -> String {
+    if report.robust_internal_violations == 0 {
+        return "0 robust internal violations -> SUPPORTS (does not prove) perfect isomorphism"
+            .to_owned();
+    }
+    if report.empirical_p <= perfect_isomorphism::SIGNIFICANCE_ALPHA {
+        format!(
+            "{} robust internal violations exceed the matched null (p = {}) -> DISFAVOURS the proven-perfect-isomorphism family",
+            report.robust_internal_violations,
+            format_probability(report.empirical_p)
+        )
+    } else {
+        format!(
+            "{} robust internal violations are within the matched null (p = {}) -> not promoted to a family-falsifying violation",
+            report.robust_internal_violations,
+            format_probability(report.empirical_p)
+        )
+    }
+}
+
+fn print_perfect_safe_extents(report: &perfect_isomorphism::PerfectIsomorphismReport) {
+    println!("safe-isomorph extent export");
+    println!("  count: {}", report.safe_extents.len());
+    println!(
+        "  {:<13} {:>12} {:>12} {:<18}",
+        "pair", "left", "right", "bound"
+    );
+    for extent in &report.safe_extents {
+        println!(
+            "  {:<13} {:>12} {:>12} {:<18}",
+            format!("{}/{}", extent.pair.0, extent.pair.1),
+            format_safe_span(extent.left_span),
+            format_safe_span(extent.right_span),
+            format_optional_break(extent.bounding_break.as_ref())
+        );
+    }
+}
+
+fn print_perfect_regressions(report: &perfect_isomorphism::PerfectIsomorphismReport) {
+    println!("wiki regression checks");
+    for result in &report.regression {
+        let status = if result.reproduced { "PASS" } else { "FAIL" };
+        println!(
+            "  {:<30} {:<4} produced [{}]",
+            format_perfect_regression_check(result.check),
+            status,
+            result.produced.join(" | ")
+        );
+        if !result.hypothesis_label.is_empty() {
+            println!("    hypothesis: {}", result.hypothesis_label);
+        }
+    }
+    println!(
+        "  positive control: {}",
+        if report.positive_control_fired {
+            "fired"
+        } else {
+            "failed"
+        }
+    );
+}
+
+fn print_perfect_interpretation(report: &perfect_isomorphism::PerfectIsomorphismReport) {
+    println!(
+        "Multiplicity note: multiple isomorph signatures, occurrence pairs, and vetted windows are tested; pointwise rows are labels for structural triage, while the matched null calibrates the internal-violation count."
+    );
+    println!("{}", perfect_interpretation(report));
+    println!(
+        "Claim ceiling: the eyes remain deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext."
+    );
+}
+
+fn perfect_interpretation(report: &perfect_isomorphism::PerfectIsomorphismReport) -> String {
+    if report.robust_internal_violations == 0 {
+        return "Interpretation: Perfect-Isomorphism.md and Allomorphs.md make this a family-selection check, not a decode. The observed 0 robust strong-bar internal violations SUPPORTS (does not prove) perfect isomorphism and keeps the GAK family viable; it does not imply \"the eyes are GAK.\" A clean internal violation would disfavor the proven CTAK..XGAK family, but XGAK's upper edge is <=, not equality."
+            .to_owned();
+    }
+    if report.empirical_p <= perfect_isomorphism::SIGNIFICANCE_ALPHA {
+        format!(
+            "Interpretation: Perfect-Isomorphism.md and Allomorphs.md make this a family-selection check, not a decode. The observed {} robust strong-bar internal violations are in the matched upper tail (add-one p = {}), so they DISFAVOUR the proven CTAK..XGAK perfectly-isomorphic family unless individually explained by new benign evidence; this still does not prove the eyes are imperfectly isomorphic, because XGAK's upper edge is <=, not equality.",
+            report.robust_internal_violations,
+            format_probability(report.empirical_p)
+        )
+    } else {
+        format!(
+            "Interpretation: Perfect-Isomorphism.md and Allomorphs.md make this a family-selection check, not a decode. The observed {} robust strong-bar internal violations do not exceed the matched chance-collision null (add-one p = {}), so they are not promoted to a family-falsifying result and the GAK family remains viable; this does not imply \"the eyes are GAK.\"",
+            report.robust_internal_violations,
+            format_probability(report.empirical_p)
+        )
+    }
+}
+
+fn format_catalog_occurrences(entry: &perfect_isomorphism::IsomorphCatalogEntry) -> String {
+    entry
+        .occurrences
+        .iter()
+        .map(|(key, start)| format!("{key}@{start}"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn format_perfect_break_class(class: perfect_isomorphism::BreakClass) -> String {
+    match class {
+        perfect_isomorphism::BreakClass::Boundary => "Boundary".to_owned(),
+        perfect_isomorphism::BreakClass::InternalCandidate => "InternalCandidate".to_owned(),
+        perfect_isomorphism::BreakClass::BenignDesync { region } => {
+            format!("BenignDesync/{}", format_benign_region(region))
+        }
+    }
+}
+
+fn format_benign_region(region: perfect_isomorphism::BenignDesyncRegion) -> &'static str {
+    match region {
+        perfect_isomorphism::BenignDesyncRegion::FunnyLookingObstacle => "FunnyObstacle",
+        perfect_isomorphism::BenignDesyncRegion::Caboose => "Caboose",
+        perfect_isomorphism::BenignDesyncRegion::StutterSection => "Stutter",
+    }
+}
+
+fn format_safe_span(span: perfect_isomorphism::SafeSpan) -> String {
+    format!("{}..{}", span.start, span.end())
+}
+
+fn format_optional_break(break_row: Option<&perfect_isomorphism::BreakLocalization>) -> String {
+    break_row.map_or_else(
+        || "message-end".to_owned(),
+        |row| {
+            format!(
+                "{}@{}",
+                format_perfect_break_class(row.class),
+                row.break_index
+            )
+        },
+    )
+}
+
+fn format_perfect_regression_check(
+    check: perfect_isomorphism::WikiRegressionCheck,
+) -> &'static str {
+    match check {
+        perfect_isomorphism::WikiRegressionCheck::Messages12SharedAllomorph => "3A messages 1/2",
+        perfect_isomorphism::WikiRegressionCheck::Messages789ExtraRepeat => "3B messages 7/8/9",
+        perfect_isomorphism::WikiRegressionCheck::CorruptionTheoryBound => {
+            "3C bound hypothesis (fixed annotation)"
+        }
+        perfect_isomorphism::WikiRegressionCheck::MainIsomorphPositiveControl => {
+            "main isomorph control"
+        }
+    }
 }
 
 /// Prints the Experiment 7D zero-adjacency forbidden-successor null report.
