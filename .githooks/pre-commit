@@ -19,6 +19,7 @@ staged() {
 if staged | grep -qE '\.rs$|(^|/)Cargo\.(toml|lock)$|(^|/)(clippy|deny)\.toml$'; then
     run "rustfmt" cargo fmt --check
     run "clippy" cargo clippy --all-targets --all-features --locked -- -D warnings
+    run "file-size" ./scripts/check-file-size.sh
     RUSTFLAGS="-D warnings" run "tests" cargo test --locked
     RUSTDOCFLAGS="-D warnings" run "rustdoc" cargo doc --no-deps --locked
     if command -v cargo-deny >/dev/null 2>&1; then
