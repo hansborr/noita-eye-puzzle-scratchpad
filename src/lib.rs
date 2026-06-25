@@ -28,6 +28,8 @@
 //! - [`corpus`]: the verified transcribed message data.
 //! - [`dof_null`]: calibrated adaptive null for researcher degrees of freedom
 //!   across traversal, grouping, and headline-statistic choice.
+//! - [`gak_attack`]: Thread 4 synthetic GAK generator and the decisive GCTAK
+//!   solver gate, validated against held-back ground truth (synthetic-only).
 //! - [`generator`]: the engine storage-layer base-7 decoder and vendored input
 //!   blocks used for corpus cross-checks.
 //! - [`grouping`]: Experiment 8 base-N grouping comparison and independent
@@ -77,6 +79,7 @@ pub mod conditional_structure;
 pub mod controls;
 pub mod corpus;
 pub mod dof_null;
+pub mod gak_attack;
 pub mod generator;
 pub mod glyph;
 pub mod grouping;
