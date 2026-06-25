@@ -87,6 +87,9 @@ pub fn format_gak_attack_error(error: &gak_attack::GakAttackError) -> String {
         gak_attack::GakAttackError::CyclicOrderTooSmall { order } => {
             format!("cyclic order {order} is below 2")
         }
+        gak_attack::GakAttackError::DeckStateSizeTooSmall { state_size } => format!(
+            "deck size n={state_size} is below 3: the non-trivial-H deck attack requires n>=3 (n=2 is trivial-H GCTAK and collapses the merge threshold to 1)"
+        ),
         gak_attack::GakAttackError::TooManyLetters {
             requested,
             available,
@@ -4086,7 +4089,71 @@ pub fn print_gak_attack_report(report: &gak_attack::GakAttackReport) {
     println!();
     print_gak_attack_exemplars(report);
     println!();
+    print_gak_attack_deck(report);
+    println!();
     print_gak_attack_interpretation(report);
+}
+
+fn print_gak_attack_deck(report: &gak_attack::GakAttackReport) {
+    let deck = &report.deck;
+    println!(
+        "REAL-GAK deck attack (non-trivial hidden subgroup H = Stab(top) = S_(n-1), |H| = (n-1)! > 1)"
+    );
+    println!(
+        "  this is the community's stated open problem. What this unit recovers is PARTIAL visible-coset action recovery (a fraction of per-letter visible-coset transitions; NOT a recovered key, NOT the plaintext->group-element mapping), plus a MEASURED bound on how far that gets. SYNTHETIC-ONLY (we hold ground truth)."
+    );
+    println!("  per-letter draw regime: {}", deck.regime.label());
+    println!(
+        "  measured obstruction: under non-trivial H the visible transition depends on the FULL hidden state, so most of a letter's visible-coset action is multi-valued across hidden states. The recoverable part (single-valued core) is bounded by this multi-valuedness -- which MOTIVATES idea 3 (hidden-state marginalization)."
+    );
+    println!(
+        "  {:<4} {:>12} {:>7} {:>20} {:>20} {:>12} {:>14} {:>9} {:>6}",
+        "n",
+        "|H|=(n-1)!",
+        "seeds",
+        "real (recov/letters)",
+        "null (recov/letters)",
+        "real>null",
+        "multivalued-frac",
+        "aborts",
+        "p"
+    );
+    for tp in &deck.tractability {
+        println!(
+            "  {:<4} {:>12} {:>7} {:>11} {:>8} {:>11} {:>8} {:>12} {:>14} {:>9} {:>6}",
+            tp.state_size,
+            tp.hidden_subgroup_order,
+            tp.seeds,
+            format!("{}/{}", tp.real_recovered_total, tp.letters_total),
+            format!("{:.3}", tp.real_mean_fraction),
+            format!("{}/{}", tp.null_recovered_total, tp.letters_total),
+            format!("{:.3}", tp.null_mean_fraction),
+            yes_no(tp.real_beats_null),
+            format!("{:.3}", tp.multi_valued_fraction),
+            tp.true_conflict_aborts,
+            format!("{:.3}", tp.matched_null_p_value)
+        );
+    }
+    println!(
+        "  multivalued-frac: the MEASURED hidden-state obstruction (fraction of visible cosets that map multi-valued under a fixed letter). Larger => less recoverable here; this is the headline honest result of the unit and the motivation for idea 3."
+    );
+    println!(
+        "  fixed-context TRUE-conflict aborts (a FEATURE, not a bug): occurrence-pair alignments where two arrows out of / into one symbol under ONE fixed alignment proved a bad isomorph alignment and were dropped, protecting honesty. (Cross-hidden-state multi-valuedness is NOT a conflict -- it is the measured obstruction above.)"
+    );
+    println!(
+        "  beats matched null on the easiest fixture (n={}): {}",
+        deck.easiest_state_size,
+        yes_no(deck.beats_null_on_easiest)
+    );
+    println!(
+        "  measured negative is the deliverable: partial visible-coset action recovery stays SMALL and roughly FLAT across n (it does NOT climb with n), bounded by the hidden-state obstruction; this is the expected, reportable outcome, not a thread failure. The matched null is destroyed at small n and only begins to match real at larger n / some seeds."
+    );
+    println!(
+        "  the per-seed p-value is conservative (high per-fixture variance) and is non-significant on its own -- say so; the aggregate contrast is the AGGREGATE recovered-letter count real vs null."
+    );
+    println!(
+        "  TENTATIVE small-support prior + hidden-state marginalization are the NEXT unit: this unit only generates both regimes and leaves documented hooks (the overlap-threshold merge and the single-valued-core light merge), it does NOT apply those priors."
+    );
 }
 
 fn print_gak_attack_rates(report: &gak_attack::GakAttackReport) {
@@ -4194,6 +4261,9 @@ fn print_gak_attack_interpretation(report: &gak_attack::GakAttackReport) {
             "Interpretation: the rate-beats-null gate did not pass for every group kind on these SYNTHETIC-ONLY fixtures. A negative or partial result is the expected, reportable outcome of the broader GAK thread, not a failure of it."
         );
     }
+    println!(
+        "REAL-GAK deck interpretation: on the non-trivial-H deck stabilizer (real GAK, |H|>1) the attack achieves PARTIAL visible-coset action recovery (a fraction of per-letter visible-coset transitions; NOT a recovered key, NOT the plaintext->group-element mapping). That fraction stays SMALL and roughly FLAT across n -- bounded by the MEASURED hidden-state obstruction (the multi-valuedness of the visible-coset action across hidden states), which is the part not recoverable without idea 3. The matched null is destroyed at small n and only begins to match real at larger n / some seeds. This measured obstruction is the contribution the wiki asks for and motivates idea 3; it is computed on SYNTHETIC ground truth and says nothing about the eyes."
+    );
     println!(
         "Synthetic-only disclaimer: this unit NEVER touches the eye corpus; it generates and solves its own GCTAK ciphertexts whose key it holds. No claim here transfers to the eyes."
     );

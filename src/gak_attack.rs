@@ -57,7 +57,9 @@ use crate::chaining_graph::{
 use crate::ciphers::{CipherError, CosetReadout, GakKey, GakKeyOptions, gak_encrypt};
 use crate::glyph::Glyph;
 use crate::isomorph::PatternSignature;
-use crate::null::{SplitMix64, fisher_yates, mix_seed, random_index_below};
+use crate::null::{
+    SplitMix64, add_one_p_value, fisher_yates, mix_seed, random_index_below, shuffled_permutation,
+};
 use crate::trigram::TrigramValue;
 
 /// Default deterministic seed for the GCTAK gate fixture matrix.
@@ -144,14 +146,22 @@ impl GroupKind {
 
 /// Which hidden subgroup `H` a fixture uses.
 ///
-/// This unit only realizes the **trivial** hidden subgroup (GCTAK, bijective
-/// readout `c`). The enum is left open so later units can add non-trivial `H`
-/// without reshaping the surface.
+/// The GCTAK gate realizes the **trivial** hidden subgroup (`|H| = 1`, bijective
+/// readout `c`). Unit 2a adds the **deck stabilizer** [`Self::DeckStabilizer`]:
+/// the real, non-trivial GAK the community's open problem is about
+/// (`H = Stab(top) = S_{n-1}`, `|H| = (n-1)! > 1`, `|C| = n`, hidden state = the
+/// rest of the deck).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HiddenSubgroupKind {
     /// Trivial hidden subgroup `H = {e}`: the readout `c` is bijective and
     /// `|C| = |G|`. This is the GCTAK regime.
     Trivial,
+    /// Deck-stabilizer hidden subgroup `H = Stab(top) = S_{n-1}` over the full
+    /// symmetric state group `S_n` ([`CosetReadout::TopCard`]): the visible
+    /// symbol is the position holding the marked card, `|C| = n`, `|H| = (n-1)!`,
+    /// and the rest of the deck is the hidden state. This is **real GAK**
+    /// (`|H| > 1`) — the regime the deck-cipher attack of this unit targets.
+    DeckStabilizer,
 }
 
 impl HiddenSubgroupKind {
@@ -160,7 +170,14 @@ impl HiddenSubgroupKind {
     pub const fn label(self) -> &'static str {
         match self {
             Self::Trivial => "trivial-H (GCTAK)",
+            Self::DeckStabilizer => "deck-stabilizer S_{n-1} (real GAK, |H|>1)",
         }
+    }
+
+    /// Whether this hidden subgroup is non-trivial (`|H| > 1`), i.e. real GAK.
+    #[must_use]
+    pub const fn is_non_trivial(self) -> bool {
+        matches!(self, Self::DeckStabilizer)
     }
 }
 
@@ -237,6 +254,16 @@ pub enum GakAttackError {
     CyclicOrderTooSmall {
         /// Requested order `m`.
         order: usize,
+    },
+    /// A requested deck size `n` was below `3`. The non-trivial-`H` deck attack
+    /// requires `n >= 3`: at `n = 2` the hidden subgroup `H = S_1` is trivial (so it
+    /// is GCTAK, not real GAK) and the group-dependent merge threshold
+    /// `n - 1` collapses to `1`, which would let a single shared edge merge two
+    /// actions — defeating the worst-case `S_n`/`S_{n-1}` overlap discipline. The
+    /// default sweep (`5..=8`) is unaffected.
+    DeckStateSizeTooSmall {
+        /// Requested deck size `n`.
+        state_size: usize,
     },
     /// More plaintext letters were requested than the group has non-identity
     /// generators to realize them distinctly.
@@ -464,6 +491,12 @@ pub struct GakAttackReport {
     /// Whether the shuffle null failed to recover on every independent seed (the
     /// expected, required contrast; the null rate is ~0).
     pub all_null_failed: bool,
+    /// The **real-GAK** (non-trivial hidden subgroup) deck-attack partial-recovery
+    /// result: the unit-2a contribution. Carries the per-`n` tractability bound
+    /// (recovered-coset-action fraction real vs null, TRUE-conflict aborts) for
+    /// the deck stabilizer `H = S_{n-1}`. A low/zero fraction as `n` grows is the
+    /// expected, reportable outcome — a measured tractability bound, not a failure.
+    pub deck: DeckAttackReport,
 }
 
 /// Runs the GCTAK decisive gate across the synthetic fixture matrix.
@@ -544,6 +577,23 @@ pub fn run_gak_attack(config: GakAttackConfig) -> Result<GakAttackReport, GakAtt
         exemplars.push(exemplar);
     }
 
+    // Unit 2a: the REAL-GAK (non-trivial-H) deck attack, swept over deck sizes to
+    // measure the tractability bound. This is the actual contribution; its partial
+    // or negative recovery is the expected, reportable outcome and does NOT gate
+    // the GCTAK positive control above. The deck sweep uses a FIXED, robust seed
+    // count ([`DECK_SWEEP_SEEDS`]) independent of the small GCTAK-gate
+    // `seeds_per_kind`, so the reported tractability bound is stable rather than a
+    // 2-3-seed snapshot (per-fixture recovery variance is high).
+    let deck_config = GakAttackConfig {
+        seeds_per_kind: DECK_SWEEP_SEEDS,
+        ..config
+    };
+    let deck = run_deck_attack_sweep(
+        deck_config,
+        DeckLetterRegime::Unconstrained,
+        &DEFAULT_DECK_STATE_SIZES,
+    )?;
+
     Ok(GakAttackReport {
         config,
         hidden_subgroup: HiddenSubgroupKind::Trivial,
@@ -553,6 +603,7 @@ pub fn run_gak_attack(config: GakAttackConfig) -> Result<GakAttackReport, GakAtt
         min_real_recovery_rate: MIN_REAL_RECOVERY_RATE,
         rate_gate_passed,
         all_null_failed,
+        deck,
     })
 }
 
@@ -1932,6 +1983,1212 @@ impl SmallUnionFind {
     }
 }
 
+// =====================================================================
+// UNIT 2a — REAL GAK on the deck stabilizer (non-trivial hidden subgroup).
+//
+// Everything above is the trivial-H GCTAK gate (the proof-of-life positive
+// control). Below is the actual contribution the wiki asks for: a constraint-
+// propagation attack on REAL GAK (`H = Stab(top) = S_{n-1}`, `|H| = (n-1)! > 1`)
+// realized by `GakKey::deck`. It is **synthetic-only** (we hold ground truth, so
+// recovering the key is legitimate) and reports a measured tractability bound:
+// where partial recovery breaks as `n` / `|H|` grows. A low/zero recovered
+// fraction at larger `n` is the expected, valuable result — a measured negative.
+//
+// ## Why this is hard (the deck quirk that the attack must honor)
+//
+// State `g ∈ S_n`, update `g ← π_a ∘ g`, visible symbol `s = c(g) = g^{-1}[top]`.
+// The next visible symbol is `s' = (π_a ∘ g)^{-1}[top] = g^{-1}[π_a^{-1}[top]]`,
+// which depends on `g^{-1}` evaluated at `π_a^{-1}[top]` — i.e. on the WHOLE
+// hidden permutation, not just on `s`. So a single visible symbol can transition
+// to MANY next-symbols under the same letter across different hidden states
+// (`Chaining-Conflicts.md`: cycles of unequal length are normal; edge overlap
+// does not prove context equality). Only WITHIN one fixed context (one aligned
+// isomorph occurrence pair) is the action a partial permutation, and two arrows
+// out of (or into) one symbol there is a TRUE conflict that proves a bad isomorph
+// assumption (not a discovery) and aborts that branch.
+// =====================================================================
+
+/// How the per-letter `p(a)` permutations are drawn for a real-GAK deck fixture.
+///
+/// Both regimes are generated so the NEXT unit can validate the TENTATIVE
+/// small-support prior (idea 2): when `small_support_radius > 0` the draws are
+/// near-identity (a base permutation composed with `≤k` transpositions), the
+/// regime in which `Deck-Cipher.md`'s shared-sections evidence would hold; when
+/// `0` the draws are unconstrained `S_n`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DeckLetterRegime {
+    /// Unconstrained `S_n`: each `p(a)` is a uniform random permutation.
+    Unconstrained,
+    /// TENTATIVE small-support: each `p(a)` is a base permutation composed with
+    /// `≤radius` random transpositions (near-identity). NOT a hard constraint.
+    SmallSupport {
+        /// Maximum number of transpositions from the shared base (`≤k`).
+        radius: usize,
+    },
+}
+
+impl DeckLetterRegime {
+    /// Returns a short report label for this regime.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Unconstrained => "unconstrained S_n",
+            Self::SmallSupport { .. } => "TENTATIVE small-support",
+        }
+    }
+}
+
+/// Held-back ground truth for one synthetic **real-GAK deck** fixture.
+///
+/// As with [`SyntheticFixture`] the attack always holds this so every claim is
+/// checkable. Unlike the GCTAK fixture the hidden subgroup is non-trivial, so the
+/// per-letter visible-coset action is *not* a fixed permutation — the ground
+/// truth scored against is the per-letter coset-edge multimap derived from the key
+/// (the internal `truth_coset_edges` helper).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DeckFixture {
+    /// Plaintext letter stream (each [`Glyph`] is a letter index).
+    pub plaintext: Vec<Glyph>,
+    /// Ciphertext coset stream (visible top-card positions) from [`gak_encrypt`].
+    pub ciphertext: Vec<Glyph>,
+    /// The deck key, held back for ground-truth checks (per-letter `S_n`
+    /// permutations + initial deck state).
+    pub key: GakKey,
+    /// Deck size `n` (`|C| = n`, `|G| = n!`, `|H| = (n-1)!`).
+    pub state_size: usize,
+    /// How the per-letter permutations were drawn.
+    pub regime: DeckLetterRegime,
+    /// The order of the hidden subgroup `|H| = (n-1)!` (saturating; for the small
+    /// `n` we sweep it never overflows). Reported so the tractability bound can be
+    /// read against `|H|`, not just `n`.
+    pub hidden_subgroup_order: u128,
+}
+
+/// Computes `(n-1)!` as the deck-stabilizer hidden-subgroup order `|H|`,
+/// saturating at [`u128::MAX`] (never reached for the small `n` we sweep).
+#[must_use]
+fn deck_hidden_subgroup_order(state_size: usize) -> u128 {
+    let mut product: u128 = 1;
+    let upper = state_size.saturating_sub(1);
+    for factor in 2..=upper {
+        product = product.saturating_mul(factor as u128);
+    }
+    product
+}
+
+/// Builds a synthetic **real-GAK deck** fixture with held-back ground truth.
+///
+/// The deck realization ([`GakKey::deck`], [`CosetReadout::TopCard`]) gives a
+/// genuinely non-trivial hidden subgroup `H = Stab(top) = S_{n-1}` (`|H| > 1`):
+/// the visible ciphertext symbol is the position of the marked card and the rest
+/// of the deck is the hidden state. `num_pt_letters` distinct permutations of
+/// `0..n` become the letters; under [`DeckLetterRegime::SmallSupport`] they are
+/// drawn near-identity. The plaintext is the same repeated-phrase template the
+/// GCTAK gate uses, so the ciphertext is isomorph-rich (the attack's bite).
+///
+/// # Errors
+/// Returns [`GakAttackError`] when `n` is too small for the requested letters,
+/// when a generated permutation/key is rejected by the cipher primitives, or when
+/// a generated symbol cannot be represented.
+pub fn generate_deck_fixture(
+    state_size: usize,
+    regime: DeckLetterRegime,
+    config: GakAttackConfig,
+    seed: u64,
+) -> Result<DeckFixture, GakAttackError> {
+    // Real-GAK deck attack requires n >= 3: at n = 2, H = S_1 is trivial (GCTAK,
+    // not real GAK) and the n-1 merge threshold collapses to 1 (a single shared
+    // edge could merge). The default sweep (5..=8) is unaffected.
+    if state_size < 3 {
+        return Err(GakAttackError::DeckStateSizeTooSmall { state_size });
+    }
+    // The deck `S_n` has `n!` elements; `num_pt_letters` distinct non-identity
+    // permutations are always available for the small `n` we attack.
+    if config.num_pt_letters == 0 {
+        return Err(GakAttackError::TooManyLetters {
+            requested: config.num_pt_letters,
+            available: 0,
+        });
+    }
+
+    let mut rng = SplitMix64::new(seed);
+
+    // Draw `num_pt_letters` DISTINCT, non-identity permutations of `0..n`. Under
+    // SmallSupport they share a base and differ by ≤radius transpositions.
+    let letters = draw_deck_letters(state_size, regime, config.num_pt_letters, &mut rng)?;
+
+    // The deck readout itself is the right-coset projection, so `GakKey::deck`'s
+    // identity-state injectivity check is sufficient for invertibility; no doubles
+    // option is forced here (the attack must tolerate adjacent-equal symbols, a
+    // normal deck-GAK occurrence).
+    let key = GakKey::deck(state_size, letters, GakKeyOptions::default())?;
+
+    let plaintext = repeated_phrase_template(config, config.num_pt_letters, &mut rng)?;
+    if plaintext.is_empty() {
+        return Err(GakAttackError::EmptyTemplate);
+    }
+    let ciphertext = gak_encrypt(&plaintext, &key)?;
+
+    Ok(DeckFixture {
+        plaintext,
+        ciphertext,
+        key,
+        state_size,
+        regime,
+        hidden_subgroup_order: deck_hidden_subgroup_order(state_size),
+    })
+}
+
+/// Maximum re-rolls when drawing a distinct non-identity deck letter.
+const MAX_DECK_LETTER_DRAWS: usize = 256;
+
+/// Draws `count` distinct non-identity permutations of `0..n` for the deck
+/// letters, honoring the [`DeckLetterRegime`] and the deck's coset-injectivity
+/// rule.
+///
+/// `Unconstrained` draws uniform `S_n` elements; `SmallSupport { radius }` draws a
+/// single shared base then perturbs it by `≤radius` transpositions per letter
+/// (near-identity, `Deck-Cipher.md`). Bounded re-rolls enforce three properties
+/// [`GakKey::deck`] requires for an invertible key from the identity state:
+/// non-identity, distinct permutations, and — crucially — distinct readout cosets
+/// `π_a^{-1}[top]` (the position of the marked card after one step), since two
+/// letters sharing that coset would be indistinguishable in the ciphertext. The
+/// marked card is `0` (the deck readout's `reference_value`).
+fn draw_deck_letters(
+    state_size: usize,
+    regime: DeckLetterRegime,
+    count: usize,
+    rng: &mut SplitMix64,
+) -> Result<Vec<Vec<usize>>, GakAttackError> {
+    let identity: Vec<usize> = (0..state_size).collect();
+    let base = match regime {
+        DeckLetterRegime::Unconstrained => identity.clone(),
+        DeckLetterRegime::SmallSupport { .. } => shuffled_permutation(state_size, rng)?,
+    };
+    let mut chosen: Vec<Vec<usize>> = Vec::with_capacity(count);
+    // The readout coset of a permutation `π` from the identity state is the
+    // position holding card `0`, i.e. `π^{-1}[0]` = the index `j` with `π[j] == 0`.
+    let mut used_cosets: BTreeSet<usize> = BTreeSet::new();
+    for _letter in 0..count {
+        let mut candidate = identity.clone();
+        for _draw in 0..MAX_DECK_LETTER_DRAWS {
+            candidate = match regime {
+                DeckLetterRegime::Unconstrained => shuffled_permutation(state_size, rng)?,
+                DeckLetterRegime::SmallSupport { radius } => {
+                    let mut perturbed = base.clone();
+                    apply_small_support(&mut perturbed, radius.max(1), rng)?;
+                    perturbed
+                }
+            };
+            let coset = candidate.iter().position(|&card| card == 0);
+            let acceptable = candidate != identity
+                && !chosen.contains(&candidate)
+                && coset.is_some_and(|c| !used_cosets.contains(&c));
+            if acceptable {
+                break;
+            }
+        }
+        if let Some(coset) = candidate.iter().position(|&card| card == 0) {
+            let _added = used_cosets.insert(coset);
+        }
+        chosen.push(candidate);
+    }
+    Ok(chosen)
+}
+
+// ---------------------------------------------------------------------
+// B. Deck visible-coset action-recovery attack (idea 1).
+//
+// The attack reads per-letter visible-coset transitions where contexts compose as
+// PERMUTATIONS, not scalars. The recovery's equations come FROM the shared
+// `chaining_graph` chain links (load-bearing — `phrase_column_evidence` sources its
+// prev->next edges straight out of `chain_links_for_pair`). It then LIGHT-MERGES the
+// single-valued cores under a group-dependent overlap threshold — a deliberately
+// conservative merge, NOT full Schreier-graph constraint propagation (the
+// multi-valued part is left to idea 3's hidden-state marginalization, and is
+// measured here as the obstruction).
+// ---------------------------------------------------------------------
+
+/// A directed visible-coset edge `from -> to` observed under one fixed context.
+///
+/// Sourced from [`chaining_graph::chain_links_for_pair`] over aligned isomorph
+/// occurrences: each [`ChainLink`]'s `(from, to)` is one such edge (the action of
+/// the context that maps one occurrence's column to the other's). The attack
+/// never invents edges — they come straight from the shared chain-link primitive.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct CosetEdge {
+    /// Source visible coset symbol.
+    from: u8,
+    /// Image visible coset symbol under the context action.
+    to: u8,
+}
+
+/// The per-context action distilled from the chain links of one aligned isomorph
+/// occurrence pair: a partial map on the visible coset alphabet, plus its TRUE-
+/// conflict flag.
+///
+/// A context's action MUST be a partial permutation (single-valued forward AND
+/// backward). Two distinct arrows out of one symbol, or into one symbol, is a
+/// **TRUE conflict** (`Chaining-Conflicts.md`): it proves a bad isomorph
+/// assumption, so the branch is aborted rather than counted as a discovery.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct ContextAction {
+    /// Forward partial permutation `from -> to`.
+    forward: BTreeMap<u8, u8>,
+    /// The distinct directed edges (for the group-dependent overlap threshold).
+    edges: BTreeSet<CosetEdge>,
+    /// `true` once a TRUE conflict (non-functional forward or backward) is seen.
+    true_conflict: bool,
+}
+
+impl ContextAction {
+    /// Inserts one observed edge, setting [`Self::true_conflict`] if it violates
+    /// the partial-permutation law (forward or backward single-valuedness).
+    fn insert(&mut self, edge: CosetEdge) {
+        let _added = self.edges.insert(edge);
+        match self.forward.get(&edge.from) {
+            Some(existing) if *existing != edge.to => {
+                // Two arrows OUT of `from` under one fixed context => TRUE conflict.
+                self.true_conflict = true;
+                return;
+            }
+            Some(_) => return,
+            None => {}
+        }
+        // Backward check: two arrows INTO `to` under one fixed context.
+        if self
+            .forward
+            .iter()
+            .any(|(k, v)| *v == edge.to && *k != edge.from)
+        {
+            self.true_conflict = true;
+            return;
+        }
+        let _old = self.forward.insert(edge.from, edge.to);
+    }
+}
+
+/// The chain-link substrate of the deck attack: per-context coset actions plus
+/// the global per-letter edge evidence, all derived from the SHARED
+/// [`chain_links_for_pair`] primitive.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct ChainSubstrate {
+    /// One [`ContextAction`] per aligned isomorph occurrence pair (one context).
+    contexts: Vec<ContextAction>,
+    /// Number of TRUE-conflict aborts encountered while building contexts.
+    true_conflict_aborts: usize,
+    /// Number of distinct visible coset symbols touched by any chain link
+    /// (chain-link coverage).
+    symbols_touched: usize,
+}
+
+/// Builds the chain-link substrate for the deck attack (coverage + fixed-context
+/// conflict detection — NOT the recovery substrate).
+///
+/// LOAD-BEARING reuse: occurrences are grouped by their length-`core_len` PREFIX
+/// [`PatternSignature`] (the isomorph CORE), and each ordered occurrence pair within
+/// a core group becomes ONE fixed context whose coset edges are EXACTLY the
+/// [`chain_links_for_pair`] output over the full `window_len` window (core +
+/// extension). This is genuine reuse of the shared primitive, not a second graph.
+///
+/// **Why a core prefix.** Grouping by the FULL window makes every pair a partial
+/// bijection by construction (same full-window signature ⇒ identical equality
+/// pattern ⇒ no conflict), so a fixed-context TRUE conflict could never fire.
+/// Grouping by the core prefix lets two windows that share the core but DIVERGE in
+/// the over-extension tail be aligned — and a divergent tail can produce two arrows
+/// out of / into one symbol under that single fixed alignment, which is exactly a
+/// genuine **bad isomorph alignment** (over-extension past the true core), the only
+/// thing that can produce a real TRUE conflict. The production caller passes
+/// `core_len == window_len` (full-window grouping, no extension), so the shipped
+/// numbers are unchanged; a smaller `core_len` is what exercises the conflict guard.
+///
+/// A fixed context whose action carries a TRUE conflict is dropped (its branch
+/// aborts) and counted in [`ChainSubstrate::true_conflict_aborts`].
+fn build_chain_substrate(
+    ciphertext: &[SymbolValue],
+    window_len: usize,
+    core_len: usize,
+) -> ChainSubstrate {
+    let core_len = core_len.min(window_len);
+    let mut by_core_signature: BTreeMap<PatternSignature, Vec<usize>> = BTreeMap::new();
+    if ciphertext.len() >= window_len {
+        for start in 0..=ciphertext.len().saturating_sub(window_len) {
+            let Some(core) = ciphertext.get(start..start.saturating_add(core_len)) else {
+                continue;
+            };
+            let signature = PatternSignature::from_window(core);
+            if signature.has_repeated_symbol() {
+                by_core_signature.entry(signature).or_default().push(start);
+            }
+        }
+    }
+
+    let mut substrate = ChainSubstrate::default();
+    let mut touched: BTreeSet<u8> = BTreeSet::new();
+    let mut context_index: u32 = 0;
+    for starts in by_core_signature.values() {
+        if starts.len() < 2 {
+            continue;
+        }
+        // Spacing filter: genuine repeated-phrase occurrences are ≥window apart;
+        // this drops coincidental short matches inside the mixing runs (the same
+        // discipline the GCTAK solver uses).
+        let filtered = spacing_filter(starts, window_len);
+        for (left_index, &upper_start) in filtered.iter().enumerate() {
+            for &lower_start in filtered.iter().skip(left_index.saturating_add(1)) {
+                let (Some(upper_window), Some(lower_window)) = (
+                    ciphertext.get(upper_start..upper_start.saturating_add(window_len)),
+                    ciphertext.get(lower_start..lower_start.saturating_add(window_len)),
+                ) else {
+                    continue;
+                };
+                let upper = AlignedOccurrence {
+                    message: 0,
+                    window: upper_window,
+                    core_len,
+                };
+                let lower = AlignedOccurrence {
+                    message: 0,
+                    window: lower_window,
+                    core_len,
+                };
+                let context = ContextId::new(context_index);
+                context_index = context_index.saturating_add(1);
+                let Ok(links) = chain_links_for_pair(context, &upper, &lower) else {
+                    continue;
+                };
+                // ONE fixed context = ONE aligned occurrence pair. Within this single
+                // alignment two arrows out of / into one symbol can ONLY come from a
+                // bad isomorph alignment (an over-extended tail), never from normal
+                // hidden-state variation — so a TRUE conflict here is a genuine abort.
+                let mut action = ContextAction::default();
+                for link in &links {
+                    let _ins = touched.insert(link.from.get());
+                    let _ins = touched.insert(link.to.get());
+                    action.insert(CosetEdge {
+                        from: link.from.get(),
+                        to: link.to.get(),
+                    });
+                }
+                if action.true_conflict {
+                    // Fixed-context TRUE-conflict abort: bad isomorph alignment.
+                    substrate.true_conflict_aborts =
+                        substrate.true_conflict_aborts.saturating_add(1);
+                    continue;
+                }
+                substrate.contexts.push(action);
+            }
+        }
+    }
+    substrate.symbols_touched = touched.len();
+    substrate
+}
+
+/// Keeps only occurrence starts that are at least `window_len` apart (drops
+/// coincidental overlapping matches).
+fn spacing_filter(starts: &[usize], window_len: usize) -> Vec<usize> {
+    let mut filtered: Vec<usize> = Vec::new();
+    let mut last: Option<usize> = None;
+    for &start in starts {
+        let accept = match last {
+            Some(prev) => start >= prev.saturating_add(window_len),
+            None => true,
+        };
+        if accept {
+            filtered.push(start);
+            last = Some(start);
+        }
+    }
+    filtered
+}
+
+/// Result of the deck constraint-propagation attack on one ciphertext stream.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct DeckAttackSolution {
+    /// The merged single-valued-core actions: each is a partial map on the visible
+    /// coset alphabet, light-merged across phrase columns. These are the recovered
+    /// PARTIAL visible-coset action maps scored against ground truth — a fraction of
+    /// per-letter visible-coset transitions, NOT a recovered key and NOT the
+    /// plaintext->group-element mapping.
+    recovered_actions: Vec<BTreeMap<u8, u8>>,
+    /// Number of fixed-context TRUE-conflict aborts (bad isomorph alignments
+    /// witnessed by [`build_chain_substrate`]). Surfaced — a feature.
+    true_conflict_aborts: usize,
+    /// Distinct visible coset symbols touched (chain-link coverage).
+    symbols_touched: usize,
+    /// Number of fixed-context occurrence-pair contexts that survived (no TRUE
+    /// conflict) in the chain substrate — the coverage/conflict-detection counter.
+    surviving_contexts: usize,
+    /// The MEASURED hidden-state obstruction: how much of the per-letter
+    /// visible-coset action is multi-valued across hidden states (the part NOT
+    /// recoverable without idea 3). This is a headline honest result of this unit.
+    obstruction: HiddenStateObstruction,
+}
+
+/// Runs the deck visible-coset action-recovery attack (idea 1, this unit).
+///
+/// **What this recovers (claim ceiling).** Only PARTIAL VISIBLE-COSET ACTION MAPS —
+/// a fraction of the per-letter `from -> to` visible-coset transitions — NOT a
+/// recovered key and NOT the plaintext->group-element mapping. Under non-trivial
+/// `H` the visible transition depends on the FULL hidden state, so most of a
+/// letter's action is multi-valued across hidden states and is NOT recoverable here
+/// (it is measured as [`HiddenStateObstruction`] instead). That bound is the point.
+///
+/// **Pipeline.**
+/// 1. **Chain-link substrate (coverage + conflict detection).**
+///    [`build_chain_substrate`] groups occurrence pairs by full-window
+///    [`PatternSignature`] and turns each into one fixed-context partial permutation
+///    via the SHARED [`chain_links_for_pair`] primitive. A genuine fixed-context
+///    TRUE conflict there (two arrows out of / into one symbol under ONE alignment)
+///    proves a bad isomorph alignment and aborts that branch. This substrate is
+///    REUSED for coverage (`symbols_touched`) and conflict detection — it is NOT the
+///    recovery substrate.
+/// 2. **Per-column recovery (the recovery substrate).** [`phrase_column_evidence`]
+///    accumulates each phrase column's one-step visible-coset transitions — sourced
+///    from the SAME [`chain_links_for_pair`] primitive (load-bearing: corrupting the
+///    links changes these edges and breaks recovery). Cross-hidden-state
+///    multi-valuedness is EXPECTED here, so it is measured, not aborted; only each
+///    column's single-valued core feeds recovery.
+/// 3. **Light merge over consistent columns.** [`merge_context_actions`] merges
+///    single-valued cores only when their shared support meets the group-dependent
+///    [`merge_overlap_threshold`] and they never contradict — a deliberately
+///    conservative light merge, NOT full Schreier-graph constraint propagation.
+///    Unequal cycles never block a merge (the hidden state shortens some).
+///
+/// ## Hooks for the NEXT unit (idea 2 + idea 3)
+///
+/// - **Small-support prior (idea 2):** [`merge_overlap_threshold`] is where the
+///   TENTATIVE near-identity prior becomes a SOFT penalty — biasing merges toward
+///   actions expressible as `≤k` transpositions. It is NOT applied here (this unit
+///   measures the unconstrained bound); the hook is the single function to extend.
+/// - **Hidden-state marginalization (idea 3):** the [`HiddenStateObstruction`] this
+///   unit MEASURES is exactly what idea 3 must overcome. [`merge_context_actions`]
+///   is where a belief-propagation / beam search over the hidden-state posterior
+///   replaces the greedy single-valued-core merge, so the multi-valued part becomes
+///   recoverable. The greedy merge is intentionally the simplest correct light merge
+///   so the next unit can swap it without reshaping the substrate or the scoring.
+fn run_deck_attack(
+    ciphertext: &[SymbolValue],
+    state_size: usize,
+    phrase_len: usize,
+) -> DeckAttackSolution {
+    // (1) Chain-link substrate: REUSED for coverage + fixed-context conflict
+    // detection (NOT the recovery substrate). The phrase-length window (not a short
+    // window) is essential: the visible coset alphabet is tiny (|C| = n), so a short
+    // window collides on nearly every position; the long phrase window is what makes
+    // the equality-pattern signature discriminating. This gives the genuine
+    // fixed-context TRUE-conflict aborts and the chain-link coverage. Production
+    // groups by the FULL window (core_len == window_len), so the shipped numbers are
+    // unchanged; the conflict guard fires only on a deliberately bad alignment (a
+    // shorter core), exercised directly in the tests.
+    let substrate = build_chain_substrate(ciphertext, phrase_len, phrase_len);
+    let surviving_contexts = substrate.contexts.len();
+    let true_conflict_aborts = substrate.true_conflict_aborts;
+
+    // (2) Per-column recovery (the recovery substrate). Within the aligned phrase,
+    // column `c` is ALWAYS the same plaintext letter across all occurrences, so its
+    // one-step (prev -> next) visible-coset edges — sourced FROM the SAME
+    // chain_links_for_pair primitive (load-bearing) — are that one letter's coset
+    // action observed across many hidden states. Under non-trivial H a single coset
+    // legitimately maps several ways across hidden states, so we MEASURE that
+    // multi-valuedness as the obstruction and recover only the single-valued core.
+    let (columns, obstruction) = phrase_column_evidence(ciphertext, phrase_len);
+    let cores: Vec<BTreeMap<u8, u8>> = columns
+        .iter()
+        .map(ColumnEvidence::single_valued_core)
+        .filter(|core| !core.is_empty())
+        .collect();
+
+    // (3) Light merge of the consistent single-valued cores (group-dependent overlap
+    // threshold). This is a conservative light merge, NOT full constraint
+    // propagation.
+    let recovered_actions = merge_context_actions(&cores, state_size);
+
+    DeckAttackSolution {
+        recovered_actions,
+        true_conflict_aborts,
+        symbols_touched: substrate.symbols_touched,
+        surviving_contexts,
+        obstruction,
+    }
+}
+
+/// The visible-coset transition evidence at one phrase column, accumulated across
+/// every aligned occurrence (i.e. across many hidden states for the SAME plaintext
+/// letter).
+///
+/// Crucially, for non-trivial `H` the visible transition is
+/// `c_i = g_{i-1}^{-1}[ p(a)^{-1}[top] ]` — it depends on the FULL hidden state
+/// `g_{i-1}`, not just the previous visible coset. So when one column is gathered
+/// across occurrences with different hidden states, a single `from` coset
+/// LEGITIMATELY maps to several `to` cosets. That multi-valuedness is **normal
+/// hidden-state variation, NOT a conflict** in the chaining sense, so this struct
+/// records the full per-`from` image SET rather than forcing a partial permutation.
+/// The recoverable part of the column is its single-valued core; the rest is the
+/// measured hidden-state obstruction (the motivation for idea 3).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct ColumnEvidence {
+    /// Every `to` observed out of each `from` across all occurrences of this column.
+    images: BTreeMap<u8, BTreeSet<u8>>,
+}
+
+impl ColumnEvidence {
+    /// Records one observed `from -> to` transition for this column.
+    fn observe(&mut self, edge: CosetEdge) {
+        let _new = self.images.entry(edge.from).or_default().insert(edge.to);
+    }
+
+    /// The single-valued core: the `from -> to` map restricted to `from` cosets that
+    /// map to EXACTLY ONE `to` across all hidden states. This is the only part of a
+    /// column legitimately recoverable without hidden-state handling.
+    fn single_valued_core(&self) -> BTreeMap<u8, u8> {
+        let mut core = BTreeMap::new();
+        for (from, tos) in &self.images {
+            if let (1, Some(to)) = (tos.len(), tos.iter().next().copied()) {
+                let _old = core.insert(*from, to);
+            }
+        }
+        core
+    }
+
+    /// Number of distinct `from` cosets observed at this column.
+    fn distinct_from(&self) -> usize {
+        self.images.len()
+    }
+
+    /// Number of `from` cosets that map multi-valued (out-degree > 1) — the
+    /// hidden-state obstruction at this column.
+    fn multi_valued_from(&self) -> usize {
+        self.images.values().filter(|tos| tos.len() > 1).count()
+    }
+}
+
+/// The measured per-column hidden-state obstruction for the deck attack: how much
+/// of the visible-coset action is multi-valued (and therefore NOT recoverable
+/// without idea 3's hidden-state handling).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct HiddenStateObstruction {
+    /// Total distinct `from` cosets summed over all phrase columns.
+    distinct_from_total: usize,
+    /// `from` cosets that mapped multi-valued (out-degree > 1) summed over columns.
+    multi_valued_from_total: usize,
+}
+
+impl HiddenStateObstruction {
+    /// Fraction of visible cosets that map multi-valued under a fixed letter — the
+    /// hidden-state obstruction this unit measures (`0.0` when no evidence). This is
+    /// the headline honest metric: the larger it is, the less of the action is
+    /// recoverable without hidden-state marginalization (idea 3).
+    fn multi_valued_fraction(self) -> f64 {
+        fraction(self.multi_valued_from_total, self.distinct_from_total)
+    }
+}
+
+/// Accumulates per-phrase-column visible-coset evidence across aligned occurrences.
+///
+/// The aligned repeated phrase is found once (spacing-filtered occurrences); each
+/// interior column `c` of the phrase is the SAME plaintext letter across every
+/// occurrence (`Alphabet-Chaining.md`: a repeated phrase recurs as a repeated
+/// equality pattern). So the adjacent `(prev -> next)` visible-coset edge at that
+/// column, gathered over all occurrences, is that one letter's coset action seen
+/// across many hidden states.
+///
+/// LOAD-BEARING chain-link reuse: the prev->next edges are NOT read off the raw
+/// stream — they are the [`chain_links_for_pair`] output of each occurrence window
+/// aligned against itself shifted by one (column `c-1` is the "upper" occurrence,
+/// column `c` is the "lower" occurrence of the same one-step isomorph). So the
+/// recovery's equations come straight from the SHARED chain-link primitive;
+/// corrupting the links changes these edges and breaks recovery.
+///
+/// We do NOT force a partial permutation per column: under non-trivial `H` a single
+/// `from` coset legitimately maps to several `to` cosets across hidden states (see
+/// [`ColumnEvidence`]), so each column keeps its full image SET. The single-valued
+/// core feeds recovery; the multi-valuedness is measured as the obstruction.
+fn phrase_column_evidence(
+    ciphertext: &[SymbolValue],
+    phrase_len: usize,
+) -> (Vec<ColumnEvidence>, HiddenStateObstruction) {
+    let window_len = phrase_len.max(2);
+    let Some(filtered) = aligned_phrase_occurrences(ciphertext, window_len) else {
+        return (Vec::new(), HiddenStateObstruction::default());
+    };
+    // Column `c` (1..window_len) holds the transition prev=col c-1, next=col c.
+    let mut columns: Vec<ColumnEvidence> = vec![ColumnEvidence::default(); window_len];
+    let mut context_index: u32 = 0;
+    for &start in &filtered {
+        // Source the prev->next edges from the SHARED chain-link primitive: align
+        // this occurrence window (cols 0..len-1) against the same window shifted by
+        // one (cols 1..len). Each emitted ChainLink (from=col c-1, to=col c) is the
+        // one-step visible-coset transition — exactly the per-column edge we need,
+        // but routed through `chain_links_for_pair` so the links are load-bearing.
+        let (Some(prev_window), Some(next_window)) = (
+            ciphertext.get(start..start.saturating_add(window_len.saturating_sub(1))),
+            ciphertext.get(start.saturating_add(1)..start.saturating_add(window_len)),
+        ) else {
+            continue;
+        };
+        let upper = AlignedOccurrence {
+            message: 0,
+            window: prev_window,
+            core_len: prev_window.len(),
+        };
+        let lower = AlignedOccurrence {
+            message: 0,
+            window: next_window,
+            core_len: next_window.len(),
+        };
+        let context = ContextId::new(context_index);
+        context_index = context_index.saturating_add(1);
+        let Ok(links) = chain_links_for_pair(context, &upper, &lower) else {
+            continue;
+        };
+        for link in &links {
+            // The link at provenance column `k` is the transition into phrase
+            // column `k + 1` (prev = window col k, next = window col k + 1).
+            let phrase_col = link.provenance.column.saturating_add(1);
+            if let Some(column) = columns.get_mut(phrase_col) {
+                column.observe(CosetEdge {
+                    from: link.from.get(),
+                    to: link.to.get(),
+                });
+            }
+        }
+    }
+    let mut obstruction = HiddenStateObstruction::default();
+    for column in &columns {
+        obstruction.distinct_from_total = obstruction
+            .distinct_from_total
+            .saturating_add(column.distinct_from());
+        obstruction.multi_valued_from_total = obstruction
+            .multi_valued_from_total
+            .saturating_add(column.multi_valued_from());
+    }
+    let evidence: Vec<ColumnEvidence> = columns
+        .into_iter()
+        .filter(|c| !c.images.is_empty())
+        .collect();
+    (evidence, obstruction)
+}
+
+/// Aligns the repeated phrase by equality-pattern signature and returns the
+/// spacing-filtered occurrence start indices (≥ `window_len` apart). Mirrors
+/// [`aligned_phrase_starts`] but over a raw ciphertext (no prepended entry state),
+/// since the deck attack works directly on the visible coset stream.
+fn aligned_phrase_occurrences(ciphertext: &[SymbolValue], window_len: usize) -> Option<Vec<usize>> {
+    if ciphertext.len() < window_len {
+        return None;
+    }
+    let mut by_signature: BTreeMap<PatternSignature, Vec<usize>> = BTreeMap::new();
+    for (start, window) in ciphertext.windows(window_len).enumerate() {
+        let signature = PatternSignature::from_window(window);
+        if signature.has_repeated_symbol() {
+            by_signature.entry(signature).or_default().push(start);
+        }
+    }
+    let phrase_starts = by_signature
+        .into_values()
+        .filter(|starts| starts.len() >= 2)
+        .max_by_key(Vec::len)?;
+    Some(spacing_filter(&phrase_starts, window_len))
+}
+
+/// The group-dependent overlap threshold for merging two context actions
+/// (`Chaining-Conflicts.md`).
+///
+/// Edge overlap does **not** prove context equality: in the worst case
+/// `S_n`/`S_{n-1}` requires *all* edges identical before two contexts may be
+/// merged. We require the shared support to be at least `state_size - 1` edges
+/// (one short of the full visible alphabet) AND fully consistent. This is the
+/// deliberately conservative deck threshold; a single shared edge can never
+/// trigger a merge. This function is the documented SOFT-PRIOR hook for the next
+/// unit: the TENTATIVE small-support penalty lowers/weights the threshold for
+/// near-identity actions, but is NOT applied in this unit.
+#[must_use]
+fn merge_overlap_threshold(state_size: usize) -> usize {
+    state_size.saturating_sub(1)
+}
+
+/// Light-merges consistent single-valued-core actions to a fixed point, returning
+/// the distinct recovered partial visible-coset action maps.
+///
+/// Two actions merge only when (a) their shared-`from` support meets
+/// [`merge_overlap_threshold`], (b) they agree on every shared `from`, and (c)
+/// their union stays a partial permutation (no two `from`s share a `to`). Cycles
+/// of unequal length never block a merge (the hidden state shortens some). This is
+/// a deliberately conservative LIGHT MERGE of single-valued cores, **not** full
+/// Schreier-graph constraint propagation; idea-3 hidden-state marginalization
+/// replaces it next unit so the multi-valued part becomes recoverable too.
+fn merge_context_actions(cores: &[BTreeMap<u8, u8>], state_size: usize) -> Vec<BTreeMap<u8, u8>> {
+    let threshold = merge_overlap_threshold(state_size);
+    let mut groups: Vec<BTreeMap<u8, u8>> = cores
+        .iter()
+        .filter(|forward| !forward.is_empty())
+        .cloned()
+        .collect();
+
+    let mut merged = true;
+    while merged {
+        merged = false;
+        let mut index = 0usize;
+        while index < groups.len() {
+            let mut other = index.saturating_add(1);
+            while other < groups.len() {
+                let mergeable = match (groups.get(index), groups.get(other)) {
+                    (Some(left), Some(right)) => actions_mergeable(left, right, threshold),
+                    _ => false,
+                };
+                if mergeable {
+                    if let (Some(absorbed), Some(target)) =
+                        (groups.get(other).cloned(), groups.get_mut(index))
+                    {
+                        for (from, to) in absorbed {
+                            let _old = target.entry(from).or_insert(to);
+                        }
+                    }
+                    let _removed = groups.remove(other);
+                    merged = true;
+                } else {
+                    other = other.saturating_add(1);
+                }
+            }
+            index = index.saturating_add(1);
+        }
+    }
+
+    // Deduplicate identical recovered actions (the same coset action can be
+    // reconstructed by several disjoint context groups).
+    let mut distinct: Vec<BTreeMap<u8, u8>> = Vec::new();
+    for group in groups {
+        if !distinct.contains(&group) {
+            distinct.push(group);
+        }
+    }
+    distinct
+}
+
+/// Whether two context actions may be merged: their shared `from`-support meets
+/// the group-dependent `threshold`, they agree on every shared `from`, and their
+/// union is a partial permutation (backward single-valued).
+fn actions_mergeable(left: &BTreeMap<u8, u8>, right: &BTreeMap<u8, u8>, threshold: usize) -> bool {
+    let mut shared = 0usize;
+    for (from, to) in left {
+        if let Some(other_to) = right.get(from) {
+            if other_to != to {
+                return false;
+            }
+            shared = shared.saturating_add(1);
+        }
+    }
+    // Group-dependent overlap threshold: a single shared edge is NEVER enough.
+    if shared < threshold {
+        return false;
+    }
+    // Union must stay backward single-valued (a partial permutation).
+    let mut image_of: BTreeMap<u8, u8> = BTreeMap::new();
+    for (from, to) in left.iter().chain(right.iter()) {
+        match image_of.get(to) {
+            Some(existing_from) if existing_from != from => return false,
+            _ => {
+                let _old = image_of.insert(*to, *from);
+            }
+        }
+    }
+    true
+}
+
+// ---------------------------------------------------------------------
+// C. Partial-recovery scoring + nulls + tractability sweep (the rigor).
+// ---------------------------------------------------------------------
+
+/// The ground-truth per-letter visible-coset edge sets for a deck fixture.
+///
+/// For non-trivial `H` a letter does NOT induce a fixed coset permutation, so the
+/// truth is the full set of `(s, s')` coset transitions letter `a` produces across
+/// all reachable hidden states encountered while encrypting THIS plaintext. We
+/// score a recovered action against a letter by how many of its edges agree with
+/// (i.e. are contained in) that letter's truth edge set without contradicting it
+/// (no `s -> s'` in the recovered action that the letter never produces).
+///
+/// # Errors
+/// Returns [`GakAttackError`] if a coset readout cannot be computed or a symbol
+/// exceeds the `u8` range (internal invariants for the small `n` swept).
+fn truth_coset_edges(
+    key: &GakKey,
+    plaintext: &[Glyph],
+) -> Result<Vec<BTreeSet<CosetEdge>>, GakAttackError> {
+    let letter_count = key.plaintext_letters().len();
+    let mut per_letter: Vec<BTreeSet<CosetEdge>> = vec![BTreeSet::new(); letter_count];
+    let mut state = key.initial_state().to_vec();
+    for glyph in plaintext {
+        let letter = usize::from(glyph.0);
+        let Some(permutation) = key.plaintext_letters().get(letter) else {
+            continue;
+        };
+        let from = readout_of_state(key, &state)?;
+        let next = compose_state(permutation, &state)?;
+        let to = readout_of_state(key, &next)?;
+        let from_value =
+            u8::try_from(from).map_err(|_e| GakAttackError::SymbolOutOfRange { value: from })?;
+        let to_value =
+            u8::try_from(to).map_err(|_e| GakAttackError::SymbolOutOfRange { value: to })?;
+        if let Some(slot) = per_letter.get_mut(letter) {
+            let _added = slot.insert(CosetEdge {
+                from: from_value,
+                to: to_value,
+            });
+        }
+        state = next;
+    }
+    Ok(per_letter)
+}
+
+/// Scores a deck attack's recovered coset actions against the held truth.
+///
+/// Returns `(matched, total)` where `total` is the number of plaintext letters and
+/// `matched` is how many letters have a recovered action that is a CORRECT,
+/// NON-EMPTY partial coset action for that letter: every edge of the recovered
+/// action is one the letter genuinely produces (contained in
+/// [`truth_coset_edges`]) and no recovered edge contradicts the letter's true map.
+/// Matching is one-to-one (each recovered action claims at most one letter, each
+/// letter at most one action). This is the **recovered-permutation fraction** —
+/// the spec's preferred partial-recovery metric for the non-trivial-H regime.
+fn coset_recovery_fraction(
+    truth: &[BTreeSet<CosetEdge>],
+    recovered: &[BTreeMap<u8, u8>],
+) -> (usize, usize) {
+    let total = truth.len();
+    let mut used = vec![false; recovered.len()];
+    let mut matched = 0usize;
+    for letter_edges in truth {
+        for (index, action) in recovered.iter().enumerate() {
+            let Some(slot) = used.get_mut(index) else {
+                continue;
+            };
+            if *slot || action.is_empty() {
+                continue;
+            }
+            // The recovered action must be a faithful sub-map of this letter's
+            // true coset transitions: every recovered edge is one the letter
+            // genuinely produces.
+            let faithful = action.iter().all(|(from, to)| {
+                letter_edges.contains(&CosetEdge {
+                    from: *from,
+                    to: *to,
+                })
+            });
+            // And it must explain a meaningful fraction of the letter's edges, so
+            // a tiny coincidental sub-map does not count as recovery: require at
+            // least the merge threshold's worth of correct edges, or the whole
+            // (small) letter map when the letter has fewer edges than that.
+            let coverage_floor = letter_edges.len().min(action.len());
+            let explains_enough =
+                coverage_floor > 0 && action.len() >= letter_edges.len().min(MIN_RECOVERED_EDGES);
+            if faithful && explains_enough {
+                *slot = true;
+                matched = matched.saturating_add(1);
+                break;
+            }
+        }
+    }
+    (matched, total)
+}
+
+/// Minimum number of correct coset edges a recovered action must carry to count as
+/// recovering a letter (guards against a tiny coincidental sub-map scoring).
+const MIN_RECOVERED_EDGES: usize = 2;
+
+/// One deck attack outcome on one independent seed, with its matched null.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DeckAttackOutcome {
+    /// Deck size `n` (`|C| = n`).
+    pub state_size: usize,
+    /// Hidden-subgroup order `|H| = (n-1)!`.
+    pub hidden_subgroup_order: u128,
+    /// Seed used to build the fixture.
+    pub seed: u64,
+    /// Number of ciphertext symbols.
+    pub ciphertext_len: usize,
+    /// Letters whose coset action the REAL pipeline recovered correctly.
+    pub real_recovered: usize,
+    /// Letters whose coset action the matched-null pipeline recovered.
+    pub null_recovered: usize,
+    /// Total plaintext letters (the recovery-fraction denominator).
+    pub letters_total: usize,
+    /// Fixed-context TRUE-conflict aborts on the real stream (surfaced — a feature).
+    pub true_conflict_aborts: usize,
+    /// Distinct visible coset symbols touched by the chain links (real stream).
+    pub symbols_touched: usize,
+    /// Fixed-context occurrence-pair contexts that survived (no TRUE conflict) in
+    /// the chain substrate (coverage/conflict counter, not the recovery substrate).
+    pub surviving_contexts: usize,
+    /// Distinct `from` cosets observed across phrase columns (real stream): the
+    /// denominator of the measured hidden-state obstruction.
+    pub obstruction_from_total: usize,
+    /// `from` cosets that mapped multi-valued across hidden states (real stream):
+    /// the MEASURED hidden-state obstruction (the part NOT recoverable here).
+    pub obstruction_multi_valued: usize,
+}
+
+impl DeckAttackOutcome {
+    /// Real recovered-coset-action fraction (`0.0` if no letters).
+    #[must_use]
+    pub fn real_fraction(self) -> f64 {
+        fraction(self.real_recovered, self.letters_total)
+    }
+
+    /// Matched-null recovered-coset-action fraction.
+    #[must_use]
+    pub fn null_fraction(self) -> f64 {
+        fraction(self.null_recovered, self.letters_total)
+    }
+
+    /// Measured hidden-state obstruction: the fraction of visible cosets that map
+    /// MULTI-VALUED under a fixed letter (real stream). The larger this is, the less
+    /// of the per-letter action is recoverable without idea 3.
+    #[must_use]
+    pub fn multi_valued_fraction(self) -> f64 {
+        fraction(self.obstruction_multi_valued, self.obstruction_from_total)
+    }
+}
+
+/// Evaluates the deck attack on one fixture and its matched within-message
+/// shuffle null over the IDENTICAL pipeline (the matched-null symmetry the
+/// historical #1 bug here demands).
+fn evaluate_deck_fixture(
+    fixture: &DeckFixture,
+    config: GakAttackConfig,
+    seed: u64,
+) -> Result<DeckAttackOutcome, GakAttackError> {
+    let ciphertext_values = glyphs_to_values(&fixture.ciphertext)?;
+    let truth = truth_coset_edges(&fixture.key, &fixture.plaintext)?;
+    let letters_total = truth.len();
+    let phrase_len = config.phrase_len;
+
+    // Real pipeline.
+    let real = run_deck_attack(&ciphertext_values, fixture.state_size, phrase_len);
+    let (real_recovered, _) = coset_recovery_fraction(&truth, &real.recovered_actions);
+
+    // Matched null: the SAME `run_deck_attack` pipeline (same phrase_len, same
+    // state_size) over a within-message Fisher-Yates shuffle of the SAME ciphertext
+    // population, scored against the SAME truth. Real and null run the identical
+    // pipeline over the identical population — only the structure differs.
+    let mut rng = SplitMix64::new(mix_seed(seed, 0x6465_636b_6e75_6c6c));
+    let mut shuffled = ciphertext_values.clone();
+    fisher_yates(&mut shuffled, &mut rng)?;
+    let null = run_deck_attack(&shuffled, fixture.state_size, phrase_len);
+    let (null_recovered, _) = coset_recovery_fraction(&truth, &null.recovered_actions);
+
+    Ok(DeckAttackOutcome {
+        state_size: fixture.state_size,
+        hidden_subgroup_order: fixture.hidden_subgroup_order,
+        seed,
+        ciphertext_len: ciphertext_values.len(),
+        real_recovered,
+        null_recovered,
+        letters_total,
+        true_conflict_aborts: real.true_conflict_aborts,
+        symbols_touched: real.symbols_touched,
+        surviving_contexts: real.surviving_contexts,
+        obstruction_from_total: real.obstruction.distinct_from_total,
+        obstruction_multi_valued: real.obstruction.multi_valued_from_total,
+    })
+}
+
+/// The measured tractability bound at one deck size `n`: real-vs-null recovered-
+/// coset-action fractions across independent seeds, with a matched-null p-value.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TractabilityPoint {
+    /// Deck size `n` (`|C| = n`).
+    pub state_size: usize,
+    /// Hidden-subgroup order `|H| = (n-1)!`.
+    pub hidden_subgroup_order: u128,
+    /// Number of independent seeds aggregated at this `n`.
+    pub seeds: usize,
+    /// Mean real recovered-coset-action fraction over the seeds.
+    pub real_mean_fraction: f64,
+    /// Mean matched-null recovered-coset-action fraction over the seeds.
+    pub null_mean_fraction: f64,
+    /// Total correctly-recovered letters (real) summed over the seeds.
+    pub real_recovered_total: usize,
+    /// Total correctly-recovered letters (matched null) summed over the seeds.
+    pub null_recovered_total: usize,
+    /// Total plaintext letters summed over the seeds (the denominator).
+    pub letters_total: usize,
+    /// Total fixed-context TRUE-conflict aborts (real) summed over the seeds.
+    pub true_conflict_aborts: usize,
+    /// MEASURED hidden-state obstruction at this `n`: the fraction of visible cosets
+    /// that map MULTI-VALUED under a fixed letter, aggregated over the seeds. The
+    /// headline honest result: this is the part of the action NOT recoverable
+    /// without hidden-state marginalization (idea 3), and it bounds recovery.
+    pub multi_valued_fraction: f64,
+    /// Add-one Monte-Carlo p-value: how often a null seed's recovered fraction is
+    /// at least the matched real seed's. Small means real beats null.
+    pub matched_null_p_value: f64,
+    /// Whether the real mean strictly exceeds the null mean at this `n` (the
+    /// per-`n` "real beats matched null" verdict).
+    pub real_beats_null: bool,
+}
+
+/// Result of the deck-GAK partial-recovery attack: per-seed outcomes and the
+/// measured tractability bound (per-`n` real-vs-null fractions, i.e. WHERE
+/// recovery breaks).
+#[derive(Clone, Debug, PartialEq)]
+pub struct DeckAttackReport {
+    /// The deck letter regime swept (unconstrained `S_n` by default).
+    pub regime: DeckLetterRegime,
+    /// Per-seed deck outcomes across the swept `n` × seed matrix.
+    pub outcomes: Vec<DeckAttackOutcome>,
+    /// The measured tractability bound: one [`TractabilityPoint`] per swept `n`.
+    pub tractability: Vec<TractabilityPoint>,
+    /// Whether the attack beats its matched null on the EASIEST (smallest) swept
+    /// `n` — the go/no-go for this unit.
+    pub beats_null_on_easiest: bool,
+    /// The smallest swept deck size (the easiest fixture).
+    pub easiest_state_size: usize,
+}
+
+/// Default deck sizes swept by [`run_deck_attack_sweep`].
+///
+/// Starts at `n ≤ 5` (the easiest), then `6, 7, 8` — the spec's tractability
+/// sweep. Recovery is expected to be partial at the smallest `n` and to BREAK as
+/// `n` / `|H| = (n-1)!` grows; that measured break is the deliverable.
+pub const DEFAULT_DECK_STATE_SIZES: [usize; 4] = [5, 6, 7, 8];
+
+/// Fixed, robust seed count the bundled [`run_gak_attack`] deck sweep uses.
+///
+/// Per-fixture recovery variance is high (only a minority of seeds recover any
+/// letter), so a stable aggregate tractability bound needs more seeds than the
+/// small GCTAK-gate `seeds_per_kind` (default 3). This count makes the shipped
+/// report's per-`n` real-vs-null aggregate (e.g. 18/72 vs 0/72 at `n = 5`) stable
+/// rather than a 2-3-seed snapshot, while staying fast enough for `make verify`.
+pub const DECK_SWEEP_SEEDS: usize = 24;
+
+/// Runs the real-GAK deck attack across a sweep of deck sizes, measuring the
+/// tractability bound (where partial recovery breaks).
+///
+/// For each `n` in `state_sizes` it draws `config.seeds_per_kind` independent
+/// seeds, generates a deck fixture (held-back ground truth), runs the constraint-
+/// propagation attack and its matched within-message shuffle null over the
+/// identical pipeline, and aggregates the recovered-coset-action fractions. The
+/// `regime` selects the per-letter draw (unconstrained `S_n` by default; the
+/// TENTATIVE small-support regime is generated too so the next unit can validate
+/// the prior).
+///
+/// # Errors
+/// Returns [`GakAttackError`] when the configuration is invalid, when a fixture's
+/// key/stream is rejected, or when a symbol cannot be represented. NOTE: unlike
+/// the GCTAK gate, a low or zero recovered fraction is the EXPECTED, REPORTABLE
+/// outcome here, not an error.
+pub fn run_deck_attack_sweep(
+    config: GakAttackConfig,
+    regime: DeckLetterRegime,
+    state_sizes: &[usize],
+) -> Result<DeckAttackReport, GakAttackError> {
+    if config.seeds_per_kind == 0 {
+        return Err(GakAttackError::ZeroSeeds);
+    }
+    if config.phrase_repeats == 0 || config.phrase_len == 0 {
+        return Err(GakAttackError::EmptyTemplate);
+    }
+
+    let mut outcomes = Vec::new();
+    let mut tractability = Vec::new();
+    let mut beats_null_on_easiest = false;
+    let mut easiest_state_size = 0usize;
+
+    for (size_index, &state_size) in state_sizes.iter().enumerate() {
+        let mut real_fractions: Vec<f64> = Vec::new();
+        let mut null_fractions: Vec<f64> = Vec::new();
+        let mut real_recovered_total = 0usize;
+        let mut null_recovered_total = 0usize;
+        let mut letters_total = 0usize;
+        let mut true_conflict_aborts = 0usize;
+        let mut obstruction_from_total = 0usize;
+        let mut obstruction_multi_valued = 0usize;
+        let mut null_at_least_real = 0usize;
+
+        for seed_index in 0..config.seeds_per_kind {
+            let seed = deck_fixture_seed(config.seed, state_size, seed_index);
+            let fixture = generate_deck_fixture(state_size, regime, config, seed)?;
+            let outcome = evaluate_deck_fixture(&fixture, config, seed)?;
+            real_fractions.push(outcome.real_fraction());
+            null_fractions.push(outcome.null_fraction());
+            real_recovered_total = real_recovered_total.saturating_add(outcome.real_recovered);
+            null_recovered_total = null_recovered_total.saturating_add(outcome.null_recovered);
+            letters_total = letters_total.saturating_add(outcome.letters_total);
+            true_conflict_aborts =
+                true_conflict_aborts.saturating_add(outcome.true_conflict_aborts);
+            obstruction_from_total =
+                obstruction_from_total.saturating_add(outcome.obstruction_from_total);
+            obstruction_multi_valued =
+                obstruction_multi_valued.saturating_add(outcome.obstruction_multi_valued);
+            if outcome.null_fraction() >= outcome.real_fraction() {
+                null_at_least_real = null_at_least_real.saturating_add(1);
+            }
+            outcomes.push(outcome);
+        }
+
+        let real_mean = mean_f64(&real_fractions);
+        let null_mean = mean_f64(&null_fractions);
+        let matched_null_p_value = add_one_p_value(null_at_least_real, config.seeds_per_kind);
+        // The decisive per-`n` verdict is the AGGREGATE recovered-letter count
+        // (real vs matched null) over all seeds, not the per-seed mean (per-fixture
+        // variance is high: only a minority of seeds recover any letter, so a
+        // per-seed p-value is conservatively non-significant — itself reported).
+        // The aggregate contrast is unambiguous (e.g. 12 vs 0 at small `n`).
+        let real_beats_null = real_recovered_total > null_recovered_total;
+        let hidden_subgroup_order = deck_hidden_subgroup_order(state_size);
+        tractability.push(TractabilityPoint {
+            state_size,
+            hidden_subgroup_order,
+            seeds: config.seeds_per_kind,
+            real_mean_fraction: real_mean,
+            null_mean_fraction: null_mean,
+            real_recovered_total,
+            null_recovered_total,
+            letters_total,
+            true_conflict_aborts,
+            multi_valued_fraction: HiddenStateObstruction {
+                distinct_from_total: obstruction_from_total,
+                multi_valued_from_total: obstruction_multi_valued,
+            }
+            .multi_valued_fraction(),
+            matched_null_p_value,
+            real_beats_null,
+        });
+        if size_index == 0 {
+            easiest_state_size = state_size;
+            beats_null_on_easiest = real_beats_null && real_mean > 0.0;
+        }
+    }
+
+    Ok(DeckAttackReport {
+        regime,
+        outcomes,
+        tractability,
+        beats_null_on_easiest,
+        easiest_state_size,
+    })
+}
+
+/// Deterministic per-`(n, seed_index)` fixture seed for the deck sweep.
+fn deck_fixture_seed(master: u64, state_size: usize, seed_index: usize) -> u64 {
+    let tag = (state_size as u64)
+        .wrapping_mul(0x9e37_79b9_7f4a_7c15)
+        .wrapping_add(seed_index as u64);
+    mix_seed(master, tag ^ 0x6465_636b_5f73_7765)
+}
+
+/// Mean of an `f64` slice (`0.0` when empty).
+#[must_use]
+fn mean_f64(values: &[f64]) -> f64 {
+    if values.is_empty() {
+        0.0
+    } else {
+        values.iter().sum::<f64>() / values.len() as f64
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -1940,8 +3197,11 @@ mod tests {
         initial_state_readout, phrase_chain_links, run_gak_attack, solve_gctak,
         truth_letter_permutations, verify_against_chain_links,
     };
-    use crate::chaining_graph::{AlignedOccurrence, ChainLink, ContextId, chain_links_for_pair};
+    use crate::chaining_graph::{
+        AlignedOccurrence, ChainLink, ContextId, SymbolValue, chain_links_for_pair,
+    };
     use crate::ciphers::{gak_decrypt, gak_encrypt};
+    use crate::glyph::Glyph;
 
     fn cyclic(order: usize) -> GroupKind {
         GroupKind::Cyclic { order }
@@ -2460,5 +3720,344 @@ mod tests {
             }
         }
         false
+    }
+
+    // =================================================================
+    // UNIT 2a — real-GAK deck-stabilizer (non-trivial H) attack tests.
+    // =================================================================
+
+    use super::{
+        ContextAction, CosetEdge, DeckLetterRegime, build_chain_substrate, coset_recovery_fraction,
+        evaluate_deck_fixture, generate_deck_fixture, run_deck_attack, run_deck_attack_sweep,
+        truth_coset_edges,
+    };
+
+    /// Small deck config: enough text for stable recovery, cheap enough for tests.
+    fn deck_config(seeds_per_kind: usize) -> GakAttackConfig {
+        GakAttackConfig {
+            seeds_per_kind,
+            ..GakAttackConfig::default()
+        }
+    }
+
+    #[test]
+    fn deck_fixture_round_trips_and_is_genuinely_non_trivial_h() {
+        // Round-trip (Step-0 control) AND prove |H| > 1: two plaintexts sharing a
+        // prefix but differing later map through DISTINCT hidden states, so the
+        // hidden state genuinely matters (the deck is not a bijective-readout
+        // GCTAK in disguise).
+        let config = deck_config(3);
+        for &n in &[5usize, 6, 7] {
+            let fixture =
+                generate_deck_fixture(n, DeckLetterRegime::Unconstrained, config, 7).unwrap();
+            let decrypted = gak_decrypt(&fixture.ciphertext, &fixture.key).unwrap();
+            assert_eq!(decrypted, fixture.plaintext, "deck round trip n={n}");
+            assert!(
+                fixture.hidden_subgroup_order > 1,
+                "deck H = S_(n-1) must have |H| = (n-1)! > 1, got {}",
+                fixture.hidden_subgroup_order
+            );
+            assert_eq!(
+                fixture.hidden_subgroup_order,
+                super::deck_hidden_subgroup_order(n)
+            );
+        }
+
+        // Hidden-state-matters witness: encrypt two plaintexts with a shared prefix
+        // but different suffixes; the SAME ciphertext coset can be reached under
+        // different hidden states, so a single coset does NOT determine the next.
+        let fixture =
+            generate_deck_fixture(5, DeckLetterRegime::Unconstrained, config, 11).unwrap();
+        // Build two short plaintexts: [0,1,0] and [0,2,0] (shared prefix 0, then
+        // differ). If the readout were a fixed coset permutation (trivial H), the
+        // trailing 0 would map identically; with |H|>1 it can differ.
+        let pa = vec![Glyph(0), Glyph(1), Glyph(0)];
+        let pb = vec![Glyph(0), Glyph(2), Glyph(0)];
+        let ca = gak_encrypt(&pa, &fixture.key).unwrap();
+        let cb = gak_encrypt(&pb, &fixture.key).unwrap();
+        // The shared first symbol matches; a later same-letter step lands on
+        // different cosets because the hidden state diverged — the |H|>1 signature.
+        assert_eq!(ca.first(), cb.first(), "shared-prefix first step matches");
+        assert_ne!(
+            ca.get(2),
+            cb.get(2),
+            "with |H|>1 the same trailing letter maps through distinct hidden states"
+        );
+    }
+
+    #[test]
+    fn deck_attack_recovers_nonzero_fraction_and_beats_null_on_easiest() {
+        // The KEY go/no-go for this unit: on the easiest small-`n` deck fixture the
+        // attack recovers a NON-ZERO coset-action fraction AND beats its matched
+        // within-message shuffle null.
+        let config = deck_config(super::DECK_SWEEP_SEEDS);
+        let report =
+            run_deck_attack_sweep(config, DeckLetterRegime::Unconstrained, &[5usize, 6, 7, 8])
+                .unwrap();
+        let easiest = report
+            .tractability
+            .first()
+            .expect("at least one sweep point");
+        assert_eq!(easiest.state_size, 5);
+        assert!(
+            easiest.real_recovered_total > 0,
+            "expected non-zero real recovery at n=5, got {}/{}",
+            easiest.real_recovered_total,
+            easiest.letters_total
+        );
+        assert!(
+            easiest.real_recovered_total > easiest.null_recovered_total,
+            "real {}/{} must beat matched null {}/{} at the easiest n",
+            easiest.real_recovered_total,
+            easiest.letters_total,
+            easiest.null_recovered_total,
+            easiest.letters_total
+        );
+        // At the easiest n the matched null is fully destroyed (recovers nothing).
+        assert_eq!(
+            easiest.null_recovered_total, 0,
+            "matched null should recover nothing at the easiest n"
+        );
+        assert!(
+            report.beats_null_on_easiest,
+            "go/no-go: must beat null on easiest"
+        );
+        assert_eq!(report.easiest_state_size, 5);
+    }
+
+    #[test]
+    fn deck_attack_measures_a_tractability_bound_that_breaks_as_n_grows() {
+        // The deliverable: a measured bound. Recovery is SMALL and roughly FLAT
+        // across `n` — it does NOT climb with `n` (it is bounded by the hidden-state
+        // obstruction, not improving as `|H|` grows). We assert that SHAPE honestly:
+        // small-`n` real strictly beats null with null at zero, and the real-vs-null
+        // margin at the largest `n` is NO LARGER than at the smallest `n` (recovery
+        // does not improve with `n`). We do NOT assert monotone degradation, which
+        // the data (e.g. a rebound at n=7) does not show.
+        let config = deck_config(super::DECK_SWEEP_SEEDS);
+        let report = run_deck_attack_sweep(
+            config,
+            DeckLetterRegime::Unconstrained,
+            &super::DEFAULT_DECK_STATE_SIZES,
+        )
+        .unwrap();
+        assert_eq!(report.tractability.len(), 4);
+
+        let small = report.tractability.first().unwrap();
+        let large = report.tractability.last().unwrap();
+        // Small n: clean recovery, null at zero.
+        assert!(small.real_recovered_total > 0);
+        assert_eq!(small.null_recovered_total, 0);
+        // |H| grows factorially across the sweep (the bound is read against |H|).
+        assert!(large.hidden_subgroup_order > small.hidden_subgroup_order);
+        // Breaking signature: the real-minus-null aggregate margin at the largest
+        // n is no larger than at the smallest n (recovery does not improve with n).
+        let small_margin = small
+            .real_recovered_total
+            .saturating_sub(small.null_recovered_total);
+        let large_margin = large
+            .real_recovered_total
+            .saturating_sub(large.null_recovered_total);
+        assert!(
+            large_margin <= small_margin,
+            "the real-vs-null margin must not grow with n (recovery breaks): small={small_margin} large={large_margin}"
+        );
+    }
+
+    #[test]
+    fn deck_attack_matched_null_symmetry_identical_pipeline_and_population() {
+        // Matched-null discipline (the historical #1 bug): real and null run the
+        // IDENTICAL pipeline over the IDENTICAL population (a within-message
+        // shuffle of the SAME ciphertext), scored against the SAME truth. Here we
+        // prove symmetry directly: shuffling the ciphertext back to itself (an
+        // identity permutation via a no-op) reproduces the real recovery exactly.
+        let config = deck_config(3);
+        let fixture = generate_deck_fixture(5, DeckLetterRegime::Unconstrained, config, 3).unwrap();
+        let values = glyphs_to_values(&fixture.ciphertext).unwrap();
+        let truth = truth_coset_edges(&fixture.key, &fixture.plaintext).unwrap();
+
+        // Run the identical attack pipeline on the unshuffled stream twice; the
+        // population and pipeline are identical, so the scores are identical
+        // (determinism + matched-population symmetry).
+        let a = run_deck_attack(&values, fixture.state_size, config.phrase_len);
+        let b = run_deck_attack(&values, fixture.state_size, config.phrase_len);
+        assert_eq!(a, b, "identical pipeline+population must be identical");
+        let (sa, _) = coset_recovery_fraction(&truth, &a.recovered_actions);
+        let (sb, _) = coset_recovery_fraction(&truth, &b.recovered_actions);
+        assert_eq!(sa, sb);
+
+        // And the matched-null evaluation (a real shuffle) scores no higher than
+        // real on this seed (structure helps; destroying it cannot help).
+        let outcome = evaluate_deck_fixture(&fixture, config, 3).unwrap();
+        assert!(
+            outcome.null_recovered <= outcome.real_recovered,
+            "destroying structure must not beat real: real={} null={}",
+            outcome.real_recovered,
+            outcome.null_recovered
+        );
+    }
+
+    #[test]
+    fn deck_attack_true_conflict_aborts_on_a_bad_isomorph_assumption() {
+        // TRUE-conflict detection: a deliberately bad isomorph assumption (two
+        // distinct arrows OUT of one symbol under one fixed context) must be
+        // flagged as a TRUE conflict and dropped, never a false "recovery".
+        let mut action = ContextAction::default();
+        action.insert(CosetEdge { from: 1, to: 2 });
+        assert!(!action.true_conflict, "single edge is fine");
+        // A second arrow OUT of 1 to a different target => TRUE conflict.
+        action.insert(CosetEdge { from: 1, to: 3 });
+        assert!(
+            action.true_conflict,
+            "two arrows out of one symbol under one context must be a TRUE conflict"
+        );
+
+        // Backward TRUE conflict: two arrows INTO one symbol.
+        let mut into = ContextAction::default();
+        into.insert(CosetEdge { from: 1, to: 9 });
+        into.insert(CosetEdge { from: 2, to: 9 });
+        assert!(
+            into.true_conflict,
+            "two arrows into one symbol under one context must be a TRUE conflict"
+        );
+
+        // POSITIVE: a deliberately BAD isomorph alignment MUST make the substrate's
+        // fixed-context TRUE-conflict abort actually FIRE (not just an upper bound).
+        //
+        // Two windows share the length-2 isomorph CORE [x, x] (signature [0,0]) but
+        // DIVERGE in the over-extension tail. Aligning them column-wise (one fixed
+        // context) yields two arrows OUT of symbol `3`:  3->5 (col 2) and 3->6
+        // (col 4).  Under ONE alignment that is impossible for a real isomorph — it
+        // is exactly the over-extension-past-the-core bad alignment the guard exists
+        // to catch.  Window A = [7,7,3,9,3], Window B = [7,7,5,9,6], a `2` filler in
+        // between so the only [x,x]-prefix collisions are these two windows and they
+        // survive the spacing filter (6 >= 0 + window_len 5).
+        let raw: Vec<u8> = vec![
+            7, 7, 3, 9, 3, // window A (start 0): core [7,7], tail 3,9,3
+            2, // filler: no adjacent-equal pair starts here
+            7, 7, 5, 9, 6, // window B (start 6): core [7,7], tail 5,9,6
+        ];
+        let values: Vec<SymbolValue> = raw
+            .into_iter()
+            .map(|v| crate::trigram::TrigramValue::new(v).unwrap())
+            .collect();
+        // Full-window grouping (core_len == window_len) is a partial bijection by
+        // construction, so it can NEVER fire — proving the guard was previously
+        // unreachable in production.
+        let full = build_chain_substrate(&values, 5, 5);
+        assert_eq!(
+            full.true_conflict_aborts, 0,
+            "full-window grouping is a partial bijection by construction; no conflict can fire"
+        );
+        // Core-prefix grouping (core_len 2) aligns the divergent tails and MUST fire
+        // the fixed-context TRUE-conflict abort exactly once.
+        let bad = build_chain_substrate(&values, 5, 2);
+        assert_eq!(
+            bad.true_conflict_aborts, 1,
+            "a bad isomorph alignment must fire exactly one fixed-context TRUE-conflict abort"
+        );
+        assert_eq!(
+            bad.contexts.len(),
+            0,
+            "the conflicting context must be dropped, never counted as a surviving context"
+        );
+    }
+
+    #[test]
+    fn deck_chain_links_are_load_bearing_corruption_breaks_recovery() {
+        // The chain links are genuinely load-bearing (option a): the recovered
+        // single-valued cores are built from the per-column edges that
+        // `phrase_column_evidence` reads STRAIGHT OUT OF `chain_links_for_pair`
+        // (each occurrence window aligned against itself shifted by one). So
+        // corrupting those edges must break recovery (the attack cannot ignore
+        // them). Per-fixture recovery variance is high (only a minority of seeds
+        // recover any letter), so we deterministically search a few seeds for one
+        // that recovers a non-zero baseline — then prove corrupting its coset edges
+        // breaks it.
+        let config = deck_config(3);
+        let n = 5usize;
+        let mut chosen: Option<(super::DeckFixture, Vec<SymbolValue>, Vec<_>, usize)> = None;
+        for seed in 0u64..32 {
+            let fixture =
+                generate_deck_fixture(n, DeckLetterRegime::Unconstrained, config, seed).unwrap();
+            let values = glyphs_to_values(&fixture.ciphertext).unwrap();
+            let truth = truth_coset_edges(&fixture.key, &fixture.plaintext).unwrap();
+            let real = run_deck_attack(&values, fixture.state_size, config.phrase_len);
+            let (base, _) = coset_recovery_fraction(&truth, &real.recovered_actions);
+            if base > 0 {
+                chosen = Some((fixture, values, truth, base));
+                break;
+            }
+        }
+        let (fixture, values, truth, base_recovered) =
+            chosen.expect("some seed must recover a non-zero baseline at n=5");
+
+        // Corrupt the ciphertext's coset values (bump each by 1 mod n). This breaks
+        // the coset-edge correspondence the chain links carry, so the recovered
+        // actions no longer match any letter's true coset edge set.
+        let corrupted: Vec<SymbolValue> = values
+            .iter()
+            .map(|v| {
+                let bumped = (usize::from(v.get()) + 1) % n;
+                crate::trigram::TrigramValue::new(bumped as u8).unwrap()
+            })
+            .collect();
+        let broken = run_deck_attack(&corrupted, fixture.state_size, config.phrase_len);
+        let (broken_recovered, _) = coset_recovery_fraction(&truth, &broken.recovered_actions);
+        assert!(
+            broken_recovered < base_recovered,
+            "corrupting the chain-link coset edges must reduce recovery: base={base_recovered} broken={broken_recovered}"
+        );
+    }
+
+    #[test]
+    fn deck_attack_is_deterministic_for_fixed_seed() {
+        let config = deck_config(4);
+        let a =
+            run_deck_attack_sweep(config, DeckLetterRegime::Unconstrained, &[5usize, 6]).unwrap();
+        let b =
+            run_deck_attack_sweep(config, DeckLetterRegime::Unconstrained, &[5usize, 6]).unwrap();
+        assert_eq!(a, b, "deck sweep must be reproducible for a fixed seed");
+    }
+
+    #[test]
+    fn deck_generator_supports_both_letter_regimes() {
+        // Both the unconstrained and TENTATIVE small-support regimes generate valid,
+        // round-tripping deck fixtures (so the NEXT unit can validate the prior).
+        let config = deck_config(2);
+        for regime in [
+            DeckLetterRegime::Unconstrained,
+            DeckLetterRegime::SmallSupport { radius: 2 },
+        ] {
+            let fixture = generate_deck_fixture(6, regime, config, 1).unwrap();
+            assert_eq!(fixture.regime, regime);
+            let decrypted = gak_decrypt(&fixture.ciphertext, &fixture.key).unwrap();
+            assert_eq!(decrypted, fixture.plaintext, "round trip for {regime:?}");
+        }
+    }
+
+    #[test]
+    fn run_gak_attack_surfaces_the_deck_partial_recovery_bound() {
+        // The bundled report carries the deck (non-trivial-H) partial-recovery
+        // tractability bound, swept over the default deck sizes, with a robust seed
+        // count, and beating the matched null on the easiest fixture.
+        let report = run_gak_attack(GakAttackConfig::default()).unwrap();
+        assert_eq!(
+            report.deck.tractability.len(),
+            super::DEFAULT_DECK_STATE_SIZES.len()
+        );
+        assert_eq!(report.deck.regime, DeckLetterRegime::Unconstrained);
+        assert!(
+            report.deck.beats_null_on_easiest,
+            "deck attack must beat its matched null on the easiest fixture"
+        );
+        // Every swept point reports a hidden-subgroup order > 1 (real GAK).
+        for tp in &report.deck.tractability {
+            assert!(
+                tp.hidden_subgroup_order > 1,
+                "n={} not real GAK",
+                tp.state_size
+            );
+        }
     }
 }

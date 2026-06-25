@@ -85,4 +85,71 @@ fn gak_attack_subcommand_reports_synthetic_gate_and_honesty_caveats() {
         &stdout,
         "the expected, reportable outcome, not a thread failure.",
     );
+
+    // --- Unit 2a: the REAL-GAK (non-trivial-H) deck attack honesty surface. ---
+
+    // The deck attack is real GAK (|H| > 1) and is the community's open problem.
+    assert_contains(
+        &stdout,
+        "REAL-GAK deck attack (non-trivial hidden subgroup H = Stab(top) = S_(n-1), |H| = (n-1)! > 1)",
+    );
+    // P0a: what is recovered is PARTIAL visible-coset action recovery, NOT a key
+    // and NOT the plaintext->group-element mapping (the claim ceiling).
+    assert_contains(
+        &stdout,
+        "What this unit recovers is PARTIAL visible-coset action recovery (a fraction of per-letter visible-coset transitions; NOT a recovered key, NOT the plaintext->group-element mapping)",
+    );
+
+    // P1a: the headline deliverable is the MEASURED hidden-state obstruction (the
+    // multi-valuedness that bounds recovery and motivates idea 3).
+    assert_contains(
+        &stdout,
+        "most of a letter's visible-coset action is multi-valued across hidden states. The recoverable part (single-valued core) is bounded by this multi-valuedness",
+    );
+    assert_contains(
+        &stdout,
+        "multivalued-frac: the MEASURED hidden-state obstruction (fraction of visible cosets that map multi-valued under a fixed letter).",
+    );
+
+    // P1a: fixed-context TRUE-conflict aborts are surfaced as a FEATURE; the
+    // cross-hidden-state multi-valuedness is explicitly NOT called a conflict.
+    assert_contains(
+        &stdout,
+        "fixed-context TRUE-conflict aborts (a FEATURE, not a bug):",
+    );
+    assert_contains(
+        &stdout,
+        "Cross-hidden-state multi-valuedness is NOT a conflict",
+    );
+
+    // P1c: the recovered fraction is small and roughly FLAT (does not climb with
+    // n); the null only begins to match real at larger n / some seeds.
+    assert_contains(
+        &stdout,
+        "partial visible-coset action recovery stays SMALL and roughly FLAT across n (it does NOT climb with n)",
+    );
+    // P2b: the per-seed p-value is conservative / non-significant on its own.
+    assert_contains(
+        &stdout,
+        "the per-seed p-value is conservative (high per-fixture variance) and is non-significant on its own",
+    );
+
+    // The small-support prior + hidden-state marginalization are the NEXT unit,
+    // present only as documented hooks here (not applied).
+    assert_contains(
+        &stdout,
+        "TENTATIVE small-support prior + hidden-state marginalization are the NEXT unit: this unit only generates both regimes and leaves documented hooks",
+    );
+
+    // P0a: the deck recovery is PARTIAL visible-coset action recovery on SYNTHETIC
+    // ground truth, NOT a recovered key and NOT the plaintext->group-element
+    // mapping, and says nothing about the eyes.
+    assert_contains(
+        &stdout,
+        "PARTIAL visible-coset action recovery (a fraction of per-letter visible-coset transitions; NOT a recovered key, NOT the plaintext->group-element mapping)",
+    );
+    assert_contains(
+        &stdout,
+        "computed on SYNTHETIC ground truth and says nothing about the eyes.",
+    );
 }
