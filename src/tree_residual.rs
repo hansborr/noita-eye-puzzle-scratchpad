@@ -15,6 +15,7 @@
 //! residual multiset.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
 use std::mem::size_of;
 
 use crate::null::{
@@ -22,6 +23,7 @@ use crate::null::{
 };
 use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::perseus::{self, SharedPartition};
+use crate::report::{self, Report};
 use crate::trigram::TrigramValue;
 
 /// Default deterministic base seed for the tree-residual shuffle null.
@@ -124,6 +126,42 @@ impl From<crate::null::RandomBoundError> for TreeResidualError {
         Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
+
+impl fmt::Display for TreeResidualError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Grid(grid_error) => write!(f, "grid/order error: {grid_error:?}"),
+            Self::Perseus(perseus_error) => {
+                write!(f, "shared-region reconstruction error: {perseus_error}")
+            }
+            Self::ZeroTrials => write!(f, "at least one Monte-Carlo trial per seed is required"),
+            Self::ZeroSeedCount => write!(f, "at least one deterministic seed batch is required"),
+            Self::InvalidK { k } => write!(f, "invalid k-gram length {k}; use k >= 1"),
+            Self::KeyCountMismatch { keys, messages } => write!(
+                f,
+                "internal key/message count mismatch: {keys} keys, {messages} messages"
+            ),
+            Self::MessageMaskMismatch { messages, masks } => write!(
+                f,
+                "internal message/mask mismatch: {messages} messages, {masks} masks"
+            ),
+            Self::TailMaskLengthMismatch {
+                message_key,
+                values,
+                mask,
+            } => write!(
+                f,
+                "internal mask length mismatch for {message_key}: {values} values, {mask} mask flags"
+            ),
+            Self::RandomBoundTooLarge { bound } => {
+                write!(f, "shuffle bound {bound} is too large")
+            }
+            Self::SampleCountTooLarge => write!(f, "tree-residual sample count is too large"),
+        }
+    }
+}
+
+impl std::error::Error for TreeResidualError {}
 
 /// Stream scope used for one cross-message statistic row.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -251,6 +289,194 @@ pub struct TreeResidualReport {
     pub seeds: Vec<u64>,
     /// Real-vs-null rows for residual tails and full-message sanity checks.
     pub rows: Vec<TreeResidualRow>,
+}
+
+impl Report for TreeResidualReport {
+    fn render(&self) -> String {
+        let mut out = String::new();
+        append_tree_residual_header(&mut out, self);
+        report::appendln!(&mut out);
+        append_tree_residual_rows(&mut out, self);
+        report::appendln!(&mut out);
+        append_tree_residual_interpretation(&mut out, self);
+        out
+    }
+}
+
+fn append_tree_residual_header(out: &mut String, report: &TreeResidualReport) {
+    report::appendln!(out, "tree-residual cross-tail n-gram null");
+    report::appendln!(out, "order: {}", report.order.name());
+    report::appendln!(out, "seed: {}", report.config.seed);
+    report::appendln!(out, "seed batches: {}", report.config.seed_count);
+    report::appendln!(out, "trials per seed: {}", report.config.trials);
+    report::appendln!(
+        out,
+        "null samples per row: {}",
+        report
+            .config
+            .trials
+            .saturating_mul(report.config.seed_count)
+    );
+    report::appendln!(
+        out,
+        "message lengths: {}",
+        report::format_message_lengths(&report.message_lengths)
+    );
+    report::appendln!(out, "pooled full length: {}", report.total_length);
+    report::appendln!(
+        out,
+        "residual tail lengths: {}",
+        format_tail_lengths(&report.tail_lengths)
+    );
+    report::appendln!(out, "pooled residual length: {}", report.tail_total_length);
+    report::appendln!(
+        out,
+        "mask reused: Experiment 7C Perseus shared-region definition, same-offset runs len >= {} in the earliest leading-family alignment or East/West counterpart pairs",
+        report.partition.min_shared_run_len
+    );
+    report::appendln!(
+        out,
+        "boundary rule: k-grams are built within one message residual segment at a time; no k-gram crosses a message join or a masked shared span"
+    );
+    report::appendln!(
+        out,
+        "statistic: distinct k-gram kinds occurring in >=2 different messages, position-independent across message tails"
+    );
+    report::appendln!(
+        out,
+        "null: Fisher-Yates shuffle within each message tail, preserving residual segment lengths and that message's exact residual symbol multiset"
+    );
+    report::appendln!(
+        out,
+        "full-message sanity: the same statistic and shuffle are also run on unmasked messages to verify that the aligned trunk drives the known sharing"
+    );
+    report::appendln!(out, "sampled seeds: {}", format_seed_list(&report.seeds));
+}
+
+fn append_tree_residual_rows(out: &mut String, report: &TreeResidualReport) {
+    report::appendln!(
+        out,
+        "{:<15} {:>2} {:>8} {:>9} {:>7} {:>10} {:>12} {:>8} {:>9} {:>9} {:>8}",
+        "scope",
+        "k",
+        "shared",
+        "distinct",
+        "maxmsg",
+        "null mean",
+        "null 95%",
+        "null max",
+        "p>=obs",
+        "p2",
+        "verdict"
+    );
+    for row in &report.rows {
+        report::appendln!(
+            out,
+            "{:<15} {:>2} {:>8} {:>9} {:>7} {:>10.2} {:>12} {:>8} {:>9} {:>9} {:>8}",
+            row.scope.label(),
+            row.k,
+            row.observed.shared_distinct_ngrams,
+            row.observed.total_distinct_ngrams,
+            row.observed.max_messages_per_ngram,
+            row.null.mean,
+            format_tree_residual_band(row.null),
+            row.null.max,
+            report::format_probability(row.upper_tail_p),
+            report::format_probability(row.two_sided_p),
+            format_tree_residual_verdict(row)
+        );
+    }
+}
+
+fn append_tree_residual_interpretation(out: &mut String, report: &TreeResidualReport) {
+    let residual_excesses = tree_residual_excess_labels(report, TreeResidualScope::ResidualTails);
+    let full_excesses = tree_residual_excess_labels(report, TreeResidualScope::FullMessages);
+
+    if residual_excesses.is_empty() {
+        report::appendln!(
+            out,
+            "Interpretation: after the Experiment 7C shared-region mask is removed, the divergent tails do not show a pointwise upper-tail excess of position-independent shared k-grams at the scanned k values. This supports the negative hypothesis: the cross-message sharing is explained by the aligned trunk rather than by a second floating reused-key or repeated-motif layer."
+        );
+    } else {
+        report::appendln!(
+            out,
+            "Interpretation: residual tails show a pointwise upper-tail excess at {}. This table has 4 pointwise tests (residual/full scopes x k in {{3,4}}), and the reported p values are UNCORRECTED across that family. Treat this as marginal and multiplicity-sensitive, not a plaintext claim. The most parsimonious reading is that the documented Perseus 7C trunk mask is slightly incomplete and leaks a little residual cross-message structure; this is NOT evidence of a second floating reused-key or repeated-motif layer. It must be integrity-checked against the Experiment-0 corpus before interpretation.",
+            residual_excesses.join(", ")
+        );
+    }
+
+    if full_excesses.is_empty() {
+        report::appendln!(
+            out,
+            "Sanity cross-check: full unmasked messages did not exceed the shuffle band in this configured run, so this run does not validate the trunk-driving expectation."
+        );
+    } else {
+        report::appendln!(
+            out,
+            "Sanity cross-check: full unmasked messages exceed the shuffle band at {}, confirming that the statistic can see the known aligned sharing before the mask is applied.",
+            full_excesses.join(", ")
+        );
+    }
+    report::appendln!(
+        out,
+        "The result is conditional on the fixed engine-verified honeycomb streams and on the Perseus shared-region operationalization printed above. It uses only integer reading-layer values, with no symbol-meaning guesses or language scoring."
+    );
+}
+
+fn tree_residual_excess_labels(
+    report: &TreeResidualReport,
+    scope: TreeResidualScope,
+) -> Vec<String> {
+    report
+        .rows
+        .iter()
+        .filter(|row| row.scope == scope && row.significant_excess)
+        .map(|row| {
+            format!(
+                "k={} (p>={})",
+                row.k,
+                report::format_probability(row.upper_tail_p)
+            )
+        })
+        .collect()
+}
+
+fn format_tail_lengths(lengths: &[MessageTailSummary]) -> String {
+    lengths
+        .iter()
+        .map(|summary| {
+            format!(
+                "{}:{}({} segs,max {})",
+                summary.message_key,
+                summary.residual_symbols,
+                summary.residual_segments,
+                summary.longest_segment
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn format_seed_list(seeds: &[u64]) -> String {
+    seeds
+        .iter()
+        .map(u64::to_string)
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn format_tree_residual_band(band: CrossTailNullBand) -> String {
+    format!("{}..{}", band.q025, band.q975)
+}
+
+fn format_tree_residual_verdict(row: &TreeResidualRow) -> &'static str {
+    if row.significant_excess {
+        "excess"
+    } else if row.observed.shared_distinct_ngrams < row.null.q025 {
+        "low"
+    } else {
+        "inside"
+    }
 }
 
 /// Runs the tree-residual cross-tail n-gram null on the verified eye corpus.

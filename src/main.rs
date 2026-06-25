@@ -898,14 +898,11 @@ fn run_treeresidual(config: tree_residual::TreeResidualConfig) -> ExitCode {
     let report = match tree_residual::run_tree_residual(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "tree-residual null error: {}",
-                report::format_tree_residual_error(error)
-            );
+            eprintln!("tree-residual null error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_tree_residual_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
