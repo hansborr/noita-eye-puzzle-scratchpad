@@ -16,7 +16,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::null::{SplitMix64, add_one_p_value, fisher_yates, median_usize, scaled_quantile_index};
+use crate::null::{
+    NullTestError, UsizeBand, WithinMessageShuffle, add_one_p_value, run_null_test, usize_band,
+};
 use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::trigram::TrigramValue;
 
@@ -349,20 +351,31 @@ fn report_from_partition(
 ) -> Result<PerseusReport, PerseusError> {
     validate_config(config)?;
     let observed = recurrence_statistic(keys, message_values, &partition)?;
-    let mut rng = SplitMix64::new(config.seed);
-    let mut recurrence_counts = Vec::new();
-    let mut empirical_p_count = 0usize;
+    let sampler = WithinMessageShuffle {
+        messages: message_values,
+    };
 
-    for _trial in 0..config.trials {
-        let shuffled = shuffled_messages(message_values, &mut rng)?;
-        let statistic = recurrence_statistic(keys, &shuffled, &partition)?;
-        if statistic.recurrent_occurrences <= observed.recurrent_occurrences {
-            empirical_p_count += 1;
-        }
-        recurrence_counts.push(statistic.recurrent_occurrences);
-    }
+    // The recurrence statistic is naturally fallible (a `MessageMaskMismatch`
+    // can never fire here because the shuffle preserves per-message length, but
+    // the type carries the possibility), so the closure is passed directly and
+    // the harness propagates any `Err` as `NullTestError::Statistic`.
+    let result = run_null_test(
+        |shuffled| {
+            recurrence_statistic(keys, shuffled, &partition)
+                .map(|statistic| statistic.recurrent_occurrences)
+        },
+        observed.recurrent_occurrences,
+        &sampler,
+        config.trials,
+        config.seed,
+    )
+    .map_err(|error| match error {
+        NullTestError::Random(bound) => PerseusError::from(bound),
+        NullTestError::Statistic(error) => error,
+    })?;
 
-    let null = recurrence_null_band(&recurrence_counts, observed.tested_shared_occurrences);
+    let empirical_p_count = result.lower_tail_count;
+    let null = recurrence_null_band(&result.samples, observed.tested_shared_occurrences);
     let empirical_p = add_one_p_value(empirical_p_count, config.trials);
     let significant =
         observed.recurrent_occurrences <= null.count_q025 && empirical_p <= SIGNIFICANCE_ALPHA;
@@ -815,51 +828,29 @@ fn message_recurrence_statistic(
     }
 }
 
-fn shuffled_messages(
-    message_values: &[Vec<TrigramValue>],
-    rng: &mut SplitMix64,
-) -> Result<Vec<Vec<TrigramValue>>, PerseusError> {
-    let mut shuffled = message_values.to_vec();
-    for values in &mut shuffled {
-        fisher_yates(values, rng)?;
-    }
-    Ok(shuffled)
-}
-
 fn recurrence_null_band(samples: &[usize], denominator: usize) -> RecurrenceNullBand {
-    let mut sorted = samples.to_vec();
-    sorted.sort_unstable();
-    let count_mean = mean_usize(samples);
-    let count_median = median_usize(&sorted);
-    let count_q025 = quantile_from_sorted(&sorted, 25, 1_000);
-    let count_q975 = quantile_from_sorted(&sorted, 975, 1_000);
+    let UsizeBand {
+        trials,
+        mean: count_mean,
+        min: count_min,
+        q025: count_q025,
+        median: count_median,
+        q975: count_q975,
+        max: count_max,
+    } = usize_band(samples);
     RecurrenceNullBand {
-        trials: samples.len(),
+        trials,
         count_mean,
-        count_min: sorted.first().copied().unwrap_or_default(),
+        count_min,
         count_q025,
         count_median,
         count_q975,
-        count_max: sorted.last().copied().unwrap_or_default(),
+        count_max,
         rate_mean: rate_f64(count_mean, denominator),
         rate_q025: rate(count_q025, denominator),
         rate_median: rate_f64(count_median, denominator),
         rate_q975: rate(count_q975, denominator),
     }
-}
-
-fn mean_usize(samples: &[usize]) -> f64 {
-    if samples.is_empty() {
-        return 0.0;
-    }
-    samples.iter().sum::<usize>() as f64 / samples.len() as f64
-}
-
-fn quantile_from_sorted(sorted: &[usize], numerator: usize, denominator: usize) -> usize {
-    sorted
-        .get(scaled_quantile_index(sorted.len(), numerator, denominator))
-        .copied()
-        .unwrap_or_default()
 }
 
 fn rate(numerator: usize, denominator: usize) -> f64 {
@@ -878,9 +869,9 @@ fn rate_f64(numerator: f64, denominator: usize) -> f64 {
 mod tests {
     use super::{
         PerseusConfig, SIGNIFICANCE_ALPHA, build_shared_partition, report_from_message_values,
-        report_from_partition, run_perseus, shuffled_messages,
+        report_from_partition, run_perseus,
     };
-    use crate::null::SplitMix64;
+    use crate::null::{NullSampler, SplitMix64, WithinMessageShuffle};
     use crate::orders;
     use crate::trigram::TrigramValue;
 
@@ -946,8 +937,11 @@ mod tests {
         let keys = ["east1", "west1"];
         let messages = planted_no_recurrence_fixture();
         let partition = build_shared_partition(&keys, &messages).unwrap();
+        let sampler = WithinMessageShuffle {
+            messages: &messages,
+        };
         let mut rng = SplitMix64::new(0x5a5a);
-        let shuffled = shuffled_messages(&messages, &mut rng).unwrap();
+        let shuffled = sampler.sample(&mut rng).unwrap();
         let report = report_from_partition(
             PerseusConfig {
                 seed: 0x6161,
