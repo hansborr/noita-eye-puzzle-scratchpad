@@ -153,3 +153,75 @@ fn gak_attack_subcommand_reports_synthetic_gate_and_honesty_caveats() {
         "computed on SYNTHETIC ground truth and says nothing about the eyes.",
     );
 }
+
+#[test]
+fn gak_attack_subcommand_reports_unit_2b_marginalization_honesty_surface() {
+    // The unit-2b (idea 3 + idea 2) honesty surface: the bundled report carries the
+    // hidden-state marginalization result with its claim ceiling, the beam-width
+    // disclosure, the partial-not-a-key labelling, the measured "helps on small n /
+    // breaks as n grows" outcome, and the TENTATIVE small-support prior validation.
+    // All asserted strings are gate-verdict-independent constants.
+    let stdout = run_noita_eye(&["gak-attack", "--seeds-per-kind", "2", "--seed", "123"]);
+
+    // Unit-2b headline: idea 3 (marginalization) + idea 2 (small-support prior).
+    assert_contains(
+        &stdout,
+        "UNIT 2b hidden-state marginalization (idea 3) + TENTATIVE small-support prior (idea 2)",
+    );
+
+    // The recovered object is the per-letter coset MARGINAL, a PARTIAL visible-coset
+    // action recovery, NOT a key and NOT the plaintext->group-element mapping.
+    assert_contains(
+        &stdout,
+        "The recovered object is the per-letter visible-coset edge MARGINAL over hidden states (multi-valued from allowed) -- a PARTIAL visible-coset action recovery, NOT a recovered key, NOT the plaintext->group-element mapping. SYNTHETIC-ONLY.",
+    );
+
+    // The beam width bound is DISCLOSED (no silent truncation); dropped beams reported.
+    assert_contains(
+        &stdout,
+        "beam width bound: 8 (DISCLOSED, no silent truncation; dropped beams are reported per n)",
+    );
+
+    // The headline sweep runs the prior OFF so no result silently depends on it.
+    assert_contains(
+        &stdout,
+        "small-support prior (idea 2) for the headline sweep: OFF (held-out generalization only)",
+    );
+
+    // The MEASURED result: idea-3 beats the 2a single-valued core, and breaks as |H|
+    // grows -- "helps on small n, breaks as n grows" is the expected outcome.
+    assert_contains(
+        &stdout,
+        "idea-3 marginalization recovers SEVERAL-FOLD more true per-letter coset edges than the 2a single-valued core at every n",
+    );
+    assert_contains(
+        &stdout,
+        "\"Helps on small n, breaks as n grows\" is the expected, reportable outcome, not a thread failure.",
+    );
+
+    // The TENTATIVE small-support prior is labelled a heuristic, validated, and the
+    // graceful-failure property is the load-bearing result.
+    assert_contains(
+        &stdout,
+        "TENTATIVE small-support prior validation (idea 2; the prior is a heuristic to validate, NOT a hard constraint, labelled everywhere)",
+    );
+    assert_contains(
+        &stdout,
+        "prior FAILS GRACEFULLY (the robust, structural guarantee):",
+    );
+    assert_contains(
+        &stdout,
+        "prior is SELECTIVELY discriminative (weak, TENTATIVE signal):",
+    );
+
+    // The unit-2b interpretation holds the claim ceiling: PARTIAL recovery, never a
+    // key, breaks as |H| grows, prior OFF in the headline, beam width disclosed.
+    assert_contains(
+        &stdout,
+        "but only PARTIAL visible-coset action recovery (an edge marginal over hidden states), NEVER a recovered key and NEVER the plaintext->group-element mapping.",
+    );
+    assert_contains(
+        &stdout,
+        "a marginal/negative result at larger n is the expected outcome.",
+    );
+}
