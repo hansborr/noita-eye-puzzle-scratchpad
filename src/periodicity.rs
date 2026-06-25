@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 
 use crate::analysis;
 use crate::glyph::Glyph;
-use crate::null::{SplitMix64, median_f64, scaled_quantile_index};
+use crate::null::{F64Band, SplitMix64, f64_band};
 use crate::orders::{
     self, GlyphGrid, GridError, ReadingOrder, count_message_lag_comparisons,
     count_message_lag_matches, glyph_messages_from_values, read_corpus_message_values,
@@ -117,6 +117,20 @@ pub struct NullBand {
     pub q975: f64,
     /// Largest sampled value.
     pub max: f64,
+}
+
+impl From<F64Band> for NullBand {
+    fn from(band: F64Band) -> Self {
+        // `NullBand` carries no `mean` field; the rest map directly.
+        Self {
+            trials: band.trials,
+            min: band.min,
+            q025: band.q025,
+            median: band.median,
+            q975: band.q975,
+            max: band.max,
+        }
+    }
 }
 
 /// One IoC-by-period row.
@@ -435,13 +449,20 @@ fn build_null_summary(
     Ok(NullSummary {
         pooled_ioc: pooled_ioc_samples.bands(),
         pooled_autocorrelation: pooled_autocorrelation_samples.bands(),
-        global_ioc_envelope_max: quantile_from_samples(&global_ioc_maxima, Quantile::Max),
-        global_autocorrelation_envelope_max: quantile_from_samples(
-            &global_autocorrelation_maxima,
-            Quantile::Max,
-        ),
+        global_ioc_envelope_max: sample_maximum(&global_ioc_maxima),
+        global_autocorrelation_envelope_max: sample_maximum(&global_autocorrelation_maxima),
         messages,
     })
+}
+
+/// Largest value in `samples` under a [`f64::total_cmp`] sort (`0.0` when empty).
+///
+/// Reproduces the `max` quantile that the removed `quantile_from_samples` used
+/// for the report-wide null envelope.
+fn sample_maximum(samples: &[f64]) -> f64 {
+    let mut sorted = samples.to_vec();
+    sorted.sort_by(f64::total_cmp);
+    sorted.last().copied().unwrap_or(0.0)
 }
 
 fn profile_maximum(values: &[f64]) -> f64 {
@@ -773,45 +794,7 @@ fn gcd(mut left: usize, mut right: usize) -> usize {
 }
 
 fn null_band(samples: &[f64]) -> NullBand {
-    NullBand {
-        trials: samples.len(),
-        min: quantile_from_samples(samples, Quantile::Min),
-        q025: quantile_from_samples(samples, Quantile::Q025),
-        median: quantile_from_samples(samples, Quantile::Median),
-        q975: quantile_from_samples(samples, Quantile::Q975),
-        max: quantile_from_samples(samples, Quantile::Max),
-    }
-}
-
-#[derive(Clone, Copy)]
-enum Quantile {
-    Min,
-    Q025,
-    Median,
-    Q975,
-    Max,
-}
-
-fn quantile_from_samples(samples: &[f64], quantile: Quantile) -> f64 {
-    let mut sorted = samples.to_vec();
-    sorted.sort_by(f64::total_cmp);
-    quantile_from_sorted(&sorted, quantile)
-}
-
-fn quantile_from_sorted(sorted: &[f64], quantile: Quantile) -> f64 {
-    match quantile {
-        Quantile::Min => sorted.first().copied().unwrap_or(0.0),
-        Quantile::Q025 => sorted
-            .get(scaled_quantile_index(sorted.len(), 25, 1_000))
-            .copied()
-            .unwrap_or(0.0),
-        Quantile::Median => median_f64(sorted),
-        Quantile::Q975 => sorted
-            .get(scaled_quantile_index(sorted.len(), 975, 1_000))
-            .copied()
-            .unwrap_or(0.0),
-        Quantile::Max => sorted.last().copied().unwrap_or(0.0),
-    }
+    NullBand::from(f64_band(samples))
 }
 
 #[cfg(test)]
