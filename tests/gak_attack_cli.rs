@@ -225,3 +225,114 @@ fn gak_attack_subcommand_reports_unit_2b_marginalization_honesty_surface() {
         "a marginal/negative result at larger n is the expected outcome.",
     );
 }
+
+#[test]
+fn gak_attack_eyes_subcommand_locks_the_eyes_honesty_surface() {
+    // The EYES Step-3 honesty lock: the ONLY unit that touches the real eyes, and
+    // the highest honesty-risk surface in the project. We pin the claim ceiling, the
+    // expected-no-candidate framing, the HYPOTHESIS-not-decode label, the held-out +
+    // Thread-3 gate wording, and the candidate-logging protocol. We deliberately do
+    // NOT assert a decode or a specific gate verdict (per the spec: pin the honesty
+    // strings, not a decode verdict). The candidate record is written to a temp dir
+    // so the committed candidates/ tree is untouched by the test.
+    let dir = std::env::temp_dir().join("gak-eyes-cli-honesty");
+    std::fs::create_dir_all(&dir).expect("create temp candidates dir");
+    let dir_str = dir.to_string_lossy().into_owned();
+    let stdout = run_noita_eye(&[
+        "gak-attack-eyes",
+        "--trials",
+        "16",
+        "--candidates-dir",
+        &dir_str,
+    ]);
+
+    // Headline: the ONLY unit that touches the real eyes.
+    assert_contains(
+        &stdout,
+        "Thread 4 EYES Step 3 (the ONLY unit that touches the real eye corpus)",
+    );
+
+    // The claim ceiling, verbatim-in-spirit.
+    assert_contains(
+        &stdout,
+        "the eyes are deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext.",
+    );
+
+    // The expected outcome is NO surviving candidate; the decode remains BLOCKED.
+    assert_contains(
+        &stdout,
+        "Expected outcome: NO surviving candidate. The standing conclusion is the eye decode remains BLOCKED on the unknown symbol->meaning mapping; a clean honest negative is a SUCCESS, not a failure.",
+    );
+
+    // What is recovered is STRUCTURE, not cleartext; any candidate is a HYPOTHESIS.
+    assert_contains(
+        &stdout,
+        "What is recovered: STRUCTURE (visible-coset / chain-link constraints), NOT cleartext.",
+    );
+    assert_contains(&stdout, "Any candidate is a HYPOTHESIS, never a decode.");
+
+    // The exact entry path (per-message, boundaries kept, never re-ordered).
+    assert_contains(
+        &stdout,
+        "entry path (exact): orders::corpus_grids() -> accepted_honeycomb_order() -> read_corpus_message_values (per-message, boundaries kept, never concatenated, never re-ordered)",
+    );
+
+    // GATE 1: held-out isomorphs vs a matched within-message shuffle null, with the
+    // POSITIVE CONTROL that must fire on known signal.
+    assert_contains(
+        &stdout,
+        "GATE 1 -- held-out isomorphs vs matched within-message shuffle null",
+    );
+    assert_contains(
+        &stdout,
+        "held-out POSITIVE CONTROL on a synthetic isomorph-rich eye-shaped fixture:",
+    );
+    // The POPULATION-RELATIVE, FAIR material-effect bar (p-value necessary, NOT
+    // sufficient) — calibrated to the eyes' OWN max achievable score so the negative
+    // rests on a detector the eyes could in principle have passed (F1).
+    assert_contains(
+        &stdout,
+        "material-effect bar (p-value is NECESSARY, NOT sufficient), POPULATION-RELATIVE and FAIR to the eyes:",
+    );
+    assert_contains(
+        &stdout,
+        "BELOW the eyes' max, so genuine signal COULD clear it",
+    );
+    assert_contains(
+        &stdout,
+        "GATE 1 VERDICT (held-out beats matched null AND clears the calibrated material-effect bar):",
+    );
+
+    // GATE 2: Thread-3 perfect-isomorphism consistency, REUSED (never re-derived).
+    assert_contains(
+        &stdout,
+        "GATE 2 -- Thread-3 perfect-isomorphism consistency (Thread-3 API REUSED, never re-derived)",
+    );
+    assert_contains(&stdout, "GATE 2 VERDICT (model consistent with Thread 3):");
+
+    // GATE 3: SPECULATIVE, LAST, Finnish-weighted, NEVER primary.
+    assert_contains(
+        &stdout,
+        "GATE 3 -- SPECULATIVE cleartext plausibility (LAST, Finnish-weighted, NEVER primary)",
+    );
+
+    // The candidate-logging protocol (standing user directive).
+    assert_contains(
+        &stdout,
+        "Candidate-logging protocol: every eyes run writes a dated, clock-free record under research/gak-threads/candidates/",
+    );
+    assert_contains(
+        &stdout,
+        "any candidate cleartext (English OR Finnish) is logged VERBATIM for human review.",
+    );
+
+    // The record file was actually written.
+    let record = std::fs::read_dir(&dir)
+        .expect("candidate dir should exist")
+        .filter_map(Result::ok)
+        .any(|entry| entry.file_name().to_string_lossy().starts_with("eyes-"));
+    assert!(
+        record,
+        "the eyes run must write a candidate record under {dir_str}"
+    );
+}

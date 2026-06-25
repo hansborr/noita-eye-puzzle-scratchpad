@@ -44,6 +44,11 @@ enum Command {
     /// Thread 4 synthetic GAK-attack / GCTAK decisive gate (synthetic-only).
     #[command(name = "gak-attack")]
     GakAttack(GakAttackArgs),
+    /// Thread 4 EYES Step 3: point the matured attack at the REAL eye corpus.
+    /// Held-out + Thread-3 gated; expected outcome is NO surviving candidate; the
+    /// decode remains BLOCKED. Writes a mandatory candidate record.
+    #[command(name = "gak-attack-eyes", alias = "gak-eyes")]
+    GakAttackEyes(GakAttackEyesArgs),
     /// Monte-Carlo null over random grids plus standard36 orders.
     #[command(name = "nulltest")]
     Nulltest(NullArgs),
@@ -177,6 +182,37 @@ impl From<GakAttackArgs> for gak_attack::GakAttackConfig {
             phrase_repeats: args.phrase_repeats,
             phrase_len: args.phrase_len,
             small_support_radius: args.small_support_radius,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Args)]
+struct GakAttackEyesArgs {
+    /// Deterministic seed for the matched within-message shuffle null and the
+    /// stable (clock-free) candidate-record label.
+    #[arg(long, default_value_t = gak_attack::EYES_DEFAULT_SEED)]
+    seed: u64,
+    /// Matched within-message shuffle-null trials for the held-out gate.
+    #[arg(long = "trials", default_value_t = gak_attack::EYES_DEFAULT_TRIALS)]
+    trials: usize,
+    /// Disclosed beam width for the per-column held-out marginalization.
+    #[arg(long = "beam-width", default_value_t = gak_attack::EYES_DEFAULT_BEAM_WIDTH)]
+    beam_width: usize,
+    /// Directory under which the mandatory candidate record is written.
+    #[arg(
+        long = "candidates-dir",
+        default_value = "research/gak-threads/candidates"
+    )]
+    candidates_dir: std::path::PathBuf,
+}
+
+impl From<GakAttackEyesArgs> for gak_attack::EyesAttackConfig {
+    fn from(args: GakAttackEyesArgs) -> Self {
+        Self {
+            seed: args.seed,
+            trials: args.trials,
+            beam_width: args.beam_width,
+            candidates_dir: args.candidates_dir,
         }
     }
 }
@@ -581,6 +617,7 @@ fn main() -> ExitCode {
         Command::Orders => run_orders(),
         Command::AglGak(args) => run_agl_gak(args.into()),
         Command::GakAttack(args) => run_gak_attack(args.into()),
+        Command::GakAttackEyes(args) => run_gak_attack_eyes(args.into()),
         Command::Nulltest(args) => run_nulltest(args.into()),
         Command::Dofnull(args) => run_dofnull(args.into()),
         Command::Periodicity(args) => run_periodicity(args.into()),
@@ -653,6 +690,21 @@ fn run_gak_attack(config: gak_attack::GakAttackConfig) -> ExitCode {
         }
     };
     report::print_gak_attack_report(&report);
+    ExitCode::SUCCESS
+}
+
+fn run_gak_attack_eyes(config: gak_attack::EyesAttackConfig) -> ExitCode {
+    let report = match gak_attack::run_gak_attack_eyes(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!(
+                "GAK-attack eyes error: {}",
+                report::format_gak_attack_error(&error)
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    report::print_gak_attack_eyes_report(&report);
     ExitCode::SUCCESS
 }
 
