@@ -6,7 +6,7 @@
 > killing the largest duplication cluster in the maintainability track without
 > moving a single reported number.
 > Status: not started · Depends on: 01 (golden-master safety net) · Blocks: —
-> (helps 06, 07) · Size: L
+> (helps 06, 07B) · Size: L
 
 ## Goal & why it matters
 
@@ -58,8 +58,8 @@ plus the trial loop — is mechanical, identical-by-eye, and exactly the kind of
 copy-paste the overview flags (`docs/refactor/00-OVERVIEW.md:56`: "`fisher_yates`
 is centralized, but ~20 modules re-implement the matched-null orchestration
 around it"). Centralizing it removes a class of drift bug (a fix to the band /
-p-value convention today must be applied in eight places) and gives briefs 06–07
-a single typed seam to render and relocate.
+p-value convention today must be applied in eight places) and gives briefs 06
+and 07B a single typed seam to render (06) and relocate (07B).
 
 This brief is **purely behavior-preserving** (the overview's first ground rule,
 `docs/refactor/00-OVERVIEW.md:192`): every pinned regression — e.g.
@@ -152,8 +152,9 @@ brief does **not** depend on brief 02's `Cipher` trait — leave those calls as-
 
 Add to `src/null.rs` (the overview proposes a `crate::nulls` home,
 `docs/refactor/00-OVERVIEW.md:102`; we keep it in `null.rs` for now to avoid a
-module move colliding with brief 07 — brief 07 relocates the file wholesale.
-Note this deviation explicitly in the commit message).
+module move colliding with brief 07B — brief 07B relocates the file wholesale
+into the role-directory layout. Note this deviation explicitly in the commit
+message).
 
 ### 1. `NullSampler` trait — one shape per resampling scheme
 
@@ -214,18 +215,31 @@ pub struct NullResult<T> {
 
 /// Runs `trials` shuffle draws, scoring each with `statistic`, counting both
 /// tails against `observed`. Deterministic in `seed`. Generic over the scalar
-/// statistic type `T`.
-pub fn run_null_test<S, T>(
-    statistic: impl Fn(&S::Draw) -> T,
+/// statistic type `T` and the statistic's error type `E`.
+///
+/// The `statistic` is **fallible** — it returns `Result<T, E>` — so modules whose
+/// statistic is naturally fallible (`perseus`, `isomorph_null`) pass their closure
+/// directly. The loop propagates the first `Err` as `NullRunError::Statistic(e)`;
+/// a Fisher-Yates bound failure surfaces as `NullRunError::Random`.
+pub fn run_null_test<S, T, E>(
+    statistic: impl Fn(&S::Draw) -> Result<T, E>,
     observed: T,
     sampler: &S,
     trials: usize,
     seed: u64,
-) -> Result<NullResult<T>, RandomBoundError>
+) -> Result<NullResult<T>, NullRunError<E>>
 where
     S: NullSampler,
     T: PartialOrd + Copy;
 ```
+
+`NullRunError<E>` is a small enum folding the harness's own
+`RandomBoundError` and the statistic's error `E` into one type:
+`Random(RandomBoundError)` plus `Statistic(E)`, with
+`From<RandomBoundError>`. Each caller maps it into its own error variant exactly
+as it maps `RandomBoundError` today; an infallible statistic uses
+`E = Infallible` (or `core::convert::Infallible`) so the `Statistic` arm is
+uninhabited.
 
 `NullResult` carries the raw `samples` and both tail counts only; it deliberately
 does **not** compute p-values or bands, because the conventions differ per module
@@ -243,20 +257,24 @@ columns without N separate passes:
 ```rust
 /// Like `run_null_test` but the statistic emits a fixed-width row of scalars;
 /// returns one `NullResult<T>` per column. `width` must equal the row length
-/// the statistic returns every trial.
-pub fn run_null_test_columns<S, T>(
-    row_statistic: impl Fn(&S::Draw) -> Vec<T>,
+/// the statistic returns every trial. The `row_statistic` is fallible, like
+/// `run_null_test`'s, so columnar callers (`isomorph_null`,
+/// `conditional_structure`, `periodicity`) pass their naturally-fallible row
+/// closures directly.
+pub fn run_null_test_columns<S, T, E>(
+    row_statistic: impl Fn(&S::Draw) -> Result<Vec<T>, E>,
     observed: Vec<T>,
     sampler: &S,
     trials: usize,
     seed: u64,
-) -> Result<Vec<NullResult<T>>, NullColumnError>
+) -> Result<Vec<NullResult<T>>, NullColumnError<E>>
 where S: NullSampler, T: PartialOrd + Copy;
 ```
 
-(`NullColumnError` is a new small enum: `WidthMismatch { expected, observed }`
-plus `From<RandomBoundError>`. Each caller maps it into its own error variant,
-exactly as they map `RandomBoundError` today.)
+(`NullColumnError<E>` is a new small enum: `WidthMismatch { expected, observed }`
+plus `Random(RandomBoundError)` and `Statistic(E)`, with `From<RandomBoundError>`.
+Each caller maps it into its own error variant, exactly as they map
+`RandomBoundError` today.)
 
 For modules whose loop is **seed_count × trials_per_seed** with a re-seeded RNG
 per stream (`zero_adjacency_null:298`, `tree_residual:294`,
@@ -266,25 +284,34 @@ multi-stream wrapper:
 ```rust
 /// Runs `run_null_test` once per derived seed stream and concatenates samples,
 /// reproducing the seed-stream derivation each module does by hand. The
-/// `derive_seed(base, stream_index)` closure stays caller-supplied because the
-/// derivation differs (next_u64 chaining vs. xor-mix vs. wrapping_add stride).
-pub fn run_null_test_streams<S, T>(
-    statistic: impl Fn(&S::Draw) -> T,
+/// `derive_seed(stream_index)` closure stays caller-supplied because the
+/// derivation differs (next_u64 chaining vs. xor-mix vs. wrapping_add stride),
+/// and it is **`FnMut`** because some derivations are *stateful*: e.g.
+/// `zero_adjacency_null` advances **one base RNG** per stream
+/// (`SplitMix64::new(stream_rng.next_u64())`, `:296`) — a pure `Fn` cannot mutate
+/// the captured base RNG, but an `FnMut` can. (Callers whose derivation is pure —
+/// xor-mix, wrapping stride — pass a closure that happens not to mutate.)
+pub fn run_null_test_streams<S, T, E>(
+    statistic: impl Fn(&S::Draw) -> Result<T, E>,
     observed: T,
     sampler: &S,
     streams: usize,
     trials_per_stream: usize,
-    derive_seed: impl Fn(usize) -> u64,
-) -> Result<NullResult<T>, RandomBoundError>;
+    derive_seed: impl FnMut(usize) -> u64,
+) -> Result<NullResult<T>, NullRunError<E>>
+where S: NullSampler, T: PartialOrd + Copy;
 ```
+
+(A caller that already has its seeds in hand may instead pass a precomputed seed
+iterator — equivalent, and likewise side-steps the `Fn`-can't-mutate limitation.)
 
 The derivation closures must reproduce existing streams bit-for-bit:
 `zero_adjacency_null` chains `SplitMix64::new(stream_rng.next_u64())` from one
-base RNG (`:296`), `tree_residual` uses `seed_batches` (`:634`),
-`orientation_homogeneity` uses `seed_for_index` wrapping stride (`:521`),
-`conditional_structure` uses `derived_seed` xor-mix (`:1404`). **Do not unify
-these derivations** — pass each module's existing one in as the closure. This is
-load-bearing for byte-identity.
+base RNG (`:296`) — the **stateful** case the `FnMut` bound exists for —
+`tree_residual` uses `seed_batches` (`:634`), `orientation_homogeneity` uses
+`seed_for_index` wrapping stride (`:521`), `conditional_structure` uses
+`derived_seed` xor-mix (`:1404`). **Do not unify these derivations** — pass each
+module's existing one in as the closure. This is load-bearing for byte-identity.
 
 ### 3. Shared band constructors
 
@@ -327,9 +354,12 @@ order or `<` vs `<=`).
 
 2. **`zero_adjacency_null`** (cleanest scalar-usize, lower-tail, multi-stream).
    Replace `shuffled_messages` (`:412`) with `WithinMessageShuffle`, the loop in
-   `analyze_message_values` (`:298`) with `run_null_test_streams` (derive_seed =
-   the existing `stream_rng.next_u64()` chain — preserve it by threading the base
-   RNG inside the closure), `null_band` (`:423`) with `usize_band` + a
+   `analyze_message_values` (`:298`) with `run_null_test_streams`. Its
+   `derive_seed` is the existing `stream_rng.next_u64()` chain off one base RNG;
+   pass an **`FnMut`** closure that *owns* (captures `mut`) the base
+   `SplitMix64` and returns `stream_rng.next_u64()` per stream — the `FnMut` bound
+   is exactly what lets the closure advance that captured RNG (a plain `Fn` could
+   not). Replace `null_band` (`:423`) with `usize_band` + a
    `From<UsizeBand>` for `AdjacencyNullBand`. Keep `add_one_p_value` and
    `classify_band_position` (`:451`) exactly. Pinned test
    `eye_zero_adjacency_headline_numbers_are_pinned` (`:642`) must stay green
@@ -337,29 +367,33 @@ order or `<` vs `<=`).
 
 3. **`perseus`** (scalar-usize, lower-tail, single-stream, partition-masked
    statistic). Swap `shuffled_messages` (`:818`) → `WithinMessageShuffle`, loop
-   (`:356`) → `run_null_test` with the statistic closure
-   `|shuffled| recurrence_statistic(keys, shuffled, &partition)?.recurrent_occurrences`.
-   `recurrence_null_band` keeps its rate math, built on `usize_band`. Watch the
-   `?` inside the closure: the statistic is fallible (`PerseusError`), but
-   `run_null_test` expects an infallible `Fn(&Draw) -> T`. Resolve by hoisting
-   the fallibility — either precompute is impossible here, so add an
-   `infallible`-only path is wrong; instead use the column/streams variant is
-   also infallible. **Decision:** keep `perseus`'s loop fallibility by having the
-   sampler infallible and the statistic infallible, pushing the
-   `MessageMaskMismatch` check (`:738`) to a single pre-loop validation (the mask
-   shape cannot change across shuffles since shuffle preserves length), so the
-   per-trial call is infallible. Verify `recurrence_statistic` on a shuffle never
-   returns `Err` once the pre-check passes (it only errs on length mismatch,
-   which shuffle preserves). Pinned tests `:899`,`:996` stay green.
+   (`:356`) → `run_null_test` with the **fallible** statistic closure
+   `|shuffled| recurrence_statistic(keys, shuffled, &partition).map(|s| s.recurrent_occurrences)`.
+   The statistic is naturally fallible (`PerseusError` on a
+   `MessageMaskMismatch`, `:738`), and `run_null_test` now takes
+   `impl Fn(&Draw) -> Result<T, E>` — so pass the closure **directly**; the
+   harness propagates the first `Err` as `NullRunError::Statistic(PerseusError)`,
+   which `report_from_partition` maps into its own error variant exactly as it
+   maps `RandomBoundError` today. No infallible-only workaround, no contortion of
+   the loop. `recurrence_null_band` keeps its rate math, built on `usize_band`.
+   Pre-validating the mask shape before the loop is still **allowed** (it cannot
+   change across shuffles, since the shuffle preserves per-message length) and may
+   read cleaner, but it is **no longer required** — with the fallible signature the
+   per-trial `Err` path is handled by the harness either way. Pinned tests
+   `:899`,`:996` stay green.
 
 4. **`isomorph_null`** (vector-usize per window, upper-tail). Use
-   `run_null_test_columns` with `row_statistic = |shuffled|
-   summarize_window_range(shuffled, min, max).map(|s| s.repeated_signature_kinds)`
-   — again resolve fallibility by pre-validating the window range once (it does
-   not depend on the shuffle). `null_band` → `usize_band` + `From` for
-   `IsomorphNullBand`. Per-window `empirical_p_count`/`empirical_p` come from the
-   returned `upper_tail_count` + `add_one_p_value`. Pinned/reproducibility tests
-   `:338`,`:355` stay green.
+   `run_null_test_columns` with the **fallible** row closure `row_statistic =
+   |shuffled| summarize_window_range(shuffled, min, max).map(|s|
+   s.repeated_signature_kinds)`. Since `run_null_test_columns` now takes
+   `impl Fn(&Draw) -> Result<Vec<T>, E>`, pass it **directly**; the harness
+   propagates any `Err` as `NullColumnError::Statistic(_)`. Pre-validating the
+   window range up front is **optional** (it does not depend on the shuffle, so it
+   is a fine place to surface an obviously-bad range early) but **not required** —
+   the fallible signature already carries any per-trial error out of the loop.
+   `null_band` → `usize_band` + `From` for `IsomorphNullBand`. Per-window
+   `empirical_p_count`/`empirical_p` come from the returned `upper_tail_count` +
+   `add_one_p_value`. Pinned/reproducibility tests `:338`,`:355` stay green.
 
 5. **`tree_residual`** (scalar-usize, two-sided, multi-stream, **segment-shape**
    sampler). Introduce a module-local `ResidualSegmentShuffle` sampler
@@ -441,7 +475,7 @@ order or `<` vs `<=`).
   privates; keeps its report structs, error enum, statistic logic, p-value
   combiner, and seed derivation.
 - **No new file, no deletion of a module.** (The `crate::nulls` directory move is
-  brief 07's job; do not pre-empt it.)
+  brief 07B's job; do not pre-empt it.)
 - **No test file changes** beyond the new harness unit tests in `null.rs`. The
   CLI characterization tests (`tests/nulls_cli.rs`, `tests/perseus_cli.rs`,
   `tests/tree_residual_cli.rs`, `tests/conditional_cli.rs`,
@@ -464,7 +498,12 @@ trial-loop consolidation removes another ~8–15 lines per migrated module on to
 ## Success criteria
 
 - `NullSampler` + `run_null_test`/`run_null_test_streams`/`run_null_test_columns`
-  exist in `src/null.rs`, fully documented, with unit tests.
+  exist in `src/null.rs`, fully documented, with unit tests. Their statistic
+  parameter is fallible (`impl Fn(&Draw) -> Result<T, E>`), they return
+  `NullRunError<E>`/`NullColumnError<E>`, and `run_null_test_streams`'s
+  `derive_seed` is `impl FnMut(usize) -> u64` (so the stateful `zero_adjacency`
+  base-RNG chain compiles). `perseus`/`isomorph_null` pass their fallible closures
+  directly with no infallible-only workaround.
 - At least steps 2–6 migrated (the clean cases); 7–9 migrated or explicitly
   left at minimal band-swap with a one-line code comment explaining why.
 - No module in scope defines its own `shuffled_messages` (within-message variant),
@@ -507,12 +546,16 @@ trial-loop consolidation removes another ~8–15 lines per migrated module on to
   must reproduce that order exactly (iterate messages in the same order, shuffle
   in place, no extra clones that consume draws). Multi-stream derivation closures
   must be the verbatim existing derivation, not a unified one.
-- **Fallible statistics.** `perseus`/`isomorph_null` statistics return `Result`;
-  `run_null_test` takes an infallible `Fn`. The brief resolves this by hoisting
-  the only failure mode (shape mismatch) to a single pre-loop check that the
-  shuffle provably cannot violate (it preserves length/segment shape). This must
-  be verified per module, not assumed — if a statistic has another error path
-  reachable on a shuffle, that module stays longhand.
+- **Fallible statistics.** `perseus`/`isomorph_null` statistics return `Result`,
+  and so does the harness statistic parameter (`impl Fn(&Draw) -> Result<T, E>`,
+  yielding `NullRunError<E>`/`NullColumnError<E>`). These callers pass their
+  naturally-fallible closures **directly**, and the loop propagates the first
+  `Err`; an infallible caller uses `E = Infallible`. The earlier "hoist the only
+  failure mode to a pre-loop check so the per-trial call is infallible" workaround
+  is **no longer required** — pre-validating invariant shape is still allowed where
+  it reads naturally, but is purely optional. (A statistic with a genuinely
+  unexpected error path now simply surfaces it as `NullRunError::Statistic`, rather
+  than forcing the module back to a longhand loop.)
 - **`modular_diff` and `periodicity` are not pure shuffle nulls.** `modular_diff`'s
   control families and `periodicity`'s `random_message_values_like` are content
   *generators*; only their band helpers consolidate. Do not force them into
@@ -536,8 +579,8 @@ trial-loop consolidation removes another ~8–15 lines per migrated module on to
   injected-generator pattern and do not duplicate the trial loop; optionally
   adopting `NullSampler<Draw = Vec<GlyphGrid>>` is a follow-up, not part of this
   brief's behavior-critical path.
-- **Moving the harness into a `crate::nulls` directory** — that is brief 07's
-  module-layout job (`docs/refactor/00-OVERVIEW.md:153`). Keep everything in
+- **Moving the harness into a `crate::nulls` directory** — that is brief 07B's
+  role-directory module-layout job (`docs/refactor/00-OVERVIEW.md:153`). Keep everything in
   `src/null.rs` here to avoid a file-move conflict.
 - **Renaming the per-module report band structs** (`IsomorphNullBand`,
   `AdjacencyNullBand`, `ScalarNullBand`, …) — they are public report API; leave

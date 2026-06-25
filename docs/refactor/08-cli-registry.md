@@ -441,7 +441,7 @@ masters + `tests/*_cli.rs` unchanged).
 ## Out of scope / non-goals
 
 - Brief 06's work itself (introducing `Report`/`Display`) — assumed done.
-- Splitting/relocating `report.rs` or any module (brief 07).
+- Splitting/relocating `report.rs` or any module (brief 07B).
 - Adding `Sequence`/external-ciphertext ingest as a new subcommand (brief 03) —
   the registry should make that a one-entry add *later*, but this brief adds no
   new command.

@@ -25,6 +25,18 @@ This brief does two mechanical, behavior-preserving moves:
    struct**. The CLI (brief 08) then calls `report.render()` generically instead
    of dispatching to 27 distinct free functions.
 
+The report-rendering move (#2) carries **two independent risks** that this brief
+deliberately keeps in separate, separately-green commits: (A) the
+`println!`-to-stdout → `writeln!`-into-`String` + trailing-newline conversion
+(the byte-parity risk), and (B) relocating the renderer body out of `report.rs`
+into the owning module (the move risk). The implementation splits each module's
+migration into **Phase A** (convert `print_X_report` → `render_X_report(&report)
+-> String` **in place inside `report.rs`**, CLI switches to `print!`) and
+**Phase B** (move the now-`String`-returning render into `impl Report::render` in
+the owning module, delete the `report.rs` free fn). Phase A isolates the
+newline/stdout-parity risk with zero relocation; Phase B is then a pure move
+whose bytes are already proven stable by Phase A.
+
 The payoff: `report.rs` shrinks to shared formatting primitives only, the
 per-experiment edit cost drops, and brief 08 gets a uniform `Report` surface to
 build a registry on. It serves the maintainability track of the reframe
@@ -198,10 +210,36 @@ the old `format_*` delegate before deleting the delegate.
 `NullConfigError`'s `Display`, then `NullRunError`'s `Display` uses
 `{config_error}`.
 
-### 2. `Report` trait + `render` impls, colocated
+### 2. In-place `render_X_report(&report) -> String` (Phase A — byte parity, no move)
 
-Add a tiny trait. Proposed home: a new `src/report/mod.rs` (after brief 07's
-directory split) or, pre-07, a new `pub trait` at the top of the surviving
+**Before** moving anything, convert each `print_X_report` to return a `String`
+**while it still lives in `report.rs`**. This isolates the
+`println!`→`writeln!`-into-`String` + trailing-newline conversion under brief 01's
+golden master, with **zero** module relocation:
+
+```rust
+// IN PLACE in report.rs — same module, same private helpers, only the I/O shape changes.
+use std::fmt::Write as _;
+
+pub fn render_honeycomb_report(report: &HoneycombReport) -> String {
+    let mut out = String::new();
+    // body of the former print_honeycomb_report, println! -> writeln!(out, ...)
+    // private helpers stay in report.rs for now, threaded a `&mut String`
+    out
+}
+```
+
+The CLI then switches to `print!("{}", report::render_honeycomb_report(&r))` —
+`print!`, **not** `println!`, so no extra `\n` is appended past the final
+`writeln!`. Because the body, its private helpers, and the shared helpers are all
+still in `report.rs`, the **only** thing this commit changes is the output
+mechanism (stdout-`println!` → `String`-`writeln!` + `print!`); the golden master
+proves the bytes are identical. This is the byte-parity risk, isolated.
+
+### 3. `Report` trait + `render` impls, colocated (Phase B — pure move)
+
+Add a tiny trait. Proposed home: a new `src/report/mod.rs` (after brief 07B's
+directory split) or, pre-07B, a new `pub trait` at the top of the surviving
 `report.rs`. Keep the name from the overview (`docs/refactor/00-OVERVIEW.md:120`):
 
 ```rust
@@ -212,9 +250,11 @@ pub trait Report {
 }
 ```
 
-For each `print_X_report(report: &m::XReport)`, add `impl Report for m::XReport`
-in `src/m.rs` (next to the struct), moving the body and converting `println!` →
-`writeln!(out, ...)` into a `let mut out = String::new();`:
+For each `render_X_report(report: &m::XReport)` produced by Phase A, move the body
+into `impl Report for m::XReport` in `src/m.rs` (next to the struct) and delete
+the `report.rs` free fn. Because Phase A already converted `println!` →
+`writeln!(out, ...)` and proved the bytes under the golden master, **Phase B is a
+pure move** — the `String`-building code is relocated unchanged:
 
 ```rust
 use std::fmt::Write as _;
@@ -223,7 +263,8 @@ use crate::report::Report;
 impl Report for HoneycombReport {
     fn render(&self) -> String {
         let mut out = String::new();
-        // body of the former print_honeycomb_report, println! -> writeln!(out, ...)
+        // the Phase-A render_honeycomb_report body, moved verbatim (already uses
+        // writeln!(out, ...); no I/O change here)
         // (writeln! into a String cannot fail; bind the Result to `_ = writeln!(...)`
         //  or use `let _ =` to satisfy `unused_results`/`must_use` lints — see Risks)
         out
@@ -231,13 +272,13 @@ impl Report for HoneycombReport {
 }
 ```
 
-The dozens of module-private helpers (`print_honeycomb_pair_section` etc.,
-`src/report.rs:1033-1150`) move into the same module as private free functions
-taking `&mut String` (or `&self`), e.g. `fn pair_section(out: &mut String,
-report: &HoneycombReport)`. Helpers that are **shared across modules** stay in
-`report.rs` (see §3).
+In Phase B the dozens of module-private helpers (`print_honeycomb_pair_section`
+etc., `src/report.rs:1033-1150`) move into the same module alongside their
+`render` impl as private free functions taking `&mut String` (or `&self`), e.g.
+`fn pair_section(out: &mut String, report: &HoneycombReport)`. Helpers that are
+**shared across modules** stay in `report.rs` (see §4).
 
-### 3. What survives in `report.rs` (shared helpers only)
+### 4. What survives in `report.rs` (shared helpers only)
 
 After migration, `report.rs` keeps the formatting primitives used by **more than
 one** experiment module, re-exported as `pub(crate)` so the moved `render` impls
@@ -255,18 +296,26 @@ shared `print_*`-style helpers (e.g. `print_interval`) to return/append-to a
 `String` so the `render` impls can use them.
 
 `print_report` (`:5402`) and `print_orders_report` (`:5354`) — the two
-multi-arg/non-struct entry points — stay as `pub fn … -> String` shared
-renderers (rename to `render_sequence_report` / `render_orders_report` or keep
-the name but change the return type), since they have no single owning struct.
+multi-arg/non-struct entry points — get **Phase A only**: they become
+`pub fn … -> String` shared renderers (rename to `render_sequence_report` /
+`render_orders_report` or keep the name but change the return type) and **stay in
+`report.rs`**. They have no single owning struct, so there is no Phase-B move and
+no `Report` impl for them — the accepted, documented deviation from "every report
+is a `Report`" (see Out of scope).
 
-### 4. CLI call-site shape (sets up brief 08)
+### 5. CLI call-site shape (sets up brief 08)
 
-After this brief, `main.rs` collapses both paths to `Display` + `Report`:
+The `print!` switch happens in **Phase A** (CLI calls
+`print!("{}", report::render_X_report(&r))`); **Phase B** only changes the
+right-hand side to `r.render()`. After both phases, `main.rs` collapses both
+paths to `Display` + `Report`:
 
 ```rust
 // error path: Display via {}
 Err(error) => { eprintln!("AGL-GAK error: {error}"); ... }
-// print path: Report::render, printed once with print! (no trailing newline added)
+// print path (Phase A): the in-place report.rs free fn, printed once with print!
+print!("{}", report::render_agl_gak_report(&report));
+// print path (Phase B): the colocated Report::render, same bytes
 print!("{}", report.render());
 ```
 
@@ -283,78 +332,130 @@ self-contained, no-delegation experiments first, leaves the delegating ones
 after their dependencies, and does the two big god-modules (gak_attack,
 conditional_structure) last.
 
+**Every module's render migration is split into two commits that isolate the two
+distinct risks:**
+
+- **Phase A (byte parity, IN PLACE):** convert `print_X_report(report)` →
+  `render_X_report(&report) -> String` **while it still lives in `report.rs`**
+  (build via `use std::fmt::Write; writeln!`), and switch the CLI to
+  `print!("{}", report::render_X_report(&r))` (no `println!`). This isolates the
+  trailing-newline / `println!`→`writeln!`-into-`String` / stdout-parity risk
+  under the golden master, with **zero** module relocation.
+- **Phase B (relocation, pure move):** move the now-`String`-returning
+  `render_X_report` body into a colocated `impl Report::render` in the owning
+  module (and the `Display` impl next to the error enum), delete the `report.rs`
+  free fn, and update the CLI to `r.render()`. Because Phase A already proved the
+  bytes, Phase B touches no output logic — it is a pure move.
+
+Recommended cadence is **per-module A→B** (each module fully lands before the next)
+so a regression is bisected to one module; you *may* batch all Phase-A commits
+first then all Phase-B, but per-module keeps the blast radius smallest. The
+`Display` migration (error enums) rides with each module's Phase B (the colocated
+`Display` is itself a relocation; its byte-parity is guarded by the unit tests in
+Verification step 4, not by Phase A's render golden master).
+
 0. **Prerequisite gate.** Confirm brief 01's full-output golden master is merged
    and green on this branch (run `make verify`; inspect the snapshot files exist
    for every subcommand). If 01 is not merged, stop. (05 helping is optional: if
-   05 has already moved null orchestration, re-check the helper inventory in §3.)
+   05 has already moved null orchestration, re-check the helper inventory in §4.)
 
 1. **Introduce the `Report` trait only.** Add `pub trait Report { fn render(&self)
-   -> String; }` (in `report.rs` for now; brief 07 will move it under
+   -> String; }` (in `report.rs` for now; brief 07B will move it under
    `src/report/mod.rs`). No impls yet. `make verify`. Commit. (Trait is unused →
    may trip `dead_code`; if so add `#[allow(dead_code, reason = "impls land in
    subsequent commits of brief 06")]` and remove the allow once the first impl
-   lands, or land step 2 in the same commit.)
+   lands, or land the first module's Phase B in the same commit.) Note: the trait
+   is only needed for Phase B; Phase A renders are plain `report.rs` free fns and
+   do not depend on it, so the per-module Phase-A commits can precede this step.
 
 2. **Migrate the leaf modules with an already-existing `Display`.** For
    `cipher_attack`, `agl_gak`, `perfect_isomorphism` (Display already present at
    `src/cipher_attack.rs:128`, `src/agl_gak.rs:130`,
-   `src/perfect_isomorphism.rs:124`): delete `format_cipher_attack_error`
-   (`:515`), `format_agl_gak_error` (`:36`), `format_perfect_isomorphism_error`
-   (`:406`); update `main.rs` to use `{error}`. Then add `impl Report` for
-   `CipherAttackReport` / `AglGakReport` / `PerfectIsomorphismReport`, moving the
-   `print_*` bodies + their private helpers. Update `main.rs` print sites to
-   `print!("{}", report.render())`. One commit per module. `make verify` + golden
-   diff each.
+   `src/perfect_isomorphism.rs:124`), per module:
+   - **Phase A:** convert `print_cipher_attack_report` / `print_agl_gak_report` /
+     `print_perfect_isomorphism_report` to `render_*_report(&report) -> String`
+     **in place in `report.rs`**; switch the `main.rs` print site to
+     `print!("{}", report::render_*_report(&r))`. `make verify` + golden diff.
+   - **Phase B:** move the `String`-returning body into `impl Report` for
+     `CipherAttackReport` / `AglGakReport` / `PerfectIsomorphismReport` (next to
+     the struct, with its private helpers), delete the `report.rs` free fn, and
+     switch `main.rs` to `print!("{}", report.render())`. The error side is
+     already done (these have `Display`): delete `format_cipher_attack_error`
+     (`:515`), `format_agl_gak_error` (`:36`), `format_perfect_isomorphism_error`
+     (`:406`) and switch `main.rs` to `{error}`. `make verify` + golden diff.
 
-3. **Migrate the self-contained, non-delegating experiments**, one commit each:
+   One Phase-A + one Phase-B commit per module.
+
+3. **Migrate the self-contained, non-delegating experiments**, per-module A→B:
    `corpus` (`CorpusError` Display; note `print_report` for `Sequence` is shared,
    not corpus-owned), `honeycomb`, `periodicity`, `dof_null`, `isomorph_null`,
    `chaining`, `modular_diff`, `pyry_conditions`, `perseus`,
    `zero_adjacency_null`, `grouping`, `orientation_homogeneity`, `controls`
    (both `MonoalphabeticControlReport` and `IsomorphControlReport`),
    `pipeline_null` (`InputRandomnessReport` + the `print_pipeline_null_report`
-   which reuses `null::NullReport`). For each: (a) add `Display` + `Error` impl
-   colocated, copying arm text verbatim from the corresponding `format_*` in
-   `report.rs`; (b) add `impl Report` for the struct(s), moving body + private
-   helpers; (c) delete the old `format_*`/`print_*` from `report.rs`; (d) update
-   `main.rs`. `make verify` + golden diff after each.
+   which reuses `null::NullReport`). For each module:
+   - **Phase A:** convert the module's `print_*_report` to `render_*_report(&report)
+     -> String` in place in `report.rs` (its private helpers stay put, threaded a
+     `&mut String`); switch `main.rs` to `print!("{}", report::render_*_report(&r))`.
+     `make verify` + golden diff.
+   - **Phase B:** (a) add the `Display` + `Error` impl colocated, copying arm text
+     verbatim from the corresponding `format_*` in `report.rs`; (b) move the
+     `render_*_report` body into `impl Report` for the struct(s), carrying the
+     private helpers; (c) delete the old `format_*` and the now-moved
+     `render_*_report` from `report.rs`; (d) update `main.rs` to `{error}` /
+     `report.render()`. `make verify` + golden diff.
 
 4. **Migrate `null`** (`NullConfigError` + `NullRunError`, and `NullReport`).
-   Fold `format_null_config_error` into `NullConfigError::Display`, then
-   `NullRunError::Display` uses `{config_error}`. Move `print_null_report`
-   (`:753`) into `impl Report for NullReport`. Verify the `print_pipeline_null_report`
-   (`:1676`, also takes `&null::NullReport`) reuse still renders identically — it
-   may need a distinct wrapper since two CLI paths render the same struct
-   differently; if so keep a small free `render_pipeline_null(&NullReport)` shared
-   fn rather than a second `Report` impl on the same type.
+   **Phase A:** convert `print_null_report` (`:753`) to `render_null_report(&NullReport)
+   -> String` in place; switch `main.rs` to `print!`. Note `print_pipeline_null_report`
+   (`:1676`, also takes `&null::NullReport`) renders the same struct differently —
+   give it its own Phase-A `render_pipeline_null(&NullReport) -> String` so the two
+   CLI paths stay distinct. `make verify` + golden diff.
+   **Phase B:** fold `format_null_config_error` into `NullConfigError::Display`, then
+   `NullRunError::Display` uses `{config_error}`. Move `render_null_report`'s body
+   into `impl Report for NullReport`. Keep `render_pipeline_null` as a small free
+   shared fn (a second `Report` impl on `NullReport` is impossible — one struct, one
+   impl), colocated in `null`; do not force it into the trait. `make verify` + golden
+   diff.
 
-5. **Migrate the delegating experiments** (after their inner deps are done):
-   `tree_residual` (uses `PerseusError` Display — step 3 must have done perseus
-   first; replace `format_perseus_error` delegate at `:477` with `{perseus_error}`),
-   `chaining_graph` then `transitivity` (transitivity delegates to
-   `format_chaining_graph_error` at `:740`; do `chaining_graph` first, then
-   transitivity uses `{chaining_error}`). `conditional_structure` (large: ~25
-   private helpers `src/report.rs:1860-2350`) — move all colocated.
+5. **Migrate the delegating experiments** (after their inner deps are done), each
+   per-module A→B: `tree_residual` (its Phase B uses `PerseusError` Display — step 3
+   must have done perseus first; replace the `format_perseus_error` delegate at
+   `:477` with `{perseus_error}`), `chaining_graph` then `transitivity`
+   (transitivity's Phase B delegates to `ChainingGraphError`'s `Display`, so do
+   `chaining_graph` first; the `format_chaining_graph_error` call at `:740` becomes
+   `{chaining_error}`). `conditional_structure` (large: ~25 private helpers
+   `src/report.rs:1860-2350`) — Phase A renders in place, Phase B moves the body and
+   all those helpers colocated. The delegation only affects each module's Phase B
+   (the `Display` migration); Phase A's render conversion is independent of it.
 
 6. **Migrate `gak_attack`** (`GakAttackError`, `GakAttackReport`,
    `EyesAttackReport`). This is the largest: `print_gak_attack_report` (`:4092`),
    `print_gak_attack_eyes_report` (`:4412`), and ~12 private helpers
-   (`src/report.rs:4126-4404`, `:4440-4572`). `gak_attack.rs` is already an
-   8,147-line god-file (brief 07 splits it) — **coordinate with brief 07**: if 07
-   has split `gak_attack.rs` into `src/attack/gak/`, place the `impl Report` next
-   to the report struct in whichever sub-file owns it. Do this on the same branch
-   as, or after, 07's gak split to avoid a three-way merge.
+   (`src/report.rs:4126-4404`, `:4440-4572`).
+   - **Phase A** is unaffected by the gak split: convert both `print_*` to
+     `render_*_report -> String` **in `report.rs`** (helpers stay put) and switch
+     `main.rs` to `print!`. This commit can land regardless of 07A's status.
+   - **Phase B** is the move that interacts with brief **07A** (the `gak_attack.rs`
+     8,147-line god-file split). If 07A has split `gak_attack.rs` into
+     `src/gak_attack/` sub-files, place the `impl Report` next to the report struct
+     in whichever sub-file owns it. Do Phase B on the same branch as, or after, 07A's
+     gak split to avoid a three-way merge. (Phase A's byte parity is already proven,
+     so the only thing the merge risks is the move target, not the rendered bytes.)
 
 7. **Consolidate shared helpers + the two non-struct renderers.** Once every
-   `print_*_report` is gone, audit what remains in `report.rs`: keep only the
-   cross-module helpers (§3), convert them to `String`-appending form, mark
-   `pub(crate)`, and re-point the moved `render` impls at them. Convert
-   `print_orders_report` (`:5354`) and `print_report` (`:5402`) to
-   `render_*  -> String`. Update their `main.rs` call sites
-   (`src/main.rs:653`, `:1054`, `:1061`). `report.rs` should now be a few hundred
-   lines of helpers + the `Report` trait. `make check` (full gate incl.
-   `cargo-machete` to confirm no now-unused imports remain, and the giant
-   `use crate::{...}` block at `src/report.rs:8-13` shrinks). Commit.
+   per-struct `print_*_report` has been through Phase B, audit what remains in
+   `report.rs`: keep only the cross-module helpers (§4), convert them to
+   `String`-appending form, mark `pub(crate)`, and re-point the moved `render`
+   impls at them. The two non-struct entry points `print_orders_report` (`:5354`)
+   and `print_report` (`:5402`) get **Phase A only** — convert to
+   `render_orders_report` / `render_sequence_report` `-> String` and **leave them in
+   `report.rs`** (no owning struct ⇒ no Phase B, no `Report` impl). Update their
+   `main.rs` call sites to `print!("{}", …)` (`src/main.rs:653`, `:1054`, `:1061`).
+   `report.rs` should now be a few hundred lines of helpers + the two shared
+   renderers + the `Report` trait. `make check` (full gate incl. `cargo-machete` to
+   confirm no now-unused imports remain, and the giant `use crate::{...}` block at
+   `src/report.rs:8-13` shrinks). Commit.
 
 Each commit: `make verify` green; brief-01 golden master byte-identical; and the
 existing `assert_contains` CLI tests still pass.
@@ -383,15 +484,15 @@ shared helpers need.
 (error path) and `print!("{}", report.render())` (print path), plus the two
 shared renderers (`render_orders_report`, `render_sequence_report`).
 
-**Change (trait home, with brief 07):** if 07 lands first, the `Report` trait and
+**Change (trait home, with brief 07B):** if 07B lands first, the `Report` trait and
 remaining helpers live in `src/report/mod.rs`; otherwise they stay in
-`src/report.rs`. Coordinate the trait's final path with 07 and 08.
+`src/report.rs`. Coordinate the trait's final path with 07B and 08.
 
 **Create:** none strictly required (the trait can live in the surviving
-`report.rs`). Optionally `src/report/mod.rs` if co-sequenced with 07.
+`report.rs`). Optionally `src/report/mod.rs` if co-sequenced with 07B.
 
 **Delete:** none as files in this brief — `report.rs` survives, much smaller.
-(Brief 07 may later move the surviving `report.rs` into `src/report/`.)
+(Brief 07B may later move the surviving `report.rs` into `src/report/`.)
 
 ## Success criteria
 
@@ -399,10 +500,12 @@ remaining helpers live in `src/report/mod.rs`; otherwise they stay in
   that had one now has a colocated `impl fmt::Display` (+ `impl std::error::Error`)
   in its own module. `grep -n 'pub fn format_.*_error' src/report.rs` returns
   nothing.
-- Every `print_*_report` CLI entry point is gone from `report.rs`; the
-  corresponding `*Report` struct has `impl Report` in its own module.
-  `grep -n 'pub fn print_' src/report.rs` returns only the two intentional
-  non-struct shared renderers (or nothing if they are renamed `render_*`).
+- Every `print_*_report` CLI entry point is gone from `report.rs` — each went
+  through Phase A (`render_*_report -> String` in place) then Phase B (moved into a
+  colocated `impl Report` on its `*Report` struct). `grep -n 'pub fn print_'
+  src/report.rs` returns **nothing**: the two non-struct entry points are renamed
+  to the `render_*` shared renderers in their Phase-A-only path, and no `print_*`
+  survives.
 - A `pub trait Report { fn render(&self) -> String; }` exists, with one impl per
   report struct; the CLI calls it generically (no per-experiment `print_*`
   dispatch except the two shared renderers).
@@ -444,11 +547,16 @@ remaining helpers live in `src/report/mod.rs`; otherwise they stay in
 
 ## Risks & honesty caveats
 
-- **Trailing newline / line-order drift is the #1 risk.** `println!` appends `\n`;
-  the assembled `String` must reproduce it, and the CLI must switch to
-  `print!("{}", report.render())` (no `println!`) so no extra `\n` is added. The
-  existing `assert_contains` tests **cannot** catch this (substring-only,
-  `tests/common/mod.rs:39`) — rely on brief 01's full-output golden master.
+- **Trailing newline / line-order drift is the #1 risk — but the Phase A / Phase B
+  split confines it to Phase A.** `println!` appends `\n`; the assembled `String`
+  must reproduce it, and the CLI must switch to `print!("{}", …render…)` (no
+  `println!`) so no extra `\n` is added. This entire conversion happens in **Phase A
+  while the renderer still lives in `report.rs`** (no relocation), so the
+  trailing-newline / line-order risk is caught by brief 01's golden master
+  *independent of any module move*. Phase B then relocates already-proven bytes and
+  cannot introduce a newline drift. The existing `assert_contains` tests **cannot**
+  catch this (substring-only, `tests/common/mod.rs:39`) — rely on brief 01's
+  full-output golden master, run after both Phase A and Phase B.
 - **`GridError` Debug formatting must be preserved.** It has no `Display`
   (`src/orders.rs:28`); every error renders it as `{grid_error:?}`. Keep `{:?}` in
   the new `Display` arms. Do **not** add a `GridError` `Display` in this brief —
@@ -472,10 +580,12 @@ remaining helpers live in `src/report/mod.rs`; otherwise they stay in
   newtype just to fit the trait — keep them as shared `render_* -> String` free
   functions. This is an accepted, documented deviation from "every report is a
   `Report`."
-- **Coordinate `gak_attack` with brief 07.** `gak_attack.rs` is split by 07; doing
-  its `impl Report` independently risks a three-way merge. Sequence step 6 after
-  07's gak split, or do both on one branch (overview's noted conflict point,
-  `docs/refactor/00-OVERVIEW.md:183-186`).
+- **Coordinate `gak_attack` Phase B with brief 07A.** `gak_attack.rs` is split by
+  brief 07A; doing its `impl Report` (Phase B) independently risks a three-way merge.
+  Sequence step 6's Phase B after 07A's gak split, or do both on one branch
+  (overview's noted conflict point, `docs/refactor/00-OVERVIEW.md:183-186`). Note
+  `gak_attack`'s **Phase A is unaffected** — converting `print_*` to `render_*` in
+  `report.rs` does not touch `gak_attack.rs`, so it can land before 07A.
 - **No claim/statistic changes.** This is pure presentation plumbing: no reported
   number, p-value, decode, or null calibration may move. The claim ceiling is
   untouched.
@@ -490,7 +600,8 @@ remaining helpers live in `src/report/mod.rs`; otherwise they stay in
 - The `Experiment` trait / experiment registry and the CLI registry — that is
   brief 08 (`docs/refactor/00-OVERVIEW.md:175`); this brief only delivers the
   `Report::render` surface 08 builds on.
-- Splitting `gak_attack.rs` / module-directory reorg — brief 07.
+- Splitting `gak_attack.rs` — brief 07A; the repo-wide module-directory reorg
+  (including the `report.rs` → `report/` move) — brief 07B.
 - Null/experiment-harness dedup — brief 05 (it *helps* by collapsing duplicated
   null orchestration before the helper-inventory step, but is not required).
 - Changing any report's *content* or wording. Every arm string and report line is

@@ -1,38 +1,35 @@
-# 07 — Split god-files + module layout
+# 07A — Split the `gak_attack.rs` god-file
 
-> One-line: split the 8,147-line `gak_attack.rs` into a cohesive `gak/` module
-> directory and regroup the 32 flat `pub mod`s in `lib.rs` into the role
-> directories from the overview — a pure, behavior-preserving move-refactor that
-> changes no fn body and no reported number.
+> One-line: split the 8,147-line `gak_attack.rs` into a cohesive `src/gak_attack/`
+> module directory (one file per natural seam) — a pure, behavior-preserving
+> move-refactor that changes no fn body and no reported number, and hands brief 04
+> a clean `crate::gak_attack::marginalization::*` / `solver::*` seam to import the
+> beam search.
 > Status: not started · Depends on: 01 (golden-master safety net) · Coordinates
-> with: 04 (both touch `gak_attack.rs`) · Blocks: nothing hard; eases 04/05/06/08
+> with: 04 (both touch `gak_attack.rs`) · Blocks: nothing hard; eases 04/06
 > navigation · Size: M
+> Sequence: right after 02, before 04.
 
 ## Goal & why it matters
 
-Two files hold 31% of the crate: `gak_attack.rs` is 8,147 lines and `report.rs`
-is 5,694 lines (`src/lib.rs:82`, `src/lib.rs:99`; line counts verified via
-`wc -l`). `gak_attack.rs` is the single worst offender — it bundles a synthetic
-GAK generator, a GCTAK solver, a deck-cipher attack, a hidden-state
+`gak_attack.rs` is 8,147 lines (`src/lib.rs:82`; line count verified via
+`wc -l`) — the single worst god-file in the crate. It bundles a synthetic GAK
+generator, a GCTAK solver, a deck-cipher attack, a hidden-state
 marginalization/beam-search, the eyes Step-3 path, an error type, and a
 1,716-line test module into one flat namespace. That size is what makes brief 04
-("reuse its beam-search") and brief 06/08 painful to navigate.
+("reuse its beam-search") painful to navigate.
 
-This brief does the **mechanical** half of the cleanup: move code into files and
-directories that match the target layout in `00-OVERVIEW.md:143-160`, with **zero
-behavior change**. No statistic, no decode, no CLI byte may move. It is
-deliberately scoped *under* brief 02 (which introduces `trait Cipher`) and brief
-04 (which builds the solve pipeline): this brief only relocates existing items so
-those briefs have clean seams to build on. It does **not** introduce traits,
-merge logic, or touch fn bodies.
+This brief does the **mechanical** split of that one file into the `gak_attack/`
+directory, with **zero behavior change**. No statistic, no decode, no CLI byte
+may move. It is deliberately scoped *under* brief 02 (which introduces
+`trait Cipher`) and brief 04 (which builds the solve pipeline): this brief only
+relocates existing items so brief 04 has clean per-seam seams to build on. It
+does **not** introduce traits, merge logic, or touch fn bodies.
 
-`report.rs` and `ciphers.rs` are named in the overview as further split
-candidates, but `report.rs` is owned by brief 06 (dissolve into per-error
-`Display` + `Report::render`) and `ciphers.rs` by brief 02 (`Cipher` trait + one
-file per family). To avoid double-ownership churn, **this brief does not split
-those two files' contents** — it only *relocates* them into the `ciphers/` and
-`report/` role directories as thin moves (mod.rs holding today's content), so 02
-and 06 land their real splits inside the new directories. See "Out of scope".
+The repo-wide `lib.rs` role-directory regroup (moving the 32 flat modules,
+including this `gak_attack/` directory, into `core/ data/ analysis/ …`) is a
+**separate, later** brief — **07B** — sequenced dead last. This brief touches
+only `gak_attack.rs` → `src/gak_attack/`.
 
 ## Current state (grounded, with file:line)
 
@@ -106,24 +103,25 @@ The full external symbol surface (grep `gak_attack::[A-Za-z_]+` over
 `:3122`, `MarginalizationPoint` `:3916`, `DeckAttackOutcome` `:3024`, etc.) must
 stay reachable at `crate::gak_attack::*`.
 
-### `lib.rs` flat layout
+### `include_str!` — none here
 
-`src/lib.rs:72-103` is a flat wall of 32 `pub mod` declarations (the doc comment
-`:1-70` describes each). No role grouping; every module is a direct child of the
-crate root. The overview's target groups them under `core/ data/ analysis/
-nulls/ ciphers/ attack/ experiments/ report/` (`00-OVERVIEW.md:143-160`).
+`gak_attack.rs` contains **no `include_str!`** (verified by grep). This split
+therefore needs **no asset-path re-rooting**; the only place that matters is the
+later repo-wide role-dir move (brief 07B handles re-rooting `corpus.rs`,
+`generator.rs`, and `language.rs` asset paths). This brief is a pure move of
+`.rs` source with no embedded-asset edits.
 
 ## Target design (concrete API / types / layout)
 
-### A. `gak/` module directory
+### `gak_attack/` module directory
 
-Replace `src/gak_attack.rs` with `src/gak/` containing seven files. The split
-follows the seams above; **siblings are private submodules of `gak`** and share
-items via `pub(crate)` (or `pub(super)`) visibility, so no item that is private
-today becomes crate-public except where it already was `pub`.
+Replace `src/gak_attack.rs` with `src/gak_attack/` containing seven files. The
+split follows the seams above; **siblings are private submodules of `gak_attack`**
+and share items via `pub(crate)` (or `pub(super)`) visibility, so no item that is
+private today becomes crate-public except where it already was `pub`.
 
 ```
-src/gak/
+src/gak_attack/
   mod.rs            // module doc (moved verbatim from gak_attack.rs:1-54);
                     //   `use` of the sub-files; the cross-cutting orchestrator
                     //   run_gak_attack (+ GakAttackReport, validate_config,
@@ -155,14 +153,14 @@ src/gak/
 
 The overview names the `gak/` directory (`gak/ (split from gak_attack.rs)`,
 `00-OVERVIEW.md:156`) but does not enumerate its individual files; this brief
-proposes the per-seam split into `gak/generator.rs`, `gak/solver.rs`,
-`gak/marginalization.rs`, `gak/fixtures.rs`, `gak/eyes.rs`, `gak/error.rs`.
+proposes the per-seam split into `generator.rs`, `solver.rs`,
+`marginalization.rs`, `fixtures.rs`, `eyes.rs`, `error.rs`.
 **Deviation
 note:** the GCTAK solver and the deck attack are placed together in `solver.rs`
 because they share `EdgeMap`, `collect_chain_links`, and the chain-substrate
 primitives and together total ~1,900 lines (the largest sibling; acceptable, but
 see the fixtures.rs/deck.rs escape hatch). If a future reviewer
-prefers a separate `gak/deck.rs`, that is a trivial follow-on — call it out, do
+prefers a separate `deck.rs`, that is a trivial follow-on — call it out, do
 not silently diverge from this brief's six-file split.
 
 **Shared-item visibility rules (mechanical):**
@@ -172,19 +170,19 @@ not silently diverge from this brief's six-file split.
   (`:2511`), `DEFAULT_BEAM_WIDTH` (`:3348`), `evaluate_fixture` (`:1313`):
   these are referenced across the new file boundaries, so promote each from
   private to `pub(crate)` (or `pub(super)`), and qualify call sites as
-  `crate::gak::generator::EdgeMap` etc. (or rely on a `use super::generator::*`
-  in the consuming file). Nothing here changes a *body*.
+  `crate::gak_attack::generator::EdgeMap` etc. (or rely on a
+  `use super::generator::*` in the consuming file). Nothing here changes a *body*.
 - `GakAttackError` (`:250`), `GakAttackConfig` (`:405`), `GakAttackReport`
   (`:559`), all the `pub` report structs, and the `DEFAULT_*`/`EYES_*` consts are
   already `pub`; they stay `pub` in their new home.
 
-### B. Public-path decision: **keep paths stable via re-exports**
+### Public-path decision: **keep paths stable via re-exports**
 
-**Decision: re-export from `gak/mod.rs`, do NOT rewrite call sites.** Concretely,
-`mod.rs` ends with a `pub use` block re-surfacing the full external symbol set
-(the 22 symbols main.rs/report.rs/tests use, plus the report sub-types report.rs
-walks into) so that `crate::gak_attack::Foo` — wait: the module is renamed to
-`gak`, so the import name changes from `gak_attack` to `gak`. Two sub-options:
+**Decision: re-export from `gak_attack/mod.rs`, do NOT rewrite call sites.**
+Concretely, `mod.rs` ends with a `pub use` block re-surfacing the full external
+symbol set (the 22 symbols main.rs/report.rs/tests use, plus the report sub-types
+report.rs walks into) so that `crate::gak_attack::Foo` resolves identically before
+and after. Two sub-options exist for the directory name:
 
 1. **Rename `gak_attack` → `gak`** (matches the overview's `gak/` dir name) and
    update the *three* import lines (`src/main.rs:12`, `src/report.rs:10`, and any
@@ -205,64 +203,11 @@ name in the PR description. (If a later brief renames to `gak`, that is a
 one-line follow-up once 04/05/06 have settled.)
 
 Rationale for re-exports over a global rewrite: it **decouples this brief from
-brief 04**. Brief 04 reuses the beam-search internals; if 07 rewrote every call
+brief 04**. Brief 04 reuses the beam-search internals; if 07A rewrote every call
 site and 04 also moves beam-search into `attack/solve`, the two collide on the
 same lines. Re-exports keep the public surface frozen so 04 can pull
 `pub(crate)` internals via `crate::gak_attack::marginalization::*` without a merge
 conflict on import paths.
-
-### C. `lib.rs` role grouping
-
-Group the 32 flat modules (`src/lib.rs:72-103`) into the overview's directories
-(`00-OVERVIEW.md:143-160`). Use Rust's `path` attribute or directory `mod.rs`
-re-export shims so the **public paths stay flat** (`crate::analysis::…` keeps
-working) while the *files* move into role dirs. Concretely, the cleanest
-zero-churn mechanism is a role `mod.rs` that re-exports, e.g.:
-
-```rust
-// src/lib.rs
-mod analysis_group;            // private umbrella module
-pub use analysis_group::*;     // keeps crate::analysis path? — NO, see note
-```
-
-That does not preserve `crate::analysis`. To keep flat paths exactly, instead
-move the *file* and point `lib.rs` at it with `#[path]`:
-
-```rust
-// src/lib.rs — path stays `crate::analysis`, file lives in analysis/
-#[path = "analysis/analysis.rs"] pub mod analysis;
-#[path = "nulls/null.rs"]        pub mod null;
-// …one line per module, grouped/commented by role
-```
-
-This is the recommended `lib.rs` mechanism: **files move into role directories;
-public paths are byte-identical.** Grouping per `00-OVERVIEW.md:143-160`:
-
-- `core/` ← `glyph`, `trigram` (sequence/ingest is brief 03's territory — leave
-  `glyph` here)
-- `data/` ← `corpus`, `generator`
-- `analysis/` ← `analysis`, `isomorph`, `periodicity`, `conditional_structure`,
-  `modular_diff`, `grouping`, `orientation_homogeneity`, `transitivity`,
-  `chaining`, `chaining_graph`, `perfect_isomorphism`, `honeycomb`, `orders`
-- `nulls/` ← `null`, `isomorph_null`, `zero_adjacency_null`, `dof_null`,
-  `pipeline_null`, `tree_residual`, `perseus`
-- `ciphers/` ← `ciphers` (as `ciphers/mod.rs`, content unchanged — brief 02 owns
-  the internal split)
-- `attack/` ← `cipher_attack`, `agl_gak`, `gak_attack/` (the dir from part A),
-  and `language` (the n-gram model is consumed only by `cipher_attack`/
-  `gak_attack`/`grouping` for the speculative cleartext gate; the overview is
-  silent on it, so place it with its attack consumers and add a `// role:` note);
-  `solve/` is brief 04's
-- `experiments/` ← `pyry_conditions`, `controls`, and the structural-battery
-  modules that are clearly experiment drivers (assign conservatively; if a
-  module is ambiguous, leave it where the overview is silent and note it)
-- `report/` ← `report` (as `report/mod.rs`, content unchanged — brief 06 owns the
-  dissolve)
-
-**Deviation latitude:** the overview's grouping is a proposal
-(`00-OVERVIEW.md:9-14`). Where a module's role is ambiguous (e.g. `chaining_graph`
-is used by both analysis and the gak attack), pick the directory the overview
-names and add a one-line `// role: …` comment; do not invent new top-level dirs.
 
 ## Implementation steps (ordered, each independently committable & green)
 
@@ -272,7 +217,7 @@ golden-master suite from brief 01 (or, until 01 lands, `cargo test` +
 
 1. **Land brief 01 first.** Do not start until the golden-master safety net is
    green on this branch (or merge it in). The golden master is the proof that
-   steps 2–8 are behavior-preserving. Coordinate with 04 on sequencing (see
+   steps 2–7 are behavior-preserving. Coordinate with 04 on sequencing (see
    "Risks").
 
 2. **Extract `gak_attack/error.rs`.** Create `src/gak_attack/mod.rs` as a copy of
@@ -313,15 +258,8 @@ golden-master suite from brief 01 (or, until 01 lands, `cargo test` +
    or grep the external symbol list to confirm `crate::gak_attack::*` is
    byte-identical. Green.
 
-8. **Regroup `lib.rs` into role dirs.** Move each module file into its role
-   directory and repoint `lib.rs` with `#[path = "<role>/<mod>.rs"] pub mod <mod>;`
-   (one commit, or a few commits grouped by role dir for smaller diffs). Move
-   `ciphers.rs` → `ciphers/mod.rs`, `report.rs` → `report/mod.rs`,
-   `gak_attack/` already done. Confirm every `crate::<mod>::…` path is unchanged.
-   Green.
-
 Steps 2–7 are independently committable (each leaves a compiling, green crate
-with the public surface intact). Step 8 can be one commit per role directory.
+with the public surface intact).
 
 ## Files to create / change / delete
 
@@ -334,38 +272,32 @@ with the public surface intact). Step 8 can be one commit per role directory.
 - `src/gak_attack/eyes.rs`
 - `src/gak_attack/fixtures.rs` (only if it keeps generator/solver under ~1,500
   lines; otherwise omit)
-- Role directories: `src/core/`, `src/data/`, `src/analysis/`, `src/nulls/`,
-  `src/ciphers/`, `src/attack/`, `src/experiments/`, `src/report/` (as the new
-  homes for moved files)
 
 **Change:**
-- `src/lib.rs` — regroup the 32 `pub mod` decls into role-commented blocks using
-  `#[path]` (paths stay flat); the doc comment (`:1-70`) stays, optionally
-  re-grouped to mirror the dirs.
 - `src/main.rs:12` and `src/report.rs:10` — **only if** you pick option 1
   (rename to `gak`). Under the recommended option 2 (`gak_attack/`), these are
   **unchanged**.
+- `src/lib.rs` — no content change: `pub mod gak_attack;` already names the
+  module, and a `src/gak_attack/mod.rs` directory resolves under the same flat
+  path with no `lib.rs` edit (option 2). (Option 1 adds `pub mod gak;`.)
 
 **Delete:**
 - `src/gak_attack.rs` (replaced by `src/gak_attack/`)
-- (After moves) `src/ciphers.rs`, `src/report.rs`, and each regrouped module's
-  old top-level path — each becomes `<role>/<name>.rs`.
 
 **Do not touch:** `tests/*.rs` (all CLI tests must compile and pass unchanged —
-they import the binary, not internal paths), `corpus.rs` data, any fn body.
+they import the binary, not internal paths), `corpus.rs` data, any fn body, and
+**any other module** (the repo-wide role-dir move is brief 07B).
 
 ## Success criteria
 
 - `src/gak_attack.rs` no longer exists; `src/gak_attack/` holds 6–7 files, none
   over ~2,000 lines (the combined GCTAK+deck `solver.rs` is the largest at
   ~1,900), each with a single cohesive responsibility.
-- `lib.rs`'s modules live in the eight role directories from
-  `00-OVERVIEW.md:143-160`; the public crate path of every module is unchanged.
 - The external symbol surface at `crate::gak_attack::*` (22 symbols + report
   sub-types) is byte-identical: `main.rs`, `report.rs`, `tests/gak_attack_cli.rs`
   compile and pass with **no edits** (option 2) or one import-line edit each
   (option 1).
-- `git diff` contains **only** moves, `mod`/`use`/`#[path]` lines, and
+- `git diff` contains **only** moves, `mod`/`use`/`pub use` lines, and
   visibility-keyword changes (`pub(crate)`/`pub(super)`). No fn body diff.
 - `make verify` and `make check` green.
 
@@ -384,10 +316,10 @@ they import the binary, not internal paths), `corpus.rs` data, any fn body.
    it must pass untouched.
 2. **Behavior diff = body diff = empty.** `git diff --stat` should show large
    line moves but `git log -p` per step should reveal no `+`/`-` inside any fn
-   body (only signatures' visibility keywords, `use`, `mod`, `#[path]`). A
+   body (only signatures' visibility keywords, `use`, `mod`, `pub use`). A
    reviewer greps the diff for `fn ` bodies and confirms moves only.
 3. **Public-path freeze.** `grep -roE 'gak_attack::[A-Za-z_]+' src/ tests/ | sort
-   -u` before vs after must match exactly. Same for each regrouped module path.
+   -u` before vs after must match exactly.
 4. **Determinism.** `run_gak_attack_is_deterministic_for_fixed_seed` and the
    `gctak_solver_recovers_*` / `deck_attack_*` / `idea3_*` tests
    (`gak_attack.rs:6432+`) must all still pass — they are the in-crate proof the
@@ -397,14 +329,14 @@ they import the binary, not internal paths), `corpus.rs` data, any fn body.
 
 ## Risks & honesty caveats
 
-- **Coordination with brief 04 — sequence 07 BEFORE 04 on the shared branch.**
+- **Coordination with brief 04 — sequence 07A BEFORE 04 on the shared branch.**
   Both touch `gak_attack.rs`; 04 reuses the beam-search/marginalization internals.
-  Recommendation: **land 07 first**, because 07's re-export decision (option 2)
+  Recommendation: **land 07A first**, because 07A's re-export decision (option 2)
   freezes the public path and exposes the beam-search internals as
   `pub(crate) crate::gak_attack::marginalization::*` / `solver::*`, which is
   exactly the clean seam 04 wants to import. If 04 lands first, it will reach into
-  an 8,147-line flat file and 07 then has to chase 04's new call sites. Concretely:
-  finish 07 steps 2–7, merge, *then* start 04. If they must overlap, run them on
+  an 8,147-line flat file and 07A then has to chase 04's new call sites. Concretely:
+  finish 07A steps 2–7, merge, *then* start 04. If they must overlap, run them on
   the **same branch** (the overview anticipates this — `00-OVERVIEW.md:183-186`)
   and have 04 import from the new submodule paths from day one.
 - **Re-export visibility is the trap.** Promoting a private item to `pub(crate)`
@@ -419,11 +351,6 @@ they import the binary, not internal paths), `corpus.rs` data, any fn body.
   imports. A miscompile here is loud (good); a silently-skipped `#[cfg(test)]`
   module is the danger — confirm `cargo test` runs the *same count* of gak tests
   before and after (50 `#[test]` functions in `gak_attack.rs` today).
-- **`#[path]` vs nested `mod` for lib.rs.** `#[path]` keeps flat public paths with
-  minimal churn but is slightly unusual; an alternative is plain nested modules +
-  `pub use` shims. Either is acceptable — pick `#[path]` for path-fidelity and
-  document the choice. Do not change a public path silently; that would break
-  `main.rs`/`report.rs`/tests and is a behavior change in disguise.
 - **No claim-surface change.** This refactor touches structure only; the eyes
   honesty caveats (`gak_attack.rs:1-16`, the `:4343-4345` mapping-is-HYPOTHESIS
   banner) move verbatim into `eyes.rs`/`mod.rs`. The claim ceiling is unchanged:
@@ -433,11 +360,15 @@ they import the binary, not internal paths), `corpus.rs` data, any fn body.
 ## Out of scope / non-goals
 
 - **No traits, no logic merges, no fn body edits.** `trait Cipher`/`AnyCipher` is
-  brief 02; the solve pipeline is brief 04. This brief only moves files.
-- **Splitting `ciphers.rs` internals** (one file per cipher family) is brief 02 —
-  here it only becomes `ciphers/mod.rs` unchanged.
-- **Dissolving `report.rs`** into per-error `Display`/`Report::render` is brief 06
-  — here it only becomes `report/mod.rs` unchanged.
+  brief 02; the solve pipeline is brief 04. This brief only moves files within the
+  one `gak_attack.rs` god-file.
+- **The repo-wide `lib.rs` role-directory regroup** (moving the 32 flat modules,
+  including this `gak_attack/` dir, into `core/ data/ analysis/ nulls/ ciphers/
+  attack/ experiments/ report/`) is **brief 07B**, sequenced dead last. Not
+  touched here.
+- **Splitting `ciphers.rs` internals** (one file per cipher family) is brief 02;
+  **dissolving `report.rs`** into per-error `Display`/`Report::render` is brief 06
+  — neither is touched here.
 - **CLI registry / args dedup** is brief 08; the null/experiment harness is brief
   05; external ingest (`core/sequence`) is brief 03 — none are touched here.
 - **Renaming `gak_attack` → `gak`** is deferred (option 1); the recommended path

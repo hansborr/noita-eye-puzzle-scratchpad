@@ -42,11 +42,11 @@ All fourteen share the signature shape `fn(&[Glyph], &SomeKey) -> Result<Vec<Gly
 - `src/agl_gak.rs:9-12` imports the lower-level AGL group helpers (`agl_apply`, `agl_compose`, `agl_coset_symbol`, …) and `AglMultiplierSubgroup` — **not** `agl_gak_encrypt`/`decrypt`. It is *not* a consumer of the family free functions and needs no change.
 - `src/gak_attack.rs:63-64` imports `gak_encrypt` (plus `GakKey`, `GakKeyOptions`, `CosetReadout`, `CipherError`, and — since 71d25fe's E1 dedup — the shared `compose_permutations`); production call sites at `:915, :2252`; its test module `:6433` additionally imports `gak_decrypt` at `:6443` and calls both (`gak_decrypt` `:6460, :6790, :6959, :7030, :7311`; `gak_encrypt` `:6465, :7053, :7054`).
 
-The associated-type object-safety constraint is real and material: `trait Cipher { type Key; … }` cannot be made into a `dyn Cipher` trait object (associated types with no fixed binding break object safety, and `&Self::Key` parameters make per-call dynamic dispatch ill-formed). The overview already anticipates this (`00-OVERVIEW.md:79-85`): heterogeneous search therefore goes through an `AnyCipher` **enum**, not `Box<dyn Cipher>`.
+The associated-type constraint is real and material — but the precise reason it forces an enum is subtler than "object-unsafe." An associated type does **not** outright forbid trait objects: you *can* name `dyn Cipher<Key = CaesarKey>` by binding the associated type. The problem is that binding it **pins a single key type**, so such a trait object can only ever represent **one family's** key, while each of the seven families has a *different* `Key` (`CaesarKey`, `VigenereKey`, …, `GakKey`). No single `dyn Cipher<Key=…>` binding spans families, so it gives **no heterogeneous dispatch** across them. The overview already anticipates this (`00-OVERVIEW.md:79-85`): heterogeneous search therefore goes through an `AnyCipher` **enum**, which owns each variant's concrete key, rather than any `dyn Cipher` / `Box<dyn Cipher>` form.
 
 ## Target design (concrete API / types / layout)
 
-All additions land in `src/ciphers.rs` (module layout reorg into `ciphers/` is **brief 07**, explicitly out of scope here).
+All additions land in the single `src/ciphers.rs`. Two layout moves are explicitly out of scope here (see Out-of-scope): the **thin move** `ciphers.rs` → `ciphers/mod.rs` (content unchanged) is **brief 07B**; the physical **one-file-per-family split** of `ciphers.rs` is a **deferred follow-up not owned by any current brief** (a future brief-02 extension) — it is **not** brief 07B.
 
 ### 1. `trait Cipher`
 
@@ -100,15 +100,17 @@ impl Cipher for Caesar {
 
 ### 3. `AnyCipher` dispatch enum (the object-safety resolution)
 
-Because `type Key` makes `Cipher` non-object-safe, heterogeneous collections use an enum that **owns the key** and exposes object-safe-shaped `encrypt`/`decrypt` taking only the sequence:
+Because `Cipher`'s associated `Key` type pins one key per `dyn Cipher<Key=…>` binding (so a single trait object cannot span the seven families' distinct keys), heterogeneous collections use an enum that **owns the key** and exposes `encrypt`/`decrypt` taking only the sequence:
 
 ```rust
 /// A cipher family together with its key, for heterogeneous search.
 ///
-/// `Cipher` has an associated `Key` type, which makes it non-object-safe
-/// (`Box<dyn Cipher>` is impossible). This enum recovers runtime polymorphism:
-/// each variant pairs a family with its concrete key, and the inherent
-/// `encrypt`/`decrypt` dispatch over the closed set of seven families.
+/// `Cipher` has an associated `Key` type. A `dyn Cipher<Key = …>` trait object
+/// must bind that type, so it can carry only one family's key — it gives no
+/// heterogeneous dispatch across the seven families (each has a different `Key`).
+/// This enum recovers runtime polymorphism instead: each variant pairs a family
+/// with its concrete key, and the inherent `encrypt`/`decrypt` dispatch over the
+/// closed set of seven families.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AnyCipher {
     /// Caesar additive shift, with its key.
@@ -169,7 +171,7 @@ Each step is a standalone commit; none removes a free function or alters a key c
 ## Files to create / change / delete
 
 - **Change** `src/ciphers.rs`: add `trait Cipher`, seven unit-struct markers + `impl Cipher`, `enum AnyCipher` + inherent methods, and new tests in `mod tests`. Add the needed imports to the test module's `use super::{…}` block (`:2201`) if the equivalence tests reference the new types. No existing item removed or signature-changed.
-- **Change** `src/lib.rs`: nothing required (the new items are re-exported transitively via `pub mod ciphers`). If a crate-level convenience re-export is wanted, that is a brief-04/07 concern — leave `lib.rs` untouched here.
+- **Change** `src/lib.rs`: nothing required (the new items are re-exported transitively via `pub mod ciphers`). If a crate-level convenience re-export is wanted, that is a brief-04 / 07B concern (the `lib.rs` role-directory move is 07B) — leave `lib.rs` untouched here.
 - **No deletions.** The fourteen free functions stay exactly as-is (canonical impls + still imported by `cipher_attack.rs`, `modular_diff.rs`, `pyry_conditions.rs`, `gak_attack.rs`).
 - **No new dependency** (so `deny.toml`/`cargo-machete` unaffected).
 
@@ -196,11 +198,13 @@ Each step is a standalone commit; none removes a free function or alters a key c
 - **`name()` strings are new metadata, not a finding.** They are cosmetic labels for candidate reports; they assert nothing about the puzzle. They need not equal `CipherFamily::label()`. Pick stable strings and note in the doc that they are display-only.
 - **Behavior-preserving is mandatory.** This refactor must not change any statistic or decode (`00-OVERVIEW.md:192-195`). Because the free functions remain canonical and the trait/enum only forward, the risk is confined to Step 3; if golden-master coverage is thin there, defer the migration rather than risk a silent drift.
 - **No claim-ceiling impact.** This is plumbing for the *search* engine, not the engine itself; nothing here decodes or scores. The standing candidate-logging directive does not apply (no candidate cleartext is produced).
-- **Object-safety is the load-bearing design fact.** If a future reader "simplifies" to `Box<dyn Cipher>`, it will not compile (`type Key`); the `AnyCipher` enum exists precisely to dodge that — call it out in the enum doc comment.
+- **The pinned-`Key` constraint is the load-bearing design fact.** A future reader might "simplify" to `Box<dyn Cipher>`; that does not even compile without binding the associated type, and once bound (`dyn Cipher<Key = CaesarKey>`) it carries only one family's key — no heterogeneous dispatch across the seven. The `AnyCipher` enum exists precisely to recover that heterogeneity by owning each variant's concrete key — call it out in the enum doc comment.
 
 ## Out of scope / non-goals
 
-- **Moving `ciphers.rs` into a `ciphers/` directory** with one file per family — that is **brief 07** (`00-OVERVIEW.md:155`). Everything here stays in the single `src/ciphers.rs`.
+- **Moving `ciphers.rs` into a `ciphers/` directory.** Two distinct moves, both out of scope here, must not be conflated:
+  - The **thin move** `ciphers.rs` → `ciphers/mod.rs` (content unchanged — `mod.rs` holds today's file verbatim) is **brief 07B** (`00-OVERVIEW.md:155`).
+  - The physical **one-file-per-family split** of `ciphers.rs` (a separate file per cipher family) is a **deferred follow-up not owned by any current brief** — a future brief-02 extension, **not** brief 07B (07B's role-directory move is a thin move only and does not split families). Everything in *this* brief stays additive inside the single `src/ciphers.rs`.
 - **The solve pipeline, `HypothesisSpace`, `Candidate`, mapping search** — **brief 04** (`00-OVERVIEW.md:126-141`). This brief only provides the `AnyCipher` it consumes.
 - **Touching the `*Key` constructors, validation, or the AGL/GAK group helpers** (`agl_compose`, `agl_step_lookup`, `CosetReadout`, etc.) — out of scope; they are dependencies, not targets.
 - **Refactoring `cipher_attack::CipherFamily`** or unifying its `label()` with `Cipher::name()` — leave it; revisit in brief 04/08 if the registry needs it.

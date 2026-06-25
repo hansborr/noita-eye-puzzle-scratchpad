@@ -1,7 +1,7 @@
 # 01 — Golden-master safety net
 
 > One-line: capture the exact current stdout/stderr/exit-code of every CLI subcommand as committed golden fixtures, so every later refactor (02–08) is provably behavior-preserving.
-> Status: not started · Depends on: — · Blocks: 02, 03, 04, 05, 06, 07, 08 · Size: M
+> Status: not started · Depends on: — · Blocks: 02, 03, 04, 05, 06, 07a, 07b, 08 · Size: M
 
 ## Goal & why it matters
 
