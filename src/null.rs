@@ -187,8 +187,10 @@ impl NullConfig {
     /// Both the standard-36 null ([`run_standard36_null`]) and the base-7
     /// pipeline null ([`crate::pipeline_null::run_pipeline_null`]) consume this
     /// config. With zero trials every reported rate would be a degenerate
-    /// `0/0` (and the Wilson intervals collapse to `0..0`), so callers must
-    /// reject that input before running rather than emit meaningless summaries.
+    /// `0/0` (and the Wilson intervals collapse to `0..0`), so those run
+    /// functions reject that input internally (surfacing
+    /// [`NullRunError::Config`]) rather than emit meaningless summaries. This
+    /// method is exposed so callers can validate ahead of time as well.
     ///
     /// # Errors
     /// Returns [`NullConfigError::ZeroTrials`] if `trials == 0`.
@@ -197,6 +199,33 @@ impl NullConfig {
             return Err(NullConfigError::ZeroTrials);
         }
         Ok(())
+    }
+}
+
+/// Error returned by a Monte-Carlo null run.
+///
+/// Bundles the configuration rejection ([`NullConfigError`]) and the corpus
+/// reconstruction failure ([`GridError`]) so [`run_standard36_null`] and
+/// [`crate::pipeline_null::run_pipeline_null`] enforce the zero-trials invariant
+/// in the library — matching every sibling null module — instead of relying on
+/// each caller to pre-validate.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NullRunError {
+    /// The configuration was rejected before any trial ran.
+    Config(NullConfigError),
+    /// The verified corpus grids could not be reconstructed or read.
+    Grid(GridError),
+}
+
+impl From<NullConfigError> for NullRunError {
+    fn from(error: NullConfigError) -> Self {
+        Self::Config(error)
+    }
+}
+
+impl From<GridError> for NullRunError {
+    fn from(error: GridError) -> Self {
+        Self::Grid(error)
     }
 }
 
@@ -275,9 +304,10 @@ pub struct NullReport {
 /// drawing every cell uniformly from orientation digits `0..=4`.
 ///
 /// # Errors
-/// Returns [`GridError`] if the verified corpus grids cannot be reconstructed
-/// or if an order is incompatible with a generated grid.
-pub fn run_standard36_null(config: NullConfig) -> Result<NullReport, GridError> {
+/// Returns [`NullRunError::Config`] if `config.trials == 0`, or
+/// [`NullRunError::Grid`] if the verified corpus grids cannot be reconstructed
+/// or an order is incompatible with a generated grid.
+pub fn run_standard36_null(config: NullConfig) -> Result<NullReport, NullRunError> {
     run_standard36_null_with(config, random_grids_like)
 }
 
@@ -291,12 +321,14 @@ pub fn run_standard36_null(config: NullConfig) -> Result<NullReport, GridError> 
 /// report shape while varying only how synthetic cells are produced.
 ///
 /// # Errors
-/// Returns [`GridError`] if the verified corpus grids cannot be reconstructed
-/// or if an order is incompatible with a generated grid.
+/// Returns [`NullRunError::Config`] if `config.trials == 0`, or
+/// [`NullRunError::Grid`] if the verified corpus grids cannot be reconstructed
+/// or an order is incompatible with a generated grid.
 pub fn run_standard36_null_with(
     config: NullConfig,
     mut generate: impl FnMut(&[GlyphGrid], &mut SplitMix64) -> Vec<GlyphGrid>,
-) -> Result<NullReport, GridError> {
+) -> Result<NullReport, NullRunError> {
+    config.validate()?;
     let templates = corpus_grids()?;
     let orders = standard36_orders();
     let mut rng = SplitMix64::new(config.seed);
@@ -612,8 +644,9 @@ pub fn scaled_quantile_index(len: usize, numerator: usize, denominator: usize) -
 #[cfg(test)]
 mod tests {
     use super::{
-        NullConfig, SplitMix64, add_one_p_value, analytic_headline_bounds, evaluate_trial,
-        mix_seed, run_standard36_null, stateless_splitmix, wilson_95,
+        NullConfig, NullConfigError, NullRunError, SplitMix64, add_one_p_value,
+        analytic_headline_bounds, evaluate_trial, mix_seed, run_standard36_null,
+        stateless_splitmix, wilson_95,
     };
     use crate::orders::{corpus_grids, standard36_orders};
 
@@ -657,6 +690,15 @@ mod tests {
         let mixed = mix_seed(seed, tag);
         assert_eq!(mixed, mix_seed(seed, tag));
         assert_eq!(mixed, stateless_splitmix(seed ^ tag));
+    }
+
+    #[test]
+    fn null_run_rejects_zero_trials() {
+        let config = NullConfig { seed: 1, trials: 0 };
+        assert_eq!(
+            run_standard36_null(config),
+            Err(NullRunError::Config(NullConfigError::ZeroTrials))
+        );
     }
 
     #[test]

@@ -62,6 +62,15 @@ pub fn format_null_config_error(error: null::NullConfigError) -> String {
     }
 }
 
+/// Formats a Monte-Carlo null run error for CLI output.
+#[must_use]
+pub fn format_null_run_error(error: null::NullRunError) -> String {
+    match error {
+        null::NullRunError::Config(config_error) => format_null_config_error(config_error),
+        null::NullRunError::Grid(grid_error) => format!("grid/order error: {grid_error:?}"),
+    }
+}
+
 /// Formats a honeycomb two-dimensional lattice experiment error for CLI output.
 #[must_use]
 pub fn format_honeycomb_error(error: honeycomb::HoneycombError) -> String {

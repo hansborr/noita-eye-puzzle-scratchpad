@@ -43,7 +43,7 @@
 use crate::analysis;
 use crate::generator::{self, ENGINE_MESSAGES};
 use crate::glyph::Orientation;
-use crate::null::{NullConfig, NullReport, SplitMix64, run_standard36_null_with};
+use crate::null::{NullConfig, NullReport, NullRunError, SplitMix64, run_standard36_null_with};
 use crate::orders::{GlyphGrid, GridError};
 
 const SYMBOL_BUCKETS: usize = 7;
@@ -68,9 +68,10 @@ pub fn real_symbol_total() -> usize {
 /// as [`crate::null::run_standard36_null`] so the two are directly comparable.
 ///
 /// # Errors
-/// Returns [`GridError`] if the verified corpus grids cannot be reconstructed or
-/// if an order is incompatible with a generated grid.
-pub fn run_pipeline_null(config: NullConfig) -> Result<NullReport, GridError> {
+/// Returns [`NullRunError::Config`] if `config.trials == 0`, or
+/// [`NullRunError::Grid`] if the verified corpus grids cannot be reconstructed
+/// or an order is incompatible with a generated grid.
+pub fn run_pipeline_null(config: NullConfig) -> Result<NullReport, NullRunError> {
     let lengths: Vec<usize> = generator::engine_pair_lengths()
         .into_iter()
         .flatten()
@@ -408,7 +409,16 @@ mod tests {
         real_symbol_total, run_pipeline_null, value_span_for_length,
     };
     use crate::generator;
-    use crate::null::{NullConfig, SplitMix64};
+    use crate::null::{NullConfig, NullConfigError, NullRunError, SplitMix64};
+
+    #[test]
+    fn pipeline_null_rejects_zero_trials() {
+        let config = NullConfig { seed: 1, trials: 0 };
+        assert_eq!(
+            run_pipeline_null(config),
+            Err(NullRunError::Config(NullConfigError::ZeroTrials))
+        );
+    }
 
     #[test]
     fn random_value_decodes_to_requested_length() {
