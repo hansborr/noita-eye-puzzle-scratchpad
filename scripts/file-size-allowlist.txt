@@ -8,7 +8,9 @@
 # shows up in `git diff` and is reviewed — never a silent carve-out.
 #
 # <path>                            <max-lines>  # reason / retiring brief
-src/gak_attack/mod.rs               5388  # god-file; brief 07A split underway, shrinks as modules extract (tracks engine-spine)
+src/gak_attack/mod.rs               2279  # god-file remnant; brief 07A split underway, shrinks as modules extract (tracks engine-spine)
+src/gak_attack/eyes.rs              2111  # brief 07A fragment from gak_attack god-file (tracks engine-spine)
+src/gak_attack/marginalization.rs   1026  # brief 07A fragment from gak_attack god-file (tracks engine-spine)
 src/gak_attack/solver.rs            1993  # brief 07A fragment from gak_attack god-file (tracks engine-spine)
 src/gak_attack/generator.rs         647   # brief 07A fragment from gak_attack god-file (tracks engine-spine)
 src/report.rs                       5694  # god-file; dissolved by brief 06
