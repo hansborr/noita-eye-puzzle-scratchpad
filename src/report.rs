@@ -6,8 +6,8 @@
 
 use crate::glyph::Sequence;
 use crate::{
-    agl_gak, analysis, chaining, chaining_graph, ciphers, conditional_structure, controls, corpus,
-    dof_null, gak_attack, grouping, honeycomb, isomorph_null, modular_diff, null, orders,
+    analysis, chaining, chaining_graph, conditional_structure, controls, corpus, dof_null,
+    gak_attack, grouping, honeycomb, isomorph_null, modular_diff, null, orders,
     orientation_homogeneity, perfect_isomorphism, periodicity, perseus, pipeline_null,
     pyry_conditions, transitivity, tree_residual, zero_adjacency_null,
 };
@@ -58,43 +58,6 @@ pub fn format_corpus_error(error: corpus::CorpusError) -> String {
         } => format!(
             "corpus parse error in {message_key}: {orientations} orientations cannot form complete trigrams"
         ),
-    }
-}
-
-/// Formats a Thread 2 AGL-GAK stress-test error for CLI output.
-#[must_use]
-pub fn format_agl_gak_error(error: &agl_gak::AglGakError) -> String {
-    match error {
-        agl_gak::AglGakError::Grid(grid_error) => format!("grid/order error: {grid_error:?}"),
-        agl_gak::AglGakError::Cipher(cipher_error) => {
-            format!("AGL-GAK cipher error: {cipher_error}")
-        }
-        agl_gak::AglGakError::Random(random_error) => {
-            format!("random draw bound {} is too large", random_error.bound)
-        }
-        agl_gak::AglGakError::Perseus(perseus_error) => {
-            format!("shared-run reconstruction error: {perseus_error:?}")
-        }
-        agl_gak::AglGakError::ZeroTrials => {
-            "at least one forward-simulation trial is required".to_owned()
-        }
-        agl_gak::AglGakError::PositiveControlFailed { which } => {
-            format!("positive control failed: {which}")
-        }
-        agl_gak::AglGakError::EmptyMessage { message_key } => {
-            format!("message {message_key} has no reading-layer symbols")
-        }
-        agl_gak::AglGakError::ValueOutsideAlphabet { message_key, value } => {
-            format!("message {message_key} value {value} is outside the 83-symbol alphabet")
-        }
-        agl_gak::AglGakError::SharedRunOutOfBounds {
-            message_key,
-            start,
-            len,
-        } => format!("shared run {message_key}@{start}+{len} exceeds the message boundary"),
-        agl_gak::AglGakError::InternalInvariant { context } => {
-            format!("internal AGL-GAK invariant failed: {context}")
-        }
     }
 }
 
@@ -3732,209 +3695,12 @@ pub(crate) fn format_percent(fraction: f64) -> String {
     format!("{:.1}%", fraction * 100.0)
 }
 
-fn format_probability(value: f64) -> String {
+/// Formats a probability for report output.
+pub(crate) fn format_probability(value: f64) -> String {
     if value < 0.001 {
         format!("{value:.3e}")
     } else {
         format!("{value:.6}")
-    }
-}
-
-/// Renders the Thread 2 AGL(1,83)-GAK stress-test report.
-#[must_use]
-pub fn render_agl_gak_report(report: &agl_gak::AglGakReport) -> String {
-    let mut out = String::new();
-    appendln!(&mut out, "Thread 2 AGL(1,83)-GAK stress test");
-    appendln!(&mut out, "order: {}", report.order.name());
-    appendln!(&mut out, "seed: {}", report.config.seed);
-    appendln!(
-        &mut out,
-        "forward-simulation trials per subgroup: {}",
-        report.config.null_trials
-    );
-    appendln!(
-        &mut out,
-        "subgroups: C83:C82 and C83:C41 (preferred display order starts with {})",
-        format_agl_subgroup(report.config.subgroup)
-    );
-    appendln!(
-        &mut out,
-        "mode: {}",
-        match report.config.mode {
-            agl_gak::AglGakMode::FeasibilityOnly => "feasibility-only",
-            agl_gak::AglGakMode::FeasibilityAndFit => "feasibility+fit requested",
-        }
-    );
-    appendln!(
-        &mut out,
-        "wiki pages under test: Affine-General-Linear-Group-(AGL).md; The-Transitivity-Restriction-(6-Groups-for-83).md; Message-Starts.md; Shared-Sections.md; Isomorphic-Cipher-Hierarchy.md"
-    );
-    appendln!(&mut out);
-    append_agl_gak_observed(&mut out, report);
-    appendln!(&mut out);
-    append_agl_gak_subgroups(&mut out, report);
-    appendln!(&mut out);
-    append_agl_gak_interpretation(&mut out, report);
-    out
-}
-
-fn append_agl_gak_observed(out: &mut String, report: &agl_gak::AglGakReport) {
-    appendln!(out, "observed mapping-independent structure");
-    appendln!(
-        out,
-        "  first symbols: {}",
-        report
-            .message_first_symbols
-            .iter()
-            .map(|(key, value)| format!("{key}:{value}"))
-            .collect::<Vec<_>>()
-            .join(", ")
-    );
-    match &report.global_prefix {
-        Some(prefix) => appendln!(
-            out,
-            "  all-message shared prefix: start {} len {} values {} distinct {}/{}",
-            prefix.start,
-            prefix.len,
-            format_usize_values(&prefix.values),
-            prefix.distinct_symbols,
-            prefix.len
-        ),
-        None => appendln!(out, "  all-message shared prefix: none"),
-    }
-    appendln!(
-        out,
-        "  selected shared-run lengths: {}",
-        format_usize_values(&report.shared_run_lengths)
-    );
-    appendln!(out, "  selected varying-run anchors:");
-    for run in report
-        .shared_runs
-        .iter()
-        .filter(|run| run.differing_predecessor && run.varying)
-    {
-        appendln!(
-            out,
-            "    {}/{} start {} len {} distinct {}/{} role {}",
-            run.left_key,
-            run.right_key,
-            run.start,
-            run.len,
-            run.distinct_symbols,
-            run.len,
-            run.role.label()
-        );
-    }
-}
-
-fn append_agl_gak_subgroups(out: &mut String, report: &agl_gak::AglGakReport) {
-    appendln!(out, "subgroup verdicts");
-    // The "fixed>=2/universe" denominator is the exhaustive differing-discrepancy
-    // universe size (6724 for C83:C82, 3362 for C83:C41); naming it makes clear the
-    // exclusion is exhaustive over that universe rather than sampled.
-    appendln!(
-        out,
-        "  {:<8} {:<9} {:>12} {:>16} {:>17} {:>14} {:<12}",
-        "group",
-        "verdict",
-        "agreement",
-        "forward",
-        "fixed>=2/universe",
-        "max fixed",
-        "controls"
-    );
-    for subgroup in &report.subgroup_reports {
-        appendln!(
-            out,
-            "  {:<8} {:<9} {:>5}/{:<6} {:>7}/{:<8} {:>7}/{:<9} {:>14} {:<12}",
-            format_agl_subgroup(subgroup.subgroup),
-            format_agl_verdict(subgroup.verdict),
-            subgroup.agreement_check.violations,
-            subgroup.agreement_check.checks,
-            subgroup.forward_simulation.varying_shared_runs,
-            subgroup.forward_simulation.trials,
-            subgroup.fixed_points.fixing_at_least_two_points,
-            subgroup.fixed_points.discrepancies,
-            subgroup.fixed_points.max_fixed_points,
-            format_agl_controls(subgroup.positive_controls)
-        );
-        if let Some(obstruction) = &subgroup.obstruction {
-            appendln!(
-                out,
-                "    obstruction: {}/{} start {} len {} distinct {}/{} after predecessors {} vs {}",
-                obstruction.left_key,
-                obstruction.right_key,
-                obstruction.start,
-                obstruction.len,
-                obstruction.distinct_symbols,
-                obstruction.len,
-                obstruction.left_predecessor,
-                obstruction.right_predecessor
-            );
-        }
-        appendln!(
-            out,
-            "    forward add-one p for a varying shared run: {}",
-            format_probability(subgroup.forward_simulation.add_one_p_value)
-        );
-        if subgroup.fit_attempted {
-            appendln!(
-                out,
-                "    fit: requested, but no fit is retained after the exhaustive structural exclusion"
-            );
-        }
-    }
-}
-
-fn append_agl_gak_interpretation(out: &mut String, report: &agl_gak::AglGakReport) {
-    let all_excluded = report
-        .subgroup_reports
-        .iter()
-        .all(|subgroup| subgroup.verdict == agl_gak::AglGakVerdict::Excluded);
-    if all_excluded {
-        appendln!(
-            out,
-            "Interpretation: AGL(1,83)-GAK is rigorously excluded for both C83:C82 and C83:C41 under the verified right-multiplication / left-coset model. The wiki's tentative message-start exclusion was over-conceded / weaker than needed: the rigorous kill is the varying-shared-run mechanism. After a differing start, an affine discrepancy can fix at most one point, so any AGL shared run must be constant; the eyes' shared runs vary."
-        );
-    } else {
-        appendln!(
-            out,
-            "Interpretation: this run did not exclude every requested AGL subgroup. Treat any structural fit as a hypothesis to kill with held-out isomorphs, not as a decode."
-        );
-    }
-    appendln!(
-        out,
-        "Claim ceiling: this excludes one candidate group family and narrows the transitive GAK candidate set toward {{A83, S83}}, with D166 conditional elsewhere. It says nothing about recoverable plaintext; the eyes remain deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext. Scope: this excludes the point-stabilizer AGL-GAK family (output = moved reference point, single shared running key); it does not speak to non-GAK affine constructions or a non-point-stabilizer hidden subgroup."
-    );
-    appendln!(
-        out,
-        "Multiplicity note: both AGL multiplier variants are tested, and the repeated tails reported here are structural/exhaustive checks rather than language-scoring claims."
-    );
-}
-
-fn format_agl_subgroup(subgroup: ciphers::AglMultiplierSubgroup) -> &'static str {
-    match subgroup {
-        ciphers::AglMultiplierSubgroup::Full => "C83:C82",
-        ciphers::AglMultiplierSubgroup::QuadraticResidues => "C83:C41",
-    }
-}
-
-fn format_agl_verdict(verdict: agl_gak::AglGakVerdict) -> &'static str {
-    match verdict {
-        agl_gak::AglGakVerdict::Excluded => "excluded",
-        agl_gak::AglGakVerdict::NotExcluded => "open",
-    }
-}
-
-fn format_agl_controls(controls: agl_gak::AglGakPositiveControls) -> &'static str {
-    match (
-        controls.constant_shared_run_ok,
-        controls.pure_translation_rejected_ok,
-    ) {
-        (true, true) => "ok",
-        (false, true) => "const-fail",
-        (true, false) => "pure-fail",
-        (false, false) => "failed",
     }
 }
 
@@ -4549,7 +4315,8 @@ fn format_u8_values(values: &[u8]) -> String {
         .join(",")
 }
 
-fn format_usize_values(values: &[usize]) -> String {
+/// Formats unsigned integer values as a comma-separated report list.
+pub(crate) fn format_usize_values(values: &[usize]) -> String {
     if values.is_empty() {
         return "none".to_owned();
     }

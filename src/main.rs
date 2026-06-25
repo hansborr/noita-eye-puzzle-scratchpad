@@ -679,11 +679,11 @@ fn run_agl_gak(config: agl_gak::AglGakConfig) -> ExitCode {
     let report = match agl_gak::run_agl_gak(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!("AGL-GAK error: {}", report::format_agl_gak_error(&error));
+            eprintln!("AGL-GAK error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    print!("{}", report::render_agl_gak_report(&report));
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
