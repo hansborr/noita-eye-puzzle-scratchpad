@@ -52,6 +52,16 @@ pub fn format_periodicity_error(error: periodicity::PeriodicityError) -> String 
     }
 }
 
+/// Formats a null-run configuration error for CLI output.
+#[must_use]
+pub fn format_null_config_error(error: null::NullConfigError) -> String {
+    match error {
+        null::NullConfigError::ZeroTrials => {
+            "at least one Monte-Carlo trial is required".to_owned()
+        }
+    }
+}
+
 /// Formats a honeycomb two-dimensional lattice experiment error for CLI output.
 #[must_use]
 pub fn format_honeycomb_error(error: honeycomb::HoneycombError) -> String {

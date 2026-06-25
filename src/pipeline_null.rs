@@ -165,7 +165,20 @@ impl<'a> OrientationSource<'a> {
 /// symbols. A maximal length-22 block is still uniform over its representable
 /// interval, but that interval ends at `2^64` rather than `7^23`, carrying the
 /// same ceiling the real engine integers have.
+///
+/// # Invariant
+/// `length` must be at most [`BASE7_CEILING_DIGITS`] (22): every real engine
+/// per-pair length lies in `0..=22`, and only those lengths have a representable
+/// base-7 span in a `u64` (see [`value_span_for_length`]). A larger length is a
+/// programming error — caught by a `debug_assert` here — rather than a data
+/// condition; in release builds it falls back to `u64::MAX` so the caller still
+/// gets a defined (if meaningless) value instead of panicking.
 fn random_value_of_length(length: usize, rng: &mut SplitMix64) -> u64 {
+    debug_assert!(
+        length <= BASE7_CEILING_DIGITS as usize,
+        "length {length} exceeds the base-7 u64 ceiling {BASE7_CEILING_DIGITS}; \
+         no representable span exists"
+    );
     let Some((lower, span)) = value_span_for_length(length) else {
         return u64::MAX;
     };
@@ -392,7 +405,7 @@ mod tests {
     use super::{
         BASE7_CEILING_DIGITS, OrientationSource, U64_DRAW_DOMAIN, input_randomness_report,
         no_minus_one_count_and_span, pow6_u128, pow7_u128, random_value_of_length,
-        real_symbol_total, run_pipeline_null,
+        real_symbol_total, run_pipeline_null, value_span_for_length,
     };
     use crate::generator;
     use crate::null::{NullConfig, SplitMix64};
@@ -410,6 +423,20 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn value_span_for_length_rejects_unrepresentable_length() {
+        // Every real engine per-pair length (0..=22) is representable in a u64,
+        // so the sampler's `None`/`u64::MAX` fallback is unreachable for real
+        // data. One length past the base-7 u64 ceiling has no representable span.
+        for length in 0..=(BASE7_CEILING_DIGITS as usize) {
+            assert!(
+                value_span_for_length(length).is_some(),
+                "length {length} should have a representable base-7 span"
+            );
+        }
+        assert!(value_span_for_length(BASE7_CEILING_DIGITS as usize + 1).is_none());
     }
 
     #[test]

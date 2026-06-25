@@ -506,6 +506,13 @@ fn run_demo() -> ExitCode {
 }
 
 fn run_nulltest(config: null::NullConfig) -> ExitCode {
+    if let Err(error) = config.validate() {
+        eprintln!(
+            "null test error: {}",
+            report::format_null_config_error(error)
+        );
+        return ExitCode::FAILURE;
+    }
     let report = match null::run_standard36_null(config) {
         Ok(report) => report,
         Err(error) => {
@@ -560,6 +567,13 @@ fn run_honeycomb(config: honeycomb::HoneycombConfig) -> ExitCode {
 }
 
 fn run_pipelinenull(config: null::NullConfig) -> ExitCode {
+    if let Err(error) = config.validate() {
+        eprintln!(
+            "pipeline null error: {}",
+            report::format_null_config_error(error)
+        );
+        return ExitCode::FAILURE;
+    }
     let pipeline_report = match pipeline_null::run_pipeline_null(config) {
         Ok(report) => report,
         Err(error) => {

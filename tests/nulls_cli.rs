@@ -2,7 +2,7 @@
 
 mod common;
 
-use common::{assert_contains, run_noita_eye};
+use common::{assert_contains, run_noita_eye, run_noita_eye_failure};
 
 #[test]
 fn nulltest_subcommand_reports_standard36_null() {
@@ -87,4 +87,18 @@ fn zeroadjnull_subcommand_reports_forbidden_successor_null() {
         &stdout,
         "Interpretation: observed zero adjacent equal pairs sits below",
     );
+}
+
+#[test]
+fn nulltest_rejects_zero_trials() {
+    let stderr = run_noita_eye_failure(&["nulltest", "--trials", "0", "--seed", "123"]);
+    assert_contains(&stderr, "null test error");
+    assert_contains(&stderr, "at least one Monte-Carlo trial is required");
+}
+
+#[test]
+fn pipelinenull_rejects_zero_trials() {
+    let stderr = run_noita_eye_failure(&["pipelinenull", "--trials", "0", "--seed", "123"]);
+    assert_contains(&stderr, "pipeline null error");
+    assert_contains(&stderr, "at least one Monte-Carlo trial is required");
 }

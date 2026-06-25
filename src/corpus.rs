@@ -254,6 +254,13 @@ pub const MESSAGES: [Message; 9] = [
 ];
 
 /// Returns all verified messages in engine/message id order.
+///
+/// ```
+/// use noita_eye_puzzle::corpus;
+///
+/// // The verified investigation fixes the corpus at exactly nine messages.
+/// assert_eq!(corpus::messages().len(), 9);
+/// ```
 #[must_use]
 pub const fn messages() -> &'static [Message; 9] {
     &MESSAGES

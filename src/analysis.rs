@@ -50,6 +50,15 @@ pub fn frequencies(seq: &[Glyph]) -> BTreeMap<Glyph, usize> {
 ///
 /// Returns `0.0` for an empty sequence. The maximum value is `log2(k)` where
 /// `k` is the number of distinct glyphs, reached when they are equiprobable.
+///
+/// ```
+/// use noita_eye_puzzle::{analysis, corpus};
+///
+/// let seq = corpus::combined_sequence().expect("the verified corpus decodes");
+/// let bits = analysis::shannon_entropy(&seq.glyphs);
+/// // Five rendered orientations, so per-glyph entropy cannot exceed log2(5).
+/// assert!(bits > 0.0 && bits <= 5f64.log2());
+/// ```
 #[must_use]
 pub fn shannon_entropy(seq: &[Glyph]) -> f64 {
     if seq.is_empty() {

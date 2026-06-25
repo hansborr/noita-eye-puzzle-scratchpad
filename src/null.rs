@@ -23,6 +23,17 @@ const HEADLINE_ALPHABET_SIZE: f64 = 83.0;
 const WILSON_Z_95: f64 = 1.959_963_984_540_054;
 
 /// Deterministic in-crate `SplitMix64` pseudo-random number generator.
+///
+/// ```
+/// use noita_eye_puzzle::null::SplitMix64;
+///
+/// // The stream depends only on the seed, so two generators built from the
+/// // same seed agree step-for-step — the property the locked null models rely on.
+/// let mut a = SplitMix64::new(0x6e6f_6974_61);
+/// let mut b = SplitMix64::new(0x6e6f_6974_61);
+/// assert_eq!(a.next_u64(), b.next_u64());
+/// assert_eq!(a.next_u64(), b.next_u64());
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SplitMix64 {
     state: u64,
@@ -161,6 +172,32 @@ pub struct NullConfig {
     pub seed: u64,
     /// Number of synthetic corpora to sample.
     pub trials: usize,
+}
+
+/// Error returned when a [`NullConfig`] cannot drive a Monte-Carlo null run.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NullConfigError {
+    /// `trials` was zero; a Monte-Carlo null needs at least one trial.
+    ZeroTrials,
+}
+
+impl NullConfig {
+    /// Validates that the configuration can drive a Monte-Carlo null run.
+    ///
+    /// Both the standard-36 null ([`run_standard36_null`]) and the base-7
+    /// pipeline null ([`crate::pipeline_null::run_pipeline_null`]) consume this
+    /// config. With zero trials every reported rate would be a degenerate
+    /// `0/0` (and the Wilson intervals collapse to `0..0`), so callers must
+    /// reject that input before running rather than emit meaningless summaries.
+    ///
+    /// # Errors
+    /// Returns [`NullConfigError::ZeroTrials`] if `trials == 0`.
+    pub const fn validate(&self) -> Result<(), NullConfigError> {
+        if self.trials == 0 {
+            return Err(NullConfigError::ZeroTrials);
+        }
+        Ok(())
+    }
 }
 
 /// A two-sided Wilson score interval for a binomial event rate.
