@@ -886,14 +886,11 @@ fn run_perfectiso(config: perfect_isomorphism::PerfectIsomorphismConfig) -> Exit
     let report = match perfect_isomorphism::run_perfect_isomorphism(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "perfect-isomorphism error: {}",
-                report::format_perfect_isomorphism_error(&error)
-            );
+            eprintln!("perfect-isomorphism error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    print!("{}", report::render_perfect_isomorphism_report(&report));
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
