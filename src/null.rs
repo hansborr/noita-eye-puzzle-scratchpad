@@ -23,6 +23,17 @@ const HEADLINE_ALPHABET_SIZE: f64 = 83.0;
 const WILSON_Z_95: f64 = 1.959_963_984_540_054;
 
 /// Deterministic in-crate `SplitMix64` pseudo-random number generator.
+///
+/// ```
+/// use noita_eye_puzzle::null::SplitMix64;
+///
+/// // The stream depends only on the seed, so two generators built from the
+/// // same seed agree step-for-step — the property the locked null models rely on.
+/// let mut a = SplitMix64::new(0x6e6f_6974_61);
+/// let mut b = SplitMix64::new(0x6e6f_6974_61);
+/// assert_eq!(a.next_u64(), b.next_u64());
+/// assert_eq!(a.next_u64(), b.next_u64());
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SplitMix64 {
     state: u64,
@@ -163,6 +174,61 @@ pub struct NullConfig {
     pub trials: usize,
 }
 
+/// Error returned when a [`NullConfig`] cannot drive a Monte-Carlo null run.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NullConfigError {
+    /// `trials` was zero; a Monte-Carlo null needs at least one trial.
+    ZeroTrials,
+}
+
+impl NullConfig {
+    /// Validates that the configuration can drive a Monte-Carlo null run.
+    ///
+    /// Both the standard-36 null ([`run_standard36_null`]) and the base-7
+    /// pipeline null ([`crate::pipeline_null::run_pipeline_null`]) consume this
+    /// config. With zero trials every reported rate would be a degenerate
+    /// `0/0` (and the Wilson intervals collapse to `0..0`), so those run
+    /// functions reject that input internally (surfacing
+    /// [`NullRunError::Config`]) rather than emit meaningless summaries. This
+    /// method is exposed so callers can validate ahead of time as well.
+    ///
+    /// # Errors
+    /// Returns [`NullConfigError::ZeroTrials`] if `trials == 0`.
+    pub const fn validate(&self) -> Result<(), NullConfigError> {
+        if self.trials == 0 {
+            return Err(NullConfigError::ZeroTrials);
+        }
+        Ok(())
+    }
+}
+
+/// Error returned by a Monte-Carlo null run.
+///
+/// Bundles the configuration rejection ([`NullConfigError`]) and the corpus
+/// reconstruction failure ([`GridError`]) so [`run_standard36_null`] and
+/// [`crate::pipeline_null::run_pipeline_null`] enforce the zero-trials invariant
+/// in the library — matching every sibling null module — instead of relying on
+/// each caller to pre-validate.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NullRunError {
+    /// The configuration was rejected before any trial ran.
+    Config(NullConfigError),
+    /// The verified corpus grids could not be reconstructed or read.
+    Grid(GridError),
+}
+
+impl From<NullConfigError> for NullRunError {
+    fn from(error: NullConfigError) -> Self {
+        Self::Config(error)
+    }
+}
+
+impl From<GridError> for NullRunError {
+    fn from(error: GridError) -> Self {
+        Self::Grid(error)
+    }
+}
+
 /// A two-sided Wilson score interval for a binomial event rate.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct WilsonInterval {
@@ -238,9 +304,10 @@ pub struct NullReport {
 /// drawing every cell uniformly from orientation digits `0..=4`.
 ///
 /// # Errors
-/// Returns [`GridError`] if the verified corpus grids cannot be reconstructed
-/// or if an order is incompatible with a generated grid.
-pub fn run_standard36_null(config: NullConfig) -> Result<NullReport, GridError> {
+/// Returns [`NullRunError::Config`] if `config.trials == 0`, or
+/// [`NullRunError::Grid`] if the verified corpus grids cannot be reconstructed
+/// or an order is incompatible with a generated grid.
+pub fn run_standard36_null(config: NullConfig) -> Result<NullReport, NullRunError> {
     run_standard36_null_with(config, random_grids_like)
 }
 
@@ -254,12 +321,14 @@ pub fn run_standard36_null(config: NullConfig) -> Result<NullReport, GridError> 
 /// report shape while varying only how synthetic cells are produced.
 ///
 /// # Errors
-/// Returns [`GridError`] if the verified corpus grids cannot be reconstructed
-/// or if an order is incompatible with a generated grid.
+/// Returns [`NullRunError::Config`] if `config.trials == 0`, or
+/// [`NullRunError::Grid`] if the verified corpus grids cannot be reconstructed
+/// or an order is incompatible with a generated grid.
 pub fn run_standard36_null_with(
     config: NullConfig,
     mut generate: impl FnMut(&[GlyphGrid], &mut SplitMix64) -> Vec<GlyphGrid>,
-) -> Result<NullReport, GridError> {
+) -> Result<NullReport, NullRunError> {
+    config.validate()?;
     let templates = corpus_grids()?;
     let orders = standard36_orders();
     let mut rng = SplitMix64::new(config.seed);
@@ -504,12 +573,17 @@ fn sorted_quantile(values: &[f64], quantile: Quantile) -> f64 {
     sorted.sort_by(f64::total_cmp);
     match quantile {
         Quantile::Min => sorted.first().copied().unwrap_or(0.0),
-        Quantile::Median => median(&sorted),
+        Quantile::Median => median_f64(&sorted),
         Quantile::Max => sorted.last().copied().unwrap_or(0.0),
     }
 }
 
-fn median(sorted: &[f64]) -> f64 {
+/// Median of a pre-sorted slice of `f64` values (returns `0.0` when empty).
+///
+/// The caller is responsible for sorting; for an even length the mean of the
+/// two central elements is returned via [`f64::midpoint`].
+#[must_use]
+pub fn median_f64(sorted: &[f64]) -> f64 {
     let len = sorted.len();
     if len == 0 {
         return 0.0;
@@ -528,11 +602,51 @@ fn median(sorted: &[f64]) -> f64 {
     }
 }
 
+/// Median of a pre-sorted slice of `usize` values, returned as `f64`.
+///
+/// The caller is responsible for sorting; for an even length the mean of the
+/// two central elements is returned via [`f64::midpoint`].
+#[must_use]
+pub fn median_usize(sorted: &[usize]) -> f64 {
+    let len = sorted.len();
+    if len == 0 {
+        return 0.0;
+    }
+    let middle = len / 2;
+    if len.is_multiple_of(2) {
+        match (
+            sorted.get(middle.saturating_sub(1)).copied(),
+            sorted.get(middle).copied(),
+        ) {
+            (Some(left), Some(right)) => f64::midpoint(left as f64, right as f64),
+            _ => 0.0,
+        }
+    } else {
+        sorted
+            .get(middle)
+            .copied()
+            .map_or(0.0, |value| value as f64)
+    }
+}
+
+/// Quantile index into a pre-sorted slice of `len` elements.
+///
+/// Returns `floor((len - 1) * numerator / denominator)`, clamped to `0` when
+/// `len` or `denominator` is zero. The caller is responsible for sorting.
+#[must_use]
+pub fn scaled_quantile_index(len: usize, numerator: usize, denominator: usize) -> usize {
+    if len == 0 || denominator == 0 {
+        return 0;
+    }
+    len.saturating_sub(1).saturating_mul(numerator) / denominator
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        NullConfig, SplitMix64, add_one_p_value, analytic_headline_bounds, evaluate_trial,
-        mix_seed, run_standard36_null, stateless_splitmix, wilson_95,
+        NullConfig, NullConfigError, NullRunError, SplitMix64, add_one_p_value,
+        analytic_headline_bounds, evaluate_trial, mix_seed, run_standard36_null,
+        stateless_splitmix, wilson_95,
     };
     use crate::orders::{corpus_grids, standard36_orders};
 
@@ -576,6 +690,15 @@ mod tests {
         let mixed = mix_seed(seed, tag);
         assert_eq!(mixed, mix_seed(seed, tag));
         assert_eq!(mixed, stateless_splitmix(seed ^ tag));
+    }
+
+    #[test]
+    fn null_run_rejects_zero_trials() {
+        let config = NullConfig { seed: 1, trials: 0 };
+        assert_eq!(
+            run_standard36_null(config),
+            Err(NullRunError::Config(NullConfigError::ZeroTrials))
+        );
     }
 
     #[test]

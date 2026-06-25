@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 
 use crate::analysis;
 use crate::glyph::Glyph;
-use crate::null::SplitMix64;
+use crate::null::{SplitMix64, median_f64, scaled_quantile_index};
 use crate::orders::{
     self, GlyphGrid, GridError, ReadingOrder, count_message_lag_comparisons,
     count_message_lag_matches, glyph_messages_from_values, read_corpus_message_values,
@@ -805,38 +805,12 @@ fn quantile_from_sorted(sorted: &[f64], quantile: Quantile) -> f64 {
             .get(scaled_quantile_index(sorted.len(), 25, 1_000))
             .copied()
             .unwrap_or(0.0),
-        Quantile::Median => median(sorted),
+        Quantile::Median => median_f64(sorted),
         Quantile::Q975 => sorted
             .get(scaled_quantile_index(sorted.len(), 975, 1_000))
             .copied()
             .unwrap_or(0.0),
         Quantile::Max => sorted.last().copied().unwrap_or(0.0),
-    }
-}
-
-fn scaled_quantile_index(len: usize, numerator: usize, denominator: usize) -> usize {
-    if len == 0 || denominator == 0 {
-        return 0;
-    }
-    len.saturating_sub(1).saturating_mul(numerator) / denominator
-}
-
-fn median(sorted: &[f64]) -> f64 {
-    let len = sorted.len();
-    if len == 0 {
-        return 0.0;
-    }
-    let middle = len / 2;
-    if len.is_multiple_of(2) {
-        match (
-            sorted.get(middle.saturating_sub(1)).copied(),
-            sorted.get(middle).copied(),
-        ) {
-            (Some(left), Some(right)) => f64::midpoint(left, right),
-            _ => 0.0,
-        }
-    } else {
-        sorted.get(middle).copied().unwrap_or(0.0)
     }
 }
 

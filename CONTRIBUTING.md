@@ -2,8 +2,8 @@
 
 ## Prerequisites
 
-- Rust (the pinned toolchain installs automatically via `rust-toolchain.toml`;
-  see `rust-version` for the MSRV).
+- Rust (the toolchain installs automatically via `rust-toolchain.toml` — current
+  stable; see `rust-version` for the MSRV).
 - Optional dev tools used by the full gate:
   `cargo install cargo-deny cargo-machete`, `pipx install codespell`
   (or `pip install codespell`), and `shellcheck`.
@@ -12,7 +12,7 @@
 
 ```sh
 make setup          # install the pre-commit hook
-cargo run -- demo   # run the CLI against the (placeholder) sample corpus
+cargo run -- demo   # run the CLI against the verified nine-message corpus
 ```
 
 ## Inner loop
@@ -31,5 +31,5 @@ build, so a green `make check` locally means a green CI.
 - No `unsafe`; no panics/unwraps in library or CLI code (relaxed in tests).
 - Document every public item; keep doc examples compiling.
 - Commit `Cargo.lock` changes deliberately; everything runs with `--locked`.
-- Don't commit numbers derived from the placeholder `corpus.rs` as if they were
-  real findings — see `AGENTS.md`.
+- Don't present unverified or model-conditional numbers as real findings; label
+  guessed or assumed mappings as such — see `AGENTS.md`.

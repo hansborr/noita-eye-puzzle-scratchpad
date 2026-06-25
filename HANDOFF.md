@@ -44,7 +44,7 @@ Project rules live in `AGENTS.md` (codex reads this itself — you don't need to
 restate it in prompts). Highlights: `unsafe` forbidden; no panic/unwrap/indexing
 in lib/CLI code (relaxed in tests); document every public item; `--locked`
 everywhere; std-only (crates.io was offline at init — add an in-crate PRNG, not a
-crate). Toolchain is pinned (Rust 1.96.0).
+crate). Toolchain tracks current stable; MSRV is Rust 1.96.0.
 
 ---
 

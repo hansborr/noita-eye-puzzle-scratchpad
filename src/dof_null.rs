@@ -30,7 +30,9 @@
 //! non-honeycomb traversal controls.
 
 use crate::glyph::Orientation;
-use crate::null::{self, SplitMix64, WilsonInterval, random_orientation_grids_like, wilson_95};
+use crate::null::{
+    self, SplitMix64, WilsonInterval, median_f64, random_orientation_grids_like, wilson_95,
+};
 use crate::orders::{self, GlyphGrid, GridError, ReadingOrder};
 
 const DEFAULT_DOF_NULL_SEED: u64 = 0x646f_666e_756c_6c00;
@@ -1020,27 +1022,8 @@ enum Quantile {
 fn sorted_quantile(sorted: &[f64], quantile: Quantile) -> f64 {
     match quantile {
         Quantile::Min => sorted.first().copied().unwrap_or(0.0),
-        Quantile::Median => median(sorted),
+        Quantile::Median => median_f64(sorted),
         Quantile::Max => sorted.last().copied().unwrap_or(0.0),
-    }
-}
-
-fn median(sorted: &[f64]) -> f64 {
-    let len = sorted.len();
-    if len == 0 {
-        return 0.0;
-    }
-    let middle = len / 2;
-    if len.is_multiple_of(2) {
-        match (
-            sorted.get(middle.saturating_sub(1)).copied(),
-            sorted.get(middle).copied(),
-        ) {
-            (Some(left), Some(right)) => f64::midpoint(left, right),
-            _ => 0.0,
-        }
-    } else {
-        sorted.get(middle).copied().unwrap_or(0.0)
     }
 }
 

@@ -12,7 +12,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::isomorph::PatternSignature;
 use crate::null::{
-    SplitMix64, add_one_p_value, fisher_yates, shuffled_permutation, stateless_splitmix,
+    SplitMix64, add_one_p_value, fisher_yates, median_usize, scaled_quantile_index,
+    shuffled_permutation, stateless_splitmix,
 };
 use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::trigram::TrigramValue;
@@ -1051,7 +1052,7 @@ fn null_band(samples: &[usize]) -> NullStatisticBand {
         trials: samples.len(),
         mean: mean(samples),
         q025: quantile_from_sorted(&sorted, 25, 1_000),
-        median: median(&sorted),
+        median: median_usize(&sorted),
         q975: quantile_from_sorted(&sorted, 975, 1_000),
         max: sorted.last().copied().unwrap_or_default(),
     }
@@ -1064,40 +1065,11 @@ fn mean(samples: &[usize]) -> f64 {
     samples.iter().sum::<usize>() as f64 / samples.len() as f64
 }
 
-fn median(sorted: &[usize]) -> f64 {
-    let len = sorted.len();
-    if len == 0 {
-        return 0.0;
-    }
-    let middle = len / 2;
-    if len.is_multiple_of(2) {
-        match (
-            sorted.get(middle.saturating_sub(1)).copied(),
-            sorted.get(middle).copied(),
-        ) {
-            (Some(left), Some(right)) => f64::midpoint(left as f64, right as f64),
-            _ => 0.0,
-        }
-    } else {
-        sorted
-            .get(middle)
-            .copied()
-            .map_or(0.0, |value| value as f64)
-    }
-}
-
 fn quantile_from_sorted(sorted: &[usize], numerator: usize, denominator: usize) -> usize {
     sorted
         .get(scaled_quantile_index(sorted.len(), numerator, denominator))
         .copied()
         .unwrap_or_default()
-}
-
-fn scaled_quantile_index(len: usize, numerator: usize, denominator: usize) -> usize {
-    if len == 0 || denominator == 0 {
-        return 0;
-    }
-    len.saturating_sub(1).saturating_mul(numerator) / denominator
 }
 
 fn run_positive_control(
