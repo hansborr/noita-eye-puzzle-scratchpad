@@ -1,7 +1,7 @@
 # 07 — Split god-files + module layout
 
-> One-line: split the 7,967-line `gak_attack.rs` into a cohesive `gak/` module
-> directory and regroup the 31 flat `pub mod`s in `lib.rs` into the role
+> One-line: split the 8,147-line `gak_attack.rs` into a cohesive `gak/` module
+> directory and regroup the 32 flat `pub mod`s in `lib.rs` into the role
 > directories from the overview — a pure, behavior-preserving move-refactor that
 > changes no fn body and no reported number.
 > Status: not started · Depends on: 01 (golden-master safety net) · Coordinates
@@ -10,16 +10,16 @@
 
 ## Goal & why it matters
 
-Two files hold 30% of the crate: `gak_attack.rs` is 7,967 lines and `report.rs`
-is 5,686 lines (`src/lib.rs:82`, `src/lib.rs:99`; line counts verified via
+Two files hold 31% of the crate: `gak_attack.rs` is 8,147 lines and `report.rs`
+is 5,694 lines (`src/lib.rs:82`, `src/lib.rs:99`; line counts verified via
 `wc -l`). `gak_attack.rs` is the single worst offender — it bundles a synthetic
 GAK generator, a GCTAK solver, a deck-cipher attack, a hidden-state
 marginalization/beam-search, the eyes Step-3 path, an error type, and a
-1,640-line test module into one flat namespace. That size is what makes brief 04
+1,716-line test module into one flat namespace. That size is what makes brief 04
 ("reuse its beam-search") and brief 06/08 painful to navigate.
 
 This brief does the **mechanical** half of the cleanup: move code into files and
-directories that match the target layout in `00-OVERVIEW.md:139-156`, with **zero
+directories that match the target layout in `00-OVERVIEW.md:143-160`, with **zero
 behavior change**. No statistic, no decode, no CLI byte may move. It is
 deliberately scoped *under* brief 02 (which introduces `trait Cipher`) and brief
 04 (which builds the solve pipeline): this brief only relocates existing items so
@@ -40,38 +40,38 @@ and 06 land their real splits inside the new directories. See "Out of scope".
 
 | Seam | Range | Key items |
 | ---- | ----- | --------- |
-| Imports + shared consts | `:52-105` | `use crate::{chaining_graph,ciphers,glyph,…}` (`:56-69`); `DEFAULT_SEED` (`:72`), `DEFAULT_SEEDS_PER_KIND` (`:74`), `SOLVER_WINDOW_LEN` (`:100`) |
-| **error** | `:244-374` | `enum GakAttackError` (`:244`) + its 7 `From` impls (`:340`,`:346`,`:352`,`:358`,`:364`) |
-| **generator** (synthetic) | `:114-243`, `:697-1370` | `GroupKind` (`:114`), `HiddenSubgroupKind` (`:161`), `RealizedStructure` (`:201`), `SyntheticFixture` (`:225`), `generate_fixture` (`:813`), `realized_structure` (`:908`), `group_table`/`dihedral_table` (`:1052`/`:1077`), `apply_small_support` (`:1172`), `repeated_phrase_template` (`:1205`) |
-| **solver** (GCTAK) | `:1371-2096` | `GctakSolution` (`:1371`), `solve_gctak` (`:1442`), `collect_chain_links` (`:1583`), `recover_letter_permutations` (`:1774`), `complete_permutation` (`:1866`), `decode_letters_by_edge` (`:1946`), `SmallUnionFind` (`:2021`), `type EdgeMap` (`:1637`), `glyphs_to_values` (`:1996`), `symbol_from_usize` (`:1362`) |
-| deck attack | `:2099-3303` | `DeckLetterRegime` (`:2099`), `DeckFixture` (`:2129`), `generate_deck_fixture` (`:2173`), `CosetEdge` (`:2299`), `ContextAction` (`:2315`), `ChainSubstrate` (`:2355`), `build_chain_substrate` (`:2387`), `run_deck_attack` (`:2550`), `DeckAttackOutcome` (`:2982`), `run_deck_attack_sweep` (`:3162`), `mean_f64` (`:3264`) |
-| marginalization / beam | `:3306-4264` | `SmallSupportPrior` (`:3329`), `BeamItem` (`:3385`), `SplitColumnEvidence` (`:3417`), `split_column_evidence` (`:3432`), `beam_recover_column` (`:3513`), `run_marginalization_attack` (`:3628`), `MarginalizationReport` (`:3898`), `SmallSupportValidation` (`:3945`), `run_marginalization_sweep` (`:4059`) |
-| **eyes** (Step 3) | `:4325-6326` | `EYE_*`/`EYES_*` consts (`:4325-4344`), `EyesAttackConfig` (`:4348`), `EyesAttackReport` (`:4431`), `run_gak_attack_eyes` (`:4657`), `eyes_message_evidence` (`:5273`), `eyes_mapping_null` (`:5821`), `write_eyes_candidate_record` (`:5923`), render helpers (`:5945-6326`) |
-| top orchestrator | `:531-696` | `GakAttackReport` (`:531`), `run_gak_attack` (`:588`), `validate_config` (`:753`), `fixture_seed` (`:784`), `retry_selected_exemplar` (`:711`) |
-| tests | `:6327-7967` | one `#[cfg(test)] mod tests` (`:6328`), comment-delimited UNIT sections each with its own `use super::{…}` (`:6329`, `:6864`, `:7178`, `:7619`) |
+| Imports + shared consts | `:55-110` | 9 separate `use crate::<mod>::{…}` imports — chaining_graph, ciphers, glyph, isomorph, language, null, orders, perfect_isomorphism, trigram (`:59-77`); `DEFAULT_SEED` (`:78`), `DEFAULT_SEEDS_PER_KIND` (`:80`), `SOLVER_WINDOW_LEN` (`:106`) |
+| **error** | `:250-396` | `enum GakAttackError` (`:250`) + its 5 `From` impls (`:368`,`:374`,`:380`,`:386`,`:392`) |
+| **generator** (synthetic) | `:120-249`, `:733-1402` | `GroupKind` (`:120`), `HiddenSubgroupKind` (`:167`), `RealizedStructure` (`:207`), `SyntheticFixture` (`:231`), `generate_fixture` (`:856`), `realized_structure` (`:951`), `group_table`/`dihedral_table` (`:1093`/`:1118`), `apply_small_support` (`:1213`), `repeated_phrase_template` (`:1246`) |
+| **solver** (GCTAK) | `:1403-2138` | `GctakSolution` (`:1412`), `solve_gctak` (`:1486`), `collect_chain_links` (`:1625`), `recover_letter_permutations` (`:1816`), `complete_permutation` (`:1908`), `decode_letters_by_edge` (`:1988`), `SmallUnionFind` (`:2063`), `type EdgeMap` (`:1679`), `glyphs_to_values` (`:2038`), `symbol_from_usize` (`:1403`) |
+| deck attack | `:2141-3345` | `DeckLetterRegime` (`:2141`), `DeckFixture` (`:2171`), `generate_deck_fixture` (`:2215`), `CosetEdge` (`:2341`), `ContextAction` (`:2357`), `ChainSubstrate` (`:2397`), `build_chain_substrate` (`:2429`), `run_deck_attack` (`:2592`), `DeckAttackOutcome` (`:3024`), `run_deck_attack_sweep` (`:3204`), `mean_f64` (`:3306`) |
+| marginalization / beam | `:3348-4330` | `SmallSupportPrior` (`:3371`), `BeamItem` (`:3430`), `SplitColumnEvidence` (`:3469`), `split_column_evidence` (`:3484`), `beam_recover_column` (`:3565`), `run_marginalization_attack` (`:3686`), `MarginalizationReport` (`:3956`), `SmallSupportValidation` (`:4005`), `run_marginalization_sweep` (`:4120`) |
+| **eyes** (Step 3) | `:4333-6431` | `EYE_*`/`EYES_*` consts (`:4386-4409`), `EyesAttackConfig` (`:4413`), `EyesAttackReport` (`:4498`), `run_gak_attack_eyes` (`:4725`), `eyes_message_evidence` (`:5341`), `eyes_mapping_null` (`:5924`), `write_eyes_candidate_record` (`:6024`), render helpers (`:6046-6431`) |
+| top orchestrator | `:559-732` | `GakAttackReport` (`:559`), `run_gak_attack` (`:616`), `validate_config` (`:782`), `fixture_seed` (`:827`), `retry_selected_exemplar` (`:740`) |
+| tests | `:6432-8147` | one `#[cfg(test)] mod tests` (`:6433`), comment-delimited UNIT sections each with its own `use super::{…}` (`:6434`, `:7006`, `:7320`, `:7796`) |
 
 **Coupling that constrains the split (must be honored, verified by grep):**
 
-- `type EdgeMap` is defined at `:1637` (solver region) but used by the generator
-  region too: `:952`,`:958`,`:975`,`:999` (`truth_letter_permutations` /
+- `type EdgeMap` is defined at `:1679` (solver region) but used by the generator
+  region too: `:995`,`:1001`,`:1018`,`:1042` (`truth_letter_permutations` /
   `permutation_recovery_fraction`). So `EdgeMap` is a **shared** alias, not
   solver-private.
-- `CosetEdge` (`:2299`, deck) is used across the marginalization region:
-  `:3387`,`:3419`,`:3473`,`:3580`,`:3601`,`:3697`,`:4258`. Deck ↔ marginalization
+- `CosetEdge` (`:2341`, deck) is used across the marginalization region:
+  `:3432`,`:3471`,`:3525`,`:3575`,`:3597`,`:3702`,`:4319`. Deck ↔ marginalization
   share it.
-- `spacing_filter` (defined `:2469`, deck) is used by the **eyes** region at
-  `:5302`. This is the *only* private generator/solver/deck symbol the eyes
-  section reaches backward for, besides the `DEFAULT_BEAM_WIDTH` const (`:3306`,
-  consumed at `:4344`).
-- `glyphs_to_values` (`:1996`, solver) is used by generator (`:1277`), deck
-  (`:3042`), marginalization (`:3822`,`:4202`,`:4226`) — shared utility.
-- `mean_f64` (`:3264`, deck) is used by marginalization (`:4121-4123`).
+- `spacing_filter` (defined `:2511`, deck) is used by the **eyes** region at
+  `:5370`. This is the *only* private generator/solver/deck symbol the eyes
+  section reaches backward for, besides the `DEFAULT_BEAM_WIDTH` const (`:3348`,
+  consumed via `EYES_DEFAULT_BEAM_WIDTH` at `:4406`).
+- `glyphs_to_values` (`:2038`, solver) is used by generator (`:1318`), deck
+  (`:3084`), marginalization (`:3880`,`:4263`,`:4287`) — shared utility.
+- `mean_f64` (`:3306`, deck) is used by marginalization (`:4182-4184`).
 - The eyes section uses `GakAttackError` 26× but **none** of the deck/marginal
   private types (`CosetEdge`, `SmallSupportPrior`, `GakAttackConfig` all 0
-  hits in `:4325-6326`). The eyes seam is therefore the cleanest cut in the file.
-- `run_gak_attack` (`:588`) is the cross-cutting orchestrator: it calls
-  `generate_fixture` (`:605`), `evaluate_fixture` (`:606`), `run_deck_attack_sweep`
-  (`:656`), `run_marginalization_sweep` (`:668`). It belongs in `mod.rs`.
+  hits in `:4333-6431`). The eyes seam is therefore the cleanest cut in the file.
+- `run_gak_attack` (`:616`) is the cross-cutting orchestrator: it calls
+  `generate_fixture` (`:633`), `evaluate_fixture` (`:634`), `run_deck_attack_sweep`
+  (`:684`), `run_marginalization_sweep` (`:697`). It belongs in `mod.rs`.
 
 ### External references that pin the public path
 
@@ -82,33 +82,36 @@ and 06 land their real splits inside the new directories. See "Out of scope".
   DEFAULT_DIHEDRAL_HALF_ORDER, DEFAULT_NUM_PT_LETTERS, DEFAULT_PHRASE_REPEATS,
   DEFAULT_PHRASE_LEN, DEFAULT_SMALL_SUPPORT_RADIUS, GakAttackConfig,
   EyesAttackConfig, EYES_DEFAULT_SEED, EYES_DEFAULT_TRIALS, EYES_DEFAULT_BEAM_WIDTH,
-  run_gak_attack, run_gak_attack_eyes}` (`src/main.rs:148-209`,`:619-620`,
-  `:681-707`).
+  run_gak_attack, run_gak_attack_eyes}` (`src/main.rs:148-224`,`:625-626`,
+  `:687-713`).
 - `src/report.rs:10` imports `gak_attack` from `crate::{…}`; uses
   `gak_attack::{GakAttackError, GakAttackReport, EyesAttackReport,
   SmallSupportValidation}` and reaches nested report fields like
-  `report.deck`/`report.marginalization` (`src/report.rs:73-135`,
-  `:4086-4496`).
+  `report.deck`/`report.marginalization` (`src/report.rs:73-143`,
+  `:4127-4504`).
 - `tests/gak_attack_cli.rs` drives the `gak-attack` subcommand end-to-end and
-  asserts gate-independent honesty strings (`tests/gak_attack_cli.rs:16-338`).
+  asserts gate-independent honesty strings (`tests/gak_attack_cli.rs:16-348`).
   This is the de-facto golden master that brief 01 hardens.
 
 The full external symbol surface (grep `gak_attack::[A-Za-z_]+` over
-`src/main.rs src/report.rs tests/*.rs`) is exactly: the 8 `DEFAULT_*` consts, the
-3 `EYES_DEFAULT_*` consts, `GakAttackConfig`, `EyesAttackConfig`, `GakAttackReport`,
+`src/main.rs src/report.rs tests/*.rs`, deduped) is exactly 22 symbols: the 8
+`DEFAULT_*` consts, the 4 `EYES_DEFAULT_*` consts (`SEED`, `TRIALS`,
+`BEAM_WIDTH`, `CANDIDATES_DIR`), the 2 report-consumed consts
+`EYE_READING_ALPHABET_SIZE` and `EYES_MATERIAL_EFFECT_FRACTION`,
+`GakAttackConfig`, `EyesAttackConfig`, `GakAttackReport`,
 `EyesAttackReport`, `GakAttackError`, `SmallSupportValidation`, `run_gak_attack`,
 `run_gak_attack_eyes`. `report.rs` additionally walks into `GakAttackReport`'s
 `deck`/`marginalization` fields, so the public types behind those fields
-(`DeckAttackReport` `:3116`, `MarginalizationReport` `:3898`, `TractabilityPoint`
-`:3080`, `MarginalizationPoint` `:3858`, `DeckAttackOutcome` `:2982`, etc.) must
+(`DeckAttackReport` `:3158`, `MarginalizationReport` `:3956`, `TractabilityPoint`
+`:3122`, `MarginalizationPoint` `:3916`, `DeckAttackOutcome` `:3024`, etc.) must
 stay reachable at `crate::gak_attack::*`.
 
 ### `lib.rs` flat layout
 
-`src/lib.rs:72-103` is a flat wall of 31 `pub mod` declarations (the doc comment
+`src/lib.rs:72-103` is a flat wall of 32 `pub mod` declarations (the doc comment
 `:1-70` describes each). No role grouping; every module is a direct child of the
 crate root. The overview's target groups them under `core/ data/ analysis/
-nulls/ ciphers/ attack/ experiments/ report/` (`00-OVERVIEW.md:143-156`).
+nulls/ ciphers/ attack/ experiments/ report/` (`00-OVERVIEW.md:143-160`).
 
 ## Target design (concrete API / types / layout)
 
@@ -121,13 +124,13 @@ today becomes crate-public except where it already was `pub`.
 
 ```
 src/gak/
-  mod.rs            // module doc (moved verbatim from gak_attack.rs:1-50);
+  mod.rs            // module doc (moved verbatim from gak_attack.rs:1-54);
                     //   `use` of the sub-files; the cross-cutting orchestrator
                     //   run_gak_attack (+ GakAttackReport, validate_config,
                     //   fixture_seed, retry_selected_exemplar, GroupKind/
                     //   HiddenSubgroupKind, GakAttackConfig, RecoveryRate);
                     //   the `pub use` re-export block (see decision below)
-  error.rs          // GakAttackError + its 7 From impls (:244-374)
+  error.rs          // GakAttackError + its 5 From impls (:250-396)
   generator.rs      // synthetic generator: GroupKind tables, generate_fixture,
                     //   realized_structure, group/dihedral tables,
                     //   apply_small_support, repeated_phrase_template, the
@@ -142,7 +145,7 @@ src/gak/
   marginalization.rs// SmallSupportPrior, BeamItem, split_column_evidence,
                     //   beam_recover_column, run_marginalization_attack/sweep,
                     //   MarginalizationReport, SmallSupportValidation
-  eyes.rs           // the entire :4325-6326 block (EyesAttackConfig/Report,
+  eyes.rs           // the entire :4333-6431 block (EyesAttackConfig/Report,
                     //   run_gak_attack_eyes, eyes_* helpers, render_eyes_*)
   fixtures.rs       // (optional) DeckFixture/SyntheticFixture/RealizedStructure
                     //   struct defs + their fixture-seed helpers, IF that keeps
@@ -150,33 +153,36 @@ src/gak/
                     //   into generator.rs and drop this file
 ```
 
-The overview's file list names `gak/generator.rs`, `gak/solver.rs`,
-`gak/marginalization.rs`, `gak/fixtures.rs`, `gak/eyes.rs`, `gak/error.rs`
-(`00-OVERVIEW.md:152`). This brief realizes exactly those names. **Deviation
+The overview names the `gak/` directory (`gak/ (split from gak_attack.rs)`,
+`00-OVERVIEW.md:156`) but does not enumerate its individual files; this brief
+proposes the per-seam split into `gak/generator.rs`, `gak/solver.rs`,
+`gak/marginalization.rs`, `gak/fixtures.rs`, `gak/eyes.rs`, `gak/error.rs`.
+**Deviation
 note:** the GCTAK solver and the deck attack are placed together in `solver.rs`
 because they share `EdgeMap`, `collect_chain_links`, and the chain-substrate
-primitives and together total ~1,700 lines (acceptable). If a future reviewer
+primitives and together total ~1,900 lines (the largest sibling; acceptable, but
+see the fixtures.rs/deck.rs escape hatch). If a future reviewer
 prefers a separate `gak/deck.rs`, that is a trivial follow-on — call it out, do
-not silently diverge from the overview's six-file list.
+not silently diverge from this brief's six-file split.
 
 **Shared-item visibility rules (mechanical):**
 
-- `EdgeMap` (`:1637`), `glyphs_to_values` (`:1996`), `symbol_from_usize`
-  (`:1362`), `CosetEdge` (`:2299`), `mean_f64` (`:3264`), `spacing_filter`
-  (`:2469`), `DEFAULT_BEAM_WIDTH` (`:3306`), `evaluate_fixture` (`:1272`):
+- `EdgeMap` (`:1679`), `glyphs_to_values` (`:2038`), `symbol_from_usize`
+  (`:1403`), `CosetEdge` (`:2341`), `mean_f64` (`:3306`), `spacing_filter`
+  (`:2511`), `DEFAULT_BEAM_WIDTH` (`:3348`), `evaluate_fixture` (`:1313`):
   these are referenced across the new file boundaries, so promote each from
   private to `pub(crate)` (or `pub(super)`), and qualify call sites as
   `crate::gak::generator::EdgeMap` etc. (or rely on a `use super::generator::*`
   in the consuming file). Nothing here changes a *body*.
-- `GakAttackError` (`:244`), `GakAttackConfig` (`:377`), `GakAttackReport`
-  (`:531`), all the `pub` report structs, and the `DEFAULT_*`/`EYES_*` consts are
+- `GakAttackError` (`:250`), `GakAttackConfig` (`:405`), `GakAttackReport`
+  (`:559`), all the `pub` report structs, and the `DEFAULT_*`/`EYES_*` consts are
   already `pub`; they stay `pub` in their new home.
 
 ### B. Public-path decision: **keep paths stable via re-exports**
 
 **Decision: re-export from `gak/mod.rs`, do NOT rewrite call sites.** Concretely,
 `mod.rs` ends with a `pub use` block re-surfacing the full external symbol set
-(the 14 items main.rs/report.rs/tests use, plus the report sub-types report.rs
+(the 22 symbols main.rs/report.rs/tests use, plus the report sub-types report.rs
 walks into) so that `crate::gak_attack::Foo` — wait: the module is renamed to
 `gak`, so the import name changes from `gak_attack` to `gak`. Two sub-options:
 
@@ -207,8 +213,8 @@ conflict on import paths.
 
 ### C. `lib.rs` role grouping
 
-Group the 31 flat modules (`src/lib.rs:72-103`) into the overview's directories
-(`00-OVERVIEW.md:143-156`). Use Rust's `path` attribute or directory `mod.rs`
+Group the 32 flat modules (`src/lib.rs:72-103`) into the overview's directories
+(`00-OVERVIEW.md:143-160`). Use Rust's `path` attribute or directory `mod.rs`
 re-export shims so the **public paths stay flat** (`crate::analysis::…` keeps
 working) while the *files* move into role dirs. Concretely, the cleanest
 zero-churn mechanism is a role `mod.rs` that re-exports, e.g.:
@@ -230,7 +236,7 @@ move the *file* and point `lib.rs` at it with `#[path]`:
 ```
 
 This is the recommended `lib.rs` mechanism: **files move into role directories;
-public paths are byte-identical.** Grouping per `00-OVERVIEW.md:143-156`:
+public paths are byte-identical.** Grouping per `00-OVERVIEW.md:143-160`:
 
 - `core/` ← `glyph`, `trigram` (sequence/ingest is brief 03's territory — leave
   `glyph` here)
@@ -242,7 +248,10 @@ public paths are byte-identical.** Grouping per `00-OVERVIEW.md:143-156`:
   `pipeline_null`, `tree_residual`, `perseus`
 - `ciphers/` ← `ciphers` (as `ciphers/mod.rs`, content unchanged — brief 02 owns
   the internal split)
-- `attack/` ← `cipher_attack`, `agl_gak`, `gak_attack/` (the dir from part A);
+- `attack/` ← `cipher_attack`, `agl_gak`, `gak_attack/` (the dir from part A),
+  and `language` (the n-gram model is consumed only by `cipher_attack`/
+  `gak_attack`/`grouping` for the speculative cleartext gate; the overview is
+  silent on it, so place it with its attack consumers and add a `// role:` note);
   `solve/` is brief 04's
 - `experiments/` ← `pyry_conditions`, `controls`, and the structural-battery
   modules that are clearly experiment drivers (assign conservatively; if a
@@ -267,36 +276,36 @@ golden-master suite from brief 01 (or, until 01 lands, `cargo test` +
    "Risks").
 
 2. **Extract `gak_attack/error.rs`.** Create `src/gak_attack/mod.rs` as a copy of
-   today's `gak_attack.rs`, then move `GakAttackError` + its 7 `From` impls
-   (`:244-374`) into `error.rs`; `mod error;` + `use error::GakAttackError;` (or
+   today's `gak_attack.rs`, then move `GakAttackError` + its 5 `From` impls
+   (`:250-396`) into `error.rs`; `mod error;` + `use error::GakAttackError;` (or
    `pub use`) in `mod.rs`. Delete the old `src/gak_attack.rs`. Verify the
    `crate::gak_attack::GakAttackError` path still resolves (report.rs:73). Green.
 
-3. **Extract `eyes.rs`** (the cleanest seam). Move `:4325-6326` plus the matching
-   `use super::{…}` test block (the eyes UNIT section, `:7619+`) into
+3. **Extract `eyes.rs`** (the cleanest seam). Move `:4333-6431` plus the matching
+   `use super::{…}` test block (the eyes UNIT 2c section, `:7796+`) into
    `eyes.rs`/`#[cfg(test)] mod tests` inside it. Promote `spacing_filter` and
    `DEFAULT_BEAM_WIDTH` to `pub(crate)` so `eyes.rs` reaches them via
    `crate::gak_attack::solver::spacing_filter` (or a `use`). `pub use eyes::{…}`
    the eyes public surface. Green; CLI `gak-attack-eyes` output unchanged.
 
-4. **Extract `generator.rs`.** Move the generator seam (`:114-243`, `:697-1370`)
+4. **Extract `generator.rs`.** Move the generator seam (`:120-249`, `:733-1402`)
    + its UNIT test block. Promote the shared `EdgeMap`/`glyphs_to_values`/
    `symbol_from_usize` to `pub(crate)`. Re-export `GroupKind`,
    `HiddenSubgroupKind`, `generate_fixture` as needed by `mod.rs`'s orchestrator.
    Green.
 
-5. **Extract `solver.rs`** (GCTAK + deck). Move `:1371-2096` and the deck region
-   `:2099-3303` + their UNIT test blocks. Promote `CosetEdge`, `mean_f64`,
+5. **Extract `solver.rs`** (GCTAK + deck). Move `:1403-2138` and the deck region
+   `:2141-3345` + their UNIT test blocks. Promote `CosetEdge`, `mean_f64`,
    `evaluate_fixture`, `collect_chain_links` to `pub(crate)` for the
    marginalization sibling. Green.
 
-6. **Extract `marginalization.rs`.** Move `:3306-4264` + its UNIT 2b test block.
+6. **Extract `marginalization.rs`.** Move `:3348-4330` + its UNIT 2b test block.
    It consumes `CosetEdge`/`mean_f64`/`SmallUnionFind` from `solver.rs` via
    `pub(crate)`. `pub use` `MarginalizationReport`, `SmallSupportValidation`,
-   `SmallSupportPrior` from `mod.rs`. Green; `report.rs:4179` still sees
+   `SmallSupportPrior` from `mod.rs`. Green; `report.rs:4185` still sees
    `SmallSupportValidation`.
 
-7. **Settle `mod.rs`.** What remains in `mod.rs` is the doc comment (`:1-50`,
+7. **Settle `mod.rs`.** What remains in `mod.rs` is the doc comment (`:1-54`,
    moved verbatim), the orchestrator `run_gak_attack` + `GakAttackReport` +
    `validate_config`/`fixture_seed`/`retry_selected_exemplar`, the shared
    `GakAttackConfig`/`RecoveryRate`/`DEFAULT_*` consts, and the `pub use`
@@ -330,7 +339,7 @@ with the public surface intact). Step 8 can be one commit per role directory.
   homes for moved files)
 
 **Change:**
-- `src/lib.rs` — regroup the 31 `pub mod` decls into role-commented blocks using
+- `src/lib.rs` — regroup the 32 `pub mod` decls into role-commented blocks using
   `#[path]` (paths stay flat); the doc comment (`:1-70`) stays, optionally
   re-grouped to mirror the dirs.
 - `src/main.rs:12` and `src/report.rs:10` — **only if** you pick option 1
@@ -348,10 +357,11 @@ they import the binary, not internal paths), `corpus.rs` data, any fn body.
 ## Success criteria
 
 - `src/gak_attack.rs` no longer exists; `src/gak_attack/` holds 6–7 files, none
-  over ~1,800 lines, each with a single cohesive responsibility.
+  over ~2,000 lines (the combined GCTAK+deck `solver.rs` is the largest at
+  ~1,900), each with a single cohesive responsibility.
 - `lib.rs`'s modules live in the eight role directories from
-  `00-OVERVIEW.md:143-156`; the public crate path of every module is unchanged.
-- The external symbol surface at `crate::gak_attack::*` (14 items + report
+  `00-OVERVIEW.md:143-160`; the public crate path of every module is unchanged.
+- The external symbol surface at `crate::gak_attack::*` (22 symbols + report
   sub-types) is byte-identical: `main.rs`, `report.rs`, `tests/gak_attack_cli.rs`
   compile and pass with **no edits** (option 2) or one import-line edit each
   (option 1).
@@ -370,7 +380,7 @@ they import the binary, not internal paths), `corpus.rs` data, any fn body.
      cargo run --locked -q -- $c > before.$RANDOM.txt
    done   # capture on the pre-refactor commit, re-run after, diff == empty
    ```
-   The existing `tests/gak_attack_cli.rs:16-338` already pins the honesty surface;
+   The existing `tests/gak_attack_cli.rs:16-348` already pins the honesty surface;
    it must pass untouched.
 2. **Behavior diff = body diff = empty.** `git diff --stat` should show large
    line moves but `git log -p` per step should reveal no `+`/`-` inside any fn
@@ -380,7 +390,7 @@ they import the binary, not internal paths), `corpus.rs` data, any fn body.
    -u` before vs after must match exactly. Same for each regrouped module path.
 4. **Determinism.** `run_gak_attack_is_deterministic_for_fixed_seed` and the
    `gctak_solver_recovers_*` / `deck_attack_*` / `idea3_*` tests
-   (`gak_attack.rs:6327+`) must all still pass — they are the in-crate proof the
+   (`gak_attack.rs:6432+`) must all still pass — they are the in-crate proof the
    numbers did not move.
 5. `make verify` then `make check` (fmt + clippy `-D` + tests + rustdoc `-D` +
    cargo-deny + machete + codespell + shellcheck + release build).
@@ -393,9 +403,9 @@ they import the binary, not internal paths), `corpus.rs` data, any fn body.
   freezes the public path and exposes the beam-search internals as
   `pub(crate) crate::gak_attack::marginalization::*` / `solver::*`, which is
   exactly the clean seam 04 wants to import. If 04 lands first, it will reach into
-  a 7,967-line flat file and 07 then has to chase 04's new call sites. Concretely:
+  an 8,147-line flat file and 07 then has to chase 04's new call sites. Concretely:
   finish 07 steps 2–7, merge, *then* start 04. If they must overlap, run them on
-  the **same branch** (the overview anticipates this — `00-OVERVIEW.md:180-182`)
+  the **same branch** (the overview anticipates this — `00-OVERVIEW.md:183-186`)
   and have 04 import from the new submodule paths from day one.
 - **Re-export visibility is the trap.** Promoting a private item to `pub(crate)`
   is fine, but accidentally making it `pub` widens the API surface and can trip
@@ -403,22 +413,22 @@ they import the binary, not internal paths), `corpus.rs` data, any fn body.
   `pub(super)`, which `missing_docs` does not require documenting, and confirm
   `cargo public-api`/the grep shows no *new* `pub` items.
 - **Test `use super::{…}` blocks must be repointed.** The single `mod tests`
-  splits across sub-files; each UNIT section's `use super::{…}` (`:6329`,`:6864`,
-  `:7178`,`:7619`) now resolves against a *different* parent. Move each test block
+  splits across sub-files; each UNIT section's `use super::{…}` (`:6434`,`:7006`,
+  `:7320`,`:7796`) now resolves against a *different* parent. Move each test block
   next to the code it tests and fix its `use super::`/`use crate::gak_attack::`
   imports. A miscompile here is loud (good); a silently-skipped `#[cfg(test)]`
   module is the danger — confirm `cargo test` runs the *same count* of gak tests
-  before and after (131 `#[test]`/`fn`/`mod` markers today).
+  before and after (50 `#[test]` functions in `gak_attack.rs` today).
 - **`#[path]` vs nested `mod` for lib.rs.** `#[path]` keeps flat public paths with
   minimal churn but is slightly unusual; an alternative is plain nested modules +
   `pub use` shims. Either is acceptable — pick `#[path]` for path-fidelity and
   document the choice. Do not change a public path silently; that would break
   `main.rs`/`report.rs`/tests and is a behavior change in disguise.
 - **No claim-surface change.** This refactor touches structure only; the eyes
-  honesty caveats (`gak_attack.rs:1-16`, the `:4319-4321` mapping-is-HYPOTHESIS
+  honesty caveats (`gak_attack.rs:1-16`, the `:4343-4345` mapping-is-HYPOTHESIS
   banner) move verbatim into `eyes.rs`/`mod.rs`. The claim ceiling is unchanged:
   *the eyes are deterministic, engine-generated, strikingly structured data of
-  unknown meaning; unsolved* (`00-OVERVIEW.md:202-206`).
+  unknown meaning; unsolved* (`00-OVERVIEW.md:205-210`).
 
 ## Out of scope / non-goals
 

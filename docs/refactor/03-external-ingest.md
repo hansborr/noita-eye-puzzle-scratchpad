@@ -11,14 +11,20 @@
 
 Today the only data source the engine can see is the compiled-in `corpus`
 (`src/corpus.rs:163` `MESSAGES`). There is no way to feed an external ciphertext
-in. The overview's reframe (`docs/refactor/00-OVERVIEW.md:18-54`) names this as
-smell row "No data ingest" (line 53): *"only `fs`/`stdin` use is writing
-candidate records; nothing loads an external ciphertext."* The sample cipher
-`/tmp/gak_cipher_example` (a base-5 digit string that contains a real English
-message) was never even *loadable*, let alone crackable.
+in. The overview's reframe (`docs/refactor/00-OVERVIEW.md:18-58`) names this as
+smell row "No data ingest" (line 57): *"the only non-test `fs` use writes
+candidate records (no `stdin` path at all); nothing loads an external
+ciphertext."* This still holds after the wave-1 GAK-attack work: `gak_attack`'s
+Unit 2c (`run_gak_attack_eyes`, `src/gak_attack.rs:4725`) now *does* run against
+the eye corpus, but it loads it from the **embedded** `corpus`
+(`orders::corpus_grids()`), not from any external file or stdin — the crate has
+no external-ciphertext *read* path (the only
+`fs::read_to_string` in `src/` is a test reading back a candidate record it just
+wrote). The sample cipher `/tmp/gak_cipher_example` (a base-5 digit string that
+contains a real English message) was never even *loadable*, let alone crackable.
 
 This brief builds the one-way-in that the overview specifies under
-"`Sequence` ingest — one way in (brief 03)" (`00-OVERVIEW.md:83-93`):
+"`Sequence` ingest — one way in (brief 03)" (`00-OVERVIEW.md:87-97`):
 
 ```rust
 pub fn load_sequence(input: Input, alphabet: &Alphabet) -> Result<Vec<Glyph>, IngestError>;
@@ -29,7 +35,7 @@ It is deliberately small (Size S) and self-contained: a parsing function, an
 error enum, and a thin CLI wiring on the existing `stats` subcommand. Brief 04
 (solve pipeline) reuses `load_sequence` to point `solve` at the same external
 ciphertexts, so this must land first (it is on the `02 → 03 → 04` engine track,
-`00-OVERVIEW.md:167-177`).
+`00-OVERVIEW.md:166-178`).
 
 ## Current state (grounded, with file:line)
 
@@ -64,21 +70,22 @@ file/stdin source**, and a bare-`char` error type.
    tokens in `0..=124` (or `0..=82`) directly into `Glyph(value)`.
 
 **The current CLI front door.** `StatsArgs` is a single positional
-`sequence: String` field (`src/main.rs:107-110`). `run_stats` calls the local
-free function `parse_rendered_sequence(text) -> Result<Sequence, char>`
-(`src/main.rs:1052-1079`), which:
+`sequence: String` field (`src/main.rs:107-110`). `run_stats`
+(`src/main.rs:1058-1069`) calls the local free function
+`parse_rendered_sequence(text) -> Result<Sequence, char>`
+(`src/main.rs:1071-1085`), which:
 
-- skips whitespace and `5` (`src/main.rs:1068`),
-- rejects non-decimal chars (`src/main.rs:1071-1073`),
+- skips whitespace and `5` (`src/main.rs:1074`),
+- rejects non-decimal chars (`src/main.rs:1077-1079`),
 - maps each digit through `Orientation::from_digit(..).glyph()`
-  (`src/main.rs:1074-1077`),
+  (`src/main.rs:1080-1082`),
 - on error prints `"unknown rendered digit {c:?}; expected 0-5, with 5 as
-  delimiter"` (`src/main.rs:1059`).
+  delimiter"` (`src/main.rs:1065`).
 
 This is the *rendered-layer* parser, duplicated inline in the CLI; it is the
 pattern the brief says to "generalize". `report::print_report(label, &seq)`
-(`src/report.rs:5394`) is what consumes the resulting `Sequence`; it is shared
-with `run_demo` (`src/main.rs:644-655`).
+(`src/report.rs:5402`) is what consumes the resulting `Sequence`; it is shared
+with `run_demo` (`src/main.rs:650-661`).
 
 **There is no existing `IngestError`, `load_sequence`, or `Input` symbol** in the
 crate (`grep` over `src/` returns nothing), and **`thiserror` is not a
@@ -89,15 +96,15 @@ the prevailing style (`src/report.rs` `format_*_error` functions). `clap` is
 **House-rule baseline.** `unwrap`/`panic`/`indexing_slicing` are forbidden in
 lib/CLI (`AGENTS.md:27-30`); every public item must be documented
 (`AGENTS.md:31-32`); `make verify` must stay green at every commit
-(`AGENTS.md:23-25`, `00-OVERVIEW.md:191-196`). No reported statistic or decode
-may change (`00-OVERVIEW.md:188-190`).
+(`AGENTS.md:23-25`, `00-OVERVIEW.md:196-198`). No reported statistic or decode
+may change (`00-OVERVIEW.md:192-195`).
 
 ## Target design (concrete API / types / layout)
 
 Add a new module `src/ingest.rs` (registered as `pub mod ingest;` in
 `src/lib.rs`, alphabetically between `honeycomb` and `isomorph`,
 `src/lib.rs:86-87`). Keeping it a sibling top-level module matches the current
-flat layout; brief 07 later relocates it under `core/` per `00-OVERVIEW.md:144`
+flat layout; brief 07 later relocates it under `core/` per `00-OVERVIEW.md:149`
 (`core/ … sequence/ingest …`). Do **not** pre-empt brief 07's move.
 
 ```rust
@@ -161,7 +168,7 @@ Design notes that keep this consistent and honest:
 
 - **Signature deviation from the overview, stated explicitly.** The overview's
   proposed signature is `load_sequence(input: Input, alphabet: &Alphabet)`
-  (`00-OVERVIEW.md:87`). For the two layers in scope, the mapping is
+  (`00-OVERVIEW.md:91`). For the two layers in scope, the mapping is
   **positional, not character-table-based**: rendered digit `d → Glyph(d)`
   (`src/glyph.rs:64-68`) and trigram value `v → Glyph(v)`
   (`src/orders.rs:973`). An `Alphabet` (`src/glyph.rs:151`) is a
@@ -170,20 +177,20 @@ Design notes that keep this consistent and honest:
   honest fit. If the implementing agent prefers to keep the `alphabet` parameter,
   it must construct the layer's `Alphabet` internally and still strip the
   delimiter — but `SequenceLayer` is the recommended shape. **Either way, update
-  the cross-reference in `00-OVERVIEW.md:83-93` and in brief 04 so the briefs
+  the cross-reference in `00-OVERVIEW.md:87-97` and in brief 04 so the briefs
   stay mutually consistent.**
 - **No panics.** All parsing returns `Result`; never index a slice or `unwrap`.
   `Orientation::from_digit` (`src/glyph.rs:45-56`) and `TrigramValue::new`
   (`src/trigram.rs:51-57`) already return `Result`/`Err`; thread their errors
   into `IngestError::InvalidToken`. Read I/O errors map to `IngestError::Io`.
 - **`Display` for `IngestError`** is hand-written (no new dependency), mirroring
-  `report.rs` style and satisfying `00-OVERVIEW.md:119` ("each error enum gets a
+  `report.rs` style and satisfying `00-OVERVIEW.md:123` ("each error enum gets a
   `Display`"). Implement `std::error::Error` too (with `source()` returning the
   inner `io::Error` for the `Io` variant) so it composes with brief 06.
 - **`Vec<Glyph>` return, not `Sequence`.** The overview's API and brief 04's
-  `SolveRequest.ciphertext: &'a [Glyph]` (`00-OVERVIEW.md:128`) both speak
+  `SolveRequest.ciphertext: &'a [Glyph]` (`00-OVERVIEW.md:131`) both speak
   `[Glyph]`. The CLI can wrap the result in `Sequence { glyphs }`
-  (`src/glyph.rs:207-211`) for `report::print_report` (`src/report.rs:5394`).
+  (`src/glyph.rs:207-211`) for `report::print_report` (`src/report.rs:5402`).
 
 CLI wiring (generalize `StatsArgs`, `src/main.rs:107-110`):
 
@@ -206,7 +213,7 @@ struct StatsArgs {
 Resolution order in `run_stats`: positional `sequence` → `--input-file` →
 stdin (when neither is given). `layer` = `HoneycombReading` if `--honeycomb`
 else `RenderedOrientation`. **Corpus stays the default source for `demo`**
-(`run_demo`, `src/main.rs:644-655`) — this brief does not touch `demo`.
+(`run_demo`, `src/main.rs:650-661`) — this brief does not touch `demo`.
 
 ## Implementation steps (ordered, each independently committable & green)
 
@@ -239,20 +246,20 @@ proof).** Add a test asserting that, for the nine corpus digit strings
 `load_sequence(Input::Str(digits), SequenceLayer::RenderedOrientation)` equals
 `corpus::messages()[i].sequence().unwrap().glyphs` (`src/corpus.rs:130-137`).
 This pins that ingest reproduces the corpus parser byte-for-byte, satisfying the
-behavior-preserving rule (`00-OVERVIEW.md:188-190`). *Green:* `make verify`.
+behavior-preserving rule (`00-OVERVIEW.md:192-195`). *Green:* `make verify`.
 
 **Step 4 — wire the CLI.** Generalize `StatsArgs` (`src/main.rs:107-110`) to the
-shape above; rewrite `run_stats` (`src/main.rs:1052-1063`) to resolve
+shape above; rewrite `run_stats` (`src/main.rs:1058-1069`) to resolve
 positional→file→stdin, pick the layer from `--honeycomb`, call
 `ingest::load_sequence`, wrap the `Vec<Glyph>` in `Sequence { glyphs }`, and call
 `report::print_report("input", &seq)` unchanged. On `Err(IngestError)`, print its
 `Display` to stderr and return `ExitCode::FAILURE`. **Delete the now-dead
-`parse_rendered_sequence`** (`src/main.rs:1065-1079`). Update the `noita_eye_puzzle`
+`parse_rendered_sequence`** (`src/main.rs:1071-1085`). Update the `noita_eye_puzzle`
 import list (`src/main.rs:10-15`) to bring in `ingest`; the
 `glyph::Sequence` import stays for the wrapper. *Green:* `make verify`; manual
 smoke (see Verification).
 
-**Step 5 — docs touch-ups.** Update `00-OVERVIEW.md:83-93` (and a note in brief
+**Step 5 — docs touch-ups.** Update `00-OVERVIEW.md:87-97` (and a note in brief
 04 once it exists) to the final `load_sequence(input, layer)` signature if Step 1
 deviated. Add a one-line `## Commands`-adjacent example to `AGENTS.md` only if it
 adds value (optional). *Green:* `make verify` + `make check` before the final
@@ -267,10 +274,10 @@ Each step compiles, tests, and lints independently; no step leaves the tree red.
 - **Change** `src/lib.rs` — add `pub mod ingest;` (`:86-87`) and a module-doc
   bullet (`:37-38` neighborhood).
 - **Change** `src/main.rs` — generalize `StatsArgs` (`:107-110`); rewrite
-  `run_stats` (`:1052-1063`); **delete** `parse_rendered_sequence` (`:1065-1079`);
+  `run_stats` (`:1058-1069`); **delete** `parse_rendered_sequence` (`:1071-1085`);
   update imports (`:10-15`).
 - **Change** `docs/refactor/00-OVERVIEW.md` — reconcile the `load_sequence`
-  signature in §"`Sequence` ingest" (`:83-93`) if it deviated.
+  signature in §"`Sequence` ingest" (`:87-97`) if it deviated.
 - **No change** to `src/corpus.rs`, `src/glyph.rs`, `src/trigram.rs`,
   `src/orders.rs`, `src/report.rs` — ingest reuses their existing public APIs
   (`Orientation::from_digit/glyph`, `TrigramValue::new`, `Glyph`, `Sequence`,
@@ -302,7 +309,7 @@ Each step compiles, tests, and lints independently; no step leaves the tree red.
   the in-tree proof that ingest equals `Message::sequence`. Additionally confirm
   `demo` is untouched: `cargo run --locked -- demo > /tmp/demo_after.txt` and
   `git stash`-compare against `main`'s `demo` output (must be identical) — this
-  is the `00-OVERVIEW.md:188-190` no-statistic-changes check for this brief.
+  is the `00-OVERVIEW.md:192-195` no-statistic-changes check for this brief.
 - **Manual smoke (the actual front-door proof):**
   ```sh
   cargo run --locked -- stats "20101 5 322"
@@ -322,7 +329,7 @@ Each step compiles, tests, and lints independently; no step leaves the tree red.
 
 - **Loadable ≠ decoded.** This brief makes external ciphertext *ingestible*; it
   performs **no** cryptanalysis and emits **no** plaintext. The claim ceiling is
-  unchanged (`00-OVERVIEW.md:198-206`): the eyes remain *deterministic,
+  unchanged (`00-OVERVIEW.md:205-210`): the eyes remain *deterministic,
   engine-generated, strikingly structured data of unknown meaning; unsolved.*
   Nothing here may be reported as a step toward a decode beyond "we can now point
   the tools at a sample."
@@ -332,7 +339,7 @@ Each step compiles, tests, and lints independently; no step leaves the tree red.
   `InvalidToken { layer, … }` error keep the layer choice loud, never inferred.
 - **Signature deviation from the overview** (dropping `&Alphabet` for
   `SequenceLayer`) is a deliberate, documented choice (see Target design); the
-  implementing agent must update `00-OVERVIEW.md:83-93` and brief 04's
+  implementing agent must update `00-OVERVIEW.md:87-97` and brief 04's
   cross-reference, per the overview's "update every brief's cross-references if a
   name changes" rule (`00-OVERVIEW.md:9-14`).
 - **Stdin in tests:** do not exercise `Input::Stdin` from a unit test (it would
@@ -345,14 +352,14 @@ Each step compiles, tests, and lints independently; no step leaves the tree red.
 ## Out of scope / non-goals
 
 - **No mapping search, no scoring, no solve** — that is brief 04
-  (`00-OVERVIEW.md:122-137`). This brief stops at producing `Vec<Glyph>`.
+  (`00-OVERVIEW.md:126-137`). This brief stops at producing `Vec<Glyph>`.
 - **No `Cipher` trait / `AnyCipher`** — brief 02.
 - **No new subcommand.** Only `stats` is wired here; brief 04's `solve` reuses
   `load_sequence`.
-- **No module relocation** into `core/` — brief 07 (`00-OVERVIEW.md:139-156`)
+- **No module relocation** into `core/` — brief 07 (`00-OVERVIEW.md:143-160`)
   owns the layout move; `src/ingest.rs` stays top-level for now.
 - **No changes to `demo`, `corpus`, or any statistic/experiment** — behavior must
-  stay byte-for-byte identical (`00-OVERVIEW.md:188-190`).
+  stay byte-for-byte identical (`00-OVERVIEW.md:192-195`).
 - **No support for additional input layers** (e.g. raw base-7 storage symbols,
   `StorageSymbol` `-1`, `src/glyph.rs:101-136`) beyond the rendered and honeycomb
   layers named here.

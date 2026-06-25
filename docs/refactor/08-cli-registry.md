@@ -10,18 +10,19 @@
 
 ## Goal & why it matters
 
-`src/main.rs` is 1,080 lines that are almost entirely mechanical. Adding a single
+`src/main.rs` is 1,085 lines that are almost entirely mechanical. Adding a single
 new experiment today means **four scattered, easy-to-desync edits**: (1) a
 `Command` enum variant, (2) an `Args` struct with `#[arg(...)]` defaults, (3) a
 `From<Args> for ...Config` impl, and (4) a `run_*` fn that threads
 `run → match Ok/Err → format_error → print_report`. The `From` impls and `run_*`
 fns are pure copy-paste with the type names swapped (compare
-`run_periodicity` at `src/main.rs:723-736` against `run_honeycomb` at
-`src/main.rs:738-751` — identical modulo `periodicity::`↔`honeycomb::`).
+`run_periodicity` at `src/main.rs:729-742` against `run_honeycomb` at
+`src/main.rs:744-757` — identical modulo `periodicity::`↔`honeycomb::`).
 
 The overview flags this directly: "Per-experiment boilerplate | 22 `Config` + 24
-`Args` + 22 `From<Args>` + 28 `run_*` ≈ 4 scattered edits per experiment"
-(`docs/refactor/00-OVERVIEW.md:51`). This brief is the `main.rs`-side payoff of
+`Args` + 22 `From<Args>` + 28 `run_*` CLI dispatchers in `main.rs` ≈ 4 scattered
+edits per experiment" (`docs/refactor/00-OVERVIEW.md:55`). This brief is the
+`main.rs`-side payoff of
 the `Report` trait that brief 06 introduces: once each experiment's report can
 `render(&self) -> String` and each error enum has a `Display` impl, the per-fn
 `match`/`format_*_error`/`print_*_report` triad collapses into one generic
@@ -36,32 +37,34 @@ stdout/stderr. The existing `tests/*_cli.rs` characterization suite (e.g.
 
 **The four-part repetition, by the numbers** (`src/main.rs`):
 
-- `Command` enum: 25 variants, `src/main.rs:33-104`.
-- `Args` structs: 24 (`StatsArgs` `:106`, `AglGakArgs` `:112`, … through the two
-  control-arg structs `MonoalphabeticControlArgs` `:589` and
-  `IsomorphControlArgs` `:601`).
-- `From<Args> for ...Config` impls: 22 (`:126`, `:174`, `:209`, `:228`, `:247`,
-  `:273`, `:295`, `:312`, `:334`, `:354`, `:376`, `:395`, `:416`, `:437`, `:457`,
-  `:477`, `:495`, `:517`, `:543`, `:562`, `:595`, `:607`).
-- `run_*` fns: 28 (`run_demo` `:644` … `run_stats` `:1052`), 24 of which follow
-  the rigid `match run() { Ok(r) => print_*(&r), Err(e) => { eprintln!(..,
-  format_*_error(e)); FAILURE } }` shape — see `run_nulltest` `:657-667`.
-- The `main` dispatch `match` is itself a 25-arm table, `src/main.rs:613-642`,
+- `Command` enum: 26 variants, `src/main.rs:34-104`.
+- `Args` structs: 24 (`StatsArgs` `:107`, `AglGakArgs` `:113`, … through the two
+  control-arg structs `MonoalphabeticControlArgs` `:596` and
+  `IsomorphControlArgs` `:608`).
+- `From<Args> for ...Config` impls: 22 (`:126`, `:178`, `:215`, `:234`, `:253`,
+  `:279`, `:301`, `:318`, `:340`, `:360`, `:382`, `:401`, `:422`, `:443`, `:463`,
+  `:483`, `:501`, `:523`, `:549`, `:568`, `:601`, `:613`).
+- `run_*` fns: 28 (`run_demo` `:650` … `run_stats` `:1058`), 22 of which follow
+  the strict `match run(config) { Ok(r) => print_*(&r), Err(e) => { eprintln!(..,
+  format_*_error(e)); FAILURE } }` shape (config in → single report → print) —
+  see `run_nulltest` `:663-672`. The other 6 are the irregular subcommands
+  (`Demo`, `Orders`, `Grouping`, `Stats`, `Pipelinenull`, `Controls`) below.
+- The `main` dispatch `match` is itself a 26-arm table, `src/main.rs:620-647`,
   every arm `Command::X(args) => run_x(args.into())`.
 
 **The duplicated `seed`/`trials` fields.** Nearly every `Args` struct repeats the
 same two `#[arg(long)] seed: u64` / `trials: usize` fields with a per-module
 default constant:
 
-- `NullArgs` (`src/main.rs:220-226`) is *already* a shared two-field
+- `NullArgs` (`src/main.rs:227-232`) is *already* a shared two-field
   `seed`+`trials` struct, reused by both `Nulltest` (`:54`) and `Pipelinenull`
   (`:64`) — proving the flatten pattern works. Its defaults are the crate-level
   `DEFAULT_NULL_SEED` / `DEFAULT_NULL_TRIALS` (`src/main.rs:17-18`).
 - But the other ~16 experiment arg structs each re-declare `seed`/`trials`
   inline with **module-specific defaults**: e.g. `PeriodicityArgs`
-  (`:257-271`) uses `periodicity::DEFAULT_SEED` / `periodicity::DEFAULT_TRIALS`;
-  `HoneycombArgs` (`:287-293`) uses `honeycomb::DEFAULT_SEED` /
-  `honeycomb::DEFAULT_TRIALS`; `ChainingArgs` (`:322-332`) plus two extra
+  (`:264-277`) uses `periodicity::DEFAULT_SEED` / `periodicity::DEFAULT_TRIALS`;
+  `HoneycombArgs` (`:294-299`) uses `honeycomb::DEFAULT_SEED` /
+  `honeycomb::DEFAULT_TRIALS`; `ChainingArgs` (`:329-338`) plus two extra
   period fields; etc.
 
 **Critical behavior constraint — the defaults differ per subcommand.** The
@@ -79,7 +82,7 @@ defaults (see Target design).
 **`null_trials` is a separate axis.** Only two subcommands carry it, both with a
 distinct `--null-trials` long flag: `AglGakArgs.null_trials`
 (`src/main.rs:116-117`, default `agl_gak::DEFAULT_NULL_TRIALS`) and
-`CipherAttackArgs.null_trials` (`:534-535`, default
+`CipherAttackArgs.null_trials` (`:540-541`, default
 `cipher_attack::DEFAULT_NULL_TRIALS`). They do **not** also carry the plain
 `trials` field — `agl_gak` and `cipher_attack` use `seed` + `null_trials` (+
 others), never `seed`+`trials`+`null_trials` together. So `null_trials` is not a
@@ -88,30 +91,32 @@ universal third column; it is a per-experiment extra.
 **Irregular subcommands that the registry must accommodate (not all fit a
 uniform table):**
 
-- `Demo` (`:38`/`:644-655`), `Orders` (`:39`/`:1025-1050`), `Grouping`
-  (`:66`/`:777-787`): **no Args, no config** — `run` takes nothing.
-- `Stats` (`:36`/`:1052-1063`): Args is a bare positional `sequence: String`
-  (`:106-110`), no seed/trials, and it parses via `parse_rendered_sequence`
-  (`:1065-1079`) rather than a `Config`.
-- `Pipelinenull` (`:64`/`:753-775`): one `run` produces **two** reports
+- `Demo` (`:38`/`:650-661`), `Orders` (`:40`/`:1031-1055`), `Grouping`
+  (`:66`/`:783-793`): **no Args, no config** — `run` takes nothing.
+- `Stats` (`:36`/`:1058-1069`): Args is a bare positional `sequence: String`
+  (`:107-110`), no seed/trials, and it parses via `parse_rendered_sequence`
+  (`:1071-1085`) rather than a `Config`.
+- `Pipelinenull` (`:64`/`:759-781`): one `run` produces **two** reports
   (`run_pipeline_null` + `input_randomness_report`) and prints both with a blank
-  line between (`:771-773`).
-- `Orders` (`:1025-1050`): builds three structs (`summary`, `stats`, `flatness`)
-  and calls `print_orders_report` with all three (`:1048`).
-- `Controls` (`:103`/`:981-993`): a **nested subcommand** (`ControlsArgs` with
+  line between (`:777-779`).
+- `Orders` (`:1031-1055`): builds three structs (`summary`, `stats`, `flatness`)
+  and calls `print_orders_report` with all three (`:1054`).
+- `Controls` (`:103`/`:987-999`): a **nested subcommand** (`ControlsArgs` with
   `#[command(subcommand)] target: Option<ControlTarget>` and a top-level
-  `--seed`, `src/main.rs:571-587`), dispatching to two inner controls with a
-  `None`→monoalphabetic default fallback (`:986-991`).
-- `Dofnull` (`:57`/`DofNullArgs` `:237-245`): has a `--calib-trials`
+  `--seed`, `src/main.rs:579-584`), dispatching to two inner controls with a
+  `None`→monoalphabetic default fallback (`:992-998`).
+- `Dofnull` (`:57`/`DofNullArgs` `:244-251`): has a `--calib-trials`
   `Option<usize>` that defaults to `trials` inside the `From` impl
-  (`:251`, `args.calibration_trials.unwrap_or(args.trials)`).
+  (`:257`, `args.calibration_trials.unwrap_or(args.trials)`).
 
 **The dispatch target (brief-06 surface).** Today each `run_*` calls a pair of
 free fns in `report.rs`: a `format_*_error(...) -> String` (23 of them,
-`src/report.rs:19-746`) and a `print_*_report(&Report)` (24 of them,
-`src/report.rs:747-5394`). Brief 06 replaces these with `impl Display`/`thiserror`
-on each error enum and a `Report::render(&self) -> String` per report type
-(`docs/refactor/00-OVERVIEW.md:112-120`). This brief consumes that surface: the
+`src/report.rs:19-750`) and a per-experiment `print_*_report(&Report)` (25 pub
+single-report printers, `src/report.rs:753-5399` — excluding the 3-arg
+`print_orders_report` and the generic `print_report(label, seq)`). Brief 06
+replaces these with `impl Display`/`thiserror` on each error enum and a
+`Report::render(&self) -> String` per report type
+(`docs/refactor/00-OVERVIEW.md:116-121`). This brief consumes that surface: the
 registry's generic dispatch calls `report.render()` and `eprintln!("{err}")`
 instead of the named `print_*`/`format_*` fns. **Order this brief after 06.**
 
@@ -119,7 +124,7 @@ instead of the named `print_*`/`format_*` fns. **Order this brief after 06.**
 to `CARGO_BIN_EXE_noita-eye` and asserts on stable report labels via
 `assert_contains` (`:39-44`). `tests/nulls_cli.rs` already pins
 `nulltest`/`dofnull`/`pipelinenull` flag behavior, including
-`dofnull_calibration_trials_default_to_trials` (`tests/nulls_cli.rs:39-47`).
+`dofnull_calibration_trials_default_to_trials` (`tests/nulls_cli.rs:39-45`).
 clap is `4.5.4`-pinned in `Cargo.toml:24` (resolved `4.6.1` in `Cargo.lock`) with
 the `derive` feature — `#[command(flatten)]` is available.
 
@@ -130,7 +135,7 @@ Two independent pieces, landed in order: **(a)** the flattened arg struct, then
 
 ### (a) Shared `NullArgs` flattened via `#[command(flatten)]`
 
-Keep the existing `NullArgs` name (it already exists at `src/main.rs:220`) but
+Keep the existing `NullArgs` name (it already exists at `src/main.rs:227`) but
 make it the *one* place `seed`+`trials` live, and flatten it into every
 subcommand that repeats those two fields. The blocker is per-subcommand defaults.
 clap's `default_value_t` is a compile-time attribute on the field, so a single
@@ -209,7 +214,7 @@ behavior change.
 ### (b) `Experiment`-trait-backed registry
 
 Lean on brief 02's `Experiment`/`Report` traits
-(`docs/refactor/00-OVERVIEW.md:112-120`). Define, in `main.rs` (or a thin
+(`docs/refactor/00-OVERVIEW.md:116-121`). Define, in `main.rs` (or a thin
 `src/cli.rs` module), a registry that maps each clap variant to one entry that
 owns: build `Config` from `Args`, call the run fn, and `render` the report.
 
@@ -267,7 +272,7 @@ emit(outcome)
 where `emit(RunOutcome) -> ExitCode` does the `println!`/`eprintln!` + exit code.
 This removes the per-experiment `run_*` fn *and* the per-fn error-prefix string:
 today each `eprintln!` hardcodes a label like `"periodicity error: {}"`
-(`src/main.rs:727`) or `"honeycomb lattice error: {}"` (`:743`). **Behavior
+(`src/main.rs:734`) or `"honeycomb lattice error: {}"` (`:749`). **Behavior
 note:** brief 06's `Display` impls must reproduce those user-facing prefixes (the
 `tests/*_cli.rs` negative suites and brief-01 golden masters assert on stderr
 text). If a prefix like `"periodicity error: "` is part of the contract, fold it
@@ -278,8 +283,8 @@ against the golden masters which prefixes are load-bearing.
 **Irregular variants stay as bespoke `run_*` fns** returning `RunOutcome` (or
 `ExitCode` via `emit`): `Demo`, `Orders`, `Grouping` (no config), `Stats`
 (positional parse), `Pipelinenull` (two reports — concatenate the two
-`render()`s with the blank-line separator from `src/main.rs:772`), and `Controls`
-(nested subcommand with the `None` fallback at `:986-991`). These are ~6 fns; the
+`render()`s with the blank-line separator from `src/main.rs:778`), and `Controls`
+(nested subcommand with the `None` fallback at `:992-998`). These are ~6 fns; the
 registry collapses the other ~18. Do **not** force them into the uniform table —
 forcing the two-report and nested-subcommand cases would obscure, not simplify.
 
@@ -287,7 +292,7 @@ forcing the two-report and nested-subcommand cases would obscure, not simplify.
 
 | Step | Before (today) | After (this brief) |
 | ---- | -------------- | ------------------ |
-| clap variant | add `Command::Foo(FooArgs)` (`main.rs:33-104`) | same — add `Command::Foo(FooArgs)` |
+| clap variant | add `Command::Foo(FooArgs)` (`main.rs:34-104`) | same — add `Command::Foo(FooArgs)` |
 | Args struct | new `FooArgs` with inline `seed`/`trials` + extras (`~10 lines`) | new `FooArgs` with `#[command(flatten)] null: NullArgs` + extras only (`~5 lines`) |
 | `From<Args>` | new `impl From<FooArgs> for foo::FooConfig` (`~8 lines`) | new `impl` using `null.seed_or(..)`/`trials_or(..)` (`~6 lines`) |
 | dispatch wiring | new `fn run_foo(cfg) -> ExitCode` (`~12 lines`) **plus** an arm in `main`'s `match` **plus** a `format_foo_error` + `print_foo_report` in `report.rs` | **one** `match` arm: `Command::Foo(a) => dispatch(a.into(), foo::run_foo)` |
@@ -313,7 +318,7 @@ masters + `tests/*_cli.rs` unchanged).
 
 2. **Introduce `dispatch` + `emit` + `RunOutcome`, convert ONE regular
    subcommand** (suggest `Nulltest`, already covered by `tests/nulls_cli.rs`).
-   Replace `run_nulltest` (`src/main.rs:657-667`) with a `dispatch(...,
+   Replace `run_nulltest` (`src/main.rs:663-672`) with a `dispatch(...,
    null::run_standard36_null)` arm and `emit`. Keep all other `run_*` fns
    untouched. Green + `tests/nulls_cli.rs` passes ⇒ the pattern is proven.
 
@@ -347,11 +352,12 @@ masters + `tests/*_cli.rs` unchanged).
 
 ## Files to create / change / delete
 
-- **Change** `src/main.rs`: redefine `NullArgs` (`:220-235`) as the shared
-  flattened struct with `seed_or`/`trials_or`; add `dispatch`/`emit`/`RunOutcome`;
-  convert ~18 `Args` structs to flatten `NullArgs`; convert their `From` impls to
-  use the builder helpers; delete ~18 uniform `run_*` fns; shrink the `main`
-  match (`:613-642`) to one-line arms; keep the 6 irregular fns. This is the only
+- **Change** `src/main.rs`: redefine `NullArgs` (`:227-241`, struct + `From`
+  impl) as the shared flattened struct with `seed_or`/`trials_or`; add
+  `dispatch`/`emit`/`RunOutcome`; convert ~18 `Args` structs to flatten
+  `NullArgs`; convert their `From` impls to use the builder helpers; delete ~18
+  uniform `run_*` fns; shrink the `main` match (`:620-647`) to one-line arms;
+  keep the 6 irregular fns. This is the only
   file this brief *must* change.
 - **Create (optional)** `src/cli.rs` (+ `pub mod cli;` in `lib.rs`) if the
   registry/`dispatch` helpers read better factored out of `main.rs`. Keep it thin
@@ -396,7 +402,7 @@ masters + `tests/*_cli.rs` unchanged).
   `tests/periodicity_cli.rs`, `tests/chaining_cli.rs`,
   `tests/controls_cli.rs`, et al. (the `tests/*_cli.rs` set) must pass unchanged —
   in particular `dofnull_calibration_trials_default_to_trials`
-  (`tests/nulls_cli.rs:39-47`), which pins the `--calib-trials`→`trials` default,
+  (`tests/nulls_cli.rs:39-45`), which pins the `--calib-trials`→`trials` default,
   and the `--trials`/`--seed` flag handling exercised throughout.
 - **Negative paths.** Run each error path that has a `run_noita_eye_failure`
   test (`tests/common/mod.rs:23-36`) and confirm the stderr prefix + message are
@@ -416,7 +422,7 @@ masters + `tests/*_cli.rs` unchanged).
   and keep its fields inline. **Do not** present a flattened-but-help-regressed
   state as behavior-preserving.
 - **Load-bearing stderr prefixes.** The per-`run_*` `eprintln!` labels
-  (`"periodicity error: "` `:727`, `"honeycomb lattice error: "` `:743`, etc.)
+  (`"periodicity error: "` `:734`, `"honeycomb lattice error: "` `:749`, etc.)
   are user-facing and may be golden. They must survive — either inside brief-06
   `Display` impls or via a `dispatch_labelled` wrapper. Verify against the golden
   masters which are contractual before removing any.
@@ -430,7 +436,7 @@ masters + `tests/*_cli.rs` unchanged).
 - **No statistic or decode changes.** This is pure CLI plumbing; the corpus
   base-7 cross-check, every null calibration, and every reported p-value/z must
   be untouched. The golden-master diff is the proof, per
-  `docs/refactor/00-OVERVIEW.md:188-191`.
+  `docs/refactor/00-OVERVIEW.md:192-195`.
 
 ## Out of scope / non-goals
 

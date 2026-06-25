@@ -1,6 +1,6 @@
 # 06 — Dissolve report.rs + error Display
 
-> One-line: Break the 5,686-line `report.rs` god-file apart so each module owns its own error-formatting (`Display`) and report-rendering (`Report::render`) code, leaving `report.rs` as a small bag of genuinely shared formatting helpers.
+> One-line: Break the 5,694-line `report.rs` god-file apart so each module owns its own error-formatting (`Display`) and report-rendering (`Report::render`) code, leaving `report.rs` as a small bag of genuinely shared formatting helpers.
 > Status: not started · Depends on: 01 (golden-master net); 05 helps · Blocks: 08 (CLI registry calls `Report::render` generically) · Size: M
 
 ## Goal & why it matters
@@ -12,7 +12,7 @@ experiment module's error enum and `*Report` struct is rendered by hand-written
 free functions living *here* instead of next to the type they describe. That
 means adding or changing one experiment touches `report.rs`, and `report.rs`
 re-imports the whole crate — the textbook god-file / hub smell from the overview
-(`docs/refactor/00-OVERVIEW.md:49-50`).
+(`docs/refactor/00-OVERVIEW.md:53-54`).
 
 This brief does two mechanical, behavior-preserving moves:
 
@@ -28,109 +28,113 @@ This brief does two mechanical, behavior-preserving moves:
 The payoff: `report.rs` shrinks to shared formatting primitives only, the
 per-experiment edit cost drops, and brief 08 gets a uniform `Report` surface to
 build a registry on. It serves the maintainability track of the reframe
-(`docs/refactor/00-OVERVIEW.md:112-120`): "Each error enum gets a
+(`docs/refactor/00-OVERVIEW.md:123-124`): "Each error enum gets a
 `Display`/`thiserror` impl … `report.rs` keeps only shared formatting helpers."
 
 ## Current state (grounded, with file:line)
 
 **The error-formatting functions (23 `format_*`, 22 distinct CLI entry points).**
-All live in `report.rs:19-744`, each a `pub fn format_X_error(error) -> String`
+All live in `report.rs:19-750`, each a `pub fn format_X_error(error) -> String`
 that `match`es the enum and `format!`s a string:
 
 - `format_corpus_error` — `src/report.rs:19`
 - `format_agl_gak_error` — `src/report.rs:36`
 - `format_gak_attack_error` — `src/report.rs:73`
-- `format_periodicity_error` — `src/report.rs:139`
-- `format_null_config_error` — `src/report.rs:160` *(internal: only called by `format_null_run_error`)*
-- `format_null_run_error` — `src/report.rs:170`
-- `format_honeycomb_error` — `src/report.rs:179`
-- `format_dof_null_error` — `src/report.rs:192`
-- `format_isomorph_null_error` — `src/report.rs:230`
-- `format_chaining_error` — `src/report.rs:253`
-- `format_chaining_graph_error` — `src/report.rs:283`
-- `format_modular_diff_error` — `src/report.rs:323`
-- `format_pyry_conditions_error` — `src/report.rs:350`
-- `format_perseus_error` — `src/report.rs:373`
-- `format_perfect_isomorphism_error` — `src/report.rs:400`
-- `format_zero_adjacency_null_error` — `src/report.rs:433`
-- `format_tree_residual_error` — `src/report.rs:463`
-- `format_cipher_attack_error` — `src/report.rs:509` *(already just `error.to_string()` — see below)*
-- `format_grouping_error` — `src/report.rs:515`
-- `format_orientation_homogeneity_error` — `src/report.rs:542`
-- `format_controls_error` — `src/report.rs:584`
-- `format_conditional_structure_error` — `src/report.rs:684`
-- `format_transitivity_error` — `src/report.rs:726`
+- `format_periodicity_error` — `src/report.rs:145`
+- `format_null_config_error` — `src/report.rs:166` *(internal: only called by `format_null_run_error`)*
+- `format_null_run_error` — `src/report.rs:176`
+- `format_honeycomb_error` — `src/report.rs:185`
+- `format_dof_null_error` — `src/report.rs:198`
+- `format_isomorph_null_error` — `src/report.rs:236`
+- `format_chaining_error` — `src/report.rs:259`
+- `format_chaining_graph_error` — `src/report.rs:289`
+- `format_modular_diff_error` — `src/report.rs:329`
+- `format_pyry_conditions_error` — `src/report.rs:356`
+- `format_perseus_error` — `src/report.rs:379`
+- `format_perfect_isomorphism_error` — `src/report.rs:406`
+- `format_zero_adjacency_null_error` — `src/report.rs:439`
+- `format_tree_residual_error` — `src/report.rs:469`
+- `format_cipher_attack_error` — `src/report.rs:515` *(already just `error.to_string()` — see below)*
+- `format_grouping_error` — `src/report.rs:521`
+- `format_orientation_homogeneity_error` — `src/report.rs:548`
+- `format_controls_error` — `src/report.rs:590`
+- `format_conditional_structure_error` — `src/report.rs:690`
+- `format_transitivity_error` — `src/report.rs:732`
 
-**Six error enums already have a hand-written `Display` impl in their own
-module** — this is the target pattern, already used in-crate:
+**Six in-crate types already have a hand-written `Display` impl in their own
+module** — this is the target pattern, already used in-crate (five of the six are
+error enums; `glyph::Glyph` is a value type whose `Display` follows the same
+colocated style):
 `src/cipher_attack.rs:128` (`impl fmt::Display for CipherAttackError`, with
-`impl std::error::Error` at `:165`), `src/agl_gak.rs:130`, `src/ciphers.rs:212`,
-`src/glyph.rs:142`, `src/language.rs:79`, `src/perfect_isomorphism.rs:124`.
-`format_cipher_attack_error` (`src/report.rs:509-511`) is *already* just
+`impl std::error::Error` at `:165`), `src/agl_gak.rs:130`,
+`src/ciphers.rs:212` (`CipherError`), `src/glyph.rs:142` (`Glyph`),
+`src/language.rs:79` (`LanguageError`),
+`src/perfect_isomorphism.rs:124` (`PerfectIsomorphismError`).
+`format_cipher_attack_error` (`src/report.rs:515-517`) is *already* just
 `error.to_string()`, proving the end state works and is wired through the CLI.
 
 **Two cross-cutting facts that are load-bearing for byte-identical output:**
 
 - `orders::GridError` (`src/orders.rs:28`) has **no `Display` impl** — every
   error renders it via Debug as `format!("grid/order error: {grid_error:?}")`
-  (e.g. `src/report.rs:38`, `:141`, `:181`, `:194`, `:233`). The new `Display`
+  (e.g. `src/report.rs:38`, `:148`, `:188`, `:201`, `:239`). The new `Display`
   impls **must keep `{grid_error:?}` (Debug)**, not invent a `GridError`
   `Display`, or the rendered text changes. (Adding a `GridError` `Display` is
   explicitly out of scope here.)
 - Some `format_*` fns delegate to siblings: `format_null_run_error` →
-  `format_null_config_error` (`src/report.rs:172`); `format_tree_residual_error`
-  → `format_perseus_error` (`src/report.rs:469`); `format_transitivity_error` →
-  `format_chaining_graph_error` (`src/report.rs:733`). Under `Display` these
+  `format_null_config_error` (`src/report.rs:178`); `format_tree_residual_error`
+  → `format_perseus_error` (`src/report.rs:477`); `format_transitivity_error` →
+  `format_chaining_graph_error` (`src/report.rs:740`). Under `Display` these
   become `{config_error}`, `{perseus_error}`, `{chaining_error}` once the inner
   enums have `Display` — migrate the inner enum first so the outer one can use
   it.
 
 **The report-printing functions (27 distinct CLI entry points + ~140 private
-helpers).** All in `report.rs:747-5686`. Each public `print_*_report` is a
+helpers).** All in `report.rs:753-5694`. Each public `print_*_report` is a
 `pub fn print_X_report(report: &module::XReport)` that writes directly to stdout
 with `println!`, calling many module-private helpers. Representative bodies:
-`print_honeycomb_report` (`src/report.rs:993-1025`) calls
-`print_honeycomb_pair_section` (`:1027`), `print_honeycomb_position_section`
-(`:1057`), `print_honeycomb_parity_section` (`:1074`),
-`print_honeycomb_interpretation` (`:1105`), plus shared `format_probability`,
+`print_honeycomb_report` (`src/report.rs:999-1031`) calls
+`print_honeycomb_pair_section` (`:1033`), `print_honeycomb_position_section`
+(`:1063`), `print_honeycomb_parity_section` (`:1080`),
+`print_honeycomb_interpretation` (`:1111`), plus shared `format_probability`,
 `print_tail_line`, etc. The 27 entry points (all called from `main.rs`):
 
-`print_null_report` (`:747`), `print_dof_null_report` (`:800`),
-`print_honeycomb_report` (`:993`), `print_periodicity_report` (`:1147`),
-`print_monoalphabetic_control_report` (`:1527`), `print_isomorph_control_report`
-(`:1597`), `print_pipeline_null_report` (`:1670`), `print_isomorph_null_report`
-(`:1708`), `print_conditional_structure_report` (`:1795`), `print_perseus_report`
-(`:2347`), `print_perfect_isomorphism_report` (`:2504`),
-`print_zero_adjacency_null_report` (`:2766`), `print_tree_residual_report`
-(`:2882`), `print_chaining_report` (`:3002`), `print_chaining_graph_report`
-(`:3119`), `print_transitivity_report` (`:3236`), `print_modular_diff_report`
-(`:3325`), `print_pyry_conditions_report` (`:3500`), `print_cipher_attack_report`
-(`:3691`), `print_agl_gak_report` (`:3914`), `print_gak_attack_report` (`:4086`),
-`print_gak_attack_eyes_report` (`:4406`), `print_input_randomness_report`
-(`:4808`), `print_orientation_homogeneity_report` (`:4847`),
-`print_grouping_report` (`:5066`), `print_orders_report` (`:5346`),
-`print_report` (`:5394`).
+`print_null_report` (`:753`), `print_dof_null_report` (`:806`),
+`print_honeycomb_report` (`:999`), `print_periodicity_report` (`:1153`),
+`print_monoalphabetic_control_report` (`:1533`), `print_isomorph_control_report`
+(`:1603`), `print_pipeline_null_report` (`:1676`), `print_isomorph_null_report`
+(`:1714`), `print_conditional_structure_report` (`:1801`), `print_perseus_report`
+(`:2353`), `print_perfect_isomorphism_report` (`:2510`),
+`print_zero_adjacency_null_report` (`:2772`), `print_tree_residual_report`
+(`:2888`), `print_chaining_report` (`:3008`), `print_chaining_graph_report`
+(`:3125`), `print_transitivity_report` (`:3242`), `print_modular_diff_report`
+(`:3331`), `print_pyry_conditions_report` (`:3506`), `print_cipher_attack_report`
+(`:3697`), `print_agl_gak_report` (`:3920`), `print_gak_attack_report` (`:4092`),
+`print_gak_attack_eyes_report` (`:4412`), `print_input_randomness_report`
+(`:4816`), `print_orientation_homogeneity_report` (`:4855`),
+`print_grouping_report` (`:5074`), `print_orders_report` (`:5354`),
+`print_report` (`:5402`).
 
 **The CLI consumes these by free function.** `main.rs` has **53** `report::`
 call sites (`grep -c 'report::' src/main.rs`), the error path and the print path
 side by side, e.g.:
 
 ```
-651:  eprintln!("{}", report::format_corpus_error(error));
-665:  report::print_null_report(&report);
-673:  eprintln!("AGL-GAK error: {}", report::format_agl_gak_error(&error));
-677:  report::print_agl_gak_report(&report);
+657:  eprintln!("{}", report::format_corpus_error(error));
+671:  report::print_null_report(&report);
+679:  eprintln!("AGL-GAK error: {}", report::format_agl_gak_error(&error));
+683:  report::print_agl_gak_report(&report);
 ```
 
-`print_report` (`src/report.rs:5394`) and `print_orders_report`
-(`src/report.rs:5346`) are **not** keyed to a single `*Report` struct — the
+`print_report` (`src/report.rs:5402`) and `print_orders_report`
+(`src/report.rs:5354`) are **not** keyed to a single `*Report` struct — the
 first takes `(label, &Sequence)`, the second takes
 `(&GridSummary, &[NamedOrderStats], &[NamedReadingLayerFlatnessStats])`. These
 two stay as free functions or get a thin wrapper; they do not fit the
 single-struct `Report` trait cleanly (see Out of scope).
 
 **Output mechanism is `println!` to stdout, not a returned `String`.** Every
-`print_*` body prints directly (e.g. `src/report.rs:994-1024`). The target
+`print_*` body prints directly (e.g. `src/report.rs:1000-1030`). The target
 `render(&self) -> String` must build a `String` (via `use std::fmt::Write;` +
 `writeln!`/`write!`) and the CLI prints it once. Trailing-newline behavior is
 load-bearing: a body ending in `println!(...)` emits a final `\n`; the assembled
@@ -139,7 +143,7 @@ the CLI must use `print!("{}", report.render())` — **not** `println!` — so n
 extra `\n` is appended.
 
 **Golden-master coverage.** Brief 01 provides the full-output byte-for-byte net.
-Today's CLI tests (e.g. `tests/honeycomb_cli.rs:9-44`) only assert *substrings*
+Today's CLI tests (e.g. `tests/honeycomb_cli.rs:8-33`) only assert *substrings*
 via `common::assert_contains` (`tests/common/mod.rs:39`), and capture stdout from
 the compiled binary (`tests/common/mod.rs:6-16`). Substring tests will *not*
 catch a dropped/added newline or reordered line — **brief 01's full-output
@@ -180,17 +184,17 @@ impl std::error::Error for HoneycombError {}
 ```
 
 The arm text must be **byte-identical** to the current `format_honeycomb_error`
-arms (`src/report.rs:179-188`): copy the `format!` payloads verbatim, swapping
+arms (`src/report.rs:185-194`): copy the `format!` payloads verbatim, swapping
 `format!(...)` → `write!(f, ...)` and `.to_owned()` strings → `write!(f, "...")`.
 Add `impl std::error::Error` to match the existing `CipherAttackError` precedent
 (`src/cipher_attack.rs:165`) so the enums are real errors (enables `?` ergonomics
 later; harmless now). For delegating arms, prefer `{inner}` once `inner` has
 `Display` (e.g. `TreeResidualError::Perseus(e) => write!(f, "shared-region
 reconstruction error: {e}")`, replacing the `format_perseus_error(e)` call at
-`src/report.rs:469`) — **verify the inner `Display` produces the same bytes** as
+`src/report.rs:477`) — **verify the inner `Display` produces the same bytes** as
 the old `format_*` delegate before deleting the delegate.
 
-`format_null_config_error` (`src/report.rs:160`) is internal-only; fold it into
+`format_null_config_error` (`src/report.rs:166`) is internal-only; fold it into
 `NullConfigError`'s `Display`, then `NullRunError`'s `Display` uses
 `{config_error}`.
 
@@ -198,7 +202,7 @@ the old `format_*` delegate before deleting the delegate.
 
 Add a tiny trait. Proposed home: a new `src/report/mod.rs` (after brief 07's
 directory split) or, pre-07, a new `pub trait` at the top of the surviving
-`report.rs`. Keep the name from the overview (`docs/refactor/00-OVERVIEW.md:116`):
+`report.rs`. Keep the name from the overview (`docs/refactor/00-OVERVIEW.md:120`):
 
 ```rust
 /// A domain report that can render itself to user-facing CLI text.
@@ -228,7 +232,7 @@ impl Report for HoneycombReport {
 ```
 
 The dozens of module-private helpers (`print_honeycomb_pair_section` etc.,
-`src/report.rs:1027-1144`) move into the same module as private free functions
+`src/report.rs:1033-1150`) move into the same module as private free functions
 taking `&mut String` (or `&self`), e.g. `fn pair_section(out: &mut String,
 report: &HoneycombReport)`. Helpers that are **shared across modules** stay in
 `report.rs` (see §3).
@@ -238,19 +242,19 @@ report: &HoneycombReport)`. Helpers that are **shared across modules** stay in
 After migration, `report.rs` keeps the formatting primitives used by **more than
 one** experiment module, re-exported as `pub(crate)` so the moved `render` impls
 can call them. Candidates from the helper inventory (`src/report.rs`):
-`format_probability` (`:3905`), `format_percent` (`:3901`), `fraction`
-(`:3893`), `print_interval`/`format` of `WilsonInterval` (`:5338`),
-`format_widths` (`:5410`), `format_span` (`:5418`), `yes_no` (`:4759`),
-`preview_text` (`:4763`), `format_positions` (`:4779`), `format_optional_*`
-(`:4792-4800`), `format_u8_values`/`format_usize_values` (`:4726`/`:4737`),
-`NumberRange` + `format_number_range`/`format_ratio_range` (`:4582`/`:4590`),
-`counted_form` (`:1326`), `format_seed_list` (`:1478`). **Before moving a helper,
+`format_probability` (`:3911`), `format_percent` (`:3907`), `fraction`
+(`:3899`), `print_interval`/`format` of `WilsonInterval` (`:5346`),
+`format_widths` (`:5418`), `format_span` (`:5426`), `yes_no` (`:4767`),
+`preview_text` (`:4771`), `format_positions` (`:4787`), `format_optional_*`
+(`:4800-4808`), `format_u8_values`/`format_usize_values` (`:4734`/`:4745`),
+`NumberRange` + `format_number_range`/`format_ratio_range` (`:4590`/`:4598`),
+`counted_form` (`:1332`), `format_seed_list` (`:1484`). **Before moving a helper,
 `grep` its call sites**: if it is called from exactly one `print_*` family,
 co-locate it with that report; if from several, keep it shared. Convert the
 shared `print_*`-style helpers (e.g. `print_interval`) to return/append-to a
 `String` so the `render` impls can use them.
 
-`print_report` (`:5394`) and `print_orders_report` (`:5346`) — the two
+`print_report` (`:5402`) and `print_orders_report` (`:5354`) — the two
 multi-arg/non-struct entry points — stay as `pub fn … -> String` shared
 renderers (rename to `render_sequence_report` / `render_orders_report` or keep
 the name but change the return type), since they have no single owning struct.
@@ -295,8 +299,8 @@ conditional_structure) last.
    `cipher_attack`, `agl_gak`, `perfect_isomorphism` (Display already present at
    `src/cipher_attack.rs:128`, `src/agl_gak.rs:130`,
    `src/perfect_isomorphism.rs:124`): delete `format_cipher_attack_error`
-   (`:509`), `format_agl_gak_error` (`:36`), `format_perfect_isomorphism_error`
-   (`:400`); update `main.rs` to use `{error}`. Then add `impl Report` for
+   (`:515`), `format_agl_gak_error` (`:36`), `format_perfect_isomorphism_error`
+   (`:406`); update `main.rs` to use `{error}`. Then add `impl Report` for
    `CipherAttackReport` / `AglGakReport` / `PerfectIsomorphismReport`, moving the
    `print_*` bodies + their private helpers. Update `main.rs` print sites to
    `print!("{}", report.render())`. One commit per module. `make verify` + golden
@@ -318,25 +322,25 @@ conditional_structure) last.
 4. **Migrate `null`** (`NullConfigError` + `NullRunError`, and `NullReport`).
    Fold `format_null_config_error` into `NullConfigError::Display`, then
    `NullRunError::Display` uses `{config_error}`. Move `print_null_report`
-   (`:747`) into `impl Report for NullReport`. Verify the `print_pipeline_null_report`
-   (`:1670`, also takes `&null::NullReport`) reuse still renders identically — it
+   (`:753`) into `impl Report for NullReport`. Verify the `print_pipeline_null_report`
+   (`:1676`, also takes `&null::NullReport`) reuse still renders identically — it
    may need a distinct wrapper since two CLI paths render the same struct
    differently; if so keep a small free `render_pipeline_null(&NullReport)` shared
    fn rather than a second `Report` impl on the same type.
 
 5. **Migrate the delegating experiments** (after their inner deps are done):
    `tree_residual` (uses `PerseusError` Display — step 3 must have done perseus
-   first; replace `format_perseus_error` delegate at `:469` with `{perseus_error}`),
+   first; replace `format_perseus_error` delegate at `:477` with `{perseus_error}`),
    `chaining_graph` then `transitivity` (transitivity delegates to
-   `format_chaining_graph_error` at `:733`; do `chaining_graph` first, then
+   `format_chaining_graph_error` at `:740`; do `chaining_graph` first, then
    transitivity uses `{chaining_error}`). `conditional_structure` (large: ~25
-   private helpers `src/report.rs:1854-2345`) — move all colocated.
+   private helpers `src/report.rs:1860-2350`) — move all colocated.
 
 6. **Migrate `gak_attack`** (`GakAttackError`, `GakAttackReport`,
-   `EyesAttackReport`). This is the largest: `print_gak_attack_report` (`:4086`),
-   `print_gak_attack_eyes_report` (`:4406`), and ~12 private helpers
-   (`src/report.rs:4120-4404`, `:4434-4564`). `gak_attack.rs` is already a
-   7,967-line god-file (brief 07 splits it) — **coordinate with brief 07**: if 07
+   `EyesAttackReport`). This is the largest: `print_gak_attack_report` (`:4092`),
+   `print_gak_attack_eyes_report` (`:4412`), and ~12 private helpers
+   (`src/report.rs:4126-4404`, `:4440-4572`). `gak_attack.rs` is already an
+   8,147-line god-file (brief 07 splits it) — **coordinate with brief 07**: if 07
    has split `gak_attack.rs` into `src/attack/gak/`, place the `impl Report` next
    to the report struct in whichever sub-file owns it. Do this on the same branch
    as, or after, 07's gak split to avoid a three-way merge.
@@ -345,9 +349,9 @@ conditional_structure) last.
    `print_*_report` is gone, audit what remains in `report.rs`: keep only the
    cross-module helpers (§3), convert them to `String`-appending form, mark
    `pub(crate)`, and re-point the moved `render` impls at them. Convert
-   `print_orders_report` (`:5346`) and `print_report` (`:5394`) to
-   `render_*  -> String`. Update their two `main.rs` call sites
-   (`src/main.rs:647`, `:1048`, `:1055`). `report.rs` should now be a few hundred
+   `print_orders_report` (`:5354`) and `print_report` (`:5402`) to
+   `render_*  -> String`. Update their `main.rs` call sites
+   (`src/main.rs:653`, `:1054`, `:1061`). `report.rs` should now be a few hundred
    lines of helpers + the `Report` trait. `make check` (full gate incl.
    `cargo-machete` to confirm no now-unused imports remain, and the giant
    `use crate::{...}` block at `src/report.rs:8-13` shrinks). Commit.
@@ -403,7 +407,7 @@ remaining helpers live in `src/report/mod.rs`; otherwise they stay in
   report struct; the CLI calls it generically (no per-experiment `print_*`
   dispatch except the two shared renderers).
 - `report.rs` is reduced to shared formatting helpers + the trait (target: well
-  under ~700 lines vs. today's 5,686), and its hub import block no longer pulls
+  under ~700 lines vs. today's 5,694), and its hub import block no longer pulls
   in all 27 modules.
 - No new dependency (`Cargo.toml`/`Cargo.lock` unchanged except possibly nothing;
   `thiserror` not added). `cargo machete` clean.
@@ -471,7 +475,7 @@ remaining helpers live in `src/report/mod.rs`; otherwise they stay in
 - **Coordinate `gak_attack` with brief 07.** `gak_attack.rs` is split by 07; doing
   its `impl Report` independently risks a three-way merge. Sequence step 6 after
   07's gak split, or do both on one branch (overview's noted conflict point,
-  `docs/refactor/00-OVERVIEW.md:181-182`).
+  `docs/refactor/00-OVERVIEW.md:183-186`).
 - **No claim/statistic changes.** This is pure presentation plumbing: no reported
   number, p-value, decode, or null calibration may move. The claim ceiling is
   untouched.
@@ -484,7 +488,7 @@ remaining helpers live in `src/report/mod.rs`; otherwise they stay in
 - Adding a `Display` impl to `orders::GridError` (would change rendered text;
   separate change).
 - The `Experiment` trait / experiment registry and the CLI registry — that is
-  brief 08 (`docs/refactor/00-OVERVIEW.md:171`); this brief only delivers the
+  brief 08 (`docs/refactor/00-OVERVIEW.md:175`); this brief only delivers the
   `Report::render` surface 08 builds on.
 - Splitting `gak_attack.rs` / module-directory reorg — brief 07.
 - Null/experiment-harness dedup — brief 05 (it *helps* by collapsing duplicated

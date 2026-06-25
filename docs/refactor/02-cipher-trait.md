@@ -5,9 +5,9 @@
 
 ## Goal & why it matters
 
-`ciphers.rs` exposes seven families as fourteen bespoke free functions (`caesar_encrypt`/`caesar_decrypt`, …, `gak_encrypt`/`gak_decrypt`) keyed off seven unrelated `*Key` structs. There is **no `Cipher` trait** — the crate has zero traits — so any consumer that wants to "run *some* cipher chosen at runtime" must hand-write a `match` over fourteen functions. Brief 04's solve engine needs exactly that: drive a heterogeneous list of cipher+key pairs (`Candidate { cipher: AnyCipher, … }` in the overview, `00-OVERVIEW.md:131`) through one `encrypt`/`decrypt` surface.
+`ciphers.rs` exposes seven families as fourteen bespoke free functions (`caesar_encrypt`/`caesar_decrypt`, …, `gak_encrypt`/`gak_decrypt`) keyed off seven unrelated `*Key` structs. There is **no `Cipher` trait** — the crate has zero traits — so any consumer that wants to "run *some* cipher chosen at runtime" must hand-write a `match` over fourteen functions. Brief 04's solve engine needs exactly that: drive a heterogeneous list of cipher+key pairs (`Candidate { cipher: AnyCipher, … }` in the overview, `00-OVERVIEW.md:135`) through one `encrypt`/`decrypt` surface.
 
-This brief delivers the shared spine from `00-OVERVIEW.md:63-81`: `trait Cipher { type Key; … }` plus an object-safe-substitute `AnyCipher` enum. It is **purely additive**: the seven free-function pairs stay as the canonical implementation, the trait/enum delegate to them, and every existing round-trip test and every downstream caller keeps compiling and producing identical results. No statistic, no decode, no key-validation behavior changes.
+This brief delivers the shared spine from `00-OVERVIEW.md:67-85`: `trait Cipher { type Key; … }` plus an object-safe-substitute `AnyCipher` enum. It is **purely additive**: the seven free-function pairs stay as the canonical implementation, the trait/enum delegate to them, and every existing round-trip test and every downstream caller keeps compiling and producing identical results. No statistic, no decode, no key-validation behavior changes.
 
 ## Current state (grounded, with file:line)
 
@@ -20,29 +20,29 @@ Module is declared flat in `src/lib.rs:77` (`pub mod ciphers;`).
 - `ChaocipherKey` — `src/ciphers.rs:511` (fields `alphabet_size`, `left`, `right`).
 - `DeckCipherKey` — `src/ciphers.rs:585` (fields `alphabet_size`, `deck`, `control_a`, `control_b`).
 - `AglGakKey` — `src/ciphers.rs:675` (fields incl. `subgroup: AglMultiplierSubgroup` at `src/ciphers.rs:662`, `letter_elements: Vec<(usize, usize)>`).
-- `GakKey` — `src/ciphers.rs:956` (fields `ciphertext_alphabet_size`, `state_size`, `plaintext_letters`, `initial_state`, `coset_readout: CosetReadout` at `src/ciphers.rs:777`; built via `GakKey::new` `src/ciphers.rs:979` or `GakKey::deck`).
+- `GakKey` — `src/ciphers.rs:961` (fields `ciphertext_alphabet_size`, `state_size`, `plaintext_letters`, `initial_state`, `coset_readout: CosetReadout` at `src/ciphers.rs:777`; built via `GakKey::new` `src/ciphers.rs:984` or `GakKey::deck`).
 
-**The seven `encrypt`/`decrypt` free-function pairs** (the canonical implementations the trait will wrap), `src/ciphers.rs:1101-1389`:
-- `caesar_encrypt` `:1101` / `caesar_decrypt` `:1117`
-- `vigenere_encrypt` `:1134` / `vigenere_decrypt` `:1151`
-- `incrementing_wheel_encrypt` `:1171` / `incrementing_wheel_decrypt` `:1191`
-- `chaocipher_encrypt` `:1213` / `chaocipher_decrypt` `:1230`
-- `deck_cipher_encrypt` `:1246` / `deck_cipher_decrypt` `:1262`
-- `agl_gak_encrypt` `:1279` / `agl_gak_decrypt` `:1306`
-- `gak_encrypt` `:1339` / `gak_decrypt` `:1369`
+**The seven `encrypt`/`decrypt` free-function pairs** (the canonical implementations the trait will wrap), `src/ciphers.rs:1106-1394`:
+- `caesar_encrypt` `:1106` / `caesar_decrypt` `:1122`
+- `vigenere_encrypt` `:1139` / `vigenere_decrypt` `:1156`
+- `incrementing_wheel_encrypt` `:1176` / `incrementing_wheel_decrypt` `:1196`
+- `chaocipher_encrypt` `:1218` / `chaocipher_decrypt` `:1235`
+- `deck_cipher_encrypt` `:1251` / `deck_cipher_decrypt` `:1267`
+- `agl_gak_encrypt` `:1284` / `agl_gak_decrypt` `:1311`
+- `gak_encrypt` `:1344` / `gak_decrypt` `:1374`
 
 All fourteen share the signature shape `fn(&[Glyph], &SomeKey) -> Result<Vec<Glyph>, CipherError>` (note the order: **sequence first, key second**). `CipherError` is at `src/ciphers.rs:36`, with `Display` at `:212` and `std::error::Error` at `:368`.
 
-**Round-trip / known-vector tests** live in `#[cfg(test)] mod tests` (`src/ciphers.rs:2192`), importing the free functions at `:2193-2200`. Deterministic known-vector tests: `caesar_known_tiny_vector` `:2205`, `vigenere_known_tiny_vector` `:2214`, `incrementing_wheel_known_tiny_vector` `:2223`, `chaocipher_known_tiny_vector` `:2235`, `chaocipher_matches_classic_published_vector` `:2245`, `deck_cipher_known_tiny_vector` `:2258`, `agl_gak_matches_hand_computed_n5` `:2267`. Random property round-trips: `caesar_round_trips_random_plaintexts` `:2314`, `vigenere…` `:2331`, `incrementing_wheel…` `:2349`, `chaocipher…` `:2370`, `deck_cipher…` `:2393`, `agl_gak…` `:2417`, `gak_round_trips_random_plaintexts_small_and_eye` `:2448`. These tests use `.unwrap()` (allowed in tests via `clippy.toml`) and call the **free functions by name** — they must keep doing so unchanged.
+**Round-trip / known-vector tests** live in `#[cfg(test)] mod tests` (`src/ciphers.rs:2200`), importing the free functions at `:2201-2208`. Deterministic known-vector tests: `caesar_known_tiny_vector` `:2214`, `vigenere_known_tiny_vector` `:2223`, `incrementing_wheel_known_tiny_vector` `:2232`, `chaocipher_known_tiny_vector` `:2244`, `chaocipher_matches_classic_published_vector` `:2253`, `deck_cipher_known_tiny_vector` `:2267`, `agl_gak_matches_hand_computed_n5` `:2276`. Random property round-trips: `caesar_round_trips_random_plaintexts` `:2322`, `vigenere…` `:2340`, `incrementing_wheel…` `:2358`, `chaocipher…` `:2379`, `deck_cipher…` `:2402`, `agl_gak…` `:2426`, `gak_round_trips_random_plaintexts_small_and_eye` `:2457`. These tests use `.unwrap()` (allowed in tests via `clippy.toml`) and call the **free functions by name** — they must keep doing so unchanged.
 
 **Downstream consumers of the free functions** (call sites that must keep compiling and behaving identically):
 - `src/cipher_attack.rs:26-30` imports `caesar_decrypt`, `caesar_encrypt`, `chaocipher_decrypt`, `deck_cipher_decrypt`, `incrementing_wheel_decrypt`, `vigenere_decrypt`, `vigenere_encrypt`; call sites at `:630, :656, :699, :729, :772, :1180, :1192`. (This file also has its own `CipherFamily` enum with `label()` strings — `"Caesar"`, `"incrementing-wheel"`, `"Vigenere"`, `"Chaocipher"`, `"S_N deck"` — at `src/cipher_attack.rs:207-218`, covering five of the seven; `Cipher::name()` strings should be chosen consistently but this enum is **not** changed here.)
 - `src/modular_diff.rs:14-15` imports + uses `incrementing_wheel_encrypt` `:1023`, `vigenere_encrypt` `:1034`, `deck_cipher_encrypt` `:1055`.
 - `src/pyry_conditions.rs:17-18` uses `vigenere_encrypt` `:940`, `deck_cipher_encrypt` `:968`, `incrementing_wheel_encrypt` `:987`.
 - `src/agl_gak.rs:9-12` imports the lower-level AGL group helpers (`agl_apply`, `agl_compose`, `agl_coset_symbol`, …) and `AglMultiplierSubgroup` — **not** `agl_gak_encrypt`/`decrypt`. It is *not* a consumer of the family free functions and needs no change.
-- `src/gak_attack.rs:59` imports `gak_encrypt` (plus `GakKey`, `GakKeyOptions`, `CosetReadout`, `CipherError`); call sites at `:872, :2210, :6911`; its test module `:6338` additionally imports `gak_decrypt` and calls both `:6355, :6360, :6648, :6817, :6888, :7169`.
+- `src/gak_attack.rs:63-64` imports `gak_encrypt` (plus `GakKey`, `GakKeyOptions`, `CosetReadout`, `CipherError`, and — since 71d25fe's E1 dedup — the shared `compose_permutations`); production call sites at `:915, :2252`; its test module `:6433` additionally imports `gak_decrypt` at `:6443` and calls both (`gak_decrypt` `:6460, :6790, :6959, :7030, :7311`; `gak_encrypt` `:6465, :7053, :7054`).
 
-The associated-type object-safety constraint is real and material: `trait Cipher { type Key; … }` cannot be made into a `dyn Cipher` trait object (associated types with no fixed binding break object safety, and `&Self::Key` parameters make per-call dynamic dispatch ill-formed). The overview already anticipates this (`00-OVERVIEW.md:75-81`): heterogeneous search therefore goes through an `AnyCipher` **enum**, not `Box<dyn Cipher>`.
+The associated-type object-safety constraint is real and material: `trait Cipher { type Key; … }` cannot be made into a `dyn Cipher` trait object (associated types with no fixed binding break object safety, and `&Self::Key` parameters make per-call dynamic dispatch ill-formed). The overview already anticipates this (`00-OVERVIEW.md:79-85`): heterogeneous search therefore goes through an `AnyCipher` **enum**, not `Box<dyn Cipher>`.
 
 ## Target design (concrete API / types / layout)
 
@@ -50,7 +50,7 @@ All additions land in `src/ciphers.rs` (module layout reorg into `ciphers/` is *
 
 ### 1. `trait Cipher`
 
-Matches `00-OVERVIEW.md:66-72` exactly:
+Matches `00-OVERVIEW.md:70-76` exactly:
 
 ```rust
 /// A cipher family: encrypts/decrypts `Glyph` sequences under a family-specific key.
@@ -152,32 +152,32 @@ impl AnyCipher {
 }
 ```
 
-`AnyCipher` derives `Clone, Debug, PartialEq, Eq` only because **every** contained key already derives them (`CaesarKey` `:374`, `VigenereKey` `:411`, `IncrementingWheelKey` `:459`, `ChaocipherKey` `:510`, `DeckCipherKey` `:584`, `AglGakKey` `:674`, `GakKey` `:955` — verified). Do not add `Copy` (Vec-bearing keys are not `Copy`).
+`AnyCipher` derives `Clone, Debug, PartialEq, Eq` only because **every** contained key already derives them (`CaesarKey` `:374`, `VigenereKey` `:411`, `IncrementingWheelKey` `:459`, `ChaocipherKey` `:510`, `DeckCipherKey` `:584`, `AglGakKey` `:674`, `GakKey` `:960` — verified). Do not add `Copy` (Vec-bearing keys are not `Copy`).
 
 This is the cleanest of the overview's two sketches: dispatch over an owned-key enum, no `Box<dyn>`, no trait-object gymnastics. The `Cipher` trait remains useful for generic (monomorphized) call sites and as the documented contract each marker satisfies; `AnyCipher` is the runtime-heterogeneous front door brief 04 will consume.
 
 ## Implementation steps (ordered, each independently committable & green)
 
-**Step 1 — Add `trait Cipher` + the seven markers + impls.** Insert after the free functions (around `src/ciphers.rs:1389`, before `enum Direction` at `:1391`). No call site changes; the trait is additive. Add a unit-test module section (or extend `mod tests`) with one trait-vs-free-fn equivalence test per family, e.g. `Caesar.encrypt(&key, &pt) == caesar_encrypt(&pt, &key)` and the decrypt mirror, reusing the existing tiny vectors. `make verify` green.
+**Step 1 — Add `trait Cipher` + the seven markers + impls.** Insert after the free functions (around `src/ciphers.rs:1395`, before `enum Direction` at `:1397`). No call site changes; the trait is additive. Add a unit-test module section (or extend `mod tests`) with one trait-vs-free-fn equivalence test per family, e.g. `Caesar.encrypt(&key, &pt) == caesar_encrypt(&pt, &key)` and the decrypt mirror, reusing the existing tiny vectors. `make verify` green.
 
 **Step 2 — Add `AnyCipher` enum + inherent `encrypt`/`decrypt`/`name`.** Insert directly after the markers. Add tests: for each variant, round-trip `AnyCipher::Foo(key).decrypt(&AnyCipher::Foo(key).encrypt(&pt)?)? == pt` reusing existing fixtures, and assert each variant's `encrypt` output byte-for-byte equals the corresponding free-fn output (so `AnyCipher` is proven to be a pure forwarder). `make verify` green.
 
-**Step 3 (optional, behavior-preserving) — migrate one internal caller as a worked example.** Pick a single low-risk consumer that already imports a free fn pair — `gak_attack.rs` (`gak_encrypt` at `:872`) or one `cipher_attack.rs` site — and route it through `Cipher`/`AnyCipher`, asserting via golden-master (brief 01) that the produced statistic/decode is byte-identical. If brief 01's golden masters do not yet cover that path, **skip this step** and leave all callers on the free functions (the brief explicitly keeps free functions as the canonical path; migration is "incremental" and may defer entirely to brief 04). Document in the commit that no caller was forced. `make verify` (and `make check`) green.
+**Step 3 (optional, behavior-preserving) — migrate one internal caller as a worked example.** Pick a single low-risk consumer that already imports a free fn pair — `gak_attack.rs` (`gak_encrypt` at `:915`) or one `cipher_attack.rs` site — and route it through `Cipher`/`AnyCipher`, asserting via golden-master (brief 01) that the produced statistic/decode is byte-identical. If brief 01's golden masters do not yet cover that path, **skip this step** and leave all callers on the free functions (the brief explicitly keeps free functions as the canonical path; migration is "incremental" and may defer entirely to brief 04). Document in the commit that no caller was forced. `make verify` (and `make check`) green.
 
 Each step is a standalone commit; none removes a free function or alters a key constructor.
 
 ## Files to create / change / delete
 
-- **Change** `src/ciphers.rs`: add `trait Cipher`, seven unit-struct markers + `impl Cipher`, `enum AnyCipher` + inherent methods, and new tests in `mod tests`. Add the needed imports to the test module's `use super::{…}` block (`:2193`) if the equivalence tests reference the new types. No existing item removed or signature-changed.
+- **Change** `src/ciphers.rs`: add `trait Cipher`, seven unit-struct markers + `impl Cipher`, `enum AnyCipher` + inherent methods, and new tests in `mod tests`. Add the needed imports to the test module's `use super::{…}` block (`:2201`) if the equivalence tests reference the new types. No existing item removed or signature-changed.
 - **Change** `src/lib.rs`: nothing required (the new items are re-exported transitively via `pub mod ciphers`). If a crate-level convenience re-export is wanted, that is a brief-04/07 concern — leave `lib.rs` untouched here.
 - **No deletions.** The fourteen free functions stay exactly as-is (canonical impls + still imported by `cipher_attack.rs`, `modular_diff.rs`, `pyry_conditions.rs`, `gak_attack.rs`).
 - **No new dependency** (so `deny.toml`/`cargo-machete` unaffected).
 
 ## Success criteria
 
-- `pub trait Cipher` with `type Key` and `encrypt`/`decrypt`/`name` exists in `crate::ciphers`, matching `00-OVERVIEW.md:66-72`.
+- `pub trait Cipher` with `type Key` and `encrypt`/`decrypt`/`name` exists in `crate::ciphers`, matching `00-OVERVIEW.md:70-76`.
 - Seven `impl Cipher` markers, each delegating to its free-fn pair; `pub enum AnyCipher` with seven variants and inherent `encrypt`/`decrypt`/`name`.
-- Every existing test in `src/ciphers.rs` (known-vector `:2205-2295`, random round-trip `:2314-2474`) is **unchanged and passing**.
+- Every existing test in `src/ciphers.rs` (known-vector `:2214-2301`, random round-trip `:2322-2484`) is **unchanged and passing**.
 - New equivalence tests prove `Cipher`/`AnyCipher` output is byte-identical to the free functions for all seven families.
 - All downstream files (`cipher_attack.rs`, `modular_diff.rs`, `pyry_conditions.rs`, `agl_gak.rs`, `gak_attack.rs`) compile unmodified (or, if Step 3 is taken, the one migrated caller produces golden-identical output).
 - `missing_docs` satisfied: trait, every method, every marker struct, the enum, every variant, and every inherent method documented.
@@ -194,14 +194,14 @@ Each step is a standalone commit; none removes a free function or alters a key c
 
 - **Argument-order trap.** `Cipher::encrypt(key, seq)` vs free `*_encrypt(seq, key)` is easy to mis-wire; a swapped pair would still type-check (both `&[Glyph]`/`&Key` are positionally distinct, so actually it would *not* type-check — good — but the *meaning* is what matters). The equivalence tests in Steps 1–2 are the guard; do not skip them.
 - **`name()` strings are new metadata, not a finding.** They are cosmetic labels for candidate reports; they assert nothing about the puzzle. They need not equal `CipherFamily::label()`. Pick stable strings and note in the doc that they are display-only.
-- **Behavior-preserving is mandatory.** This refactor must not change any statistic or decode (`00-OVERVIEW.md:188-191`). Because the free functions remain canonical and the trait/enum only forward, the risk is confined to Step 3; if golden-master coverage is thin there, defer the migration rather than risk a silent drift.
+- **Behavior-preserving is mandatory.** This refactor must not change any statistic or decode (`00-OVERVIEW.md:192-195`). Because the free functions remain canonical and the trait/enum only forward, the risk is confined to Step 3; if golden-master coverage is thin there, defer the migration rather than risk a silent drift.
 - **No claim-ceiling impact.** This is plumbing for the *search* engine, not the engine itself; nothing here decodes or scores. The standing candidate-logging directive does not apply (no candidate cleartext is produced).
 - **Object-safety is the load-bearing design fact.** If a future reader "simplifies" to `Box<dyn Cipher>`, it will not compile (`type Key`); the `AnyCipher` enum exists precisely to dodge that — call it out in the enum doc comment.
 
 ## Out of scope / non-goals
 
-- **Moving `ciphers.rs` into a `ciphers/` directory** with one file per family — that is **brief 07** (`00-OVERVIEW.md:152`). Everything here stays in the single `src/ciphers.rs`.
-- **The solve pipeline, `HypothesisSpace`, `Candidate`, mapping search** — **brief 04** (`00-OVERVIEW.md:124-137`). This brief only provides the `AnyCipher` it consumes.
+- **Moving `ciphers.rs` into a `ciphers/` directory** with one file per family — that is **brief 07** (`00-OVERVIEW.md:155`). Everything here stays in the single `src/ciphers.rs`.
+- **The solve pipeline, `HypothesisSpace`, `Candidate`, mapping search** — **brief 04** (`00-OVERVIEW.md:126-141`). This brief only provides the `AnyCipher` it consumes.
 - **Touching the `*Key` constructors, validation, or the AGL/GAK group helpers** (`agl_compose`, `agl_step_lookup`, `CosetReadout`, etc.) — out of scope; they are dependencies, not targets.
 - **Refactoring `cipher_attack::CipherFamily`** or unifying its `label()` with `Cipher::name()` — leave it; revisit in brief 04/08 if the registry needs it.
 - **Forcing all callers onto the trait.** Migration is incremental and optional here (Step 3); the free functions remain the supported API for this brief.

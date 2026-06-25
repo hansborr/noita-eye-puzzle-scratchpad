@@ -21,19 +21,23 @@ The workbench is **~90% structural diagnostics and ~10% decode engine**, and the
 decode engine is the half that matters for the end goal (reading the eye
 messages). A sample cipher (`/tmp/gak_cipher_example`) that *does* contain a real
 English message was **not** cracked by our tooling — not because the message was
-unrecoverable, but because we have 25 experiments that *constrain* the hypothesis
-space and almost nothing that *searches* it.
+unrecoverable, but because we have two dozen-plus experiments (26 CLI subcommands)
+that mostly *constrain* the hypothesis space and almost nothing that *searches* it.
 
 The decode path today is split across four modules that do not compose:
 
-- `ciphers.rs` (2,902 lines) — 7 cipher families as bespoke `*_encrypt`/`*_decrypt`
-  free functions, **no `Cipher` trait** (the crate has **zero traits** in 44,625
+- `ciphers.rs` (2,910 lines) — 7 cipher families as bespoke `*_encrypt`/`*_decrypt`
+  free functions, **no `Cipher` trait** (the crate has **zero traits** in 44,827
   lines).
 - `cipher_attack.rs` — decodes + language-scores, but only under **declared**
   symbol→letter mappings ("Every mapping here is a declared guess"). **No mapping
   search exists anywhere.**
-- `gak_attack.rs` (7,967 lines) — beam-search permutation recovery, but
-  **synthetic-only**, with **no external-ciphertext ingest**.
+- `gak_attack.rs` (8,147 lines) — beam-search permutation recovery. Its GCTAK gate
+  and synthetic GAK/deck fixtures (Units 1a/2a/2b) are **synthetic-only**; Unit 2c
+  (`run_gak_attack_eyes`, Step 3) *does* run against the verified **embedded** eye
+  corpus (matched within-message nulls, asserts no decode — the standing **BLOCKED**
+  conclusion). Either way there is **no external-ciphertext (file/stdin) ingest** —
+  the eye corpus it touches is the embedded `corpus`, not loaded data.
 - `language.rs` — a real English/Finnish scorer, wired only into the
   declared-mapping path.
 
@@ -45,12 +49,12 @@ growing god-files so the engine has clean abstractions to sit on" (Tier 2).
 
 | Smell | Data | Brief |
 | ----- | ---- | ----- |
-| No abstractions | 0 traits in 44,625 lines | 02, 05, 06 |
-| God-files | `gak_attack.rs` 7,967 lines; `report.rs` 5,686 lines (30% of crate in 2 files) | 06, 07 |
-| `report.rs` is a coupling hub | 239 hand-written `format_*_error`/`print_*_report` fns; imports every module | 06 |
-| Per-experiment boilerplate | 22 `Config` + 24 `Args` + 22 `From<Args>` + 28 `run_*` ≈ 4 scattered edits per experiment | 05, 08 |
+| No abstractions | 0 traits in 44,827 lines | 02, 05, 06 |
+| God-files | `gak_attack.rs` 8,147 lines; `report.rs` 5,694 lines (31% of crate in 2 files) | 06, 07 |
+| `report.rs` is a coupling hub | 23 hand-written `format_*_error` + 27 `print_*_report` public entry points (plus ~140 private render helpers); imports 27 sibling modules | 06 |
+| Per-experiment boilerplate | 22 `Config` + 24 `Args` + 22 `From<Args>` + 28 `run_*` CLI dispatchers in `main.rs` ≈ 4 scattered edits per experiment | 05, 08 |
 | Duplicated null scaffolding | `fisher_yates` is centralized, but ~20 modules re-implement the matched-null orchestration around it | 05 |
-| No data ingest | only `fs`/`stdin` use is writing candidate records; nothing loads an external ciphertext | 03 |
+| No data ingest | the only non-test `fs` use writes candidate records (no `stdin` path at all); nothing loads an external ciphertext | 03 |
 | No mapping search | `cipher_attack` only scores declared mappings; no hill-climb/anneal | 04 |
 
 ---
@@ -138,7 +142,7 @@ message.
 
 ### Target module layout
 
-Group the 31 flat `pub mod`s in `lib.rs` into role directories (brief 07):
+Group the 32 flat `pub mod`s in `lib.rs` (`src/lib.rs:72-103`) into role directories (brief 07):
 
 ```
 src/
@@ -222,9 +226,10 @@ justified in-brief. Honor the brief's version:
   (`Vec<Vec<TrigramValue>>`, `MessageSegments`, `Vec<[usize;5]>`, `Vec<GlyphGrid>`).
   `conditional_structure`'s stateful no-repeat MCMC null is explicitly excluded.
 - **Brief 06** — two non-struct renderers (`print_report` over `&Sequence`,
-  `print_orders_report` over three slices) stay as shared `render_* -> String`
-  free fns rather than `Report` impls. `thiserror` is **not** added (absent from
-  `Cargo.toml`; six error enums already hand-write `Display`).
+  `print_orders_report` over three report sub-objects: a `&GridSummary` plus two
+  slices) stay as shared `render_* -> String` free fns rather than `Report` impls.
+  `thiserror` is **not** added (absent from `Cargo.toml`; six error enums already
+  hand-write `Display`).
 
 ## Brief template (each `NN-*.md` follows this)
 
