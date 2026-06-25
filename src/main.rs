@@ -736,14 +736,11 @@ fn run_periodicity(config: periodicity::PeriodicityConfig) -> ExitCode {
     let report = match periodicity::run_periodicity(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "periodicity error: {}",
-                report::format_periodicity_error(error)
-            );
+            eprintln!("periodicity error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_periodicity_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 

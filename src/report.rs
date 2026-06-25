@@ -7,10 +7,8 @@
 use crate::glyph::Sequence;
 use crate::{
     analysis, conditional_structure, controls, gak_attack, grouping, orders,
-    orientation_homogeneity, periodicity,
+    orientation_homogeneity,
 };
-
-const MIN_RELIABLE_PERIODICITY_NULL_TRIALS: usize = 50;
 
 /// A domain report that can render itself to user-facing CLI text.
 pub trait Report {
@@ -110,27 +108,6 @@ pub fn format_gak_attack_error(error: &gak_attack::GakAttackError) -> String {
         }
         gak_attack::GakAttackError::EyesZeroTrials => {
             "the eyes Step-3 held-out gate needs at least one matched-null trial (zero trials would define the p-value over an empty sample)".to_owned()
-        }
-    }
-}
-
-/// Formats an Experiment 5A periodicity error for CLI output.
-#[must_use]
-pub fn format_periodicity_error(error: periodicity::PeriodicityError) -> String {
-    match error {
-        periodicity::PeriodicityError::Grid(grid_error) => {
-            format!("grid/order error: {grid_error:?}")
-        }
-        periodicity::PeriodicityError::ZeroTrials => {
-            "at least one Monte-Carlo trial is required".to_owned()
-        }
-        periodicity::PeriodicityError::ZeroMaxPeriod => "max period must be at least 1".to_owned(),
-        periodicity::PeriodicityError::ZeroMaxLag => "max lag must be at least 1".to_owned(),
-        periodicity::PeriodicityError::InvalidNgramRange { min, max } => {
-            format!("invalid n-gram range {min}..={max}")
-        }
-        periodicity::PeriodicityError::InvalidAlphabetSize { alphabet_size } => {
-            format!("invalid null alphabet size {alphabet_size}; expected 1..=125")
         }
     }
 }
@@ -346,186 +323,6 @@ pub fn format_conditional_structure_error(
     }
 }
 
-/// Prints the Experiment 5A periodicity/autocorrelation report.
-pub fn print_periodicity_report(report: &periodicity::PeriodicityReport) {
-    println!("Experiment 5A periodicity/autocorrelation battery");
-    println!("order: {}", report.order.name());
-    println!("alphabet: reading-layer values 0..=82");
-    println!("seed: {}", report.config.seed);
-    println!("trials: {}", report.config.trials);
-    println!(
-        "periods: 1..={} ; lags: 1..={} ; Kasiski n-grams: {}..={}",
-        report.config.max_period,
-        report.config.max_lag,
-        report.config.min_ngram,
-        report.config.max_ngram
-    );
-    println!(
-        "message lengths: {}",
-        format_message_lengths(&report.message_lengths)
-    );
-    println!("pooled length: {}", report.pooled_length);
-    println!(
-        "boundary rule: pooled statistics aggregate within-message evidence only; no lag pairs, period columns, or n-grams cross message joins"
-    );
-    println!(
-        "IoC convention: analysis::index_of_coincidence probability form; x83 normalizes to the uniform 83-symbol baseline"
-    );
-    println!(
-        "sampled report-wide null envelopes: period x83 <= {:.3}; autocorrelation rate <= {:.6}",
-        report.period_null_envelope_max, report.autocorrelation_null_envelope_max
-    );
-    println!();
-
-    print_period_ioc_table("pooled IoC-by-period", &report.pooled_ioc_by_period);
-    println!();
-    print_autocorrelation_table(
-        "pooled autocorrelation profile",
-        &report.pooled_autocorrelation,
-    );
-    println!();
-    print_message_periodicity_summary(&report.messages);
-    println!();
-    print_kasiski_table("pooled Kasiski distances", &report.pooled_kasiski);
-    println!();
-    print_message_kasiski_summary(&report.messages);
-    println!();
-    print_periodicity_interpretation(report);
-}
-
-fn print_periodicity_interpretation(report: &periodicity::PeriodicityReport) {
-    let exceedance_labels = null_envelope_exceedance_labels(report);
-    if report.config.trials < MIN_RELIABLE_PERIODICITY_NULL_TRIALS {
-        println!(
-            "Caveat: only {} Monte-Carlo trial(s) were sampled (< {}); the report-wide null envelope is undersampled and the OUT/inside verdict is not reliable.",
-            report.config.trials, MIN_RELIABLE_PERIODICITY_NULL_TRIALS
-        );
-    }
-
-    if exceedance_labels.is_empty() {
-        println!(
-            "Interpretation: no pooled or per-message period/lag row exceeds the sampled report-wide random-null envelope (no OUT flags). That rules out a simple fixed-period polyalphabetic cipher under this honeycomb reading order; it does not prove the data is meaningless, and it says nothing about other reading orders or encodings."
-        );
-    } else {
-        let count = exceedance_labels.len();
-        println!(
-            "Interpretation: {count} pooled/per-message period/lag {} {} the sampled report-wide random-null envelope (OUT): {}. Because at least one row is OUT, this run does not support the no-exceedance verdict and does not rule out a simple fixed-period polyalphabetic cipher under this honeycomb reading order.",
-            counted_form(count, "row", "rows"),
-            counted_form(count, "exceeds", "exceed"),
-            exceedance_labels.join(", ")
-        );
-    }
-
-    println!(
-        "Near-uniform IoC-by-period is also exactly what a fixed permutation of structured data can produce. Pointwise pt95 rows are shown as noise candidates only; a peak inside the sampled envelope is not a period claim."
-    );
-    print_distance4_reconciliation(report, !exceedance_labels.is_empty());
-    println!(
-        "Any future striking period must be rechecked against Experiment 0 transcription integrity before interpretation."
-    );
-}
-
-fn null_envelope_exceedance_labels(report: &periodicity::PeriodicityReport) -> Vec<String> {
-    let mut labels = Vec::new();
-    append_period_exceedance_labels("pooled", &report.pooled_ioc_by_period, &mut labels);
-    append_autocorrelation_exceedance_labels("pooled", &report.pooled_autocorrelation, &mut labels);
-    for message in &report.messages {
-        append_period_exceedance_labels(message.message_key, &message.ioc_by_period, &mut labels);
-        append_autocorrelation_exceedance_labels(
-            message.message_key,
-            &message.autocorrelation,
-            &mut labels,
-        );
-    }
-    labels
-}
-
-fn append_period_exceedance_labels(
-    scope: &str,
-    rows: &[periodicity::PeriodIocRow],
-    labels: &mut Vec<String>,
-) {
-    for row in rows.iter().filter(|row| row.above_null_envelope) {
-        let period = row.period;
-        labels.push(format!("{scope} period p={period}"));
-    }
-}
-
-fn append_autocorrelation_exceedance_labels(
-    scope: &str,
-    rows: &[periodicity::AutocorrelationRow],
-    labels: &mut Vec<String>,
-) {
-    for row in rows.iter().filter(|row| row.above_null_envelope) {
-        let lag = row.lag;
-        labels.push(format!("{scope} lag={lag}"));
-    }
-}
-
-fn print_distance4_reconciliation(
-    report: &periodicity::PeriodicityReport,
-    has_envelope_exceedance: bool,
-) {
-    let lag4 = report
-        .pooled_autocorrelation
-        .iter()
-        .find(|row| row.lag == 4);
-    let strongest = strongest_autocorrelation_row(&report.pooled_autocorrelation);
-    let lag4_is_dominant = matches!((lag4, strongest), (Some(_), Some(row)) if row.lag == 4);
-
-    match (lag4, strongest) {
-        (Some(row), Some(strongest_row)) if strongest_row.lag == 4 => {
-            println!(
-                "Distance-4 reconciliation: lag 4 is the dominant pooled autocorrelation peak under this honeycomb order, consistent with Experiment 1B's distance-4 spike."
-            );
-            print_lag4_band_reconciliation(row);
-        }
-        (Some(row), Some(strongest_row)) => {
-            println!(
-                "Distance-4 reconciliation: lag 4 is included in this scan, but the strongest pooled autocorrelation peak in the configured range is lag {}. The usual lag-4-dominant wording therefore does not apply to this run.",
-                strongest_row.lag
-            );
-            print_lag4_band_reconciliation(row);
-        }
-        _ => println!(
-            "Distance-4 reconciliation: this configured lag range does not include lag 4, so this run cannot evaluate Experiment 1B's distance-4 spike."
-        ),
-    }
-
-    println!(
-        "Experiment 1B's targeted distance-4 test, appropriate for a pre-identified distance under the best-over-36 null, found d4 significant; this broad conservative sweep does not contradict it."
-    );
-    if has_envelope_exceedance {
-        println!(
-            "Because OUT rows are present in this configured run, the broad scan should not be summarized as showing no new family-wise period/lag signal. The d4 structure itself is order-contingent and is not a message claim."
-        );
-    } else if lag4_is_dominant {
-        println!(
-            "The broad scan still shows no new dominant period beyond the known d4 structure. The d4 structure itself is order-contingent and is not a message claim."
-        );
-    } else {
-        println!(
-            "This configured scan should not be used for a broad no-new-period statement beyond its scanned range. The d4 structure itself is order-contingent and is not a message claim."
-        );
-    }
-}
-
-fn print_lag4_band_reconciliation(row: &periodicity::AutocorrelationRow) {
-    if row.above_null_envelope {
-        println!(
-            "The report-wide envelope is a family-wise verdict over all scanned lags; lag 4 is OUT against that envelope in this configured run, and it exceeds its own per-lag band (pt95). Treat that as an envelope exceedance, not as a plaintext claim by itself."
-        );
-    } else if row.above_pointwise_band {
-        println!(
-            "The report-wide envelope is a family-wise verdict over all scanned lags; lag 4 is inside that envelope, but it still exceeds its own per-lag band (pt95). Therefore, no family-wise exceedance is not evidence that the d4 structure is absent."
-        );
-    } else {
-        println!(
-            "The report-wide envelope is a family-wise verdict over all scanned lags; lag 4 is inside that envelope and does not exceed its own per-lag band in this configured run."
-        );
-    }
-}
-
 /// Returns the singular or plural form for a report count.
 pub(crate) fn counted_form(
     count: usize,
@@ -533,130 +330,6 @@ pub(crate) fn counted_form(
     plural: &'static str,
 ) -> &'static str {
     if count == 1 { singular } else { plural }
-}
-
-fn print_period_ioc_table(label: &str, rows: &[periodicity::PeriodIocRow]) {
-    println!("{label}");
-    println!(
-        "{:>3} {:>10} {:>10} {:>19} {:>10} {:>7}",
-        "p", "IoC", "x83", "null x83 95%", "null max", "flag"
-    );
-    for row in rows {
-        println!(
-            "{:>3} {:>10.6} {:>10.3} {:>19} {:>10.3} {:>7}",
-            row.period,
-            row.mean_ioc,
-            row.normalized_ioc,
-            format_null_band(row.null_band),
-            row.null_band.max,
-            format_null_flag(row.above_pointwise_band, row.above_null_envelope)
-        );
-    }
-}
-
-fn print_autocorrelation_table(label: &str, rows: &[periodicity::AutocorrelationRow]) {
-    println!("{label}");
-    println!(
-        "{:>3} {:>11} {:>10} {:>10} {:>19} {:>10} {:>7}",
-        "lag", "matches", "rate", "x83", "null rate 95%", "null max", "flag"
-    );
-    for row in rows {
-        println!(
-            "{:>3} {:>11} {:>10.6} {:>10.3} {:>19} {:>10.6} {:>7}",
-            row.lag,
-            format_match_count(row.matches, row.comparisons),
-            row.rate,
-            row.normalized_rate,
-            format_null_band(row.null_band),
-            row.null_band.max,
-            format_null_flag(row.above_pointwise_band, row.above_null_envelope)
-        );
-    }
-}
-
-fn print_message_periodicity_summary(messages: &[periodicity::MessagePeriodicityReport]) {
-    println!("per-message strongest apparent rows");
-    println!(
-        "{:<6} {:>5} {:>8} {:>9} {:>7} {:>8} {:>11} {:>7}",
-        "msg", "len", "best p", "p x83", "p flag", "best lag", "lag rate", "lag flag"
-    );
-    for message in messages {
-        let period = strongest_period_row(&message.ioc_by_period);
-        let lag = strongest_autocorrelation_row(&message.autocorrelation);
-        println!(
-            "{:<6} {:>5} {:>8} {:>9} {:>7} {:>8} {:>11} {:>7}",
-            message.message_key,
-            message.length,
-            period.map_or_else(|| "none".to_owned(), |row| row.period.to_string()),
-            period.map_or_else(
-                || "n/a".to_owned(),
-                |row| format!("{:.3}", row.normalized_ioc)
-            ),
-            period.map_or("n/a", |row| {
-                format_null_flag(row.above_pointwise_band, row.above_null_envelope)
-            }),
-            lag.map_or_else(|| "none".to_owned(), |row| row.lag.to_string()),
-            lag.map_or_else(|| "n/a".to_owned(), |row| format!("{:.6}", row.rate)),
-            lag.map_or("n/a", |row| {
-                format_null_flag(row.above_pointwise_band, row.above_null_envelope)
-            })
-        );
-    }
-}
-
-fn print_kasiski_table(label: &str, rows: &[periodicity::KasiskiReport]) {
-    println!("{label}");
-    println!(
-        "{:>3} {:>9} {:>9} {:>9} {:>5} {:<28} {:<28} {:<28}",
-        "n", "repeat", "occurs", "dist", "gcd", "top distances", "per-ngram gcds", "top factors"
-    );
-    for row in rows {
-        println!(
-            "{:>3} {:>9} {:>9} {:>9} {:>5} {:<28} {:<28} {:<28}",
-            row.n,
-            row.repeated_ngram_kinds,
-            row.repeated_occurrences,
-            row.distance_count,
-            row.all_distance_gcd,
-            format_pair_counts(&row.top_distances),
-            format_pair_counts(&row.ngram_gcd_histogram),
-            format_top_factor_counts(&row.factor_counts)
-        );
-    }
-}
-
-fn print_message_kasiski_summary(messages: &[periodicity::MessagePeriodicityReport]) {
-    println!("per-message Kasiski summaries");
-    println!(
-        "{:<6} {:>3} {:>9} {:>9} {:>9} {:>5} {:<28}",
-        "msg", "n", "repeat", "occurs", "dist", "gcd", "top factors"
-    );
-    for message in messages {
-        for row in &message.kasiski {
-            println!(
-                "{:<6} {:>3} {:>9} {:>9} {:>9} {:>5} {:<28}",
-                message.message_key,
-                row.n,
-                row.repeated_ngram_kinds,
-                row.repeated_occurrences,
-                row.distance_count,
-                row.all_distance_gcd,
-                format_top_factor_counts(&row.factor_counts)
-            );
-        }
-    }
-}
-
-fn strongest_period_row(rows: &[periodicity::PeriodIocRow]) -> Option<&periodicity::PeriodIocRow> {
-    rows.iter()
-        .max_by(|left, right| left.normalized_ioc.total_cmp(&right.normalized_ioc))
-}
-
-fn strongest_autocorrelation_row(
-    rows: &[periodicity::AutocorrelationRow],
-) -> Option<&periodicity::AutocorrelationRow> {
-    rows.iter()
-        .max_by(|left, right| left.rate.total_cmp(&right.rate))
 }
 
 /// Formats keyed message lengths for report output.
@@ -668,11 +341,7 @@ pub(crate) fn format_message_lengths(lengths: &[(&'static str, usize)]) -> Strin
         .join(", ")
 }
 
-fn format_null_band(band: periodicity::NullBand) -> String {
-    format!("{:.3}..{:.3}", band.q025, band.q975)
-}
-
-fn format_null_flag(pointwise: bool, envelope: bool) -> &'static str {
+pub(crate) fn format_null_flag(pointwise: bool, envelope: bool) -> &'static str {
     if envelope {
         "OUT"
     } else if pointwise {
@@ -682,30 +351,8 @@ fn format_null_flag(pointwise: bool, envelope: bool) -> &'static str {
     }
 }
 
-fn format_match_count(matches: usize, comparisons: usize) -> String {
+pub(crate) fn format_match_count(matches: usize, comparisons: usize) -> String {
     format!("{matches}/{comparisons}")
-}
-
-fn format_pair_counts(pairs: &[(usize, usize)]) -> String {
-    if pairs.is_empty() {
-        return "none".to_owned();
-    }
-    pairs
-        .iter()
-        .map(|(value, count)| format!("{value}:{count}"))
-        .collect::<Vec<_>>()
-        .join(",")
-}
-
-fn format_top_factor_counts(pairs: &[(usize, usize)]) -> String {
-    let mut sorted = pairs
-        .iter()
-        .copied()
-        .filter(|(_factor, count)| *count > 0)
-        .collect::<Vec<_>>();
-    sorted.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
-    sorted.truncate(8);
-    format_pair_counts(&sorted)
 }
 
 /// Prints the Experiment 11 monoalphabetic positive-control report.
