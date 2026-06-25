@@ -779,7 +779,7 @@ fn run_pipelinenull(config: null::NullConfig) -> ExitCode {
     };
     report::print_pipeline_null_report(&pipeline_report);
     println!();
-    report::print_input_randomness_report(&input_report);
+    print!("{}", input_report.render());
     ExitCode::SUCCESS
 }
 

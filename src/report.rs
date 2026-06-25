@@ -8,7 +8,7 @@ use crate::glyph::Sequence;
 use crate::{
     analysis, chaining, chaining_graph, conditional_structure, controls, dof_null, gak_attack,
     grouping, isomorph_null, modular_diff, null, orders, orientation_homogeneity, periodicity,
-    perseus, pipeline_null, pyry_conditions, transitivity, tree_residual, zero_adjacency_null,
+    perseus, pyry_conditions, transitivity, tree_residual, zero_adjacency_null,
 };
 
 const MIN_RELIABLE_PERIODICITY_NULL_TRIALS: usize = 50;
@@ -3907,45 +3907,6 @@ fn format_optional_u8_range(min: Option<u8>, max: Option<u8>) -> String {
     }
 }
 
-/// Prints the base-7 engine-input randomness negative-control report.
-pub fn print_input_randomness_report(report: &pipeline_null::InputRandomnessReport) {
-    println!("engine-input randomness negative control");
-    println!("seed: {}", report.config.seed);
-    println!("trials: {}", report.config.trials);
-    println!("engine pairs: {}", report.pair_count);
-    println!("decoded storage symbols: {}", report.total_symbols);
-    println!(
-        "real storage histogram (-1..=5): {}",
-        format_storage_histogram(&report.real_symbol_histogram)
-    );
-    println!("real -1 controls: {}", report.real_minus_one);
-    println!("real delimiters: {}", report.real_delimiters);
-    println!(
-        "real chi-square vs uniform base-7 symbols: {:.3}",
-        report.real_chi_square_vs_uniform
-    );
-    println!(
-        "exact P(no -1 in capped matched random corpus): {:.6e}",
-        report.analytic_probability_no_minus_one
-    );
-    println!(
-        "matched random corpus mean -1 controls: {:.3}",
-        report.mc_mean_minus_one
-    );
-    println!(
-        "matched random corpus mean delimiters: {:.3}",
-        report.mc_mean_delimiters
-    );
-    println!(
-        "matched random corpora with zero -1 controls: {}/{}",
-        report.mc_corpora_with_zero_minus_one, report.config.trials
-    );
-    println!();
-    println!(
-        "Interpretation: this only shows the authored engine inputs live in the 0..=5 storage alphabet (zero -1 controls and 86 delimiters) instead of resembling capped matched-length random integers. The analytic no -1 probability is exact for that capped model, and the Monte-Carlo counts are the empirical check at the configured trial count; neither shows that the authored symbols encode anything."
-    );
-}
-
 /// Prints the cross-message orientation-frequency homogeneity report.
 pub fn print_orientation_homogeneity_report(
     report: &orientation_homogeneity::OrientationHomogeneityReport,
@@ -4630,21 +4591,11 @@ fn format_histogram<T: std::fmt::Display>(histogram: &[(T, usize)]) -> String {
         .join(", ")
 }
 
-fn format_storage_histogram(histogram: &[usize; 7]) -> String {
-    const STORAGE_LABELS: [&str; 7] = ["-1", "0", "1", "2", "3", "4", "5"];
-    STORAGE_LABELS
-        .iter()
-        .zip(histogram)
-        .map(|(label, count)| format!("{label}:{count}"))
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
 #[cfg(test)]
 mod tests {
     use super::{
         format_chi_square, format_chi_square_p_value, format_histogram, format_match_count,
-        format_null_flag, format_probability, format_span, format_storage_histogram,
+        format_null_flag, format_probability, format_span,
     };
 
     #[test]
@@ -4674,9 +4625,5 @@ mod tests {
             "82:1, 83:2"
         );
         assert_eq!(format_histogram(&[(0_u8, 5), (4_u8, 7)]), "0:5, 4:7");
-        assert_eq!(
-            format_storage_histogram(&[0, 1, 2, 3, 4, 5, 6]),
-            "-1:0, 0:1, 1:2, 2:3, 3:4, 4:5, 5:6"
-        );
     }
 }

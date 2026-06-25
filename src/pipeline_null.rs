@@ -45,6 +45,7 @@ use crate::generator::{self, ENGINE_MESSAGES};
 use crate::glyph::Orientation;
 use crate::null::{NullConfig, NullReport, NullRunError, SplitMix64, run_standard36_null_with};
 use crate::orders::{GlyphGrid, GridError};
+use crate::report::{self, Report};
 
 const SYMBOL_BUCKETS: usize = 7;
 const BASE7_CEILING_DIGITS: u32 = 22;
@@ -330,6 +331,66 @@ pub struct InputRandomnessReport {
     pub mc_corpora_with_zero_minus_one: usize,
 }
 
+impl Report for InputRandomnessReport {
+    fn render(&self) -> String {
+        let mut out = String::new();
+        report::appendln!(&mut out, "engine-input randomness negative control");
+        report::appendln!(&mut out, "seed: {}", self.config.seed);
+        report::appendln!(&mut out, "trials: {}", self.config.trials);
+        report::appendln!(&mut out, "engine pairs: {}", self.pair_count);
+        report::appendln!(&mut out, "decoded storage symbols: {}", self.total_symbols);
+        report::appendln!(
+            &mut out,
+            "real storage histogram (-1..=5): {}",
+            format_storage_histogram(&self.real_symbol_histogram)
+        );
+        report::appendln!(&mut out, "real -1 controls: {}", self.real_minus_one);
+        report::appendln!(&mut out, "real delimiters: {}", self.real_delimiters);
+        report::appendln!(
+            &mut out,
+            "real chi-square vs uniform base-7 symbols: {:.3}",
+            self.real_chi_square_vs_uniform
+        );
+        report::appendln!(
+            &mut out,
+            "exact P(no -1 in capped matched random corpus): {:.6e}",
+            self.analytic_probability_no_minus_one
+        );
+        report::appendln!(
+            &mut out,
+            "matched random corpus mean -1 controls: {:.3}",
+            self.mc_mean_minus_one
+        );
+        report::appendln!(
+            &mut out,
+            "matched random corpus mean delimiters: {:.3}",
+            self.mc_mean_delimiters
+        );
+        report::appendln!(
+            &mut out,
+            "matched random corpora with zero -1 controls: {}/{}",
+            self.mc_corpora_with_zero_minus_one,
+            self.config.trials
+        );
+        report::appendln!(&mut out);
+        report::appendln!(
+            &mut out,
+            "Interpretation: this only shows the authored engine inputs live in the 0..=5 storage alphabet (zero -1 controls and 86 delimiters) instead of resembling capped matched-length random integers. The analytic no -1 probability is exact for that capped model, and the Monte-Carlo counts are the empirical check at the configured trial count; neither shows that the authored symbols encode anything."
+        );
+        out
+    }
+}
+
+fn format_storage_histogram(histogram: &[usize; 7]) -> String {
+    const STORAGE_LABELS: [&str; 7] = ["-1", "0", "1", "2", "3", "4", "5"];
+    STORAGE_LABELS
+        .iter()
+        .zip(histogram)
+        .map(|(label, count)| format!("{label}:{count}"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 /// Quantifies the structural gap between the real engine inputs and random
 /// 64-bit integers of identical per-pair magnitude.
 ///
@@ -474,6 +535,14 @@ mod tests {
             ceiling_count * 6 * pow7_u128(22),
             ceiling_span * 7 * pow6_u128(22),
             "length-22 no -1 rate must not use the uncapped independence ratio"
+        );
+    }
+
+    #[test]
+    fn storage_histogram_formatter_is_stable() {
+        assert_eq!(
+            super::format_storage_histogram(&[0, 1, 2, 3, 4, 5, 6]),
+            "-1:0, 0:1, 1:2, 2:3, 3:4, 4:5, 5:6"
         );
     }
 
