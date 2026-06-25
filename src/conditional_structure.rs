@@ -8,12 +8,12 @@
 use std::collections::BTreeMap;
 
 use crate::null::{
-    SplitMix64, fisher_yates, median_f64, random_index_below, scaled_quantile_index,
+    F64Band, NullSampler, SplitMix64, WithinMessageShuffle, f64_band, fisher_yates,
+    random_index_below,
 };
 use crate::orders::{self, GlyphGrid, GridError, ReadingOrder, read_corpus_message_values};
 use crate::trigram::TrigramValue;
 
-const REPORT_QUANTILE_DENOMINATOR: usize = 1_000;
 const ADD_CONSTANT_ALPHA: f64 = 1.0;
 const NO_REPEAT_BURN_IN_SWEEPS: usize = 100;
 const NO_REPEAT_SAMPLE_SWEEPS: usize = 20;
@@ -327,6 +327,20 @@ pub struct ScalarNullBand {
     pub q975: f64,
     /// Sample maximum.
     pub max: f64,
+}
+
+impl From<F64Band> for ScalarNullBand {
+    fn from(band: F64Band) -> Self {
+        Self {
+            trials: band.trials,
+            mean: band.mean,
+            min: band.min,
+            q025: band.q025,
+            median: band.median,
+            q975: band.q975,
+            max: band.max,
+        }
+    }
 }
 
 /// Real-vs-null comparison for one scalar statistic.
@@ -1006,11 +1020,15 @@ fn null_comparisons(
 ) -> Result<Vec<NullComparison>, ConditionalStructureError> {
     let total_trials = config.total_trials()?;
     let mut samples = vec![Vec::with_capacity(total_trials); COMPARISON_STATISTICS.len()];
+    let shuffle = WithinMessageShuffle { messages };
 
+    // The seed-stream loop stays longhand: each trial scores ten columns from
+    // one shared shuffle and the `derived_seed` xor-mix is fallible, so only the
+    // resampling step becomes the shared sampler.
     for seed_index in 0..config.seed_count {
         let mut rng = SplitMix64::new(derived_seed(config.seed, seed_index)?);
         for _trial in 0..config.trials_per_seed {
-            let shuffled = shuffled_messages(messages, &mut rng)?;
+            let shuffled = shuffle.sample(&mut rng)?;
             let stats = first_order_stats(keys, &shuffled, config.alphabet_size)?;
             for (sample_row, &statistic) in samples.iter_mut().zip(COMPARISON_STATISTICS.iter()) {
                 sample_row.push(statistic_value(&stats, statistic));
@@ -1158,7 +1176,7 @@ fn comparison_from_samples(
     let upper_tail_count = samples.iter().filter(|&&sample| sample >= observed).count();
     let two_sided_add_one_p =
         two_sided_add_one_p(lower_tail_count, upper_tail_count, samples.len());
-    let null = scalar_null_band(samples);
+    let null = ScalarNullBand::from(f64_band(samples));
     NullComparison {
         statistic,
         observed,
@@ -1180,41 +1198,12 @@ fn two_sided_add_one_p(lower_tail_count: usize, upper_tail_count: usize, trials:
     }
 }
 
-fn scalar_null_band(samples: &[f64]) -> ScalarNullBand {
-    let mut sorted = samples.to_vec();
-    sorted.sort_by(f64::total_cmp);
-    ScalarNullBand {
-        trials: samples.len(),
-        mean: mean(samples),
-        min: sorted.first().copied().unwrap_or(0.0),
-        q025: quantile_from_sorted(&sorted, 25, REPORT_QUANTILE_DENOMINATOR),
-        median: median_f64(&sorted),
-        q975: quantile_from_sorted(&sorted, 975, REPORT_QUANTILE_DENOMINATOR),
-        max: sorted.last().copied().unwrap_or(0.0),
-    }
-}
-
-fn mean(samples: &[f64]) -> f64 {
-    if samples.is_empty() {
-        0.0
-    } else {
-        samples.iter().sum::<f64>() / samples.len() as f64
-    }
-}
-
 fn mean_abs(samples: &[f64]) -> f64 {
     if samples.is_empty() {
         0.0
     } else {
         samples.iter().map(|value| value.abs()).sum::<f64>() / samples.len() as f64
     }
-}
-
-fn quantile_from_sorted(sorted: &[f64], numerator: usize, denominator: usize) -> f64 {
-    sorted
-        .get(scaled_quantile_index(sorted.len(), numerator, denominator))
-        .copied()
-        .unwrap_or(0.0)
 }
 
 fn bias_calibration(
@@ -1241,8 +1230,8 @@ fn bias_calibration(
         trials: total_trials,
         alphabet_size: config.alphabet_size,
         true_mutual_information_bits: 0.0,
-        mle_mutual_information: scalar_null_band(&mle_samples),
-        corrected_mutual_information: scalar_null_band(&corrected_samples),
+        mle_mutual_information: ScalarNullBand::from(f64_band(&mle_samples)),
+        corrected_mutual_information: ScalarNullBand::from(f64_band(&corrected_samples)),
         mle_mean_abs_mutual_information_bits: mean_abs(&mle_samples),
         corrected_mean_abs_mutual_information_bits: mean_abs(&corrected_samples),
     })
@@ -1378,17 +1367,6 @@ fn random_permutation(
     let mut values = (0..alphabet_size).collect::<Vec<_>>();
     fisher_yates(&mut values, rng)?;
     Ok(values)
-}
-
-fn shuffled_messages(
-    messages: &[Vec<TrigramValue>],
-    rng: &mut SplitMix64,
-) -> Result<Vec<Vec<TrigramValue>>, ConditionalStructureError> {
-    let mut shuffled = messages.to_vec();
-    for values in &mut shuffled {
-        fisher_yates(values, rng)?;
-    }
-    Ok(shuffled)
 }
 
 fn trigram_from_index(index: usize) -> Result<TrigramValue, ConditionalStructureError> {
