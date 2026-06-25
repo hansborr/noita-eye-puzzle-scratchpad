@@ -814,14 +814,11 @@ fn run_isomorphnull(config: isomorph_null::IsomorphNullConfig) -> ExitCode {
     let report = match isomorph_null::run_isomorph_null(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "isomorph null error: {}",
-                report::format_isomorph_null_error(error)
-            );
+            eprintln!("isomorph null error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_isomorph_null_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 

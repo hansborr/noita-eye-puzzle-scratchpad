@@ -7,8 +7,8 @@
 use crate::glyph::Sequence;
 use crate::{
     analysis, chaining, chaining_graph, conditional_structure, controls, dof_null, gak_attack,
-    grouping, isomorph_null, modular_diff, null, orders, orientation_homogeneity, periodicity,
-    perseus, pyry_conditions, transitivity, tree_residual, zero_adjacency_null,
+    grouping, modular_diff, null, orders, orientation_homogeneity, periodicity, perseus,
+    pyry_conditions, transitivity, tree_residual, zero_adjacency_null,
 };
 
 const MIN_RELIABLE_PERIODICITY_NULL_TRIALS: usize = 50;
@@ -189,29 +189,6 @@ pub fn format_dof_null_error(error: &dof_null::DofNullError) -> String {
         }
         dof_null::DofNullError::SearchSpaceTooLarge => {
             "DoF null search-space cross-product is too large".to_owned()
-        }
-    }
-}
-
-/// Formats an Experiment 7A isomorph shuffle-null error for CLI output.
-#[must_use]
-pub fn format_isomorph_null_error(error: isomorph_null::IsomorphNullError) -> String {
-    match error {
-        isomorph_null::IsomorphNullError::Grid(grid_error) => {
-            format!("grid/order error: {grid_error:?}")
-        }
-        isomorph_null::IsomorphNullError::ZeroTrials => {
-            "at least one Monte-Carlo trial is required".to_owned()
-        }
-        isomorph_null::IsomorphNullError::InvalidWindowRange {
-            min_window,
-            max_window,
-        } => format!("invalid window range {min_window}..={max_window}"),
-        isomorph_null::IsomorphNullError::Isomorph(isomorph_error) => {
-            format!("detector configuration error: {isomorph_error:?}")
-        }
-        isomorph_null::IsomorphNullError::RandomBoundTooLarge { bound } => {
-            format!("shuffle bound {bound} is too large")
         }
     }
 }
@@ -1477,83 +1454,6 @@ pub fn print_pipeline_null_report(report: &null::NullReport) {
     println!();
     println!(
         "Interpretation: the base-7 pipeline does not manufacture the bounded 0..=82 contiguity; uniform-random orientation cells do not either. The contiguity is therefore not explained as a generation artifact, but this is equally consistent with structured-but-meaningless data and is not evidence of a recoverable message."
-    );
-}
-
-/// Prints the Experiment 7A isomorph shuffle-null report.
-pub fn print_isomorph_null_report(report: &isomorph_null::IsomorphNullReport) {
-    println!("Experiment 7A isomorph shuffle null");
-    println!("order: {}", report.order.name());
-    println!("seed: {}", report.config.seed);
-    println!("trials: {}", report.config.trials);
-    println!(
-        "windows: {}..={}",
-        report.config.min_window, report.config.max_window
-    );
-    println!(
-        "message lengths: {}",
-        format_message_lengths(&report.message_lengths)
-    );
-    println!("pooled length: {}", report.total_length);
-    println!(
-        "boundary rule: detector runs within each message only; no window crosses a message join"
-    );
-    println!(
-        "null: Fisher-Yates shuffle within each message, preserving that message's exact symbol multiset and length"
-    );
-    println!(
-        "statistic: repeated informative first-occurrence signature kinds, summed over messages; all-distinct windows are ignored"
-    );
-    println!(
-        "longest repeated real isomorph in scanned range: {}",
-        report
-            .longest_real_repeated_isomorph
-            .map_or_else(|| "none".to_owned(), |window| window.to_string())
-    );
-    println!();
-    println!(
-        "{:>2} {:>10} {:>8} {:>10} {:>12} {:>8} {:>9}",
-        "k", "real kinds", "max rep", "null mean", "null 95%", "null max", "p>=real"
-    );
-    for row in &report.rows {
-        println!(
-            "{:>2} {:>10} {:>8} {:>10.2} {:>12} {:>8} {:>9.4}",
-            row.window,
-            row.real.repeated_signature_kinds,
-            row.real.max_repeat_count,
-            row.null.mean,
-            format_isomorph_band(row.null),
-            row.null.max,
-            row.empirical_p
-        );
-    }
-    println!();
-    print_isomorph_null_interpretation(report);
-}
-
-fn print_isomorph_null_interpretation(report: &isomorph_null::IsomorphNullReport) {
-    let pointwise_excesses = report
-        .rows
-        .iter()
-        .filter(|row| row.real.repeated_signature_kinds > row.null.q975)
-        .map(|row| format!("k={} (p={:.4})", row.window, row.empirical_p))
-        .collect::<Vec<_>>();
-
-    if pointwise_excesses.is_empty() {
-        println!(
-            "Interpretation: the real eye stream does not exceed the pointwise 95% within-message shuffle band for repeated-signature kind counts at the scanned k values. Short repeated isomorphs exist, but this run does not show arrangement structure beyond the same messages shuffled against themselves."
-        );
-    } else {
-        println!(
-            "Interpretation: the real eye stream exceeds the pointwise 95% within-message shuffle band at {}. That is an arrangement signal worth rechecking, not a decryption or plaintext claim.",
-            pointwise_excesses.join(", ")
-        );
-    }
-    println!(
-        "The shuffle null holds symbol frequencies fixed and randomizes only order, so it tests arrangement rather than frequency. The p values are empirical fractions over the configured shuffles and are pointwise over the scanned k values."
-    );
-    println!(
-        "Any striking excess should be rechecked against Experiment 0 transcription integrity before interpretation."
     );
 }
 
@@ -3800,10 +3700,6 @@ fn format_moddiff_separation(separation: modular_diff::ControlSeparation) -> &'s
     } else {
         "overlap"
     }
-}
-
-fn format_isomorph_band(band: isomorph_null::IsomorphNullBand) -> String {
-    format!("{}..{}", band.q025, band.q975)
 }
 
 fn format_adjacency_band(band: zero_adjacency_null::AdjacencyNullBand) -> String {

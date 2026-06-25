@@ -4,12 +4,15 @@
 //! multiset and length, then randomizes order within that message. It therefore
 //! tests arrangement only; symbol frequencies are held fixed.
 
+use std::fmt;
+
 use crate::isomorph::{self, IsomorphError};
 use crate::null::{
     NullColumnError, UsizeBand, WithinMessageShuffle, add_one_p_value, run_null_test_columns,
     usize_band,
 };
 use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
+use crate::report::{self, Report};
 use crate::trigram::TrigramValue;
 
 /// Default deterministic Monte-Carlo seed for Experiment 7A.
@@ -86,6 +89,25 @@ impl From<crate::null::RandomBoundError> for IsomorphNullError {
     }
 }
 
+impl fmt::Display for IsomorphNullError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Grid(grid_error) => write!(f, "grid/order error: {grid_error:?}"),
+            Self::ZeroTrials => write!(f, "at least one Monte-Carlo trial is required"),
+            Self::InvalidWindowRange {
+                min_window,
+                max_window,
+            } => write!(f, "invalid window range {min_window}..={max_window}"),
+            Self::Isomorph(isomorph_error) => {
+                write!(f, "detector configuration error: {isomorph_error:?}")
+            }
+            Self::RandomBoundTooLarge { bound } => write!(f, "shuffle bound {bound} is too large"),
+        }
+    }
+}
+
+impl std::error::Error for IsomorphNullError {}
+
 /// Real or shuffled detector summary for one window length.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct IsomorphWindowSummary {
@@ -159,6 +181,108 @@ pub struct IsomorphNullReport {
     pub longest_real_repeated_isomorph: Option<usize>,
     /// Real-vs-null rows, one per scanned window length.
     pub rows: Vec<IsomorphNullRow>,
+}
+
+impl Report for IsomorphNullReport {
+    fn render(&self) -> String {
+        let mut out = String::new();
+        report::appendln!(&mut out, "Experiment 7A isomorph shuffle null");
+        report::appendln!(&mut out, "order: {}", self.order.name());
+        report::appendln!(&mut out, "seed: {}", self.config.seed);
+        report::appendln!(&mut out, "trials: {}", self.config.trials);
+        report::appendln!(
+            &mut out,
+            "windows: {}..={}",
+            self.config.min_window,
+            self.config.max_window
+        );
+        report::appendln!(
+            &mut out,
+            "message lengths: {}",
+            report::format_message_lengths(&self.message_lengths)
+        );
+        report::appendln!(&mut out, "pooled length: {}", self.total_length);
+        report::appendln!(
+            &mut out,
+            "boundary rule: detector runs within each message only; no window crosses a message join"
+        );
+        report::appendln!(
+            &mut out,
+            "null: Fisher-Yates shuffle within each message, preserving that message's exact symbol multiset and length"
+        );
+        report::appendln!(
+            &mut out,
+            "statistic: repeated informative first-occurrence signature kinds, summed over messages; all-distinct windows are ignored"
+        );
+        report::appendln!(
+            &mut out,
+            "longest repeated real isomorph in scanned range: {}",
+            self.longest_real_repeated_isomorph
+                .map_or_else(|| "none".to_owned(), |window| window.to_string())
+        );
+        report::appendln!(&mut out);
+        report::appendln!(
+            &mut out,
+            "{:>2} {:>10} {:>8} {:>10} {:>12} {:>8} {:>9}",
+            "k",
+            "real kinds",
+            "max rep",
+            "null mean",
+            "null 95%",
+            "null max",
+            "p>=real"
+        );
+        for row in &self.rows {
+            report::appendln!(
+                &mut out,
+                "{:>2} {:>10} {:>8} {:>10.2} {:>12} {:>8} {:>9.4}",
+                row.window,
+                row.real.repeated_signature_kinds,
+                row.real.max_repeat_count,
+                row.null.mean,
+                format_isomorph_band(row.null),
+                row.null.max,
+                row.empirical_p
+            );
+        }
+        report::appendln!(&mut out);
+        append_isomorph_null_interpretation(&mut out, self);
+        out
+    }
+}
+
+fn append_isomorph_null_interpretation(out: &mut String, report: &IsomorphNullReport) {
+    let pointwise_excesses = report
+        .rows
+        .iter()
+        .filter(|row| row.real.repeated_signature_kinds > row.null.q975)
+        .map(|row| format!("k={} (p={:.4})", row.window, row.empirical_p))
+        .collect::<Vec<_>>();
+
+    if pointwise_excesses.is_empty() {
+        report::appendln!(
+            out,
+            "Interpretation: the real eye stream does not exceed the pointwise 95% within-message shuffle band for repeated-signature kind counts at the scanned k values. Short repeated isomorphs exist, but this run does not show arrangement structure beyond the same messages shuffled against themselves."
+        );
+    } else {
+        report::appendln!(
+            out,
+            "Interpretation: the real eye stream exceeds the pointwise 95% within-message shuffle band at {}. That is an arrangement signal worth rechecking, not a decryption or plaintext claim.",
+            pointwise_excesses.join(", ")
+        );
+    }
+    report::appendln!(
+        out,
+        "The shuffle null holds symbol frequencies fixed and randomizes only order, so it tests arrangement rather than frequency. The p values are empirical fractions over the configured shuffles and are pointwise over the scanned k values."
+    );
+    report::appendln!(
+        out,
+        "Any striking excess should be rechecked against Experiment 0 transcription integrity before interpretation."
+    );
+}
+
+fn format_isomorph_band(band: IsomorphNullBand) -> String {
+    format!("{}..{}", band.q025, band.q975)
 }
 
 /// Runs Experiment 7A on the verified eye corpus.
