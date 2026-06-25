@@ -31,6 +31,12 @@ pub struct Mapping {
 }
 
 impl Mapping {
+    /// Builds a mapping from an explicit table.
+    #[must_use]
+    pub fn from_table(table: Vec<usize>) -> Self {
+        Self { table }
+    }
+
     /// Builds the identity mapping `i -> i` for `cipher_alphabet_size` symbols.
     #[must_use]
     pub fn identity(cipher_alphabet_size: usize) -> Self {

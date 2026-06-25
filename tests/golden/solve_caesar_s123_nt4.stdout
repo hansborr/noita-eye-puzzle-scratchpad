@@ -1,0 +1,11 @@
+Solve candidates: HYPOTHESIS, not decode
+candidates: 54
+top:
+  cipher: Caesar
+  language: English
+  crypto_round_trip_ok: true
+  score: -2.952364
+  heldout_mapping_score: -3.589600
+  null_mean: -3.431936
+  beats_null: true
+  rendered_text: THEQUICKBROWNFOXJUMPSOVERTHELAZYDOG

@@ -7,20 +7,21 @@
 use std::io::{self, Read};
 use std::process::ExitCode;
 
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use noita_eye_puzzle::{
     agl_gak, chaining, chaining_graph, cipher_attack, ciphers, conditional_structure, controls,
     corpus, dof_null, gak_attack,
     glyph::{Alphabet, Sequence},
-    grouping, honeycomb, ingest, isomorph_null, modular_diff, null, orders,
+    grouping, honeycomb, ingest, isomorph_null, language, modular_diff, null, orders,
     orientation_homogeneity, perfect_isomorphism, periodicity, perseus, pipeline_null,
-    pyry_conditions, report, transitivity, tree_residual, zero_adjacency_null,
+    pyry_conditions, report, solve, transitivity, tree_residual, zero_adjacency_null,
 };
 
 const DEFAULT_NULL_SEED: u64 = 0x6e6f_6974_612d_6579;
 const DEFAULT_NULL_TRIALS: usize = 1_000;
 const DEFAULT_DOF_NULL_SEED: u64 = 0x646f_666e_756c_6c00;
 const DEFAULT_DOF_NULL_TRIALS: usize = 1_000;
+const DEFAULT_SOLVE_ALPHABET: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 #[derive(Debug, Parser)]
 #[command(
@@ -104,6 +105,8 @@ enum Command {
     Pyry(PyryConditionsArgs),
     /// Experiment 11 positive controls.
     Controls(ControlsArgs),
+    /// Search and score solve hypotheses; candidates are HYPOTHESES, not decodes.
+    Solve(SolveArgs),
 }
 
 #[derive(Debug, Args)]
@@ -125,6 +128,43 @@ struct StatsArgs {
     /// --honeycomb.
     #[arg(long = "alphabet", conflicts_with = "honeycomb")]
     alphabet: Option<String>,
+}
+
+#[derive(Clone, Debug, Args)]
+struct SolveArgs {
+    /// Ciphertext sequence. Optional: omit to read from --input-file or stdin.
+    ciphertext: Option<String>,
+    /// Read the ciphertext from this file instead of the positional argument.
+    #[arg(long = "input-file", conflicts_with = "ciphertext")]
+    input_file: Option<std::path::PathBuf>,
+    /// Read the ciphertext from stdin.
+    #[arg(long = "stdin", conflicts_with_all = ["ciphertext", "input_file"])]
+    stdin: bool,
+    /// Treat the input as accepted honeycomb reading-layer values (0-82).
+    #[arg(long = "honeycomb", conflicts_with = "alphabet")]
+    honeycomb: bool,
+    /// Cipher alphabet chars, in order. Defaults to A-Z for letter puzzles.
+    #[arg(long = "alphabet", conflicts_with = "honeycomb")]
+    alphabet: Option<String>,
+    /// Cipher family to enumerate. Repeat to include more than one.
+    #[arg(long = "family", value_enum)]
+    family: Vec<SolveFamilyArg>,
+    /// Deterministic seed for the matched-null control.
+    #[arg(long, default_value_t = solve::DEFAULT_SEED)]
+    seed: u64,
+    /// Number of matched-null shuffles.
+    #[arg(long = "null-trials", default_value_t = solve::DEFAULT_NULL_TRIALS)]
+    null_trials: usize,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+enum SolveFamilyArg {
+    /// No-key passthrough cipher.
+    Identity,
+    /// Exhaustive Caesar shifts over the parsed alphabet.
+    Caesar,
+    /// Small synthetic transposition candidates.
+    Transposition,
 }
 
 #[derive(Clone, Copy, Debug, Args)]
@@ -662,6 +702,7 @@ fn main() -> ExitCode {
         Command::Cipherattack(args) => run_cipherattack(args.into()),
         Command::Pyry(args) => run_pyry(args.into()),
         Command::Controls(args) => run_controls(args),
+        Command::Solve(args) => run_solve(&args),
     }
 }
 
@@ -1073,10 +1114,50 @@ fn run_orders() -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn run_stats(args: &StatsArgs) -> ExitCode {
+#[derive(Debug)]
+enum CliSequenceError {
+    InvalidAlphabet(char),
+    Ingest(ingest::IngestError),
+}
+
+impl std::fmt::Display for CliSequenceError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidAlphabet(ch) => {
+                write!(
+                    f,
+                    "invalid --alphabet: repeated or unrepresentable character {ch:?}"
+                )
+            }
+            Self::Ingest(error) => write!(f, "{error}"),
+        }
+    }
+}
+
+fn resolve_input_text(
+    sequence: Option<&str>,
+    input_file: Option<&std::path::PathBuf>,
+    stdin: bool,
+) -> Result<String, io::Error> {
+    match (sequence, input_file, stdin) {
+        (Some(text), _, _) => Ok(text.to_owned()),
+        (None, Some(path), _) => std::fs::read_to_string(path),
+        (None, None, true | false) => {
+            let mut text = String::new();
+            let _bytes_read = io::stdin().read_to_string(&mut text)?;
+            Ok(text)
+        }
+    }
+}
+
+fn parse_cli_sequence(
+    text: &str,
+    alphabet_spec: Option<&str>,
+    honeycomb: bool,
+) -> Result<ingest::ParsedSequence, CliSequenceError> {
     let transparent = ingest::TransparentSet::default();
     let alphabet;
-    let layer = match &args.alphabet {
+    let layer = match alphabet_spec {
         Some(spec) => match Alphabet::from_chars(spec) {
             Ok(built) => {
                 alphabet = built;
@@ -1086,28 +1167,26 @@ fn run_stats(args: &StatsArgs) -> ExitCode {
                 }
             }
             Err(c) => {
-                eprintln!("invalid --alphabet: repeated or unrepresentable character {c:?}");
-                return ExitCode::FAILURE;
+                return Err(CliSequenceError::InvalidAlphabet(c));
             }
         },
-        None if args.honeycomb => ingest::SequenceLayer::HoneycombReading,
+        None if honeycomb => ingest::SequenceLayer::HoneycombReading,
         None => ingest::SequenceLayer::RenderedOrientation,
     };
+    ingest::parse_sequence(text, layer).map_err(CliSequenceError::Ingest)
+}
 
-    let parsed = if let Some(text) = &args.sequence {
-        ingest::parse_sequence(text, layer)
-    } else if let Some(path) = &args.input_file {
-        ingest::load_sequence(ingest::Input::Path(path), layer)
-    } else {
-        let mut text = String::new();
-        if let Err(error) = io::stdin().read_to_string(&mut text) {
-            eprintln!("failed to read stdin: {error}");
+fn run_stats(args: &StatsArgs) -> ExitCode {
+    let text = match resolve_input_text(args.sequence.as_deref(), args.input_file.as_ref(), false) {
+        Ok(text) => text,
+        Err(error) => {
+            eprintln!("failed to read input: {error}");
             return ExitCode::FAILURE;
         }
-        ingest::parse_sequence(&text, layer)
     };
+    let rendered_layer = args.alphabet.is_none() && !args.honeycomb;
 
-    match parsed {
+    match parse_cli_sequence(&text, args.alphabet.as_deref(), args.honeycomb) {
         Ok(parsed) => {
             let seq = Sequence {
                 glyphs: parsed.glyphs,
@@ -1123,9 +1202,7 @@ fn run_stats(args: &StatsArgs) -> ExitCode {
         // pipeline (brief 04); `stats` keeps the old report only for the rendered
         // layer (the honeycomb / cipher-alphabet paths are new, so their `Empty`
         // surfaces as an error).
-        Err(ingest::IngestError::Empty)
-            if matches!(layer, ingest::SequenceLayer::RenderedOrientation) =>
-        {
+        Err(CliSequenceError::Ingest(ingest::IngestError::Empty)) if rendered_layer => {
             report::print_report("input", &Sequence { glyphs: Vec::new() });
             ExitCode::SUCCESS
         }
@@ -1134,4 +1211,187 @@ fn run_stats(args: &StatsArgs) -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+fn run_solve(args: &SolveArgs) -> ExitCode {
+    let text = match resolve_input_text(
+        args.ciphertext.as_deref(),
+        args.input_file.as_ref(),
+        args.stdin,
+    ) {
+        Ok(text) => text,
+        Err(error) => {
+            eprintln!("failed to read input: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let alphabet_spec = args
+        .alphabet
+        .as_deref()
+        .or((!args.honeycomb).then_some(DEFAULT_SOLVE_ALPHABET));
+    let parsed = match parse_cli_sequence(&text, alphabet_spec, args.honeycomb) {
+        Ok(parsed) => parsed,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let english = match language::english_model() {
+        Ok(model) => model,
+        Err(error) => {
+            eprintln!("English model error: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let finnish = match language::finnish_model() {
+        Ok(model) => model,
+        Err(error) => {
+            eprintln!("Finnish model error: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let cipher_alphabet_size = solve_alphabet_size(args, alphabet_spec, &parsed);
+    let request = solve::SolveRequest {
+        ciphertext: &parsed.glyphs,
+        space: solve::HypothesisSpace {
+            families: solve_families(cipher_alphabet_size, &args.family),
+            mappings: solve::MappingStrategy::Fixed(solve_mappings(
+                cipher_alphabet_size,
+                english.alphabet().len(),
+            )),
+            language: solve::LanguageChoice::Both,
+            cipher_alphabet_size,
+            seed: args.seed,
+            null_trials: args.null_trials,
+        },
+        english: &english,
+        finnish: &finnish,
+    };
+
+    match solve::solve(&request) {
+        Ok(candidates) => {
+            print_solve_report(&candidates);
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("solve error: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn solve_alphabet_size(
+    args: &SolveArgs,
+    alphabet_spec: Option<&str>,
+    parsed: &ingest::ParsedSequence,
+) -> usize {
+    if args.honeycomb {
+        return ciphers::EYE_READING_ALPHABET_SIZE;
+    }
+    if let Some(spec) = alphabet_spec {
+        return spec.chars().count();
+    }
+    parsed
+        .glyphs
+        .iter()
+        .map(|glyph| usize::from(glyph.0) + 1)
+        .max()
+        .unwrap_or(0)
+}
+
+fn solve_families(
+    cipher_alphabet_size: usize,
+    requested: &[SolveFamilyArg],
+) -> Vec<solve::CipherFamilySpec> {
+    let selected = if requested.is_empty() {
+        vec![SolveFamilyArg::Identity, SolveFamilyArg::Caesar]
+    } else {
+        requested.to_vec()
+    };
+    let mut families = Vec::new();
+    for family in selected {
+        match family {
+            SolveFamilyArg::Identity => families.push(solve::CipherFamilySpec {
+                label: "identity".to_owned(),
+                ciphers: vec![ciphers::AnyCipher::Identity],
+            }),
+            SolveFamilyArg::Caesar => families.push(solve::CipherFamilySpec {
+                label: "Caesar".to_owned(),
+                ciphers: caesar_family(cipher_alphabet_size),
+            }),
+            SolveFamilyArg::Transposition => families.push(solve::CipherFamilySpec {
+                label: "transposition".to_owned(),
+                ciphers: transposition_family(cipher_alphabet_size),
+            }),
+        }
+    }
+    families
+}
+
+fn caesar_family(cipher_alphabet_size: usize) -> Vec<ciphers::AnyCipher> {
+    (0..cipher_alphabet_size)
+        .filter_map(
+            |shift| match ciphers::CaesarKey::new(cipher_alphabet_size, shift) {
+                Ok(key) => Some(ciphers::AnyCipher::Caesar(key)),
+                Err(_error) => None,
+            },
+        )
+        .collect()
+}
+
+fn transposition_family(cipher_alphabet_size: usize) -> Vec<ciphers::AnyCipher> {
+    let max_period = cipher_alphabet_size.clamp(2, 6);
+    (2..=max_period)
+        .filter_map(|period| {
+            let permutation = (0..period).rev().collect::<Vec<_>>();
+            match ciphers::TranspositionKey::new(period, permutation) {
+                Ok(key) => Some(ciphers::AnyCipher::Transposition(key)),
+                Err(_error) => None,
+            }
+        })
+        .collect()
+}
+
+fn solve_mappings(
+    cipher_alphabet_size: usize,
+    language_alphabet_size: usize,
+) -> Vec<solve::Mapping> {
+    if cipher_alphabet_size <= language_alphabet_size {
+        vec![solve::Mapping::identity(cipher_alphabet_size)]
+    } else {
+        vec![solve::Mapping::from_table(
+            (0..cipher_alphabet_size)
+                .map(|symbol| symbol % language_alphabet_size)
+                .collect(),
+        )]
+    }
+}
+
+fn print_solve_report(candidates: &[solve::Candidate]) {
+    println!("Solve candidates: HYPOTHESIS, not decode");
+    println!("candidates: {}", candidates.len());
+    let Some(top) = candidates.first() else {
+        println!("no candidate survived the cipher-layer round-trip gate");
+        return;
+    };
+    println!("top:");
+    println!("  cipher: {}", top.cipher.name());
+    println!("  language: {:?}", top.language);
+    println!("  crypto_round_trip_ok: {}", top.crypto_round_trip_ok);
+    println!("  score: {:.6}", top.score);
+    println!("  heldout_mapping_score: {:.6}", top.heldout_mapping_score);
+    println!("  null_mean: {:.6}", top.null_mean);
+    println!("  beats_null: {}", top.beats_null);
+    println!(
+        "  rendered_text: {}",
+        display_prefix(&top.rendered_text, 120)
+    );
+}
+
+fn display_prefix(text: &str, max_chars: usize) -> String {
+    let mut rendered = text.chars().take(max_chars).collect::<String>();
+    if text.chars().count() > max_chars {
+        rendered.push_str("...");
+    }
+    rendered
 }
