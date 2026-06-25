@@ -6,7 +6,7 @@
 
 use crate::glyph::Sequence;
 use crate::{
-    analysis, conditional_structure, controls, dof_null, gak_attack, grouping, null, orders,
+    analysis, conditional_structure, controls, gak_attack, grouping, orders,
     orientation_homogeneity, periodicity,
 };
 
@@ -131,44 +131,6 @@ pub fn format_periodicity_error(error: periodicity::PeriodicityError) -> String 
         }
         periodicity::PeriodicityError::InvalidAlphabetSize { alphabet_size } => {
             format!("invalid null alphabet size {alphabet_size}; expected 1..=125")
-        }
-    }
-}
-
-/// Formats a calibrated researcher-`DoF` null error for CLI output.
-#[must_use]
-pub fn format_dof_null_error(error: &dof_null::DofNullError) -> String {
-    match error {
-        dof_null::DofNullError::Grid(grid_error) => {
-            format!("grid/order error: {grid_error:?}")
-        }
-        dof_null::DofNullError::ZeroTrials => {
-            "at least one DoF null resampling trial is required".to_owned()
-        }
-        dof_null::DofNullError::ZeroCalibrationTrials => {
-            "at least one DoF null calibration trial is required".to_owned()
-        }
-        dof_null::DofNullError::EmptySearchSpace => {
-            "the DoF search space must include at least one traversal, grouping, and statistic"
-                .to_owned()
-        }
-        dof_null::DofNullError::NoValidCells => {
-            "no compatible traversal/grouping/statistic cells remained".to_owned()
-        }
-        dof_null::DofNullError::ZeroGroupingWidth => {
-            "orientation grouping width must be at least 1".to_owned()
-        }
-        dof_null::DofNullError::GroupingAlphabetTooLarge { width } => {
-            format!("orientation grouping width {width} has too many base-5 states")
-        }
-        dof_null::DofNullError::InternalCellMismatch { expected, observed } => {
-            format!("internal DoF cell mismatch: expected {expected}, observed {observed}")
-        }
-        dof_null::DofNullError::TrialCountTooLarge => {
-            "DoF null trial count is too large for add-one calibration".to_owned()
-        }
-        dof_null::DofNullError::SearchSpaceTooLarge => {
-            "DoF null search-space cross-product is too large".to_owned()
         }
     }
 }
@@ -381,199 +343,6 @@ pub fn format_conditional_structure_error(
         } => format!(
             "{message_key}: no-repeat conditioned null requires an input with no adjacent-equal transitions"
         ),
-    }
-}
-
-/// Prints the calibrated researcher-`DoF` null report.
-pub fn print_dof_null_report(report: &dof_null::DofNullReport) {
-    println!("calibrated researcher-DoF random-grid null");
-    println!("seed: {}", report.config.seed);
-    println!(
-        "calibration trials (A): {}",
-        report.config.calibration_trials
-    );
-    println!("resampling trials (B): {}", report.config.trials);
-    println!(
-        "configured axes: {} traversals x {} groupings x {} statistics = {} total cells",
-        report.configured_orders,
-        report.configured_groupings,
-        report.configured_statistics,
-        report.configured_cell_count
-    );
-    println!("valid calibrated cells: {}", report.valid_cell_count);
-    println!(
-        "skipped traversal/grouping combos: {}",
-        report.skipped.len()
-    );
-    println!("resampled: verified row-width structure with uniform orientation cells 0..=4");
-    println!(
-        "calibration: set A defines each cell's empirical marginal tail; the eyes and independent set B are both scored against A before the cross-cell min-p search"
-    );
-    println!(
-        "scope nuance: the standard36 honeycomb walk is data-independent; the newly calibrated exposure is concentrated on grouping/statistic choice plus non-honeycomb controls"
-    );
-    println!(
-        "empirical marginal floor: {} = 1/(calibration trials + 1)",
-        format_probability(report.empirical_marginal_floor)
-    );
-    println!();
-    println!(
-        "eyes min marginal p: {}{}",
-        format_probability(report.observed_min_p),
-        floor_censored_suffix(report.observed_min_p, report.empirical_marginal_floor)
-    );
-    println!(
-        "best cell: {} / {} / {} ({}, real {}, null {}..{}..{})",
-        report.best_cell.order.name(),
-        report.best_cell.grouping.label(),
-        report.best_cell.statistic.label(),
-        report.best_cell.tail.label(),
-        format_statistic_value(report.best_cell.real_value),
-        format_statistic_value(report.best_cell.null_min),
-        format_statistic_value(report.best_cell.null_median),
-        format_statistic_value(report.best_cell.null_max)
-    );
-    println!(
-        "adaptive raw exceedances in B: {}/{}",
-        report.adaptive_extreme_count, report.config.trials
-    );
-    print_interval(
-        "resolution-limited adaptive min-p diagnostic",
-        report.adaptive_interval,
-    );
-    println!(
-        "effective independent comparisons (median Sidak-equivalent): {}",
-        format_effective_comparisons(report.effective_comparisons)
-    );
-    println!(
-        "resampling-grid min-p range scored against A: {}..{}..{}",
-        format_probability(report.null_min_p_min),
-        format_probability(report.null_min_p_median),
-        format_probability(report.null_min_p_max)
-    );
-    println!();
-    print_dof_analytic_headline(report);
-    println!();
-    print_dof_skips(report);
-    println!();
-    print_dof_cell_breakdown(report);
-    println!();
-    println!(
-        "Interpretation: the empirical adaptive value above is a finite-resolution diagnostic, not the headline significance. With this calibration size, any sub-floor cell is censored to the floor, so the diagnostic estimates how often random grids hit that floor somewhere after look-elsewhere multiplicity. The analytic bound is the appropriate correction for the known bounded-contiguity headline; it remains astronomically small and still does not decode meaning."
-    );
-    println!(
-        "Seed-stability note: multi-seed regressions keep the eyes' min marginal p and accepted headline cell at the calibration floor, with the adaptive diagnostic staying in the same finite-resolution floor-hit regime. The analytic DoF-corrected headline bound is seed-independent."
-    );
-}
-
-fn print_dof_analytic_headline(report: &dof_null::DofNullReport) {
-    let Some(bounds) = &report.analytic_headline_bounds else {
-        println!("analytic DoF-corrected headline bound: unavailable for this search space");
-        return;
-    };
-    let calibration_draws_to_resolve = if bounds.per_order > 0.0 {
-        1.0 / bounds.per_order
-    } else {
-        f64::INFINITY
-    };
-
-    println!("analytic DoF-corrected headline bound under independent uniform trigrams:");
-    println!(
-        "  headline cell: {} / {} / {} real {}, empirical p {}{} ({} calibration hits)",
-        bounds.cell.order.name(),
-        bounds.cell.grouping.label(),
-        bounds.cell.statistic.label(),
-        format_statistic_value(bounds.cell.real_value),
-        format_probability(bounds.cell.marginal_p),
-        floor_censored_suffix(bounds.cell.marginal_p, report.empirical_marginal_floor),
-        bounds.cell.marginal_extreme_count
-    );
-    println!(
-        "  per-order (83/125)^{}: {:.6e}",
-        bounds.trigrams, bounds.per_order
-    );
-    println!(
-        "  total configured cells (M={}): Bonferroni {:.6e}; Sidak {:.6e}",
-        bounds.total_configured_cells, bounds.total_bonferroni, bounds.total_sidak
-    );
-    println!(
-        "  effective comparisons (M={}): Bonferroni {:.6e}; Sidak {:.6e}",
-        format_effective_comparisons(bounds.effective_comparisons),
-        bounds.effective_bonferroni,
-        bounds.effective_sidak
-    );
-    println!(
-        "  calibration draws needed to resolve this per-order scale empirically: ~{calibration_draws_to_resolve:.3e}"
-    );
-    println!(
-        "  conclusion: the bounded 0..=82 headline survives the configured researcher-DoF correction analytically."
-    );
-}
-
-fn floor_censored_suffix(value: f64, floor: f64) -> &'static str {
-    if (value - floor).abs() <= f64::EPSILON * 8.0 {
-        " (floor-censored)"
-    } else {
-        ""
-    }
-}
-
-fn print_dof_skips(report: &dof_null::DofNullReport) {
-    if report.skipped.is_empty() {
-        println!("skipped combos: none");
-        return;
-    }
-    println!("skipped combos");
-    for skipped in &report.skipped {
-        println!(
-            "  {} / {}: {}",
-            skipped.order.name(),
-            skipped.grouping.label(),
-            skipped.reason
-        );
-    }
-}
-
-fn print_dof_cell_breakdown(report: &dof_null::DofNullReport) {
-    let mut cells = report.cells.iter().collect::<Vec<_>>();
-    cells.sort_by(|left, right| {
-        left.marginal_p
-            .total_cmp(&right.marginal_p)
-            .then_with(|| left.statistic.cmp(&right.statistic))
-            .then_with(|| left.grouping.cmp(&right.grouping))
-            .then_with(|| left.order.cmp(&right.order))
-    });
-    println!("per-cell marginal calibration from set A");
-    println!(
-        "{:<24} {:<17} {:<24} {:>4} {:>7} {:>7} {:>10} {:>20} {:>11}",
-        "order",
-        "grouping",
-        "statistic",
-        "tail",
-        "symbols",
-        "drop",
-        "real",
-        "null min/med/max",
-        "p"
-    );
-    for cell in cells {
-        println!(
-            "{:<24} {:<17} {:<24} {:>4} {:>7} {:>7} {:>10} {:>20} {:>11}",
-            cell.order.name(),
-            cell.grouping.label(),
-            cell.statistic.label(),
-            cell.tail.label(),
-            cell.real_symbols,
-            cell.dropped_source_symbols,
-            format_statistic_value(cell.real_value),
-            format!(
-                "{}/{}/{}",
-                format_statistic_value(cell.null_min),
-                format_statistic_value(cell.null_median),
-                format_statistic_value(cell.null_max)
-            ),
-            format_probability(cell.marginal_p)
-        );
     }
 }
 
@@ -2150,22 +1919,6 @@ fn print_eyes_gates_2_3_verdict(report: &gak_attack::EyesAttackReport) {
     );
 }
 
-fn format_statistic_value(value: f64) -> String {
-    if (value - value.round()).abs() < 1e-9 {
-        format!("{value:.0}")
-    } else {
-        format!("{value:.4}")
-    }
-}
-
-fn format_effective_comparisons(value: f64) -> String {
-    if value.is_infinite() {
-        "infinite".to_owned()
-    } else {
-        format!("{value:.2}")
-    }
-}
-
 /// Formats unsigned integer values as a comma-separated report list.
 pub(crate) fn format_usize_values(values: &[usize]) -> String {
     if values.is_empty() {
@@ -2710,13 +2463,6 @@ fn grouping_state_max_window(report: &grouping::Experiment8Report) -> usize {
         .map(|row| row.window)
         .max()
         .unwrap_or_default()
-}
-
-fn print_interval(label: &str, interval: null::WilsonInterval) {
-    println!(
-        "{label}: {}/{} = {:.6} (95% Wilson {:.6}..{:.6})",
-        interval.count, interval.trials, interval.estimate, interval.lower, interval.upper
-    );
 }
 
 /// Prints the reading-order audit and Experiment 4 flatness report.

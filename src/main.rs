@@ -724,11 +724,11 @@ fn run_dofnull(config: dof_null::DofNullConfig) -> ExitCode {
     let report = match dof_null::run_dof_null(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!("DoF null error: {}", report::format_dof_null_error(&error));
+            eprintln!("DoF null error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_dof_null_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
