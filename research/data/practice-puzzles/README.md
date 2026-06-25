@@ -27,10 +27,10 @@ the sole honest-negative.
 | ---- | ------- | ------------------- | -------------------- | ------------------------ |
 | `one`   | 266 | 5 digits `{0,1,2,3,4}`, no spaces | **±1 walk on C5** (all 265 transitions ±1 mod 5: +1×125, −1×140); `H1≈2.321/2.322` | small-alphabet keystream/GAK → **needs codec** |
 | `two`   | 698 | 12 letters `{A..L}`, no spaces | near-flat marginal (`H1≈3.578/3.585`), out-degree ≈8 | polyalphabetic/keystream → **needs codec** |
-| `three` | 142 | ~letters `{A..Z}` (J, V absent) + space `,` `.` | word + single-sentence structure, spaces preserved | letter **substitution** |
+| `three` | 142 | ~letters `{A..Z}` (J, V absent) + space `,` `.` | word + two-sentence structure, spaces preserved | letter **substitution** |
 | `four`  | 128 | letters + space `,` `.` `?`, 6 lines | multi-sentence, spaces + punctuation preserved | letter **substitution** |
 | `five`  | 281 | letters + space `!` `,` `.` `?`, 7 lines | multi-sentence, spaces + punctuation preserved | letter **substitution** |
-| `six`   | 417 | 6 digits `{1..6}` + **spaces**, 5 lines | word boundaries preserved; `H1≈2.582/2.585` (not a pure walk) | base-6 **digit-grouping codec** (pairs → ≤36 ≥ 26) → needs codec |
+| `six`   | 417 | 6 digits `{1..6}` + **spaces**, 3 data lines | word boundaries preserved; `H1≈2.582/2.585` (not a pure walk) | base-6 **digit-grouping codec** (pairs → ≤36 ≥ 26) → needs codec |
 | `seven` | 164 | letters + `#` + space `,` `?`, 5 lines | word structure preserved; `#` used as a symbol | letter **substitution** (`#` = rare letter/space?) |
 
 Notes:

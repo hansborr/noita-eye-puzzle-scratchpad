@@ -21,7 +21,7 @@ fns are pure copy-paste with the type names swapped (compare
 
 The overview flags this directly: "Per-experiment boilerplate | 22 `Config` + 24
 `Args` + 22 `From<Args>` + 28 `run_*` CLI dispatchers in `main.rs` ≈ 4 scattered
-edits per experiment" (`docs/refactor/00-OVERVIEW.md:55`). This brief is the
+edits per experiment" (`docs/refactor/00-OVERVIEW.md` §"Evidence (the structural smells)"). This brief is the
 `main.rs`-side payoff of
 the `Report` trait that brief 06 introduces: once each experiment's report can
 `render(&self) -> String` and each error enum has a `Display` impl, the per-fn
@@ -116,7 +116,7 @@ single-report printers, `src/report.rs:753-5399` — excluding the 3-arg
 `print_orders_report` and the generic `print_report(label, seq)`). Brief 06
 replaces these with `impl Display`/`thiserror` on each error enum and a
 `Report::render(&self) -> String` per report type
-(`docs/refactor/00-OVERVIEW.md:116-121`). This brief consumes that surface: the
+(`docs/refactor/00-OVERVIEW.md` §"4. `Experiment` + `Report`"). This brief consumes that surface: the
 registry's generic dispatch calls `report.render()` and `eprintln!("{err}")`
 instead of the named `print_*`/`format_*` fns. **Order this brief after 06.**
 
@@ -213,8 +213,8 @@ behavior change.
 
 ### (b) `Experiment`-trait-backed registry
 
-Lean on brief 02's `Experiment`/`Report` traits
-(`docs/refactor/00-OVERVIEW.md:116-121`). Define, in `main.rs` (or a thin
+Lean on brief 06's `Experiment`/`Report` traits
+(`docs/refactor/00-OVERVIEW.md` §"4. `Experiment` + `Report`"). Define, in `main.rs` (or a thin
 `src/cli.rs` module), a registry that maps each clap variant to one entry that
 owns: build `Config` from `Args`, call the run fn, and `render` the report.
 
@@ -436,7 +436,7 @@ masters + `tests/*_cli.rs` unchanged).
 - **No statistic or decode changes.** This is pure CLI plumbing; the corpus
   base-7 cross-check, every null calibration, and every reported p-value/z must
   be untouched. The golden-master diff is the proof, per
-  `docs/refactor/00-OVERVIEW.md:192-195`.
+  `docs/refactor/00-OVERVIEW.md` §"Shared ground rules" ("Behavior-preserving").
 
 ## Out of scope / non-goals
 

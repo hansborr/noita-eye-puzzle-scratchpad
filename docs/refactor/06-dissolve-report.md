@@ -12,7 +12,7 @@ experiment module's error enum and `*Report` struct is rendered by hand-written
 free functions living *here* instead of next to the type they describe. That
 means adding or changing one experiment touches `report.rs`, and `report.rs`
 re-imports the whole crate — the textbook god-file / hub smell from the overview
-(`docs/refactor/00-OVERVIEW.md:53-54`).
+(`docs/refactor/00-OVERVIEW.md` §"Evidence (the structural smells)").
 
 This brief does two mechanical, behavior-preserving moves:
 
@@ -40,7 +40,7 @@ whose bytes are already proven stable by Phase A.
 The payoff: `report.rs` shrinks to shared formatting primitives only, the
 per-experiment edit cost drops, and brief 08 gets a uniform `Report` surface to
 build a registry on. It serves the maintainability track of the reframe
-(`docs/refactor/00-OVERVIEW.md:123-124`): "Each error enum gets a
+(`docs/refactor/00-OVERVIEW.md` §"4. `Experiment` + `Report` — dissolve the report god-file (brief 06)"): "Each error enum gets a
 `Display`/`thiserror` impl … `report.rs` keeps only shared formatting helpers."
 
 ## Current state (grounded, with file:line)
@@ -240,7 +240,7 @@ proves the bytes are identical. This is the byte-parity risk, isolated.
 
 Add a tiny trait. Proposed home: a new `src/report/mod.rs` (after brief 07B's
 directory split) or, pre-07B, a new `pub trait` at the top of the surviving
-`report.rs`. Keep the name from the overview (`docs/refactor/00-OVERVIEW.md:120`):
+`report.rs`. Keep the name from the overview (`docs/refactor/00-OVERVIEW.md` §"4. `Experiment` + `Report` — dissolve the report god-file (brief 06)"):
 
 ```rust
 /// A domain report that can render itself to user-facing CLI text.
@@ -392,8 +392,9 @@ Verification step 4, not by Phase A's render golden master).
    `chaining`, `modular_diff`, `pyry_conditions`, `perseus`,
    `zero_adjacency_null`, `grouping`, `orientation_homogeneity`, `controls`
    (both `MonoalphabeticControlReport` and `IsomorphControlReport`),
-   `pipeline_null` (`InputRandomnessReport` + the `print_pipeline_null_report`
-   which reuses `null::NullReport`). For each module:
+   `pipeline_null` (`InputRandomnessReport`; its `print_pipeline_null_report`,
+   which renders `null::NullReport`, is handled in Step 4 with the null struct).
+   For each module:
    - **Phase A:** convert the module's `print_*_report` to `render_*_report(&report)
      -> String` in place in `report.rs` (its private helpers stay put, threaded a
      `&mut String`); switch `main.rs` to `print!("{}", report::render_*_report(&r))`.
@@ -583,7 +584,7 @@ remaining helpers live in `src/report/mod.rs`; otherwise they stay in
 - **Coordinate `gak_attack` Phase B with brief 07A.** `gak_attack.rs` is split by
   brief 07A; doing its `impl Report` (Phase B) independently risks a three-way merge.
   Sequence step 6's Phase B after 07A's gak split, or do both on one branch
-  (overview's noted conflict point, `docs/refactor/00-OVERVIEW.md:183-186`). Note
+  (overview's noted conflict point, `docs/refactor/00-OVERVIEW.md` §"The briefs & sequencing" (the `gak_attack.rs` conflict-point note)). Note
   `gak_attack`'s **Phase A is unaffected** — converting `print_*` to `render_*` in
   `report.rs` does not touch `gak_attack.rs`, so it can land before 07A.
 - **No claim/statistic changes.** This is pure presentation plumbing: no reported
@@ -598,7 +599,7 @@ remaining helpers live in `src/report/mod.rs`; otherwise they stay in
 - Adding a `Display` impl to `orders::GridError` (would change rendered text;
   separate change).
 - The `Experiment` trait / experiment registry and the CLI registry — that is
-  brief 08 (`docs/refactor/00-OVERVIEW.md:175`); this brief only delivers the
+  brief 08 (`docs/refactor/00-OVERVIEW.md` §"The briefs & sequencing"); this brief only delivers the
   `Report::render` surface 08 builds on.
 - Splitting `gak_attack.rs` — brief 07A; the repo-wide module-directory reorg
   (including the `report.rs` → `report/` move) — brief 07B.

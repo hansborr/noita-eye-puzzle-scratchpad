@@ -55,14 +55,14 @@ fraction is genuinely unique statistic logic (e.g. `dof_null`'s cell calibration
 `modular_diff`'s control families, `perseus`'s partition reconstruction) and must
 not be touched. But the shuffle-null *scaffolding* — the four helper kinds above
 plus the trial loop — is mechanical, identical-by-eye, and exactly the kind of
-copy-paste the overview flags (`docs/refactor/00-OVERVIEW.md:56`: "`fisher_yates`
+copy-paste the overview flags (`docs/refactor/00-OVERVIEW.md` §"Evidence (the structural smells)": "`fisher_yates`
 is centralized, but ~20 modules re-implement the matched-null orchestration
 around it"). Centralizing it removes a class of drift bug (a fix to the band /
 p-value convention today must be applied in eight places) and gives briefs 06
 and 07B a single typed seam to render (06) and relocate (07B).
 
 This brief is **purely behavior-preserving** (the overview's first ground rule,
-`docs/refactor/00-OVERVIEW.md:192`): every pinned regression — e.g.
+`docs/refactor/00-OVERVIEW.md` §"Shared ground rules" ("Behavior-preserving")): every pinned regression — e.g.
 `eye_zero_adjacency_headline_numbers_are_pinned` (`src/zero_adjacency_null.rs:642`,
 `empirical_p == 0.000_199_960_007_998_400_3`), `eye_headline_counts_are_pinned`
 (`src/tree_residual.rs:850`), `perseus_seed_12345_recurrence_null_matches_headline_regression`
@@ -144,14 +144,14 @@ tests, `src/modular_diff.rs:1308`. The migration must keep every one of these gr
 migration is wrong).
 
 **No `Cipher`/`Sequence`/`NullSampler` trait exists yet** — the crate has zero
-traits (`docs/refactor/00-OVERVIEW.md:30`). `modular_diff` already imports cipher
+traits (`docs/refactor/00-OVERVIEW.md` §"Why these refactors exist: the reframe"). `modular_diff` already imports cipher
 free functions (`incrementing_wheel_encrypt` etc., `src/modular_diff.rs:13`); this
 brief does **not** depend on brief 02's `Cipher` trait — leave those calls as-is.
 
 ## Target design (concrete API / types / layout)
 
 Add to `src/null.rs` (the overview proposes a `crate::nulls` home,
-`docs/refactor/00-OVERVIEW.md:102`; we keep it in `null.rs` for now to avoid a
+`docs/refactor/00-OVERVIEW.md` §"Target module layout"; we keep it in `null.rs` for now to avoid a
 module move colliding with brief 07B — brief 07B relocates the file wholesale
 into the role-directory layout. Note this deviation explicitly in the commit
 message).
@@ -171,14 +171,14 @@ pub trait NullSampler {
 ```
 
 Rationale for an associated `Draw` type rather than the overview's
-`fn sample(&self, rng) -> Vec<Glyph>` (`docs/refactor/00-OVERVIEW.md:103`):
+`fn sample(&self, rng) -> Vec<Glyph>` (`docs/refactor/00-OVERVIEW.md` §"3. Null/experiment harness — kill the copy-paste (brief 05)"):
 the real draws are `Vec<Vec<TrigramValue>>` (message-boundary-preserving),
 `Vec<MessageSegments>` (segment-shape-preserving, `tree_residual`),
 `Vec<[usize; 5]>` (`orientation_homogeneity` repartition tables), and
 `Vec<GlyphGrid>` (grid-content nulls). A single `Vec<Glyph>` cannot represent
 these without discarding the boundary structure the nulls exist to preserve. This
-is a **deliberate, documented deviation** from the overview's proposed signature;
-flag it in `docs/refactor/00-OVERVIEW.md` if reconciling.
+is a **deliberate, documented deviation** from the overview's proposed signature,
+as already recorded in `docs/refactor/00-OVERVIEW.md` §"Documented deviations from this overview".
 
 Concrete samplers (free structs, each a few lines, replacing the per-module
 `shuffled_messages`):
@@ -564,12 +564,12 @@ trial-loop consolidation removes another ~8–15 lines per migrated module on to
   (`run_no_repeat_sweeps` `:1092` carries chain state across trials). It is
   explicitly excluded from the sampler abstraction; only its band math moves.
 - **Deviation from the overview's `NullSampler` signature.** The overview proposes
-  `fn sample(&self, rng) -> Vec<Glyph>` (`docs/refactor/00-OVERVIEW.md:103`); this
+  `fn sample(&self, rng) -> Vec<Glyph>` (`docs/refactor/00-OVERVIEW.md` §"3. Null/experiment harness — kill the copy-paste (brief 05)"); this
   brief uses an associated `Draw` type to preserve message/segment/table
-  structure. This is a conscious, documented deviation — reconcile the overview's
-  cross-reference if the trait name/shape is treated as canonical.
+  structure. This is a conscious, documented deviation — already recorded in
+  `docs/refactor/00-OVERVIEW.md` §"Documented deviations from this overview".
 - **Claim discipline unaffected.** This refactor touches no decode and no reported
-  statistic; the claim ceiling (`docs/refactor/00-OVERVIEW.md:205`) is untouched.
+  statistic; the claim ceiling (`docs/refactor/00-OVERVIEW.md` §"Shared ground rules" ("Claim discipline is the crown jewel")) is untouched.
   No candidate cleartext is produced here.
 
 ## Out of scope / non-goals
@@ -580,7 +580,7 @@ trial-loop consolidation removes another ~8–15 lines per migrated module on to
   adopting `NullSampler<Draw = Vec<GlyphGrid>>` is a follow-up, not part of this
   brief's behavior-critical path.
 - **Moving the harness into a `crate::nulls` directory** — that is brief 07B's
-  role-directory module-layout job (`docs/refactor/00-OVERVIEW.md:153`). Keep everything in
+  role-directory module-layout job (`docs/refactor/00-OVERVIEW.md` §"Target module layout"). Keep everything in
   `src/null.rs` here to avoid a file-move conflict.
 - **Renaming the per-module report band structs** (`IsomorphNullBand`,
   `AdjacencyNullBand`, `ScalarNullBand`, …) — they are public report API; leave

@@ -5,7 +5,7 @@
 
 ## Goal & why it matters
 
-The overview's first ground rule is **behavior-preserving**: "No refactor may change a reported statistic or a decode" and "Brief **01** pins these with golden-master tests *before* any other brief touches code — land 01 first" (`docs/refactor/00-OVERVIEW.md:192-195`, `:177`). Every other brief leans on this safety net.
+The overview's first ground rule is **behavior-preserving**: "No refactor may change a reported statistic or a decode" and "Brief **01** pins these with golden-master tests *before* any other brief touches code — land 01 first" (`docs/refactor/00-OVERVIEW.md` §"Shared ground rules" ("Behavior-preserving")). Every other brief leans on this safety net.
 
 The existing integration tests in `tests/` are *characterization* tests, not golden masters: they assert that output **contains** specific substrings via `assert_contains` (`tests/common/mod.rs:39-44`). That catches deletion of a pinned line but is blind to:
 - reordering of report sections,

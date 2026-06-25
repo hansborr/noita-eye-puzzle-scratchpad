@@ -170,11 +170,14 @@ assume one case universally.
 ```rust
 // crate::core (or crate::glyph)
 /// Pure parse — no I/O. The unit-testable core.
-pub fn parse_sequence(text: &str, layer: SequenceLayer) -> Result<Vec<Glyph>, IngestError>;
+pub fn parse_sequence(text: &str, layer: SequenceLayer) -> Result<ParsedSequence, IngestError>;
 /// I/O wrapper: reads a path/file, then delegates to parse_sequence.
-pub fn load_sequence(input: Input<'_>, layer: SequenceLayer) -> Result<Vec<Glyph>, IngestError>;
+pub fn load_sequence(input: Input<'_>, layer: SequenceLayer) -> Result<ParsedSequence, IngestError>;
 pub enum Input<'a> { Str(&'a str), Path(&'a Path) }
 ```
+
+`ParsedSequence.glyphs` is the `Vec<Glyph>` cipher stream; `.transparent` records the
+passed-through spaces/punctuation positions (see §"Transparent symbols" below).
 
 Parses digit/glyph strings (the `0..4` + `5`-delimiter convention, and the 83-symbol
 honeycomb layer) into the existing `Glyph` sequence type. This is the missing
@@ -308,19 +311,25 @@ into `gak/` is **brief 07A**):
 src/
   core/         glyph, trigram, sequence/ingest, alphabet      (data primitives)
   data/         corpus, generator
-  analysis/     analysis, isomorph, periodicity, conditional_structure,
-                modular_diff, grouping, orientation_homogeneity, transitivity, ...
+  analysis/     analysis, isomorph, grouping, chaining, chaining_graph,
+                perfect_isomorphism, honeycomb, orders   (shared structural primitives)
   nulls/        null + the matched-null harness; isomorph_null, zero_adjacency_null,
-                dof_null, pipeline_null, tree_residual, perseus, ...
+                dof_null, pipeline_null, tree_residual, perseus
   ciphers/      mod.rs — today's ciphers.rs verbatim (trait + AnyCipher land in it
                 via brief 02); a thin 07B move, contents unchanged
   codec/        the Codec trait + AnyCodec (brief 04a)
   attack/       cipher_attack, agl_gak, gak/ (split from gak_attack.rs), solve/
-  experiments/  the structural-battery modules (each impl Experiment)
+  experiments/  periodicity, conditional_structure, modular_diff,
+                orientation_homogeneity, transitivity, pyry_conditions, controls
+                (the structural-battery experiment drivers, each impl Experiment)
   report/       mod.rs — today's report.rs (a thin 07B move); the report god-file
                 dissolve is brief 06, not 07B
   main.rs       thin CLI over an Experiment registry (brief 08)
 ```
+
+Each module appears in exactly one directory, assigned by primary role; an
+experiment-vs-analysis-ambiguous module is placed by primary role and may be
+re-homed when brief 08 wraps it as `impl Experiment`.
 
 For `ciphers/` and `report/`, **brief 07B is a thin move only**: `ciphers.rs →
 ciphers/mod.rs` and `report.rs → report/mod.rs` with contents unchanged. 07B does
@@ -404,7 +413,9 @@ justified in-brief. Honor the brief's version:
 - **Brief 03** — `load_sequence` takes a `SequenceLayer` selector, **not**
   `&Alphabet`. The two in-scope layers map positionally (`d → Glyph(d)`,
   `v → Glyph(v)`) and an `Alphabet` cannot express "drop the `5` delimiter" or
-  "multi-digit `0..=124` tokens."
+  "multi-digit `0..=124` tokens." It also returns `ParsedSequence` (glyphs +
+  transparent marks), **not** a bare `Vec<Glyph>` — the §2 sketch above reflects
+  that.
 - **Brief 05** — `NullSampler` carries an associated `Draw` type rather than
   returning `Vec<Glyph>`, because the nulls must preserve varied draw shapes
   (`Vec<Vec<TrigramValue>>`, `MessageSegments`, `Vec<[usize;5]>`, `Vec<GlyphGrid>`).

@@ -5,9 +5,9 @@
 
 ## Goal & why it matters
 
-`ciphers.rs` exposes seven families as fourteen bespoke free functions (`caesar_encrypt`/`caesar_decrypt`, …, `gak_encrypt`/`gak_decrypt`) keyed off seven unrelated `*Key` structs. There is **no `Cipher` trait** — the crate has zero traits — so any consumer that wants to "run *some* cipher chosen at runtime" must hand-write a `match` over fourteen functions. Brief 04's solve engine needs exactly that: drive a heterogeneous list of cipher+key pairs (`Candidate { cipher: AnyCipher, … }` in the overview, `00-OVERVIEW.md:135`) through one `encrypt`/`decrypt` surface.
+`ciphers.rs` exposes seven families as fourteen bespoke free functions (`caesar_encrypt`/`caesar_decrypt`, …, `gak_encrypt`/`gak_decrypt`) keyed off seven unrelated `*Key` structs. There is **no `Cipher` trait** — the crate has zero traits — so any consumer that wants to "run *some* cipher chosen at runtime" must hand-write a `match` over fourteen functions. Brief 04's solve engine needs exactly that: drive a heterogeneous list of cipher+key pairs (`Candidate { cipher: AnyCipher, … }` in the overview, `00-OVERVIEW.md` §"5. The solve pipeline — the prize (brief 04)", the `Candidate` struct) through one `encrypt`/`decrypt` surface.
 
-This brief delivers the shared spine from `00-OVERVIEW.md:67-85`: `trait Cipher { type Key; … }` plus an object-safe-substitute `AnyCipher` enum. It is **purely additive**: the seven free-function pairs stay as the canonical implementation, the trait/enum delegate to them, and every existing round-trip test and every downstream caller keeps compiling and producing identical results. No statistic, no decode, no key-validation behavior changes.
+This brief delivers the shared spine from `00-OVERVIEW.md` §"1. `trait Cipher` — unify the cipher zoo (brief 02)": `trait Cipher { type Key; … }` plus an object-safe-substitute `AnyCipher` enum. It is **purely additive**: the seven free-function pairs stay as the canonical implementation, the trait/enum delegate to them, and every existing round-trip test and every downstream caller keeps compiling and producing identical results. No statistic, no decode, no key-validation behavior changes.
 
 ## Current state (grounded, with file:line)
 
@@ -42,7 +42,7 @@ All fourteen share the signature shape `fn(&[Glyph], &SomeKey) -> Result<Vec<Gly
 - `src/agl_gak.rs:9-12` imports the lower-level AGL group helpers (`agl_apply`, `agl_compose`, `agl_coset_symbol`, …) and `AglMultiplierSubgroup` — **not** `agl_gak_encrypt`/`decrypt`. It is *not* a consumer of the family free functions and needs no change.
 - `src/gak_attack.rs:63-64` imports `gak_encrypt` (plus `GakKey`, `GakKeyOptions`, `CosetReadout`, `CipherError`, and — since 71d25fe's E1 dedup — the shared `compose_permutations`); production call sites at `:915, :2252`; its test module `:6433` additionally imports `gak_decrypt` at `:6443` and calls both (`gak_decrypt` `:6460, :6790, :6959, :7030, :7311`; `gak_encrypt` `:6465, :7053, :7054`).
 
-The associated-type constraint is real and material — but the precise reason it forces an enum is subtler than "object-unsafe." An associated type does **not** outright forbid trait objects: you *can* name `dyn Cipher<Key = CaesarKey>` by binding the associated type. The problem is that binding it **pins a single key type**, so such a trait object can only ever represent **one family's** key, while each of the seven families has a *different* `Key` (`CaesarKey`, `VigenereKey`, …, `GakKey`). No single `dyn Cipher<Key=…>` binding spans families, so it gives **no heterogeneous dispatch** across them. The overview already anticipates this (`00-OVERVIEW.md:79-85`): heterogeneous search therefore goes through an `AnyCipher` **enum**, which owns each variant's concrete key, rather than any `dyn Cipher` / `Box<dyn Cipher>` form.
+The associated-type constraint is real and material — but the precise reason it forces an enum is subtler than "object-unsafe." An associated type does **not** outright forbid trait objects: you *can* name `dyn Cipher<Key = CaesarKey>` by binding the associated type. The problem is that binding it **pins a single key type**, so such a trait object can only ever represent **one family's** key, while each of the seven families has a *different* `Key` (`CaesarKey`, `VigenereKey`, …, `GakKey`). No single `dyn Cipher<Key=…>` binding spans families, so it gives **no heterogeneous dispatch** across them. The overview already anticipates this (`00-OVERVIEW.md` §"1. `trait Cipher` — unify the cipher zoo (brief 02)", the `AnyCipher` dispatch enum): heterogeneous search therefore goes through an `AnyCipher` **enum**, which owns each variant's concrete key, rather than any `dyn Cipher` / `Box<dyn Cipher>` form.
 
 ## Target design (concrete API / types / layout)
 
@@ -50,7 +50,7 @@ All additions land in the single `src/ciphers.rs`. Two layout moves are explicit
 
 ### 1. `trait Cipher`
 
-Matches `00-OVERVIEW.md:70-76` exactly:
+Matches `00-OVERVIEW.md` §"1. `trait Cipher` — unify the cipher zoo (brief 02)" (the `trait Cipher` sketch) exactly:
 
 ```rust
 /// A cipher family: encrypts/decrypts `Glyph` sequences under a family-specific key.
@@ -177,7 +177,7 @@ Each step is a standalone commit; none removes a free function or alters a key c
 
 ## Success criteria
 
-- `pub trait Cipher` with `type Key` and `encrypt`/`decrypt`/`name` exists in `crate::ciphers`, matching `00-OVERVIEW.md:70-76`.
+- `pub trait Cipher` with `type Key` and `encrypt`/`decrypt`/`name` exists in `crate::ciphers`, matching `00-OVERVIEW.md` §"1. `trait Cipher` — unify the cipher zoo (brief 02)" (the `trait Cipher` sketch).
 - Seven `impl Cipher` markers, each delegating to its free-fn pair; `pub enum AnyCipher` with seven variants and inherent `encrypt`/`decrypt`/`name`.
 - Every existing test in `src/ciphers.rs` (known-vector `:2214-2301`, random round-trip `:2322-2484`) is **unchanged and passing**.
 - New equivalence tests prove `Cipher`/`AnyCipher` output is byte-identical to the free functions for all seven families.
@@ -196,16 +196,16 @@ Each step is a standalone commit; none removes a free function or alters a key c
 
 - **Argument-order trap.** `Cipher::encrypt(key, seq)` vs free `*_encrypt(seq, key)` is easy to mis-wire; a swapped pair would still type-check (both `&[Glyph]`/`&Key` are positionally distinct, so actually it would *not* type-check — good — but the *meaning* is what matters). The equivalence tests in Steps 1–2 are the guard; do not skip them.
 - **`name()` strings are new metadata, not a finding.** They are cosmetic labels for candidate reports; they assert nothing about the puzzle. They need not equal `CipherFamily::label()`. Pick stable strings and note in the doc that they are display-only.
-- **Behavior-preserving is mandatory.** This refactor must not change any statistic or decode (`00-OVERVIEW.md:192-195`). Because the free functions remain canonical and the trait/enum only forward, the risk is confined to Step 3; if golden-master coverage is thin there, defer the migration rather than risk a silent drift.
+- **Behavior-preserving is mandatory.** This refactor must not change any statistic or decode (`00-OVERVIEW.md` §"Shared ground rules" ("Behavior-preserving")). Because the free functions remain canonical and the trait/enum only forward, the risk is confined to Step 3; if golden-master coverage is thin there, defer the migration rather than risk a silent drift.
 - **No claim-ceiling impact.** This is plumbing for the *search* engine, not the engine itself; nothing here decodes or scores. The standing candidate-logging directive does not apply (no candidate cleartext is produced).
 - **The pinned-`Key` constraint is the load-bearing design fact.** A future reader might "simplify" to `Box<dyn Cipher>`; that does not even compile without binding the associated type, and once bound (`dyn Cipher<Key = CaesarKey>`) it carries only one family's key — no heterogeneous dispatch across the seven. The `AnyCipher` enum exists precisely to recover that heterogeneity by owning each variant's concrete key — call it out in the enum doc comment.
 
 ## Out of scope / non-goals
 
 - **Moving `ciphers.rs` into a `ciphers/` directory.** Two distinct moves, both out of scope here, must not be conflated:
-  - The **thin move** `ciphers.rs` → `ciphers/mod.rs` (content unchanged — `mod.rs` holds today's file verbatim) is **brief 07B** (`00-OVERVIEW.md:155`).
+  - The **thin move** `ciphers.rs` → `ciphers/mod.rs` (content unchanged — `mod.rs` holds today's file verbatim) is **brief 07B** (`00-OVERVIEW.md` §"Target module layout").
   - The physical **one-file-per-family split** of `ciphers.rs` (a separate file per cipher family) is a **deferred follow-up not owned by any current brief** — a future brief-02 extension, **not** brief 07B (07B's role-directory move is a thin move only and does not split families). Everything in *this* brief stays additive inside the single `src/ciphers.rs`.
-- **The solve pipeline, `HypothesisSpace`, `Candidate`, mapping search** — **brief 04** (`00-OVERVIEW.md:126-141`). This brief only provides the `AnyCipher` it consumes.
+- **The solve pipeline, `HypothesisSpace`, `Candidate`, mapping search** — **brief 04** (`00-OVERVIEW.md` §"5. The solve pipeline — the prize (brief 04)"). This brief only provides the `AnyCipher` it consumes.
 - **Touching the `*Key` constructors, validation, or the AGL/GAK group helpers** (`agl_compose`, `agl_step_lookup`, `CosetReadout`, etc.) — out of scope; they are dependencies, not targets.
 - **Refactoring `cipher_attack::CipherFamily`** or unifying its `label()` with `Cipher::name()` — leave it; revisit in brief 04/08 if the registry needs it.
 - **Forcing all callers onto the trait.** Migration is incremental and optional here (Step 3); the free functions remain the supported API for this brief.

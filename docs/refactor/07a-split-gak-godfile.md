@@ -16,7 +16,7 @@
 `wc -l`) — the single worst god-file in the crate. It bundles a synthetic GAK
 generator, a GCTAK solver, a deck-cipher attack, a hidden-state
 marginalization/beam-search, the eyes Step-3 path, an error type, and a
-1,716-line test module into one flat namespace. That size is what makes brief 04
+1,715-line test module into one flat namespace. That size is what makes brief 04
 ("reuse its beam-search") painful to navigate.
 
 This brief does the **mechanical** split of that one file into the `gak_attack/`
@@ -152,7 +152,7 @@ src/gak_attack/
 ```
 
 The overview names the `gak/` directory (`gak/ (split from gak_attack.rs)`,
-`00-OVERVIEW.md:156`) but does not enumerate its individual files; this brief
+`00-OVERVIEW.md` §"Target module layout") but does not enumerate its individual files; this brief
 proposes the per-seam split into `generator.rs`, `solver.rs`,
 `marginalization.rs`, `fixtures.rs`, `eyes.rs`, `error.rs`.
 **Deviation
@@ -337,7 +337,7 @@ they import the binary, not internal paths), `corpus.rs` data, any fn body, and
   exactly the clean seam 04 wants to import. If 04 lands first, it will reach into
   an 8,147-line flat file and 07A then has to chase 04's new call sites. Concretely:
   finish 07A steps 2–7, merge, *then* start 04. If they must overlap, run them on
-  the **same branch** (the overview anticipates this — `00-OVERVIEW.md:183-186`)
+  the **same branch** (the overview anticipates this — `00-OVERVIEW.md` §"The briefs & sequencing" (the gak_attack.rs conflict-point note))
   and have 04 import from the new submodule paths from day one.
 - **Re-export visibility is the trap.** Promoting a private item to `pub(crate)`
   is fine, but accidentally making it `pub` widens the API surface and can trip
@@ -355,7 +355,7 @@ they import the binary, not internal paths), `corpus.rs` data, any fn body, and
   honesty caveats (`gak_attack.rs:1-16`, the `:4343-4345` mapping-is-HYPOTHESIS
   banner) move verbatim into `eyes.rs`/`mod.rs`. The claim ceiling is unchanged:
   *the eyes are deterministic, engine-generated, strikingly structured data of
-  unknown meaning; unsolved* (`00-OVERVIEW.md:205-210`).
+  unknown meaning; unsolved* (`00-OVERVIEW.md` §"Shared ground rules" ("Claim discipline is the crown jewel")).
 
 ## Out of scope / non-goals
 
