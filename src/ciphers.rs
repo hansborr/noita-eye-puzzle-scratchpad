@@ -45,6 +45,11 @@ pub enum CipherError {
     },
     /// A Vigenere key was empty, so no periodic shift can be selected.
     EmptyVigenereKey,
+    /// A transposition period was empty, so no position block can be permuted.
+    InvalidTranspositionPeriod {
+        /// Requested block period.
+        period: usize,
+    },
     /// A plaintext or ciphertext symbol was outside the configured alphabet.
     SymbolOutsideAlphabet {
         /// Offending glyph value.
@@ -221,6 +226,9 @@ impl fmt::Display for CipherError {
                 "alphabet size {alphabet_size} is outside supported range {min}..={max}"
             ),
             Self::EmptyVigenereKey => write!(f, "Vigenere key must contain at least one shift"),
+            Self::InvalidTranspositionPeriod { period } => {
+                write!(f, "transposition period must be nonzero, got {period}")
+            }
             Self::SymbolOutsideAlphabet {
                 symbol,
                 alphabet_size,
@@ -366,6 +374,54 @@ impl CipherError {
 }
 
 impl std::error::Error for CipherError {}
+
+/// Family marker for the no-key identity cipher.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Identity;
+
+/// Key for a route/columnar transposition over positions.
+///
+/// The key partitions the stream into `period`-sized blocks and assigns each
+/// plaintext column a permutation rank. Encryption emits each block's present
+/// columns in ascending rank order; decryption places those columns back at
+/// their original positions. This permutes positions only and never rewrites
+/// symbol values.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TranspositionKey {
+    period: usize,
+    permutation: Vec<usize>,
+}
+
+impl TranspositionKey {
+    /// Builds a transposition key from a period and column-rank permutation.
+    ///
+    /// # Errors
+    /// Returns [`CipherError::InvalidTranspositionPeriod`] for `period == 0`,
+    /// or a permutation error if `permutation` is not a permutation of
+    /// `0..period`.
+    pub fn new(period: usize, permutation: Vec<usize>) -> Result<Self, CipherError> {
+        if period == 0 {
+            return Err(CipherError::InvalidTranspositionPeriod { period });
+        }
+        validate_permutation("transposition", &permutation, period)?;
+        Ok(Self {
+            period,
+            permutation,
+        })
+    }
+
+    /// Returns the block period.
+    #[must_use]
+    pub const fn period(&self) -> usize {
+        self.period
+    }
+
+    /// Returns the plaintext-column rank permutation.
+    #[must_use]
+    pub fn permutation(&self) -> &[usize] {
+        &self.permutation
+    }
+}
 
 /// Key for the Caesar additive shift cipher.
 ///
@@ -1096,6 +1152,80 @@ impl GakKey {
     }
 }
 
+/// Encrypts with the no-key identity cipher.
+///
+/// # Errors
+/// This transform is total and currently cannot fail.
+pub fn identity_encrypt(plaintext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
+    Ok(plaintext.to_vec())
+}
+
+/// Decrypts with the no-key identity cipher.
+///
+/// # Errors
+/// This transform is total and currently cannot fail.
+pub fn identity_decrypt(ciphertext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
+    Ok(ciphertext.to_vec())
+}
+
+/// Encrypts with a route/columnar transposition over positions.
+///
+/// Symbol values are never changed. Each block is emitted in the key's column
+/// rank order; a final partial block is permuted by the same rank restriction
+/// over the positions that are present.
+///
+/// # Errors
+/// Returns [`CipherError::InternalInvariant`] if a validated key loses its
+/// position permutation invariant.
+pub fn transposition_encrypt(
+    plaintext: &[Glyph],
+    key: &TranspositionKey,
+) -> Result<Vec<Glyph>, CipherError> {
+    let mut output = Vec::with_capacity(plaintext.len());
+    for block in plaintext.chunks(key.period) {
+        for column in transposition_order(key, block.len())? {
+            let Some(&glyph) = block.get(column) else {
+                return Err(CipherError::InternalInvariant {
+                    context: "transposition encrypt column lookup",
+                });
+            };
+            output.push(glyph);
+        }
+    }
+    Ok(output)
+}
+
+/// Decrypts with a route/columnar transposition over positions.
+///
+/// # Errors
+/// Returns [`CipherError::InternalInvariant`] if a validated key loses its
+/// position permutation invariant.
+pub fn transposition_decrypt(
+    ciphertext: &[Glyph],
+    key: &TranspositionKey,
+) -> Result<Vec<Glyph>, CipherError> {
+    let mut output = Vec::with_capacity(ciphertext.len());
+    for block in ciphertext.chunks(key.period) {
+        let order = transposition_order(key, block.len())?;
+        let mut restored = vec![Glyph(0); block.len()];
+        for (cipher_column, plain_column) in order.into_iter().enumerate() {
+            let Some(&glyph) = block.get(cipher_column) else {
+                return Err(CipherError::InternalInvariant {
+                    context: "transposition decrypt column lookup",
+                });
+            };
+            let Some(slot) = restored.get_mut(plain_column) else {
+                return Err(CipherError::InternalInvariant {
+                    context: "transposition decrypt restore slot",
+                });
+            };
+            *slot = glyph;
+        }
+        output.extend(restored);
+    }
+    Ok(output)
+}
+
 /// Encrypts with the Caesar additive shift cipher.
 ///
 /// Each plaintext symbol `p` is transformed to `(p + shift) mod N`.
@@ -1419,6 +1549,51 @@ pub trait Cipher {
     fn name(&self) -> &'static str;
 }
 
+/// Trait implementation for the no-key identity cipher marker.
+impl Cipher for Identity {
+    type Key = ();
+
+    fn encrypt(&self, _key: &(), plaintext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
+        identity_encrypt(plaintext)
+    }
+
+    fn decrypt(&self, _key: &(), ciphertext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
+        identity_decrypt(ciphertext)
+    }
+
+    fn name(&self) -> &'static str {
+        "identity"
+    }
+}
+
+/// Family marker for the route/columnar transposition cipher.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Transposition;
+
+impl Cipher for Transposition {
+    type Key = TranspositionKey;
+
+    fn encrypt(
+        &self,
+        key: &TranspositionKey,
+        plaintext: &[Glyph],
+    ) -> Result<Vec<Glyph>, CipherError> {
+        transposition_encrypt(plaintext, key)
+    }
+
+    fn decrypt(
+        &self,
+        key: &TranspositionKey,
+        ciphertext: &[Glyph],
+    ) -> Result<Vec<Glyph>, CipherError> {
+        transposition_decrypt(ciphertext, key)
+    }
+
+    fn name(&self) -> &'static str {
+        "transposition"
+    }
+}
+
 /// Family marker for the Caesar additive shift cipher.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Caesar;
@@ -1599,6 +1774,10 @@ impl Cipher for Gak {
 /// existing cipher families.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AnyCipher {
+    /// No-key passthrough cipher.
+    Identity,
+    /// Route/columnar position transposition, with its key.
+    Transposition(TranspositionKey),
     /// Caesar additive shift, with its key.
     Caesar(CaesarKey),
     /// Periodic additive Vigenere, with its key.
@@ -1622,6 +1801,8 @@ impl AnyCipher {
     /// Propagates the underlying [`CipherError`] unchanged.
     pub fn encrypt(&self, plaintext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
         match self {
+            Self::Identity => identity_encrypt(plaintext),
+            Self::Transposition(key) => transposition_encrypt(plaintext, key),
             Self::Caesar(key) => caesar_encrypt(plaintext, key),
             Self::Vigenere(key) => vigenere_encrypt(plaintext, key),
             Self::IncrementingWheel(key) => incrementing_wheel_encrypt(plaintext, key),
@@ -1638,6 +1819,8 @@ impl AnyCipher {
     /// Propagates the underlying [`CipherError`] unchanged.
     pub fn decrypt(&self, ciphertext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
         match self {
+            Self::Identity => identity_decrypt(ciphertext),
+            Self::Transposition(key) => transposition_decrypt(ciphertext, key),
             Self::Caesar(key) => caesar_decrypt(ciphertext, key),
             Self::Vigenere(key) => vigenere_decrypt(ciphertext, key),
             Self::IncrementingWheel(key) => incrementing_wheel_decrypt(ciphertext, key),
@@ -1652,6 +1835,8 @@ impl AnyCipher {
     #[must_use]
     pub fn name(&self) -> &'static str {
         match self {
+            Self::Identity => Identity.name(),
+            Self::Transposition(_) => Transposition.name(),
             Self::Caesar(_) => Caesar.name(),
             Self::Vigenere(_) => Vigenere.name(),
             Self::IncrementingWheel(_) => IncrementingWheel.name(),
@@ -1926,6 +2111,26 @@ fn validate_permutation(
         }
     }
     Ok(())
+}
+
+fn transposition_order(
+    key: &TranspositionKey,
+    block_len: usize,
+) -> Result<Vec<usize>, CipherError> {
+    if block_len > key.period {
+        return Err(CipherError::InternalInvariant {
+            context: "transposition block longer than period",
+        });
+    }
+    let mut columns = key
+        .permutation
+        .iter()
+        .copied()
+        .enumerate()
+        .filter(|(column, _rank)| *column < block_len)
+        .collect::<Vec<_>>();
+    columns.sort_by(|left, right| left.1.cmp(&right.1).then_with(|| left.0.cmp(&right.0)));
+    Ok(columns.into_iter().map(|(column, _rank)| column).collect())
 }
 
 fn validate_control_cards(
@@ -2471,15 +2676,49 @@ mod tests {
     use super::{
         AglGak, AglGakKey, AglMultiplierSubgroup, AnyCipher, Caesar, CaesarKey, Chaocipher,
         ChaocipherKey, Cipher, CipherError, CosetReadout, DeckCipher, DeckCipherKey,
-        EYE_READING_ALPHABET_SIZE, Gak, GakKey, GakKeyOptions, GakSubgroupConstraint,
-        IncrementingWheel, IncrementingWheelKey, Vigenere, VigenereKey, agl_apply, agl_compose,
-        agl_gak_decrypt, agl_gak_encrypt, caesar_decrypt, caesar_encrypt, chaocipher_decrypt,
-        chaocipher_encrypt, deck_cipher_decrypt, deck_cipher_encrypt, gak_decrypt, gak_encrypt,
-        incrementing_wheel_decrypt, incrementing_wheel_encrypt, vigenere_decrypt, vigenere_encrypt,
+        EYE_READING_ALPHABET_SIZE, Gak, GakKey, GakKeyOptions, GakSubgroupConstraint, Identity,
+        IncrementingWheel, IncrementingWheelKey, Transposition, TranspositionKey, Vigenere,
+        VigenereKey, agl_apply, agl_compose, agl_gak_decrypt, agl_gak_encrypt, caesar_decrypt,
+        caesar_encrypt, chaocipher_decrypt, chaocipher_encrypt, deck_cipher_decrypt,
+        deck_cipher_encrypt, gak_decrypt, gak_encrypt, identity_decrypt, identity_encrypt,
+        incrementing_wheel_decrypt, incrementing_wheel_encrypt, transposition_decrypt,
+        transposition_encrypt, vigenere_decrypt, vigenere_encrypt,
     };
     use crate::glyph::Glyph;
     use crate::isomorph::PatternSignature;
     use crate::null::SplitMix64;
+
+    #[test]
+    fn identity_cipher_passes_through_and_trait_matches_free_functions() {
+        let cipher = Identity;
+        let plaintext = glyphs(&[4, 1, 3, 1, 0]);
+        let ciphertext = identity_encrypt(&plaintext).unwrap();
+
+        assert_eq!(cipher.name(), "identity");
+        assert_eq!(ciphertext, plaintext);
+        assert_eq!(cipher.encrypt(&(), &plaintext).unwrap(), ciphertext);
+        assert_eq!(
+            cipher.decrypt(&(), &ciphertext).unwrap(),
+            identity_decrypt(&ciphertext).unwrap()
+        );
+    }
+
+    #[test]
+    fn transposition_known_tiny_vector_and_trait_matches_free_functions() {
+        let cipher = Transposition;
+        let key = TranspositionKey::new(4, vec![2, 0, 3, 1]).unwrap();
+        let plaintext = glyphs(&[0, 1, 2, 3, 4, 5, 6]);
+        let ciphertext = transposition_encrypt(&plaintext, &key).unwrap();
+
+        assert_eq!(values(&ciphertext), vec![1, 3, 0, 2, 5, 4, 6]);
+        assert_eq!(transposition_decrypt(&ciphertext, &key).unwrap(), plaintext);
+        assert_eq!(cipher.name(), "transposition");
+        assert_eq!(cipher.encrypt(&key, &plaintext).unwrap(), ciphertext);
+        assert_eq!(
+            cipher.decrypt(&key, &ciphertext).unwrap(),
+            transposition_decrypt(&ciphertext, &key).unwrap()
+        );
+    }
 
     #[test]
     fn caesar_known_tiny_vector() {
@@ -2705,6 +2944,20 @@ mod tests {
     }
 
     #[test]
+    fn transposition_round_trips_random_plaintexts() {
+        let keys = [
+            TranspositionKey::new(1, vec![0]).unwrap(),
+            TranspositionKey::new(4, vec![2, 0, 3, 1]).unwrap(),
+            TranspositionKey::new(7, vec![3, 0, 6, 1, 5, 2, 4]).unwrap(),
+        ];
+        for (index, key) in keys.iter().enumerate() {
+            let plaintext = random_plaintext(0x7472_616e_7370 ^ index as u64, 263, 11);
+            let ciphertext = transposition_encrypt(&plaintext, key).unwrap();
+            assert_eq!(transposition_decrypt(&ciphertext, key).unwrap(), plaintext);
+        }
+    }
+
+    #[test]
     fn vigenere_round_trips_random_plaintexts() {
         let small_keys = [
             VigenereKey::new(7, vec![0]).unwrap(),
@@ -2877,6 +3130,31 @@ mod tests {
 
         let ciphertext = cipher.encrypt(&plaintext).unwrap();
         assert_eq!(cipher.name(), "Caesar");
+        assert_eq!(ciphertext, expected);
+        assert_eq!(cipher.decrypt(&ciphertext).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn any_cipher_identity_matches_free_functions_and_round_trips() {
+        let plaintext = glyphs(&[0, 4, 2, 3]);
+        let expected = identity_encrypt(&plaintext).unwrap();
+        let cipher = AnyCipher::Identity;
+
+        let ciphertext = cipher.encrypt(&plaintext).unwrap();
+        assert_eq!(cipher.name(), "identity");
+        assert_eq!(ciphertext, expected);
+        assert_eq!(cipher.decrypt(&ciphertext).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn any_cipher_transposition_matches_free_functions_and_round_trips() {
+        let key = TranspositionKey::new(3, vec![1, 2, 0]).unwrap();
+        let plaintext = glyphs(&[0, 1, 2, 3, 4]);
+        let expected = transposition_encrypt(&plaintext, &key).unwrap();
+        let cipher = AnyCipher::Transposition(key);
+
+        let ciphertext = cipher.encrypt(&plaintext).unwrap();
+        assert_eq!(cipher.name(), "transposition");
         assert_eq!(ciphertext, expected);
         assert_eq!(cipher.decrypt(&ciphertext).unwrap(), plaintext);
     }

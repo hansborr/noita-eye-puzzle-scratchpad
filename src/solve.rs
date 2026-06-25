@@ -500,7 +500,9 @@ mod tests {
         AnyCodec, CipherFamilySpec, HypothesisSpace, Language, LanguageChoice, Mapping,
         MappingStrategy, SolveError, SolveRequest, solve,
     };
-    use crate::ciphers::{AnyCipher, CaesarKey, caesar_encrypt};
+    use crate::ciphers::{
+        AnyCipher, CaesarKey, TranspositionKey, caesar_encrypt, transposition_encrypt,
+    };
     use crate::glyph::Glyph;
     use crate::language::{LanguageModel, english_model, finnish_model};
 
@@ -549,7 +551,7 @@ mod tests {
             space: HypothesisSpace {
                 families: vec![CipherFamilySpec {
                     label: "Caesar".to_owned(),
-                    ciphers: caesar_ciphers(english.alphabet().len()),
+                    ciphers: identity_plus_caesar_ciphers(english.alphabet().len()),
                 }],
                 mappings: MappingStrategy::Fixed(vec![Mapping::identity(english.alphabet().len())]),
                 language: LanguageChoice::English,
@@ -573,6 +575,46 @@ mod tests {
         assert!(top.heldout_mapping_score.is_finite());
     }
 
+    #[test]
+    fn fixed_mapping_transposition_plant_recovers_top_candidate() {
+        let english = english_model().unwrap();
+        let finnish = finnish_model().unwrap();
+        let plaintext = normalized_plaintext(
+            "EVERY EMITTED CANDIDATE IS A HYPOTHESIS AND NOT A DECODE EVERY EMITTED CANDIDATE IS A HYPOTHESIS",
+            &english,
+        );
+        let key = TranspositionKey::new(7, vec![3, 0, 6, 1, 5, 2, 4]).unwrap();
+        let ciphertext = transposition_encrypt(&plaintext, &key).unwrap();
+        let request = SolveRequest {
+            ciphertext: &ciphertext,
+            space: HypothesisSpace {
+                families: vec![CipherFamilySpec {
+                    label: "transposition".to_owned(),
+                    ciphers: vec![
+                        AnyCipher::Identity,
+                        AnyCipher::Transposition(
+                            TranspositionKey::new(7, vec![0, 1, 2, 3, 4, 5, 6]).unwrap(),
+                        ),
+                        AnyCipher::Transposition(key.clone()),
+                    ],
+                }],
+                mappings: MappingStrategy::Fixed(vec![Mapping::identity(english.alphabet().len())]),
+                language: LanguageChoice::English,
+                cipher_alphabet_size: english.alphabet().len(),
+            },
+            english: &english,
+            finnish: &finnish,
+        };
+
+        let candidates = solve(&request).unwrap();
+        let top = candidates.first().unwrap();
+
+        assert_eq!(top.cipher, AnyCipher::Transposition(key));
+        assert_eq!(top.decrypted_symbols, plaintext);
+        assert!(top.crypto_round_trip_ok);
+        assert!(top.score > top.heldout_mapping_score - 1.0);
+    }
+
     fn glyphs(values: &[u16]) -> Vec<Glyph> {
         values.iter().copied().map(Glyph).collect()
     }
@@ -587,9 +629,12 @@ mod tests {
             .collect()
     }
 
-    fn caesar_ciphers(alphabet_size: usize) -> Vec<AnyCipher> {
-        (0..alphabet_size)
-            .map(|shift| AnyCipher::Caesar(CaesarKey::new(alphabet_size, shift).unwrap()))
+    fn identity_plus_caesar_ciphers(alphabet_size: usize) -> Vec<AnyCipher> {
+        std::iter::once(AnyCipher::Identity)
+            .chain(
+                (0..alphabet_size)
+                    .map(|shift| AnyCipher::Caesar(CaesarKey::new(alphabet_size, shift).unwrap())),
+            )
             .collect()
     }
 }
