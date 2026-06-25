@@ -9,12 +9,14 @@
 //! ciphertext-equality / group-structure layer.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
 
 use crate::chaining_graph::{
     ChainLink, ChainingConflict, ChainingGraphConfig, ChainingGraphError, ConflictCatalogue,
     ContextId, DEFAULT_CORE_LEN, DEFAULT_WINDOW_LEN, SymbolValue, compute_graph, find_context,
 };
 use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
+use crate::report::{self, Report};
 
 /// Default deterministic seed for the transitivity audit.
 pub const DEFAULT_SEED: u64 = 0x7472_616e_7369_7431;
@@ -107,6 +109,23 @@ impl From<crate::null::RandomBoundError> for TransitivityError {
     }
 }
 
+impl fmt::Display for TransitivityError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Grid(grid_error) => write!(f, "grid/order error: {grid_error:?}"),
+            Self::ChainingGraph(chaining_error) => {
+                write!(f, "delegated chaining-graph gate failed: {chaining_error}")
+            }
+            Self::ZeroTrials => write!(f, "at least one delegated Monte-Carlo trial is required"),
+            Self::RandomBoundTooLarge { bound } => {
+                write!(f, "random draw bound {bound} is too large")
+            }
+        }
+    }
+}
+
+impl std::error::Error for TransitivityError {}
+
 /// Complete transitivity / dihedral report.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TransitivityReport {
@@ -122,6 +141,117 @@ pub struct TransitivityReport {
     pub core_only_witnesses: usize,
     /// Conflict catalogue reused from the chaining-graph engine.
     pub catalogue: ConflictCatalogue,
+}
+
+impl Report for TransitivityReport {
+    fn render(&self) -> String {
+        let mut out = String::new();
+        report::appendln!(&mut out, "Thread 1B transitivity / D166 audit");
+        report::appendln!(&mut out, "order: {}", self.order.name());
+        report::appendln!(&mut out, "seed: {}", self.config.seed);
+        report::appendln!(
+            &mut out,
+            "delegated chaining-graph shuffle trials: {}",
+            self.config.trials
+        );
+        report::appendln!(
+            &mut out,
+            "wiki pages under test: Proof-that-the-eyes-cannot-be-a-dihedral-GAK-cipher.md, Proof-that-GAK-is-transitive.md, The-Transitivity-Restriction-(6-Groups-for-83).md"
+        );
+        report::appendln!(
+            &mut out,
+            "canonical-orientation caveat: each unordered occurrence pair contributes one sorted-order directed context; reverse orientations are not expanded."
+        );
+        report::appendln!(
+            &mut out,
+            "verdict: {}",
+            format_dihedral_verdict(self.verdict)
+        );
+        report::appendln!(&mut out, "confidence: MEDIUM / conditional");
+        report::appendln!(&mut out, "witnesses: {}", self.witnesses.len());
+        report::appendln!(
+            &mut out,
+            "core-only witnesses: {} repeated-core-only",
+            self.core_only_witnesses
+        );
+        report::appendln!(
+            &mut out,
+            "broad window-11/non-genuine catalogue: total={} distinct-column={} fragile={}",
+            self.catalogue.total,
+            self.catalogue.independent,
+            self.catalogue.fragile
+        );
+        report::appendln!(
+            &mut out,
+            "D166 catalogue caveat: this broad gap-isomorph evidence is not additional genuine/core-supported D166 witness support; the verdict still rests on the cited triple, with core-only witnesses: {}.",
+            self.core_only_witnesses
+        );
+        report::appendln!(
+            &mut out,
+            "Wave-1 comparability note: this Rust catalogue is window-11 + shared-pivot only and is not directly comparable to wave-1's L=10..15 broad survey or its genuine tier."
+        );
+        report::appendln!(&mut out);
+        append_transitivity_witnesses(&mut out, self);
+        report::appendln!(&mut out);
+        report::appendln!(
+            &mut out,
+            "Assumptions A1-A5: the exclusion is conditional on same plaintext, perfect isomorphism, no allomorph crossing, the right-coset chaining action, and one single global configuration."
+        );
+        report::appendln!(
+            &mut out,
+            "HOLE 1: a single strategic typo at col6 or col9 of the cited triple dissolves that triple's contradiction; the within-triple second conflict reuses col6/col9 and does not remove it."
+        );
+        report::appendln!(
+            &mut out,
+            "HOLE 2: on the cited triple the commutativity conflict exists only via the over-extended col9; the repeated 9-core shows order-83 forcing but no conflict. Robust refutation requires a forcing-plus-conflict inside repeated-core columns, counted by core_only_witnesses."
+        );
+        report::appendln!(
+            &mut out,
+            "Interpretation: the verdict constrains the candidate group set only; it says nothing about recoverable plaintext. The eyes remain deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext."
+        );
+        report::appendln!(
+            &mut out,
+            "Multiplicity note: the conflict catalogue contains many ordered context-pair checks over the same corpus; the D166 exclusion is reported as conditional structural evidence, not as a settled decode."
+        );
+        out
+    }
+}
+
+fn append_transitivity_witnesses(out: &mut String, report: &TransitivityReport) {
+    if report.witnesses.is_empty() {
+        report::appendln!(out, "witness detail: none");
+        return;
+    }
+    report::appendln!(out, "witness detail (first 12)");
+    for witness in report.witnesses.iter().take(12) {
+        report::appendln!(
+            out,
+            "  {} then {} from {}: {} vs {} core_only={}",
+            format_context_id(witness.context_a),
+            format_context_id(witness.context_b),
+            format_symbol(witness.conflict.start),
+            format_symbol(witness.conflict.ab_image),
+            format_symbol(witness.conflict.ba_image),
+            witness.core_only
+        );
+    }
+}
+
+fn format_dihedral_verdict(verdict: DihedralVerdict) -> &'static str {
+    match verdict {
+        DihedralVerdict::DihedralExcluded => "D166 excluded conditionally",
+        DihedralVerdict::ForcingWithoutConflict => "forcing without conflict",
+        DihedralVerdict::IsomorphNotLocated => "cited isomorph not located",
+    }
+}
+
+fn format_context_id(context: ContextId) -> String {
+    format!("c{}", context.as_u32())
+}
+
+fn format_symbol(value: SymbolValue) -> String {
+    let display = char::from_u32(u32::from(value.get()) + 32).unwrap_or('?');
+    format!("{} ({display:?})", value.get())
 }
 
 /// Runs the transitivity / dihedral audit on the verified eye corpus.

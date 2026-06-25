@@ -910,14 +910,11 @@ fn run_transitivity(config: transitivity::TransitivityConfig) -> ExitCode {
     let report = match transitivity::run_transitivity(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "transitivity error: {}",
-                report::format_transitivity_error(&error)
-            );
+            eprintln!("transitivity error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_transitivity_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
