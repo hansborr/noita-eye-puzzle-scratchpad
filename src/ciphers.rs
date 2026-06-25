@@ -1393,6 +1393,276 @@ pub fn gak_decrypt(ciphertext: &[Glyph], key: &GakKey) -> Result<Vec<Glyph>, Cip
     Ok(output)
 }
 
+/// A cipher family: encrypts/decrypts [`Glyph`] sequences under a family-specific key.
+///
+/// Implementors are zero-sized family markers; per-instance configuration lives
+/// in [`Cipher::Key`]. The canonical transforms remain this module's free
+/// functions, which these methods delegate to byte-for-byte.
+pub trait Cipher {
+    /// Family-specific key type, such as [`CaesarKey`].
+    type Key;
+
+    /// Encrypts `plaintext` under `key`.
+    ///
+    /// # Errors
+    /// Propagates the underlying [`CipherError`] unchanged.
+    fn encrypt(&self, key: &Self::Key, plaintext: &[Glyph]) -> Result<Vec<Glyph>, CipherError>;
+
+    /// Decrypts `ciphertext` under `key`.
+    ///
+    /// # Errors
+    /// Propagates the underlying [`CipherError`] unchanged.
+    fn decrypt(&self, key: &Self::Key, ciphertext: &[Glyph]) -> Result<Vec<Glyph>, CipherError>;
+
+    /// Returns a short, stable display-only family name.
+    #[must_use]
+    fn name(&self) -> &'static str;
+}
+
+/// Family marker for the Caesar additive shift cipher.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Caesar;
+
+impl Cipher for Caesar {
+    type Key = CaesarKey;
+
+    fn encrypt(&self, key: &CaesarKey, plaintext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
+        // Free functions take (sequence, key); trait methods take (key, sequence).
+        caesar_encrypt(plaintext, key)
+    }
+
+    fn decrypt(&self, key: &CaesarKey, ciphertext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
+        // Free functions take (sequence, key); trait methods take (key, sequence).
+        caesar_decrypt(ciphertext, key)
+    }
+
+    fn name(&self) -> &'static str {
+        "Caesar"
+    }
+}
+
+/// Family marker for the periodic additive Vigenere cipher.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Vigenere;
+
+impl Cipher for Vigenere {
+    type Key = VigenereKey;
+
+    fn encrypt(&self, key: &VigenereKey, plaintext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
+        // Free functions take (sequence, key); trait methods take (key, sequence).
+        vigenere_encrypt(plaintext, key)
+    }
+
+    fn decrypt(&self, key: &VigenereKey, ciphertext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
+        // Free functions take (sequence, key); trait methods take (key, sequence).
+        vigenere_decrypt(ciphertext, key)
+    }
+
+    fn name(&self) -> &'static str {
+        "Vigenere"
+    }
+}
+
+/// Family marker for the additive-progressive incrementing-wheel cipher.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct IncrementingWheel;
+
+impl Cipher for IncrementingWheel {
+    type Key = IncrementingWheelKey;
+
+    fn encrypt(
+        &self,
+        key: &IncrementingWheelKey,
+        plaintext: &[Glyph],
+    ) -> Result<Vec<Glyph>, CipherError> {
+        // Free functions take (sequence, key); trait methods take (key, sequence).
+        incrementing_wheel_encrypt(plaintext, key)
+    }
+
+    fn decrypt(
+        &self,
+        key: &IncrementingWheelKey,
+        ciphertext: &[Glyph],
+    ) -> Result<Vec<Glyph>, CipherError> {
+        // Free functions take (sequence, key); trait methods take (key, sequence).
+        incrementing_wheel_decrypt(ciphertext, key)
+    }
+
+    fn name(&self) -> &'static str {
+        "incrementing-wheel"
+    }
+}
+
+/// Family marker for the generalized two-alphabet Chaocipher.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Chaocipher;
+
+impl Cipher for Chaocipher {
+    type Key = ChaocipherKey;
+
+    fn encrypt(&self, key: &ChaocipherKey, plaintext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
+        // Free functions take (sequence, key); trait methods take (key, sequence).
+        chaocipher_encrypt(plaintext, key)
+    }
+
+    fn decrypt(
+        &self,
+        key: &ChaocipherKey,
+        ciphertext: &[Glyph],
+    ) -> Result<Vec<Glyph>, CipherError> {
+        // Free functions take (sequence, key); trait methods take (key, sequence).
+        chaocipher_decrypt(ciphertext, key)
+    }
+
+    fn name(&self) -> &'static str {
+        "Chaocipher"
+    }
+}
+
+/// Family marker for the generalized `S_N` deck-keystream cipher.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct DeckCipher;
+
+impl Cipher for DeckCipher {
+    type Key = DeckCipherKey;
+
+    fn encrypt(&self, key: &DeckCipherKey, plaintext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
+        // Free functions take (sequence, key); trait methods take (key, sequence).
+        deck_cipher_encrypt(plaintext, key)
+    }
+
+    fn decrypt(
+        &self,
+        key: &DeckCipherKey,
+        ciphertext: &[Glyph],
+    ) -> Result<Vec<Glyph>, CipherError> {
+        // Free functions take (sequence, key); trait methods take (key, sequence).
+        deck_cipher_decrypt(ciphertext, key)
+    }
+
+    fn name(&self) -> &'static str {
+        "deck"
+    }
+}
+
+/// Family marker for the AGL(1,n)-GAK stream cipher.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct AglGak;
+
+impl Cipher for AglGak {
+    type Key = AglGakKey;
+
+    fn encrypt(&self, key: &AglGakKey, plaintext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
+        // Free functions take (sequence, key); trait methods take (key, sequence).
+        agl_gak_encrypt(plaintext, key)
+    }
+
+    fn decrypt(&self, key: &AglGakKey, ciphertext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
+        // Free functions take (sequence, key); trait methods take (key, sequence).
+        agl_gak_decrypt(ciphertext, key)
+    }
+
+    fn name(&self) -> &'static str {
+        "AGL-GAK"
+    }
+}
+
+/// Family marker for the general permutation-group GAK cipher.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Gak;
+
+impl Cipher for Gak {
+    type Key = GakKey;
+
+    fn encrypt(&self, key: &GakKey, plaintext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
+        // Free functions take (sequence, key); trait methods take (key, sequence).
+        gak_encrypt(plaintext, key)
+    }
+
+    fn decrypt(&self, key: &GakKey, ciphertext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
+        // Free functions take (sequence, key); trait methods take (key, sequence).
+        gak_decrypt(ciphertext, key)
+    }
+
+    fn name(&self) -> &'static str {
+        "GAK"
+    }
+}
+
+/// A cipher family together with its key, for heterogeneous search.
+///
+/// [`Cipher`] has an associated [`Cipher::Key`] type. A trait object for it
+/// must bind that type, so it can carry only one family's key and gives no
+/// heterogeneous dispatch across the seven families. This enum
+/// recovers runtime polymorphism instead: each variant pairs a family with its
+/// concrete key, and the inherent methods dispatch over the closed set of
+/// existing cipher families.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AnyCipher {
+    /// Caesar additive shift, with its key.
+    Caesar(CaesarKey),
+    /// Periodic additive Vigenere, with its key.
+    Vigenere(VigenereKey),
+    /// Additive-progressive incrementing wheel, with its key.
+    IncrementingWheel(IncrementingWheelKey),
+    /// Generalized two-alphabet Chaocipher, with its key.
+    Chaocipher(ChaocipherKey),
+    /// Generalized `S_N` deck-keystream cipher, with its key.
+    DeckCipher(DeckCipherKey),
+    /// AGL(1,n)-GAK stream cipher, with its key.
+    AglGak(AglGakKey),
+    /// General permutation-group GAK cipher, with its key.
+    Gak(GakKey),
+}
+
+impl AnyCipher {
+    /// Encrypts `plaintext` with the contained family/key.
+    ///
+    /// # Errors
+    /// Propagates the underlying [`CipherError`] unchanged.
+    pub fn encrypt(&self, plaintext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
+        match self {
+            Self::Caesar(key) => caesar_encrypt(plaintext, key),
+            Self::Vigenere(key) => vigenere_encrypt(plaintext, key),
+            Self::IncrementingWheel(key) => incrementing_wheel_encrypt(plaintext, key),
+            Self::Chaocipher(key) => chaocipher_encrypt(plaintext, key),
+            Self::DeckCipher(key) => deck_cipher_encrypt(plaintext, key),
+            Self::AglGak(key) => agl_gak_encrypt(plaintext, key),
+            Self::Gak(key) => gak_encrypt(plaintext, key),
+        }
+    }
+
+    /// Decrypts `ciphertext` with the contained family/key.
+    ///
+    /// # Errors
+    /// Propagates the underlying [`CipherError`] unchanged.
+    pub fn decrypt(&self, ciphertext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
+        match self {
+            Self::Caesar(key) => caesar_decrypt(ciphertext, key),
+            Self::Vigenere(key) => vigenere_decrypt(ciphertext, key),
+            Self::IncrementingWheel(key) => incrementing_wheel_decrypt(ciphertext, key),
+            Self::Chaocipher(key) => chaocipher_decrypt(ciphertext, key),
+            Self::DeckCipher(key) => deck_cipher_decrypt(ciphertext, key),
+            Self::AglGak(key) => agl_gak_decrypt(ciphertext, key),
+            Self::Gak(key) => gak_decrypt(ciphertext, key),
+        }
+    }
+
+    /// Returns a short, stable display-only family name.
+    #[must_use]
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Caesar(_) => Caesar.name(),
+            Self::Vigenere(_) => Vigenere.name(),
+            Self::IncrementingWheel(_) => IncrementingWheel.name(),
+            Self::Chaocipher(_) => Chaocipher.name(),
+            Self::DeckCipher(_) => DeckCipher.name(),
+            Self::AglGak(_) => AglGak.name(),
+            Self::Gak(_) => Gak.name(),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Direction {
     Encrypt,
@@ -2199,11 +2469,12 @@ fn deck_count_value(card: usize, key: &DeckCipherKey) -> usize {
 #[cfg(test)]
 mod tests {
     use super::{
-        AglGakKey, AglMultiplierSubgroup, CaesarKey, ChaocipherKey, CipherError, CosetReadout,
-        DeckCipherKey, EYE_READING_ALPHABET_SIZE, GakKey, GakKeyOptions, GakSubgroupConstraint,
-        IncrementingWheelKey, VigenereKey, agl_apply, agl_compose, agl_gak_decrypt,
-        agl_gak_encrypt, caesar_decrypt, caesar_encrypt, chaocipher_decrypt, chaocipher_encrypt,
-        deck_cipher_decrypt, deck_cipher_encrypt, gak_decrypt, gak_encrypt,
+        AglGak, AglGakKey, AglMultiplierSubgroup, AnyCipher, Caesar, CaesarKey, Chaocipher,
+        ChaocipherKey, Cipher, CipherError, CosetReadout, DeckCipher, DeckCipherKey,
+        EYE_READING_ALPHABET_SIZE, Gak, GakKey, GakKeyOptions, GakSubgroupConstraint,
+        IncrementingWheel, IncrementingWheelKey, Vigenere, VigenereKey, agl_apply, agl_compose,
+        agl_gak_decrypt, agl_gak_encrypt, caesar_decrypt, caesar_encrypt, chaocipher_decrypt,
+        chaocipher_encrypt, deck_cipher_decrypt, deck_cipher_encrypt, gak_decrypt, gak_encrypt,
         incrementing_wheel_decrypt, incrementing_wheel_encrypt, vigenere_decrypt, vigenere_encrypt,
     };
     use crate::glyph::Glyph;
@@ -2220,12 +2491,42 @@ mod tests {
     }
 
     #[test]
+    fn caesar_trait_matches_free_functions() {
+        let cipher = Caesar;
+        let key = CaesarKey::new(5, 2).unwrap();
+        let plaintext = glyphs(&[0, 1, 4]);
+        let ciphertext = caesar_encrypt(&plaintext, &key).unwrap();
+
+        assert_eq!(cipher.name(), "Caesar");
+        assert_eq!(cipher.encrypt(&key, &plaintext).unwrap(), ciphertext);
+        assert_eq!(
+            cipher.decrypt(&key, &ciphertext).unwrap(),
+            caesar_decrypt(&ciphertext, &key).unwrap()
+        );
+    }
+
+    #[test]
     fn vigenere_known_tiny_vector() {
         let key = VigenereKey::new(5, vec![1, 0, 3]).unwrap();
         let plaintext = glyphs(&[0, 4, 2, 3]);
         let ciphertext = vigenere_encrypt(&plaintext, &key).unwrap();
         assert_eq!(values(&ciphertext), vec![1, 4, 0, 4]);
         assert_eq!(vigenere_decrypt(&ciphertext, &key).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn vigenere_trait_matches_free_functions() {
+        let cipher = Vigenere;
+        let key = VigenereKey::new(5, vec![1, 0, 3]).unwrap();
+        let plaintext = glyphs(&[0, 4, 2, 3]);
+        let ciphertext = vigenere_encrypt(&plaintext, &key).unwrap();
+
+        assert_eq!(cipher.name(), "Vigenere");
+        assert_eq!(cipher.encrypt(&key, &plaintext).unwrap(), ciphertext);
+        assert_eq!(
+            cipher.decrypt(&key, &ciphertext).unwrap(),
+            vigenere_decrypt(&ciphertext, &key).unwrap()
+        );
     }
 
     #[test]
@@ -2241,12 +2542,42 @@ mod tests {
     }
 
     #[test]
+    fn incrementing_wheel_trait_matches_free_functions() {
+        let cipher = IncrementingWheel;
+        let key = IncrementingWheelKey::new(5, 1, 2).unwrap();
+        let plaintext = glyphs(&[0, 1, 2, 3]);
+        let ciphertext = incrementing_wheel_encrypt(&plaintext, &key).unwrap();
+
+        assert_eq!(cipher.name(), "incrementing-wheel");
+        assert_eq!(cipher.encrypt(&key, &plaintext).unwrap(), ciphertext);
+        assert_eq!(
+            cipher.decrypt(&key, &ciphertext).unwrap(),
+            incrementing_wheel_decrypt(&ciphertext, &key).unwrap()
+        );
+    }
+
+    #[test]
     fn chaocipher_known_tiny_vector() {
         let key = ChaocipherKey::identity(7).unwrap();
         let plaintext = glyphs(&[0, 2, 4, 6]);
         let ciphertext = chaocipher_encrypt(&plaintext, &key).unwrap();
         assert_eq!(values(&ciphertext), vec![0, 2, 2, 4]);
         assert_eq!(chaocipher_decrypt(&ciphertext, &key).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn chaocipher_trait_matches_free_functions() {
+        let cipher = Chaocipher;
+        let key = ChaocipherKey::identity(7).unwrap();
+        let plaintext = glyphs(&[0, 2, 4, 6]);
+        let ciphertext = chaocipher_encrypt(&plaintext, &key).unwrap();
+
+        assert_eq!(cipher.name(), "Chaocipher");
+        assert_eq!(cipher.encrypt(&key, &plaintext).unwrap(), ciphertext);
+        assert_eq!(
+            cipher.decrypt(&key, &ciphertext).unwrap(),
+            chaocipher_decrypt(&ciphertext, &key).unwrap()
+        );
     }
 
     #[test]
@@ -2270,6 +2601,21 @@ mod tests {
         let ciphertext = deck_cipher_encrypt(&plaintext, &key).unwrap();
         assert_eq!(values(&ciphertext), vec![3, 0, 3, 0]);
         assert_eq!(deck_cipher_decrypt(&ciphertext, &key).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn deck_cipher_trait_matches_free_functions() {
+        let cipher = DeckCipher;
+        let key = DeckCipherKey::identity(5).unwrap();
+        let plaintext = glyphs(&[0, 0, 0, 0]);
+        let ciphertext = deck_cipher_encrypt(&plaintext, &key).unwrap();
+
+        assert_eq!(cipher.name(), "deck");
+        assert_eq!(cipher.encrypt(&key, &plaintext).unwrap(), ciphertext);
+        assert_eq!(
+            cipher.decrypt(&key, &ciphertext).unwrap(),
+            deck_cipher_decrypt(&ciphertext, &key).unwrap()
+        );
     }
 
     #[test]
@@ -2297,6 +2643,28 @@ mod tests {
         assert_eq!(
             agl_gak_decrypt(&second_ciphertext, &key).unwrap(),
             second_plaintext
+        );
+    }
+
+    #[test]
+    fn agl_gak_trait_matches_free_functions() {
+        let cipher = AglGak;
+        let key = AglGakKey::new(
+            5,
+            AglMultiplierSubgroup::Full,
+            0,
+            (1, 0),
+            vec![(1, 1), (1, 2), (2, 0)],
+        )
+        .unwrap();
+        let plaintext = glyphs(&[2, 0]);
+        let ciphertext = agl_gak_encrypt(&plaintext, &key).unwrap();
+
+        assert_eq!(cipher.name(), "AGL-GAK");
+        assert_eq!(cipher.encrypt(&key, &plaintext).unwrap(), ciphertext);
+        assert_eq!(
+            cipher.decrypt(&key, &ciphertext).unwrap(),
+            agl_gak_decrypt(&ciphertext, &key).unwrap()
         );
     }
 
@@ -2481,6 +2849,123 @@ mod tests {
             let ciphertext = gak_encrypt(&plaintext, key).unwrap();
             assert_eq!(gak_decrypt(&ciphertext, key).unwrap(), plaintext);
         }
+    }
+
+    #[test]
+    fn gak_trait_matches_free_functions() {
+        let cipher = Gak;
+        let n = 5usize;
+        let letters = (0..n).map(|shift| rotation_permutation(n, shift)).collect();
+        let key = GakKey::deck(n, letters, GakKeyOptions::default()).unwrap();
+        let plaintext = glyphs(&[0, 1, 4, 2]);
+        let ciphertext = gak_encrypt(&plaintext, &key).unwrap();
+
+        assert_eq!(cipher.name(), "GAK");
+        assert_eq!(cipher.encrypt(&key, &plaintext).unwrap(), ciphertext);
+        assert_eq!(
+            cipher.decrypt(&key, &ciphertext).unwrap(),
+            gak_decrypt(&ciphertext, &key).unwrap()
+        );
+    }
+
+    #[test]
+    fn any_cipher_caesar_matches_free_functions_and_round_trips() {
+        let key = CaesarKey::new(5, 2).unwrap();
+        let plaintext = glyphs(&[0, 1, 4]);
+        let expected = caesar_encrypt(&plaintext, &key).unwrap();
+        let cipher = AnyCipher::Caesar(key);
+
+        let ciphertext = cipher.encrypt(&plaintext).unwrap();
+        assert_eq!(cipher.name(), "Caesar");
+        assert_eq!(ciphertext, expected);
+        assert_eq!(cipher.decrypt(&ciphertext).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn any_cipher_vigenere_matches_free_functions_and_round_trips() {
+        let key = VigenereKey::new(5, vec![1, 0, 3]).unwrap();
+        let plaintext = glyphs(&[0, 4, 2, 3]);
+        let expected = vigenere_encrypt(&plaintext, &key).unwrap();
+        let cipher = AnyCipher::Vigenere(key);
+
+        let ciphertext = cipher.encrypt(&plaintext).unwrap();
+        assert_eq!(cipher.name(), "Vigenere");
+        assert_eq!(ciphertext, expected);
+        assert_eq!(cipher.decrypt(&ciphertext).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn any_cipher_incrementing_wheel_matches_free_functions_and_round_trips() {
+        let key = IncrementingWheelKey::new(5, 1, 2).unwrap();
+        let plaintext = glyphs(&[0, 1, 2, 3]);
+        let expected = incrementing_wheel_encrypt(&plaintext, &key).unwrap();
+        let cipher = AnyCipher::IncrementingWheel(key);
+
+        let ciphertext = cipher.encrypt(&plaintext).unwrap();
+        assert_eq!(cipher.name(), "incrementing-wheel");
+        assert_eq!(ciphertext, expected);
+        assert_eq!(cipher.decrypt(&ciphertext).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn any_cipher_chaocipher_matches_free_functions_and_round_trips() {
+        let key = ChaocipherKey::identity(7).unwrap();
+        let plaintext = glyphs(&[0, 2, 4, 6]);
+        let expected = chaocipher_encrypt(&plaintext, &key).unwrap();
+        let cipher = AnyCipher::Chaocipher(key);
+
+        let ciphertext = cipher.encrypt(&plaintext).unwrap();
+        assert_eq!(cipher.name(), "Chaocipher");
+        assert_eq!(ciphertext, expected);
+        assert_eq!(cipher.decrypt(&ciphertext).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn any_cipher_deck_cipher_matches_free_functions_and_round_trips() {
+        let key = DeckCipherKey::identity(5).unwrap();
+        let plaintext = glyphs(&[0, 0, 0, 0]);
+        let expected = deck_cipher_encrypt(&plaintext, &key).unwrap();
+        let cipher = AnyCipher::DeckCipher(key);
+
+        let ciphertext = cipher.encrypt(&plaintext).unwrap();
+        assert_eq!(cipher.name(), "deck");
+        assert_eq!(ciphertext, expected);
+        assert_eq!(cipher.decrypt(&ciphertext).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn any_cipher_agl_gak_matches_free_functions_and_round_trips() {
+        let key = AglGakKey::new(
+            5,
+            AglMultiplierSubgroup::Full,
+            0,
+            (1, 0),
+            vec![(1, 1), (1, 2), (2, 0)],
+        )
+        .unwrap();
+        let plaintext = glyphs(&[2, 0]);
+        let expected = agl_gak_encrypt(&plaintext, &key).unwrap();
+        let cipher = AnyCipher::AglGak(key);
+
+        let ciphertext = cipher.encrypt(&plaintext).unwrap();
+        assert_eq!(cipher.name(), "AGL-GAK");
+        assert_eq!(ciphertext, expected);
+        assert_eq!(cipher.decrypt(&ciphertext).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn any_cipher_gak_matches_free_functions_and_round_trips() {
+        let n = 5usize;
+        let letters: Vec<Vec<usize>> = (0..n).map(|shift| rotation_permutation(n, shift)).collect();
+        let key = GakKey::deck(n, letters, GakKeyOptions::default()).unwrap();
+        let plaintext = glyphs(&[0, 1, 4, 2]);
+        let expected = gak_encrypt(&plaintext, &key).unwrap();
+        let cipher = AnyCipher::Gak(key);
+
+        let ciphertext = cipher.encrypt(&plaintext).unwrap();
+        assert_eq!(cipher.name(), "GAK");
+        assert_eq!(ciphertext, expected);
+        assert_eq!(cipher.decrypt(&ciphertext).unwrap(), plaintext);
     }
 
     #[test]
