@@ -6,9 +6,10 @@
 
 use crate::glyph::Sequence;
 use crate::{
-    analysis, chaining, cipher_attack, conditional_structure, controls, corpus, dof_null, grouping,
-    honeycomb, isomorph_null, modular_diff, null, orders, orientation_homogeneity, periodicity,
-    perseus, pipeline_null, pyry_conditions, tree_residual, zero_adjacency_null,
+    analysis, chaining, chaining_graph, cipher_attack, conditional_structure, controls, corpus,
+    dof_null, grouping, honeycomb, isomorph_null, modular_diff, null, orders,
+    orientation_homogeneity, periodicity, perseus, pipeline_null, pyry_conditions, transitivity,
+    tree_residual, zero_adjacency_null,
 };
 
 const MIN_RELIABLE_PERIODICITY_NULL_TRIALS: usize = 50;
@@ -154,6 +155,49 @@ pub fn format_chaining_error(error: chaining::ChainingError) -> String {
         }
         chaining::ChainingError::RandomBoundTooLarge { bound } => {
             format!("random draw bound {bound} is too large")
+        }
+    }
+}
+
+/// Formats a graph-chaining audit error for CLI output.
+#[must_use]
+pub fn format_chaining_graph_error(error: &chaining_graph::ChainingGraphError) -> String {
+    match error {
+        chaining_graph::ChainingGraphError::Grid(grid_error) => {
+            format!("grid/order error: {grid_error:?}")
+        }
+        chaining_graph::ChainingGraphError::ZeroTrials => {
+            "at least one Monte-Carlo trial is required".to_owned()
+        }
+        chaining_graph::ChainingGraphError::RandomBoundTooLarge { bound } => {
+            format!("random draw bound {bound} is too large")
+        }
+        chaining_graph::ChainingGraphError::WindowLengthMismatch => {
+            "aligned isomorph windows had different lengths".to_owned()
+        }
+        chaining_graph::ChainingGraphError::InvalidWindowConfig {
+            window_len,
+            core_len,
+        } => format!(
+            "invalid isomorph window/core configuration: window {window_len}, core {core_len}"
+        ),
+        chaining_graph::ChainingGraphError::ContextCountTooLarge { contexts } => {
+            format!("generated {contexts} contexts, more than the ContextId range can represent")
+        }
+        chaining_graph::ChainingGraphError::ControlSymbolOutOfRange { value } => {
+            format!("positive-control symbol {value} is outside the reading-layer range")
+        }
+        chaining_graph::ChainingGraphError::PositiveControlFailed {
+            conflicts,
+            null_max_conflicts,
+            required_margin,
+            expected_symbols,
+            observed_symbols,
+        } => format!(
+            "positive control failed: real conflicts {conflicts}, null max {null_max_conflicts}, required margin {required_margin}, expected {expected_symbols} touched symbols, observed {observed_symbols}"
+        ),
+        chaining_graph::ChainingGraphError::TrialCountTooLarge => {
+            "trial count is too large for add-one p-value calibration".to_owned()
         }
     }
 }
@@ -528,6 +572,28 @@ pub fn format_conditional_structure_error(
         } => format!(
             "{message_key}: no-repeat conditioned null requires an input with no adjacent-equal transitions"
         ),
+    }
+}
+
+/// Formats a transitivity / dihedral audit error for CLI output.
+#[must_use]
+pub fn format_transitivity_error(error: &transitivity::TransitivityError) -> String {
+    match error {
+        transitivity::TransitivityError::Grid(grid_error) => {
+            format!("grid/order error: {grid_error:?}")
+        }
+        transitivity::TransitivityError::ChainingGraph(chaining_error) => {
+            format!(
+                "delegated chaining-graph gate failed: {}",
+                format_chaining_graph_error(chaining_error)
+            )
+        }
+        transitivity::TransitivityError::ZeroTrials => {
+            "at least one delegated Monte-Carlo trial is required".to_owned()
+        }
+        transitivity::TransitivityError::RandomBoundTooLarge { bound } => {
+            format!("random draw bound {bound} is too large")
+        }
     }
 }
 
@@ -2639,6 +2705,212 @@ fn print_chaining_interpretation(report: &chaining::ChainingReport) {
     println!(
         "This is a structural null result only. It does not prove the eyes are meaningless, and it does not rule out other encodings, period models, reading orders, transcription corrections, or non-additive alphabet relationships."
     );
+}
+
+/// Prints the graph-chaining conflict and coverage audit report.
+pub fn print_chaining_graph_report(report: &chaining_graph::ChainingGraphReport) {
+    println!("Thread 5 graph-chaining audit");
+    println!("order: {}", report.order.name());
+    println!("seed: {}", report.config.seed);
+    println!("shuffle trials: {}", report.config.trials);
+    println!(
+        "window/core: {}/{}",
+        report.config.window_len, report.config.core_len
+    );
+    println!(
+        "message lengths: {}",
+        format_message_lengths(&report.message_lengths)
+    );
+    println!(
+        "wiki pages under test: Graph-Chaining.md, Alphabet-Chaining.md, Chaining-Conflicts.md, Chaining-Conflict-Rates.md"
+    );
+    println!("scope: ciphertext symbol equality plus observed context actions only");
+    println!(
+        "scope caveat: broad window-11/shared-pivot gap-isomorph audit; same-plaintext support is not established by the broad graph."
+    );
+    println!(
+        "canonical-orientation caveat: each unordered occurrence pair contributes one sorted-order directed context; reverse orientations are not expanded."
+    );
+    println!();
+    println!("broad window-11/shared-pivot gap-isomorph conflict catalogue");
+    println!("  total: {}", report.catalogue.total);
+    println!(
+        "  distinct-column conflict paths: {}",
+        report.catalogue.independent
+    );
+    println!("  fragile over-extension: {}", report.catalogue.fragile);
+    println!(
+        "  label note: distinct-column paths are provenance separation, not independent same-plaintext witnesses."
+    );
+    println!();
+    println!("broad window-11/shared-pivot gap-isomorph coverage");
+    println!(
+        "  symbols touched: {}/{}",
+        report.coverage.symbols_touched, report.coverage.alphabet_size
+    );
+    println!("  largest component: {}", report.coverage.largest_component);
+    println!(
+        "  components among touched symbols: {}",
+        report.coverage.component_count
+    );
+    println!("core-supported repeated-core coverage");
+    println!(
+        "  symbols touched: {}/{}",
+        report.coverage.core_supported_symbols, report.coverage.alphabet_size
+    );
+    println!(
+        "  largest component: {}",
+        report.coverage.core_largest_component
+    );
+    println!(
+        "  components among touched symbols: {}",
+        report.coverage.core_supported_components
+    );
+    println!(
+        "  label note: repeated-core support is a provenance filter inside this Rust audit, not wave-1's same-plaintext genuine tier."
+    );
+    println!();
+    println!("matched within-message multiset-shuffle null");
+    print_null_stat("total conflicts (upper tail)", report.null.total_conflicts);
+    print_null_stat(
+        "distinct-column conflict paths (upper tail)",
+        report.null.independent_conflicts,
+    );
+    print_null_stat("symbols touched (upper tail)", report.null.symbols_touched);
+    print_null_stat(
+        "largest component (upper tail)",
+        report.null.largest_component,
+    );
+    print_null_stat("component count (lower tail)", report.null.component_count);
+    println!();
+    println!("positive control");
+    println!(
+        "  synthetic non-commutative GAK stream fixture: passed={} conflicts={} null_max_conflicts={} conflict_margin={} required_margin={} planted_symbols={} observed_symbols={}",
+        report.positive_control.passed,
+        report.positive_control.conflicts,
+        report.positive_control.null_max_conflicts,
+        report.positive_control.conflict_margin,
+        report.positive_control.required_margin,
+        report.positive_control.planted_symbols,
+        report.positive_control.observed_symbols
+    );
+    println!();
+    println!(
+        "Interpretation: broad conflict counts quantify window-11/shared-pivot gap-isomorph non-commutativity, including coincidental collisions; they are not same-plaintext evidence. Core-supported coverage is printed as a repeated-core guardrail, while same-plaintext support is not established by the broad graph. Coverage is evidence, not proof, for the transitivity premise."
+    );
+    println!(
+        "Wave-1 comparability note: this Rust audit is window-11 + shared-pivot only and is not directly comparable to wave-1's L=10..15 broad survey (17,124 conflicts, 79/83 coverage) nor its genuine tier (~1 conflict witness, ~28/83 coverage); the figures measure different search spaces."
+    );
+    println!(
+        "Claim ceiling: the eyes remain deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext."
+    );
+    println!(
+        "Multiplicity note: the report shows several descriptive tails from the same matched null; read them as an audit panel, not independent discoveries."
+    );
+}
+
+fn print_null_stat(label: &str, statistic: chaining_graph::NullStatistic) {
+    println!(
+        "  {label}: real {} null mean {:.2} q025 {} median {:.2} q975 {} max {} p {} ({}/{})",
+        statistic.real,
+        statistic.band.mean,
+        statistic.band.q025,
+        statistic.band.median,
+        statistic.band.q975,
+        statistic.band.max,
+        format_probability(statistic.empirical_p),
+        statistic.empirical_p_count,
+        statistic.band.trials
+    );
+}
+
+/// Prints the transitivity / conditional dihedral-exclusion audit report.
+pub fn print_transitivity_report(report: &transitivity::TransitivityReport) {
+    println!("Thread 1B transitivity / D166 audit");
+    println!("order: {}", report.order.name());
+    println!("seed: {}", report.config.seed);
+    println!(
+        "delegated chaining-graph shuffle trials: {}",
+        report.config.trials
+    );
+    println!(
+        "wiki pages under test: Proof-that-the-eyes-cannot-be-a-dihedral-GAK-cipher.md, Proof-that-GAK-is-transitive.md, The-Transitivity-Restriction-(6-Groups-for-83).md"
+    );
+    println!(
+        "canonical-orientation caveat: each unordered occurrence pair contributes one sorted-order directed context; reverse orientations are not expanded."
+    );
+    println!("verdict: {}", format_dihedral_verdict(report.verdict));
+    println!("confidence: MEDIUM / conditional");
+    println!("witnesses: {}", report.witnesses.len());
+    println!(
+        "core-only witnesses: {} repeated-core-only",
+        report.core_only_witnesses
+    );
+    println!(
+        "broad window-11/non-genuine catalogue: total={} distinct-column={} fragile={}",
+        report.catalogue.total, report.catalogue.independent, report.catalogue.fragile
+    );
+    println!(
+        "D166 catalogue caveat: this broad gap-isomorph evidence is not additional genuine/core-supported D166 witness support; the verdict still rests on the cited triple, with core-only witnesses: {}.",
+        report.core_only_witnesses
+    );
+    println!(
+        "Wave-1 comparability note: this Rust catalogue is window-11 + shared-pivot only and is not directly comparable to wave-1's L=10..15 broad survey or its genuine tier."
+    );
+    println!();
+    print_transitivity_witnesses(report);
+    println!();
+    println!(
+        "Assumptions A1-A5: the exclusion is conditional on same plaintext, perfect isomorphism, no allomorph crossing, the right-coset chaining action, and one single global configuration."
+    );
+    println!(
+        "HOLE 1: a single strategic typo at col6 or col9 of the cited triple dissolves that triple's contradiction; the within-triple second conflict reuses col6/col9 and does not remove it."
+    );
+    println!(
+        "HOLE 2: on the cited triple the commutativity conflict exists only via the over-extended col9; the repeated 9-core shows order-83 forcing but no conflict. Robust refutation requires a forcing-plus-conflict inside repeated-core columns, counted by core_only_witnesses."
+    );
+    println!(
+        "Interpretation: the verdict constrains the candidate group set only; it says nothing about recoverable plaintext. The eyes remain deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext."
+    );
+    println!(
+        "Multiplicity note: the conflict catalogue contains many ordered context-pair checks over the same corpus; the D166 exclusion is reported as conditional structural evidence, not as a settled decode."
+    );
+}
+
+fn print_transitivity_witnesses(report: &transitivity::TransitivityReport) {
+    if report.witnesses.is_empty() {
+        println!("witness detail: none");
+        return;
+    }
+    println!("witness detail (first 12)");
+    for witness in report.witnesses.iter().take(12) {
+        println!(
+            "  {} then {} from {}: {} vs {} core_only={}",
+            format_context_id(witness.context_a),
+            format_context_id(witness.context_b),
+            format_symbol(witness.conflict.start),
+            format_symbol(witness.conflict.ab_image),
+            format_symbol(witness.conflict.ba_image),
+            witness.core_only
+        );
+    }
+}
+
+fn format_dihedral_verdict(verdict: transitivity::DihedralVerdict) -> &'static str {
+    match verdict {
+        transitivity::DihedralVerdict::DihedralExcluded => "D166 excluded conditionally",
+        transitivity::DihedralVerdict::ForcingWithoutConflict => "forcing without conflict",
+        transitivity::DihedralVerdict::IsomorphNotLocated => "cited isomorph not located",
+    }
+}
+
+fn format_context_id(context: chaining_graph::ContextId) -> String {
+    format!("c{}", context.as_u32())
+}
+
+fn format_symbol(value: chaining_graph::SymbolValue) -> String {
+    let display = char::from_u32(u32::from(value.get()) + 32).unwrap_or('?');
+    format!("{} ({display:?})", value.get())
 }
 
 /// Prints the modular-difference family fingerprint report.

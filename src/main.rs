@@ -8,10 +8,10 @@ use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
 use noita_eye_puzzle::{
-    chaining, cipher_attack, conditional_structure, controls, corpus, dof_null, glyph::Sequence,
-    grouping, honeycomb, isomorph_null, modular_diff, null, orders, orientation_homogeneity,
-    periodicity, perseus, pipeline_null, pyry_conditions, report, tree_residual,
-    zero_adjacency_null,
+    chaining, chaining_graph, cipher_attack, conditional_structure, controls, corpus, dof_null,
+    glyph::Sequence, grouping, honeycomb, isomorph_null, modular_diff, null, orders,
+    orientation_homogeneity, periodicity, perseus, pipeline_null, pyry_conditions, report,
+    transitivity, tree_residual, zero_adjacency_null,
 };
 
 const DEFAULT_NULL_SEED: u64 = 0x6e6f_6974_612d_6579;
@@ -60,6 +60,9 @@ enum Command {
     Isomorphnull(IsomorphNullArgs),
     /// Experiment 7B alphabet-chaining structural control.
     Chaining(ChainingArgs),
+    /// Thread 5 graph-chaining conflict and coverage audit.
+    #[command(name = "chaining-graph")]
+    ChainingGraph(ChainingGraphArgs),
     /// Modular-difference family fingerprint.
     #[command(name = "moddiff")]
     Moddiff(ModularDiffArgs),
@@ -71,6 +74,9 @@ enum Command {
     /// Tree-residual cross-tail n-gram null.
     #[command(name = "treeresidual", alias = "tree-residual")]
     Treeresidual(TreeResidualArgs),
+    /// Thread 1B transitivity and conditional D166 audit.
+    #[command(alias = "dihedral")]
+    Transitivity(TransitivityArgs),
     /// First-order transition matrix and successor-graph shuffle null.
     Conditional(ConditionalArgs),
     /// Experiment 12 candidate-cipher language-scoring null harness.
@@ -216,6 +222,24 @@ impl From<ChainingArgs> for chaining::ChainingConfig {
 }
 
 #[derive(Clone, Copy, Debug, Args)]
+struct ChainingGraphArgs {
+    #[arg(long, default_value_t = chaining_graph::DEFAULT_SEED)]
+    seed: u64,
+    #[arg(long, default_value_t = chaining_graph::DEFAULT_TRIALS)]
+    trials: usize,
+}
+
+impl From<ChainingGraphArgs> for chaining_graph::ChainingGraphConfig {
+    fn from(args: ChainingGraphArgs) -> Self {
+        Self {
+            seed: args.seed,
+            trials: args.trials,
+            ..Self::default()
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Args)]
 struct ModularDiffArgs {
     #[arg(long, default_value_t = modular_diff::DEFAULT_SEED)]
     seed: u64,
@@ -311,6 +335,23 @@ impl From<TreeResidualArgs> for tree_residual::TreeResidualConfig {
             seed: args.seed,
             trials: args.trials,
             seed_count: args.seed_count,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Args)]
+struct TransitivityArgs {
+    #[arg(long, default_value_t = transitivity::DEFAULT_SEED)]
+    seed: u64,
+    #[arg(long, default_value_t = transitivity::DEFAULT_TRIALS)]
+    trials: usize,
+}
+
+impl From<TransitivityArgs> for transitivity::TransitivityConfig {
+    fn from(args: TransitivityArgs) -> Self {
+        Self {
+            seed: args.seed,
+            trials: args.trials,
         }
     }
 }
@@ -438,10 +479,12 @@ fn main() -> ExitCode {
         Command::Homogeneity(args) => run_homogeneity(args.into()),
         Command::Isomorphnull(args) => run_isomorphnull(args.into()),
         Command::Chaining(args) => run_chaining(args.into()),
+        Command::ChainingGraph(args) => run_chaining_graph(args.into()),
         Command::Moddiff(args) => run_moddiff(args.into()),
         Command::Perseus(args) => run_perseus(args.into()),
         Command::Zeroadjnull(args) => run_zeroadjnull(args.into()),
         Command::Treeresidual(args) => run_treeresidual(args.into()),
+        Command::Transitivity(args) => run_transitivity(args.into()),
         Command::Conditional(args) => run_conditional(args.into()),
         Command::Cipherattack(args) => run_cipherattack(args.into()),
         Command::Pyry(args) => run_pyry(args.into()),
@@ -591,6 +634,21 @@ fn run_chaining(config: chaining::ChainingConfig) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+fn run_chaining_graph(config: chaining_graph::ChainingGraphConfig) -> ExitCode {
+    let report = match chaining_graph::run_chaining_graph(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!(
+                "chaining-graph error: {}",
+                report::format_chaining_graph_error(&error)
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    report::print_chaining_graph_report(&report);
+    ExitCode::SUCCESS
+}
+
 fn run_moddiff(config: modular_diff::ModularDiffConfig) -> ExitCode {
     let report = match modular_diff::run_modular_diff(config) {
         Ok(report) => report,
@@ -648,6 +706,21 @@ fn run_treeresidual(config: tree_residual::TreeResidualConfig) -> ExitCode {
         }
     };
     report::print_tree_residual_report(&report);
+    ExitCode::SUCCESS
+}
+
+fn run_transitivity(config: transitivity::TransitivityConfig) -> ExitCode {
+    let report = match transitivity::run_transitivity(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!(
+                "transitivity error: {}",
+                report::format_transitivity_error(&error)
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    report::print_transitivity_report(&report);
     ExitCode::SUCCESS
 }
 
