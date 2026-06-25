@@ -922,7 +922,12 @@ pub struct GakKeyOptions {
     /// unchanged from the initial state.
     ///
     /// This realizes `Deck-Cipher.md`'s "don't pick from the identity coset"
-    /// rule, which guarantees no adjacent-equal ciphertext symbols.
+    /// rule. For the `TopCard` readout (and any readout where `c(p∘g) == c(g)` is
+    /// state-independent, i.e. equivalent to `p` fixing the reference value)
+    /// this guarantees no adjacent-equal ciphertext symbols. For an arbitrary
+    /// `CosetTable` readout the check is performed only against the initial
+    /// state, so it forbids initial-state doubles but does NOT guarantee the
+    /// absence of adjacent-equal symbols from later reachable states.
     pub avoid_doubles: bool,
     /// Subgroup-parity constraint the plaintext-letter permutations must obey.
     pub subgroup: GakSubgroupConstraint,
@@ -1451,7 +1456,10 @@ fn identity_gak_permutation(state_size: usize) -> Result<Vec<usize>, CipherError
 ///
 /// `outer` and `inner` are assumed validated; an out-of-range image is reported
 /// as an internal invariant rather than panicking.
-fn compose_permutations(outer: &[usize], inner: &[usize]) -> Result<Vec<usize>, CipherError> {
+pub(crate) fn compose_permutations(
+    outer: &[usize],
+    inner: &[usize],
+) -> Result<Vec<usize>, CipherError> {
     let mut composed = Vec::with_capacity(inner.len());
     for &image in inner {
         let mapped = outer

@@ -185,7 +185,7 @@ fn gak_attack_subcommand_reports_unit_2b_marginalization_honesty_surface() {
     // The headline sweep runs the prior OFF so no result silently depends on it.
     assert_contains(
         &stdout,
-        "small-support prior (idea 2) for the headline sweep: OFF (held-out generalization only)",
+        "small-support prior (idea 2) for the headline sweep: OFF (support-rank + width-cap candidates, held-out-strict select)",
     );
 
     // The MEASURED result: idea-3 beats the 2a single-valued core, and breaks as |H|
@@ -236,6 +236,11 @@ fn gak_attack_eyes_subcommand_locks_the_eyes_honesty_surface() {
     // strings, not a decode verdict). The candidate record is written to a temp dir
     // so the committed candidates/ tree is untouched by the test.
     let dir = std::env::temp_dir().join("gak-eyes-cli-honesty");
+    // Start from a fresh dir so a leftover record from a prior run cannot mask a
+    // dropped-write regression (the assertion below is on the exact filename).
+    // Best-effort: a missing dir on the first run is fine, so the result is bound
+    // and dropped rather than asserted.
+    let _removed = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("create temp candidates dir");
     let dir_str = dir.to_string_lossy().into_owned();
     let stdout = run_noita_eye(&[
@@ -326,13 +331,18 @@ fn gak_attack_eyes_subcommand_locks_the_eyes_honesty_surface() {
         "any candidate cleartext (English OR Finnish) is logged VERBATIM for human review.",
     );
 
-    // The record file was actually written.
-    let record = std::fs::read_dir(&dir)
-        .expect("candidate dir should exist")
-        .filter_map(Result::ok)
-        .any(|entry| entry.file_name().to_string_lossy().starts_with("eyes-"));
+    // The record file was actually written, under its EXACT deterministic name
+    // (mirrors eyes_record_filename): asserting the precise name — not merely an
+    // `eyes-*` prefix — catches both a dropped write and a wrong/stale filename.
+    // --trials matches the value passed above; seed and beam stay at defaults.
+    let expected_name = format!(
+        "eyes-seed-{:016x}-trials-{}-beam-{}.md",
+        noita_eye_puzzle::gak_attack::EYES_DEFAULT_SEED,
+        16,
+        noita_eye_puzzle::gak_attack::EYES_DEFAULT_BEAM_WIDTH,
+    );
     assert!(
-        record,
-        "the eyes run must write a candidate record under {dir_str}"
+        dir.join(&expected_name).is_file(),
+        "the eyes run must write the candidate record {expected_name} under {dir_str}"
     );
 }

@@ -1,8 +1,9 @@
 # GAK-attack eye candidate records
 
-This directory holds the **dated, machine-written record of every Step-3 run that
-points the matured GAK attack at the real eye corpus** (Thread 4, Unit 2c, the
-EYES Step 3). It is the highest honesty-risk artifact in the project, so the
+This directory holds the **machine-written record, named from a stable
+run-config/seed label (no wall-clock), of the latest Step-3 run for each config
+that points the matured GAK attack at the real eye corpus** (Thread 4, Unit 2c,
+the EYES Step 3). It is the highest honesty-risk artifact in the project, so the
 protocol below is binding on humans and agents alike.
 
 ## The claim ceiling (absolute, every record)

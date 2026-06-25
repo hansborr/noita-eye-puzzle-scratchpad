@@ -156,7 +156,8 @@ struct GakAttackArgs {
     /// Dihedral half-order `k` (`D_2k` has order `2k`, `k >= 3`).
     #[arg(long = "dihedral-half-order", default_value_t = gak_attack::DEFAULT_DIHEDRAL_HALF_ORDER)]
     dihedral_half_order: usize,
-    /// Number of distinct plaintext letters (group generators) per fixture.
+    /// Number of distinct plaintext letters (group generators) per fixture
+    /// (minimum `2`).
     #[arg(long = "letters", default_value_t = gak_attack::DEFAULT_NUM_PT_LETTERS)]
     num_pt_letters: usize,
     /// Number of repeated phrases in the generated plaintext template.
@@ -165,8 +166,11 @@ struct GakAttackArgs {
     /// Length in letters of each repeated phrase.
     #[arg(long = "phrase-len", default_value_t = gak_attack::DEFAULT_PHRASE_LEN)]
     phrase_len: usize,
-    /// TENTATIVE small-support radius (`<=k` transpositions); `0` is the
-    /// unconstrained gate regime.
+    /// TENTATIVE small-support radius (`<=k` transpositions). REJECTED for the
+    /// decisive GCTAK gate, which runs unconstrained (radius `0`) by construction;
+    /// any nonzero value errors out. The small-support prior is exercised only by
+    /// the deck / marginalization validation sweeps. `0` is the unconstrained gate
+    /// regime (the only accepted value here).
     #[arg(long = "small-support-radius", default_value_t = gak_attack::DEFAULT_SMALL_SUPPORT_RADIUS)]
     small_support_radius: usize,
 }
@@ -195,13 +199,15 @@ struct GakAttackEyesArgs {
     /// Matched within-message shuffle-null trials for the held-out gate.
     #[arg(long = "trials", default_value_t = gak_attack::EYES_DEFAULT_TRIALS)]
     trials: usize,
-    /// Disclosed beam width for the per-column held-out marginalization.
+    /// Disclosed beam-width label recorded in the candidate-record filename/header;
+    /// does NOT affect the eyes held-out scoring (the eyes run performs no per-column
+    /// marginalization).
     #[arg(long = "beam-width", default_value_t = gak_attack::EYES_DEFAULT_BEAM_WIDTH)]
     beam_width: usize,
     /// Directory under which the mandatory candidate record is written.
     #[arg(
         long = "candidates-dir",
-        default_value = "research/gak-threads/candidates"
+        default_value = gak_attack::EYES_DEFAULT_CANDIDATES_DIR
     )]
     candidates_dir: std::path::PathBuf,
 }

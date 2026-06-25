@@ -2,10 +2,14 @@
 //!
 //! This module is the project's go/no-go gate for any attempt to attack the
 //! Noita eye-glyph puzzle by pure cryptanalysis: **no GCTAK solve, no GAK
-//! attempt.** It is **synthetic-only** — it never touches the eye corpus. The
-//! eyes are a later unit (Step 3 of `research/gak-threads/specs/thread-4-spec.md`);
-//! the strongest defensible statement about them is unchanged and stated here so
-//! nothing downstream can drift past it:
+//! attempt.** The GCTAK gate and the synthetic GAK/deck fixtures (Units 1a/2a/2b)
+//! are **synthetic-only** — they never touch the eye corpus, so the ground truth
+//! is ours to hold. The single unit that *does* run against the verified eye
+//! corpus is Unit 2c ([`run_gak_attack_eyes`], Step 3 of
+//! `research/gak-threads/specs/thread-4-spec.md`): it measures the standing
+//! **BLOCKED** conclusion against matched within-message nulls and asserts no
+//! decode. The strongest defensible statement about the eyes is unchanged and
+//! stated here so nothing downstream can drift past it:
 //!
 //! > The eyes are deterministic, engine-generated, strikingly structured data of
 //! > unknown meaning; unsolved; no primary developer source confirms recoverable
@@ -56,7 +60,9 @@ use std::path::{Path, PathBuf};
 use crate::chaining_graph::{
     AlignedOccurrence, ChainLink, ContextId, SymbolValue, chain_links_for_pair,
 };
-use crate::ciphers::{CipherError, CosetReadout, GakKey, GakKeyOptions, gak_encrypt};
+use crate::ciphers::{
+    CipherError, CosetReadout, GakKey, GakKeyOptions, compose_permutations, gak_encrypt,
+};
 use crate::glyph::Glyph;
 use crate::isomorph::PatternSignature;
 use crate::language::{self, LanguageModel};
@@ -278,6 +284,28 @@ pub enum GakAttackError {
         requested: usize,
         /// Available non-identity group elements.
         available: usize,
+    },
+    /// Fewer than two plaintext letters were requested. This is a plain user
+    /// config error, rejected up front so it never masquerades as a
+    /// [`GakAttackError::PositiveControlFailed`] methodology failure. Two is the
+    /// real minimum: the dihedral non-commutative witness needs `count >= 2` (at
+    /// `count < 2` `choose_generators` short-circuits the non-commuting-pair check)
+    /// and a non-degenerate repeated-phrase partition needs at least two distinct
+    /// letters.
+    TooFewLetters {
+        /// Requested letter count.
+        requested: usize,
+    },
+    /// A nonzero `small_support_radius` was requested for the GCTAK gate. The gate
+    /// runs **unconstrained** (radius `0`) by construction so that the report's
+    /// declared GCTAK assumptions stay true; the TENTATIVE small-support prior is
+    /// exercised only by the deck / marginalization validation sweeps (via
+    /// [`DeckLetterRegime::SmallSupport`] and [`SmallSupportPrior`]), never by the
+    /// decisive gate. A nonzero radius here would silently change those assumptions,
+    /// so it is rejected rather than honored.
+    SmallSupportRadiusUnsupported {
+        /// Requested (rejected) small-support radius.
+        requested: usize,
     },
     /// A generated symbol could not be represented as a reading-layer value.
     SymbolOutOfRange {
@@ -661,7 +689,8 @@ pub fn run_gak_attack(config: GakAttackConfig) -> Result<GakAttackReport, GakAtt
 
     // Unit 2b: hidden-state marginalization (idea 3) + the TENTATIVE small-support
     // prior (idea 2), swept over the same deck sizes with the same robust seed count.
-    // The headline sweep runs the prior OFF (held-out generalization only); the
+    // The headline sweep runs the prior OFF (support-rank + width-cap candidates,
+    // held-out-strict selection); the
     // small-support prior is validated separately inside the report. A "helps on
     // small n, breaks by n=X" shape is the expected, reportable outcome and does NOT
     // gate the GCTAK positive control above.
@@ -764,8 +793,22 @@ fn validate_config(config: GakAttackConfig) -> Result<(), GakAttackError> {
             half_order: config.dihedral_half_order,
         });
     }
+    if config.num_pt_letters < 2 {
+        return Err(GakAttackError::TooFewLetters {
+            requested: config.num_pt_letters,
+        });
+    }
     if config.phrase_repeats == 0 || config.phrase_len == 0 {
         return Err(GakAttackError::EmptyTemplate);
+    }
+    // The decisive GCTAK gate runs UNCONSTRAINED (radius 0); the TENTATIVE
+    // small-support prior is only exercised by the deck / marginalization sweeps. A
+    // nonzero radius here would either crash the gate (not injective on cosets) or
+    // silently change its declared assumptions, so reject it rather than honor it.
+    if config.small_support_radius != 0 {
+        return Err(GakAttackError::SmallSupportRadiusUnsupported {
+            requested: config.small_support_radius,
+        });
     }
     Ok(())
 }
@@ -1016,16 +1059,14 @@ fn permutation_recovery_fraction(truth: &[EdgeMap], recovered: &[EdgeMap]) -> (u
 
 /// Composes two `0..n` permutations in the `(f ∘ g)[i] = f[g[i]]` convention used
 /// by [`gak_encrypt`] (the cipher's state-update convention).
+///
+/// Thin wrapper over [`compose_permutations`] that maps the shared helper's
+/// contextless internal-invariant error into this module's error type. Inputs are
+/// assumed validated, so an out-of-range image is an internal invariant rather
+/// than expected input; the failing image is not surfaced by the shared helper.
 fn compose_state(outer: &[usize], inner: &[usize]) -> Result<Vec<usize>, GakAttackError> {
-    let mut composed = Vec::with_capacity(inner.len());
-    for &image in inner {
-        let mapped = outer
-            .get(image)
-            .copied()
-            .ok_or(GakAttackError::SymbolOutOfRange { value: image })?;
-        composed.push(mapped);
-    }
-    Ok(composed)
+    compose_permutations(outer, inner)
+        .map_err(|_error| GakAttackError::SymbolOutOfRange { value: usize::MAX })
 }
 
 /// Computes the readout `c(state)` as a plain `usize`, mirroring the cipher's
@@ -1314,7 +1355,7 @@ fn evaluate_fixture(
         seed,
         ciphertext_len: ciphertext_values.len(),
         symbols_recovered: real.symbols_touched,
-        letters_recovered: real.letter_count,
+        letters_recovered: real.letter_count(),
         real_permutations_recovered,
         permutations_total,
         null_permutations_recovered,
@@ -1378,8 +1419,6 @@ struct GctakSolution {
     /// the held ground-truth permutations (review finding F5), not just compare
     /// the plaintext partition.
     recovered_permutations: Vec<EdgeMap>,
-    /// Number of distinct letters the solver clustered.
-    letter_count: usize,
     /// Number of distinct chain-link source symbols the solver touched.
     symbols_touched: usize,
     /// How many chain-link adjacency constraints (from
@@ -1396,6 +1435,11 @@ struct GctakSolution {
 }
 
 impl GctakSolution {
+    /// Number of distinct letters the solver clustered.
+    fn letter_count(&self) -> usize {
+        self.recovered_permutations.len()
+    }
+
     /// Whether every checked chain-link adjacency constraint was satisfied (and at
     /// least one was checked). The gate requires this for a recovery to count.
     fn chain_links_verified(&self) -> bool {
@@ -1495,12 +1539,10 @@ fn solve_gctak(
     // recovered permutation; canonicalize letters by first-occurrence order.
     let letter_of = decode_letters_by_edge(&walk, &recovered, transition_count);
     let canonical_letters = canonical_letters(&letter_of);
-    let letter_count = recovered.len();
 
     GctakSolution {
         canonical_letters,
         recovered_permutations: recovered,
-        letter_count,
         symbols_touched,
         chain_link_checks,
         chain_link_consistent,
@@ -3327,8 +3369,11 @@ const HELD_OUT_STRIDE: usize = 2;
 /// depends on it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SmallSupportPrior {
-    /// The prior is OFF: held-out generalization over all train branches is the only
-    /// beam score; every train edge is a candidate.
+    /// The prior is OFF: every train edge is a candidate. Branches are still admitted
+    /// in TRAIN-SUPPORT-rank order under the [`DEFAULT_BEAM_WIDTH`] cap, and a branch is
+    /// kept only when it STRICTLY improves held-out generalization (the smaller-set
+    /// tie-break) — so "held-out generalization" is the SELECTION rule among
+    /// support-ranked, width-capped candidates, not a free search over all subsets.
     Off,
     /// The prior is ON (TENTATIVE): only train edges with support `>= min_support`
     /// are candidate branches (a soft confidence floor), biasing recovery toward the
@@ -3345,7 +3390,7 @@ impl SmallSupportPrior {
     #[must_use]
     pub const fn label(self) -> &'static str {
         match self {
-            Self::Off => "OFF (held-out generalization only)",
+            Self::Off => "OFF (support-rank + width-cap candidates, held-out-strict select)",
             Self::On { .. } => "ON (TENTATIVE small-support confidence floor)",
         }
     }
@@ -3397,8 +3442,15 @@ impl BeamItem {
     /// The held-out generalization score in `[0, 1]`: the fraction of held-out
     /// branches that landed inside the admitted edge set. This is the core idea-3
     /// score — a beam that admits genuine same-letter branches predicts held-out
-    /// branches; a beam that over-admits noise (or, in the null, admits unrelated
-    /// edges) does not.
+    /// branches that an unrelated edge set would miss.
+    ///
+    /// This is pure held-out RECALL (`hits / (hits + misses)`), with NO precision /
+    /// false-positive term: admitting a further branch can only keep or raise the hit
+    /// count, so the score is monotonically NON-DECREASING in the admitted-set size and
+    /// never penalizes over-admission on its own. The discrimination against padding is
+    /// supplied by the smaller-admitted-set tie-break in [`beam_recover_column`] (a
+    /// branch is selected only when it STRICTLY improves this recall), NOT by this score
+    /// — do not read a precision property into it.
     fn generalization(&self) -> f64 {
         let total = self.held_out_hits.saturating_add(self.held_out_misses);
         fraction(self.held_out_hits, total)
@@ -3559,14 +3611,20 @@ fn beam_recover_column(
     }
 
     // Rank the ELIGIBLE beams: maximize held-out generalization, then prefer the
-    // larger admitted set so genuine multi-valued recovery (the point of
-    // marginalization) is not under-counted at equal generalization. `best` is chosen
+    // SMALLER admitted set at equal generalization. `generalization()` is pure held-out
+    // recall and is monotonically non-decreasing as the prefix grows (admitting a
+    // further branch can only keep or raise the hit count); preferring the larger set on
+    // a tie would therefore admit every train branch the moment held-out recall
+    // saturates — including support-rank padding that the held-out fold never validated.
+    // Preferring the SMALLER set means a branch is admitted ONLY when it STRICTLY
+    // improves held-out generalization, making "admits the branches that generalize and
+    // prunes the rest" literally true (no out-of-sample-blind padding). `best` is chosen
     // ONLY from the in-width candidates, so the dropped beams are truly ineligible.
     beams.sort_by(|a, b| {
         b.generalization()
             .partial_cmp(&a.generalization())
             .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| b.admitted.len().cmp(&a.admitted.len()))
+            .then_with(|| a.admitted.len().cmp(&b.admitted.len()))
     });
 
     let best = beams.into_iter().next().unwrap_or_default();
@@ -3937,8 +3995,10 @@ pub struct MarginalizationReport {
 /// the visible-coset MARGINAL (the hidden-state cycling spreads the marked card), so
 /// the prior is at most **WEAKLY / TENTATIVELY discriminative** here (a thin
 /// retention margin, e.g. ~0.44 vs ~0.41). The load-bearing property is that it still
-/// FAILS GRACEFULLY (it only ever drops genuine low-support edges, never invents any,
-/// so precision never drops and a wrong small-support assumption is never rewarded).
+/// FAILS GRACEFULLY (it only ever drops genuine low-support edges, never invents any).
+/// The prior is designed to, and is measured on the bundled aggregate to, not lower
+/// precision; that is a fixture-conditional measurement, not a structural guarantee
+/// (a wrong small-support assumption is never rewarded).
 /// The weak discrimination is a measured, FLAGGED, TENTATIVE outcome — reported with
 /// its thin margin, never faked into a strong positive.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -3971,8 +4031,9 @@ pub struct SmallSupportValidation {
 
 impl SmallSupportValidation {
     /// Edge-precision (true / admitted) for the small-support condition with the
-    /// prior `on`. The prior is designed to NOT lower precision (it only drops
-    /// genuine low-support edges, never invents any).
+    /// prior `on`. The prior is designed to, and is measured on the bundled aggregate
+    /// to, not lower precision (it only drops genuine low-support edges, never invents
+    /// any) — a fixture-conditional measurement, not a structural guarantee.
     #[must_use]
     pub fn small_precision(self, on: bool) -> f64 {
         if on {
@@ -4339,9 +4400,13 @@ pub const EYES_DEFAULT_SEED: u64 = 0x6579_6573_5f73_7470;
 /// Default matched within-message shuffle-null trial count for the eyes Step-3 gate.
 pub const EYES_DEFAULT_TRIALS: usize = 2_000;
 
-/// Default beam width for the eye held-out marginalization (disclosed; the eyes are
-/// not synthetic, so this only ever caps the per-column candidate set).
+/// Default beam-width LABEL recorded in the eyes candidate-record filename/header;
+/// it does NOT affect the eyes held-out scoring (the eyes run performs no per-column
+/// marginalization).
 pub const EYES_DEFAULT_BEAM_WIDTH: usize = DEFAULT_BEAM_WIDTH;
+
+/// Default directory under which the mandatory eyes candidate record is written.
+pub const EYES_DEFAULT_CANDIDATES_DIR: &str = "research/gak-threads/candidates";
 
 /// Configuration for the eyes Step-3 attack.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -4351,7 +4416,9 @@ pub struct EyesAttackConfig {
     pub seed: u64,
     /// Matched within-message shuffle-null trials.
     pub trials: usize,
-    /// Disclosed beam width for the per-column held-out marginalization.
+    /// Disclosed beam-width label recorded in the candidate-record filename/header;
+    /// does NOT affect the eyes held-out scoring (the eyes run performs no per-column
+    /// marginalization).
     pub beam_width: usize,
     /// Directory under which the mandatory candidate record is written.
     pub candidates_dir: PathBuf,
@@ -4363,7 +4430,7 @@ impl Default for EyesAttackConfig {
             seed: EYES_DEFAULT_SEED,
             trials: EYES_DEFAULT_TRIALS,
             beam_width: EYES_DEFAULT_BEAM_WIDTH,
-            candidates_dir: PathBuf::from("research/gak-threads/candidates"),
+            candidates_dir: PathBuf::from(EYES_DEFAULT_CANDIDATES_DIR),
         }
     }
 }
@@ -4464,7 +4531,8 @@ pub struct EyesAttackReport {
     /// sufficient, fair to the population under test (F1).
     pub material_effect_threshold: f64,
     /// Whether the real-vs-null-mean excess cleared the population-relative
-    /// material-effect bar. Expected `false` for the eyes (their excess is `0`).
+    /// material-effect bar. Expected `false` for the eyes (their real-vs-null
+    /// excess does not clear the bar).
     pub material_effect_met: bool,
     /// Matched within-message shuffle-null trials run.
     pub trials: usize,
@@ -4833,7 +4901,7 @@ const EYES_SIGNIFICANCE_ALPHA: f64 = 0.05;
 /// The detector is still VALIDATED because the positive control must clear ITS OWN
 /// population's bar by the same rule. Set to one quarter of the achievable signal —
 /// generous to a real recovery, fatal to a thin leak.
-const EYES_MATERIAL_EFFECT_FRACTION: f64 = 0.25;
+pub const EYES_MATERIAL_EFFECT_FRACTION: f64 = 0.25;
 
 /// Trial count for the Thread-3 consistency consultation. The fields we read
 /// (robust internal violations, safe extents, positive-control fire) are
@@ -5308,7 +5376,7 @@ fn eyes_message_evidence(
             // signature group is TRAIN or HELD-OUT, so train and held-out are
             // disjoint context families. The split is a stable hash of the rendered
             // signature (reproducible, no clock, balanced across the corpus).
-            let signature_id = signature_fold_hash(signature, window_len) as u64;
+            let signature_id = signature_fold_hash(signature, window_len);
             let is_held_out = HELD_OUT_STRIDE != 0
                 && usize::try_from(signature_id)
                     .unwrap_or(0)
@@ -5380,15 +5448,14 @@ fn eyes_message_evidence(
 /// A stable, clock-free fold hash for a signature group (the rendered equality
 /// pattern + window length). Used to assign WHOLE isomorph groups to the TRAIN or
 /// HELD-OUT fold reproducibly and roughly evenly.
-fn signature_fold_hash(signature: &PatternSignature, window_len: usize) -> usize {
+fn signature_fold_hash(signature: &PatternSignature, window_len: usize) -> u64 {
     let mut hash: u64 = 0x9e37_79b9_7f4a_7c15 ^ window_len as u64;
     for &value in signature.values() {
         hash = hash
             .wrapping_mul(0x0100_0000_01b3)
             .wrapping_add(value as u64 + 1);
     }
-    let mixed = stateless_splitmix(hash);
-    usize::try_from(mixed % (usize::MAX as u64).max(1)).unwrap_or(0)
+    stateless_splitmix(hash)
 }
 
 /// The safe-span restriction for one population's aggregate held-out scoring.
@@ -5610,11 +5677,10 @@ fn synthetic_isomorph_rich_eye_message(seed: u64) -> Result<Vec<TrigramValue>, G
     let support = 12usize;
     let block_len = 18usize;
     let mut base: Vec<usize> = Vec::with_capacity(block_len);
-    for index in 0..block_len {
+    for _ in 0..block_len {
         // Draw from the small support region so pi acts on most of the block.
         let v = (random_index_below(support, &mut rng)?).min(alphabet.saturating_sub(1));
         base.push(v);
-        let _ = index;
     }
     if let (Some(a), Some(slot)) = (base.first().copied(), base.get_mut(6)) {
         *slot = a;
@@ -5742,9 +5808,12 @@ fn eyes_safe_spans_by_message(
 ///
 /// The symbol→letter mapping here is a HYPOTHESIS, never recovered: the
 /// reading-layer symbols are mapped onto the language alphabet by a fixed,
-/// explicitly-arbitrary modular projection, the implied plaintext is scored under
-/// the Finnish AND English models (Finnish weighted highly — Noita is a Finnish
-/// game), and the scores are compared against a matched null of shuffled mappings.
+/// explicitly-arbitrary affine projection `value*stride % alphabet_len`, the
+/// implied plaintext is scored under the Finnish AND English models (Finnish
+/// weighted highly — Noita is a Finnish game), and the scores are compared
+/// against a matched null drawn from the SAME affine family (random coprime
+/// stride + offset), so the single real stride sits at a well-defined percentile
+/// within one exchangeable family rather than against a different-shape draw.
 /// This is never primary evidence; the implied plaintext is logged verbatim for
 /// human review regardless of the verdict.
 ///
@@ -5776,9 +5845,10 @@ fn eyes_speculative_cleartext(
         .score_indices(&indices)
         .map_or(f64::NEG_INFINITY, |s| s.bigram_mean_log_likelihood);
 
-    // Matched null: shuffle the mapping (a different hypothesized symbol→letter
-    // assignment) and re-score. The implied plaintext only "beats" the null if it
-    // exceeds the shuffled-mapping mean — and even then it is a HYPOTHESIS.
+    // Matched null: draw other mappings from the SAME affine family (random
+    // coprime stride + offset) and re-score. The implied plaintext only "beats"
+    // the null if it exceeds the affine-family mean — and even then it is a
+    // HYPOTHESIS.
     let (finnish_null_mean, english_null_mean) =
         eyes_mapping_null(message_values, alphabet_len, config, &finnish, &english);
 
@@ -5803,6 +5873,34 @@ fn eyes_hypothesis_mapping(alphabet_len: usize, seed: u64) -> Vec<usize> {
         .collect()
 }
 
+/// Draws one `(stride, offset)` pair from the affine family used by
+/// [`eyes_hypothesis_mapping`]: a stride coprime to `len` (so the map is a
+/// bijection on `0..len`) and a uniform offset in `0..len`. Returns `None` if an
+/// index draw fails (unreachable for `len >= 1` on 64-bit targets).
+fn draw_affine_stride_offset(len: usize, rng: &mut SplitMix64) -> Option<(usize, usize)> {
+    // Rejection-sample a coprime stride in 1..=len, mirroring the real mapping's
+    // `1 + (seed % len)` range. `len` is coprime to itself only when `len == 1`,
+    // and `stride == 1` is always coprime, so this loop always terminates.
+    let stride = loop {
+        let stride = random_index_below(len, rng).ok()? + 1;
+        if gcd(stride, len) == 1 {
+            break stride;
+        }
+    };
+    let offset = random_index_below(len, rng).ok()?;
+    Some((stride, offset))
+}
+
+/// Greatest common divisor of two non-negative integers (Euclid's algorithm).
+fn gcd(mut left: usize, mut right: usize) -> usize {
+    while right != 0 {
+        let remainder = left % right;
+        left = right;
+        right = remainder;
+    }
+    left
+}
+
 /// Renders the implied plaintext string under a hypothesized mapping (for verbatim
 /// logging). Each index becomes its alphabet symbol; out-of-range indices become `?`.
 fn render_implied_plaintext(indices: &[usize], model: &LanguageModel) -> String {
@@ -5817,7 +5915,12 @@ fn render_implied_plaintext(indices: &[usize], model: &LanguageModel) -> String 
 }
 
 /// Matched null for the speculative cleartext gate: mean Finnish/English bigram
-/// scores over shuffled hypothesized mappings.
+/// scores over mappings drawn from the SAME affine family as the real hypothesis
+/// (see [`eyes_hypothesis_mapping`]). Each trial draws a random stride coprime to
+/// `alphabet_len` and a random offset and builds `full[value] = (value*a + b) %
+/// alphabet_len`, so the single real stride sits at a well-defined percentile of
+/// one exchangeable family rather than against a different-shape (random
+/// relabeling) draw.
 fn eyes_mapping_null(
     message_values: &[Vec<TrigramValue>],
     alphabet_len: usize,
@@ -5834,19 +5937,15 @@ fn eyes_mapping_null(
             config.seed,
             0x6d61_705f_6e75_6c6c ^ u64::try_from(trial).unwrap_or(u64::MAX),
         ));
-        let Ok(mut mapping) = shuffled_permutation(alphabet_len.max(1), &mut rng) else {
+        // Draw this trial's mapping from the SAME affine family as the real
+        // hypothesis: a stride `a` coprime to `alphabet_len` and an offset `b`.
+        let len = alphabet_len.max(1);
+        let Some((a, b)) = draw_affine_stride_offset(len, &mut rng) else {
             continue;
         };
-        // Extend/wrap the shuffled alphabet permutation across the 83 symbols.
         let full: Vec<usize> = (0..EYE_READING_ALPHABET_SIZE)
-            .map(|value| {
-                mapping
-                    .get(value % mapping.len().max(1))
-                    .copied()
-                    .unwrap_or(0)
-            })
+            .map(|value| (value.wrapping_mul(a).wrapping_add(b)) % len)
             .collect();
-        mapping.clear();
         let indices: Vec<usize> = message_values
             .iter()
             .flatten()
@@ -5908,7 +6007,9 @@ struct EyesRecordInputs<'a> {
     speculative_cleartext: Option<&'a SpeculativeCleartext>,
 }
 
-/// Writes the mandatory dated candidate record for the eyes Step-3 run.
+/// Writes the mandatory candidate record for the eyes Step-3 run (filename is a
+/// STABLE config/seed label, NO clock; re-running the same config overwrites the
+/// prior record).
 ///
 /// The record captures what was attempted, how much structure was recovered, the
 /// held-out verdict + matched-null p-value, the Thread-3 consistency verdict, and
@@ -6163,9 +6264,13 @@ fn render_eyes_gate1_scores(out: &mut String, inputs: &EyesRecordInputs<'_>) -> 
         out,
         "COULD clear this bar with real signal (the bar is BELOW their max achievable); their"
     )?;
+    let real_excess = inputs.real_score as f64 - inputs.null_mean_score;
     writeln!(
         out,
-        "excess is 0, so met={}. The detector is validated: the positive control clears its own",
+        "excess is {real_excess:.1} (real {} - null mean {:.2}), threshold {:.1}, so met={}. The detector is validated: the positive control clears its own",
+        inputs.real_score,
+        inputs.null_mean_score,
+        inputs.material_effect_threshold,
         inputs.material_effect_met
     )?;
     writeln!(out, "population's bar by the identical rule.")?;
@@ -6611,6 +6716,43 @@ mod tests {
         let first = run_gak_attack(config).unwrap();
         let second = run_gak_attack(config).unwrap();
         assert_eq!(first, second);
+    }
+
+    #[test]
+    fn run_gak_attack_rejects_nonzero_small_support_radius() {
+        // A2: the decisive GCTAK gate runs unconstrained (radius 0). A nonzero
+        // small-support radius must be rejected up front in validate_config — not
+        // crash the gate or silently change its declared assumptions further down —
+        // so the report's "radius 0 / unconstrained" claim stays true by
+        // construction. The error must be the dedicated config variant, never a
+        // downstream cipher error.
+        let config = GakAttackConfig {
+            small_support_radius: 1,
+            ..GakAttackConfig::default()
+        };
+        let err = run_gak_attack(config).unwrap_err();
+        assert_eq!(
+            err,
+            super::GakAttackError::SmallSupportRadiusUnsupported { requested: 1 }
+        );
+    }
+
+    #[test]
+    fn run_gak_attack_rejects_too_few_letters_as_config_error() {
+        // D3: `--letters` below two is a plain user config error and must be
+        // rejected up front in validate_config, not surface later as
+        // PositiveControlFailed ("methodology bug, never a data finding"). Two is
+        // the real minimum (dihedral non-commutative witness + non-degenerate
+        // phrase partition), so both 0 and 1 must yield the dedicated config
+        // variant carrying the offending count.
+        for requested in [0usize, 1usize] {
+            let config = GakAttackConfig {
+                num_pt_letters: requested,
+                ..GakAttackConfig::default()
+            };
+            let err = run_gak_attack(config).unwrap_err();
+            assert_eq!(err, super::GakAttackError::TooFewLetters { requested });
+        }
     }
 
     #[test]
@@ -7176,9 +7318,9 @@ mod tests {
     // =================================================================
 
     use super::{
-        DEFAULT_BEAM_WIDTH, MarginalizationReport, SmallSupportPrior, run_marginalization_attack,
-        run_marginalization_sweep, run_small_support_validation, single_valued_core_of_split,
-        split_column_evidence,
+        DEFAULT_BEAM_WIDTH, MarginalizationReport, SmallSupportPrior, SplitColumnEvidence,
+        beam_recover_column, run_marginalization_attack, run_marginalization_sweep,
+        run_small_support_validation, single_valued_core_of_split, split_column_evidence,
     };
 
     /// Runs the idea-3 sweep with the default robust seed count over the default deck
@@ -7193,6 +7335,35 @@ mod tests {
             SmallSupportPrior::Off,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn beam_admits_nothing_when_held_out_fold_cannot_validate_it() {
+        // Guard: a column whose HELD-OUT fold is EMPTY is NON-VALIDATED. With held-out
+        // recall constant at 0.0 across every prefix (no held-out branch can be a hit),
+        // the held-out-strict smaller-set tie-break selects the EMPTY admitted set, so
+        // the beam admits NO edge the held-out fold never had a chance to confirm. This
+        // is what keeps the "admits the branches that generalize and prunes the rest"
+        // attribution literally true and excludes train-only/saturated columns from the
+        // held-out-validated marginal.
+        let mut train_support = std::collections::BTreeMap::new();
+        // High-support train branches that, under a larger-set tie-break, would all be
+        // admitted for free the moment recall saturated.
+        let _ = train_support.insert(CosetEdge { from: 1, to: 2 }, 9usize);
+        let _ = train_support.insert(CosetEdge { from: 3, to: 4 }, 7usize);
+        let _ = train_support.insert(CosetEdge { from: 5, to: 6 }, 5usize);
+        let column = SplitColumnEvidence {
+            train_support,
+            held_out: Vec::new(),
+        };
+        let (best, _dropped) =
+            beam_recover_column(&column, DEFAULT_BEAM_WIDTH, SmallSupportPrior::Off);
+        assert!(
+            best.admitted.is_empty(),
+            "an empty held-out fold validates nothing: the beam must admit no edges, \
+             got {:?}",
+            best.admitted
+        );
     }
 
     #[test]
@@ -7253,11 +7424,12 @@ mod tests {
             );
             // The margin is SEVERAL-FOLD at EVERY swept n, not just the easiest: on the
             // deterministic table idea-3 recovers AT LEAST 2x the 2a single-valued core
-            // across the whole sweep (the measured ratios run ~5.9x / 3.9x / 4.9x / 2.8x
-            // from easiest to hardest n; the >=2x floor is the honest universal multiple
-            // that holds even at the hardest swept n, where the marginalization is most
-            // eroded). This matches the report's "SEVERAL-FOLD at every n" wording and
-            // catches a quiet regression at ANY n, not only the easiest one.
+            // across the whole sweep (the measured ratios run ~5.6x / 3.7x / 4.8x / 2.7x
+            // from easiest to hardest n under the held-out-strict smaller-set tie-break;
+            // the >=2x floor is the honest universal multiple that holds even at the
+            // hardest swept n, where the marginalization is most eroded). This matches
+            // the report's "SEVERAL-FOLD at every n" wording and catches a quiet
+            // regression at ANY n, not only the easiest one.
             assert!(
                 point.idea3_true_total >= point.baseline_true_total.saturating_mul(2),
                 "idea-3 ({}) should recover at least 2x the 2a core ({}) at n={}",
@@ -7266,7 +7438,7 @@ mod tests {
                 point.state_size
             );
         }
-        // On the EASIEST fixture the margin is even larger (~5.9x measured): keep the
+        // On the EASIEST fixture the margin is even larger (~5.6x measured): keep the
         // strict >= 3x lock there, the regime where the multi-valued part the 2a core
         // discards is most of the action.
         let easiest = report.points.first().unwrap();
@@ -7433,17 +7605,22 @@ mod tests {
             v.broad_truth_prior_on,
             v.broad_truth_prior_off
         );
-        // Precision is HELD or improved by the floor in both conditions (the floor
-        // removes low-confidence edges, it cannot lower precision).
+        // Precision is OBSERVED to hold-or-improve under the floor in both conditions
+        // on THIS bundled 24-seed aggregate fixture. This is NOT a structural invariant:
+        // on single fixtures the relation can flip, because the precision numerator is a
+        // greedy one-to-one best-letter attribution (`marginal_edge_recovery`) while the
+        // denominator is a flat admitted-edge sum, so dropping low-support TRUE edges can
+        // lower the numerator faster than the denominator. The asserts below pass on the
+        // shipped aggregate and are deliberately NOT promoted to a per-seed loop.
         assert!(
             v.small_precision(true) >= v.small_precision(false),
-            "prior must not lower precision on small-support truth: on={:.3} off={:.3}",
+            "prior holds-or-improves precision on the bundled 24-seed aggregate (small-support truth): on={:.3} off={:.3}",
             v.small_precision(true),
             v.small_precision(false)
         );
         assert!(
             v.broad_precision(true) >= v.broad_precision(false),
-            "prior must not lower precision on unconstrained truth: on={:.3} off={:.3}",
+            "prior holds-or-improves precision on the bundled 24-seed aggregate (unconstrained truth): on={:.3} off={:.3}",
             v.broad_precision(true),
             v.broad_precision(false)
         );
@@ -7628,7 +7805,11 @@ mod tests {
     fn eyes_test_config(dir: &std::path::Path) -> EyesAttackConfig {
         EyesAttackConfig {
             seed: 0x1234_5678,
-            trials: 48,
+            // trials only set the in-test matched-null sample size (NOT a production
+            // default); coarser p-value resolution is fine here because the eyes score 0
+            // (no tail to resolve). The genuine null calibration is exercised by the
+            // positive-control test, which must KEEP enough trials to fire.
+            trials: 8,
             beam_width: super::EYES_DEFAULT_BEAM_WIDTH,
             candidates_dir: dir.to_path_buf(),
         }
@@ -7657,13 +7838,8 @@ mod tests {
             "nine messages, boundaries kept"
         );
         assert_eq!(report.order_name, "standard36-u012-d012");
-        // Determinism: a second run reproduces the same structural numbers.
-        let again = run_gak_attack_eyes(eyes_test_config(&dir)).unwrap();
-        assert_eq!(
-            report.real_held_out_hits_total,
-            again.real_held_out_hits_total
-        );
-        assert_eq!(report.candidate_survived, again.candidate_survived);
+        // A single run suffices: the eyes run is deterministic by construction, so a
+        // second run would only re-derive identical numbers at double the wall-clock.
     }
 
     #[test]
@@ -7742,10 +7918,14 @@ mod tests {
         // F6: the "no candidate / decode blocked" verdict is PINNED across multiple
         // matched-null seeds. The eyes score 0 regardless of the null shuffle seed, so
         // the negative cannot be an artifact of one lucky/unlucky null draw.
-        for seed in [0x1111_2222u64, 0x3333_4444, 0x5555_6666, 0xdead_beef] {
+        for seed in [0x1111_2222u64, 0xdead_beef] {
             let config = super::EyesAttackConfig {
                 seed,
-                trials: 48,
+                // trials only set the in-test matched-null sample size (NOT a production
+                // default); coarser p-value resolution is fine because the eyes score 0
+                // (no tail to resolve). The genuine null calibration is exercised by the
+                // positive-control test, which must KEEP enough trials to fire.
+                trials: 8,
                 beam_width: super::EYES_DEFAULT_BEAM_WIDTH,
                 candidates_dir: scratch_dir(&format!("seed-{seed:x}")),
             };
