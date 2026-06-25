@@ -11,9 +11,13 @@
 //! never counted across message joins, the accepted honeycomb order is held
 //! fixed, and all values are the engine-verified integer reading-layer values.
 
+use core::convert::Infallible;
 use std::collections::BTreeMap;
 
-use crate::null::{SplitMix64, add_one_p_value, fisher_yates, median_usize, scaled_quantile_index};
+use crate::null::{
+    NullTestError, SplitMix64, UsizeBand, WithinMessageShuffle, add_one_p_value, fisher_yates,
+    run_null_test_streams, usize_band,
+};
 use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::trigram::TrigramValue;
 
@@ -141,6 +145,20 @@ pub struct AdjacencyNullBand {
     pub q975: usize,
     /// Largest sampled adjacent-equal count.
     pub max: usize,
+}
+
+impl From<UsizeBand> for AdjacencyNullBand {
+    fn from(band: UsizeBand) -> Self {
+        Self {
+            trials: band.trials,
+            mean: band.mean,
+            min: band.min,
+            q025: band.q025,
+            median: band.median,
+            q975: band.q975,
+            max: band.max,
+        }
+    }
 }
 
 /// Position of the observed statistic relative to the shuffle band.
@@ -291,23 +309,29 @@ fn analyze_message_values(
     validate_config(config)?;
     let total_trials = total_trials(config)?;
     let observed = adjacency_summary(keys, message_values)?;
-    let mut samples = Vec::with_capacity(total_trials);
-    let mut empirical_p_count = 0usize;
+    let sampler = WithinMessageShuffle {
+        messages: message_values,
+    };
+
+    // Each seed stream draws its base seed from one chained base RNG, exactly as
+    // the longhand loop did (`SplitMix64::new(stream_rng.next_u64())`). The
+    // `FnMut` derivation is what lets the closure advance that captured RNG.
     let mut stream_rng = SplitMix64::new(config.seed);
+    let result = run_null_test_streams(
+        |shuffled| Ok::<usize, Infallible>(total_adjacent_equal(shuffled)),
+        observed.adjacent_equal,
+        &sampler,
+        config.seed_count,
+        config.trials_per_seed,
+        |_stream_index| stream_rng.next_u64(),
+    )
+    .map_err(|error| match error {
+        NullTestError::Random(bound) => ZeroAdjacencyNullError::from(bound),
+        NullTestError::Statistic(never) => match never {},
+    })?;
 
-    for _stream in 0..config.seed_count {
-        let mut rng = SplitMix64::new(stream_rng.next_u64());
-        for _trial in 0..config.trials_per_seed {
-            let shuffled = shuffled_messages(message_values, &mut rng)?;
-            let count = total_adjacent_equal(&shuffled);
-            if count <= observed.adjacent_equal {
-                empirical_p_count += 1;
-            }
-            samples.push(count);
-        }
-    }
-
-    let null = null_band(&samples);
+    let null = AdjacencyNullBand::from(usize_band(&result.samples));
+    let empirical_p_count = result.lower_tail_count;
     let empirical_p = add_one_p_value(empirical_p_count, total_trials);
     let band_position = classify_band_position(observed.adjacent_equal, null);
 
@@ -409,45 +433,6 @@ fn count_adjacent_equal(values: &[TrigramValue]) -> usize {
         .count()
 }
 
-fn shuffled_messages(
-    message_values: &[Vec<TrigramValue>],
-    rng: &mut SplitMix64,
-) -> Result<Vec<Vec<TrigramValue>>, ZeroAdjacencyNullError> {
-    let mut shuffled = message_values.to_vec();
-    for values in &mut shuffled {
-        fisher_yates(values, rng)?;
-    }
-    Ok(shuffled)
-}
-
-fn null_band(samples: &[usize]) -> AdjacencyNullBand {
-    let mut sorted = samples.to_vec();
-    sorted.sort_unstable();
-    AdjacencyNullBand {
-        trials: samples.len(),
-        mean: mean(samples),
-        min: sorted.first().copied().unwrap_or_default(),
-        q025: quantile_from_sorted(&sorted, 25, 1_000),
-        median: median_usize(&sorted),
-        q975: quantile_from_sorted(&sorted, 975, 1_000),
-        max: sorted.last().copied().unwrap_or_default(),
-    }
-}
-
-fn mean(samples: &[usize]) -> f64 {
-    if samples.is_empty() {
-        return 0.0;
-    }
-    samples.iter().sum::<usize>() as f64 / samples.len() as f64
-}
-
-fn quantile_from_sorted(sorted: &[usize], numerator: usize, denominator: usize) -> usize {
-    sorted
-        .get(scaled_quantile_index(sorted.len(), numerator, denominator))
-        .copied()
-        .unwrap_or_default()
-}
-
 fn classify_band_position(observed: usize, null: AdjacencyNullBand) -> ShuffleBandPosition {
     if observed < null.q025 {
         ShuffleBandPosition::Below
@@ -543,9 +528,9 @@ fn push_control_value(
 mod tests {
     use super::{
         ShuffleBandPosition, ZeroAdjacencyNullConfig, adjacency_summary, analyze_message_values,
-        positive_controls, run_zero_adjacency_null, shuffled_messages,
+        positive_controls, run_zero_adjacency_null,
     };
-    use crate::null::SplitMix64;
+    use crate::null::{NullSampler, SplitMix64, WithinMessageShuffle};
     use crate::trigram::TrigramValue;
 
     const FLOAT_RELATIVE_EPSILON: f64 = 1.0e-12;
@@ -575,9 +560,12 @@ mod tests {
     #[test]
     fn shuffle_null_preserves_message_multisets_and_lengths() {
         let messages = vec![values(&[0, 0, 1, 1, 2, 2]), values(&[3, 3, 4])];
+        let sampler = WithinMessageShuffle {
+            messages: &messages,
+        };
         let mut rng = SplitMix64::new(0x5151);
 
-        let shuffled = shuffled_messages(&messages, &mut rng).unwrap();
+        let shuffled = sampler.sample(&mut rng).unwrap();
 
         assert_eq!(shuffled.len(), messages.len());
         for (original, shuffled_message) in messages.iter().zip(&shuffled) {
