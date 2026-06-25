@@ -36,6 +36,10 @@
 //!   collision-based state-count calibration.
 //! - [`honeycomb`]: fixed-order two-dimensional honeycomb lattice structure
 //!   test over physical row-pair coordinates.
+//! - [`ingest`]: external-ciphertext ingest — a pure `parse_sequence` plus a
+//!   thin `load_sequence` I/O wrapper that loads arbitrary glyph sequences
+//!   (rendered orientation, accepted honeycomb reading, or a general cipher
+//!   alphabet) without the library ever touching global stdin.
 //! - [`language`]: English/Finnish n-gram language models for scoring
 //!   candidate plaintexts.
 //! - [`modular_diff`]: modular finite-difference structural fingerprinting
@@ -84,6 +88,7 @@ pub mod generator;
 pub mod glyph;
 pub mod grouping;
 pub mod honeycomb;
+pub mod ingest;
 pub mod isomorph;
 pub mod isomorph_null;
 pub mod language;

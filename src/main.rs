@@ -4,14 +4,17 @@
 //! stays testable in [`noita_eye_puzzle`]. `clap` owns argument parsing and
 //! usage text; domain analysis and report rendering live in the library.
 
+use std::io::{self, Read};
 use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
 use noita_eye_puzzle::{
     agl_gak, chaining, chaining_graph, cipher_attack, ciphers, conditional_structure, controls,
-    corpus, dof_null, gak_attack, glyph::Sequence, grouping, honeycomb, isomorph_null,
-    modular_diff, null, orders, orientation_homogeneity, perfect_isomorphism, periodicity, perseus,
-    pipeline_null, pyry_conditions, report, transitivity, tree_residual, zero_adjacency_null,
+    corpus, dof_null, gak_attack,
+    glyph::{Alphabet, Sequence},
+    grouping, honeycomb, ingest, isomorph_null, modular_diff, null, orders,
+    orientation_homogeneity, perfect_isomorphism, periodicity, perseus, pipeline_null,
+    pyry_conditions, report, transitivity, tree_residual, zero_adjacency_null,
 };
 
 const DEFAULT_NULL_SEED: u64 = 0x6e6f_6974_612d_6579;
@@ -105,8 +108,23 @@ enum Command {
 
 #[derive(Debug, Args)]
 struct StatsArgs {
-    /// Rendered orientation sequence using digits 0-4 and optional delimiter 5.
-    sequence: String,
+    /// Rendered orientation sequence (digits 0-4, optional delimiter 5).
+    /// Optional: omit to read from --input-file or stdin.
+    sequence: Option<String>,
+    /// Read the ciphertext from this file instead of the positional argument.
+    #[arg(long = "input-file", conflicts_with = "sequence")]
+    input_file: Option<std::path::PathBuf>,
+    /// Treat the input as accepted honeycomb reading-layer values (0-82, the
+    /// alphabet solve consumes) rather than rendered orientation digits.
+    #[arg(long = "honeycomb")]
+    honeycomb: bool,
+    /// Treat the input as a general cipher alphabet (these chars, in order, are
+    /// the cipher symbols; e.g. ABCDEFGHIJKLMNOPQRSTUVWXYZ for a letter puzzle).
+    /// Spaces/punctuation (`. , ? ! #`, newline) pass through as transparent
+    /// symbols. For the practice corpus, not the eyes; conflicts with
+    /// --honeycomb.
+    #[arg(long = "alphabet", conflicts_with = "honeycomb")]
+    alphabet: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Args)]
@@ -618,7 +636,7 @@ impl From<IsomorphControlArgs> for controls::IsomorphControlConfig {
 
 fn main() -> ExitCode {
     match Cli::parse().command {
-        Command::Stats(args) => run_stats(&args.sequence),
+        Command::Stats(args) => run_stats(&args),
         Command::Demo => run_demo(),
         Command::Orders => run_orders(),
         Command::AglGak(args) => run_agl_gak(args.into()),
@@ -1055,31 +1073,65 @@ fn run_orders() -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn run_stats(text: &str) -> ExitCode {
-    match parse_rendered_sequence(text) {
-        Ok(seq) => {
+fn run_stats(args: &StatsArgs) -> ExitCode {
+    let transparent = ingest::TransparentSet::default();
+    let alphabet;
+    let layer = match &args.alphabet {
+        Some(spec) => match Alphabet::from_chars(spec) {
+            Ok(built) => {
+                alphabet = built;
+                ingest::SequenceLayer::CipherAlphabet {
+                    alphabet: &alphabet,
+                    transparent: &transparent,
+                }
+            }
+            Err(c) => {
+                eprintln!("invalid --alphabet: repeated or unrepresentable character {c:?}");
+                return ExitCode::FAILURE;
+            }
+        },
+        None if args.honeycomb => ingest::SequenceLayer::HoneycombReading,
+        None => ingest::SequenceLayer::RenderedOrientation,
+    };
+
+    let parsed = if let Some(text) = &args.sequence {
+        ingest::parse_sequence(text, layer)
+    } else if let Some(path) = &args.input_file {
+        ingest::load_sequence(ingest::Input::Path(path), layer)
+    } else {
+        let mut text = String::new();
+        if let Err(error) = io::stdin().read_to_string(&mut text) {
+            eprintln!("failed to read stdin: {error}");
+            return ExitCode::FAILURE;
+        }
+        ingest::parse_sequence(&text, layer)
+    };
+
+    match parsed {
+        Ok(parsed) => {
+            let seq = Sequence {
+                glyphs: parsed.glyphs,
+            };
             report::print_report("input", &seq);
             ExitCode::SUCCESS
         }
-        Err(c) => {
-            eprintln!("unknown rendered digit {c:?}; expected 0-5, with 5 as delimiter");
+        // Behavior-preserving: the pre-refactor rendered parser returned an empty
+        // `Sequence` for empty / all-whitespace / all-delimiter input (e.g.
+        // `stats 555`, `stats ""`), which `print_report` renders as a clean
+        // 0-glyph report (entropy/IoC 0.0000, no frequencies, exit 0). The
+        // library's `parse_sequence` still signals `Empty` for the solve
+        // pipeline (brief 04); `stats` keeps the old report only for the rendered
+        // layer (the honeycomb / cipher-alphabet paths are new, so their `Empty`
+        // surfaces as an error).
+        Err(ingest::IngestError::Empty)
+            if matches!(layer, ingest::SequenceLayer::RenderedOrientation) =>
+        {
+            report::print_report("input", &Sequence { glyphs: Vec::new() });
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("{error}");
             ExitCode::FAILURE
         }
     }
-}
-
-fn parse_rendered_sequence(text: &str) -> Result<Sequence, char> {
-    let mut glyphs = Vec::new();
-    for c in text.chars() {
-        if c.is_whitespace() || c == '5' {
-            continue;
-        }
-        let Some(digit) = c.to_digit(10) else {
-            return Err(c);
-        };
-        let orientation =
-            noita_eye_puzzle::glyph::Orientation::from_digit(digit as u8).map_err(|_symbol| c)?;
-        glyphs.push(orientation.glyph());
-    }
-    Ok(Sequence { glyphs })
 }

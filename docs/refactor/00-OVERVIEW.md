@@ -170,10 +170,12 @@ assume one case universally.
 ```rust
 // crate::core (or crate::glyph)
 /// Pure parse — no I/O. The unit-testable core.
-pub fn parse_sequence(text: &str, layer: SequenceLayer) -> Result<ParsedSequence, IngestError>;
+pub fn parse_sequence(text: &str, layer: SequenceLayer<'_>) -> Result<ParsedSequence, IngestError>;
 /// I/O wrapper: reads a path/file, then delegates to parse_sequence.
-pub fn load_sequence(input: Input<'_>, layer: SequenceLayer) -> Result<ParsedSequence, IngestError>;
+pub fn load_sequence(input: Input<'_>, layer: SequenceLayer<'_>) -> Result<ParsedSequence, IngestError>;
 pub enum Input<'a> { Str(&'a str), Path(&'a Path) }
+// `SequenceLayer<'_>` carries a lifetime: its `CipherAlphabet { alphabet, transparent }`
+// variant borrows an `&Alphabet` + `&TransparentSet`; the two eye layers are alphabet-free.
 ```
 
 `ParsedSequence.glyphs` is the `Vec<Glyph>` cipher stream; `.transparent` records the

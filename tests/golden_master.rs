@@ -19,6 +19,7 @@
 //   run_stdout demo demo
 //   run_stdout orders orders
 //   run_stdout stats_012340123455 stats 012340123455
+//   run_stdout stats_all_delimiters stats 555
 //   run_stdout agl-gak_nt32_s123 agl-gak --null-trials 32 --seed 123
 //   run_stdout gak-attack_spk2_s123 gak-attack --seeds-per-kind 2 --seed 123
 //   run_stdout gak-attack-eyes_t16 gak-attack-eyes --trials 16 --candidates-dir "$EYES_DIR"
@@ -107,6 +108,13 @@ golden_stdout_test!(
     stats_stdout_matches_golden,
     "golden/stats_012340123455.stdout",
     ["stats", "012340123455"]
+);
+// Behavior-preserving guard: all-delimiter (and empty) rendered input yields the
+// clean 0-glyph report at exit 0, exactly as the pre-refactor `stats` parser did.
+golden_stdout_test!(
+    stats_all_delimiters_stdout_matches_golden,
+    "golden/stats_all_delimiters.stdout",
+    ["stats", "555"]
 );
 golden_stdout_test!(
     agl_gak_stdout_matches_golden,

@@ -1,1 +1,1 @@
-unknown rendered digit 'x'; expected 0-5, with 5 as delimiter
+invalid token "x" at rendered orientation index 3: digits 0-4 are orientations and 5 is the dropped row delimiter
