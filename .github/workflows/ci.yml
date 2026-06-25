@@ -18,9 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # rust-toolchain.toml pins the channel and components; `rustup show`
-      # triggers the install of exactly that toolchain.
-      - name: Install pinned toolchain
+      # rust-toolchain.toml selects the channel (current stable) and components;
+      # `rustup show` triggers the install of exactly that toolchain.
+      - name: Install toolchain (current stable per rust-toolchain.toml)
         run: rustup show
 
       - name: Cache cargo + target

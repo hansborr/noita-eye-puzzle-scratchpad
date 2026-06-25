@@ -14,7 +14,7 @@ control so a negative result is meaningful rather than a blind spot.
 The analysis library and a nine-experiment investigation are complete, tested,
 independently reviewed, and gate-green. The crate now allows vetted, minimal
 external crates: `statrs` is used for analytic chi-square tail probabilities,
-and `clap` may replace the hand-rolled CLI parsing in a follow-up. The in-crate
+and `clap` owns CLI argument parsing and usage text. The in-crate
 `SplitMix64` PRNG remains for deterministic null models. The corpus is **real
 and verified** — see below.
 
@@ -93,15 +93,17 @@ cargo run -- pipelinenull  [--seed <u64>] [--trials <n>]    # Exp 2 generation-p
 cargo run -- periodicity   [--seed <u64>] [--trials <n>] [--max-period <n>] [--max-lag <n>]
 cargo run -- isomorphnull  [--seed <u64>] [--trials <n>]    # Exp 7A shuffle null
 cargo run -- chaining      [--seed <u64>] [--trials <n>] [--min-period <n>] [--max-period <n>]
+cargo run -- chaining-graph [--seed <u64>] [--trials <n>]   # Thread 5 graph-chaining conflict/coverage
 cargo run -- perseus       [--seed <u64>] [--trials <n>]    # Exp 7C recurrence null
 cargo run -- grouping                                       # Exp 8 grouping + state-count
-cargo run -- cipherattack  [--seed <u64>] [--samples <n>] [--null-trials <n>]
+cargo run -- cipherattack  [--seed <u64>] [--samples <n>] [--null-trials <n>] [--max-vigenere-period <n>]
 cargo run -- controls monoalphabetic [--seed <u64>]         # Exp 11 positive control
 cargo run -- controls isomorph       [--seed <u64>]         # (alias: polyalphabetic)
 # 2026-06-24 structural battery (engine-fixed sequence, fixed honeycomb order, no decode):
 cargo run -- zeroadjnull   [--seed <u64>]                   # zero-adjacency forbidden-successor null
 cargo run -- moddiff                                        # modular-difference family fingerprint
-cargo run -- conditional   [--seed <u64>] [--trials <n>]    # first-order transition / successor graph
+cargo run -- conditional   [--seed <u64>] [--seeds <n>] [--trials-per-seed <n>]  # first-order transition / successor graph
+cargo run -- transitivity  [--seed <u64>] [--trials <n>]   # Thread 1B transitivity / D166 audit (alias: dihedral)
 cargo run -- honeycomb     [--seed <u64>] [--trials <n>]    # 2D honeycomb-lattice structure null
 cargo run -- treeresidual  [--seed <u64>] [--trials <n>]    # tree-residual cross-tail n-gram null
 cargo run -- homogeneity   [--seed <u64>]                   # cross-message orientation homogeneity
@@ -276,7 +278,7 @@ make setup    # install the git pre-commit hook
 - **Every public item documented** (`missing_docs`); doc examples compile
   (`RUSTDOCFLAGS="-D warnings"`).
 - **Clippy `all` + `pedantic`** as `-D warnings`; **`rustfmt`** enforced;
-  **pinned toolchain** (Rust 1.96.0); **`--locked`** everywhere.
+  **current stable toolchain** (MSRV Rust 1.96.0); **`--locked`** everywhere.
 - Supply chain gated by `cargo-deny` + `cargo machete`; CI runs the full gate.
 
 See `AGENTS.md` for the full working agreement and `HANDOFF.md` for the
