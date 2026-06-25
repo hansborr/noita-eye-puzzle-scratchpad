@@ -17,7 +17,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::mem::size_of;
 
-use crate::null::{SplitMix64, add_one_p_value, fisher_yates, median_usize, scaled_quantile_index};
+use crate::null::{
+    NullSampler, RandomBoundError, SplitMix64, UsizeBand, add_one_p_value, fisher_yates, usize_band,
+};
 use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::perseus::{self, SharedPartition};
 use crate::trigram::TrigramValue;
@@ -186,6 +188,21 @@ pub struct CrossTailNullBand {
     pub max: usize,
 }
 
+impl From<UsizeBand> for CrossTailNullBand {
+    fn from(band: UsizeBand) -> Self {
+        // `CrossTailNullBand` names its trial count `samples`; the rest map directly.
+        Self {
+            samples: band.trials,
+            mean: band.mean,
+            min: band.min,
+            q025: band.q025,
+            median: band.median,
+            q975: band.q975,
+            max: band.max,
+        }
+    }
+}
+
 /// Real-vs-null row for one scope and k-gram length.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TreeResidualRow {
@@ -291,11 +308,20 @@ fn report_from_segment_messages(
     let seeds = seed_batches(config.seed, config.seed_count)?;
     let mut rows = initial_row_accumulators(residual_messages, full_messages, sample_count)?;
 
+    // Both samplers draw from the same per-seed RNG within a trial, residual
+    // before full, exactly as the longhand loop did — so the segment-shape
+    // sampler keeps that PRNG draw order intact.
+    let residual_sampler = ResidualSegmentShuffle {
+        messages: residual_messages,
+    };
+    let full_sampler = ResidualSegmentShuffle {
+        messages: full_messages,
+    };
     for seed in &seeds {
         let mut rng = SplitMix64::new(*seed);
         for _trial in 0..config.trials {
-            let shuffled_residual = shuffled_segment_messages(residual_messages, &mut rng)?;
-            let shuffled_full = shuffled_segment_messages(full_messages, &mut rng)?;
+            let shuffled_residual = residual_sampler.sample(&mut rng)?;
+            let shuffled_full = full_sampler.sample(&mut rng)?;
             accumulate_trial_rows(&mut rows, &shuffled_residual, &shuffled_full)?;
         }
     }
@@ -409,7 +435,7 @@ impl RowAccumulator {
         let lower_tail_p = add_one_p_value(self.lower_tail_count, self.samples.len());
         let upper_tail_p = add_one_p_value(self.upper_tail_count, self.samples.len());
         let two_sided_p = (2.0 * lower_tail_p.min(upper_tail_p)).min(1.0);
-        let null = null_band(&self.samples);
+        let null = CrossTailNullBand::from(usize_band(&self.samples));
         let significant_excess =
             self.observed.shared_distinct_ngrams > null.q975 && upper_tail_p <= SIGNIFICANCE_ALPHA;
         TreeResidualRow {
@@ -595,25 +621,35 @@ fn distinct_message_ngrams(message: &MessageSegments, k: usize) -> BTreeSet<Vec<
     ngrams
 }
 
-fn shuffled_segment_messages(
-    messages: &[MessageSegments],
-    rng: &mut SplitMix64,
-) -> Result<Vec<MessageSegments>, TreeResidualError> {
-    let mut shuffled = Vec::new();
-    for message in messages {
-        let lengths = message.segments.iter().map(Vec::len).collect::<Vec<_>>();
-        let mut values = message
-            .segments
-            .iter()
-            .flat_map(|segment| segment.iter().copied())
-            .collect::<Vec<_>>();
-        fisher_yates(&mut values, rng)?;
-        shuffled.push(MessageSegments {
-            message_key: message.message_key,
-            segments: repartition_segments(values, &lengths),
-        });
+/// Segment-shape-preserving within-message shuffle for residual tails.
+///
+/// Pools each message's residual symbols, Fisher-Yates shuffles the pool, then
+/// repartitions it back into the original segment lengths — preserving residual
+/// length, residual segment shape, and the exact residual multiset.
+struct ResidualSegmentShuffle<'a> {
+    messages: &'a [MessageSegments],
+}
+
+impl NullSampler for ResidualSegmentShuffle<'_> {
+    type Draw = Vec<MessageSegments>;
+
+    fn sample(&self, rng: &mut SplitMix64) -> Result<Self::Draw, RandomBoundError> {
+        let mut shuffled = Vec::new();
+        for message in self.messages {
+            let lengths = message.segments.iter().map(Vec::len).collect::<Vec<_>>();
+            let mut values = message
+                .segments
+                .iter()
+                .flat_map(|segment| segment.iter().copied())
+                .collect::<Vec<_>>();
+            fisher_yates(&mut values, rng)?;
+            shuffled.push(MessageSegments {
+                message_key: message.message_key,
+                segments: repartition_segments(values, &lengths),
+            });
+        }
+        Ok(shuffled)
     }
-    Ok(shuffled)
 }
 
 fn repartition_segments(values: Vec<TrigramValue>, lengths: &[usize]) -> Vec<Vec<TrigramValue>> {
@@ -643,34 +679,6 @@ fn seed_batches(seed: u64, seed_count: usize) -> Result<Vec<u64>, TreeResidualEr
         seeds.push(rng.next_u64());
     }
     Ok(seeds)
-}
-
-fn null_band(samples: &[usize]) -> CrossTailNullBand {
-    let mut sorted = samples.to_vec();
-    sorted.sort_unstable();
-    CrossTailNullBand {
-        samples: samples.len(),
-        mean: mean_usize(samples),
-        min: sorted.first().copied().unwrap_or_default(),
-        q025: quantile_from_sorted(&sorted, 25, 1_000),
-        median: median_usize(&sorted),
-        q975: quantile_from_sorted(&sorted, 975, 1_000),
-        max: sorted.last().copied().unwrap_or_default(),
-    }
-}
-
-fn mean_usize(samples: &[usize]) -> f64 {
-    if samples.is_empty() {
-        return 0.0;
-    }
-    samples.iter().sum::<usize>() as f64 / samples.len() as f64
-}
-
-fn quantile_from_sorted(sorted: &[usize], numerator: usize, denominator: usize) -> usize {
-    sorted
-        .get(scaled_quantile_index(sorted.len(), numerator, denominator))
-        .copied()
-        .unwrap_or_default()
 }
 
 #[cfg(test)]
