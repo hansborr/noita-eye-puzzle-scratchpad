@@ -242,6 +242,13 @@ pub enum SolveError {
         /// Length of the mapping table.
         table_len: usize,
     },
+    /// A ciphertext symbol was outside the declared cipher alphabet.
+    CiphertextSymbolOutsideAlphabet {
+        /// Offending cipher symbol.
+        symbol: usize,
+        /// Declared cipher alphabet size.
+        alphabet_size: usize,
+    },
     /// A language index could not be rendered with the selected model alphabet.
     LanguageIndexOutsideAlphabet {
         /// Offending language index.
@@ -276,6 +283,13 @@ impl fmt::Display for SolveError {
                 f,
                 "cipher symbol {symbol} is outside mapping table length {table_len}"
             ),
+            Self::CiphertextSymbolOutsideAlphabet {
+                symbol,
+                alphabet_size,
+            } => write!(
+                f,
+                "ciphertext symbol {symbol} is outside cipher alphabet length {alphabet_size}"
+            ),
             Self::LanguageIndexOutsideAlphabet { index } => {
                 write!(f, "language index {index} is outside the model alphabet")
             }
@@ -303,6 +317,7 @@ impl std::error::Error for SolveError {
             | Self::EmptyHypothesisSpace
             | Self::EmptyMappingSet
             | Self::MappingSymbolOutsideTable { .. }
+            | Self::CiphertextSymbolOutsideAlphabet { .. }
             | Self::LanguageIndexOutsideAlphabet { .. }
             | Self::MappingSearchUnavailable => None,
         }
@@ -342,20 +357,152 @@ impl From<crate::null::RandomBoundError> for SolveError {
 /// Returns [`SolveError`] if the hypothesis space is malformed or scoring cannot
 /// complete.
 pub fn solve(req: &SolveRequest<'_>) -> Result<Vec<Candidate>, SolveError> {
-    if req.space.families.is_empty() {
+    validate_request(req)?;
+    let MappingStrategy::Fixed(mappings) = &req.space.mappings else {
+        return Err(SolveError::MappingSearchUnavailable);
+    };
+
+    let mut candidates = Vec::new();
+    for family in &req.space.families {
+        for cipher in &family.ciphers {
+            candidates.extend(evaluate_cipher(req, cipher, mappings)?);
+        }
+    }
+    candidates.sort_by(|left, right| right.score.total_cmp(&left.score));
+    Ok(candidates)
+}
+
+fn validate_request(req: &SolveRequest<'_>) -> Result<(), SolveError> {
+    if req
+        .space
+        .families
+        .iter()
+        .all(|family| family.ciphers.is_empty())
+    {
         return Err(SolveError::EmptyHypothesisSpace);
     }
-    match &req.space.mappings {
-        MappingStrategy::Fixed(mappings) if mappings.is_empty() => Err(SolveError::EmptyMappingSet),
-        MappingStrategy::Fixed(_mappings) => Ok(Vec::new()),
-        MappingStrategy::Search(_search) => Err(SolveError::MappingSearchUnavailable),
+    if req.space.cipher_alphabet_size == 0 {
+        return Err(SolveError::EmptyHypothesisSpace);
     }
+    if matches!(&req.space.mappings, MappingStrategy::Fixed(mappings) if mappings.is_empty()) {
+        return Err(SolveError::EmptyMappingSet);
+    }
+    validate_ciphertext_symbols(req.ciphertext, req.space.cipher_alphabet_size)
+}
+
+fn validate_ciphertext_symbols(
+    ciphertext: &[Glyph],
+    alphabet_size: usize,
+) -> Result<(), SolveError> {
+    for glyph in ciphertext {
+        let symbol = usize::from(glyph.0);
+        if symbol >= alphabet_size {
+            return Err(SolveError::CiphertextSymbolOutsideAlphabet {
+                symbol,
+                alphabet_size,
+            });
+        }
+    }
+    Ok(())
+}
+
+fn evaluate_cipher(
+    req: &SolveRequest<'_>,
+    cipher: &AnyCipher,
+    mappings: &[Mapping],
+) -> Result<Vec<Candidate>, SolveError> {
+    let decrypted_symbols = cipher.decrypt(req.ciphertext)?;
+    let round_trip = cipher.encrypt(&decrypted_symbols)?;
+    if round_trip != req.ciphertext {
+        return Ok(Vec::new());
+    }
+
+    let codec = AnyCodec::Identity;
+    let transduced = codec.transduce(&decrypted_symbols);
+    let mut candidates = Vec::new();
+    for mapping in mappings {
+        let mapped = mapping.apply(&transduced)?;
+        for language in req.space.language.languages() {
+            candidates.push(evaluate_mapping(
+                req,
+                cipher,
+                &decrypted_symbols,
+                codec,
+                mapping,
+                &mapped,
+                *language,
+            )?);
+        }
+    }
+    Ok(candidates)
+}
+
+fn evaluate_mapping(
+    req: &SolveRequest<'_>,
+    cipher: &AnyCipher,
+    decrypted_symbols: &[Glyph],
+    codec: AnyCodec,
+    mapping: &Mapping,
+    mapped: &[usize],
+    language: Language,
+) -> Result<Candidate, SolveError> {
+    let model = model_for(req, language);
+    let score = model.score_indices(mapped)?.bigram_mean_log_likelihood;
+    Ok(Candidate {
+        cipher: cipher.clone(),
+        decrypted_symbols: decrypted_symbols.to_vec(),
+        crypto_round_trip_ok: true,
+        codec,
+        mapping: mapping.clone(),
+        language,
+        rendered_text: render_indices(mapped, model)?,
+        score,
+        heldout_mapping_score: heldout_score(mapped, model)?,
+        null_mean: 0.0,
+        beats_null: false,
+    })
+}
+
+fn model_for<'a>(req: &'a SolveRequest<'_>, language: Language) -> &'a LanguageModel {
+    match language {
+        Language::Finnish => req.finnish,
+        Language::English => req.english,
+    }
+}
+
+fn render_indices(indices: &[usize], model: &LanguageModel) -> Result<String, SolveError> {
+    let mut rendered = String::with_capacity(indices.len());
+    for index in indices {
+        let Some(ch) = model.alphabet().symbol(*index) else {
+            return Err(SolveError::LanguageIndexOutsideAlphabet { index: *index });
+        };
+        rendered.push(ch);
+    }
+    Ok(rendered)
+}
+
+fn heldout_score(indices: &[usize], model: &LanguageModel) -> Result<f64, SolveError> {
+    let heldout = indices
+        .iter()
+        .copied()
+        .enumerate()
+        .filter_map(|(position, index)| (position % 2 == 1).then_some(index))
+        .collect::<Vec<_>>();
+    if heldout.is_empty() {
+        return Ok(model.score_indices(indices)?.bigram_mean_log_likelihood);
+    }
+    Ok(model.score_indices(&heldout)?.bigram_mean_log_likelihood)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{AnyCodec, Mapping, SolveError};
+    use super::{
+        AnyCodec, CipherFamilySpec, HypothesisSpace, Language, LanguageChoice, Mapping,
+        MappingStrategy, SolveError, SolveRequest, solve,
+    };
+    use crate::ciphers::{AnyCipher, CaesarKey, caesar_encrypt};
     use crate::glyph::Glyph;
+    use crate::language::{LanguageModel, english_model, finnish_model};
 
     #[test]
     fn identity_mapping_maps_symbols_to_themselves() {
@@ -387,7 +534,62 @@ mod tests {
         assert_eq!(AnyCodec::Identity.transduce(&input), input);
     }
 
+    #[test]
+    fn fixed_mapping_caesar_plant_recovers_top_candidate() {
+        let english = english_model().unwrap();
+        let finnish = finnish_model().unwrap();
+        let plaintext = normalized_plaintext(
+            "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG",
+            &english,
+        );
+        let key = CaesarKey::new(english.alphabet().len(), 7).unwrap();
+        let ciphertext = caesar_encrypt(&plaintext, &key).unwrap();
+        let request = SolveRequest {
+            ciphertext: &ciphertext,
+            space: HypothesisSpace {
+                families: vec![CipherFamilySpec {
+                    label: "Caesar".to_owned(),
+                    ciphers: caesar_ciphers(english.alphabet().len()),
+                }],
+                mappings: MappingStrategy::Fixed(vec![Mapping::identity(english.alphabet().len())]),
+                language: LanguageChoice::English,
+                cipher_alphabet_size: english.alphabet().len(),
+            },
+            english: &english,
+            finnish: &finnish,
+        };
+
+        let candidates = solve(&request).unwrap();
+        let top = candidates.first().unwrap();
+
+        assert_eq!(top.cipher, AnyCipher::Caesar(key));
+        assert_eq!(top.language, Language::English);
+        assert_eq!(top.decrypted_symbols, plaintext);
+        assert!(top.crypto_round_trip_ok);
+        assert_eq!(
+            top.rendered_text,
+            "THEQUICKBROWNFOXJUMPSOVERTHELAZYDOGTHEQUICKBROWNFOXJUMPSOVERTHELAZYDOG"
+        );
+        assert!(top.heldout_mapping_score.is_finite());
+    }
+
     fn glyphs(values: &[u16]) -> Vec<Glyph> {
         values.iter().copied().map(Glyph).collect()
+    }
+
+    fn normalized_plaintext(text: &str, model: &LanguageModel) -> Vec<Glyph> {
+        model
+            .alphabet()
+            .normalize_text(text)
+            .unwrap()
+            .into_iter()
+            .map(|index| Glyph(index as u16))
+            .collect()
+    }
+
+    fn caesar_ciphers(alphabet_size: usize) -> Vec<AnyCipher> {
+        (0..alphabet_size)
+            .map(|shift| AnyCipher::Caesar(CaesarKey::new(alphabet_size, shift).unwrap()))
+            .collect()
     }
 }
