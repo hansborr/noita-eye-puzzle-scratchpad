@@ -13,6 +13,8 @@
 //!   entropy, index of coincidence, chi-square goodness of fit, n-grams).
 //! - [`chaining`]: Experiment 7B alphabet-chaining structural signatures with
 //!   generated known-succeed and known-fail calibration controls.
+//! - [`chaining_graph`]: graph-chaining conflict and coverage audit over
+//!   aligned isomorph occurrences.
 //! - [`cipher_attack`]: Experiment 12 attack/null harness that scores named
 //!   candidate ciphers only under declared, unverified symbol-to-letter
 //!   mappings.
@@ -54,6 +56,8 @@
 //!   forbidden-successor null against within-message multiset shuffles.
 //! - [`tree_residual`]: tree-residual cross-tail n-gram sharing after the
 //!   Experiment 7C shared-region mask, against a within-tail shuffle null.
+//! - [`transitivity`]: conditional D166 dihedral-exclusion audit using
+//!   graph-chaining links and the order-83 forcing argument.
 //!
 //! Nothing here commits to a particular theory of how the glyphs encode
 //! meaning; the goal is to provide trustworthy primitives that constrain the
@@ -61,6 +65,7 @@
 
 pub mod analysis;
 pub mod chaining;
+pub mod chaining_graph;
 pub mod cipher_attack;
 pub mod ciphers;
 pub mod conditional_structure;
@@ -83,6 +88,7 @@ pub mod perseus;
 pub mod pipeline_null;
 pub mod pyry_conditions;
 pub mod report;
+pub mod transitivity;
 pub mod tree_residual;
 pub mod trigram;
 pub mod zero_adjacency_null;
