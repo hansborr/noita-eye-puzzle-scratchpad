@@ -341,13 +341,21 @@ since the seed makes the tree already-compliant, no step turns the gate red.
 ## Verification (exactly how to prove it)
 
 1. `make verify` — now includes `filesize`; green.
-2. **Cap proof (do once, revert):** `printf 'fn _x(){}\n%.0s' {1..601} > src/_probe.rs`
-   (a >600-line unpinned file), run `./scripts/check-file-size.sh`, confirm it fails
-   naming `src/_probe.rs`; delete the probe.
+2. **Cap proof (do once, revert):** create a >600-line unpinned file **and stage it**
+   — the script enumerates `git ls-files`, so an *untracked* probe is invisible (the
+   same content a commit/CI would or wouldn't see):
+   `yes '// probe' | head -n 601 > src/_probe.rs && git add src/_probe.rs`. Run
+   `./scripts/check-file-size.sh`, confirm it fails naming `src/_probe.rs` ("cap 600");
+   then `git rm --cached src/_probe.rs && rm src/_probe.rs`.
 3. **No-growth proof (do once, revert):** append one blank line to `src/ingest.rs`
    (pinned 610), run the script, confirm it fails "pins may not grow"; revert.
-4. **Ratchet-cleanup proof (do once, revert):** lower `src/ingest.rs`'s pin in the
-   allowlist to `600`, run the script, confirm it fails "delete its line"; revert.
+4. **Ratchet-cleanup proof (do once, revert):** the "delete its line" branch fires
+   when a *pinned file is already ≤ 600*. Temporarily pin an already-small file —
+   append `src/corpus.rs 700 # probe` (corpus is 512 lines) to the allowlist — run
+   the script, confirm it fails "delete its line from …"; revert. (Merely lowering an
+   over-600 file's pin — e.g. `src/ingest.rs` to 600 — instead trips "pins may not
+   grow", because the *file* is still 610 > 600; and setting a pin far above a file's
+   size trips "lower its pin".)
 5. `make check` — full local CI (shellcheck + codespell over the new script).
 6. **Campaign integration:** after brief 06/07a shrink `report.rs`/`gak_attack.rs`,
    the implementing PR must lower (or delete) those pins in the same commit — the
