@@ -89,7 +89,7 @@ growing god-files so the engine has clean abstractions to sit on" (Tier 2).
 | Smell | Data | Brief |
 | ----- | ---- | ----- |
 | No abstractions | 0 traits in 44,827 lines | 02, 05, 06 |
-| God-files | `gak_attack.rs` 8,147 lines; `report.rs` 5,694 lines (31% of crate in 2 files) | 06, 07a, 07b |
+| God-files | `gak_attack.rs` 8,147 lines; `report.rs` 5,694 lines (31% of crate in 2 files) | 06, 07a, 07b; 09 prevents regrowth |
 | `report.rs` is a coupling hub | 23 hand-written `format_*_error` + 27 `print_*_report` public entry points (plus ~140 private render helpers); imports 27 sibling modules | 06 |
 | Per-experiment boilerplate | 22 `Config` + 24 `Args` + 22 `From<Args>` + 28 `run_*` CLI dispatchers in `main.rs` ≈ 4 scattered edits per experiment | 05, 08 |
 | Duplicated null scaffolding | `fisher_yates` is centralized, but ~20 modules re-implement the matched-null orchestration around it | 05 |
@@ -355,6 +355,7 @@ and the `report.rs` dissolve into per-report renderers is owned by **brief 06**.
 | 07a | [Split `gak_attack.rs` god-file](07a-split-gak-godfile.md) | 2 | 01 (coordinates with 04) | M |
 | 07b | [Role-directory module layout](07b-role-directory-layout.md) | 2 | 01 (07A; 02–06/08) | M |
 | 08 | [CLI registry + args dedup](08-cli-registry.md) | 2 | 06 (02/05 help) | M |
+| 09 | [File-size ratchet (god-file guardrail)](09-file-size-ratchet.md) | meta | — | S |
 
 **Recommended order:**
 `01 → 03 → 02 → 07A → 04 (Phase 1/2) → 04a → then 05, 06, 08 → and only at the very end 07B.`
@@ -391,6 +392,11 @@ reuse its beam-search) — is resolved by sequencing `07A` (which splits it) bef
 - **`make verify` stays green at every commit** (fmt + clippy `-D` + tests +
   rustdoc `-D` + cargo-deny). `make check` before the final push. Each
   implementation step in a brief should be independently committable and green.
+- **No new god-files.** `scripts/check-file-size.sh` (brief **09**) caps every
+  `*.rs` at 600 lines; the 25 existing oversized files are pinned in
+  `scripts/file-size-allowlist.txt` and may only shrink. A brief that legitimately
+  shrinks a pinned file lowers (or deletes) its pin in the same commit — the
+  ratchet enforces it.
 - **No big-bang.** Land traits one family / one module at a time. A brief that
   cannot be split into independently-green steps is mis-scoped — re-scope it.
 - **House invariants hold.** `unsafe` forbidden; no `unwrap`/`panic`/

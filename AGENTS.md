@@ -62,6 +62,7 @@ make run ARGS=demo
 | Concern            | Mechanism                                             |
 | ------------------ | ----------------------------------------------------- |
 | Lints / format     | `Cargo.toml [lints]`, `clippy.toml`, `rustfmt.toml`   |
+| File size / god-files | `scripts/check-file-size.sh` + `scripts/file-size-allowlist.txt` (ratchet) |
 | Supply chain       | `deny.toml` (cargo-deny), `cargo machete`             |
 | Toolchain          | `rust-toolchain.toml`, MSRV in `Cargo.toml`+`clippy.toml` |
 | Spelling / text    | `.codespellrc`, `.editorconfig`, `.gitattributes`     |
