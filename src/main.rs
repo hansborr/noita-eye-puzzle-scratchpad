@@ -9,9 +9,9 @@ use std::process::ExitCode;
 use clap::{Args, Parser, Subcommand};
 use noita_eye_puzzle::{
     agl_gak, chaining, chaining_graph, cipher_attack, ciphers, conditional_structure, controls,
-    corpus, dof_null, glyph::Sequence, grouping, honeycomb, isomorph_null, modular_diff, null,
-    orders, orientation_homogeneity, perfect_isomorphism, periodicity, perseus, pipeline_null,
-    pyry_conditions, report, transitivity, tree_residual, zero_adjacency_null,
+    corpus, dof_null, gak_attack, glyph::Sequence, grouping, honeycomb, isomorph_null,
+    modular_diff, null, orders, orientation_homogeneity, perfect_isomorphism, periodicity, perseus,
+    pipeline_null, pyry_conditions, report, transitivity, tree_residual, zero_adjacency_null,
 };
 
 const DEFAULT_NULL_SEED: u64 = 0x6e6f_6974_612d_6579;
@@ -41,6 +41,9 @@ enum Command {
     /// Thread 2 AGL(1,83)-GAK structural stress test.
     #[command(name = "agl-gak")]
     AglGak(AglGakArgs),
+    /// Thread 4 synthetic GAK-attack / GCTAK decisive gate (synthetic-only).
+    #[command(name = "gak-attack")]
+    GakAttack(GakAttackArgs),
     /// Monte-Carlo null over random grids plus standard36 orders.
     #[command(name = "nulltest")]
     Nulltest(NullArgs),
@@ -130,6 +133,50 @@ impl From<AglGakArgs> for agl_gak::AglGakConfig {
             } else {
                 ciphers::AglMultiplierSubgroup::Full
             },
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Args)]
+struct GakAttackArgs {
+    /// Deterministic master seed for the synthetic fixture matrix.
+    #[arg(long, default_value_t = gak_attack::DEFAULT_SEED)]
+    seed: u64,
+    /// Number of distinct independent seeds drawn per group kind.
+    #[arg(long = "seeds-per-kind", default_value_t = gak_attack::DEFAULT_SEEDS_PER_KIND)]
+    seeds_per_kind: usize,
+    /// Cyclic-group order `m` used by the commutative fixtures.
+    #[arg(long = "cyclic-order", default_value_t = gak_attack::DEFAULT_CYCLIC_ORDER)]
+    cyclic_order: usize,
+    /// Dihedral half-order `k` (`D_2k` has order `2k`, `k >= 3`).
+    #[arg(long = "dihedral-half-order", default_value_t = gak_attack::DEFAULT_DIHEDRAL_HALF_ORDER)]
+    dihedral_half_order: usize,
+    /// Number of distinct plaintext letters (group generators) per fixture.
+    #[arg(long = "letters", default_value_t = gak_attack::DEFAULT_NUM_PT_LETTERS)]
+    num_pt_letters: usize,
+    /// Number of repeated phrases in the generated plaintext template.
+    #[arg(long = "phrase-repeats", default_value_t = gak_attack::DEFAULT_PHRASE_REPEATS)]
+    phrase_repeats: usize,
+    /// Length in letters of each repeated phrase.
+    #[arg(long = "phrase-len", default_value_t = gak_attack::DEFAULT_PHRASE_LEN)]
+    phrase_len: usize,
+    /// TENTATIVE small-support radius (`<=k` transpositions); `0` is the
+    /// unconstrained gate regime.
+    #[arg(long = "small-support-radius", default_value_t = gak_attack::DEFAULT_SMALL_SUPPORT_RADIUS)]
+    small_support_radius: usize,
+}
+
+impl From<GakAttackArgs> for gak_attack::GakAttackConfig {
+    fn from(args: GakAttackArgs) -> Self {
+        Self {
+            seed: args.seed,
+            seeds_per_kind: args.seeds_per_kind,
+            cyclic_order: args.cyclic_order,
+            dihedral_half_order: args.dihedral_half_order,
+            num_pt_letters: args.num_pt_letters,
+            phrase_repeats: args.phrase_repeats,
+            phrase_len: args.phrase_len,
+            small_support_radius: args.small_support_radius,
         }
     }
 }
@@ -533,6 +580,7 @@ fn main() -> ExitCode {
         Command::Demo => run_demo(),
         Command::Orders => run_orders(),
         Command::AglGak(args) => run_agl_gak(args.into()),
+        Command::GakAttack(args) => run_gak_attack(args.into()),
         Command::Nulltest(args) => run_nulltest(args.into()),
         Command::Dofnull(args) => run_dofnull(args.into()),
         Command::Periodicity(args) => run_periodicity(args.into()),
@@ -590,6 +638,21 @@ fn run_agl_gak(config: agl_gak::AglGakConfig) -> ExitCode {
         }
     };
     report::print_agl_gak_report(&report);
+    ExitCode::SUCCESS
+}
+
+fn run_gak_attack(config: gak_attack::GakAttackConfig) -> ExitCode {
+    let report = match gak_attack::run_gak_attack(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!(
+                "GAK-attack error: {}",
+                report::format_gak_attack_error(&error)
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    report::print_gak_attack_report(&report);
     ExitCode::SUCCESS
 }
 

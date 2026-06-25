@@ -7,8 +7,8 @@
 use crate::glyph::Sequence;
 use crate::{
     agl_gak, analysis, chaining, chaining_graph, cipher_attack, ciphers, conditional_structure,
-    controls, corpus, dof_null, grouping, honeycomb, isomorph_null, modular_diff, null, orders,
-    orientation_homogeneity, perfect_isomorphism, periodicity, perseus, pipeline_null,
+    controls, corpus, dof_null, gak_attack, grouping, honeycomb, isomorph_null, modular_diff, null,
+    orders, orientation_homogeneity, perfect_isomorphism, periodicity, perseus, pipeline_null,
     pyry_conditions, transitivity, tree_residual, zero_adjacency_null,
 };
 
@@ -65,6 +65,48 @@ pub fn format_agl_gak_error(error: &agl_gak::AglGakError) -> String {
         agl_gak::AglGakError::InternalInvariant { context } => {
             format!("internal AGL-GAK invariant failed: {context}")
         }
+    }
+}
+
+/// Formats a Thread 4 synthetic GAK-attack (GCTAK gate) error for CLI output.
+#[must_use]
+pub fn format_gak_attack_error(error: &gak_attack::GakAttackError) -> String {
+    match error {
+        gak_attack::GakAttackError::Cipher(cipher_error) => {
+            format!("GAK-attack cipher error: {cipher_error}")
+        }
+        gak_attack::GakAttackError::RandomBoundTooLarge { bound } => {
+            format!("random draw bound {bound} is too large for the in-crate sampler")
+        }
+        gak_attack::GakAttackError::ZeroSeeds => {
+            "at least one seed per group kind is required for the gate matrix".to_owned()
+        }
+        gak_attack::GakAttackError::DihedralHalfOrderTooSmall { half_order } => {
+            format!("dihedral half-order {half_order} is below 3 (would not be non-commutative)")
+        }
+        gak_attack::GakAttackError::CyclicOrderTooSmall { order } => {
+            format!("cyclic order {order} is below 2")
+        }
+        gak_attack::GakAttackError::TooManyLetters {
+            requested,
+            available,
+        } => format!(
+            "requested {requested} plaintext letters but the group has only {available} non-identity generators"
+        ),
+        gak_attack::GakAttackError::SymbolOutOfRange { value } => {
+            format!("generated symbol {value} cannot be represented as a reading-layer value")
+        }
+        gak_attack::GakAttackError::EmptyTemplate => {
+            "the generated plaintext template was empty".to_owned()
+        }
+        gak_attack::GakAttackError::PositiveControlFailed {
+            group,
+            seed,
+            real_recovered,
+            null_recovered,
+        } => format!(
+            "positive control failed for {group} seed {seed}: real_recovered={real_recovered}, null_recovered={null_recovered} (methodology bug, never a data finding)"
+        ),
     }
 }
 
@@ -4014,6 +4056,156 @@ fn format_agl_controls(controls: agl_gak::AglGakPositiveControls) -> &'static st
         (true, false) => "pure-fail",
         (false, false) => "failed",
     }
+}
+
+/// Prints the Thread 4 synthetic GAK-attack / GCTAK decisive-gate report.
+pub fn print_gak_attack_report(report: &gak_attack::GakAttackReport) {
+    println!("Thread 4 synthetic GAK-attack (GCTAK decisive gate)");
+    println!("hidden subgroup: {}", report.hidden_subgroup.label());
+    println!("seed: {}", report.config.seed);
+    println!("seeds per group kind: {}", report.config.seeds_per_kind);
+    println!(
+        "cyclic order: {}; dihedral D_2k half-order k: {}",
+        report.config.cyclic_order, report.config.dihedral_half_order
+    );
+    println!(
+        "plaintext letters: {}; phrase repeats: {}; phrase length: {}",
+        report.config.num_pt_letters, report.config.phrase_repeats, report.config.phrase_len
+    );
+    println!(
+        "TENTATIVE small-support radius (<=k transpositions): {} (0 = unconstrained gate regime)",
+        report.config.small_support_radius
+    );
+    println!(
+        "wiki pages this unit encodes: Group-Autokey-(GAK).md; Group-Ciphertext-Autokey-(GCTAK).md; Alphabet-Chaining.md / Graph-Chaining.md"
+    );
+    println!();
+    print_gak_attack_rates(report);
+    println!();
+    print_gak_attack_outcomes(report);
+    println!();
+    print_gak_attack_exemplars(report);
+    println!();
+    print_gak_attack_interpretation(report);
+}
+
+fn print_gak_attack_rates(report: &gak_attack::GakAttackReport) {
+    println!("rate-beats-null gate (the gate is the RATE vs null, NOT a single seed)");
+    println!(
+        "  required minimum real recovery rate per group kind: {:.3}",
+        report.min_real_recovery_rate
+    );
+    println!(
+        "  {:<10} {:<7} {:>6} {:>18} {:>18}",
+        "group", "noncomm", "seeds", "real-rate (real/n)", "null-rate (null/n)"
+    );
+    for rate in &report.rates {
+        println!(
+            "  {:<10} {:<7} {:>6} {:>10} {:>7} {:>10} {:>7}",
+            rate.group,
+            yes_no(rate.non_commutative),
+            rate.seeds,
+            format!("{:.3}", rate.real_fraction()),
+            format!("{}/{}", rate.real_recovered, rate.seeds),
+            format!("{:.3}", rate.null_fraction()),
+            format!("{}/{}", rate.null_recovered, rate.seeds)
+        );
+    }
+    println!(
+        "  rate-vs-null gate passed (real rate clears floor AND strictly exceeds matched-null rate): {}",
+        yes_no(report.rate_gate_passed)
+    );
+    println!(
+        "  matched shuffle null failed to recover on every independent seed (required contrast): {}",
+        yes_no(report.all_null_failed)
+    );
+}
+
+fn print_gak_attack_outcomes(report: &gak_attack::GakAttackReport) {
+    println!("per-seed outcomes and per-letter permutation-recovery fractions (real vs null)");
+    println!(
+        "  {:<10} {:>10} {:>6} {:>20} {:>20} {:>16}",
+        "group", "|G|/real", "ct-len", "real perm-recovery", "null perm-recovery", "chain-links ok"
+    );
+    for outcome in &report.outcomes {
+        println!(
+            "  {:<10} {:>5}/{:<4} {:>6} {:>13} {:>6} {:>13} {:>6} {:>8}/{:<7}",
+            outcome.group,
+            outcome.group_order,
+            outcome.realized_order,
+            outcome.ciphertext_len,
+            format!(
+                "{}/{}",
+                outcome.real_permutations_recovered, outcome.permutations_total
+            ),
+            format!(
+                "{:.3}",
+                fraction(
+                    outcome.real_permutations_recovered,
+                    outcome.permutations_total
+                )
+            ),
+            format!(
+                "{}/{}",
+                outcome.null_permutations_recovered, outcome.permutations_total
+            ),
+            format!(
+                "{:.3}",
+                fraction(
+                    outcome.null_permutations_recovered,
+                    outcome.permutations_total
+                )
+            ),
+            outcome.chain_link_consistent,
+            outcome.chain_link_checks
+        );
+    }
+}
+
+fn print_gak_attack_exemplars(report: &gak_attack::GakAttackReport) {
+    println!(
+        "retry-selected exemplars (ILLUSTRATIONS ONLY, NOT pass evidence; the gate passes on the RATE above)"
+    );
+    for exemplar in &report.exemplars {
+        let outcome = exemplar.outcome;
+        println!(
+            "  {} exemplar: seed {} found after {} attempt(s); real per-letter permutation recovery {}/{}; chain-links {}/{} satisfied",
+            outcome.group,
+            outcome.seed,
+            exemplar.attempts_used,
+            outcome.real_permutations_recovered,
+            outcome.permutations_total,
+            outcome.chain_link_consistent,
+            outcome.chain_link_checks
+        );
+    }
+    println!(
+        "  note: an exemplar is an illustration of one worked seed, not evidence every seed recovers."
+    );
+}
+
+fn print_gak_attack_interpretation(report: &gak_attack::GakAttackReport) {
+    if report.rate_gate_passed {
+        println!(
+            "Interpretation: on these SYNTHETIC-ONLY GCTAK fixtures (we hold the ground-truth key), the extended-chaining solver recovers per-letter permutations at a real rate that clears the documented floor and strictly beats its matched within-message shuffle null. This validates the methodology as a positive control; it is NOT a decode."
+        );
+    } else {
+        println!(
+            "Interpretation: the rate-beats-null gate did not pass for every group kind on these SYNTHETIC-ONLY fixtures. A negative or partial result is the expected, reportable outcome of the broader GAK thread, not a failure of it."
+        );
+    }
+    println!(
+        "Synthetic-only disclaimer: this unit NEVER touches the eye corpus; it generates and solves its own GCTAK ciphertexts whose key it holds. No claim here transfers to the eyes."
+    );
+    println!(
+        "Claim ceiling: the eyes remain deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext. This run says nothing about recoverable eye plaintext."
+    );
+    println!(
+        "TENTATIVE small-support prior: the <=k-swaps / small-support search heuristic is a TENTATIVE prior to validate, not a hard constraint; the GCTAK gate runs unconstrained (radius 0) and does not depend on it."
+    );
+    println!(
+        "Reportable-negative framing: a negative or partial recovery result in later GAK steps is the expected, reportable outcome, not a thread failure."
+    );
 }
 
 fn format_statistic_value(value: f64) -> String {
