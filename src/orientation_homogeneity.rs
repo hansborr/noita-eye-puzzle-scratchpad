@@ -17,7 +17,7 @@ use crate::analysis;
 use crate::corpus;
 use crate::generator::{self, ENGINE_MESSAGES};
 use crate::glyph::StorageSymbol;
-use crate::null::{F64Band, NullSampler, RandomBoundError, SplitMix64, f64_band, fisher_yates};
+use crate::null::{F64Band, SplitMix64, f64_band, fisher_yates};
 
 /// Number of engine/rendered orientation digits.
 pub const ORIENTATION_BUCKETS: usize = 5;
@@ -515,16 +515,18 @@ fn repartition_null_comparisons(
 ) -> Result<(HomogeneityNullComparison, HomogeneityNullComparison), OrientationHomogeneityError> {
     let mut pearson_samples = Vec::with_capacity(total_trials(config)?);
     let mut g_test_samples = Vec::with_capacity(total_trials(config)?);
-    let sampler = PooledRepartition { pooled, lengths };
 
-    // The seed-stream loop stays longhand: each trial yields two columns
-    // (Pearson, G) from one shared pooled repartition, and the seed derivation
-    // (`seed_for_index`) is itself fallible, so the multi-stream/multi-column
-    // shape is kept inline. Only the resampling step is the shared sampler.
+    // The pooled repartition (`repartition_table`) is fallible with the module's
+    // own `OrientationHomogeneityError` (length-total / invalid-digit invariants),
+    // which the `NullSampler` trait's fixed `RandomBoundError` error channel cannot
+    // carry faithfully. Rather than mask that diagnostic behind a lossy
+    // `RandomBoundError`, the resampling call stays inline so a genuine failure
+    // surfaces as the same error it did before. (The band helper is still shared;
+    // see `null_comparison` -> `f64_band`.)
     for seed_index in 0..config.seed_count {
         let mut rng = SplitMix64::new(seed_for_index(config.seed, seed_index)?);
         for _trial in 0..config.trials_per_seed {
-            let table = sampler.sample(&mut rng)?;
+            let table = repartition_table(pooled, lengths, &mut rng)?;
             let statistics = homogeneity_statistics(&table);
             pearson_samples.push(statistics.pearson_chi_square);
             g_test_samples.push(statistics.g_test);
@@ -575,34 +577,6 @@ fn repartition_table(
         rows.push(counts);
     }
     Ok(rows)
-}
-
-/// Length-matched pooled-multiset repartition null sampler.
-///
-/// Each draw reshuffles the pooled orientation multiset and repartitions it into
-/// the true per-message lengths — the length-matched conditional null for "all
-/// messages share one orientation distribution." It wraps [`repartition_table`];
-/// for the verified corpus and positive-control tables the only reachable
-/// failure is a Fisher-Yates bound error, surfaced as [`RandomBoundError`] (the
-/// length/digit invariants of the pooled multiset never fire here).
-struct PooledRepartition<'a> {
-    pooled: &'a [u8],
-    lengths: &'a [usize],
-}
-
-impl NullSampler for PooledRepartition<'_> {
-    type Draw = Vec<[usize; ORIENTATION_BUCKETS]>;
-
-    fn sample(&self, rng: &mut SplitMix64) -> Result<Self::Draw, RandomBoundError> {
-        repartition_table(self.pooled, self.lengths, rng).map_err(|error| match error {
-            OrientationHomogeneityError::RandomBoundTooLarge { bound } => {
-                RandomBoundError { bound }
-            }
-            // Unreachable for the pooled multisets this sampler resamples: the
-            // length total and digit range are validated invariants of the input.
-            _other => RandomBoundError { bound: 0 },
-        })
-    }
 }
 
 fn null_comparison(
