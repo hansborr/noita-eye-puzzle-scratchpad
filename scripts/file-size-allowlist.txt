@@ -15,7 +15,7 @@ src/gak_attack/solver.rs            1993  # brief 07A fragment from gak_attack g
 src/gak_attack/generator.rs         647   # brief 07A fragment from gak_attack god-file (tracks engine-spine)
 src/report.rs                       5694  # god-file; dissolved by brief 06
 src/ciphers.rs                      3673  # cipher zoo; +Identity/Transposition (brief 04 solve pipeline); shrinks under briefs 02, 07b
-src/solve.rs                        741   # new (brief 04 solve pipeline)
+src/solve.rs                        1545  # brief 04 Phase 2: mapping search (hill-climb/anneal) + held-out gate + matched-null + tests; stays flat per brief (module move is 07B)
 src/perfect_isomorphism.rs          1749  # structural experiment; briefs 05, 07b
 src/conditional_structure.rs        1664  # structural experiment; briefs 05, 07b
 src/chaining_graph.rs               1590  # structural experiment; briefs 05, 07b
