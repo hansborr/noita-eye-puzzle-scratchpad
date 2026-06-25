@@ -12,6 +12,7 @@
 //! is exactly one permutation of the `N` alphabet symbols, with two in-alphabet
 //! control cards replacing Pontifex's out-of-alphabet jokers.
 
+use std::collections::BTreeMap;
 use std::fmt;
 
 use crate::glyph::Glyph;
@@ -90,6 +91,23 @@ pub enum CipherError {
         /// Second control symbol.
         control_b: usize,
     },
+    /// The AGL multiplier was not allowed modulo the prime alphabet size.
+    NonUnitMultiplier {
+        /// Offending multiplier.
+        multiplier: usize,
+        /// Prime modulus.
+        modulus: usize,
+    },
+    /// The alphabet size for an AGL key was not prime.
+    AlphabetNotPrime {
+        /// Requested alphabet size.
+        alphabet_size: usize,
+    },
+    /// The chosen multiplier subgroup was not supported for this alphabet.
+    UnsupportedMultiplierSubgroup {
+        /// Requested subgroup order.
+        order: usize,
+    },
     /// A validated permutation state lost an invariant during translation.
     InternalInvariant {
         /// Human-readable invariant context.
@@ -157,6 +175,19 @@ impl fmt::Display for CipherError {
                 f,
                 "deck control symbols must be distinct, got {control_a} and {control_b}"
             ),
+            Self::NonUnitMultiplier {
+                multiplier,
+                modulus,
+            } => write!(
+                f,
+                "AGL multiplier {multiplier} is not allowed modulo {modulus}"
+            ),
+            Self::AlphabetNotPrime { alphabet_size } => {
+                write!(f, "AGL alphabet size {alphabet_size} is not prime")
+            }
+            Self::UnsupportedMultiplierSubgroup { order } => {
+                write!(f, "AGL multiplier subgroup order {order} is not supported")
+            }
             Self::InternalInvariant { context } => {
                 write!(f, "internal cipher invariant failed: {context}")
             }
@@ -452,6 +483,110 @@ impl DeckCipherKey {
     }
 }
 
+/// Which multiplicative subgroup the AGL multiplier `a` ranges over.
+///
+/// [`AglMultiplierSubgroup::Full`] is `C83:C82` for the eye alphabet, and
+/// [`AglMultiplierSubgroup::QuadraticResidues`] is the index-2 subgroup
+/// `C83:C41`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AglMultiplierSubgroup {
+    /// All nonzero units modulo the prime alphabet size.
+    Full,
+    /// The quadratic-residue subgroup of the units modulo the prime alphabet.
+    QuadraticResidues,
+}
+
+/// Key for an AGL(1,n)-GAK stream cipher in the verified convention.
+///
+/// State is an affine map `(a,b): x -> a*x + b (mod n)`. Each plaintext letter
+/// right-multiplies the state by its configured group element, and the emitted
+/// ciphertext is the updated state's image of the fixed reference point.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AglGakKey {
+    alphabet_size: usize,
+    subgroup: AglMultiplierSubgroup,
+    reference_point: usize,
+    initial_state: (usize, usize),
+    letter_elements: Vec<(usize, usize)>,
+}
+
+impl AglGakKey {
+    /// Builds an AGL(1,n)-GAK key from explicit state and letter elements.
+    ///
+    /// # Errors
+    /// Returns [`CipherError`] if the alphabet is not a supported prime, if a
+    /// state element is outside the selected AGL subgroup, or if two plaintext
+    /// letters occupy the same point-stabilizer coset.
+    pub fn new(
+        alphabet_size: usize,
+        subgroup: AglMultiplierSubgroup,
+        reference_point: usize,
+        initial_state: (usize, usize),
+        letter_elements: Vec<(usize, usize)>,
+    ) -> Result<Self, CipherError> {
+        validate_agl_alphabet(alphabet_size)?;
+        if reference_point >= alphabet_size {
+            return Err(CipherError::PermutationSymbolOutsideAlphabet {
+                label: "AGL reference point",
+                symbol: reference_point,
+                alphabet_size,
+            });
+        }
+        validate_agl_element(initial_state, alphabet_size, subgroup, "AGL initial state")?;
+        validate_agl_letter_elements(&letter_elements, alphabet_size, subgroup, reference_point)?;
+        Ok(Self {
+            alphabet_size,
+            subgroup,
+            reference_point,
+            initial_state,
+            letter_elements,
+        })
+    }
+
+    /// Builds an identity-state key with one translation representative per coset.
+    ///
+    /// # Errors
+    /// Returns [`CipherError`] if the alphabet is not a supported prime.
+    pub fn identity(
+        alphabet_size: usize,
+        subgroup: AglMultiplierSubgroup,
+    ) -> Result<Self, CipherError> {
+        validate_agl_alphabet(alphabet_size)?;
+        let letter_elements = (0..alphabet_size).map(|symbol| (1, symbol)).collect();
+        Self::new(alphabet_size, subgroup, 0, (1, 0), letter_elements)
+    }
+
+    /// Returns the configured ciphertext alphabet size.
+    #[must_use]
+    pub const fn alphabet_size(&self) -> usize {
+        self.alphabet_size
+    }
+
+    /// Returns the configured multiplier subgroup.
+    #[must_use]
+    pub const fn subgroup(&self) -> AglMultiplierSubgroup {
+        self.subgroup
+    }
+
+    /// Returns the fixed reference point `x0`.
+    #[must_use]
+    pub const fn reference_point(&self) -> usize {
+        self.reference_point
+    }
+
+    /// Returns the initial affine state `(a,b)`.
+    #[must_use]
+    pub const fn initial_state(&self) -> (usize, usize) {
+        self.initial_state
+    }
+
+    /// Returns plaintext-letter group elements in letter-index order.
+    #[must_use]
+    pub fn letter_elements(&self) -> &[(usize, usize)] {
+        &self.letter_elements
+    }
+}
+
 /// Encrypts with the Caesar additive shift cipher.
 ///
 /// Each plaintext symbol `p` is transformed to `(p + shift) mod N`.
@@ -627,6 +762,65 @@ pub fn deck_cipher_decrypt(
     translate_deck_cipher(ciphertext, key, Direction::Decrypt)
 }
 
+/// Encrypts with the AGL(1,n)-GAK stream cipher.
+///
+/// Starting from the key's initial state, each plaintext letter
+/// right-multiplies the state by its configured affine element. The ciphertext
+/// symbol is the updated state's image of the reference point.
+///
+/// # Errors
+/// Returns [`CipherError::SymbolOutsideAlphabet`] for an out-of-range
+/// plaintext letter, or [`CipherError::InternalInvariant`] if a validated group
+/// element loses its invariant.
+pub fn agl_gak_encrypt(plaintext: &[Glyph], key: &AglGakKey) -> Result<Vec<Glyph>, CipherError> {
+    let mut state = key.initial_state;
+    let mut output = Vec::with_capacity(plaintext.len());
+    for glyph in plaintext.iter().copied() {
+        let letter = symbol_from_glyph(glyph, key.letter_elements.len())?;
+        let Some(element) = key.letter_elements.get(letter).copied() else {
+            return Err(CipherError::InternalInvariant {
+                context: "AGL letter element lookup",
+            });
+        };
+        state = agl_compose(state, element, key.alphabet_size);
+        let symbol = agl_coset_symbol(state, key.reference_point, key.alphabet_size);
+        output.push(glyph_from_symbol(symbol, key.alphabet_size)?);
+    }
+    Ok(output)
+}
+
+/// Decrypts an AGL(1,n)-GAK ciphertext back to plaintext.
+///
+/// The current state makes the next ciphertext symbol a lookup over the
+/// configured letter cosets. The key constructor enforces that this lookup is
+/// injective for every state.
+///
+/// # Errors
+/// Returns [`CipherError::SymbolOutsideAlphabet`] for an out-of-range
+/// ciphertext symbol, or [`CipherError::InternalInvariant`] if no configured
+/// letter matches the observed coset.
+pub fn agl_gak_decrypt(ciphertext: &[Glyph], key: &AglGakKey) -> Result<Vec<Glyph>, CipherError> {
+    let mut state = key.initial_state;
+    let mut output = Vec::with_capacity(ciphertext.len());
+    for glyph in ciphertext.iter().copied() {
+        let observed = symbol_from_glyph(glyph, key.alphabet_size)?;
+        let lookup = agl_step_lookup(state, key)?;
+        let Some(letter) = lookup.get(&observed).copied() else {
+            return Err(CipherError::InternalInvariant {
+                context: "AGL ciphertext coset lookup",
+            });
+        };
+        let Some(element) = key.letter_elements.get(letter).copied() else {
+            return Err(CipherError::InternalInvariant {
+                context: "AGL decrypt letter element lookup",
+            });
+        };
+        output.push(glyph_from_symbol(letter, key.letter_elements.len())?);
+        state = agl_compose(state, element, key.alphabet_size);
+    }
+    Ok(output)
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Direction {
     Encrypt,
@@ -639,6 +833,20 @@ fn validate_alphabet_size(alphabet_size: usize, min: usize) -> Result<(), Cipher
             alphabet_size,
             min,
             max: MAX_ALPHABET_SIZE,
+        });
+    }
+    Ok(())
+}
+
+fn validate_agl_alphabet(alphabet_size: usize) -> Result<(), CipherError> {
+    validate_alphabet_size(alphabet_size, 3)?;
+    if !is_prime(alphabet_size) {
+        return Err(CipherError::AlphabetNotPrime { alphabet_size });
+    }
+    let subgroup_order = quadratic_residues_mod(alphabet_size).len();
+    if subgroup_order == 0 {
+        return Err(CipherError::UnsupportedMultiplierSubgroup {
+            order: subgroup_order,
         });
     }
     Ok(())
@@ -727,6 +935,72 @@ fn validate_control_cards(
     Ok(())
 }
 
+fn validate_agl_letter_elements(
+    elements: &[(usize, usize)],
+    alphabet_size: usize,
+    subgroup: AglMultiplierSubgroup,
+    reference_point: usize,
+) -> Result<(), CipherError> {
+    let mut seen_cosets = vec![false; alphabet_size];
+    for (index, &element) in elements.iter().enumerate() {
+        validate_agl_element(element, alphabet_size, subgroup, "AGL letter element")?;
+        let symbol = agl_coset_symbol(element, reference_point, alphabet_size);
+        let Some(seen) = seen_cosets.get_mut(symbol) else {
+            return Err(CipherError::InternalInvariant {
+                context: "AGL coset seen lookup",
+            });
+        };
+        if *seen {
+            return Err(CipherError::DuplicatePermutationSymbol {
+                label: "AGL letter coset",
+                symbol,
+                duplicate_index: index,
+            });
+        }
+        *seen = true;
+    }
+    Ok(())
+}
+
+fn validate_agl_element(
+    element: (usize, usize),
+    alphabet_size: usize,
+    subgroup: AglMultiplierSubgroup,
+    label: &'static str,
+) -> Result<(), CipherError> {
+    let (multiplier, translation) = element;
+    if translation >= alphabet_size {
+        return Err(CipherError::PermutationSymbolOutsideAlphabet {
+            label,
+            symbol: translation,
+            alphabet_size,
+        });
+    }
+    if !agl_multiplier_allowed(multiplier, alphabet_size, subgroup) {
+        return Err(CipherError::NonUnitMultiplier {
+            multiplier,
+            modulus: alphabet_size,
+        });
+    }
+    Ok(())
+}
+
+fn agl_multiplier_allowed(
+    multiplier: usize,
+    alphabet_size: usize,
+    subgroup: AglMultiplierSubgroup,
+) -> bool {
+    if multiplier == 0 || multiplier >= alphabet_size {
+        return false;
+    }
+    match subgroup {
+        AglMultiplierSubgroup::Full => true,
+        AglMultiplierSubgroup::QuadraticResidues => {
+            is_quadratic_residue_mod(multiplier, alphabet_size)
+        }
+    }
+}
+
 fn symbol_from_glyph(glyph: Glyph, alphabet_size: usize) -> Result<usize, CipherError> {
     let symbol = usize::from(glyph.0);
     if symbol >= alphabet_size {
@@ -796,6 +1070,112 @@ fn combine_additive(
         Direction::Encrypt => (symbol + shift) % alphabet_size,
         Direction::Decrypt => (symbol + alphabet_size - shift) % alphabet_size,
     }
+}
+
+pub(crate) fn agl_compose(g: (usize, usize), h: (usize, usize), n: usize) -> (usize, usize) {
+    let g_a = g.0 % n;
+    let g_b = g.1 % n;
+    let h_a = h.0 % n;
+    let h_b = h.1 % n;
+    ((g_a * h_a) % n, (((g_a * h_b) % n) + g_b) % n)
+}
+
+pub(crate) fn agl_inverse(g: (usize, usize), n: usize) -> Option<(usize, usize)> {
+    let a_inv = mul_inverse_mod(g.0, n)?;
+    Some((a_inv, neg_mod((a_inv * (g.1 % n)) % n, n)))
+}
+
+pub(crate) fn agl_apply(g: (usize, usize), x: usize, n: usize) -> usize {
+    (((g.0 % n) * (x % n)) % n + (g.1 % n)) % n
+}
+
+pub(crate) fn agl_coset_symbol(g: (usize, usize), x0: usize, n: usize) -> usize {
+    agl_apply(g, x0, n)
+}
+
+pub(crate) fn mul_inverse_mod(a: usize, n: usize) -> Option<usize> {
+    if n < 2 || a.is_multiple_of(n) {
+        return None;
+    }
+    Some(pow_mod(a % n, n - 2, n))
+}
+
+pub(crate) fn sub_mod(a: usize, b: usize, n: usize) -> usize {
+    ((a % n) + n - (b % n)) % n
+}
+
+pub(crate) fn neg_mod(t: usize, n: usize) -> usize {
+    (n - (t % n)) % n
+}
+
+pub(crate) fn quadratic_residues_mod(n: usize) -> Vec<usize> {
+    let mut residues = Vec::new();
+    let mut seen = vec![false; n];
+    for value in 1..n {
+        let residue = (value * value) % n;
+        if let Some(seen_residue) = seen.get_mut(residue)
+            && !*seen_residue
+        {
+            *seen_residue = true;
+            residues.push(residue);
+        }
+    }
+    residues.sort_unstable();
+    residues
+}
+
+fn agl_step_lookup(
+    state: (usize, usize),
+    key: &AglGakKey,
+) -> Result<BTreeMap<usize, usize>, CipherError> {
+    let mut lookup = BTreeMap::new();
+    for (letter, &element) in key.letter_elements.iter().enumerate() {
+        let next_state = agl_compose(state, element, key.alphabet_size);
+        let symbol = agl_coset_symbol(next_state, key.reference_point, key.alphabet_size);
+        if lookup.insert(symbol, letter).is_some() {
+            return Err(CipherError::InternalInvariant {
+                context: "AGL step lookup duplicate coset",
+            });
+        }
+    }
+    Ok(lookup)
+}
+
+fn pow_mod(mut base: usize, mut exponent: usize, n: usize) -> usize {
+    let mut acc = 1 % n;
+    base %= n;
+    while exponent > 0 {
+        if exponent % 2 == 1 {
+            acc = (acc * base) % n;
+        }
+        base = (base * base) % n;
+        exponent /= 2;
+    }
+    acc
+}
+
+fn is_quadratic_residue_mod(multiplier: usize, n: usize) -> bool {
+    quadratic_residues_mod(n).contains(&multiplier)
+}
+
+fn is_prime(n: usize) -> bool {
+    if n < 2 {
+        return false;
+    }
+    if n == 2 {
+        return true;
+    }
+    if n.is_multiple_of(2) {
+        return false;
+    }
+    let mut divisor = 3usize;
+    while divisor <= n / divisor {
+        if n.is_multiple_of(divisor) {
+            return false;
+        }
+        divisor += 2;
+    }
+    true
 }
 
 fn translate_chaocipher(
@@ -1070,9 +1450,10 @@ fn deck_count_value(card: usize, key: &DeckCipherKey) -> usize {
 #[cfg(test)]
 mod tests {
     use super::{
-        CaesarKey, ChaocipherKey, DeckCipherKey, EYE_READING_ALPHABET_SIZE, IncrementingWheelKey,
-        VigenereKey, caesar_decrypt, caesar_encrypt, chaocipher_decrypt, chaocipher_encrypt,
-        deck_cipher_decrypt, deck_cipher_encrypt, incrementing_wheel_decrypt,
+        AglGakKey, AglMultiplierSubgroup, CaesarKey, ChaocipherKey, DeckCipherKey,
+        EYE_READING_ALPHABET_SIZE, IncrementingWheelKey, VigenereKey, agl_apply, agl_compose,
+        agl_gak_decrypt, agl_gak_encrypt, caesar_decrypt, caesar_encrypt, chaocipher_decrypt,
+        chaocipher_encrypt, deck_cipher_decrypt, deck_cipher_encrypt, incrementing_wheel_decrypt,
         incrementing_wheel_encrypt, vigenere_decrypt, vigenere_encrypt,
     };
     use crate::glyph::Glyph;
@@ -1138,6 +1519,52 @@ mod tests {
         let ciphertext = deck_cipher_encrypt(&plaintext, &key).unwrap();
         assert_eq!(values(&ciphertext), vec![3, 0, 3, 0]);
         assert_eq!(deck_cipher_decrypt(&ciphertext, &key).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn agl_gak_matches_hand_computed_n5() {
+        let key = AglGakKey::new(
+            5,
+            AglMultiplierSubgroup::Full,
+            0,
+            (1, 0),
+            vec![(1, 1), (1, 2), (2, 0)],
+        )
+        .unwrap();
+
+        let first_plaintext = glyphs(&[0, 0]);
+        let first_ciphertext = agl_gak_encrypt(&first_plaintext, &key).unwrap();
+        assert_eq!(values(&first_ciphertext), vec![1, 2]);
+        assert_eq!(
+            agl_gak_decrypt(&first_ciphertext, &key).unwrap(),
+            first_plaintext
+        );
+
+        let second_plaintext = glyphs(&[2, 0]);
+        let second_ciphertext = agl_gak_encrypt(&second_plaintext, &key).unwrap();
+        assert_eq!(values(&second_ciphertext), vec![0, 2]);
+        assert_eq!(
+            agl_gak_decrypt(&second_ciphertext, &key).unwrap(),
+            second_plaintext
+        );
+    }
+
+    #[test]
+    fn agl_gak_wrong_left_update_convention_differs() {
+        let key = AglGakKey::new(
+            5,
+            AglMultiplierSubgroup::Full,
+            0,
+            (1, 0),
+            vec![(1, 1), (1, 2), (2, 0)],
+        )
+        .unwrap();
+        let plaintext = glyphs(&[2, 0]);
+        let right_update = agl_gak_encrypt(&plaintext, &key).unwrap();
+        let wrong_left_update = wrong_left_update_encrypt(&plaintext, &key);
+        assert_eq!(values(&right_update), vec![0, 2]);
+        assert_eq!(wrong_left_update, vec![0, 1]);
+        assert_ne!(values(&right_update), wrong_left_update);
     }
 
     #[test]
@@ -1242,6 +1669,48 @@ mod tests {
             let ciphertext = deck_cipher_encrypt(&plaintext, key).unwrap();
             assert_eq!(deck_cipher_decrypt(&ciphertext, key).unwrap(), plaintext);
         }
+    }
+
+    #[test]
+    fn agl_gak_round_trips_random_plaintexts() {
+        let keys = [
+            AglGakKey::identity(7, AglMultiplierSubgroup::Full).unwrap(),
+            AglGakKey::identity(7, AglMultiplierSubgroup::QuadraticResidues).unwrap(),
+            AglGakKey::new(
+                7,
+                AglMultiplierSubgroup::Full,
+                0,
+                (3, 4),
+                vec![(1, 0), (2, 1), (3, 2), (4, 3), (5, 4), (6, 5), (1, 6)],
+            )
+            .unwrap(),
+            AglGakKey::identity(EYE_READING_ALPHABET_SIZE, AglMultiplierSubgroup::Full).unwrap(),
+            AglGakKey::identity(
+                EYE_READING_ALPHABET_SIZE,
+                AglMultiplierSubgroup::QuadraticResidues,
+            )
+            .unwrap(),
+        ];
+        for (index, key) in keys.iter().enumerate() {
+            let plaintext = random_plaintext(
+                0x6167_6c5f_6761_6b21 ^ index as u64,
+                271,
+                key.letter_elements().len(),
+            );
+            let ciphertext = agl_gak_encrypt(&plaintext, key).unwrap();
+            assert_eq!(agl_gak_decrypt(&ciphertext, key).unwrap(), plaintext);
+        }
+    }
+
+    fn wrong_left_update_encrypt(plaintext: &[Glyph], key: &AglGakKey) -> Vec<u16> {
+        let mut state = key.initial_state();
+        let mut output = Vec::new();
+        for glyph in plaintext {
+            let element = *key.letter_elements().get(usize::from(glyph.0)).unwrap();
+            state = agl_compose(element, state, key.alphabet_size());
+            output.push(agl_apply(state, key.reference_point(), key.alphabet_size()) as u16);
+        }
+        output
     }
 
     fn random_plaintext(seed: u64, len: usize, alphabet_size: usize) -> Vec<Glyph> {

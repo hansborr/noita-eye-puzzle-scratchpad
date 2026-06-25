@@ -8,9 +8,9 @@ use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
 use noita_eye_puzzle::{
-    chaining, chaining_graph, cipher_attack, conditional_structure, controls, corpus, dof_null,
-    glyph::Sequence, grouping, honeycomb, isomorph_null, modular_diff, null, orders,
-    orientation_homogeneity, perfect_isomorphism, periodicity, perseus, pipeline_null,
+    agl_gak, chaining, chaining_graph, cipher_attack, ciphers, conditional_structure, controls,
+    corpus, dof_null, glyph::Sequence, grouping, honeycomb, isomorph_null, modular_diff, null,
+    orders, orientation_homogeneity, perfect_isomorphism, periodicity, perseus, pipeline_null,
     pyry_conditions, report, transitivity, tree_residual, zero_adjacency_null,
 };
 
@@ -38,6 +38,9 @@ enum Command {
     Demo,
     /// Audit reading orders and Experiment 4 flatness.
     Orders,
+    /// Thread 2 AGL(1,83)-GAK structural stress test.
+    #[command(name = "agl-gak")]
+    AglGak(AglGakArgs),
     /// Monte-Carlo null over random grids plus standard36 orders.
     #[command(name = "nulltest")]
     Nulltest(NullArgs),
@@ -96,6 +99,39 @@ enum Command {
 struct StatsArgs {
     /// Rendered orientation sequence using digits 0-4 and optional delimiter 5.
     sequence: String,
+}
+
+#[derive(Clone, Copy, Debug, Args)]
+struct AglGakArgs {
+    #[arg(long, default_value_t = agl_gak::DEFAULT_SEED)]
+    seed: u64,
+    #[arg(long = "null-trials", default_value_t = agl_gak::DEFAULT_NULL_TRIALS)]
+    null_trials: usize,
+    /// Run Part B bounded fit as well as Part A feasibility.
+    #[arg(long, default_value_t = false)]
+    fit: bool,
+    /// Display the order-41 quadratic-residue subgroup first.
+    #[arg(long, default_value_t = false)]
+    quadratic_residues: bool,
+}
+
+impl From<AglGakArgs> for agl_gak::AglGakConfig {
+    fn from(args: AglGakArgs) -> Self {
+        Self {
+            seed: args.seed,
+            null_trials: args.null_trials,
+            mode: if args.fit {
+                agl_gak::AglGakMode::FeasibilityAndFit
+            } else {
+                agl_gak::AglGakMode::FeasibilityOnly
+            },
+            subgroup: if args.quadratic_residues {
+                ciphers::AglMultiplierSubgroup::QuadraticResidues
+            } else {
+                ciphers::AglMultiplierSubgroup::Full
+            },
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Args)]
@@ -496,6 +532,7 @@ fn main() -> ExitCode {
         Command::Stats(args) => run_stats(&args.sequence),
         Command::Demo => run_demo(),
         Command::Orders => run_orders(),
+        Command::AglGak(args) => run_agl_gak(args.into()),
         Command::Nulltest(args) => run_nulltest(args.into()),
         Command::Dofnull(args) => run_dofnull(args.into()),
         Command::Periodicity(args) => run_periodicity(args.into()),
@@ -541,6 +578,18 @@ fn run_nulltest(config: null::NullConfig) -> ExitCode {
         }
     };
     report::print_null_report(&report);
+    ExitCode::SUCCESS
+}
+
+fn run_agl_gak(config: agl_gak::AglGakConfig) -> ExitCode {
+    let report = match agl_gak::run_agl_gak(config) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("AGL-GAK error: {}", report::format_agl_gak_error(&error));
+            return ExitCode::FAILURE;
+        }
+    };
+    report::print_agl_gak_report(&report);
     ExitCode::SUCCESS
 }
 

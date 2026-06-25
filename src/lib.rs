@@ -11,6 +11,8 @@
 //! - [`trigram`]: the base-5 reading layer over rendered orientations.
 //! - [`analysis`]: encoding-agnostic cryptanalysis statistics (frequencies,
 //!   entropy, index of coincidence, chi-square goodness of fit, n-grams).
+//! - [`agl_gak`]: Thread 2 AGL(1,83)-GAK structural stress test and exclusion
+//!   audit.
 //! - [`chaining`]: Experiment 7B alphabet-chaining structural signatures with
 //!   generated known-succeed and known-fail calibration controls.
 //! - [`chaining_graph`]: graph-chaining conflict and coverage audit over
@@ -65,6 +67,7 @@
 //! meaning; the goal is to provide trustworthy primitives that constrain the
 //! hypothesis space.
 
+pub mod agl_gak;
 pub mod analysis;
 pub mod chaining;
 pub mod chaining_graph;

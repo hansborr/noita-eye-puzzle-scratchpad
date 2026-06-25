@@ -6,8 +6,8 @@
 
 use crate::glyph::Sequence;
 use crate::{
-    analysis, chaining, chaining_graph, cipher_attack, conditional_structure, controls, corpus,
-    dof_null, grouping, honeycomb, isomorph_null, modular_diff, null, orders,
+    agl_gak, analysis, chaining, chaining_graph, cipher_attack, ciphers, conditional_structure,
+    controls, corpus, dof_null, grouping, honeycomb, isomorph_null, modular_diff, null, orders,
     orientation_homogeneity, perfect_isomorphism, periodicity, perseus, pipeline_null,
     pyry_conditions, transitivity, tree_residual, zero_adjacency_null,
 };
@@ -28,6 +28,43 @@ pub fn format_corpus_error(error: corpus::CorpusError) -> String {
         } => format!(
             "corpus parse error in {message_key}: {orientations} orientations cannot form complete trigrams"
         ),
+    }
+}
+
+/// Formats a Thread 2 AGL-GAK stress-test error for CLI output.
+#[must_use]
+pub fn format_agl_gak_error(error: &agl_gak::AglGakError) -> String {
+    match error {
+        agl_gak::AglGakError::Grid(grid_error) => format!("grid/order error: {grid_error:?}"),
+        agl_gak::AglGakError::Cipher(cipher_error) => {
+            format!("AGL-GAK cipher error: {cipher_error}")
+        }
+        agl_gak::AglGakError::Random(random_error) => {
+            format!("random draw bound {} is too large", random_error.bound)
+        }
+        agl_gak::AglGakError::Perseus(perseus_error) => {
+            format!("shared-run reconstruction error: {perseus_error:?}")
+        }
+        agl_gak::AglGakError::ZeroTrials => {
+            "at least one forward-simulation trial is required".to_owned()
+        }
+        agl_gak::AglGakError::PositiveControlFailed { which } => {
+            format!("positive control failed: {which}")
+        }
+        agl_gak::AglGakError::EmptyMessage { message_key } => {
+            format!("message {message_key} has no reading-layer symbols")
+        }
+        agl_gak::AglGakError::ValueOutsideAlphabet { message_key, value } => {
+            format!("message {message_key} value {value} is outside the 83-symbol alphabet")
+        }
+        agl_gak::AglGakError::SharedRunOutOfBounds {
+            message_key,
+            start,
+            len,
+        } => format!("shared run {message_key}@{start}+{len} exceeds the message boundary"),
+        agl_gak::AglGakError::InternalInvariant { context } => {
+            format!("internal AGL-GAK invariant failed: {context}")
+        }
     }
 }
 
@@ -3788,6 +3825,178 @@ fn format_probability(value: f64) -> String {
     }
 }
 
+/// Prints the Thread 2 AGL(1,83)-GAK stress-test report.
+pub fn print_agl_gak_report(report: &agl_gak::AglGakReport) {
+    println!("Thread 2 AGL(1,83)-GAK stress test");
+    println!("order: {}", report.order.name());
+    println!("seed: {}", report.config.seed);
+    println!(
+        "forward-simulation trials per subgroup: {}",
+        report.config.null_trials
+    );
+    println!(
+        "subgroups: C83:C82 and C83:C41 (preferred display order starts with {})",
+        format_agl_subgroup(report.config.subgroup)
+    );
+    println!(
+        "mode: {}",
+        match report.config.mode {
+            agl_gak::AglGakMode::FeasibilityOnly => "feasibility-only",
+            agl_gak::AglGakMode::FeasibilityAndFit => "feasibility+fit requested",
+        }
+    );
+    println!(
+        "wiki pages under test: Affine-General-Linear-Group-(AGL).md; The-Transitivity-Restriction-(6-Groups-for-83).md; Message-Starts.md; Shared-Sections.md; Isomorphic-Cipher-Hierarchy.md"
+    );
+    println!();
+    print_agl_gak_observed(report);
+    println!();
+    print_agl_gak_subgroups(report);
+    println!();
+    print_agl_gak_interpretation(report);
+}
+
+fn print_agl_gak_observed(report: &agl_gak::AglGakReport) {
+    println!("observed mapping-independent structure");
+    println!(
+        "  first symbols: {}",
+        report
+            .message_first_symbols
+            .iter()
+            .map(|(key, value)| format!("{key}:{value}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    match &report.global_prefix {
+        Some(prefix) => println!(
+            "  all-message shared prefix: start {} len {} values {} distinct {}/{}",
+            prefix.start,
+            prefix.len,
+            format_usize_values(&prefix.values),
+            prefix.distinct_symbols,
+            prefix.len
+        ),
+        None => println!("  all-message shared prefix: none"),
+    }
+    println!(
+        "  selected shared-run lengths: {}",
+        format_usize_values(&report.shared_run_lengths)
+    );
+    println!("  selected varying-run anchors:");
+    for run in report
+        .shared_runs
+        .iter()
+        .filter(|run| run.differing_predecessor && run.varying)
+    {
+        println!(
+            "    {}/{} start {} len {} distinct {}/{} role {}",
+            run.left_key,
+            run.right_key,
+            run.start,
+            run.len,
+            run.distinct_symbols,
+            run.len,
+            run.role.label()
+        );
+    }
+}
+
+fn print_agl_gak_subgroups(report: &agl_gak::AglGakReport) {
+    println!("subgroup verdicts");
+    // The "fixed>=2/universe" denominator is the exhaustive differing-discrepancy
+    // universe size (6724 for C83:C82, 3362 for C83:C41); naming it makes clear the
+    // exclusion is exhaustive over that universe rather than sampled.
+    println!(
+        "  {:<8} {:<9} {:>12} {:>16} {:>17} {:>14} {:<12}",
+        "group", "verdict", "agreement", "forward", "fixed>=2/universe", "max fixed", "controls"
+    );
+    for subgroup in &report.subgroup_reports {
+        println!(
+            "  {:<8} {:<9} {:>5}/{:<6} {:>7}/{:<8} {:>7}/{:<9} {:>14} {:<12}",
+            format_agl_subgroup(subgroup.subgroup),
+            format_agl_verdict(subgroup.verdict),
+            subgroup.agreement_check.violations,
+            subgroup.agreement_check.checks,
+            subgroup.forward_simulation.varying_shared_runs,
+            subgroup.forward_simulation.trials,
+            subgroup.fixed_points.fixing_at_least_two_points,
+            subgroup.fixed_points.discrepancies,
+            subgroup.fixed_points.max_fixed_points,
+            format_agl_controls(subgroup.positive_controls)
+        );
+        if let Some(obstruction) = &subgroup.obstruction {
+            println!(
+                "    obstruction: {}/{} start {} len {} distinct {}/{} after predecessors {} vs {}",
+                obstruction.left_key,
+                obstruction.right_key,
+                obstruction.start,
+                obstruction.len,
+                obstruction.distinct_symbols,
+                obstruction.len,
+                obstruction.left_predecessor,
+                obstruction.right_predecessor
+            );
+        }
+        println!(
+            "    forward add-one p for a varying shared run: {}",
+            format_probability(subgroup.forward_simulation.add_one_p_value)
+        );
+        if subgroup.fit_attempted {
+            println!(
+                "    fit: requested, but no fit is retained after the exhaustive structural exclusion"
+            );
+        }
+    }
+}
+
+fn print_agl_gak_interpretation(report: &agl_gak::AglGakReport) {
+    let all_excluded = report
+        .subgroup_reports
+        .iter()
+        .all(|subgroup| subgroup.verdict == agl_gak::AglGakVerdict::Excluded);
+    if all_excluded {
+        println!(
+            "Interpretation: AGL(1,83)-GAK is rigorously excluded for both C83:C82 and C83:C41 under the verified right-multiplication / left-coset model. The wiki's tentative message-start exclusion was over-conceded / weaker than needed: the rigorous kill is the varying-shared-run mechanism. After a differing start, an affine discrepancy can fix at most one point, so any AGL shared run must be constant; the eyes' shared runs vary."
+        );
+    } else {
+        println!(
+            "Interpretation: this run did not exclude every requested AGL subgroup. Treat any structural fit as a hypothesis to kill with held-out isomorphs, not as a decode."
+        );
+    }
+    println!(
+        "Claim ceiling: this excludes one candidate group family and narrows the transitive GAK candidate set toward {{A83, S83}}, with D166 conditional elsewhere. It says nothing about recoverable plaintext; the eyes remain deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext. Scope: this excludes the point-stabilizer AGL-GAK family (output = moved reference point, single shared running key); it does not speak to non-GAK affine constructions or a non-point-stabilizer hidden subgroup."
+    );
+    println!(
+        "Multiplicity note: both AGL multiplier variants are tested, and the repeated tails reported here are structural/exhaustive checks rather than language-scoring claims."
+    );
+}
+
+fn format_agl_subgroup(subgroup: ciphers::AglMultiplierSubgroup) -> &'static str {
+    match subgroup {
+        ciphers::AglMultiplierSubgroup::Full => "C83:C82",
+        ciphers::AglMultiplierSubgroup::QuadraticResidues => "C83:C41",
+    }
+}
+
+fn format_agl_verdict(verdict: agl_gak::AglGakVerdict) -> &'static str {
+    match verdict {
+        agl_gak::AglGakVerdict::Excluded => "excluded",
+        agl_gak::AglGakVerdict::NotExcluded => "open",
+    }
+}
+
+fn format_agl_controls(controls: agl_gak::AglGakPositiveControls) -> &'static str {
+    match (
+        controls.constant_shared_run_ok,
+        controls.pure_translation_rejected_ok,
+    ) {
+        (true, true) => "ok",
+        (false, true) => "const-fail",
+        (true, false) => "pure-fail",
+        (false, false) => "failed",
+    }
+}
+
 fn format_statistic_value(value: f64) -> String {
     if (value - value.round()).abs() < 1e-9 {
         format!("{value:.0}")
@@ -3955,6 +4164,17 @@ fn format_u8_values(values: &[u8]) -> String {
     values
         .iter()
         .map(u8::to_string)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn format_usize_values(values: &[usize]) -> String {
+    if values.is_empty() {
+        return "none".to_owned();
+    }
+    values
+        .iter()
+        .map(usize::to_string)
         .collect::<Vec<_>>()
         .join(",")
 }
