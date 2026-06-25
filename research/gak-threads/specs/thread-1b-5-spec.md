@@ -390,13 +390,13 @@ pub fn run_transitivity(
   `:8` imports `fisher_yates`). Preserve each message's multiset + length; do not
   concatenate across messages.
 - **PRNG** → `null::SplitMix64::new` (`src/null.rs:27`), `null::stateless_splitmix`
-  (`:70`), `null::random_index_below` (`:91`), `null::shuffled_permutation`
-  (`:127`), `null::RandomBoundError` (`:80`) mapped into the module error via
-  `From`. Significance: `null::wilson_95` (`:281`).
-- **Add-one empirical p** → private per module, matching
-  `isomorph_null.rs:319 add_one_p_value` / `perseus.rs:853 add_one_p_value`
-  (`(count+1)/(trials+1)`); `api-analysis.md:87-91` notes it is intentionally not
-  shared. Follow that convention (re-implement privately in `chaining_graph.rs`).
+  (`:70`), `null::mix_seed` (`:91`), `null::random_index_below` (`:112`),
+  `null::shuffled_permutation` (`:148`), `null::RandomBoundError` (`:101`)
+  mapped into the module error via `From`. Significance: `null::add_one_p_value`
+  (`:80`) and `null::wilson_95` (`:302`).
+- **Add-one empirical p** → reuse `null::add_one_p_value(count, trials)`;
+  do not reimplement privately. It is the shared `(count+1)/(trials+1)`
+  convention used by the Monte-Carlo null modules.
 - **Alignment anchors** (`perseus.rs`) — reusable *concepts* for cross-message
   start alignment but currently **private**: `same_offset_common_runs`
   (`perseus.rs:466`), `leading_start` (`perseus.rs:208`/`:408`),
@@ -517,7 +517,7 @@ group set only. Cite the exact wiki page (§0) in the printed text and keep
   at `pyry_conditions.rs:553`). Note `LinkProvenance` already holds the bool
   fields; keep ≤3 bools per struct.
 - `wildcard_imports`: name every import (`use crate::null::{SplitMix64,
-  fisher_yates, shuffled_permutation, stateless_splitmix};`).
+  add_one_p_value, fisher_yates, shuffled_permutation, stateless_splitmix};`).
 - `unsafe` forbidden crate-wide; `--locked` everywhere (no command re-resolves
   `Cargo.lock`).
 

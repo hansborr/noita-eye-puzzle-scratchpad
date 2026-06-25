@@ -71,6 +71,27 @@ pub fn stateless_splitmix(seed: u64) -> u64 {
     SplitMix64::new(seed).next_u64()
 }
 
+/// Returns the add-one Monte-Carlo p-value estimator `(count + 1) / (trials + 1)`.
+///
+/// The increments saturate before conversion to keep the helper infallible even
+/// at impossible `usize::MAX` inputs. For ordinary Monte-Carlo counts this is
+/// exactly the conventional add-one estimator.
+#[must_use]
+pub fn add_one_p_value(count: usize, trials: usize) -> f64 {
+    let numerator = count.saturating_add(1);
+    let denominator = trials.saturating_add(1);
+    numerator as f64 / denominator as f64
+}
+
+/// Derives a deterministic sub-seed from `seed` and `tag`.
+///
+/// This is the shared one-shot mixer for callers that identify Monte-Carlo
+/// streams by a stable tag. It is equivalent to `stateless_splitmix(seed ^ tag)`.
+#[must_use]
+pub fn mix_seed(seed: u64, tag: u64) -> u64 {
+    stateless_splitmix(seed ^ tag)
+}
+
 /// Error returned by the shared index-draw helpers when a bound cannot be used.
 ///
 /// Carries the offending `bound` so each caller can surface it through its own
@@ -510,8 +531,8 @@ fn median(sorted: &[f64]) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::{
-        NullConfig, SplitMix64, analytic_headline_bounds, evaluate_trial, run_standard36_null,
-        wilson_95,
+        NullConfig, SplitMix64, add_one_p_value, analytic_headline_bounds, evaluate_trial,
+        mix_seed, run_standard36_null, stateless_splitmix, wilson_95,
     };
     use crate::orders::{corpus_grids, standard36_orders};
 
@@ -534,6 +555,27 @@ mod tests {
         let first_values: Vec<u64> = (0..8).map(|_| first.next_u64()).collect();
         let second_values: Vec<u64> = (0..8).map(|_| second.next_u64()).collect();
         assert_eq!(first_values, second_values);
+    }
+
+    #[test]
+    fn add_one_p_value_uses_plus_one_estimator() {
+        assert_eq!(
+            add_one_p_value(0, 2_000).to_bits(),
+            (1.0_f64 / 2_001.0_f64).to_bits()
+        );
+        assert_eq!(
+            add_one_p_value(6, 1_000).to_bits(),
+            (7.0_f64 / 1_001.0_f64).to_bits()
+        );
+    }
+
+    #[test]
+    fn mix_seed_is_deterministic_splitmix_of_seed_xor_tag() {
+        let seed = 0x1234_5678_9abc_def0;
+        let tag = 0x0fed_cba9_8765_4321;
+        let mixed = mix_seed(seed, tag);
+        assert_eq!(mixed, mix_seed(seed, tag));
+        assert_eq!(mixed, stateless_splitmix(seed ^ tag));
     }
 
     #[test]

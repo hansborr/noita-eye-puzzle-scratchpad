@@ -402,8 +402,8 @@ classifier internals, shuffle loop, regression-string builders) is private
 | Repeat-count strength of a window | `PatternSignature::has_repeated_symbol` (+ count distinct repeated ordinals) | `isomorph.rs:63` |
 | Within-sequence informative-signature catalog (per message, to seed cross-message bookkeeping) | `isomorph::detect_isomorphs::<TrigramValue>(seq, window, min_period, max_period)` and `SignatureGroup`/`strongest_signatures` | `isomorph.rs:212`, `isomorph.rs:174` |
 | Within-message shuffle null mechanism (copy the shape) | `null::fisher_yates` over `message_values.to_vec()`; `null::SplitMix64::new(seed)` | `isomorph_null.rs:8`, `isomorph_null.rs:301`; `api-analysis.md` §isomorph_null/(b) |
-| Per-trial/family derived seeds | `null::stateless_splitmix` + a private `mix_seed(seed, tag)` | `pyry_conditions.rs:1313`, `cipher_attack.rs:1156` |
-| Add-one empirical p (private, per convention) | private `fn add_one_p_value(count, trials)` | `isomorph_null.rs:319`, `perseus.rs:853` (NOT shared — reimplement) |
+| Per-trial/family derived seeds | `null::mix_seed(seed, tag)` (`stateless_splitmix(seed ^ tag)`) | `null.rs:91` |
+| Add-one empirical p | `null::add_one_p_value(count, trials)` | `null.rs:80` |
 | Significance helpers if Wilson/Bonferroni wanted | `null::wilson_95`, `null::analytic_headline_bounds` | `api-analysis.md` §null |
 | Same-offset cross-message agreement runs — the alignment substrate | `perseus`'s `same_offset_common_runs` / `collect_pair_runs` (**private**) | `perseus.rs:466`, `perseus.rs:509` |
 | Leading-family / counterpart / global-prefix anchors | `perseus::SharedPartition.leading_start`, `GlobalSharedPrefix`, `is_counterpart_pair` (**private fn**) | `perseus.rs:208`, `perseus.rs:180`, `perseus.rs:574` |
@@ -458,7 +458,7 @@ are complementary, not redundant.
   while conserving per-message symbol statistics, so it answers exactly the
   thread's question: *how many internal violations arise from chance gap-pattern
   collisions alone?* (thread §4).
-- **Mechanism (copy `isomorph_null.rs:301`):** `let mut rng = SplitMix64::new(mix_seed(config.seed, trial_tag));` then per trial
+- **Mechanism (copy the `isomorph_null` shuffle shape):** `let mut rng = SplitMix64::new(null::mix_seed(config.seed, trial_tag));` then per trial
   `let mut shuffled = message_values.to_vec(); for v in &mut shuffled { fisher_yates(v, &mut rng)?; }`
   then rerun catalog+classify on `shuffled` (cross-message; the run finder and
   signature matcher both operate on the shuffled streams).

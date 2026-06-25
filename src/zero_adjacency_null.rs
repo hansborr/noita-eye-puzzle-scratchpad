@@ -13,7 +13,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::null::{SplitMix64, fisher_yates};
+use crate::null::{SplitMix64, add_one_p_value, fisher_yates};
 use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::trigram::TrigramValue;
 
@@ -308,7 +308,7 @@ fn analyze_message_values(
     }
 
     let null = null_band(&samples);
-    let empirical_p = add_one_p_value(empirical_p_count, total_trials)?;
+    let empirical_p = add_one_p_value(empirical_p_count, total_trials);
     let band_position = classify_band_position(observed.adjacent_equal, null);
 
     Ok(ZeroAdjacencyAnalysis {
@@ -475,16 +475,6 @@ fn scaled_quantile_index(len: usize, numerator: usize, denominator: usize) -> us
         return 0;
     }
     len.saturating_sub(1).saturating_mul(numerator) / denominator
-}
-
-fn add_one_p_value(count: usize, trials: usize) -> Result<f64, ZeroAdjacencyNullError> {
-    let numerator = count
-        .checked_add(1)
-        .ok_or(ZeroAdjacencyNullError::TrialCountTooLarge)?;
-    let denominator = trials
-        .checked_add(1)
-        .ok_or(ZeroAdjacencyNullError::TrialCountTooLarge)?;
-    Ok(numerator as f64 / denominator as f64)
 }
 
 fn classify_band_position(observed: usize, null: AdjacencyNullBand) -> ShuffleBandPosition {
