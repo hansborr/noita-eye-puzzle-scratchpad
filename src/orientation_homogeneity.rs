@@ -17,7 +17,7 @@ use crate::analysis;
 use crate::corpus;
 use crate::generator::{self, ENGINE_MESSAGES};
 use crate::glyph::StorageSymbol;
-use crate::null::{SplitMix64, fisher_yates, median_f64, scaled_quantile_index};
+use crate::null::{F64Band, NullSampler, RandomBoundError, SplitMix64, f64_band, fisher_yates};
 
 /// Number of engine/rendered orientation digits.
 pub const ORIENTATION_BUCKETS: usize = 5;
@@ -169,6 +169,20 @@ pub struct ScalarNullBand {
     pub q975: f64,
     /// Largest sampled statistic.
     pub max: f64,
+}
+
+impl From<F64Band> for ScalarNullBand {
+    fn from(band: F64Band) -> Self {
+        Self {
+            trials: band.trials,
+            mean: band.mean,
+            min: band.min,
+            q025: band.q025,
+            median: band.median,
+            q975: band.q975,
+            max: band.max,
+        }
+    }
 }
 
 /// Empirical placement of the observed statistic in a repartition null.
@@ -501,11 +515,16 @@ fn repartition_null_comparisons(
 ) -> Result<(HomogeneityNullComparison, HomogeneityNullComparison), OrientationHomogeneityError> {
     let mut pearson_samples = Vec::with_capacity(total_trials(config)?);
     let mut g_test_samples = Vec::with_capacity(total_trials(config)?);
+    let sampler = PooledRepartition { pooled, lengths };
 
+    // The seed-stream loop stays longhand: each trial yields two columns
+    // (Pearson, G) from one shared pooled repartition, and the seed derivation
+    // (`seed_for_index`) is itself fallible, so the multi-stream/multi-column
+    // shape is kept inline. Only the resampling step is the shared sampler.
     for seed_index in 0..config.seed_count {
         let mut rng = SplitMix64::new(seed_for_index(config.seed, seed_index)?);
         for _trial in 0..config.trials_per_seed {
-            let table = repartition_table(pooled, lengths, &mut rng)?;
+            let table = sampler.sample(&mut rng)?;
             let statistics = homogeneity_statistics(&table);
             pearson_samples.push(statistics.pearson_chi_square);
             g_test_samples.push(statistics.g_test);
@@ -558,6 +577,34 @@ fn repartition_table(
     Ok(rows)
 }
 
+/// Length-matched pooled-multiset repartition null sampler.
+///
+/// Each draw reshuffles the pooled orientation multiset and repartitions it into
+/// the true per-message lengths — the length-matched conditional null for "all
+/// messages share one orientation distribution." It wraps [`repartition_table`];
+/// for the verified corpus and positive-control tables the only reachable
+/// failure is a Fisher-Yates bound error, surfaced as [`RandomBoundError`] (the
+/// length/digit invariants of the pooled multiset never fire here).
+struct PooledRepartition<'a> {
+    pooled: &'a [u8],
+    lengths: &'a [usize],
+}
+
+impl NullSampler for PooledRepartition<'_> {
+    type Draw = Vec<[usize; ORIENTATION_BUCKETS]>;
+
+    fn sample(&self, rng: &mut SplitMix64) -> Result<Self::Draw, RandomBoundError> {
+        repartition_table(self.pooled, self.lengths, rng).map_err(|error| match error {
+            OrientationHomogeneityError::RandomBoundTooLarge { bound } => {
+                RandomBoundError { bound }
+            }
+            // Unreachable for the pooled multisets this sampler resamples: the
+            // length total and digit range are validated invariants of the input.
+            _other => RandomBoundError { bound: 0 },
+        })
+    }
+}
+
 fn null_comparison(
     observed: f64,
     samples: &[f64],
@@ -574,41 +621,13 @@ fn null_comparison(
 
     Ok(HomogeneityNullComparison {
         observed,
-        null: scalar_null_band(samples),
+        null: ScalarNullBand::from(f64_band(samples)),
         lower_tail_count,
         upper_tail_count,
         lower_tail_add_one_p,
         upper_tail_add_one_p,
         two_sided_add_one_p,
     })
-}
-
-fn scalar_null_band(samples: &[f64]) -> ScalarNullBand {
-    let mut sorted = samples.to_vec();
-    sorted.sort_by(f64::total_cmp);
-    ScalarNullBand {
-        trials: samples.len(),
-        mean: mean(samples),
-        min: sorted.first().copied().unwrap_or(0.0),
-        q025: quantile_from_sorted(&sorted, 25, 1_000),
-        median: median_f64(&sorted),
-        q975: quantile_from_sorted(&sorted, 975, 1_000),
-        max: sorted.last().copied().unwrap_or(0.0),
-    }
-}
-
-fn mean(samples: &[f64]) -> f64 {
-    if samples.is_empty() {
-        return 0.0;
-    }
-    samples.iter().sum::<f64>() / samples.len() as f64
-}
-
-fn quantile_from_sorted(sorted: &[f64], numerator: usize, denominator: usize) -> f64 {
-    sorted
-        .get(scaled_quantile_index(sorted.len(), numerator, denominator))
-        .copied()
-        .unwrap_or(0.0)
 }
 
 fn positive_control(
