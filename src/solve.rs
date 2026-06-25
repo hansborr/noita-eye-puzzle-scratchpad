@@ -13,6 +13,13 @@ use crate::ciphers::{AnyCipher, CipherError};
 use crate::glyph::Glyph;
 use crate::ingest::IngestError;
 use crate::language::{LanguageError, LanguageModel};
+use crate::null::{SplitMix64, fisher_yates, mix_seed};
+
+/// Default deterministic seed for solve matched-null controls.
+pub const DEFAULT_SEED: u64 = 0x736f_6c76_6504;
+
+/// Default number of matched-null shuffles for solve candidates.
+pub const DEFAULT_NULL_TRIALS: usize = 16;
 
 /// A direct symbol-to-language-index mapping.
 ///
@@ -171,6 +178,10 @@ pub struct HypothesisSpace {
     pub language: LanguageChoice,
     /// Size of the cipher alphabet expected by the request.
     pub cipher_alphabet_size: usize,
+    /// Deterministic seed for matched-null controls.
+    pub seed: u64,
+    /// Number of matched-null Fisher-Yates shuffles.
+    pub null_trials: usize,
 }
 
 /// Input to the solve engine.
@@ -233,6 +244,8 @@ pub enum SolveError {
     },
     /// No cipher families or mappings were supplied.
     EmptyHypothesisSpace,
+    /// A matched-null control requested zero trials.
+    ZeroNullTrials,
     /// The fixed mapping set was empty.
     EmptyMappingSet,
     /// A mapped symbol was outside the mapping table.
@@ -278,6 +291,7 @@ impl fmt::Display for SolveError {
                 write!(f, "cipher-layer round trip failed for {cipher}")
             }
             Self::EmptyHypothesisSpace => f.write_str("solve hypothesis space is empty"),
+            Self::ZeroNullTrials => f.write_str("solve matched null requires at least one trial"),
             Self::EmptyMappingSet => f.write_str("solve fixed mapping set is empty"),
             Self::MappingSymbolOutsideTable { symbol, table_len } => write!(
                 f,
@@ -315,6 +329,7 @@ impl std::error::Error for SolveError {
             Self::RandomBoundTooLarge { .. }
             | Self::RoundTripFailed { .. }
             | Self::EmptyHypothesisSpace
+            | Self::ZeroNullTrials
             | Self::EmptyMappingSet
             | Self::MappingSymbolOutsideTable { .. }
             | Self::CiphertextSymbolOutsideAlphabet { .. }
@@ -364,9 +379,7 @@ pub fn solve(req: &SolveRequest<'_>) -> Result<Vec<Candidate>, SolveError> {
 
     let mut candidates = Vec::new();
     for family in &req.space.families {
-        for cipher in &family.ciphers {
-            candidates.extend(evaluate_cipher(req, cipher, mappings)?);
-        }
+        candidates.extend(evaluate_family(req, family, mappings)?);
     }
     candidates.sort_by(|left, right| right.score.total_cmp(&left.score));
     Ok(candidates)
@@ -383,6 +396,9 @@ fn validate_request(req: &SolveRequest<'_>) -> Result<(), SolveError> {
     }
     if req.space.cipher_alphabet_size == 0 {
         return Err(SolveError::EmptyHypothesisSpace);
+    }
+    if req.space.null_trials == 0 {
+        return Err(SolveError::ZeroNullTrials);
     }
     if matches!(&req.space.mappings, MappingStrategy::Fixed(mappings) if mappings.is_empty()) {
         return Err(SolveError::EmptyMappingSet);
@@ -406,61 +422,133 @@ fn validate_ciphertext_symbols(
     Ok(())
 }
 
-fn evaluate_cipher(
+fn evaluate_family(
     req: &SolveRequest<'_>,
-    cipher: &AnyCipher,
+    family: &CipherFamilySpec,
     mappings: &[Mapping],
 ) -> Result<Vec<Candidate>, SolveError> {
-    let decrypted_symbols = cipher.decrypt(req.ciphertext)?;
-    let round_trip = cipher.encrypt(&decrypted_symbols)?;
-    if round_trip != req.ciphertext {
-        return Ok(Vec::new());
-    }
-
-    let codec = AnyCodec::Identity;
-    let transduced = codec.transduce(&decrypted_symbols);
     let mut candidates = Vec::new();
     for mapping in mappings {
-        let mapped = mapping.apply(&transduced)?;
         for language in req.space.language.languages() {
-            candidates.push(evaluate_mapping(
-                req,
-                cipher,
-                &decrypted_symbols,
-                codec,
-                mapping,
-                &mapped,
-                *language,
-            )?);
+            let null_mean = matched_null_mean(req, family, mapping, *language)?;
+            for cipher in &family.ciphers {
+                if let Some(candidate) =
+                    evaluate_cipher(req, cipher, mapping, *language, null_mean)?
+                {
+                    candidates.push(candidate);
+                }
+            }
         }
     }
     Ok(candidates)
 }
 
-fn evaluate_mapping(
+fn evaluate_cipher(
     req: &SolveRequest<'_>,
     cipher: &AnyCipher,
-    decrypted_symbols: &[Glyph],
-    codec: AnyCodec,
     mapping: &Mapping,
-    mapped: &[usize],
     language: Language,
-) -> Result<Candidate, SolveError> {
-    let model = model_for(req, language);
-    let score = model.score_indices(mapped)?.bigram_mean_log_likelihood;
-    Ok(Candidate {
+    null_mean: f64,
+) -> Result<Option<Candidate>, SolveError> {
+    let Some(decrypted_symbols) = decrypt_round_trip(cipher, req.ciphertext)? else {
+        return Ok(None);
+    };
+    let codec = AnyCodec::Identity;
+    let transduced = codec.transduce(&decrypted_symbols);
+    let scored = score_transduced(&transduced, mapping, model_for(req, language))?;
+    Ok(Some(Candidate {
         cipher: cipher.clone(),
-        decrypted_symbols: decrypted_symbols.to_vec(),
+        decrypted_symbols,
         crypto_round_trip_ok: true,
         codec,
         mapping: mapping.clone(),
         language,
-        rendered_text: render_indices(mapped, model)?,
-        score,
-        heldout_mapping_score: heldout_score(mapped, model)?,
-        null_mean: 0.0,
-        beats_null: false,
+        rendered_text: scored.rendered_text,
+        score: scored.score,
+        heldout_mapping_score: scored.heldout_mapping_score,
+        null_mean,
+        beats_null: scored.score > null_mean,
+    }))
+}
+
+fn decrypt_round_trip(
+    cipher: &AnyCipher,
+    ciphertext: &[Glyph],
+) -> Result<Option<Vec<Glyph>>, SolveError> {
+    let decrypted_symbols = cipher.decrypt(ciphertext)?;
+    let round_trip = cipher.encrypt(&decrypted_symbols)?;
+    if round_trip == ciphertext {
+        Ok(Some(decrypted_symbols))
+    } else {
+        Ok(None)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct ScoredText {
+    rendered_text: String,
+    score: f64,
+    heldout_mapping_score: f64,
+}
+
+fn score_transduced(
+    transduced: &[Glyph],
+    mapping: &Mapping,
+    model: &LanguageModel,
+) -> Result<ScoredText, SolveError> {
+    let mapped = mapping.apply(transduced)?;
+    Ok(ScoredText {
+        rendered_text: render_indices(&mapped, model)?,
+        score: model.score_indices(&mapped)?.bigram_mean_log_likelihood,
+        heldout_mapping_score: heldout_score(&mapped, model)?,
     })
+}
+
+fn matched_null_mean(
+    req: &SolveRequest<'_>,
+    family: &CipherFamilySpec,
+    mapping: &Mapping,
+    language: Language,
+) -> Result<f64, SolveError> {
+    let model = model_for(req, language);
+    let seed = mix_seed(req.space.seed, family_seed_tag(family) ^ 0x6e75_6c6c);
+    let mut rng = SplitMix64::new(seed);
+    let mut total = 0.0;
+    for _trial in 0..req.space.null_trials {
+        let mut shuffled = req.ciphertext.to_vec();
+        fisher_yates(&mut shuffled, &mut rng)?;
+        total += best_family_score(&shuffled, family, mapping, model)?;
+    }
+    Ok(total / req.space.null_trials as f64)
+}
+
+fn best_family_score(
+    ciphertext: &[Glyph],
+    family: &CipherFamilySpec,
+    mapping: &Mapping,
+    model: &LanguageModel,
+) -> Result<f64, SolveError> {
+    let mut best = None;
+    for cipher in &family.ciphers {
+        let Some(decrypted_symbols) = decrypt_round_trip(cipher, ciphertext)? else {
+            continue;
+        };
+        let transduced = AnyCodec::Identity.transduce(&decrypted_symbols);
+        let score = score_transduced(&transduced, mapping, model)?.score;
+        if best.is_none_or(|previous| score > previous) {
+            best = Some(score);
+        }
+    }
+    best.ok_or(SolveError::EmptyHypothesisSpace)
+}
+
+fn family_seed_tag(family: &CipherFamilySpec) -> u64 {
+    let mut hash = 0xcbf2_9ce4_8422_2325u64;
+    for byte in family.label.bytes() {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    hash
 }
 
 fn model_for<'a>(req: &'a SolveRequest<'_>, language: Language) -> &'a LanguageModel {
@@ -497,8 +585,8 @@ fn heldout_score(indices: &[usize], model: &LanguageModel) -> Result<f64, SolveE
 #[cfg(test)]
 mod tests {
     use super::{
-        AnyCodec, CipherFamilySpec, HypothesisSpace, Language, LanguageChoice, Mapping,
-        MappingStrategy, SolveError, SolveRequest, solve,
+        AnyCodec, CipherFamilySpec, DEFAULT_NULL_TRIALS, DEFAULT_SEED, HypothesisSpace, Language,
+        LanguageChoice, Mapping, MappingStrategy, SolveError, SolveRequest, solve,
     };
     use crate::ciphers::{
         AnyCipher, CaesarKey, TranspositionKey, caesar_encrypt, transposition_encrypt,
@@ -556,6 +644,8 @@ mod tests {
                 mappings: MappingStrategy::Fixed(vec![Mapping::identity(english.alphabet().len())]),
                 language: LanguageChoice::English,
                 cipher_alphabet_size: english.alphabet().len(),
+                seed: DEFAULT_SEED,
+                null_trials: DEFAULT_NULL_TRIALS,
             },
             english: &english,
             finnish: &finnish,
@@ -573,6 +663,8 @@ mod tests {
             "THEQUICKBROWNFOXJUMPSOVERTHELAZYDOGTHEQUICKBROWNFOXJUMPSOVERTHELAZYDOG"
         );
         assert!(top.heldout_mapping_score.is_finite());
+        assert!(top.beats_null);
+        assert!(top.score - top.null_mean >= 0.10);
     }
 
     #[test]
@@ -601,6 +693,8 @@ mod tests {
                 mappings: MappingStrategy::Fixed(vec![Mapping::identity(english.alphabet().len())]),
                 language: LanguageChoice::English,
                 cipher_alphabet_size: english.alphabet().len(),
+                seed: DEFAULT_SEED,
+                null_trials: DEFAULT_NULL_TRIALS,
             },
             english: &english,
             finnish: &finnish,
@@ -613,6 +707,7 @@ mod tests {
         assert_eq!(top.decrypted_symbols, plaintext);
         assert!(top.crypto_round_trip_ok);
         assert!(top.score > top.heldout_mapping_score - 1.0);
+        assert!(top.beats_null);
     }
 
     fn glyphs(values: &[u16]) -> Vec<Glyph> {
