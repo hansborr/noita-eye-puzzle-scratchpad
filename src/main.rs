@@ -826,11 +826,11 @@ fn run_chaining(config: chaining::ChainingConfig) -> ExitCode {
     let report = match chaining::run_chaining(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!("chaining error: {}", report::format_chaining_error(error));
+            eprintln!("chaining error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_chaining_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 

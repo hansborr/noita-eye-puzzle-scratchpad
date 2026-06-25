@@ -6,9 +6,9 @@
 
 use crate::glyph::Sequence;
 use crate::{
-    analysis, chaining, chaining_graph, conditional_structure, controls, dof_null, gak_attack,
-    grouping, modular_diff, null, orders, orientation_homogeneity, periodicity, perseus,
-    pyry_conditions, transitivity, tree_residual,
+    analysis, chaining_graph, conditional_structure, controls, dof_null, gak_attack, grouping,
+    modular_diff, null, orders, orientation_homogeneity, periodicity, perseus, pyry_conditions,
+    transitivity, tree_residual,
 };
 
 const MIN_RELIABLE_PERIODICITY_NULL_TRIALS: usize = 50;
@@ -189,36 +189,6 @@ pub fn format_dof_null_error(error: &dof_null::DofNullError) -> String {
         }
         dof_null::DofNullError::SearchSpaceTooLarge => {
             "DoF null search-space cross-product is too large".to_owned()
-        }
-    }
-}
-
-/// Formats an Experiment 7B alphabet-chaining error for CLI output.
-#[must_use]
-pub fn format_chaining_error(error: chaining::ChainingError) -> String {
-    match error {
-        chaining::ChainingError::Grid(grid_error) => {
-            format!("grid/order error: {grid_error:?}")
-        }
-        chaining::ChainingError::ZeroTrials => {
-            "at least one Monte-Carlo trial is required".to_owned()
-        }
-        chaining::ChainingError::InvalidPeriodRange {
-            min_period,
-            max_period,
-        } => format!("invalid period range {min_period}..={max_period}; use periods >= 2"),
-        chaining::ChainingError::InvalidAlphabetSize { alphabet_size } => {
-            format!("invalid alphabet size {alphabet_size}; expected 1..=125")
-        }
-        chaining::ChainingError::ValueOutsideAlphabet {
-            value,
-            alphabet_size,
-        } => format!("stream value {value} is outside configured alphabet size {alphabet_size}"),
-        chaining::ChainingError::ControlConstructionFailed => {
-            "generated control fixture could not be constructed".to_owned()
-        }
-        chaining::ChainingError::RandomBoundTooLarge { bound } => {
-            format!("random draw bound {bound} is too large")
         }
     }
 }
@@ -1045,7 +1015,12 @@ fn print_lag4_band_reconciliation(row: &periodicity::AutocorrelationRow) {
     }
 }
 
-fn counted_form(count: usize, singular: &'static str, plural: &'static str) -> &'static str {
+/// Returns the singular or plural form for a report count.
+pub(crate) fn counted_form(
+    count: usize,
+    singular: &'static str,
+    plural: &'static str,
+) -> &'static str {
     if count == 1 { singular } else { plural }
 }
 
@@ -2266,123 +2241,6 @@ fn tree_residual_excess_labels(
         .collect()
 }
 
-/// Prints the Experiment 7B alphabet-chaining report.
-pub fn print_chaining_report(report: &chaining::ChainingReport) {
-    println!("Experiment 7B alphabet-chaining structural control");
-    println!("order: {}", report.order.name());
-    println!(
-        "alphabet: reading-layer values 0..={}",
-        report.config.alphabet_size.saturating_sub(1)
-    );
-    println!("seed: {}", report.config.seed);
-    println!("trials per period/control: {}", report.config.trials);
-    println!(
-        "periods: {}..={}",
-        report.config.min_period, report.config.max_period
-    );
-    println!(
-        "message lengths: {}",
-        format_message_lengths(&report.message_lengths)
-    );
-    println!("pooled length: {}", report.total_length);
-    println!(
-        "boundary rule: columns reset at each message; no column evidence crosses message joins"
-    );
-    println!(
-        "procedure: split by position mod p; estimate adjacent additive shifts by maximum circular distribution overlap"
-    );
-    println!(
-        "quality: best overlap minus second-best overlap; score = mean quality * cycle closure"
-    );
-    println!(
-        "controls: generated Vigenere known-succeed, independent per-column substitution known-fail, and within-column shuffled fail invariance check"
-    );
-    println!();
-    println!(
-        "{:>2} {:>10} {:>9} {:>7} {:>15} {:>15} {:>15} {:>12}",
-        "p",
-        "eye score",
-        "eye qual",
-        "resid",
-        "succeed 95%",
-        "fail 95%",
-        "shuf-fail 95%",
-        "verdict"
-    );
-    for row in &report.rows {
-        println!(
-            "{:>2} {:>10.4} {:>9.4} {:>7} {:>15} {:>15} {:>15} {:>12}",
-            row.period,
-            row.real.chain_score,
-            row.real.mean_alignment_quality,
-            format_residual(row.real.cycle_residual_distance, row.real.alphabet_size),
-            format_chaining_band(row.succeed.chain_score),
-            format_chaining_band(row.fail.chain_score),
-            format_chaining_band(row.shuffled_fail.chain_score),
-            format_chaining_classification(row.classification)
-        );
-    }
-    println!();
-    println!("calibration detail");
-    println!(
-        "{:>2} {:>17} {:>17} {:>17} {:>17} {:>17} {:>17}",
-        "p",
-        "succ qual 95%",
-        "fail qual 95%",
-        "succ ovlp 95%",
-        "fail ovlp 95%",
-        "succ resid 95%",
-        "fail resid 95%"
-    );
-    for row in &report.rows {
-        println!(
-            "{:>2} {:>17} {:>17} {:>17} {:>17} {:>17} {:>17}",
-            row.period,
-            format_chaining_band(row.succeed.mean_alignment_quality),
-            format_chaining_band(row.fail.mean_alignment_quality),
-            format_chaining_band(row.succeed.mean_best_overlap),
-            format_chaining_band(row.fail.mean_best_overlap),
-            format_residual_band(row.succeed.cycle_residual_distance),
-            format_residual_band(row.fail.cycle_residual_distance)
-        );
-    }
-    println!();
-    print_chaining_interpretation(report);
-}
-
-fn print_chaining_interpretation(report: &chaining::ChainingReport) {
-    let mut fail_matches = 0usize;
-    let mut succeed_matches = 0usize;
-    let mut between = 0usize;
-    let mut overlapping = 0usize;
-    for row in &report.rows {
-        match row.classification {
-            chaining::ChainingClassification::MatchesKnownFail => fail_matches += 1,
-            chaining::ChainingClassification::MatchesKnownSucceed => succeed_matches += 1,
-            chaining::ChainingClassification::BetweenBands => between += 1,
-            chaining::ChainingClassification::CalibrationOverlaps => overlapping += 1,
-        }
-    }
-    if overlapping > 0 {
-        println!(
-            "Interpretation: {overlapping} candidate {} had overlapping succeed/fail control bands, so those periods are not calibrated well enough for a verdict.",
-            counted_form(overlapping, "period", "periods")
-        );
-    }
-    if fail_matches == report.rows.len() {
-        println!(
-            "Interpretation: across the scanned periods, the eye stream lands in the calibrated known-fail chaining band, not the known-succeed Vigenere band. Under this honeycomb reading order and fixed-period additive alphabet model, the eyes lack chainable additive-related-alphabet structure."
-        );
-    } else {
-        println!(
-            "Interpretation: period placement summary: {fail_matches} known-fail, {succeed_matches} known-succeed, {between} between separated bands, {overlapping} uncalibrated-overlap."
-        );
-    }
-    println!(
-        "This is a structural null result only. It does not prove the eyes are meaningless, and it does not rule out other encodings, period models, reading orders, transcription corrections, or non-additive alphabet relationships."
-    );
-}
-
 /// Prints the graph-chaining conflict and coverage audit report.
 pub fn print_chaining_graph_report(report: &chaining_graph::ChainingGraphReport) {
     println!("Thread 5 graph-chaining audit");
@@ -3474,29 +3332,6 @@ fn format_effective_comparisons(value: f64) -> String {
         "infinite".to_owned()
     } else {
         format!("{value:.2}")
-    }
-}
-
-fn format_chaining_band(band: chaining::ScalarBand) -> String {
-    format!("{:.4}..{:.4}", band.q025, band.q975)
-}
-
-fn format_residual_band(band: chaining::ResidualBand) -> String {
-    format!("{}..{}", band.q025, band.q975)
-}
-
-fn format_residual(distance: usize, alphabet_size: usize) -> String {
-    format!("{distance}/{}", alphabet_size / 2)
-}
-
-fn format_chaining_classification(
-    classification: chaining::ChainingClassification,
-) -> &'static str {
-    match classification {
-        chaining::ChainingClassification::CalibrationOverlaps => "overlap",
-        chaining::ChainingClassification::MatchesKnownFail => "known-fail",
-        chaining::ChainingClassification::MatchesKnownSucceed => "known-succeed",
-        chaining::ChainingClassification::BetweenBands => "between",
     }
 }
 
