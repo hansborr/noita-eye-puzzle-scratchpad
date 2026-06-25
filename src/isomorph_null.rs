@@ -5,7 +5,10 @@
 //! tests arrangement only; symbol frequencies are held fixed.
 
 use crate::isomorph::{self, IsomorphError};
-use crate::null::{SplitMix64, add_one_p_value, fisher_yates, median_usize, scaled_quantile_index};
+use crate::null::{
+    NullColumnError, UsizeBand, WithinMessageShuffle, add_one_p_value, run_null_test_columns,
+    usize_band,
+};
 use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::trigram::TrigramValue;
 
@@ -111,6 +114,20 @@ pub struct IsomorphNullBand {
     pub max: usize,
 }
 
+impl From<UsizeBand> for IsomorphNullBand {
+    fn from(band: UsizeBand) -> Self {
+        // `IsomorphNullBand` carries no `min` field; the rest map directly.
+        Self {
+            trials: band.trials,
+            mean: band.mean,
+            q025: band.q025,
+            median: band.median,
+            q975: band.q975,
+            max: band.max,
+        }
+    }
+}
+
 /// Real-vs-null row for one isomorph window length.
 #[derive(Clone, Debug, PartialEq)]
 pub struct IsomorphNullRow {
@@ -174,39 +191,54 @@ fn report_from_message_values(
 
     let real_summaries =
         summarize_window_range(message_values, config.min_window, config.max_window)?;
-    let mut samples_by_window = vec![Vec::new(); real_summaries.len()];
-    let mut empirical_p_counts = vec![0usize; real_summaries.len()];
-    let mut rng = SplitMix64::new(config.seed);
+    let observed = real_summaries
+        .iter()
+        .map(|window| window.summary.repeated_signature_kinds)
+        .collect::<Vec<usize>>();
+    let sampler = WithinMessageShuffle {
+        messages: message_values,
+    };
 
-    for _trial in 0..config.trials {
-        let shuffled = shuffled_messages(message_values, &mut rng)?;
-        let shuffled_summaries =
-            summarize_window_range(&shuffled, config.min_window, config.max_window)?;
-        for (((samples, p_count), real_summary), shuffled_summary) in samples_by_window
-            .iter_mut()
-            .zip(empirical_p_counts.iter_mut())
-            .zip(real_summaries.iter())
-            .zip(shuffled_summaries)
-        {
-            samples.push(shuffled_summary.summary.repeated_signature_kinds);
-            if shuffled_summary.summary.repeated_signature_kinds
-                >= real_summary.summary.repeated_signature_kinds
-            {
-                *p_count += 1;
-            }
-        }
-    }
+    // One column per scanned window length. The row statistic is the
+    // naturally-fallible `summarize_window_range`, passed directly; the harness
+    // propagates any `Err` as `NullColumnError::Statistic`.
+    let columns = run_null_test_columns(
+        |shuffled| {
+            summarize_window_range(shuffled, config.min_window, config.max_window).map(
+                |summaries| {
+                    summaries
+                        .iter()
+                        .map(|window| window.summary.repeated_signature_kinds)
+                        .collect()
+                },
+            )
+        },
+        observed,
+        &sampler,
+        config.trials,
+        config.seed,
+    )
+    .map_err(|error| match error {
+        NullColumnError::Random(bound) => IsomorphNullError::from(bound),
+        NullColumnError::Statistic(error) => error,
+        // Unreachable: `summarize_window_range` always returns one summary per
+        // window length in `min_window..=max_window`, so the row width is fixed.
+        NullColumnError::WidthMismatch { .. } => IsomorphNullError::InvalidWindowRange {
+            min_window: config.min_window,
+            max_window: config.max_window,
+        },
+    })?;
 
     let rows = real_summaries
         .into_iter()
-        .zip(samples_by_window)
-        .zip(empirical_p_counts)
-        .map(|((real_summary, samples), empirical_p_count)| {
+        .zip(columns)
+        .map(|(real_summary, column)| {
+            let empirical_p_count = column.upper_tail_count;
             let empirical_p = add_one_p_value(empirical_p_count, config.trials);
             IsomorphNullRow {
                 window: real_summary.window,
                 real: real_summary.summary,
-                null: null_band(&samples),
+                null: IsomorphNullBand::from(usize_band(&column.samples)),
                 empirical_p_count,
                 empirical_p,
             }
@@ -288,44 +320,6 @@ fn summarize_window(
         repeated_signature_kinds,
         max_repeat_count,
     })
-}
-
-fn shuffled_messages(
-    message_values: &[Vec<TrigramValue>],
-    rng: &mut SplitMix64,
-) -> Result<Vec<Vec<TrigramValue>>, IsomorphNullError> {
-    let mut shuffled = message_values.to_vec();
-    for values in &mut shuffled {
-        fisher_yates(values, rng)?;
-    }
-    Ok(shuffled)
-}
-
-fn null_band(samples: &[usize]) -> IsomorphNullBand {
-    let mut sorted = samples.to_vec();
-    sorted.sort_unstable();
-    IsomorphNullBand {
-        trials: samples.len(),
-        mean: mean(samples),
-        q025: quantile_from_sorted(&sorted, 25, 1_000),
-        median: median_usize(&sorted),
-        q975: quantile_from_sorted(&sorted, 975, 1_000),
-        max: sorted.last().copied().unwrap_or_default(),
-    }
-}
-
-fn mean(samples: &[usize]) -> f64 {
-    if samples.is_empty() {
-        return 0.0;
-    }
-    samples.iter().sum::<usize>() as f64 / samples.len() as f64
-}
-
-fn quantile_from_sorted(sorted: &[usize], numerator: usize, denominator: usize) -> usize {
-    sorted
-        .get(scaled_quantile_index(sorted.len(), numerator, denominator))
-        .copied()
-        .unwrap_or_default()
 }
 
 #[cfg(test)]
