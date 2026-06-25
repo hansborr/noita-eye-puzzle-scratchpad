@@ -12,7 +12,7 @@
 //! is exactly one permutation of the `N` alphabet symbols, with two in-alphabet
 //! control cards replacing Pontifex's out-of-alphabet jokers.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use crate::glyph::Glyph;
@@ -21,6 +21,15 @@ use crate::glyph::Glyph;
 pub const EYE_READING_ALPHABET_SIZE: usize = 83;
 
 const MAX_ALPHABET_SIZE: usize = u16::MAX as usize + 1;
+
+/// Maximum state-group order enumerated when validating a
+/// [`CosetReadout::CosetTable`] GAK key for decrypt-invertibility.
+///
+/// `CosetTable` is for explicitly enumerated *small* groups, so this cap keeps
+/// the bounded closure cheap and total; a key whose generated state group
+/// exceeds it is rejected with [`CipherError::GakCosetTableGroupTooLarge`]
+/// rather than accepted unvalidated or enumerated unboundedly.
+const MAX_GAK_COSET_TABLE_GROUP: usize = 4_096;
 
 /// Error returned by candidate-cipher construction and translation.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -108,6 +117,91 @@ pub enum CipherError {
         /// Requested subgroup order.
         order: usize,
     },
+    /// A GAK key requested a state size outside the supported range.
+    InvalidGakStateSize {
+        /// Requested permutation state size `n`.
+        state_size: usize,
+        /// Minimum size accepted by [`GakKey`].
+        min: usize,
+        /// Maximum size representable by [`Glyph`].
+        max: usize,
+    },
+    /// A GAK coset readout did not match the configured state size.
+    GakReadoutSizeMismatch {
+        /// Human-readable readout context.
+        label: &'static str,
+        /// Length the readout table actually had.
+        len: usize,
+        /// State size `n` the readout must cover.
+        state_size: usize,
+    },
+    /// A GAK coset readout referenced a coset outside the ciphertext alphabet.
+    GakReadoutCosetOutsideAlphabet {
+        /// Offending coset label produced by the readout.
+        coset: usize,
+        /// Configured ciphertext alphabet size.
+        ciphertext_alphabet_size: usize,
+    },
+    /// A GAK readout reference point was outside the state size.
+    GakReferenceOutsideState {
+        /// Offending reference point.
+        reference_point: usize,
+        /// State size `n`.
+        state_size: usize,
+    },
+    /// A GAK key had no plaintext letters, so nothing can be enciphered.
+    EmptyGakLetters,
+    /// Two GAK plaintext letters land in the same hidden-subgroup coset from
+    /// the initial state, so the cipher is not reversible.
+    GakLettersShareCoset {
+        /// Coset shared by two plaintext letters.
+        coset: usize,
+        /// Index of the later plaintext letter found in that coset.
+        duplicate_index: usize,
+    },
+    /// A GAK plaintext-letter permutation left the readout coset unchanged from
+    /// the initial state while `avoid_doubles` was requested.
+    GakLetterFixesCoset {
+        /// Index of the offending plaintext letter.
+        letter_index: usize,
+        /// Coset that was left unchanged.
+        coset: usize,
+    },
+    /// A GAK plaintext-letter permutation violated the requested subgroup
+    /// parity constraint (for example an odd permutation under `A_n`).
+    GakLetterWrongParity {
+        /// Index of the offending plaintext letter.
+        letter_index: usize,
+    },
+    /// A GAK [`CosetReadout::CosetTable`] key is not decrypt-invertible: from
+    /// some reachable state two plaintext letters project to the same coset, so
+    /// the ciphertext does not determine the plaintext letter.
+    ///
+    /// The identity-state injectivity check is *not* sufficient for an arbitrary
+    /// supplied coset table (a coarser partition can merge points and break the
+    /// state-independence the [`CosetReadout::TopCard`] proof relies on), so the
+    /// constructor enumerates the reachable state set and verifies per-state
+    /// injectivity directly.
+    GakCosetTableNotInvertible {
+        /// A reachable state from which two letters collide, in
+        /// `(f ∘ g)[i] = f[g[i]]` form.
+        state: Vec<usize>,
+        /// The coset both colliding letters project to from that state.
+        coset: usize,
+        /// Index of the later plaintext letter found in that coset.
+        duplicate_index: usize,
+    },
+    /// A GAK [`CosetReadout::CosetTable`] key generates a state group larger than
+    /// the supported enumeration cap, so decrypt-invertibility cannot be checked
+    /// by bounded enumeration.
+    ///
+    /// `CosetTable` is documented as being for explicitly enumerated *small*
+    /// groups; supply a smaller generating set or use
+    /// [`CosetReadout::TopCard`] for the full deck realization instead.
+    GakCosetTableGroupTooLarge {
+        /// The enumeration cap that was exceeded.
+        cap: usize,
+    },
     /// A validated permutation state lost an invariant during translation.
     InternalInvariant {
         /// Human-readable invariant context.
@@ -191,6 +285,82 @@ impl fmt::Display for CipherError {
             Self::InternalInvariant { context } => {
                 write!(f, "internal cipher invariant failed: {context}")
             }
+            other => other.fmt_gak(f),
+        }
+    }
+}
+
+impl CipherError {
+    /// Formats the GAK-specific [`CipherError`] variants.
+    ///
+    /// Split out of [`fmt::Display`] so the main formatter stays within the
+    /// crate's per-function line ceiling; non-GAK variants are unreachable here.
+    fn fmt_gak(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidGakStateSize {
+                state_size,
+                min,
+                max,
+            } => write!(
+                f,
+                "GAK state size {state_size} is outside supported range {min}..={max}"
+            ),
+            Self::GakReadoutSizeMismatch {
+                label,
+                len,
+                state_size,
+            } => write!(
+                f,
+                "{label} readout length {len} does not match GAK state size {state_size}"
+            ),
+            Self::GakReadoutCosetOutsideAlphabet {
+                coset,
+                ciphertext_alphabet_size,
+            } => write!(
+                f,
+                "GAK readout coset {coset} is outside ciphertext alphabet size {ciphertext_alphabet_size}"
+            ),
+            Self::GakReferenceOutsideState {
+                reference_point,
+                state_size,
+            } => write!(
+                f,
+                "GAK reference point {reference_point} is outside state size {state_size}"
+            ),
+            Self::EmptyGakLetters => {
+                write!(f, "GAK key must contain at least one plaintext letter")
+            }
+            Self::GakLettersShareCoset {
+                coset,
+                duplicate_index,
+            } => write!(
+                f,
+                "GAK plaintext letters are not injective on cosets: letter {duplicate_index} reuses coset {coset}"
+            ),
+            Self::GakLetterFixesCoset {
+                letter_index,
+                coset,
+            } => write!(
+                f,
+                "GAK letter {letter_index} leaves readout coset {coset} unchanged but avoid_doubles is set"
+            ),
+            Self::GakLetterWrongParity { letter_index } => write!(
+                f,
+                "GAK letter {letter_index} violates the requested subgroup parity constraint"
+            ),
+            Self::GakCosetTableNotInvertible {
+                state,
+                coset,
+                duplicate_index,
+            } => write!(
+                f,
+                "GAK coset-table key is not invertible: from reachable state {state:?} letter {duplicate_index} collides on coset {coset}"
+            ),
+            Self::GakCosetTableGroupTooLarge { cap } => write!(
+                f,
+                "GAK coset-table state group exceeds the enumeration cap of {cap} elements"
+            ),
+            _ => write!(f, "internal cipher invariant failed: unexpected variant"),
         }
     }
 }
@@ -587,6 +757,340 @@ impl AglGakKey {
     }
 }
 
+/// Hidden-subgroup coset readout `c: G -> C` for a [`GakKey`].
+///
+/// The readout must be constant on the right cosets `Hg` of the hidden subgroup
+/// `H` — the `Group-Autokey-(GAK).md` requirement — paired with the spec's
+/// left-multiplication state update `g_{i+1} = p(a_i) ∘ g_i` in the
+/// `(f ∘ g)[i] = f[g[i]]` convention. Concretely the visible symbol is read off
+/// `g^{-1}` (the *position* a marked card occupies): `c(g) = g^{-1}[reference]`.
+/// This is the **intentional dual** of the literal deck/GAK spec's
+/// `g[top_index]` readout, *not* that literal expression. The dual is forced by
+/// the convention: under the left update `g ← p(a) ∘ g`, the function constant
+/// on right cosets `Hg` (and hence invertible from any reachable state for
+/// arbitrary `p(a)`) is `g^{-1}[reference]`, whereas `g[index]` is constant on
+/// *left* cosets and would not be reversible here. Both variants realize the
+/// abstract group `G` as a permutation group on `0..n` (`Deck-Cipher.md`: every
+/// finite group is a permutation group, so one representation covers the deck
+/// case and explicitly enumerated small groups alike).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CosetReadout {
+    /// Deck realization (`S_n` over the stabilizer `H = S_{n-1}` of one card):
+    /// the visible ciphertext symbol is the *position* currently holding the
+    /// marked card `reference_value`, i.e. `c(g) = g^{-1}[reference_value]`,
+    /// with `|C| = n`. This is the deck cipher's "where is the top card"
+    /// reading, the right-coset-constant dual of `g[index]` under left-update.
+    TopCard {
+        /// The marked card whose position is the visible ciphertext symbol.
+        reference_value: usize,
+    },
+    /// Explicit coset projection for an enumerated small group: read the
+    /// position of `reference_value` under `g` (i.e. `g^{-1}[reference_value]`,
+    /// a value in `0..n`) and project it through `coset_of` to a coset label in
+    /// `0..ciphertext_alphabet_size`.
+    ///
+    /// The caller is responsible for supplying a `(G, H)` pair whose right
+    /// cosets `Hg` are exactly the fibers of
+    /// `g -> coset_of[g^{-1}[reference_value]]` (document the pair and its
+    /// source rather than re-deriving irreducibility of `H` in code).
+    CosetTable {
+        /// The marked card whose position indexes the projection table.
+        reference_value: usize,
+        /// Projection from card-position (`0..n`) to coset label
+        /// (`0..ciphertext_alphabet_size`); length must equal the state size.
+        coset_of: Vec<usize>,
+    },
+}
+
+impl CosetReadout {
+    /// Projects a state permutation to its visible ciphertext coset.
+    ///
+    /// The permutation is taken in the `(f ∘ g)[i] = f[g[i]]` convention used by
+    /// [`gak_encrypt`]; the readout reads `g^{-1}[reference_value]` so that it
+    /// is constant on right cosets under the left-multiplication update.
+    fn coset_of(&self, state: &[usize]) -> Result<usize, CipherError> {
+        match self {
+            Self::TopCard { reference_value } => inverse_image(state, *reference_value),
+            Self::CosetTable {
+                reference_value,
+                coset_of,
+            } => {
+                let position = inverse_image(state, *reference_value)?;
+                coset_of
+                    .get(position)
+                    .copied()
+                    .ok_or(CipherError::InternalInvariant {
+                        context: "GAK coset-table projection",
+                    })
+            }
+        }
+    }
+
+    /// Number of distinct cosets `|C|` this readout can emit over `0..state_size`.
+    fn ciphertext_alphabet_size(&self, state_size: usize) -> usize {
+        match self {
+            Self::TopCard { .. } => state_size,
+            Self::CosetTable { coset_of, .. } => coset_of
+                .iter()
+                .copied()
+                .max()
+                .map_or(0, |max| max.saturating_add(1)),
+        }
+    }
+
+    /// Validates the readout against the state size, returning `|C|`.
+    fn validate(&self, state_size: usize) -> Result<usize, CipherError> {
+        match self {
+            Self::TopCard { reference_value } => {
+                if *reference_value >= state_size {
+                    return Err(CipherError::GakReferenceOutsideState {
+                        reference_point: *reference_value,
+                        state_size,
+                    });
+                }
+                Ok(state_size)
+            }
+            Self::CosetTable {
+                reference_value,
+                coset_of,
+            } => {
+                if *reference_value >= state_size {
+                    return Err(CipherError::GakReferenceOutsideState {
+                        reference_point: *reference_value,
+                        state_size,
+                    });
+                }
+                if coset_of.len() != state_size {
+                    return Err(CipherError::GakReadoutSizeMismatch {
+                        label: "GAK coset table",
+                        len: coset_of.len(),
+                        state_size,
+                    });
+                }
+                // Cap the ciphertext alphabet at the largest size a `Glyph` can
+                // encode. Without this an unbounded coset label (e.g.
+                // `usize::MAX - 1`) would pass the trivially-true `coset <
+                // max(coset_of) + 1` check, then either trigger an impossible
+                // `vec![false; alphabet_size]` allocation in `GakKey::new` or
+                // emit a coset too large to represent as a `Glyph`.
+                let alphabet_size = self.ciphertext_alphabet_size(state_size);
+                if alphabet_size > MAX_ALPHABET_SIZE {
+                    let coset = coset_of.iter().copied().max().unwrap_or(0);
+                    return Err(CipherError::GakReadoutCosetOutsideAlphabet {
+                        coset,
+                        ciphertext_alphabet_size: MAX_ALPHABET_SIZE,
+                    });
+                }
+                for &coset in coset_of {
+                    if coset >= alphabet_size {
+                        return Err(CipherError::GakReadoutCosetOutsideAlphabet {
+                            coset,
+                            ciphertext_alphabet_size: alphabet_size,
+                        });
+                    }
+                }
+                Ok(alphabet_size)
+            }
+        }
+    }
+}
+
+/// Returns the position `j` with `state[j] == value`, i.e. `state^{-1}[value]`.
+fn inverse_image(state: &[usize], value: usize) -> Result<usize, CipherError> {
+    state
+        .iter()
+        .position(|&entry| entry == value)
+        .ok_or(CipherError::InternalInvariant {
+            context: "GAK inverse-image readout",
+        })
+}
+
+/// Optional subgroup-parity constraint on a [`GakKey`]'s plaintext-letter
+/// permutations.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GakSubgroupConstraint {
+    /// No constraint: each `p(a)` may be any permutation of `0..n` (`S_n`).
+    SymmetricGroup,
+    /// Alternating group `A_n`: every `p(a)` must be an even permutation.
+    AlternatingGroup,
+}
+
+/// Options applied while constructing a [`GakKey`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GakKeyOptions {
+    /// Reject any plaintext letter whose permutation leaves the readout coset
+    /// unchanged from the initial state.
+    ///
+    /// This realizes `Deck-Cipher.md`'s "don't pick from the identity coset"
+    /// rule, which guarantees no adjacent-equal ciphertext symbols.
+    pub avoid_doubles: bool,
+    /// Subgroup-parity constraint the plaintext-letter permutations must obey.
+    pub subgroup: GakSubgroupConstraint,
+}
+
+impl Default for GakKeyOptions {
+    fn default() -> Self {
+        Self {
+            avoid_doubles: false,
+            subgroup: GakSubgroupConstraint::SymmetricGroup,
+        }
+    }
+}
+
+/// Key for a general Group-Autokey (GAK) cipher realized as a permutation group.
+///
+/// This is the abstract GAK of `Group-Autokey-(GAK).md`: a state group `G`
+/// (here a permutation group on `0..n`) with a hidden subgroup `H`, a plaintext
+/// map `p: P -> G`, and a ciphertext map `c: G -> C` constant on right cosets
+/// `Hg`. The state updates by cumulative left-multiplication
+/// `g_{i+1} = p(a_i) ∘ g_i` and the emitted symbol is `c(g_{i+1})`, with
+/// `|C| = |G| / |H|`. With a trivial hidden subgroup (`c` bijective) it reduces
+/// to GCTAK.
+///
+/// `S_n` / `A_n` / `D_{2n}` / `AGL(1,p)` and the candidate 83-symbol groups all
+/// fit this one type by choosing the per-letter permutations and the
+/// [`CosetReadout`]. The small-support / `≤k`-swaps (`≤k`-transpositions) prior
+/// used by the generator drivers is a **TENTATIVE** search heuristic, not a
+/// property of this key, and is not encoded here.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GakKey {
+    ciphertext_alphabet_size: usize,
+    state_size: usize,
+    plaintext_letters: Vec<Vec<usize>>,
+    initial_state: Vec<usize>,
+    coset_readout: CosetReadout,
+}
+
+impl GakKey {
+    /// Builds a GAK key from explicit per-letter permutations and a readout.
+    ///
+    /// Each entry of `plaintext_letters` is the permutation `p(a)` for one
+    /// plaintext letter, in the `(f ∘ g)[i] = f[g[i]]` convention. The
+    /// well-formedness rules of `Group-Autokey-(GAK).md` are enforced.
+    ///
+    /// # Errors
+    /// Returns [`CipherError`] if the state size is out of range; if
+    /// `initial_state` or any `p(a)` is not a permutation of `0..n`; if the
+    /// readout is malformed for the state size; if no plaintext letters are
+    /// supplied; if two plaintext letters land in the same readout coset from
+    /// the initial state (not injective on cosets, hence not reversible); if
+    /// `avoid_doubles` is set and some `p(a)` fixes the readout coset; or if a
+    /// requested subgroup-parity constraint is violated.
+    pub fn new(
+        state_size: usize,
+        plaintext_letters: Vec<Vec<usize>>,
+        initial_state: Vec<usize>,
+        coset_readout: CosetReadout,
+        options: GakKeyOptions,
+    ) -> Result<Self, CipherError> {
+        validate_gak_state_size(state_size)?;
+        validate_permutation("GAK initial state", &initial_state, state_size)?;
+        let ciphertext_alphabet_size = coset_readout.validate(state_size)?;
+        if plaintext_letters.is_empty() {
+            return Err(CipherError::EmptyGakLetters);
+        }
+
+        let base_coset = coset_readout.coset_of(&initial_state)?;
+        let mut seen_cosets = vec![false; ciphertext_alphabet_size];
+        for (letter_index, permutation) in plaintext_letters.iter().enumerate() {
+            validate_permutation("GAK plaintext letter", permutation, state_size)?;
+            validate_gak_letter_parity(permutation, options.subgroup, letter_index)?;
+
+            let updated = compose_permutations(permutation, &initial_state)?;
+            let coset = coset_readout.coset_of(&updated)?;
+            if options.avoid_doubles && coset == base_coset {
+                return Err(CipherError::GakLetterFixesCoset {
+                    letter_index,
+                    coset,
+                });
+            }
+            let Some(slot) = seen_cosets.get_mut(coset) else {
+                return Err(CipherError::InternalInvariant {
+                    context: "GAK coset seen lookup",
+                });
+            };
+            if *slot {
+                return Err(CipherError::GakLettersShareCoset {
+                    coset,
+                    duplicate_index: letter_index,
+                });
+            }
+            *slot = true;
+        }
+
+        // The identity-state injectivity check above is PROVEN sufficient for
+        // the TopCard deck readout (its readout is itself the right-coset
+        // projection, so per-state injectivity follows from the identity case).
+        // It is NOT sufficient for an arbitrary supplied coset table, so those
+        // require full reachable-state enumeration; see
+        // `validate_coset_table_invertible`.
+        if matches!(coset_readout, CosetReadout::CosetTable { .. }) {
+            validate_coset_table_invertible(&plaintext_letters, &initial_state, &coset_readout)?;
+        }
+
+        Ok(Self {
+            ciphertext_alphabet_size,
+            state_size,
+            plaintext_letters,
+            initial_state,
+            coset_readout,
+        })
+    }
+
+    /// Builds a deck-realization GAK key (`S_n`, hidden subgroup `S_{n-1}`).
+    ///
+    /// Uses the identity initial state and [`CosetReadout::TopCard`] tracking
+    /// the marked card `0`. The plaintext letters must already be permutations
+    /// of `0..n`; see [`GakKey::new`] for the validation rules.
+    ///
+    /// # Errors
+    /// Returns [`CipherError`] under the same conditions as [`GakKey::new`].
+    pub fn deck(
+        state_size: usize,
+        plaintext_letters: Vec<Vec<usize>>,
+        options: GakKeyOptions,
+    ) -> Result<Self, CipherError> {
+        let initial_state = identity_gak_permutation(state_size)?;
+        Self::new(
+            state_size,
+            plaintext_letters,
+            initial_state,
+            CosetReadout::TopCard { reference_value: 0 },
+            options,
+        )
+    }
+
+    /// Returns the ciphertext alphabet size `|C| = |G| / |H|`.
+    #[must_use]
+    pub const fn ciphertext_alphabet_size(&self) -> usize {
+        self.ciphertext_alphabet_size
+    }
+
+    /// Returns the permutation state size `n` (permutations act on `0..n`).
+    #[must_use]
+    pub const fn state_size(&self) -> usize {
+        self.state_size
+    }
+
+    /// Returns the per-letter permutations `p(a)` in plaintext-letter order.
+    #[must_use]
+    pub fn plaintext_letters(&self) -> &[Vec<usize>] {
+        &self.plaintext_letters
+    }
+
+    /// Returns the initial state permutation `g_0`.
+    #[must_use]
+    pub fn initial_state(&self) -> &[usize] {
+        &self.initial_state
+    }
+
+    /// Returns the hidden-subgroup coset readout `c: G -> C`.
+    #[must_use]
+    pub const fn coset_readout(&self) -> &CosetReadout {
+        &self.coset_readout
+    }
+}
+
 /// Encrypts with the Caesar additive shift cipher.
 ///
 /// Each plaintext symbol `p` is transformed to `(p + shift) mod N`.
@@ -821,6 +1325,69 @@ pub fn agl_gak_decrypt(ciphertext: &[Glyph], key: &AglGakKey) -> Result<Vec<Glyp
     Ok(output)
 }
 
+/// Encrypts with the general permutation-group GAK cipher.
+///
+/// Starting from `g_0`, each plaintext letter `a` updates the state by
+/// cumulative left-multiplication `g ← p(a) ∘ g` (in the
+/// `(f ∘ g)[i] = f[g[i]]` convention) and the emitted ciphertext symbol is the
+/// hidden-subgroup coset readout `c(g)`.
+///
+/// # Errors
+/// Returns [`CipherError::SymbolOutsideAlphabet`] if a plaintext letter is not a
+/// configured letter index, or [`CipherError::InternalInvariant`] if a validated
+/// permutation loses its invariant during composition or readout.
+pub fn gak_encrypt(plaintext: &[Glyph], key: &GakKey) -> Result<Vec<Glyph>, CipherError> {
+    let mut state = key.initial_state.clone();
+    let mut output = Vec::with_capacity(plaintext.len());
+    for glyph in plaintext.iter().copied() {
+        let letter = symbol_from_glyph(glyph, key.plaintext_letters.len())?;
+        let Some(permutation) = key.plaintext_letters.get(letter) else {
+            return Err(CipherError::InternalInvariant {
+                context: "GAK encrypt letter lookup",
+            });
+        };
+        // State update: left-multiplication g_{i+1} = p(a_i) ∘ g_i.
+        state = compose_permutations(permutation, &state)?;
+        let coset = key.coset_readout.coset_of(&state)?;
+        output.push(glyph_from_symbol(coset, key.ciphertext_alphabet_size)?);
+    }
+    Ok(output)
+}
+
+/// Decrypts a general permutation-group GAK ciphertext back to plaintext.
+///
+/// The cumulative state is replayed exactly as in encryption. At each step the
+/// constructor's guarantee that the plaintext letters are injective on cosets
+/// makes the next ciphertext coset identify a unique plaintext letter, which is
+/// emitted before the state is advanced by that letter's permutation. Decrypt
+/// therefore legitimately requires the key.
+///
+/// # Errors
+/// Returns [`CipherError::SymbolOutsideAlphabet`] for an out-of-range ciphertext
+/// symbol, or [`CipherError::InternalInvariant`] if no configured letter matches
+/// the observed coset or a validated permutation loses its invariant.
+pub fn gak_decrypt(ciphertext: &[Glyph], key: &GakKey) -> Result<Vec<Glyph>, CipherError> {
+    let mut state = key.initial_state.clone();
+    let mut output = Vec::with_capacity(ciphertext.len());
+    for glyph in ciphertext.iter().copied() {
+        let observed = symbol_from_glyph(glyph, key.ciphertext_alphabet_size)?;
+        let lookup = gak_step_lookup(&state, key)?;
+        let Some(letter) = lookup.get(&observed).copied() else {
+            return Err(CipherError::InternalInvariant {
+                context: "GAK ciphertext coset lookup",
+            });
+        };
+        let Some(permutation) = key.plaintext_letters.get(letter) else {
+            return Err(CipherError::InternalInvariant {
+                context: "GAK decrypt letter lookup",
+            });
+        };
+        output.push(glyph_from_symbol(letter, key.plaintext_letters.len())?);
+        state = compose_permutations(permutation, &state)?;
+    }
+    Ok(output)
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Direction {
     Encrypt,
@@ -862,6 +1429,180 @@ fn normalize_shifts(shifts: Vec<usize>, alphabet_size: usize) -> Vec<usize> {
 fn identity_permutation(alphabet_size: usize, min: usize) -> Result<Vec<usize>, CipherError> {
     validate_alphabet_size(alphabet_size, min)?;
     Ok((0..alphabet_size).collect())
+}
+
+fn validate_gak_state_size(state_size: usize) -> Result<(), CipherError> {
+    if !(2..=MAX_ALPHABET_SIZE).contains(&state_size) {
+        return Err(CipherError::InvalidGakStateSize {
+            state_size,
+            min: 2,
+            max: MAX_ALPHABET_SIZE,
+        });
+    }
+    Ok(())
+}
+
+fn identity_gak_permutation(state_size: usize) -> Result<Vec<usize>, CipherError> {
+    validate_gak_state_size(state_size)?;
+    Ok((0..state_size).collect())
+}
+
+/// Composes two permutations of `0..n` in the `(f ∘ g)[i] = f[g[i]]` convention.
+///
+/// `outer` and `inner` are assumed validated; an out-of-range image is reported
+/// as an internal invariant rather than panicking.
+fn compose_permutations(outer: &[usize], inner: &[usize]) -> Result<Vec<usize>, CipherError> {
+    let mut composed = Vec::with_capacity(inner.len());
+    for &image in inner {
+        let mapped = outer
+            .get(image)
+            .copied()
+            .ok_or(CipherError::InternalInvariant {
+                context: "GAK permutation composition index",
+            })?;
+        composed.push(mapped);
+    }
+    Ok(composed)
+}
+
+fn validate_gak_letter_parity(
+    permutation: &[usize],
+    subgroup: GakSubgroupConstraint,
+    letter_index: usize,
+) -> Result<(), CipherError> {
+    match subgroup {
+        GakSubgroupConstraint::SymmetricGroup => Ok(()),
+        GakSubgroupConstraint::AlternatingGroup => {
+            if permutation_parity_is_even(permutation)? {
+                Ok(())
+            } else {
+                Err(CipherError::GakLetterWrongParity { letter_index })
+            }
+        }
+    }
+}
+
+/// Returns `true` when a validated permutation of `0..n` is even.
+///
+/// Parity is the parity of `n` minus the number of disjoint cycles.
+fn permutation_parity_is_even(permutation: &[usize]) -> Result<bool, CipherError> {
+    let len = permutation.len();
+    let mut visited = vec![false; len];
+    let mut transpositions = 0usize;
+    for start in 0..len {
+        let Some(seen) = visited.get(start).copied() else {
+            return Err(CipherError::InternalInvariant {
+                context: "GAK parity visited lookup",
+            });
+        };
+        if seen {
+            continue;
+        }
+        let mut cursor = start;
+        let mut cycle_len = 0usize;
+        loop {
+            let Some(slot) = visited.get_mut(cursor) else {
+                return Err(CipherError::InternalInvariant {
+                    context: "GAK parity cursor lookup",
+                });
+            };
+            if *slot {
+                break;
+            }
+            *slot = true;
+            cycle_len += 1;
+            cursor = permutation
+                .get(cursor)
+                .copied()
+                .ok_or(CipherError::InternalInvariant {
+                    context: "GAK parity image lookup",
+                })?;
+        }
+        transpositions += cycle_len.saturating_sub(1);
+    }
+    Ok(transpositions.is_multiple_of(2))
+}
+
+fn gak_step_lookup(state: &[usize], key: &GakKey) -> Result<BTreeMap<usize, usize>, CipherError> {
+    let mut lookup = BTreeMap::new();
+    for (letter, permutation) in key.plaintext_letters.iter().enumerate() {
+        let next_state = compose_permutations(permutation, state)?;
+        let coset = key.coset_readout.coset_of(&next_state)?;
+        if lookup.insert(coset, letter).is_some() {
+            return Err(CipherError::InternalInvariant {
+                context: "GAK step lookup duplicate coset",
+            });
+        }
+    }
+    Ok(lookup)
+}
+
+/// Verifies a [`CosetReadout::CosetTable`] GAK key is decrypt-invertible by
+/// bounded enumeration of its reachable state set.
+///
+/// The identity-state injectivity check that suffices for
+/// [`CosetReadout::TopCard`] is *not* sufficient for an arbitrary supplied coset
+/// table: a coarser partition can merge points so two letters that separate from
+/// the identity state collide from another reachable state. The reachable states
+/// are `{ w ∘ initial_state : w ∈ ⟨p(a)⟩ }` where `⟨p(a)⟩` is the subgroup of
+/// `S_n` generated by the per-letter permutations. This enumerates that group by
+/// closure under composition (worklist from the identity plus the generators),
+/// then for each reachable state checks the per-letter readout `a ↦ c(p(a) ∘ g)`
+/// is injective.
+///
+/// Enumeration is capped at [`MAX_GAK_COSET_TABLE_GROUP`]; exceeding the cap
+/// yields [`CipherError::GakCosetTableGroupTooLarge`] rather than an unbounded
+/// loop or an unvalidated key.
+///
+/// # Errors
+/// [`CipherError::GakCosetTableNotInvertible`] when some reachable state admits a
+/// two-letter coset collision; [`CipherError::GakCosetTableGroupTooLarge`] when
+/// the generated state group exceeds the cap.
+fn validate_coset_table_invertible(
+    plaintext_letters: &[Vec<usize>],
+    initial_state: &[usize],
+    coset_readout: &CosetReadout,
+) -> Result<(), CipherError> {
+    let state_size = initial_state.len();
+    let identity: Vec<usize> = (0..state_size).collect();
+    let mut group: BTreeSet<Vec<usize>> = BTreeSet::new();
+    let mut worklist: Vec<Vec<usize>> = Vec::new();
+    if group.insert(identity.clone()) {
+        worklist.push(identity);
+    }
+    // BFS closure of ⟨p(a)⟩: pop an element, left-multiply by every generator,
+    // enqueue any newly discovered element until the group is closed.
+    while let Some(element) = worklist.pop() {
+        for generator in plaintext_letters {
+            let product = compose_permutations(generator, &element)?;
+            if group.insert(product.clone()) {
+                if group.len() > MAX_GAK_COSET_TABLE_GROUP {
+                    return Err(CipherError::GakCosetTableGroupTooLarge {
+                        cap: MAX_GAK_COSET_TABLE_GROUP,
+                    });
+                }
+                worklist.push(product);
+            }
+        }
+    }
+    // Every reachable state is w ∘ initial_state for w in the generated group;
+    // require per-letter readout injectivity from each.
+    for element in &group {
+        let state = compose_permutations(element, initial_state)?;
+        let mut seen: BTreeMap<usize, usize> = BTreeMap::new();
+        for (letter_index, permutation) in plaintext_letters.iter().enumerate() {
+            let updated = compose_permutations(permutation, &state)?;
+            let coset = coset_readout.coset_of(&updated)?;
+            if seen.insert(coset, letter_index).is_some() {
+                return Err(CipherError::GakCosetTableNotInvertible {
+                    state: state.clone(),
+                    coset,
+                    duplicate_index: letter_index,
+                });
+            }
+        }
+    }
+    Ok(())
 }
 
 fn validate_permutation(
@@ -1450,13 +2191,15 @@ fn deck_count_value(card: usize, key: &DeckCipherKey) -> usize {
 #[cfg(test)]
 mod tests {
     use super::{
-        AglGakKey, AglMultiplierSubgroup, CaesarKey, ChaocipherKey, DeckCipherKey,
-        EYE_READING_ALPHABET_SIZE, IncrementingWheelKey, VigenereKey, agl_apply, agl_compose,
-        agl_gak_decrypt, agl_gak_encrypt, caesar_decrypt, caesar_encrypt, chaocipher_decrypt,
-        chaocipher_encrypt, deck_cipher_decrypt, deck_cipher_encrypt, incrementing_wheel_decrypt,
-        incrementing_wheel_encrypt, vigenere_decrypt, vigenere_encrypt,
+        AglGakKey, AglMultiplierSubgroup, CaesarKey, ChaocipherKey, CipherError, CosetReadout,
+        DeckCipherKey, EYE_READING_ALPHABET_SIZE, GakKey, GakKeyOptions, GakSubgroupConstraint,
+        IncrementingWheelKey, VigenereKey, agl_apply, agl_compose, agl_gak_decrypt,
+        agl_gak_encrypt, caesar_decrypt, caesar_encrypt, chaocipher_decrypt, chaocipher_encrypt,
+        deck_cipher_decrypt, deck_cipher_encrypt, gak_decrypt, gak_encrypt,
+        incrementing_wheel_decrypt, incrementing_wheel_encrypt, vigenere_decrypt, vigenere_encrypt,
     };
     use crate::glyph::Glyph;
+    use crate::isomorph::PatternSignature;
     use crate::null::SplitMix64;
 
     #[test]
@@ -1700,6 +2443,385 @@ mod tests {
             let ciphertext = agl_gak_encrypt(&plaintext, key).unwrap();
             assert_eq!(agl_gak_decrypt(&ciphertext, key).unwrap(), plaintext);
         }
+    }
+
+    #[test]
+    fn gak_round_trips_random_plaintexts_small_and_eye() {
+        // Deck-realization (S_n, hidden subgroup S_{n-1}) GAK keys: one random
+        // small permutation per plaintext letter, then the full 83-symbol size.
+        let small_letters = random_distinct_coset_letters(7, 7, 0x6761_6b5f_736d);
+        let eye_letters = random_distinct_coset_letters(
+            EYE_READING_ALPHABET_SIZE,
+            EYE_READING_ALPHABET_SIZE,
+            0x6761_6b5f_6579,
+        );
+        let keys = [
+            GakKey::deck(7, small_letters, GakKeyOptions::default()).unwrap(),
+            GakKey::deck(
+                EYE_READING_ALPHABET_SIZE,
+                eye_letters,
+                GakKeyOptions::default(),
+            )
+            .unwrap(),
+        ];
+        for (index, key) in keys.iter().enumerate() {
+            let plaintext = random_plaintext(
+                0x6761_6b5f_7274 ^ index as u64,
+                277,
+                key.plaintext_letters().len(),
+            );
+            let ciphertext = gak_encrypt(&plaintext, key).unwrap();
+            assert_eq!(gak_decrypt(&ciphertext, key).unwrap(), plaintext);
+        }
+    }
+
+    #[test]
+    fn gak_reduces_to_gctak_when_hidden_subgroup_trivial() {
+        // Cyclic state group C_n realized as rotation permutations on 0..n with a
+        // bijective TopCard readout: H is trivial, so GAK must equal GCTAK. The
+        // independent reference is the cumulative-shift autokey on the rotation
+        // amounts.
+        let n = 11usize;
+        let shifts = [0usize, 1, 3, 5, 7, 9, 2, 4, 6, 8, 10];
+        let letters: Vec<Vec<usize>> = shifts.iter().map(|&s| rotation_permutation(n, s)).collect();
+        let key = GakKey::deck(n, letters, GakKeyOptions::default()).unwrap();
+
+        let plaintext = random_plaintext(0x6763_7461_6b21, 191, shifts.len());
+        let ciphertext = gak_encrypt(&plaintext, &key).unwrap();
+        let reference = gctak_rotation_reference(&plaintext, &shifts, n);
+        assert_eq!(values(&ciphertext), reference);
+        assert_eq!(gak_decrypt(&ciphertext, &key).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn gak_preserves_isomorph_pattern_on_repeated_phrase() {
+        // A plaintext with a repeated phrase must produce ciphertext windows
+        // whose first-occurrence equality patterns are identical at the repeats:
+        // the perfect-isomorph signal the attack needs to bite on.
+        let letters = random_distinct_coset_letters(7, 7, 0x6973_6f5f_6761);
+        let key = GakKey::deck(7, letters, GakKeyOptions::default()).unwrap();
+
+        let phrase = [1usize, 4, 1, 0, 3, 4];
+        let mut plaintext_values = Vec::new();
+        plaintext_values.extend_from_slice(&phrase);
+        plaintext_values.extend_from_slice(&[2, 5, 0]);
+        let first_start = plaintext_values.len();
+        plaintext_values.extend_from_slice(&phrase);
+        let plaintext = glyphs_from_usize(&plaintext_values);
+
+        let ciphertext = gak_encrypt(&plaintext, &key).unwrap();
+        let ct_owned = values_usize(&ciphertext);
+        let ct_values: &[usize] = &ct_owned;
+
+        // Both occurrences have length `phrase.len()`; fetch each via the
+        // windows iterator so no range indexing is needed.
+        let mut windows = ct_values.windows(phrase.len());
+        let first_window = windows.next().unwrap();
+        let first_signature = PatternSignature::from_window(first_window);
+        let second_window = windows.nth(first_start - 1).unwrap();
+        let second_signature = PatternSignature::from_window(second_window);
+        assert_eq!(first_signature, second_signature);
+        // Proving the *ciphertext* reproduces the isomorph: the CT window's own
+        // first-occurrence pattern must be non-trivial (have a repeated symbol),
+        // otherwise two all-distinct CT windows would also pass the equality
+        // above without any isomorph being carried into the ciphertext. The
+        // first/second signatures are equal, so checking either suffices.
+        assert!(
+            first_signature.has_repeated_symbol(),
+            "ciphertext window {first_window:?} is all-distinct, so no isomorph is reproduced"
+        );
+    }
+
+    #[test]
+    fn gak_avoid_doubles_forbids_adjacent_equal_ciphertext() {
+        // Surviving letters (rotations by 1..n, none in the identity coset)
+        // never repeat a ciphertext symbol back-to-back under avoid_doubles.
+        let n = 7usize;
+        let letters: Vec<Vec<usize>> = (1..n).map(|s| rotation_permutation(n, s)).collect();
+        let key = GakKey::deck(n, letters, avoid_doubles_options()).unwrap();
+
+        let plaintext = random_plaintext(0x6e6f_5f64_626c, 211, key.plaintext_letters().len());
+        let ciphertext = gak_encrypt(&plaintext, &key).unwrap();
+        let ct_values = values_usize(&ciphertext);
+        for pair in ct_values.windows(2) {
+            if let [a, b] = pair {
+                assert_ne!(a, b, "avoid_doubles produced adjacent-equal ciphertext");
+            }
+        }
+        assert_eq!(gak_decrypt(&ciphertext, &key).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn gak_avoid_doubles_rejects_letter_in_identity_coset() {
+        // The identity permutation (rotation by 0) fixes the readout coset of
+        // the identity initial state, so avoid_doubles must reject it at
+        // construction rather than silently allowing adjacent-equal ciphertext.
+        let n = 7usize;
+        // Pair the identity letter with a non-identity rotation so the only
+        // failure cause is the identity-coset rule, not coset collision.
+        let letters = vec![rotation_permutation(n, 0), rotation_permutation(n, 3)];
+        let error = GakKey::deck(n, letters, avoid_doubles_options()).unwrap_err();
+        // rotation(7,0) is the identity; its TopCard readout p^{-1}[0] = 0,
+        // the base coset, so letter 0 is the offender.
+        assert!(matches!(
+            error,
+            CipherError::GakLetterFixesCoset {
+                letter_index: 0,
+                coset: 0,
+            }
+        ));
+    }
+
+    #[test]
+    fn gak_rejects_letters_sharing_a_coset() {
+        // Two DISTINCT plaintext letters whose TopCard image (the position of
+        // card 0) coincides collide on the same coset from the identity state,
+        // so construction must fail (no panic). Both place card 0 at index 2 but
+        // differ elsewhere, so this is a genuine coset collision, not equality.
+        let n = 5usize;
+        let letter_a = vec![1usize, 3, 0, 4, 2];
+        let letter_b = vec![4usize, 1, 0, 2, 3];
+        assert_ne!(letter_a, letter_b, "letters must be distinct permutations");
+        let letters = vec![letter_a, letter_b];
+        let error = GakKey::deck(n, letters, GakKeyOptions::default()).unwrap_err();
+        // Under left-update p ∘ identity = p, the readout p^{-1}[0] = 2 for both.
+        assert!(matches!(
+            error,
+            CipherError::GakLettersShareCoset {
+                coset: 2,
+                duplicate_index: 1,
+            }
+        ));
+    }
+
+    #[test]
+    fn gak_rejects_non_permutation_letter() {
+        // A malformed letter (repeats symbol 0, omits 4) is caught by the shared
+        // validate_permutation helper rather than silently accepted.
+        let n = 5usize;
+        let letters = vec![vec![0usize, 1, 2, 3, 0]];
+        let error = GakKey::deck(n, letters, GakKeyOptions::default()).unwrap_err();
+        assert!(matches!(
+            error,
+            CipherError::DuplicatePermutationSymbol {
+                label: "GAK plaintext letter",
+                symbol: 0,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn gak_alternating_subgroup_rejects_odd_permutation() {
+        // A single transposition is odd, so the A_n parity constraint rejects it.
+        let n = 5usize;
+        let mut odd = identity_usize(n);
+        odd.swap(0, 1);
+        let options = GakKeyOptions {
+            avoid_doubles: false,
+            subgroup: GakSubgroupConstraint::AlternatingGroup,
+        };
+        let error = GakKey::deck(n, vec![odd], options).unwrap_err();
+        assert!(matches!(
+            error,
+            CipherError::GakLetterWrongParity { letter_index: 0 }
+        ));
+    }
+
+    #[test]
+    fn gak_round_trips_accepted_coset_table_key() {
+        // A genuine, *coarser* right-coset projection of the Klein four-group
+        // V_4 = {id, a, b, ab} on 0..4, hidden subgroup H = {id, a}. The cosets
+        // are H (card-0 positions 0,1) and Hb (positions 2,3), so the projection
+        // coset_of = [0,0,1,1] merges pairs and emits only |C| = 2 symbols. This
+        // is a valid key the new reachable-state validator must accept and that
+        // must round-trip exactly.
+        let n = 4usize;
+        let a = vec![1usize, 0, 3, 2]; // (0 1)(2 3)
+        let b = vec![2usize, 3, 0, 1]; // (0 2)(1 3)
+        let readout = CosetReadout::CosetTable {
+            reference_value: 0,
+            coset_of: vec![0usize, 0, 1, 1],
+        };
+        let key = GakKey::new(
+            n,
+            vec![a, b],
+            identity_usize(n),
+            readout,
+            GakKeyOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(key.ciphertext_alphabet_size(), 2);
+
+        let plaintext = random_plaintext(0x636f_7365_7421, 233, key.plaintext_letters().len());
+        let ciphertext = gak_encrypt(&plaintext, &key).unwrap();
+        assert_eq!(gak_decrypt(&ciphertext, &key).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn gak_round_trips_non_identity_initial_state() {
+        // Non-identity initial state g_0 = rot(5,2) with rotation letters whose
+        // readouts from g_0 are distinct; decrypt replays the same g_0.
+        let n = 5usize;
+        let initial = rotation_permutation(n, 2);
+        let letters: Vec<Vec<usize>> = (1..n).map(|s| rotation_permutation(n, s)).collect();
+        let key = GakKey::new(
+            n,
+            letters,
+            initial,
+            CosetReadout::TopCard { reference_value: 0 },
+            GakKeyOptions::default(),
+        )
+        .unwrap();
+
+        let plaintext = random_plaintext(0x6e6f_6e69_6432, 199, key.plaintext_letters().len());
+        let ciphertext = gak_encrypt(&plaintext, &key).unwrap();
+        assert_eq!(gak_decrypt(&ciphertext, &key).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn gak_round_trips_alternating_subgroup_key() {
+        // Four even permutations of 0..4 (A_4) with distinct card-0 positions, so
+        // the parity constraint accepts them and the coset readouts are distinct.
+        let n = 4usize;
+        let letters = vec![
+            identity_usize(n),
+            vec![1usize, 0, 3, 2],
+            vec![1usize, 2, 0, 3],
+            vec![1usize, 3, 2, 0],
+        ];
+        let options = GakKeyOptions {
+            avoid_doubles: false,
+            subgroup: GakSubgroupConstraint::AlternatingGroup,
+        };
+        let key = GakKey::deck(n, letters, options).unwrap();
+
+        let plaintext = random_plaintext(0x615f_6e5f_6b65_7921, 223, key.plaintext_letters().len());
+        let ciphertext = gak_encrypt(&plaintext, &key).unwrap();
+        assert_eq!(gak_decrypt(&ciphertext, &key).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn gak_rejects_non_invertible_coset_table() {
+        // P0 regression. n=3, CosetTable{ref 0, coset_of [0,1,1]}, letters
+        // id=[0,1,2] and q=[2,0,1]. From the identity state the two letters land
+        // in distinct cosets (0 and 1), so the cheap identity-only check passes;
+        // but plaintexts [1,0] and [1,1] both encrypt to [1,1], so the key is NOT
+        // invertible. The reachable-state validator must reject it: from state
+        // [2,0,1] both letters project to coset 1.
+        let n = 3usize;
+        let letters = vec![vec![0usize, 1, 2], vec![2usize, 0, 1]];
+        let readout = CosetReadout::CosetTable {
+            reference_value: 0,
+            coset_of: vec![0usize, 1, 1],
+        };
+        let error = GakKey::new(
+            n,
+            letters,
+            identity_usize(n),
+            readout,
+            GakKeyOptions::default(),
+        )
+        .unwrap_err();
+        assert!(
+            matches!(
+                error,
+                CipherError::GakCosetTableNotInvertible {
+                    coset: 1,
+                    duplicate_index: 1,
+                    ..
+                }
+            ),
+            "expected GakCosetTableNotInvertible, got {error:?}"
+        );
+    }
+
+    #[test]
+    fn gak_rejects_oversize_coset_table() {
+        // P1 regression. A coset label too large to encode as a Glyph (and to
+        // allocate a seen-cosets table for) must be rejected at construction,
+        // not allowed to reach an impossible allocation or a non-encodable
+        // emitted symbol.
+        let n = 3usize;
+        let readout = CosetReadout::CosetTable {
+            reference_value: 0,
+            coset_of: vec![0usize, 1, usize::MAX - 1],
+        };
+        let error = GakKey::new(
+            n,
+            vec![identity_usize(n)],
+            identity_usize(n),
+            readout,
+            GakKeyOptions::default(),
+        )
+        .unwrap_err();
+        assert!(
+            matches!(error, CipherError::GakReadoutCosetOutsideAlphabet { .. }),
+            "expected GakReadoutCosetOutsideAlphabet, got {error:?}"
+        );
+    }
+
+    fn rotation_permutation(n: usize, shift: usize) -> Vec<usize> {
+        (0..n).map(|i| (i + shift) % n).collect()
+    }
+
+    fn identity_usize(n: usize) -> Vec<usize> {
+        (0..n).collect()
+    }
+
+    fn avoid_doubles_options() -> GakKeyOptions {
+        GakKeyOptions {
+            avoid_doubles: true,
+            subgroup: GakSubgroupConstraint::SymmetricGroup,
+        }
+    }
+
+    fn gctak_rotation_reference(plaintext: &[Glyph], shifts: &[usize], n: usize) -> Vec<u16> {
+        // Independent reference: under left-update g <- rot(s) o g from identity,
+        // the cumulative state is rot(S) with S the running shift-sum, and the
+        // inverse-image readout g^{-1}[0] is the position holding card 0, i.e.
+        // (n - S) mod n. This is a bijection of S, so it is a valid GCTAK output.
+        let mut cumulative = 0usize;
+        let mut output = Vec::with_capacity(plaintext.len());
+        for glyph in plaintext {
+            let letter = usize::from(glyph.0);
+            let shift = shifts.get(letter).copied().unwrap();
+            cumulative = (cumulative + shift) % n;
+            output.push(((n - cumulative) % n) as u16);
+        }
+        output
+    }
+
+    /// Draws `count` random permutations of `0..n` whose inverse-image readouts
+    /// (the position holding card 0, `p^{-1}[0]`) are all distinct, so the
+    /// deck-realization coset-injectivity rule holds. Requires `count <= n`.
+    fn random_distinct_coset_letters(n: usize, count: usize, seed: u64) -> Vec<Vec<usize>> {
+        let mut rng = SplitMix64::new(seed);
+        let mut letters: Vec<Vec<usize>> = Vec::with_capacity(count);
+        let mut used_position = vec![false; n];
+        let mut produced = 0usize;
+        while produced < count {
+            let mut perm = (0..n).collect::<Vec<_>>();
+            let mut unswapped = perm.len();
+            while unswapped > 1 {
+                let last = unswapped - 1;
+                let partner = random_index_below(unswapped, &mut rng);
+                perm.swap(last, partner);
+                unswapped = last;
+            }
+            let zero_position = perm.iter().position(|&entry| entry == 0).unwrap();
+            let slot: &mut bool = used_position.as_mut_slice().get_mut(zero_position).unwrap();
+            if !*slot {
+                *slot = true;
+                letters.push(perm);
+                produced += 1;
+            }
+        }
+        letters
+    }
+
+    fn values_usize(glyphs: &[Glyph]) -> Vec<usize> {
+        glyphs.iter().map(|glyph| usize::from(glyph.0)).collect()
     }
 
     fn wrong_left_update_encrypt(plaintext: &[Glyph], key: &AglGakKey) -> Vec<u16> {
