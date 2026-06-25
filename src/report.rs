@@ -3740,40 +3740,48 @@ fn format_probability(value: f64) -> String {
     }
 }
 
-/// Prints the Thread 2 AGL(1,83)-GAK stress-test report.
-pub fn print_agl_gak_report(report: &agl_gak::AglGakReport) {
-    println!("Thread 2 AGL(1,83)-GAK stress test");
-    println!("order: {}", report.order.name());
-    println!("seed: {}", report.config.seed);
-    println!(
+/// Renders the Thread 2 AGL(1,83)-GAK stress-test report.
+#[must_use]
+pub fn render_agl_gak_report(report: &agl_gak::AglGakReport) -> String {
+    let mut out = String::new();
+    appendln!(&mut out, "Thread 2 AGL(1,83)-GAK stress test");
+    appendln!(&mut out, "order: {}", report.order.name());
+    appendln!(&mut out, "seed: {}", report.config.seed);
+    appendln!(
+        &mut out,
         "forward-simulation trials per subgroup: {}",
         report.config.null_trials
     );
-    println!(
+    appendln!(
+        &mut out,
         "subgroups: C83:C82 and C83:C41 (preferred display order starts with {})",
         format_agl_subgroup(report.config.subgroup)
     );
-    println!(
+    appendln!(
+        &mut out,
         "mode: {}",
         match report.config.mode {
             agl_gak::AglGakMode::FeasibilityOnly => "feasibility-only",
             agl_gak::AglGakMode::FeasibilityAndFit => "feasibility+fit requested",
         }
     );
-    println!(
+    appendln!(
+        &mut out,
         "wiki pages under test: Affine-General-Linear-Group-(AGL).md; The-Transitivity-Restriction-(6-Groups-for-83).md; Message-Starts.md; Shared-Sections.md; Isomorphic-Cipher-Hierarchy.md"
     );
-    println!();
-    print_agl_gak_observed(report);
-    println!();
-    print_agl_gak_subgroups(report);
-    println!();
-    print_agl_gak_interpretation(report);
+    appendln!(&mut out);
+    append_agl_gak_observed(&mut out, report);
+    appendln!(&mut out);
+    append_agl_gak_subgroups(&mut out, report);
+    appendln!(&mut out);
+    append_agl_gak_interpretation(&mut out, report);
+    out
 }
 
-fn print_agl_gak_observed(report: &agl_gak::AglGakReport) {
-    println!("observed mapping-independent structure");
-    println!(
+fn append_agl_gak_observed(out: &mut String, report: &agl_gak::AglGakReport) {
+    appendln!(out, "observed mapping-independent structure");
+    appendln!(
+        out,
         "  first symbols: {}",
         report
             .message_first_symbols
@@ -3783,7 +3791,8 @@ fn print_agl_gak_observed(report: &agl_gak::AglGakReport) {
             .join(", ")
     );
     match &report.global_prefix {
-        Some(prefix) => println!(
+        Some(prefix) => appendln!(
+            out,
             "  all-message shared prefix: start {} len {} values {} distinct {}/{}",
             prefix.start,
             prefix.len,
@@ -3791,19 +3800,21 @@ fn print_agl_gak_observed(report: &agl_gak::AglGakReport) {
             prefix.distinct_symbols,
             prefix.len
         ),
-        None => println!("  all-message shared prefix: none"),
+        None => appendln!(out, "  all-message shared prefix: none"),
     }
-    println!(
+    appendln!(
+        out,
         "  selected shared-run lengths: {}",
         format_usize_values(&report.shared_run_lengths)
     );
-    println!("  selected varying-run anchors:");
+    appendln!(out, "  selected varying-run anchors:");
     for run in report
         .shared_runs
         .iter()
         .filter(|run| run.differing_predecessor && run.varying)
     {
-        println!(
+        appendln!(
+            out,
             "    {}/{} start {} len {} distinct {}/{} role {}",
             run.left_key,
             run.right_key,
@@ -3816,17 +3827,25 @@ fn print_agl_gak_observed(report: &agl_gak::AglGakReport) {
     }
 }
 
-fn print_agl_gak_subgroups(report: &agl_gak::AglGakReport) {
-    println!("subgroup verdicts");
+fn append_agl_gak_subgroups(out: &mut String, report: &agl_gak::AglGakReport) {
+    appendln!(out, "subgroup verdicts");
     // The "fixed>=2/universe" denominator is the exhaustive differing-discrepancy
     // universe size (6724 for C83:C82, 3362 for C83:C41); naming it makes clear the
     // exclusion is exhaustive over that universe rather than sampled.
-    println!(
+    appendln!(
+        out,
         "  {:<8} {:<9} {:>12} {:>16} {:>17} {:>14} {:<12}",
-        "group", "verdict", "agreement", "forward", "fixed>=2/universe", "max fixed", "controls"
+        "group",
+        "verdict",
+        "agreement",
+        "forward",
+        "fixed>=2/universe",
+        "max fixed",
+        "controls"
     );
     for subgroup in &report.subgroup_reports {
-        println!(
+        appendln!(
+            out,
             "  {:<8} {:<9} {:>5}/{:<6} {:>7}/{:<8} {:>7}/{:<9} {:>14} {:<12}",
             format_agl_subgroup(subgroup.subgroup),
             format_agl_verdict(subgroup.verdict),
@@ -3840,7 +3859,8 @@ fn print_agl_gak_subgroups(report: &agl_gak::AglGakReport) {
             format_agl_controls(subgroup.positive_controls)
         );
         if let Some(obstruction) = &subgroup.obstruction {
-            println!(
+            appendln!(
+                out,
                 "    obstruction: {}/{} start {} len {} distinct {}/{} after predecessors {} vs {}",
                 obstruction.left_key,
                 obstruction.right_key,
@@ -3852,36 +3872,42 @@ fn print_agl_gak_subgroups(report: &agl_gak::AglGakReport) {
                 obstruction.right_predecessor
             );
         }
-        println!(
+        appendln!(
+            out,
             "    forward add-one p for a varying shared run: {}",
             format_probability(subgroup.forward_simulation.add_one_p_value)
         );
         if subgroup.fit_attempted {
-            println!(
+            appendln!(
+                out,
                 "    fit: requested, but no fit is retained after the exhaustive structural exclusion"
             );
         }
     }
 }
 
-fn print_agl_gak_interpretation(report: &agl_gak::AglGakReport) {
+fn append_agl_gak_interpretation(out: &mut String, report: &agl_gak::AglGakReport) {
     let all_excluded = report
         .subgroup_reports
         .iter()
         .all(|subgroup| subgroup.verdict == agl_gak::AglGakVerdict::Excluded);
     if all_excluded {
-        println!(
+        appendln!(
+            out,
             "Interpretation: AGL(1,83)-GAK is rigorously excluded for both C83:C82 and C83:C41 under the verified right-multiplication / left-coset model. The wiki's tentative message-start exclusion was over-conceded / weaker than needed: the rigorous kill is the varying-shared-run mechanism. After a differing start, an affine discrepancy can fix at most one point, so any AGL shared run must be constant; the eyes' shared runs vary."
         );
     } else {
-        println!(
+        appendln!(
+            out,
             "Interpretation: this run did not exclude every requested AGL subgroup. Treat any structural fit as a hypothesis to kill with held-out isomorphs, not as a decode."
         );
     }
-    println!(
+    appendln!(
+        out,
         "Claim ceiling: this excludes one candidate group family and narrows the transitive GAK candidate set toward {{A83, S83}}, with D166 conditional elsewhere. It says nothing about recoverable plaintext; the eyes remain deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext. Scope: this excludes the point-stabilizer AGL-GAK family (output = moved reference point, single shared running key); it does not speak to non-GAK affine constructions or a non-point-stabilizer hidden subgroup."
     );
-    println!(
+    appendln!(
+        out,
         "Multiplicity note: both AGL multiplier variants are tested, and the repeated tails reported here are structural/exhaustive checks rather than language-scoring claims."
     );
 }

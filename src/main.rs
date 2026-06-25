@@ -683,7 +683,7 @@ fn run_agl_gak(config: agl_gak::AglGakConfig) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    report::print_agl_gak_report(&report);
+    print!("{}", report::render_agl_gak_report(&report));
     ExitCode::SUCCESS
 }
 
