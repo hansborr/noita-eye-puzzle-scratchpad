@@ -17,7 +17,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::mem::size_of;
 
-use crate::null::{SplitMix64, fisher_yates};
+use crate::null::{SplitMix64, add_one_p_value, fisher_yates};
 use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::perseus::{self, SharedPartition};
 use crate::trigram::TrigramValue;
@@ -303,7 +303,7 @@ fn report_from_segment_messages(
     let rows = rows
         .into_iter()
         .map(RowAccumulator::into_report_row)
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Vec<_>>();
     let lengths = message_values.iter().map(Vec::len).collect::<Vec<_>>();
     let total_length = lengths.iter().sum();
     let tail_lengths = tail_summaries(residual_messages);
@@ -405,14 +405,14 @@ impl RowAccumulator {
         self.samples.push(sample);
     }
 
-    fn into_report_row(self) -> Result<TreeResidualRow, TreeResidualError> {
-        let lower_tail_p = add_one_p_value(self.lower_tail_count, self.samples.len())?;
-        let upper_tail_p = add_one_p_value(self.upper_tail_count, self.samples.len())?;
+    fn into_report_row(self) -> TreeResidualRow {
+        let lower_tail_p = add_one_p_value(self.lower_tail_count, self.samples.len());
+        let upper_tail_p = add_one_p_value(self.upper_tail_count, self.samples.len());
         let two_sided_p = (2.0 * lower_tail_p.min(upper_tail_p)).min(1.0);
         let null = null_band(&self.samples);
         let significant_excess =
             self.observed.shared_distinct_ngrams > null.q975 && upper_tail_p <= SIGNIFICANCE_ALPHA;
-        Ok(TreeResidualRow {
+        TreeResidualRow {
             scope: self.scope,
             k: self.k,
             observed: self.observed,
@@ -423,7 +423,7 @@ impl RowAccumulator {
             upper_tail_p,
             two_sided_p,
             significant_excess,
-        })
+        }
     }
 }
 
@@ -657,16 +657,6 @@ fn null_band(samples: &[usize]) -> CrossTailNullBand {
         q975: quantile_from_sorted(&sorted, 975, 1_000),
         max: sorted.last().copied().unwrap_or_default(),
     }
-}
-
-fn add_one_p_value(count: usize, samples: usize) -> Result<f64, TreeResidualError> {
-    let numerator = count
-        .checked_add(1)
-        .ok_or(TreeResidualError::SampleCountTooLarge)?;
-    let denominator = samples
-        .checked_add(1)
-        .ok_or(TreeResidualError::SampleCountTooLarge)?;
-    Ok(numerator as f64 / denominator as f64)
 }
 
 fn mean_usize(samples: &[usize]) -> f64 {

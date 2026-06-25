@@ -16,7 +16,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::null::{SplitMix64, fisher_yates};
+use crate::null::{SplitMix64, add_one_p_value, fisher_yates};
 use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::trigram::TrigramValue;
 
@@ -84,8 +84,6 @@ pub enum PerseusError {
         /// Requested exclusive upper bound.
         bound: usize,
     },
-    /// The configured trial count was too large for add-one calibration.
-    TrialCountTooLarge,
 }
 
 impl From<GridError> for PerseusError {
@@ -365,7 +363,7 @@ fn report_from_partition(
     }
 
     let null = recurrence_null_band(&recurrence_counts, observed.tested_shared_occurrences);
-    let empirical_p = add_one_p_value(empirical_p_count, config.trials)?;
+    let empirical_p = add_one_p_value(empirical_p_count, config.trials);
     let significant =
         observed.recurrent_occurrences <= null.count_q025 && empirical_p <= SIGNIFICANCE_ALPHA;
     let lengths = message_values.iter().map(Vec::len).collect::<Vec<_>>();
@@ -848,16 +846,6 @@ fn recurrence_null_band(samples: &[usize], denominator: usize) -> RecurrenceNull
         rate_median: rate_f64(count_median, denominator),
         rate_q975: rate(count_q975, denominator),
     }
-}
-
-fn add_one_p_value(count: usize, trials: usize) -> Result<f64, PerseusError> {
-    let numerator = count
-        .checked_add(1)
-        .ok_or(PerseusError::TrialCountTooLarge)?;
-    let denominator = trials
-        .checked_add(1)
-        .ok_or(PerseusError::TrialCountTooLarge)?;
-    Ok(numerator as f64 / denominator as f64)
 }
 
 fn mean_usize(samples: &[usize]) -> f64 {

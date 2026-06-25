@@ -71,7 +71,8 @@ prints may be stronger. In particular:
   exact-round-trip cipher-key test template: follow `notes/api-infra.md` verbatim
   (four-file touch: `src/<module>.rs`, `lib.rs`, `report.rs`, `main.rs`; new keys go
   in `ciphers.rs`). `unsafe` forbidden; no `unwrap`/`panic`/`indexing_slicing` in
-  lib/CLI; every `pub` item documented; `--locked`; reuse `null.rs` PRNG only.
+  lib/CLI; every `pub` item documented; `--locked`; reuse `null.rs` PRNG/p-value
+  helpers.
 
 ---
 
@@ -214,8 +215,7 @@ positive-control pattern, gated by a `MIN_MARGIN`-style threshold; a failure is 
    with a **matched null**: the same recovery pipeline run on a within-message
    multiset shuffle (`null::fisher_yates` over `message_values.to_vec()`, exactly as
    `isomorph_null.rs`) must do **markedly worse** — the recovered fraction on real
-   structure must exceed the shuffle-null band (add-one empirical p
-   `(count+1)/(trials+1)`).
+   structure must exceed the shuffle-null band (`null::add_one_p_value`).
 
 ---
 
@@ -339,9 +339,10 @@ unconstrained fit is almost certainly a coincidence. Do not report it as a decod
   connected-component coverage (hard dependency; build synthetic analogue if absent
   and flag it).
 - `isomorph.rs` (`PatternSignature::from_window` — cross-message alignment primitive),
-  `isomorph_null.rs` (within-message multiset shuffle null + add-one p),
-  `perseus.rs` (alignment anchors), `null.rs` (PRNG — `SplitMix64`, `fisher_yates`,
-  `shuffled_permutation`, `stateless_splitmix`, `random_index_below`; reuse only),
+  `isomorph_null.rs` (within-message multiset shuffle null),
+  `perseus.rs` (alignment anchors), `null.rs` (PRNG/p-value helpers —
+  `SplitMix64`, `fisher_yates`, `shuffled_permutation`, `stateless_splitmix`,
+  `mix_seed`, `random_index_below`, `add_one_p_value`; reuse only),
   `analysis.rs` (chi-square / IoC), `orders.rs`+`corpus.rs` (verified streams).
 - Wiring: `notes/api-infra.md` four-file pattern (module + `lib.rs` + `report.rs` +
   `main.rs`), with a `gak-attack` CLI subcommand and a report whose `Interpretation:`

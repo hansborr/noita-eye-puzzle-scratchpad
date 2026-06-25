@@ -367,7 +367,7 @@ for *random* first-symbol vectors too, making a pass uninformative?
 
 - **Null model:** draw random 9-tuples of distinct first symbols (uniform over
   the `83`-symbol alphabet, via `null::SplitMix64` + `random_index_below`,
-  per-trial seed from `mix_seed(seed, trial)`), and run the same
+  per-trial seed from `null::mix_seed(seed, trial)`), and run the same
   common-stabilizer-coset feasibility test. Report the **fraction of random
   start-vectors that pass**. Per note 2c the *pairwise* pass rate is ≈98.78%, so
   a *9-message* pass is expected to be common unless the eyes' starts are special;
@@ -694,7 +694,7 @@ simultaneous across all nine messages, so the report must carry all nine.
 | Corpus, no remapping | `orders::corpus_grids` / `read_corpus_message_values` / `accepted_honeycomb_order`; `READING_LAYER_ALPHABET_SIZE=83` | `orders.rs:183,483,24`; usage `perseus.rs:324–331` |
 | Shared-run anchors + differing first symbols | `perseus::build_shared_partition` → `SharedPartition.selected_pair_runs` / `leading_start` (`same_offset_common_runs`) | `perseus.rs:396,407,466`; `corpus.rs` messages east1/west1/east2 = ids 0,1,2 |
 | Part B isomorph constraints | `isomorph::detect_isomorphs` / `PatternSignature::from_window` | `isomorph.rs:212,38` |
-| Null PRNG (deterministic) | `null::{SplitMix64, random_index_below, fisher_yates, shuffled_permutation, stateless_splitmix}` + a local `mix_seed` | `null.rs:27,91,111,127,70` |
+| Null PRNG (deterministic) | `null::{SplitMix64, random_index_below, fisher_yates, shuffled_permutation, stateless_splitmix, mix_seed}` | `null.rs:27,112,132,148,70,91` |
 | Module/CLI/report wiring | the four-file pattern; `run_perseus`/`run_pyry` as cleanest templates | `lib.rs:62–88`; `main.rs:242,609,684`; `report.rs` format/print fns |
 | New | `AglGakKey` + `agl_gak_encrypt/_decrypt` (ciphers.rs); `agl_gak.rs` feasibility/enumeration + null + controls | — |
 

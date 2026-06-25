@@ -123,9 +123,6 @@ pub fn format_isomorph_null_error(error: isomorph_null::IsomorphNullError) -> St
         isomorph_null::IsomorphNullError::RandomBoundTooLarge { bound } => {
             format!("shuffle bound {bound} is too large")
         }
-        isomorph_null::IsomorphNullError::TrialCountTooLarge => {
-            "trial count is too large for add-one p-value calibration".to_owned()
-        }
     }
 }
 
@@ -196,9 +193,6 @@ pub fn format_chaining_graph_error(error: &chaining_graph::ChainingGraphError) -
         } => format!(
             "positive control failed: real conflicts {conflicts}, null max {null_max_conflicts}, required margin {required_margin}, expected {expected_symbols} touched symbols, observed {observed_symbols}"
         ),
-        chaining_graph::ChainingGraphError::TrialCountTooLarge => {
-            "trial count is too large for add-one p-value calibration".to_owned()
-        }
     }
 }
 
@@ -275,9 +269,6 @@ pub fn format_perseus_error(error: perseus::PerseusError) -> String {
         }
         perseus::PerseusError::RandomBoundTooLarge { bound } => {
             format!("shuffle bound {bound} is too large")
-        }
-        perseus::PerseusError::TrialCountTooLarge => {
-            "trial count is too large for add-one p-value calibration".to_owned()
         }
     }
 }

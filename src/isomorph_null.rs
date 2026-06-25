@@ -5,7 +5,7 @@
 //! tests arrangement only; symbol frequencies are held fixed.
 
 use crate::isomorph::{self, IsomorphError};
-use crate::null::{SplitMix64, fisher_yates};
+use crate::null::{SplitMix64, add_one_p_value, fisher_yates};
 use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::trigram::TrigramValue;
 
@@ -63,8 +63,6 @@ pub enum IsomorphNullError {
         /// Requested exclusive upper bound.
         bound: usize,
     },
-    /// The configured trial count was too large for add-one calibration.
-    TrialCountTooLarge,
 }
 
 impl From<GridError> for IsomorphNullError {
@@ -204,16 +202,16 @@ fn report_from_message_values(
         .zip(samples_by_window)
         .zip(empirical_p_counts)
         .map(|((real_summary, samples), empirical_p_count)| {
-            let empirical_p = add_one_p_value(empirical_p_count, config.trials)?;
-            Ok(IsomorphNullRow {
+            let empirical_p = add_one_p_value(empirical_p_count, config.trials);
+            IsomorphNullRow {
                 window: real_summary.window,
                 real: real_summary.summary,
                 null: null_band(&samples),
                 empirical_p_count,
                 empirical_p,
-            })
+            }
         })
-        .collect::<Result<Vec<_>, IsomorphNullError>>()?;
+        .collect::<Vec<_>>();
 
     let lengths = message_values.iter().map(Vec::len).collect::<Vec<_>>();
     let total_length = lengths.iter().sum();
@@ -314,16 +312,6 @@ fn null_band(samples: &[usize]) -> IsomorphNullBand {
         q975: quantile_from_sorted(&sorted, 975, 1_000),
         max: sorted.last().copied().unwrap_or_default(),
     }
-}
-
-fn add_one_p_value(count: usize, trials: usize) -> Result<f64, IsomorphNullError> {
-    let numerator = count
-        .checked_add(1)
-        .ok_or(IsomorphNullError::TrialCountTooLarge)?;
-    let denominator = trials
-        .checked_add(1)
-        .ok_or(IsomorphNullError::TrialCountTooLarge)?;
-    Ok(numerator as f64 / denominator as f64)
 }
 
 fn mean(samples: &[usize]) -> f64 {

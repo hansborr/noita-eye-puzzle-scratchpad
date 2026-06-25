@@ -11,7 +11,9 @@ use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::isomorph::PatternSignature;
-use crate::null::{SplitMix64, fisher_yates, shuffled_permutation, stateless_splitmix};
+use crate::null::{
+    SplitMix64, add_one_p_value, fisher_yates, shuffled_permutation, stateless_splitmix,
+};
 use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::trigram::TrigramValue;
 
@@ -330,8 +332,6 @@ pub enum ChainingGraphError {
         /// Observed number of touched symbols.
         observed_symbols: usize,
     },
-    /// The configured trial count was too large for add-one calibration.
-    TrialCountTooLarge,
 }
 
 impl From<GridError> for ChainingGraphError {
@@ -965,7 +965,7 @@ fn run_shuffle_null(
         let graph = compute_graph(&shuffled, config.window_len, config.core_len)?;
         samples.push(&graph.catalogue, &graph.coverage);
     }
-    samples.into_null(real, config.trials)
+    Ok(samples.into_null(real, config.trials))
 }
 
 fn shuffled_messages(
@@ -997,63 +997,51 @@ impl NullSamples {
         self.component_count.push(coverage.component_count);
     }
 
-    fn into_null(
-        self,
-        real: &GraphComputation,
-        trials: usize,
-    ) -> Result<ConflictCoverageNull, ChainingGraphError> {
-        Ok(ConflictCoverageNull {
-            total_conflicts: upper_tail_stat(real.catalogue.total, &self.total_conflicts, trials)?,
+    fn into_null(self, real: &GraphComputation, trials: usize) -> ConflictCoverageNull {
+        ConflictCoverageNull {
+            total_conflicts: upper_tail_stat(real.catalogue.total, &self.total_conflicts, trials),
             independent_conflicts: upper_tail_stat(
                 real.catalogue.independent,
                 &self.independent_conflicts,
                 trials,
-            )?,
+            ),
             symbols_touched: upper_tail_stat(
                 real.coverage.symbols_touched,
                 &self.symbols_touched,
                 trials,
-            )?,
+            ),
             largest_component: upper_tail_stat(
                 real.coverage.largest_component,
                 &self.largest_component,
                 trials,
-            )?,
+            ),
             component_count: lower_tail_stat(
                 real.coverage.component_count,
                 &self.component_count,
                 trials,
-            )?,
-        })
+            ),
+        }
     }
 }
 
-fn upper_tail_stat(
-    real: usize,
-    samples: &[usize],
-    trials: usize,
-) -> Result<NullStatistic, ChainingGraphError> {
+fn upper_tail_stat(real: usize, samples: &[usize], trials: usize) -> NullStatistic {
     let empirical_p_count = samples.iter().filter(|sample| **sample >= real).count();
-    Ok(NullStatistic {
+    NullStatistic {
         real,
         band: null_band(samples),
         empirical_p_count,
-        empirical_p: add_one_p_value(empirical_p_count, trials)?,
-    })
+        empirical_p: add_one_p_value(empirical_p_count, trials),
+    }
 }
 
-fn lower_tail_stat(
-    real: usize,
-    samples: &[usize],
-    trials: usize,
-) -> Result<NullStatistic, ChainingGraphError> {
+fn lower_tail_stat(real: usize, samples: &[usize], trials: usize) -> NullStatistic {
     let empirical_p_count = samples.iter().filter(|sample| **sample <= real).count();
-    Ok(NullStatistic {
+    NullStatistic {
         real,
         band: null_band(samples),
         empirical_p_count,
-        empirical_p: add_one_p_value(empirical_p_count, trials)?,
-    })
+        empirical_p: add_one_p_value(empirical_p_count, trials),
+    }
 }
 
 fn null_band(samples: &[usize]) -> NullStatisticBand {
@@ -1067,16 +1055,6 @@ fn null_band(samples: &[usize]) -> NullStatisticBand {
         q975: quantile_from_sorted(&sorted, 975, 1_000),
         max: sorted.last().copied().unwrap_or_default(),
     }
-}
-
-fn add_one_p_value(count: usize, trials: usize) -> Result<f64, ChainingGraphError> {
-    let numerator = count
-        .checked_add(1)
-        .ok_or(ChainingGraphError::TrialCountTooLarge)?;
-    let denominator = trials
-        .checked_add(1)
-        .ok_or(ChainingGraphError::TrialCountTooLarge)?;
-    Ok(numerator as f64 / denominator as f64)
 }
 
 fn mean(samples: &[usize]) -> f64 {

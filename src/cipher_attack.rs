@@ -30,7 +30,7 @@ use crate::ciphers::{
 };
 use crate::glyph::Glyph;
 use crate::language::{LanguageError, LanguageModel, LanguageScore, english_model, finnish_model};
-use crate::null::{SplitMix64, fisher_yates, random_index_below};
+use crate::null::{SplitMix64, fisher_yates, mix_seed, random_index_below};
 use crate::orders::{self, GridError, ReadingOrder};
 use crate::trigram::TrigramValue;
 
@@ -1151,11 +1151,6 @@ fn random_distinct_control(
             return Ok(control_b);
         }
     }
-}
-
-fn mix_seed(seed: u64, tag: u64) -> u64 {
-    let mut rng = SplitMix64::new(seed ^ tag);
-    rng.next_u64()
 }
 
 fn format_prefix(values: &[usize], limit: usize) -> String {
