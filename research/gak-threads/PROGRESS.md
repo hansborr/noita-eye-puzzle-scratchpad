@@ -25,9 +25,9 @@ inline.
 | **1A** Transitivity restriction (6 groups for 83) | Theorem **re-derived two ways**, method cross-checked on 4 small primes | **AUDITED — holds** (conditional on the published 2-transitive-prime-degree classification; CFSG-dependent) | exactly **6** groups: `{C₈₃, D₁₆₆, C₈₃:C₄₁, AGL(1,83), A₈₃, S₈₃}`; solvable count = τ(82)=4, +`{A₈₃,S₈₃}`, +0 projective/Mathieu/sporadic | (proof note only — no Rust module; encoded as a test constant in `transitivity.rs`) | Optional: GAP `NrTransitiveGroups(83)` machine cross-check if GAP becomes available (the one residual gap) |
 | **1B** Dihedral GAK exclusion | Logic **sound**; cited triple reproduces **byte-for-byte**; contradiction reconstructed | **SUPPORTED but single-witness-fragile** — conditional on A1 (same plaintext) + A5 (one global config) | `D₁₆₆` excluded; order-83 forcing robust on 9-core, commutativity conflict lives **only** at over-extended col9; **0** typo-robust genuine witnesses besides the cited triple | [`specs/thread-1b-5-spec.md`](specs/thread-1b-5-spec.md) → `src/transitivity.rs` | **LANDED** (248fb32): `D₁₆₆` excluded conditionally / MEDIUM; exactly **1** pinned witness, `core_only=0`; HOLE 1/2 + A1–A5 + claim ceiling printed verbatim |
 | **5** Chaining graph (conflicts + coverage) | Prototype complete; broad + genuine tiers; null + positive control fire | **Quantified** (transitivity = *evidence for*, not proof) | broad: **79/83** touched, **1** component (untouched `{1,27,28,76}`); genuine: **28/83**, **5** comps `[14,4,4,4,2]`; ~900× null on conflicts | [`specs/thread-1b-5-spec.md`](specs/thread-1b-5-spec.md) → `src/chaining_graph.rs` | **LANDED** (248fb32): Rust v1 is **window-11 + shared-pivot only** (NOT comparable to the L=10..15 survey at left) — broad **2614** conflicts, **83/83** in **1** comp; core-supported **83/83** (a provenance filter, **not** the genuine tier); positive control real **46** > null-max **2** |
-| **2** AGL stress-test (the "soft link") | Prototype complete; **stronger** result than expected — *rigorous* exclusion | **FLAGGED-WITH-A-HOLE in the wiki, then KILLED by us** — wiki exclusion overstated; varying-shared-run argument is the rigorous kill | `AGL(1,83)` (both `C83:C82` & `C83:C41`) **excluded exhaustively**: shared run after a differing start must be **constant**; eyes' runs **vary** (20/24, 18/20). 0 violations / 40000; 0/2M forward sims | [`specs/thread-2-spec.md`](specs/thread-2-spec.md) → `src/agl_gak.rs` (+ `AglGakKey` in `ciphers.rs`) | Implement `agl_gak.rs`; report must record the wiki *over-conceded* and the *varying-run* mechanism |
-| **3** Perfect-isomorphism / allomorph scan | Prototype complete; classifier regression-hardened against 2 over-extension traps | **SUPPORTS (does not prove) perfect iso → keeps GAK family viable** | **0** robust internal violations at strong bar (null also 0); 1 loose-bar candidate (Stutter east4@65/west4@67) within null (p≈0.049); positive control `A.B.CB.AC` fires p<5e-4 | [`specs/thread-3-spec.md`](specs/thread-3-spec.md) → `src/perfect_isomorphism.rs` | Implement `perfect_isomorphism.rs`; emit the safe-isomorph extent list (16 spans) for Threads 1B/5/4 |
-| **4** GAK attack prototype (the prize) | **Spec only** — gated research spike | Targets the wiki's **stated open problem** (no known GAK attack) | none yet (no run); depends on Thread 5's `chaining_graph`; small-support ≤4-swap prior is **TENTATIVE** | [`specs/thread-4-spec.md`](specs/thread-4-spec.md) → `ciphers::GakKey` + `src/gak_attack.rs` | **GO** for the gated spike (see §4); Step-0 generator first, GCTAK solve = decisive gate |
+| **2** AGL stress-test (the "soft link") | Prototype complete; **stronger** result than expected — *rigorous* exclusion | **FLAGGED-WITH-A-HOLE in the wiki, then KILLED by us** — wiki exclusion overstated; varying-shared-run argument is the rigorous kill | `AGL(1,83)` (both `C83:C82` & `C83:C41`) **excluded exhaustively**: shared run after a differing start must be **constant**; eyes' runs **vary** (20/24, 18/20). 0 violations / 40000; 0/2M forward sims | [`specs/thread-2-spec.md`](specs/thread-2-spec.md) → `src/agl_gak.rs` (+ `AglGakKey` in `ciphers.rs`) | **LANDED** (a3413e7): both variants **RIGOROUSLY EXCLUDED**, exhaustively not statistically — fixed≥2 = **0/6724** (`C82`) and **0/3362** (`C41`), agreement violations 0/40000, forward sims 0/2M; verdict gates on the all-nine `(66,5)` prefix; report records the wiki *over-conceded* |
+| **3** Perfect-isomorphism / allomorph scan | Prototype complete; classifier regression-hardened against 2 over-extension traps | **SUPPORTS (does not prove) perfect iso → keeps GAK family viable** | **0** robust internal violations at strong bar (null also 0); 1 loose-bar candidate (Stutter east4@65/west4@67) within null (p≈0.049); positive control `A.B.CB.AC` fires p<5e-4 | [`specs/thread-3-spec.md`](specs/thread-3-spec.md) → `src/perfect_isomorphism.rs` | **LANDED** (47f0c51): **0** robust strong-bar internal violations over the full ≥3-repeat tier (matched null mean 0, max 0; add-one p 1.0) → **SUPPORTS** perfect iso; **16** safe-isomorph extents exported; both positive controls + 3A/3B/3C fire; review P0s (matched-null population, POST_MIN guard) fixed |
+| **4** GAK attack prototype (the prize) | **COMPLETE** — all six units landed; synthetic positive controls + measured tractability bound + honest eyes negative | Targets the wiki's **stated open problem** (no known GAK attack); standing eyes claim **unchanged** | Step 0 `GakKey`; GCTAK gate **PASSES** (synthetic, rate-beats-null, incl. dihedral); real-GAK deck = **PARTIAL** recovery bounded by **~0.8** measured hidden-state obstruction; idea-3 marginalization recovers **several-fold more** (≈5.9x@n=5), breaks as `(n-1)!` grows; eyes Step 3 = **NO surviving candidate** (held-out score 0, p=1.0) | [`specs/thread-4-spec.md`](specs/thread-4-spec.md) → `ciphers::GakKey` + `src/gak_attack.rs` | **DONE** (e7b88f8, d3b30fd, aaa9e9a, 1d928a2, 8aa7c53, 44d4ec4 — see §6). Decode **REMAINS BLOCKED** on the unknown symbol→meaning mapping |
 | **6** Binary / game-data re-exam | `data.wak` unpacked (14745 files) & scanned | **CLOSED — confirmed dead end** | **0** hits for eye-message digit strings, base-7/base-5 transform, or 83-entry table in shipped data; consistent with hardcoded `u32` constants in `noita.exe` | (n/a — no module) | Do not reopen; game data re-enters only as post-hoc verification for a Thread-4 candidate |
 
 ---
@@ -135,10 +135,14 @@ multiset-shuffle null; each positive control fired on known signal.
 | `Chaining-Conflicts.md` ("reflections give 2 fixed points") | **FLAGGED (minor, off-path)** | For odd `n=83` the model gives **1** fixed point; descriptive inaccuracy on a different page, irrelevant to the proof. |
 
 **Still-open / not-yet-tested-this-wave:** whether perfect isomorphism actually holds
-(unprovable without plaintext — measured as evidence only); whether a GAK attack
-exists at all (Thread 4). *(Correction, post-codex: `C₈₃:C₄₁` **is** excluded by the
-same varying-run fixed-point lemma as `AGL(1,83)` — see §2 Thread-2 verdict and
-`notes/codex-second-opinion.md`; the earlier "not yet excluded" was stale.)*
+(unprovable without plaintext — measured as evidence only). *(Correction, post-codex:
+`C₈₃:C₄₁` **is** excluded by the same varying-run fixed-point lemma as `AGL(1,83)` —
+see §2 Thread-2 verdict and `notes/codex-second-opinion.md`; the earlier "not yet
+excluded" was stale.)* **Resolved in wave 2:** "whether a GAK attack exists at all"
+(Thread 4) is now answered as far as this workbench can — a synthetic GCTAK gate
+*passes*, a real-GAK deck attack recovers *partial* visible-coset action up to a
+measured hidden-state bound, and the eyes Step 3 yields **no surviving candidate**
+(§6). The decode **remains blocked** on the unknown symbol→meaning mapping.
 
 ---
 
@@ -210,3 +214,54 @@ Full verbatim verdicts: [`notes/codex-second-opinion.md`](notes/codex-second-opi
 No codex verdict overturned a wave-1 conclusion; two were sharpened (dihedral →
 medium-confidence/conditional; perfect-iso artifact → hygiene fixes required) and one
 stale contradiction (`C₈₃:C₄₁`) was corrected. The claim ceiling is unchanged.
+
+---
+
+## (6) Wave-2 landings — the Rust modules + the Thread-4 GAK-attack arc
+
+Wave 2 moved the frozen specs into the build gate. Every module below is **landed
+under `-D warnings` with `make verify` green**, is **mapping-independent** (ciphertext
+symbol equality + group structure only), and carries a matched within-message shuffle
+null plus a positive control that fires on known signal. The prose companion is
+[`notes/wave-2-summary.md`](notes/wave-2-summary.md).
+
+### Foundational structural modules (Threads 1B, 2, 3, 5)
+
+| Commit | Module(s) | Outcome (one line) |
+| --- | --- | --- |
+| `248fb32` | `src/chaining_graph.rs` (Thread 5) + `src/transitivity.rs` (Thread 1B) | Shared chain-link primitive + conflict catalogue + connected-component coverage (broad + core-supported tiers) with a non-commutative GAK-stream positive control (real 46 > null max 2); `D₁₆₆` **conditionally excluded at MEDIUM** (single-witness-fragile), HOLE 1/2 + A1–A5 + claim ceiling printed verbatim, exactly one pinned witness (`core_only=0`). |
+| `47f0c51` | `src/perfect_isomorphism.rs` (Thread 3) | Perfect isomorphism **SUPPORTED** (does not prove): **0** robust strong-bar internal violations over the full ≥3-repeat tier (matched null mean 0, max 0; add-one p 1.0); **16** safe-isomorph extents exported for Threads 1B/5/4; positive controls + 3A/3B/3C fire. Two review P0s (matched-null population, POST_MIN far-run guard) fixed. |
+| `a3413e7` | `src/agl_gak.rs` + `AglGakKey` in `ciphers.rs` (Thread 2) | `AGL(1,83)`-GAK **EXHAUSTIVELY EXCLUDED** for **both** `C83:C82` and `C83:C41`: differing-discrepancy elements fixing ≥2 points = **0/6724** and **0/3362**; agreement violations 0/40000; forward varying-shared-run sims 0/2,000,000; verdict gates on the all-nine `(66,5)` prefix. Report records the wiki *over-conceded*. |
+| `a31bc3a` | chore/review-fixups merge | Centralized `median` / `scaled_quantile_index` null helpers; enforced zero-trial guards in library nulls; resolved doc drift. House-keeping only — no scientific claim changed. |
+
+**Candidate transitive group set after these landings:** of the 6 transitive groups on
+83 points `{C₈₃, D₁₆₆, C₈₃:C₄₁, AGL(1,83)=C₈₃:C₈₂, A₈₃, S₈₃}` — `C₈₃` is out (commutative,
+no non-commuting chaining); **both** AGL variants exhaustively excluded (Thread 2);
+`D₁₆₆` conditionally excluded at MEDIUM (Thread 1B); perfect isomorphism SUPPORTED
+(Thread 3, keeps the family viable). ⇒ **live candidates `{A₈₃, S₈₃}`, with `D₁₆₆`
+conditional.** (All affine/dihedral exclusions are conditional on the shared-plaintext +
+single-global-config assumption the whole transitivity analysis rests on.)
+
+### Thread 4 — GAK attack (COMPLETE; all six units landed)
+
+The wiki's stated open problem ("we need a GAK attack") — a **gated, time-boxed**
+spike. Every unit except the final eyes Step 3 is **SYNTHETIC ONLY** (ground truth
+held back; the eyes are not touched). The eyes are touched **only** at unit 2c.
+
+| Commit | Unit | Outcome (one line) |
+| --- | --- | --- |
+| `e7b88f8` | Step 0 — `GakKey` | A general parametric-`n` GAK cipher primitive (permutation-group realization, cumulative left-multiplication state, hidden-subgroup coset readout), exact round-trip, GAK→GCTAK reduction cross-check, perfect-isomorph reproduction. No claim about the eyes. |
+| `d3b30fd` | Unit 1a — GCTAK decisive gate | The decisive go/no-go solver. **GATE PASSES** as a synthetic positive control — rate-beats-null across seeds (≥0.8 real, null recovers 0), including a **non-commutative dihedral** state group, with **no ground-truth leak**. Reproduces the wiki's "GCTAK is fully solvable." |
+| `aaa9e9a` | Unit 1b — CLI wiring + honesty lock | `gak-attack` subcommand + report (four-file pattern); `tests/gak_attack_cli.rs` locks the claim-ceiling / synthetic-only / TENTATIVE / rate-vs-null / exemplars-not-pass-evidence strings so a quiet overclaim trips the gate. |
+| `1d928a2` | Unit 2a — real-GAK deck attack | Generalized chaining on a **non-trivial** hidden subgroup (deck stabilizer `H=S_{n-1}`, `|H|=(n-1)!>1`). Only **PARTIAL** visible-coset action recovery, bounded by a **MEASURED ~0.8 hidden-state multi-valuedness** obstruction — NOT a recovered key, NOT plaintext. The measured bound motivates idea 3. |
+| `8aa7c53` | Unit 2b — hidden-state marginalization + small-support prior | Truth-free held-out beam (idea 3) recovers **several-fold more** of the per-letter marginal than the 2a single-valued core (≈5.9x/3.9x/4.9x/2.8x for n=5..8) and beats its matched null everywhere, **breaking cleanly** as `|H|=(n-1)!` grows (mean recovered frac 0.407→0.156) — a measured tractability bound. The small-support prior (idea 2) is **TENTATIVE**, fails gracefully, only weakly discriminative, and is **OFF** in the headline. |
+| `44d4ec4` | Unit 2c — eyes Step 3 (honest negative) | The matured attack on the REAL corpus behind held-out + Thread-3 gates: **NO surviving candidate.** Gate 1 (held-out isomorphs vs matched null): real hits=0, misses=0, score=0, **p=1.0000**; material-effect bar is population-relative and FAIR (eyes bar **1722** < their max-achievable **6888**), so the eyes *could* have passed with real signal — held-out positive control fired on synthetic signal. Gate 2 (Thread-3 consistency): 0 robust violations, consistent. Gate 3 (speculative cleartext): correctly **NOT RUN**. **No candidate cleartext (English or Finnish) arose.** Logged to `candidates/eyes-seed-657965735f737470-trials-2000-beam-8.md`. |
+
+**Standing conclusion (unchanged by wave 2).** The eyes remain **UNSOLVED**; the decode
+**REMAINS BLOCKED** on the unknown symbol→meaning mapping. The synthetic GCTAK gate and
+the synthetic deck / idea-3 recoveries are **synthetic positive results** (ground truth
+held) and the measured `~0.8` / `(n-1)!` bounds are a **tractability contribution** to the
+community's open problem — none of them is an eye result and none is a decode. The eyes
+Step-3 negative is **clean and fair** (the eyes could have passed; they scored 0). Claim
+ceiling holds verbatim: *deterministic, engine-generated, strikingly structured data of
+unknown meaning; unsolved; no primary developer source confirms recoverable plaintext.*
