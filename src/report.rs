@@ -20,6 +20,28 @@ pub trait Report {
     fn render(&self) -> String;
 }
 
+/// Appends formatted arguments followed by a newline to a rendered report.
+pub(crate) fn append_line(out: &mut String, args: std::fmt::Arguments<'_>) {
+    use std::fmt::Write as _;
+
+    let _write_result = out.write_fmt(args);
+    out.push('\n');
+}
+
+/// Appends a blank newline to a rendered report.
+pub(crate) fn append_blank_line(out: &mut String) {
+    out.push('\n');
+}
+
+macro_rules! appendln {
+    ($out:expr) => {
+        $crate::report::append_blank_line($out)
+    };
+    ($out:expr, $($arg:tt)*) => {
+        $crate::report::append_line($out, format_args!($($arg)*))
+    };
+}
+
 /// Formats a verified-corpus parsing error for CLI output.
 #[must_use]
 pub fn format_corpus_error(error: corpus::CorpusError) -> String {
@@ -3699,35 +3721,57 @@ fn print_pyry_interpretation(report: &pyry_conditions::PyryConditionsReport) {
     );
 }
 
-/// Prints the Experiment 12 candidate-cipher attack report.
-pub fn print_cipher_attack_report(report: &cipher_attack::CipherAttackReport) {
-    println!("Experiment 12 candidate-cipher language-scoring/null harness");
-    println!("order: {}", report.order_name);
-    println!("alphabet: eye reading-layer values 0..=82");
-    println!(
+/// Renders the Experiment 12 candidate-cipher attack report.
+#[must_use]
+pub fn render_cipher_attack_report(report: &cipher_attack::CipherAttackReport) -> String {
+    let mut out = String::new();
+    appendln!(
+        &mut out,
+        "Experiment 12 candidate-cipher language-scoring/null harness"
+    );
+    appendln!(&mut out, "order: {}", report.order_name);
+    appendln!(&mut out, "alphabet: eye reading-layer values 0..=82");
+    appendln!(
+        &mut out,
         "fundamental limitation: English/Finnish scores require an unknown 83-symbol-to-letter mapping; every mapping below is an unverified guess"
     );
-    println!("seed: {}", report.config.seed);
-    println!("sampled keys: {}", report.config.samples);
-    println!("shuffle null trials: {}", report.config.null_trials);
-    println!(
+    appendln!(&mut out, "seed: {}", report.config.seed);
+    appendln!(&mut out, "sampled keys: {}", report.config.samples);
+    appendln!(
+        &mut out,
+        "shuffle null trials: {}",
+        report.config.null_trials
+    );
+    appendln!(
+        &mut out,
         "Vigenere periods searched: 1..={}",
         report.config.vigenere_max_period
     );
-    println!(
+    appendln!(
+        &mut out,
         "message lengths: {}",
         format_message_lengths(&report.message_lengths)
     );
-    println!("pooled length: {}", report.total_symbols);
-    println!("boundary rule: {}", report.boundary_rule);
-    println!("null model: {}", report.null_model);
-    println!();
-    println!(
+    appendln!(&mut out, "pooled length: {}", report.total_symbols);
+    appendln!(&mut out, "boundary rule: {}", report.boundary_rule);
+    appendln!(&mut out, "null model: {}", report.null_model);
+    appendln!(&mut out);
+    appendln!(
+        &mut out,
         "{:<19} {:<7} {:<14} {:>10} {:>10} {:>10} {:>8} {:>10} {:<28}",
-        "cipher", "lang", "mapping", "real", "null mean", "null q95", "p", "verdict", "best key"
+        "cipher",
+        "lang",
+        "mapping",
+        "real",
+        "null mean",
+        "null q95",
+        "p",
+        "verdict",
+        "best key"
     );
     for row in &report.rows {
-        println!(
+        appendln!(
+            &mut out,
             "{:<19} {:<7} {:<14} {:>10.4} {:>10.4} {:>10.4} {:>8.4} {:>10} {:<28}",
             row.cipher.label(),
             row.language.label(),
@@ -3740,10 +3784,11 @@ pub fn print_cipher_attack_report(report: &cipher_attack::CipherAttackReport) {
             preview_text(&row.real.key, 28)
         );
     }
-    println!();
-    println!("search methods");
+    appendln!(&mut out);
+    appendln!(&mut out, "search methods");
     for summary in unique_cipher_search_summaries(&report.rows) {
-        println!(
+        appendln!(
+            &mut out,
             "  {}: {} candidates; keyspace {}; {}",
             summary.0.label(),
             summary.1.candidates_evaluated,
@@ -3751,10 +3796,11 @@ pub fn print_cipher_attack_report(report: &cipher_attack::CipherAttackReport) {
             summary.1.note
         );
     }
-    println!();
-    println!("mapping caveats");
+    appendln!(&mut out);
+    appendln!(&mut out, "mapping caveats");
     for row in &report.rows {
-        println!(
+        appendln!(
+            &mut out,
             "  {} / {} / {}: {}",
             row.cipher.label(),
             row.language.label(),
@@ -3762,23 +3808,26 @@ pub fn print_cipher_attack_report(report: &cipher_attack::CipherAttackReport) {
             row.mapping_note
         );
     }
-    println!();
-    print_positive_control_report(&report.positive_control);
-    println!();
-    println!(
+    appendln!(&mut out);
+    append_positive_control_report(&mut out, &report.positive_control);
+    appendln!(&mut out);
+    appendln!(
+        &mut out,
         "caveat: any apparent hit is not credible unless it has a fully reproducible, independently checkable method and is rechecked against Experiment 0 transcription integrity; this command makes no message claim"
     );
-    print_cipher_attack_interpretation(report);
+    append_cipher_attack_interpretation(&mut out, report);
+    out
 }
 
-fn print_positive_control_report(report: &cipher_attack::PositiveControlReport) {
-    println!("positive control");
-    print_plant_recovery(&report.caesar);
-    print_plant_recovery(&report.vigenere);
+fn append_positive_control_report(out: &mut String, report: &cipher_attack::PositiveControlReport) {
+    appendln!(out, "positive control");
+    append_plant_recovery(out, &report.caesar);
+    append_plant_recovery(out, &report.vigenere);
 }
 
-fn print_plant_recovery(plant: &cipher_attack::PlantRecovery) {
-    println!(
+fn append_plant_recovery(out: &mut String, plant: &cipher_attack::PlantRecovery) {
+    appendln!(
+        out,
         "  {}: expected {}, recovered {}, score {:.4}, null max {:.4}, margin {:.4}, p {:.4}",
         plant.cipher.label(),
         plant.expected_key,
@@ -3790,9 +3839,12 @@ fn print_plant_recovery(plant: &cipher_attack::PlantRecovery) {
     );
 }
 
-fn print_cipher_attack_interpretation(report: &cipher_attack::CipherAttackReport) {
+fn append_cipher_attack_interpretation(
+    out: &mut String,
+    report: &cipher_attack::CipherAttackReport,
+) {
     for line in cipher_attack_interpretation_lines(report) {
-        println!("{line}");
+        appendln!(out, "{line}");
     }
 }
 

@@ -965,7 +965,7 @@ fn run_cipherattack(config: cipher_attack::CipherAttackConfig) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    report::print_cipher_attack_report(&report);
+    print!("{}", report::render_cipher_attack_report(&report));
     ExitCode::SUCCESS
 }
 
