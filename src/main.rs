@@ -895,14 +895,11 @@ fn run_zeroadjnull(config: zero_adjacency_null::ZeroAdjacencyNullConfig) -> Exit
     let report = match zero_adjacency_null::run_zero_adjacency_null(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "zero-adjacency null error: {}",
-                report::format_zero_adjacency_null_error(error)
-            );
+            eprintln!("zero-adjacency null error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_zero_adjacency_null_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 

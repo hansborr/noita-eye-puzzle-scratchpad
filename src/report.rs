@@ -8,7 +8,7 @@ use crate::glyph::Sequence;
 use crate::{
     analysis, chaining, chaining_graph, conditional_structure, controls, dof_null, gak_attack,
     grouping, modular_diff, null, orders, orientation_homogeneity, periodicity, perseus,
-    pyry_conditions, transitivity, tree_residual, zero_adjacency_null,
+    pyry_conditions, transitivity, tree_residual,
 };
 
 const MIN_RELIABLE_PERIODICITY_NULL_TRIALS: usize = 50;
@@ -336,36 +336,6 @@ pub fn format_perseus_error(error: perseus::PerseusError) -> String {
         }
         perseus::PerseusError::RandomBoundTooLarge { bound } => {
             format!("shuffle bound {bound} is too large")
-        }
-    }
-}
-
-/// Formats an Experiment 7D zero-adjacency null error for CLI output.
-#[must_use]
-pub fn format_zero_adjacency_null_error(
-    error: zero_adjacency_null::ZeroAdjacencyNullError,
-) -> String {
-    match error {
-        zero_adjacency_null::ZeroAdjacencyNullError::Grid(grid_error) => {
-            format!("grid/order error: {grid_error:?}")
-        }
-        zero_adjacency_null::ZeroAdjacencyNullError::ZeroTrials => {
-            "at least one shuffle trial per seed is required".to_owned()
-        }
-        zero_adjacency_null::ZeroAdjacencyNullError::ZeroSeedCount => {
-            "at least one seed stream is required".to_owned()
-        }
-        zero_adjacency_null::ZeroAdjacencyNullError::KeyCountMismatch { keys, messages } => {
-            format!("internal key/message count mismatch: {keys} keys, {messages} messages")
-        }
-        zero_adjacency_null::ZeroAdjacencyNullError::RandomBoundTooLarge { bound } => {
-            format!("shuffle bound {bound} is too large")
-        }
-        zero_adjacency_null::ZeroAdjacencyNullError::TrialCountTooLarge => {
-            "trial count is too large for add-one p-value calibration".to_owned()
-        }
-        zero_adjacency_null::ZeroAdjacencyNullError::ControlValueOutOfRange { value } => {
-            format!("positive-control trigram value {value} is outside 0..=124")
         }
     }
 }
@@ -2176,122 +2146,6 @@ fn print_perseus_interpretation(report: &perseus::PerseusReport) {
     );
 }
 
-/// Prints the Experiment 7D zero-adjacency forbidden-successor null report.
-pub fn print_zero_adjacency_null_report(report: &zero_adjacency_null::ZeroAdjacencyNullReport) {
-    println!("Experiment 7D zero-adjacency forbidden-successor null");
-    println!("order: {}", report.order.name());
-    println!("base seed: {}", report.config.seed);
-    println!("seed streams: {}", report.config.seed_count);
-    println!("trials per seed: {}", report.config.trials_per_seed);
-    println!("total shuffles: {}", report.null.trials);
-    println!(
-        "message lengths: {}",
-        format_message_lengths(&report.message_lengths)
-    );
-    println!("pooled length: {}", report.total_length);
-    println!(
-        "boundary rule: adjacent pairs are counted within each message only; no pair crosses a message join"
-    );
-    println!(
-        "null: Fisher-Yates shuffle within each message, preserving that message's exact value multiset and length"
-    );
-    println!(
-        "statistic: pooled adjacent-equal reading-layer value pairs under the fixed accepted honeycomb order"
-    );
-    println!();
-    print_zero_adjacency_observed(report);
-    println!();
-    print_zero_adjacency_null(report);
-    println!();
-    print_zero_adjacency_controls(&report.controls);
-    println!();
-    print_zero_adjacency_interpretation(report);
-}
-
-fn print_zero_adjacency_observed(report: &zero_adjacency_null::ZeroAdjacencyNullReport) {
-    println!("observed eye statistic");
-    println!(
-        "  observed adjacent equal: {}/{} = {:.6}",
-        report.observed.adjacent_equal, report.observed.comparisons, report.observed.rate
-    );
-    println!(
-        "  analytic E from per-message multisets: {:.6}",
-        report.observed.analytic_expected
-    );
-    println!(
-        "  position vs shuffle band: {}",
-        report.band_position.label()
-    );
-    println!(
-        "  {:<6} {:>6} {:>8} {:>8} {:>10}",
-        "msg", "len", "pairs", "adj", "E"
-    );
-    for row in &report.observed.messages {
-        println!(
-            "  {:<6} {:>6} {:>8} {:>8} {:>10.3}",
-            row.message_key, row.len, row.comparisons, row.adjacent_equal, row.analytic_expected
-        );
-    }
-}
-
-fn print_zero_adjacency_null(report: &zero_adjacency_null::ZeroAdjacencyNullReport) {
-    println!("within-message shuffle null");
-    println!(
-        "  adjacent-equal count: mean {:.2}, 95% {}, median {:.1}, min {}, max {}",
-        report.null.mean,
-        format_adjacency_band(report.null),
-        report.null.median,
-        report.null.min,
-        report.null.max
-    );
-    println!(
-        "  lower-tail add-one p: ({extreme}+1)/({trials}+1) = {p}",
-        extreme = report.empirical_p_count,
-        trials = report.null.trials,
-        p = format_probability(report.empirical_p)
-    );
-}
-
-fn print_zero_adjacency_controls(controls: &zero_adjacency_null::ZeroAdjacencyPositiveControls) {
-    println!("positive controls");
-    println!(
-        "  {:<20} {:>8} {:>10} {:>10} {:>11} {:>8}",
-        "control", "adj", "E", "null95", "p<=obs", "band"
-    );
-    for control in [&controls.free_permutation, &controls.no_repeat_successor] {
-        println!(
-            "  {:<20} {:>8} {:>10.3} {:>10} {:>11} {:>8}",
-            control.label,
-            control.observed.adjacent_equal,
-            control.observed.analytic_expected,
-            format_adjacency_band(control.null),
-            format_probability(control.empirical_p),
-            control.band_position.label()
-        );
-        println!("    {}", control.description);
-    }
-}
-
-fn print_zero_adjacency_interpretation(report: &zero_adjacency_null::ZeroAdjacencyNullReport) {
-    if report.significant && report.observed.adjacent_equal == 0 {
-        println!(
-            "Interpretation: observed zero adjacent equal pairs sits below the within-message multiset shuffle band while analytic E={:.6}. That is structural evidence for a no-fixed-successor / forbidden-successor mechanism beyond frequency flatness, but it decodes nothing and does not identify a cipher.",
-            report.observed.analytic_expected
-        );
-    } else if report.band_position == zero_adjacency_null::ShuffleBandPosition::Within {
-        println!(
-            "Interpretation: observed adjacency sits within the within-message multiset shuffle band. In this run, the no-doubled-trigram property is explained by the eye messages' own frequencies rather than by a separate forbidden-successor constraint."
-        );
-    } else {
-        println!(
-            "Interpretation: observed adjacency does not match the lower-tail forbidden-successor prediction under this null. Treat any out-of-band direction as an arrangement diagnostic only; it decodes nothing."
-        );
-    }
-    println!(
-        "The result is conditional on the Experiment-0-verified transcription and the fixed accepted honeycomb order; the null randomizes arrangement within each message, not reading order or symbol meaning."
-    );
-}
-
 /// Prints the tree-residual cross-tail n-gram null report.
 pub fn print_tree_residual_report(report: &tree_residual::TreeResidualReport) {
     println!("tree-residual cross-tail n-gram null");
@@ -3700,10 +3554,6 @@ fn format_moddiff_separation(separation: modular_diff::ControlSeparation) -> &'s
     } else {
         "overlap"
     }
-}
-
-fn format_adjacency_band(band: zero_adjacency_null::AdjacencyNullBand) -> String {
-    format!("{}..{}", band.q025, band.q975)
 }
 
 fn format_tree_residual_band(band: tree_residual::CrossTailNullBand) -> String {
