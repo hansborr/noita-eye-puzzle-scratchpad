@@ -7,9 +7,8 @@
 use crate::glyph::Sequence;
 use crate::{
     analysis, chaining, chaining_graph, conditional_structure, controls, dof_null, gak_attack,
-    grouping, honeycomb, isomorph_null, modular_diff, null, orders, orientation_homogeneity,
-    periodicity, perseus, pipeline_null, pyry_conditions, transitivity, tree_residual,
-    zero_adjacency_null,
+    grouping, isomorph_null, modular_diff, null, orders, orientation_homogeneity, periodicity,
+    perseus, pipeline_null, pyry_conditions, transitivity, tree_residual, zero_adjacency_null,
 };
 
 const MIN_RELIABLE_PERIODICITY_NULL_TRIALS: usize = 50;
@@ -153,19 +152,6 @@ pub fn format_null_run_error(error: null::NullRunError) -> String {
     match error {
         null::NullRunError::Config(config_error) => format_null_config_error(config_error),
         null::NullRunError::Grid(grid_error) => format!("grid/order error: {grid_error:?}"),
-    }
-}
-
-/// Formats a honeycomb two-dimensional lattice experiment error for CLI output.
-#[must_use]
-pub fn format_honeycomb_error(error: honeycomb::HoneycombError) -> String {
-    match error {
-        honeycomb::HoneycombError::Grid(grid_error) => {
-            format!("grid/order error: {grid_error:?}")
-        }
-        honeycomb::HoneycombError::ZeroTrials => {
-            "at least one Monte-Carlo trial is required".to_owned()
-        }
     }
 }
 
@@ -930,160 +916,6 @@ fn print_dof_cell_breakdown(report: &dof_null::DofNullReport) {
             format_probability(cell.marginal_p)
         );
     }
-}
-
-/// Prints the honeycomb two-dimensional lattice-structure report.
-pub fn print_honeycomb_report(report: &honeycomb::HoneycombReport) {
-    println!("Experiment 20 honeycomb 2D lattice structure");
-    println!("order: {}", report.order.name());
-    println!("seed: {}", report.config.seed);
-    println!("trials: {}", report.config.trials);
-    println!(
-        "message lengths: {}",
-        format_message_lengths(&report.message_lengths)
-    );
-    println!("pooled length: {}", report.observed.total_trigrams);
-    println!("band widths:");
-    for (message_key, widths) in &report.band_widths {
-        println!("  {message_key}: {}", format_widths(widths));
-    }
-    println!(
-        "held fixed: accepted honeycomb traversal and trigram digit order; no standard36 re-selection"
-    );
-    println!(
-        "null: verified row-width structure with uniform orientation cells 0..=4, read under the same fixed order"
-    );
-    println!(
-        "boundary rule: vertical and same-distance sequence pairs are formed within messages only"
-    );
-    println!();
-
-    print_honeycomb_pair_section(report);
-    println!();
-    print_honeycomb_position_section(report);
-    println!();
-    print_honeycomb_parity_section(report);
-    println!();
-    print_honeycomb_interpretation(report);
-}
-
-fn print_honeycomb_pair_section(report: &honeycomb::HoneycombReport) {
-    println!("vertical adjacency");
-    print_pair_stats("vertical same pos", report.observed.vertical);
-    print_tail_line("  equality null", report.null.vertical_equal_rate);
-    print_tail_line("  mean-diff null", report.null.vertical_mean_abs_diff);
-    println!("same-distance 1D control");
-    print_pair_stats(
-        "same lag sequence",
-        report.observed.sequence_distance_control,
-    );
-    print_tail_line("  equality null", report.null.sequence_control_equal_rate);
-    print_tail_line(
-        "  mean-diff null",
-        report.null.sequence_control_mean_abs_diff,
-    );
-    println!(
-        "same-lag note: for the verified accepted honeycomb geometry, the sequence-distance-matched lag pool coincides with the vertical pool; this exposes the sequence-distance confound instead of treating it as independent evidence"
-    );
-    println!(
-        "mean-diff caveat: value differences are range-sensitive because the accepted eye stream is bounded to 0..=82 while the uniform cell null can emit 0..=124"
-    );
-}
-
-fn print_pair_stats(label: &str, stats: honeycomb::PairStats) {
-    println!(
-        "  {label}: {}/{} = {:.6}; mean |diff| {:.3}",
-        stats.exact_equal, stats.pairs, stats.exact_equal_rate, stats.mean_abs_diff
-    );
-}
-
-fn print_honeycomb_position_section(report: &honeycomb::HoneycombReport) {
-    let stats = report.observed.position_conditioning;
-    println!("position-in-band conditioning");
-    println!(
-        "  trigrams: {}; positions: {}; value bands: {}; chi-square: {:.3}; df: {}",
-        stats.total,
-        stats.positions,
-        stats.value_deciles,
-        stats.chi_square,
-        stats.degrees_of_freedom
-    );
-    println!(
-        "  value-band note: only 7 of 10 decile buckets are reachable because reading-layer values are bounded to 0..=82"
-    );
-    print_tail_line("  chi-square null", report.null.position_chi_square);
-}
-
-fn print_honeycomb_parity_section(report: &honeycomb::HoneycombReport) {
-    let stats = report.observed.parity_split;
-    println!("interlock-parity split");
-    println!(
-        "  upper/lower trigrams: {}/{}; chi-square: {:.3}; df: {}",
-        stats.upper_total, stats.lower_total, stats.chi_square, stats.degrees_of_freedom
-    );
-    print_tail_line("  chi-square null", report.null.parity_chi_square);
-    println!(
-        "  IoC upper/lower/diff: {:.6} / {:.6} / {:.6}",
-        stats.upper_ioc, stats.lower_ioc, stats.ioc_abs_diff
-    );
-    print_tail_line("  IoC-diff null", report.null.parity_ioc_abs_diff);
-}
-
-fn print_tail_line(label: &str, tail: honeycomb::TailReport) {
-    println!(
-        "{label}: observed {:.6}; null 95% {}; {} {} ({}/{})",
-        tail.observed,
-        format_honeycomb_band(tail.band),
-        tail.tail.label(),
-        format_probability(tail.empirical_p),
-        tail.extreme_count,
-        tail.band.trials
-    );
-}
-
-fn format_honeycomb_band(band: honeycomb::NullBand) -> String {
-    format!("{:.6}..{:.6}", band.q025, band.q975)
-}
-
-fn print_honeycomb_interpretation(report: &honeycomb::HoneycombReport) {
-    const POINTWISE_ALPHA: f64 = 0.05;
-    const BORDERLINE_MARGIN: f64 = 0.01;
-
-    let isolated_2d_tails = [
-        report.null.position_chi_square.empirical_p,
-        report.null.parity_chi_square.empirical_p,
-        report.null.parity_ioc_abs_diff.empirical_p,
-    ];
-    let strongest_isolated_2d_tail = isolated_2d_tails.iter().copied().fold(1.0, f64::min);
-    let strongest_isolated_2d_tail_is_borderline =
-        (strongest_isolated_2d_tail - POINTWISE_ALPHA).abs() <= BORDERLINE_MARGIN;
-    let vertical_tail_is_small = report.null.vertical_equal_rate.empirical_p <= POINTWISE_ALPHA
-        || report.null.vertical_mean_abs_diff.empirical_p <= POINTWISE_ALPHA;
-
-    println!(
-        "Multiplicity note: this experiment evaluates 7 one-sided 5% statistics (at least one pointwise hit is about 30% under the null), so a single p near 0.05 is expected and is not a finding."
-    );
-    if strongest_isolated_2d_tail_is_borderline {
-        println!(
-            "Interpretation: the strongest position/parity lattice statistic is a borderline pointwise marginal near the 5% threshold, seed-sensitive at the configured trial count. Recheck only after multiplicity adjustment; this is not a plaintext or decryption claim."
-        );
-    } else if strongest_isolated_2d_tail <= POINTWISE_ALPHA {
-        println!(
-            "Interpretation: at least one position/parity lattice statistic is outside a one-sided 5% Monte-Carlo tail. Treat that as a structural anomaly to recheck against transcription and configuration choices, not as a plaintext or decryption claim."
-        );
-    } else {
-        println!(
-            "Interpretation: the position-in-band and parity statistics are inside the sampled fixed-order uniform-grid null at the configured resolution. Together with the same-distance control below, this is a negative isolated-2D spatial-layout result for this accepted honeycomb order, not proof that the glyphs are meaningless."
-        );
-    }
-    if vertical_tail_is_small {
-        println!(
-            "Vertical caveat: the vertical adjacency tail is matched by the same-distance 1D control under this geometry, so it does not isolate physical vertical structure from sequence-distance proximity."
-        );
-    }
-    println!(
-        "The test is conditional on the accepted honeycomb reading order and deliberately avoids order circularity by not searching or reselecting an order for either eyes or null grids."
-    );
 }
 
 /// Prints the Experiment 5A periodicity/autocorrelation report.
@@ -4683,7 +4515,8 @@ pub fn render_sequence_report(label: &str, seq: &Sequence) -> String {
     out
 }
 
-fn format_widths(widths: &[usize]) -> String {
+/// Formats row widths as a comma-separated report list.
+pub(crate) fn format_widths(widths: &[usize]) -> String {
     widths
         .iter()
         .map(usize::to_string)

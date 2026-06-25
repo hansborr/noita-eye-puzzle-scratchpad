@@ -751,14 +751,11 @@ fn run_honeycomb(config: honeycomb::HoneycombConfig) -> ExitCode {
     let report = match honeycomb::run_honeycomb(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "honeycomb lattice error: {}",
-                report::format_honeycomb_error(error)
-            );
+            eprintln!("honeycomb lattice error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_honeycomb_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
