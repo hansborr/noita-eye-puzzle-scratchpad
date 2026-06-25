@@ -31,7 +31,10 @@
 //! this chaining signature uses only column distributions, that shuffle is an
 //! invariance check rather than a separate order-sensitive signal.
 
-use crate::null::{SplitMix64, fisher_yates, random_index_below, stateless_splitmix};
+use crate::null::{
+    SplitMix64, fisher_yates, median_f64, median_usize, random_index_below, scaled_quantile_index,
+    stateless_splitmix,
+};
 use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::trigram::TrigramValue;
 
@@ -870,47 +873,6 @@ fn mean_f64(values: impl IntoIterator<Item = f64>) -> f64 {
     }
 }
 
-fn median_f64(sorted: &[f64]) -> f64 {
-    let len = sorted.len();
-    if len == 0 {
-        return 0.0;
-    }
-    let middle = len / 2;
-    if len.is_multiple_of(2) {
-        match (
-            sorted.get(middle.saturating_sub(1)).copied(),
-            sorted.get(middle).copied(),
-        ) {
-            (Some(left), Some(right)) => f64::midpoint(left, right),
-            _ => 0.0,
-        }
-    } else {
-        sorted.get(middle).copied().unwrap_or(0.0)
-    }
-}
-
-fn median_usize(sorted: &[usize]) -> f64 {
-    let len = sorted.len();
-    if len == 0 {
-        return 0.0;
-    }
-    let middle = len / 2;
-    if len.is_multiple_of(2) {
-        match (
-            sorted.get(middle.saturating_sub(1)).copied(),
-            sorted.get(middle).copied(),
-        ) {
-            (Some(left), Some(right)) => f64::midpoint(left as f64, right as f64),
-            _ => 0.0,
-        }
-    } else {
-        sorted
-            .get(middle)
-            .copied()
-            .map_or(0.0, |value| value as f64)
-    }
-}
-
 fn quantile_f64(sorted: &[f64], numerator: usize, denominator: usize) -> f64 {
     sorted
         .get(scaled_quantile_index(sorted.len(), numerator, denominator))
@@ -923,13 +885,6 @@ fn quantile_usize(sorted: &[usize], numerator: usize, denominator: usize) -> usi
         .get(scaled_quantile_index(sorted.len(), numerator, denominator))
         .copied()
         .unwrap_or_default()
-}
-
-fn scaled_quantile_index(len: usize, numerator: usize, denominator: usize) -> usize {
-    if len == 0 || denominator == 0 {
-        return 0;
-    }
-    len.saturating_sub(1).saturating_mul(numerator) / denominator
 }
 
 fn cycle_distance(residual: usize, alphabet_size: usize) -> usize {

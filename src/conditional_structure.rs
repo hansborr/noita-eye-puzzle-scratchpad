@@ -7,7 +7,9 @@
 
 use std::collections::BTreeMap;
 
-use crate::null::{SplitMix64, fisher_yates, random_index_below};
+use crate::null::{
+    SplitMix64, fisher_yates, median_f64, random_index_below, scaled_quantile_index,
+};
 use crate::orders::{self, GlyphGrid, GridError, ReadingOrder, read_corpus_message_values};
 use crate::trigram::TrigramValue;
 
@@ -1186,7 +1188,7 @@ fn scalar_null_band(samples: &[f64]) -> ScalarNullBand {
         mean: mean(samples),
         min: sorted.first().copied().unwrap_or(0.0),
         q025: quantile_from_sorted(&sorted, 25, REPORT_QUANTILE_DENOMINATOR),
-        median: median(&sorted),
+        median: median_f64(&sorted),
         q975: quantile_from_sorted(&sorted, 975, REPORT_QUANTILE_DENOMINATOR),
         max: sorted.last().copied().unwrap_or(0.0),
     }
@@ -1208,37 +1210,11 @@ fn mean_abs(samples: &[f64]) -> f64 {
     }
 }
 
-fn median(sorted: &[f64]) -> f64 {
-    let len = sorted.len();
-    if len == 0 {
-        return 0.0;
-    }
-    let middle = len / 2;
-    if len.is_multiple_of(2) {
-        match (
-            sorted.get(middle.saturating_sub(1)).copied(),
-            sorted.get(middle).copied(),
-        ) {
-            (Some(left), Some(right)) => f64::midpoint(left, right),
-            _ => 0.0,
-        }
-    } else {
-        sorted.get(middle).copied().unwrap_or(0.0)
-    }
-}
-
 fn quantile_from_sorted(sorted: &[f64], numerator: usize, denominator: usize) -> f64 {
     sorted
         .get(scaled_quantile_index(sorted.len(), numerator, denominator))
         .copied()
         .unwrap_or(0.0)
-}
-
-fn scaled_quantile_index(len: usize, numerator: usize, denominator: usize) -> usize {
-    if len == 0 || denominator == 0 {
-        return 0;
-    }
-    len.saturating_sub(1).saturating_mul(numerator) / denominator
 }
 
 fn bias_calibration(

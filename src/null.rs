@@ -541,12 +541,17 @@ fn sorted_quantile(values: &[f64], quantile: Quantile) -> f64 {
     sorted.sort_by(f64::total_cmp);
     match quantile {
         Quantile::Min => sorted.first().copied().unwrap_or(0.0),
-        Quantile::Median => median(&sorted),
+        Quantile::Median => median_f64(&sorted),
         Quantile::Max => sorted.last().copied().unwrap_or(0.0),
     }
 }
 
-fn median(sorted: &[f64]) -> f64 {
+/// Median of a pre-sorted slice of `f64` values (returns `0.0` when empty).
+///
+/// The caller is responsible for sorting; for an even length the mean of the
+/// two central elements is returned via [`f64::midpoint`].
+#[must_use]
+pub fn median_f64(sorted: &[f64]) -> f64 {
     let len = sorted.len();
     if len == 0 {
         return 0.0;
@@ -563,6 +568,45 @@ fn median(sorted: &[f64]) -> f64 {
     } else {
         sorted.get(middle).copied().unwrap_or(0.0)
     }
+}
+
+/// Median of a pre-sorted slice of `usize` values, returned as `f64`.
+///
+/// The caller is responsible for sorting; for an even length the mean of the
+/// two central elements is returned via [`f64::midpoint`].
+#[must_use]
+pub fn median_usize(sorted: &[usize]) -> f64 {
+    let len = sorted.len();
+    if len == 0 {
+        return 0.0;
+    }
+    let middle = len / 2;
+    if len.is_multiple_of(2) {
+        match (
+            sorted.get(middle.saturating_sub(1)).copied(),
+            sorted.get(middle).copied(),
+        ) {
+            (Some(left), Some(right)) => f64::midpoint(left as f64, right as f64),
+            _ => 0.0,
+        }
+    } else {
+        sorted
+            .get(middle)
+            .copied()
+            .map_or(0.0, |value| value as f64)
+    }
+}
+
+/// Quantile index into a pre-sorted slice of `len` elements.
+///
+/// Returns `floor((len - 1) * numerator / denominator)`, clamped to `0` when
+/// `len` or `denominator` is zero. The caller is responsible for sorting.
+#[must_use]
+pub fn scaled_quantile_index(len: usize, numerator: usize, denominator: usize) -> usize {
+    if len == 0 || denominator == 0 {
+        return 0;
+    }
+    len.saturating_sub(1).saturating_mul(numerator) / denominator
 }
 
 #[cfg(test)]
