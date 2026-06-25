@@ -62,6 +62,8 @@
 //! - [`pyry_conditions`]: capstone structural falsification harness encoding
 //!   Pyry's nine-condition checklist across generated cipher-family fixtures.
 //! - [`report`]: CLI report rendering and domain error formatting.
+//! - [`solve`]: unified search-and-score solve pipeline for candidate
+//!   hypotheses, with round-trip, held-out, and matched-null gates.
 //! - [`zero_adjacency_null`]: Experiment 7D zero-adjacency
 //!   forbidden-successor null against within-message multiset shuffles.
 //! - [`tree_residual`]: tree-residual cross-tail n-gram sharing after the
@@ -102,6 +104,7 @@ pub mod perseus;
 pub mod pipeline_null;
 pub mod pyry_conditions;
 pub mod report;
+pub mod solve;
 pub mod transitivity;
 pub mod tree_residual;
 pub mod trigram;
