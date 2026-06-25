@@ -862,14 +862,11 @@ fn run_perseus(config: perseus::PerseusConfig) -> ExitCode {
     let report = match perseus::run_perseus(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "Perseus recurrence error: {}",
-                report::format_perseus_error(error)
-            );
+            eprintln!("Perseus recurrence error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_perseus_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
