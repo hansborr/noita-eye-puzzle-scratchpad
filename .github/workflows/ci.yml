@@ -74,3 +74,11 @@ jobs:
         run: |
           shopt -s nullglob globstar
           shellcheck -x .githooks/* scripts/**/*.sh
+
+  file-size:
+    name: file-size ratchet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust file-size ratchet
+        run: ./scripts/check-file-size.sh
