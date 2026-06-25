@@ -2494,46 +2494,69 @@ fn print_perseus_interpretation(report: &perseus::PerseusReport) {
     );
 }
 
-/// Prints the Thread 3 perfect-isomorphism / allomorph-consistency report.
-pub fn print_perfect_isomorphism_report(report: &perfect_isomorphism::PerfectIsomorphismReport) {
-    println!("Thread 3 perfect-isomorphism / allomorph-consistency scan");
-    println!("order: {}", report.order.name());
-    println!("seed: {}", report.config.seed);
-    println!("trials: {}", report.config.trials);
-    println!(
+/// Renders the Thread 3 perfect-isomorphism / allomorph-consistency report.
+#[must_use]
+pub fn render_perfect_isomorphism_report(
+    report: &perfect_isomorphism::PerfectIsomorphismReport,
+) -> String {
+    let mut out = String::new();
+    appendln!(
+        &mut out,
+        "Thread 3 perfect-isomorphism / allomorph-consistency scan"
+    );
+    appendln!(&mut out, "order: {}", report.order.name());
+    appendln!(&mut out, "seed: {}", report.config.seed);
+    appendln!(&mut out, "trials: {}", report.config.trials);
+    appendln!(
+        &mut out,
         "message lengths: {}",
         format_message_lengths(&report.message_lengths)
     );
-    println!("pooled length: {}", report.total_length);
-    println!(
+    appendln!(&mut out, "pooled length: {}", report.total_length);
+    appendln!(
+        &mut out,
         "catalog windows: vetted discrete set {{8, 9, 11}} filtered by configured range {}..={}",
-        report.config.min_window, report.config.max_window
+        report.config.min_window,
+        report.config.max_window
     );
-    println!(
+    appendln!(
+        &mut out,
         "null: within each message, preserve the exact symbol multiset and length, shuffle order, recompute the internal-candidate count"
     );
-    println!(
+    appendln!(
+        &mut out,
         "mapping-independent scope: ciphertext symbol equality and gap structure only; no symbol-to-meaning mapping or language scoring"
     );
-    println!();
-    print_perfect_catalog(report);
-    println!();
-    print_perfect_breaks(report);
-    println!();
-    print_perfect_headline(report);
-    println!();
-    print_perfect_safe_extents(report);
-    println!();
-    print_perfect_regressions(report);
-    println!();
-    print_perfect_interpretation(report);
+    appendln!(&mut out);
+    append_perfect_catalog(&mut out, report);
+    appendln!(&mut out);
+    append_perfect_breaks(&mut out, report);
+    appendln!(&mut out);
+    append_perfect_headline(&mut out, report);
+    appendln!(&mut out);
+    append_perfect_safe_extents(&mut out, report);
+    appendln!(&mut out);
+    append_perfect_regressions(&mut out, report);
+    appendln!(&mut out);
+    append_perfect_interpretation(&mut out, report);
+    out
 }
 
-fn print_perfect_catalog(report: &perfect_isomorphism::PerfectIsomorphismReport) {
-    println!("cross-message gap-pattern catalog");
-    println!(
+fn append_perfect_catalog(
+    out: &mut String,
+    report: &perfect_isomorphism::PerfectIsomorphismReport,
+) {
+    appendln!(out, "cross-message gap-pattern catalog");
+    appendln!(
+        out,
         "  {:<13} {:>3} {:>7} {:>4} {:>8} {:>10} {:>10}",
-        "signature", "win", "repeats", "occ", "nullmax", "p", "tier"
+        "signature",
+        "win",
+        "repeats",
+        "occ",
+        "nullmax",
+        "p",
+        "tier"
     );
     for (entry, row) in report.catalog.iter().zip(&report.significance) {
         let tier = if row.strong {
@@ -2541,7 +2564,8 @@ fn print_perfect_catalog(report: &perfect_isomorphism::PerfectIsomorphismReport)
         } else {
             "coincidental-class"
         };
-        println!(
+        appendln!(
+            out,
             "  {:<13} {:>3} {:>7} {:>4} {:>8} {:>10} {:>10}",
             entry.signature,
             entry.window,
@@ -2551,22 +2575,35 @@ fn print_perfect_catalog(report: &perfect_isomorphism::PerfectIsomorphismReport)
             format_probability(row.empirical_p),
             tier
         );
-        println!("    occurrences: {}", format_catalog_occurrences(entry));
+        appendln!(
+            out,
+            "    occurrences: {}",
+            format_catalog_occurrences(entry)
+        );
     }
 }
 
-fn print_perfect_breaks(report: &perfect_isomorphism::PerfectIsomorphismReport) {
-    println!("maximal-extension break localization");
+fn append_perfect_breaks(out: &mut String, report: &perfect_isomorphism::PerfectIsomorphismReport) {
+    appendln!(out, "maximal-extension break localization");
     if report.breaks.is_empty() {
-        println!("  no bounded breaks in strong extents");
+        appendln!(out, "  no bounded breaks in strong extents");
         return;
     }
-    println!(
+    appendln!(
+        out,
         "  {:<13} {:>9} {:>9} {:>5} {:>6} {:>6} {:>7} {:<18}",
-        "pair", "left", "right", "idx", "island", "far", "flank", "class"
+        "pair",
+        "left",
+        "right",
+        "idx",
+        "island",
+        "far",
+        "flank",
+        "class"
     );
     for break_row in &report.breaks {
-        println!(
+        appendln!(
+            out,
             "  {:<13} {:>9} {:>9} {:>5} {:>6} {:>6} {:>7} {:<18}",
             format!("{}/{}", break_row.pair.0, break_row.pair.1),
             break_row.anchor.0,
@@ -2580,29 +2617,36 @@ fn print_perfect_breaks(report: &perfect_isomorphism::PerfectIsomorphismReport) 
     }
 }
 
-fn print_perfect_headline(report: &perfect_isomorphism::PerfectIsomorphismReport) {
-    println!("headline internal-violation null");
-    println!(
+fn append_perfect_headline(
+    out: &mut String,
+    report: &perfect_isomorphism::PerfectIsomorphismReport,
+) {
+    appendln!(out, "headline internal-violation null");
+    appendln!(
+        out,
         "  robust strong-bar internal violations: {}",
         report.robust_internal_violations
     );
-    println!(
+    appendln!(
+        out,
         "  matched null count: mean {:.3}, median {:.1}, q97.5 {}, max {}",
         report.internal_violation_null.count_mean,
         report.internal_violation_null.count_median,
         report.internal_violation_null.count_q975,
         report.internal_violation_null.count_max
     );
-    println!(
+    appendln!(
+        out,
         "  upper-tail add-one p: ({extreme}+1)/({trials}+1) = {p}",
         extreme = report.empirical_p_count,
         trials = report.internal_violation_null.trials,
         p = format_probability(report.empirical_p)
     );
-    println!(
+    appendln!(
+        out,
         "  loose-bar note: the vetted empirical loose candidate is east4@65/west4@67 in the Stutter Section; it is benign and within the chance-collision null, so it is not promoted to the strong headline"
     );
-    println!("  result: {}", perfect_headline_result(report));
+    appendln!(out, "  result: {}", perfect_headline_result(report));
 }
 
 fn perfect_headline_result(report: &perfect_isomorphism::PerfectIsomorphismReport) -> String {
@@ -2625,15 +2669,23 @@ fn perfect_headline_result(report: &perfect_isomorphism::PerfectIsomorphismRepor
     }
 }
 
-fn print_perfect_safe_extents(report: &perfect_isomorphism::PerfectIsomorphismReport) {
-    println!("safe-isomorph extent export");
-    println!("  count: {}", report.safe_extents.len());
-    println!(
+fn append_perfect_safe_extents(
+    out: &mut String,
+    report: &perfect_isomorphism::PerfectIsomorphismReport,
+) {
+    appendln!(out, "safe-isomorph extent export");
+    appendln!(out, "  count: {}", report.safe_extents.len());
+    appendln!(
+        out,
         "  {:<13} {:>12} {:>12} {:<18}",
-        "pair", "left", "right", "bound"
+        "pair",
+        "left",
+        "right",
+        "bound"
     );
     for extent in &report.safe_extents {
-        println!(
+        appendln!(
+            out,
             "  {:<13} {:>12} {:>12} {:<18}",
             format!("{}/{}", extent.pair.0, extent.pair.1),
             format_safe_span(extent.left_span),
@@ -2643,21 +2695,26 @@ fn print_perfect_safe_extents(report: &perfect_isomorphism::PerfectIsomorphismRe
     }
 }
 
-fn print_perfect_regressions(report: &perfect_isomorphism::PerfectIsomorphismReport) {
-    println!("wiki regression checks");
+fn append_perfect_regressions(
+    out: &mut String,
+    report: &perfect_isomorphism::PerfectIsomorphismReport,
+) {
+    appendln!(out, "wiki regression checks");
     for result in &report.regression {
         let status = if result.reproduced { "PASS" } else { "FAIL" };
-        println!(
+        appendln!(
+            out,
             "  {:<30} {:<4} produced [{}]",
             format_perfect_regression_check(result.check),
             status,
             result.produced.join(" | ")
         );
         if !result.hypothesis_label.is_empty() {
-            println!("    hypothesis: {}", result.hypothesis_label);
+            appendln!(out, "    hypothesis: {}", result.hypothesis_label);
         }
     }
-    println!(
+    appendln!(
+        out,
         "  positive control: {}",
         if report.positive_control_fired {
             "fired"
@@ -2667,12 +2724,17 @@ fn print_perfect_regressions(report: &perfect_isomorphism::PerfectIsomorphismRep
     );
 }
 
-fn print_perfect_interpretation(report: &perfect_isomorphism::PerfectIsomorphismReport) {
-    println!(
+fn append_perfect_interpretation(
+    out: &mut String,
+    report: &perfect_isomorphism::PerfectIsomorphismReport,
+) {
+    appendln!(
+        out,
         "Multiplicity note: multiple isomorph signatures, occurrence pairs, and vetted windows are tested; pointwise rows are labels for structural triage, while the matched null calibrates the internal-violation count."
     );
-    println!("{}", perfect_interpretation(report));
-    println!(
+    appendln!(out, "{}", perfect_interpretation(report));
+    appendln!(
+        out,
         "Claim ceiling: the eyes remain deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext."
     );
 }

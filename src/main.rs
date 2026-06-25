@@ -893,7 +893,7 @@ fn run_perfectiso(config: perfect_isomorphism::PerfectIsomorphismConfig) -> Exit
             return ExitCode::FAILURE;
         }
     };
-    report::print_perfect_isomorphism_report(&report);
+    print!("{}", report::render_perfect_isomorphism_report(&report));
     ExitCode::SUCCESS
 }
 
