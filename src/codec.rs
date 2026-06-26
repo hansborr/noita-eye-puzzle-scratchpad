@@ -21,7 +21,7 @@
 //! This module is a peer of [`crate::solve`]; it supplies the codec types the
 //! solve pipeline threads between `decrypt` and `mapping`. The accept-`0..=82`
 //! filter is **not** part of grouping — it is a consumer-side alphabet policy
-//! (see `output_exceeds_accepted_alphabet`).
+//! (see [`output_exceeds_accepted_alphabet`]).
 
 use std::fmt;
 
@@ -51,9 +51,9 @@ pub trait Codec {
     fn name(&self) -> &'static str;
 
     /// Whether [`transduce`](Codec::transduce) is invertible (enables a codec
-    /// round-trip check via `codec_round_trip_ok`). This is a property of the
+    /// round-trip check via [`codec_round_trip_ok`]). This is a property of the
     /// codec *type*; a specific lossy input (e.g. a trailing partial group) still
-    /// yields an honest `false` from `codec_round_trip_ok`.
+    /// yields an honest `false` from [`codec_round_trip_ok`].
     fn is_invertible(&self) -> bool;
 }
 
@@ -317,9 +317,165 @@ fn delta_transduce(codec: &DeltaCodec, symbols: &[Glyph]) -> Result<Vec<Glyph>, 
     codec.then.transduce(&moves)
 }
 
+// ---------------------------------------------------------------------------
+// Step 3 — codec round-trip + alphabet-size sanity gates.
+// ---------------------------------------------------------------------------
+
+/// The default language alphabet size (29: 26 Latin letters plus the Finnish
+/// vowels Å, Ä, Ö), mirroring `crate::language::DEFAULT_LANGUAGE_ALPHABET`. A codec
+/// whose resolved output alphabet is below this cannot host the default language
+/// under a symbol->letter mapping.
+pub const DEFAULT_LANGUAGE_ALPHABET_SIZE: usize = 29;
+
+/// Codec round-trip consistency check (the fourth structural gate, alongside the
+/// cipher round-trip).
+///
+/// Where the codec [`is_invertible`](Codec::is_invertible), transduce then
+/// re-expand (ungroup digits / re-integrate a delta from its seed symbol) and
+/// compare to `symbols` byte-for-byte. Returns an honest `false` for a lossy input
+/// (e.g. a trailing partial group that makes `transduce` error, or a stride that
+/// does not partition the stream). Like the cipher round-trip, a passing codec
+/// round-trip proves only codec/cipher consistency — it says nothing about whether
+/// the mapping decodes anything.
+#[must_use]
+pub fn codec_round_trip_ok(codec: &AnyCodec, symbols: &[Glyph]) -> bool {
+    if !codec.is_invertible() {
+        return false;
+    }
+    let Ok(transduced) = codec.transduce(symbols) else {
+        return false;
+    };
+    let Ok(expanded) = re_expand(codec, &transduced, symbols) else {
+        return false;
+    };
+    expanded == symbols
+}
+
+/// Alphabet-size sanity predicate: can the codec's resolved output alphabet host a
+/// language of `language_alphabet_size` symbols?
+///
+/// `true` iff
+/// `resolved_output_alphabet_size(codec, cipher_alphabet_size) >= language_alphabet_size`.
+/// This formalizes "5 < 26, 12 < 26 => you need a codec": [`AnyCodec::Identity`]
+/// over a 5- or 12-symbol cipher alphabet FAILS for 29-letter English, while
+/// `Identity` over the 83-symbol eyes passes. For the default language pass
+/// [`DEFAULT_LANGUAGE_ALPHABET_SIZE`].
+#[must_use]
+pub fn output_alphabet_hosts_language(
+    codec: &AnyCodec,
+    cipher_alphabet_size: usize,
+    language_alphabet_size: usize,
+) -> bool {
+    resolved_output_alphabet_size(codec, cipher_alphabet_size) >= language_alphabet_size
+}
+
+/// Flags a codec whose transduced output leaves the accepted alphabet
+/// `0..accepted_alphabet_size`.
+///
+/// The honeycomb accept policy keeps trigram values `0..=82`
+/// (`accepted_alphabet_size = 83`) and rejects raw `83..=124`; that accept filter
+/// is a consumer-side policy, **not** part of grouping. Returns `true` when any
+/// transduced value is `>= accepted_alphabet_size` (the codec emits out-of-alphabet
+/// symbols for that consumer, exactly as `cipher_attack`/`solve` reject value
+/// `>= 83`).
+///
+/// # Errors
+/// Returns [`CodecError`] if the codec cannot transduce `symbols`.
+pub fn output_exceeds_accepted_alphabet(
+    codec: &AnyCodec,
+    symbols: &[Glyph],
+    accepted_alphabet_size: usize,
+) -> Result<bool, CodecError> {
+    let transduced = codec.transduce(symbols)?;
+    Ok(transduced
+        .iter()
+        .any(|glyph| usize::from(glyph.0) >= accepted_alphabet_size))
+}
+
+/// Re-expands a transduced stream back to cipher symbols (the inverse used by
+/// [`codec_round_trip_ok`]). `original` supplies the [`AnyCodec::Delta`] seed (its
+/// first symbol); it is unused for [`AnyCodec::Identity`]/[`AnyCodec::FixedGrouping`].
+fn re_expand(
+    codec: &AnyCodec,
+    transduced: &[Glyph],
+    original: &[Glyph],
+) -> Result<Vec<Glyph>, CodecError> {
+    match codec {
+        AnyCodec::Identity => Ok(transduced.to_vec()),
+        AnyCodec::FixedGrouping(codec) => ungroup(codec, transduced),
+        AnyCodec::Delta(codec) => {
+            let moves = re_expand(&codec.then, transduced, original)?;
+            let Some(seed) = original.first().copied() else {
+                return Err(CodecError::EmptyInput);
+            };
+            integrate(codec.base, seed, &moves)
+        }
+    }
+}
+
+/// Splits each grouped value back into `group_len` base-`base` digits in
+/// [`DigitOrder`] order — the inverse of [`group_symbols`] on the non-overlapping
+/// (`stride == group_len`) configuration.
+fn ungroup(codec: &GroupingCodec, transduced: &[Glyph]) -> Result<Vec<Glyph>, CodecError> {
+    let group_len = codec.group_len;
+    let base = codec.base;
+    if group_len == 0 || base == 0 {
+        return Err(CodecError::NonInvertible);
+    }
+    let mut out = Vec::with_capacity(transduced.len().saturating_mul(group_len));
+    for glyph in transduced {
+        let mut value = usize::from(glyph.0);
+        // Extract least-significant digit first into the trailing slot, leaving
+        // `digits` most-significant-first.
+        let mut digits = vec![0u16; group_len];
+        for slot in (0..group_len).rev() {
+            let digit = value % base;
+            value /= base;
+            if let Some(cell) = digits.get_mut(slot) {
+                *cell = digit as u16;
+            }
+        }
+        match codec.order {
+            DigitOrder::Msb => out.extend(digits.iter().copied().map(Glyph)),
+            DigitOrder::Lsb => out.extend(digits.iter().rev().copied().map(Glyph)),
+        }
+    }
+    Ok(out)
+}
+
+/// Re-integrates a [`AnyCodec::Delta`] move stream from its seed: cumulative sum
+/// mod `base`. The inverse of the first-difference in [`delta_transduce`].
+fn integrate(base: usize, seed: Glyph, moves: &[Glyph]) -> Result<Vec<Glyph>, CodecError> {
+    if base == 0 {
+        return Err(CodecError::ValueOutsideBase { value: 0, base });
+    }
+    let mut accumulator = usize::from(seed.0);
+    if accumulator >= base {
+        return Err(CodecError::ValueOutsideBase {
+            value: accumulator,
+            base,
+        });
+    }
+    let mut out = Vec::with_capacity(moves.len().saturating_add(1));
+    out.push(seed);
+    for step in moves {
+        let step = usize::from(step.0);
+        if step >= base {
+            return Err(CodecError::ValueOutsideBase { value: step, base });
+        }
+        accumulator = (accumulator + step) % base;
+        out.push(Glyph(accumulator as u16));
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{AnyCodec, Codec, CodecError, DeltaCodec, DigitOrder, GroupingCodec};
+    use super::{
+        AnyCodec, Codec, CodecError, DEFAULT_LANGUAGE_ALPHABET_SIZE, DeltaCodec, DigitOrder,
+        GroupingCodec, codec_round_trip_ok, output_alphabet_hosts_language,
+        output_exceeds_accepted_alphabet,
+    };
     use crate::glyph::{Glyph, Orientation};
     use crate::trigram::ReadingTrigram;
 
@@ -491,5 +647,113 @@ mod tests {
         });
         let error = codec.transduce(&glyphs(&[0, 1, 7])).unwrap_err();
         assert_eq!(error, CodecError::ValueOutsideBase { value: 7, base: 5 });
+    }
+
+    #[test]
+    fn identity_round_trips() {
+        assert!(codec_round_trip_ok(
+            &AnyCodec::Identity,
+            &glyphs(&[3, 1, 4, 1, 0])
+        ));
+    }
+
+    #[test]
+    fn fixed_grouping_round_trips_on_full_multiple() {
+        let codec = AnyCodec::FixedGrouping(honeycomb_grouping());
+        assert!(codec_round_trip_ok(&codec, &glyphs(&[4, 4, 4, 1, 2, 3])));
+        // LSB ungroup must also reproduce its input.
+        let lsb = AnyCodec::FixedGrouping(GroupingCodec {
+            group_len: 3,
+            base: 5,
+            order: DigitOrder::Lsb,
+            stride: 3,
+        });
+        assert!(codec_round_trip_ok(&lsb, &glyphs(&[1, 2, 3, 0, 4, 2])));
+    }
+
+    #[test]
+    fn fixed_grouping_partial_group_is_honest_false() {
+        // A trailing partial group makes transduce error, so the round-trip is an
+        // honest false (the codec is lossy on this input).
+        let codec = AnyCodec::FixedGrouping(honeycomb_grouping());
+        assert!(!codec_round_trip_ok(&codec, &glyphs(&[4, 4, 4, 1, 2])));
+    }
+
+    #[test]
+    fn delta_round_trips_on_c5_walk() {
+        let codec = AnyCodec::Delta(DeltaCodec {
+            base: 5,
+            then: Box::new(AnyCodec::Identity),
+        });
+        assert!(codec_round_trip_ok(
+            &codec,
+            &glyphs(&[2, 3, 4, 0, 4, 3, 2, 1, 0, 1, 2])
+        ));
+    }
+
+    #[test]
+    fn delta_then_fixed_grouping_round_trips() {
+        // Delta differences then groups the move stream; re-expand ungroups then
+        // re-integrates from the seed. Length of the move stream (walk.len()-1)
+        // must be a multiple of group_len for the grouping to be lossless.
+        let codec = AnyCodec::Delta(DeltaCodec {
+            base: 5,
+            then: Box::new(AnyCodec::FixedGrouping(GroupingCodec {
+                group_len: 2,
+                base: 5,
+                order: DigitOrder::Msb,
+                stride: 2,
+            })),
+        });
+        // 11-symbol walk -> 10 moves -> 5 grouped values (even); round-trips.
+        assert!(codec_round_trip_ok(
+            &codec,
+            &glyphs(&[2, 3, 4, 0, 4, 3, 2, 1, 0, 1, 2])
+        ));
+    }
+
+    #[test]
+    fn alphabet_size_sanity_rejects_small_identity_and_accepts_wide_grouping() {
+        // Identity over 5 or 12 symbols cannot host 29-letter English.
+        assert!(!output_alphabet_hosts_language(
+            &AnyCodec::Identity,
+            5,
+            DEFAULT_LANGUAGE_ALPHABET_SIZE
+        ));
+        assert!(!output_alphabet_hosts_language(
+            &AnyCodec::Identity,
+            12,
+            DEFAULT_LANGUAGE_ALPHABET_SIZE
+        ));
+        // Identity over the 83-symbol eyes is already wide enough.
+        assert!(output_alphabet_hosts_language(
+            &AnyCodec::Identity,
+            83,
+            DEFAULT_LANGUAGE_ALPHABET_SIZE
+        ));
+        // A base-6 pair grouping (6^2 = 36 >= 29) can host the language.
+        let grouping = AnyCodec::FixedGrouping(GroupingCodec {
+            group_len: 2,
+            base: 6,
+            order: DigitOrder::Msb,
+            stride: 2,
+        });
+        assert!(output_alphabet_hosts_language(
+            &grouping,
+            6,
+            DEFAULT_LANGUAGE_ALPHABET_SIZE
+        ));
+    }
+
+    #[test]
+    fn fixed_grouping_emitting_above_82_is_flagged_for_eye_consumer() {
+        let codec = AnyCodec::FixedGrouping(honeycomb_grouping());
+        // [3,1,2] -> 82 (accepted); [4,4,4] -> 124 (raw, rejected by the 0..=82 policy).
+        let accepted = crate::ciphers::EYE_READING_ALPHABET_SIZE; // 83
+        assert!(!output_exceeds_accepted_alphabet(&codec, &glyphs(&[3, 1, 2]), accepted).unwrap());
+        assert!(
+            output_exceeds_accepted_alphabet(&codec, &glyphs(&[3, 1, 2, 4, 4, 4]), accepted)
+                .unwrap()
+        );
     }
 }

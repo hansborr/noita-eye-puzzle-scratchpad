@@ -36,5 +36,6 @@ src/agl_gak.rs                      1208  # attack; brief 06 colocated report re
 src/orientation_homogeneity.rs      1138  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/pipeline_null.rs                684   # matched-null driver; brief 05 harness + brief 06 colocated report render; trim under 07b
 src/zero_adjacency_null.rs          848   # matched-null driver; brief 05 harness + brief 06 colocated report render
+src/codec.rs                        759   # new (brief 04a codec layer)
 src/language.rs                     618   # language scorer; brief 04
 src/ingest.rs                       610   # new (brief 03); trim under 600 next
