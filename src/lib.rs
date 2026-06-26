@@ -128,9 +128,11 @@ pub mod tree_residual;
 #[path = "nulls/zero_adjacency_null.rs"]
 pub mod zero_adjacency_null;
 
+// ciphers: candidate-cipher primitives and exact round-trip controls.
+pub mod ciphers;
+
 pub mod agl_gak;
 pub mod cipher_attack;
-pub mod ciphers;
 pub mod codec;
 pub mod conditional_structure;
 pub mod controls;
