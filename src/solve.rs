@@ -12,7 +12,9 @@ use std::path::{Path, PathBuf};
 
 use crate::ciphers::{AnyCipher, CipherError};
 use crate::codec::{
-    AnyCodec, Codec, CodecError, CodecStrategy, codec_round_trip_ok, resolved_output_alphabet_size,
+    AnyCodec, Codec, CodecError, CodecSearch, CodecSkipReason, CodecStrategy,
+    DEFAULT_LANGUAGE_ALPHABET_SIZE, MAX_SEARCH_OUTPUT_ALPHABET, SkippedCodec, codec_round_trip_ok,
+    enumerate_codecs, output_alphabet_hosts_language, resolved_output_alphabet_size,
 };
 use crate::glyph::Glyph;
 use crate::ingest::IngestError;
@@ -270,7 +272,8 @@ pub enum SolveError {
     EmptyMappingSet,
     /// The fixed codec set was empty.
     EmptyCodecSet,
-    /// Codec search is a Phase-2 feature and is not implemented in Phase 1.
+    /// Retained for API stability. The codec search is implemented (brief 04a
+    /// Phase 2, [`CodecStrategy::Search`]); this variant is no longer returned.
     CodecSearchUnavailable,
     /// A mapped symbol was outside the mapping table.
     MappingSymbolOutsideTable {
@@ -416,21 +419,63 @@ impl From<crate::null::RandomBoundError> for SolveError {
 /// Returns [`SolveError`] if the hypothesis space is malformed or scoring cannot
 /// complete.
 pub fn solve(req: &SolveRequest<'_>) -> Result<Vec<Candidate>, SolveError> {
+    Ok(solve_with_codec_trace(req)?.candidates)
+}
+
+/// Candidates plus the structured codec-search skip trace.
+///
+/// [`CodecStrategy::Fixed`] leaves [`skipped`](Self::skipped) empty (its codecs are
+/// user-declared, not pruned). [`CodecStrategy::Search`] fills it: every enumerated
+/// codec that was pruned before its mapping search ran appears here with its
+/// [`CodecSkipReason`], so no skip is silent (the renderer / CLI can show the full
+/// enumeration trace).
+#[derive(Clone, Debug, PartialEq)]
+pub struct SolveOutcome {
+    /// Ranked solve candidates (highest in-sample score first).
+    pub candidates: Vec<Candidate>,
+    /// Codecs the search enumerated but pruned, each with its skip reason.
+    pub skipped: Vec<SkippedCodec>,
+}
+
+/// Like [`solve`], but also returns the codec-search skip trace ([`SolveOutcome`]).
+///
+/// This is the trace-bearing entry point for the codec search: `solve` is the
+/// thin wrapper that discards [`SolveOutcome::skipped`]. The default
+/// Identity/[`Fixed`](CodecStrategy::Fixed) path is byte-for-byte identical to the
+/// pre-Phase-2 `solve` — same enumeration order, same seeds, same ranking — with
+/// an empty skip trace.
+///
+/// # Errors
+/// Returns [`SolveError`] if the hypothesis space is malformed or scoring cannot
+/// complete.
+pub fn solve_with_codec_trace(req: &SolveRequest<'_>) -> Result<SolveOutcome, SolveError> {
     validate_request(req)?;
-    let codecs = match &req.space.codec {
-        CodecStrategy::Fixed(codecs) => codecs,
-        // Phase-1 seam: the codec search (codec parameters x brief 04's mapping
-        // search) is brief 04a Phase 2. Mirror how MappingStrategy::Search is left
-        // unavailable in Phase 1 rather than silently degrading.
-        CodecStrategy::Search(_) => return Err(SolveError::CodecSearchUnavailable),
+    let mut outcome = match &req.space.codec {
+        CodecStrategy::Fixed(codecs) => SolveOutcome {
+            candidates: solve_fixed_codecs(req, codecs)?,
+            skipped: Vec::new(),
+        },
+        CodecStrategy::Search(search) => run_codec_search(req, search)?,
     };
+    outcome
+        .candidates
+        .sort_by(|left, right| right.score.total_cmp(&left.score));
+    Ok(outcome)
+}
+
+/// The [`CodecStrategy::Fixed`] path: round-trip + score every declared codec
+/// (no pruning, no search). Returns the unranked candidates; the caller sorts.
+fn solve_fixed_codecs(
+    req: &SolveRequest<'_>,
+    codecs: &[AnyCodec],
+) -> Result<Vec<Candidate>, SolveError> {
     let mut candidates = Vec::new();
     // Alphabet-size sanity (`codec::output_alphabet_hosts_language`) is intentionally
     // NOT enforced on this Fixed path: these codecs are user-declared and scored
     // as-is (round-tripped + scored only, no search). Enforcement as a pruning
     // filter is a Phase-2 codec-search concern (brief 04a step 5, under
     // `CodecStrategy::Search`), where each enumerated codec is pruned by that
-    // predicate and every skip is `log()`-ed.
+    // predicate and every skip is logged.
     for codec in codecs {
         match &req.space.mappings {
             MappingStrategy::Fixed(mappings) => {
@@ -443,8 +488,97 @@ pub fn solve(req: &SolveRequest<'_>) -> Result<Vec<Candidate>, SolveError> {
             }
         }
     }
-    candidates.sort_by(|left, right| right.score.total_cmp(&left.score));
     Ok(candidates)
+}
+
+/// The [`CodecStrategy::Search`] path (brief 04a step 5): enumerate codec
+/// parameters, prune each by alphabet-size sanity + the
+/// [`MAX_SEARCH_OUTPUT_ALPHABET`] ceiling + transduce feasibility (logging every
+/// skip), and run the mapping strategy on each surviving codec's transduced stream.
+///
+/// Determinism: the enumeration order is fixed and the codec-enumeration index is
+/// mixed into the per-codec mapping-search seed, so the same `CodecSearch.seed`
+/// reproduces the same candidates. Returns the unranked candidates; the caller
+/// sorts.
+fn run_codec_search(
+    req: &SolveRequest<'_>,
+    search: &CodecSearch,
+) -> Result<SolveOutcome, SolveError> {
+    let cipher_alphabet_size = req.space.cipher_alphabet_size;
+    let mut candidates = Vec::new();
+    let mut skipped = Vec::new();
+    for (index, codec) in enumerate_codecs(search, cipher_alphabet_size)
+        .into_iter()
+        .enumerate()
+    {
+        // Prune (a) — alphabet-size sanity. CRITICAL (D2 landmine): resolve the true
+        // mapping domain via `output_alphabet_hosts_language` /
+        // `resolved_output_alphabet_size`; NEVER the bare `Codec::output_alphabet_size`
+        // trait method, which returns the 0 passthrough sentinel for `Identity` and
+        // would wrongly prune it (see codec.rs).
+        if !output_alphabet_hosts_language(
+            &codec,
+            cipher_alphabet_size,
+            DEFAULT_LANGUAGE_ALPHABET_SIZE,
+        ) {
+            skipped.push(SkippedCodec {
+                reason: CodecSkipReason::SanityTooSmall {
+                    resolved: resolved_output_alphabet_size(&codec, cipher_alphabet_size),
+                    language: DEFAULT_LANGUAGE_ALPHABET_SIZE,
+                },
+                codec,
+            });
+            continue;
+        }
+        // Prune (b) — output-alphabet ceiling (documented cap; too wide to map
+        // honestly), again resolved (never the bare trait sentinel).
+        let resolved = resolved_output_alphabet_size(&codec, cipher_alphabet_size);
+        if resolved > MAX_SEARCH_OUTPUT_ALPHABET {
+            skipped.push(SkippedCodec {
+                reason: CodecSkipReason::CeilingTooWide {
+                    resolved,
+                    ceiling: MAX_SEARCH_OUTPUT_ALPHABET,
+                },
+                codec,
+            });
+            continue;
+        }
+        // Prune (c) — transduce feasibility. All seven cipher families are
+        // length-preserving, so the ciphertext length is exactly the decrypted
+        // length, and its symbols share the cipher alphabet (0..base) with any
+        // decrypted stream; a codec that cannot transduce the ciphertext (e.g. a
+        // grouping whose group_len does not divide the stream) is logged-and-skipped
+        // rather than silently truncating or aborting the whole search.
+        if codec.transduce(req.ciphertext).is_err() {
+            skipped.push(SkippedCodec {
+                reason: CodecSkipReason::Untransducible,
+                codec,
+            });
+            continue;
+        }
+        // Surviving codec: run the mapping strategy on the transduced stream.
+        match &req.space.mappings {
+            MappingStrategy::Fixed(mappings) => {
+                for family in &req.space.families {
+                    candidates.extend(evaluate_family(req, family, mappings, &codec)?);
+                }
+            }
+            MappingStrategy::Search(mapping_search) => {
+                // Mix the codec-enumeration index into the mapping-search seed so
+                // distinct codecs explore distinct (still deterministic) random
+                // streams; the CodecSearch.seed is the enumeration's seed entropy.
+                let derived = MappingSearch {
+                    seed: mix_seed(mapping_search.seed, mix_seed(search.seed, index as u64)),
+                    ..*mapping_search
+                };
+                candidates.extend(solve_search(req, &derived, &codec)?);
+            }
+        }
+    }
+    Ok(SolveOutcome {
+        candidates,
+        skipped,
+    })
 }
 
 fn validate_request(req: &SolveRequest<'_>) -> Result<(), SolveError> {
@@ -1453,11 +1587,14 @@ mod tests {
         AnnealSchedule, AnyCodec, CipherFamilySpec, Codec, CodecStrategy, DEFAULT_NULL_TRIALS,
         DEFAULT_SEED, HypothesisSpace, Language, LanguageChoice, Mapping, MappingSearch,
         MappingStrategy, SolveError, SolveRequest, candidate_survives, solve,
+        solve_with_codec_trace,
     };
     use crate::ciphers::{
         AnyCipher, CaesarKey, TranspositionKey, caesar_encrypt, transposition_encrypt,
     };
-    use crate::codec::{DigitOrder, GroupingCodec};
+    use crate::codec::{
+        CodecSearch, CodecSkipReason, DigitOrder, GroupingCodec, MAX_SEARCH_OUTPUT_ALPHABET,
+    };
     use crate::glyph::Glyph;
     use crate::language::{LanguageModel, english_model, finnish_model};
     use crate::null::{SplitMix64, shuffled_permutation};
@@ -1814,13 +1951,89 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         assert_eq!(top.rendered_text, expected);
     }
 
-    // The Phase-2 codec search is a clean seam in Phase 1: it returns a clear
-    // unavailable error rather than silently degrading (mirrors MappingSearch).
+    // Step 5 — the codec SEARCH enumerates grouping codecs, prunes the ones that
+    // cannot host the language (or explode past the ceiling), and on the survivors
+    // runs the established per-codec evaluation. Here it must DISCOVER the planted
+    // base-6 pair grouping (and its MSB order) and rank the correct codec + cipher
+    // + known mapping to the top, reproducing the EXACT planted English. (The
+    // 6-symbol cipher alphabet cannot host 29 letters directly; the search widens
+    // 6 -> 6^2 = 36 >= 29 by enumerating group_len.)
     #[test]
-    fn codec_search_strategy_is_unavailable_in_phase_1() {
+    fn codec_search_recovers_planted_fixed_grouping() {
         let english = english_model().unwrap();
         let finnish = finnish_model().unwrap();
-        let ciphertext = glyphs(&[0, 1, 2, 3, 4]);
+        let base = 6usize;
+        let group_len = 2usize;
+        let (ciphertext, key, plaintext_indices) = plant_base6_pair_english(&english);
+        let mapping = grouped_value_identity_mapping(&english);
+
+        let request = SolveRequest {
+            ciphertext: &ciphertext,
+            space: HypothesisSpace {
+                families: vec![CipherFamilySpec {
+                    label: "Caesar".to_owned(),
+                    ciphers: identity_plus_caesar_ciphers(base),
+                }],
+                // group_len 1 (Identity, 6 < 29) is sanity-skipped; group_len 2
+                // survives for both orders, and only the MSB order recovers English.
+                codec: CodecStrategy::Search(CodecSearch {
+                    max_group_len: 2,
+                    try_delta: false,
+                    orders: vec![DigitOrder::Msb, DigitOrder::Lsb],
+                    seed: DEFAULT_SEED,
+                }),
+                mappings: MappingStrategy::Fixed(vec![mapping]),
+                language: LanguageChoice::English,
+                cipher_alphabet_size: base,
+                seed: DEFAULT_SEED,
+                null_trials: DEFAULT_NULL_TRIALS,
+            },
+            english: &english,
+            finnish: &finnish,
+        };
+
+        let outcome = solve_with_codec_trace(&request).unwrap();
+        let top = outcome.candidates.first().unwrap();
+
+        // The winning codec is exactly the planted base-6 MSB pair grouping.
+        assert_eq!(
+            top.codec,
+            AnyCodec::FixedGrouping(GroupingCodec {
+                group_len,
+                base,
+                order: DigitOrder::Msb,
+                stride: group_len,
+            })
+        );
+        assert_eq!(top.cipher, AnyCipher::Caesar(key));
+        assert!(top.crypto_round_trip_ok);
+        assert!(top.codec_round_trip_ok);
+        assert!(top.beats_null, "score {} null {}", top.score, top.null_mean);
+
+        let expected: String = plaintext_indices
+            .iter()
+            .map(|&index| english.alphabet().symbol(index).unwrap())
+            .collect();
+        assert_eq!(top.rendered_text, expected);
+
+        // group_len 1 (Identity over the 6-symbol alphabet) was logged-and-skipped
+        // for failing alphabet-size sanity — never silently dropped.
+        assert!(outcome.skipped.iter().any(|skip| {
+            skip.codec == AnyCodec::Identity
+                && matches!(skip.reason, CodecSkipReason::SanityTooSmall { .. })
+        }));
+    }
+
+    // Step 5 — bounded + logged: an out-of-budget codec is surfaced in the skip
+    // trace with its reason, not silently dropped. base 5, max_group_len 4 yields
+    // both prune reasons: group_len 1/2 (5, 25 < 29) -> SanityTooSmall; group_len 4
+    // (5^4 = 625 > 256 ceiling) -> CeilingTooWide; only group_len 3 (125) survives.
+    #[test]
+    fn codec_search_logs_and_skips_out_of_budget_codecs() {
+        let english = english_model().unwrap();
+        let finnish = finnish_model().unwrap();
+        // A length divisible by 3 so the surviving group_len-3 codec transduces.
+        let ciphertext = glyphs(&[0, 1, 2, 3, 4, 0, 1, 2, 3, 4, 0, 1]);
         let request = SolveRequest {
             ciphertext: &ciphertext,
             space: HypothesisSpace {
@@ -1828,13 +2041,15 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
                     label: "identity".to_owned(),
                     ciphers: vec![AnyCipher::Identity],
                 }],
-                codec: CodecStrategy::Search(crate::codec::CodecSearch {
-                    max_group_len: 3,
-                    try_delta: true,
+                codec: CodecStrategy::Search(CodecSearch {
+                    max_group_len: 4,
+                    try_delta: false,
                     orders: vec![DigitOrder::Msb],
                     seed: DEFAULT_SEED,
                 }),
-                mappings: MappingStrategy::Fixed(vec![Mapping::identity(5)]),
+                mappings: MappingStrategy::Fixed(vec![Mapping::from_table(
+                    (0..MAX_SEARCH_OUTPUT_ALPHABET).map(|_| 0usize).collect(),
+                )]),
                 language: LanguageChoice::English,
                 cipher_alphabet_size: 5,
                 seed: DEFAULT_SEED,
@@ -1844,10 +2059,65 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
             finnish: &finnish,
         };
 
-        assert!(matches!(
-            solve(&request).unwrap_err(),
-            SolveError::CodecSearchUnavailable
-        ));
+        let outcome = solve_with_codec_trace(&request).unwrap();
+
+        // Both prune reasons appear in the structured trace (logged, not dropped).
+        assert!(
+            outcome
+                .skipped
+                .iter()
+                .any(|skip| matches!(skip.reason, CodecSkipReason::SanityTooSmall { .. })),
+            "expected a SanityTooSmall skip in {:?}",
+            outcome.skipped
+        );
+        assert!(
+            outcome.skipped.iter().any(|skip| matches!(
+                skip.reason,
+                CodecSkipReason::CeilingTooWide {
+                    resolved: 625,
+                    ceiling: MAX_SEARCH_OUTPUT_ALPHABET,
+                }
+            )),
+            "expected a CeilingTooWide(625) skip in {:?}",
+            outcome.skipped
+        );
+        // The surviving group_len-3 codec still produced candidates.
+        assert!(!outcome.candidates.is_empty());
+    }
+
+    #[test]
+    fn codec_search_is_deterministic_for_fixed_seed() {
+        let english = english_model().unwrap();
+        let finnish = finnish_model().unwrap();
+        let base = 6usize;
+        let (ciphertext, _key, _indices) = plant_base6_pair_english(&english);
+        let mapping = grouped_value_identity_mapping(&english);
+        let request = SolveRequest {
+            ciphertext: &ciphertext,
+            space: HypothesisSpace {
+                families: vec![CipherFamilySpec {
+                    label: "Caesar".to_owned(),
+                    ciphers: identity_plus_caesar_ciphers(base),
+                }],
+                codec: CodecStrategy::Search(CodecSearch {
+                    max_group_len: 2,
+                    try_delta: true,
+                    orders: vec![DigitOrder::Msb, DigitOrder::Lsb],
+                    seed: DEFAULT_SEED,
+                }),
+                mappings: MappingStrategy::Fixed(vec![mapping]),
+                language: LanguageChoice::Both,
+                cipher_alphabet_size: base,
+                seed: DEFAULT_SEED,
+                null_trials: 3,
+            },
+            english: &english,
+            finnish: &finnish,
+        };
+
+        let first = solve_with_codec_trace(&request).unwrap();
+        let second = solve_with_codec_trace(&request).unwrap();
+        assert_eq!(first, second);
     }
 
     #[test]
@@ -2281,5 +2551,41 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
                     .map(|shift| AnyCipher::Caesar(CaesarKey::new(alphabet_size, shift).unwrap())),
             )
             .collect()
+    }
+
+    /// Plants English -> inverse base-6 pair grouping (MSB; each letter index
+    /// becomes two base-6 digits) -> Caesar(base 6, shift 2). Returns the
+    /// ciphertext, the Caesar key, and the planted language indices.
+    fn plant_base6_pair_english(model: &LanguageModel) -> (Vec<Glyph>, CaesarKey, Vec<usize>) {
+        let base = 6usize;
+        let plaintext_indices = model
+            .alphabet()
+            .normalize_text(
+                "THE NORTHERN STARS SHINE ON THE ROSE AND THE HEART OF IRON RESTS IN THE STONE \
+                 THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG NEAR THE FOGGY HARBOR EVERY MORNING",
+            )
+            .unwrap();
+        let mut digits: Vec<Glyph> = Vec::with_capacity(plaintext_indices.len() * 2);
+        for &index in &plaintext_indices {
+            digits.push(Glyph((index / base) as u16));
+            digits.push(Glyph((index % base) as u16));
+        }
+        let key = CaesarKey::new(base, 2).unwrap();
+        let ciphertext = caesar_encrypt(&digits, &key).unwrap();
+        (ciphertext, key, plaintext_indices)
+    }
+
+    /// The known grouped-value -> letter map for the base-6 pair plant: the
+    /// inverse grouping makes each grouped value equal the planted language index,
+    /// so `value -> value` (clamped to 0 for values without a planted letter)
+    /// renders the planted English exactly. Sized to the search ceiling so it
+    /// applies cleanly to every surviving codec the search may try.
+    fn grouped_value_identity_mapping(model: &LanguageModel) -> Mapping {
+        let language_size = model.alphabet().len();
+        Mapping::from_table(
+            (0..MAX_SEARCH_OUTPUT_ALPHABET)
+                .map(|value| if value < language_size { value } else { 0 })
+                .collect(),
+        )
     }
 }

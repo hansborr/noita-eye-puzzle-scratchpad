@@ -138,14 +138,18 @@ pub enum CodecStrategy {
     /// Phase 1: a declared set of codecs, each round-tripped + scored (no search).
     /// The behavior-preserving default is a single [`AnyCodec::Identity`].
     Fixed(Vec<AnyCodec>),
-    /// Phase 2 seam: enumerate codec parameters and run the mapping search on each
-    /// transduced stream, ranked by held-out + matched-null. **Not implemented in
-    /// Phase 1** — the solve pipeline returns a clear phase-2-unavailable error.
+    /// Phase 2: enumerate codec parameters ([`enumerate_codecs`]) and run the
+    /// mapping search on each transduced stream, ranked by held-out + matched-null.
+    /// Every enumerated codec that is pruned before its mapping search runs is
+    /// surfaced as a [`SkippedCodec`] (no silent truncation).
     Search(CodecSearch),
 }
 
-/// Phase-2 codec-search configuration (a seam in Phase 1; the enumeration is not
-/// implemented yet). `base` is fixed to the cipher alphabet size, not searched.
+/// Phase-2 codec-search configuration. `base` is fixed to the cipher alphabet
+/// size, not searched. The enumeration is realized by [`enumerate_codecs`]; the
+/// solve pipeline prunes each enumerated codec (alphabet-size sanity +
+/// [`MAX_SEARCH_OUTPUT_ALPHABET`] ceiling) and runs the mapping search on every
+/// survivor.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CodecSearch {
     /// `group_len` is enumerated over `1..=max_group_len`.
@@ -157,6 +161,121 @@ pub struct CodecSearch {
     /// Deterministic seed for the enumeration (drives `SplitMix64`); same seed =>
     /// same enumeration.
     pub seed: u64,
+}
+
+/// Documented output-alphabet ceiling for the codec search: an enumerated codec
+/// whose resolved output alphabet exceeds this is skipped (and logged) as too wide
+/// to map honestly onto a ~29-letter language.
+///
+/// A symbol->letter mapping over an `N`-symbol domain is increasingly many-to-one
+/// as `N` grows past the ~29-letter language alphabet; far past it the mapping is
+/// almost all collapse and the search both explodes and stops being honestly
+/// interpretable. `256` (~9x the language alphabet) is generous enough to admit
+/// every grouping the practice corpus needs — the honeycomb base-5 trigram raw
+/// range (`5^3 = 125`), base-6 digit pairs (`6^2 = 36`) and triples (`6^3 = 216`),
+/// and base-12 letter pairs (`12^2 = 144`) — while pruning the genuinely explosive
+/// configurations (`5^4 = 625`, `6^4 = 1296`, `12^3 = 1728`).
+pub const MAX_SEARCH_OUTPUT_ALPHABET: usize = 256;
+
+/// Why an enumerated codec was pruned from the codec search before any mapping
+/// search ran. Surfaced as data (never `println`/silently dropped) so the caller
+/// can render the full enumeration trace: every cap is documented and every skip
+/// is logged.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CodecSkipReason {
+    /// The resolved output alphabet is smaller than the language alphabet, so the
+    /// codec cannot host the language under any symbol->letter mapping (the formal
+    /// "5 < 26, 12 < 26 => you need a codec" prune).
+    SanityTooSmall {
+        /// Resolved output alphabet size of the skipped codec.
+        resolved: usize,
+        /// Language alphabet size it failed to reach.
+        language: usize,
+    },
+    /// The resolved output alphabet exceeds [`MAX_SEARCH_OUTPUT_ALPHABET`]: too
+    /// wide to map honestly.
+    CeilingTooWide {
+        /// Resolved output alphabet size of the skipped codec.
+        resolved: usize,
+        /// The ceiling it exceeded.
+        ceiling: usize,
+    },
+    /// The codec cannot transduce the ciphertext stream as given (e.g. a grouping
+    /// whose `group_len` does not divide the stream length). Logged-and-skipped so
+    /// an ill-fitting config never silently truncates the stream nor aborts the
+    /// whole search.
+    Untransducible,
+}
+
+/// An enumerated codec that the search pruned, paired with the reason. Returned as
+/// a structured trace from the codec search so no skip is silent.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SkippedCodec {
+    /// The pruned codec configuration.
+    pub codec: AnyCodec,
+    /// Why it was pruned.
+    pub reason: CodecSkipReason,
+}
+
+/// Enumerates the codec configurations a [`CodecStrategy::Search`] explores for a
+/// fixed cipher alphabet size (`base`, not searched).
+///
+/// For each `group_len` in `1..=max_group_len` and each `order` in
+/// `search.orders`, a non-overlapping (`stride == group_len`) [`GroupingCodec`] is
+/// emitted; `group_len == 1` reduces to [`AnyCodec::Identity`] and is
+/// order-agnostic, so only one copy is emitted for it. When `search.try_delta` is
+/// set, each of those is ALSO wrapped in a [`DeltaCodec`] over the same `base`.
+///
+/// The delta wrapping is the motivated search hint for the **+/-1-`C5`** structure
+/// observed in practice puzzle `one` (`research/data/practice-puzzles/one`): every
+/// one of that 5-symbol sample's transitions is +/-1 mod 5 — a walk on the
+/// pentagon `C5`. Differencing collapses the walk to its move stream, so a
+/// `Delta` codec is the natural first attempt. This is an OBSERVED ciphertext
+/// property and a search hint, NEVER a claim of triviality or "no message".
+///
+/// The order is deterministic. Pruning (alphabet-size sanity, the
+/// [`MAX_SEARCH_OUTPUT_ALPHABET`] ceiling, transduce feasibility) and the
+/// structured [`SkippedCodec`] log are the caller's (solve's) job; this function
+/// just lists the candidate codecs.
+#[must_use]
+pub fn enumerate_codecs(search: &CodecSearch, cipher_alphabet_size: usize) -> Vec<AnyCodec> {
+    let base = cipher_alphabet_size;
+    let deltas: &[bool] = if search.try_delta {
+        &[false, true]
+    } else {
+        &[false]
+    };
+    let mut codecs = Vec::new();
+    for &delta in deltas {
+        for group_len in 1..=search.max_group_len {
+            for &order in &search.orders {
+                // A 1-digit group is order-agnostic; skip the redundant Lsb copy so
+                // the enumeration has no duplicate Identity / Delta-of-Identity.
+                if group_len == 1 && order == DigitOrder::Lsb {
+                    continue;
+                }
+                let inner = if group_len == 1 {
+                    AnyCodec::Identity
+                } else {
+                    AnyCodec::FixedGrouping(GroupingCodec {
+                        group_len,
+                        base,
+                        order,
+                        stride: group_len,
+                    })
+                };
+                codecs.push(if delta {
+                    AnyCodec::Delta(DeltaCodec {
+                        base,
+                        then: Box::new(inner),
+                    })
+                } else {
+                    inner
+                });
+            }
+        }
+    }
+    codecs
 }
 
 /// Error returned by the codec layer. Hand-written `Display` + [`std::error::Error`]
@@ -549,9 +668,10 @@ fn integrate(base: usize, seed: Glyph, moves: &[Glyph]) -> Result<Vec<Glyph>, Co
 #[cfg(test)]
 mod tests {
     use super::{
-        AnyCodec, Codec, CodecError, DEFAULT_LANGUAGE_ALPHABET_SIZE, DeltaCodec, DigitOrder,
-        GroupingCodec, codec_round_trip_ok, output_alphabet_hosts_language,
-        output_exceeds_accepted_alphabet,
+        AnyCodec, Codec, CodecError, CodecSearch, DEFAULT_LANGUAGE_ALPHABET_SIZE, DeltaCodec,
+        DigitOrder, GroupingCodec, codec_round_trip_ok, enumerate_codecs,
+        output_alphabet_hosts_language, output_exceeds_accepted_alphabet,
+        resolved_output_alphabet_size,
     };
     use crate::glyph::{Glyph, Orientation};
     use crate::trigram::ReadingTrigram;
@@ -872,5 +992,69 @@ mod tests {
 
         // A non-overlapping (`stride == group_len`) grouping stays invertible.
         assert!(AnyCodec::FixedGrouping(honeycomb_grouping()).is_invertible());
+    }
+
+    #[test]
+    fn enumerate_codecs_lists_groupings_and_dedupes_unit_group() {
+        // No delta, both orders, base 5, group_len 1..=3.
+        let search = CodecSearch {
+            max_group_len: 3,
+            try_delta: false,
+            orders: vec![DigitOrder::Msb, DigitOrder::Lsb],
+            seed: 0,
+        };
+        let codecs = enumerate_codecs(&search, 5);
+        // group_len 1 -> a single Identity (order-agnostic, deduped); group_len 2
+        // and 3 -> one grouping per order. 1 + 2 + 2 = 5 codecs.
+        assert_eq!(codecs.len(), 5);
+        assert_eq!(codecs.first(), Some(&AnyCodec::Identity));
+        assert!(codecs.contains(&AnyCodec::FixedGrouping(GroupingCodec {
+            group_len: 3,
+            base: 5,
+            order: DigitOrder::Msb,
+            stride: 3,
+        })));
+        // group_len 1 appears exactly once despite two orders requested.
+        assert_eq!(
+            codecs
+                .iter()
+                .filter(|codec| **codec == AnyCodec::Identity)
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn enumerate_codecs_wraps_delta_when_requested() {
+        let search = CodecSearch {
+            max_group_len: 3,
+            try_delta: true,
+            orders: vec![DigitOrder::Msb],
+            seed: 0,
+        };
+        let codecs = enumerate_codecs(&search, 5);
+        // delta off: Identity, FixedGrouping{2}, FixedGrouping{3} (3 codecs).
+        // delta on: Delta{Identity}, Delta{FixedGrouping{2}}, Delta{FixedGrouping{3}}.
+        assert_eq!(codecs.len(), 6);
+        // The +/-1-C5 hint: Delta over the base-5 trigram grouping is enumerated,
+        // and its resolved output alphabet (the inner grouping's 5^3) hosts the
+        // language while a pure Delta-of-Identity (resolved 5) does not.
+        let delta_trigram = AnyCodec::Delta(DeltaCodec {
+            base: 5,
+            then: Box::new(AnyCodec::FixedGrouping(GroupingCodec {
+                group_len: 3,
+                base: 5,
+                order: DigitOrder::Msb,
+                stride: 3,
+            })),
+        });
+        assert!(codecs.contains(&delta_trigram));
+        assert_eq!(resolved_output_alphabet_size(&delta_trigram, 5), 125);
+        let delta_identity = AnyCodec::Delta(DeltaCodec {
+            base: 5,
+            then: Box::new(AnyCodec::Identity),
+        });
+        assert!(codecs.contains(&delta_identity));
+        assert_eq!(resolved_output_alphabet_size(&delta_identity, 5), 5);
     }
 }
