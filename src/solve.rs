@@ -1603,9 +1603,21 @@ pub const SOLVE_CLAIM_CEILING: &str = "deterministic, engine-generated, striking
 
 /// The top candidate's record fields, scored under BOTH language models.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "record DTO: codec/cipher round-trip, beats-null, and survived are four independent gate verdicts surfaced verbatim, not a packed state machine"
+)]
 pub struct SolveRecordCandidate<'a> {
     /// Stable, display-only cipher family name.
     pub cipher_name: &'a str,
+    /// Stable, display-only codec family name ([`Codec::name`]): the transduction
+    /// stage between the decrypted cipher symbols and the symbol->letter mapping.
+    pub codec_name: &'a str,
+    /// Codec round-trip gate (the fourth structural check, alongside the cipher
+    /// round-trip): re-expanding the transduced stream reproduces the decrypted
+    /// symbols. Like the cipher round-trip it proves only codec/cipher consistency,
+    /// never a decode.
+    pub codec_round_trip_ok: bool,
     /// Cipher-layer round-trip gate (necessary, not sufficient).
     pub crypto_round_trip_ok: bool,
     /// In-sample bigram mean log-likelihood under the candidate's language.
@@ -1753,8 +1765,18 @@ fn render_solve_gates(out: &mut String, inputs: &SolveRecordInputs<'_>) -> fmt::
     writeln!(out, "Top candidate cipher: {}", top.cipher_name)?;
     writeln!(
         out,
+        "Top candidate codec: {} (the transduction stage; codec round-trip below)",
+        top.codec_name
+    )?;
+    writeln!(
+        out,
         "- Gate 1 cipher round-trip (necessary, NOT sufficient): {}",
         top.crypto_round_trip_ok
+    )?;
+    writeln!(
+        out,
+        "- Gate 1b codec round-trip (codec/cipher consistency, NOT a decode): {}",
+        top.codec_round_trip_ok
     )?;
     writeln!(
         out,
@@ -1818,6 +1840,8 @@ pub fn log_solve_run(
     let top = match candidates.first() {
         Some(candidate) => Some(SolveRecordCandidate {
             cipher_name: candidate.cipher.name(),
+            codec_name: candidate.codec.name(),
+            codec_round_trip_ok: candidate.codec_round_trip_ok,
             crypto_round_trip_ok: candidate.crypto_round_trip_ok,
             score: candidate.score,
             heldout_mapping_score: candidate.heldout_mapping_score,
@@ -2050,6 +2074,286 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         let record = std::fs::read_to_string(&path).unwrap();
         assert!(record.contains(super::SOLVE_CLAIM_CEILING));
         assert!(record.contains("NO surviving candidate"));
+        let _cleanup = std::fs::remove_dir_all(&dir);
+    }
+
+    // ===================================================================
+    // Step 9 (Phase-2b capstone) — corpus codec/grouping samples one/two/six.
+    //
+    // Each runs the CHECKED-IN corpus file (NEVER /tmp) end-to-end through
+    // CodecStrategy::Search + MappingStrategy::Search and auto-logs the best
+    // candidate as a labelled HYPOTHESIS. HONEST FRAMING (binding): the streams
+    // are SHORT and the transduced alphabets are MANY-TO-ONE vs the 29-letter
+    // language, so a candidate may LEGITIMATELY FAIL to beat the matched null —
+    // exactly like the eyes honest-negative. These tests therefore assert ONLY
+    // that the pipeline runs, the four gate verdicts are computed/recorded, and a
+    // record is logged as a HYPOTHESIS; they NEVER assert a hard-coded plaintext
+    // and NEVER require beats-null. Provenance: EXTERNAL samples (see
+    // research/data/practice-puzzles/README.md); no cleartext is committed.
+    // ===================================================================
+
+    fn parse_corpus_puzzle(text: &str, alphabet: &str) -> crate::ingest::ParsedSequence {
+        let alphabet = crate::glyph::Alphabet::from_chars(alphabet).expect("corpus alphabet");
+        let transparent = crate::ingest::TransparentSet::default();
+        crate::ingest::parse_sequence(
+            text,
+            crate::ingest::SequenceLayer::CipherAlphabet {
+                alphabet: &alphabet,
+                transparent: &transparent,
+            },
+        )
+        .expect("corpus parse")
+    }
+
+    fn corpus_codec_request<'a>(
+        parsed: &'a crate::ingest::ParsedSequence,
+        cipher_alphabet_size: usize,
+        english: &'a LanguageModel,
+        finnish: &'a LanguageModel,
+    ) -> SolveRequest<'a> {
+        SolveRequest {
+            ciphertext: &parsed.glyphs,
+            transparent: &parsed.transparent,
+            space: HypothesisSpace {
+                // Identity-only family keeps the test fast; the committed records
+                // use the CLI's identity+caesar default. The codec SEARCH is the
+                // unit under test, not the cipher family.
+                families: vec![CipherFamilySpec {
+                    label: "identity".to_owned(),
+                    ciphers: vec![AnyCipher::Identity],
+                }],
+                codec: CodecStrategy::Search(CodecSearch {
+                    max_group_len: 3,
+                    try_delta: true,
+                    orders: vec![DigitOrder::Msb, DigitOrder::Lsb],
+                    seed: DEFAULT_SEED,
+                }),
+                mappings: MappingStrategy::Search(hillclimb(2, 400)),
+                language: LanguageChoice::Both,
+                cipher_alphabet_size,
+                seed: DEFAULT_SEED,
+                null_trials: 2,
+            },
+            english,
+            finnish,
+        }
+    }
+
+    // `one`: 266 digits {0..4}, the ±1-C5 walk. EXPECTED HONEST NEGATIVE: 266 =
+    // 2·7·19 and the differenced 265 = 5·53 admit no group_len that BOTH clears the
+    // 29-symbol sanity floor (5²=25 < 29) AND stays under the 256 output-alphabet
+    // ceiling (5⁷ = 78125), so EVERY enumerated codec is logged-and-skipped. The
+    // ±1-C5 structure is a documented Delta SEARCH HINT (an observed ciphertext
+    // property), never a decode or triviality claim. NO hard-coded decode asserted.
+    #[test]
+    fn corpus_one_runs_end_to_end_and_logs_hypothesis() {
+        let english = english_model().unwrap();
+        let finnish = finnish_model().unwrap();
+        let parsed = parse_corpus_puzzle(
+            include_str!("../research/data/practice-puzzles/one"),
+            "01234",
+        );
+        assert_eq!(parsed.glyphs.len(), 266);
+        assert!(
+            !parsed.transparent.iter().any(|mark| mark.ch == ' '),
+            "puzzle one has no word-boundary spaces (a pure ±1-C5 walk)"
+        );
+
+        let request = corpus_codec_request(&parsed, 5, &english, &finnish);
+        let outcome = solve_with_codec_trace(&request).unwrap();
+
+        assert!(
+            outcome.candidates.is_empty(),
+            "one has no in-budget codec that both hosts the language and partitions \
+             the 266-digit (or differenced 265) stream"
+        );
+        // The skips are LOGGED, never silently dropped (no-silent-truncation).
+        assert!(
+            !outcome.skipped.is_empty(),
+            "every pruned codec must be surfaced in the skip trace"
+        );
+
+        let dir = std::env::temp_dir().join(format!("noita-corpus-one-{}", std::process::id()));
+        let _removed = std::fs::remove_dir_all(&dir);
+        let path = super::log_solve_run(
+            &dir,
+            "one",
+            super::DEFAULT_SEED,
+            5,
+            &outcome.candidates,
+            &english,
+            &finnish,
+        )
+        .unwrap();
+        let record = std::fs::read_to_string(&path).unwrap();
+        assert!(record.contains(super::SOLVE_CLAIM_CEILING));
+        assert!(record.contains("NO surviving candidate"));
+        let _cleanup = std::fs::remove_dir_all(&dir);
+    }
+
+    // `two`: 698 letters {A..L}. group_len 2 (12²=144 ≥ 29) survives on the even
+    // stream; group_len 1 (12 < 29) and group_len 3 (12³=1728 > ceiling) are
+    // logged-and-skipped. The pipeline runs end-to-end and the best candidate is
+    // logged as a HYPOTHESIS. NO hard-coded decode asserted (two's English is known
+    // to the maintainer but WITHHELD; see the pending exact-match test below).
+    #[test]
+    fn corpus_two_runs_end_to_end_and_logs_hypothesis() {
+        let english = english_model().unwrap();
+        let finnish = finnish_model().unwrap();
+        let parsed = parse_corpus_puzzle(
+            include_str!("../research/data/practice-puzzles/two"),
+            "ABCDEFGHIJKL",
+        );
+        assert_eq!(parsed.glyphs.len(), 698);
+        assert!(
+            !parsed.transparent.iter().any(|mark| mark.ch == ' '),
+            "puzzle two has no word-boundary spaces"
+        );
+
+        let request = corpus_codec_request(&parsed, 12, &english, &finnish);
+        let outcome = solve_with_codec_trace(&request).unwrap();
+        assert!(
+            !outcome.candidates.is_empty(),
+            "two should surface candidates"
+        );
+        assert!(!outcome.skipped.is_empty(), "pruned codecs must be logged");
+
+        let top = outcome.candidates.first().unwrap();
+        // All four gate verdicts are computed (the pipeline ran end-to-end).
+        assert!(top.crypto_round_trip_ok);
+        assert!(
+            top.codec_round_trip_ok,
+            "pair grouping round-trips on the even stream"
+        );
+        assert!(top.score.is_finite());
+        assert!(top.heldout_mapping_score.is_finite());
+        assert!(top.null_mean.is_finite());
+
+        let dir = std::env::temp_dir().join(format!("noita-corpus-two-{}", std::process::id()));
+        let _removed = std::fs::remove_dir_all(&dir);
+        let path = super::log_solve_run(
+            &dir,
+            "two",
+            super::DEFAULT_SEED,
+            12,
+            &outcome.candidates,
+            &english,
+            &finnish,
+        )
+        .unwrap();
+        let record = std::fs::read_to_string(&path).unwrap();
+        assert!(record.contains(super::SOLVE_CLAIM_CEILING));
+        assert!(record.contains("HYPOTHESIS"));
+        assert!(record.contains("codec round-trip"));
+        let _cleanup = std::fs::remove_dir_all(&dir);
+    }
+
+    // `two` exact-match regression: PENDING the maintainer's WITHHELD cleartext.
+    // Puzzle two's English is known to the maintainer but deliberately NOT committed
+    // (so the engine cannot be tuned to it). This test exercises the recovery PATH
+    // but the exact-match assertion stays PENDING that withheld constant — it must
+    // NOT pretend to know the plaintext. Promote to a real known-answer regression
+    // only once a human confirms the recovered candidate against ground truth, then:
+    //   const EXPECTED: &str = "<maintainer-confirmed puzzle-two cleartext>";
+    //   assert_eq!(top.rendered_text, EXPECTED);
+    #[test]
+    #[ignore = "pending the maintainer's WITHHELD puzzle-two cleartext (not committed; promote to a known-answer regression once a human confirms it)"]
+    fn corpus_two_exact_match_pending_withheld_cleartext() {
+        let english = english_model().unwrap();
+        let finnish = finnish_model().unwrap();
+        let parsed = parse_corpus_puzzle(
+            include_str!("../research/data/practice-puzzles/two"),
+            "ABCDEFGHIJKL",
+        );
+        let request = corpus_codec_request(&parsed, 12, &english, &finnish);
+        let top_text = solve_with_codec_trace(&request)
+            .unwrap()
+            .candidates
+            .into_iter()
+            .next()
+            .map(|candidate| candidate.rendered_text);
+        // A candidate the human can compare against the WITHHELD ground truth. The
+        // exact-match assertion is intentionally absent until that constant lands.
+        assert!(top_text.is_some());
+    }
+
+    // `six`: 417 digits {1..6} WITH preserved spaces — the transparent-passthrough
+    // case. 417 is ODD, so FixedGrouping{2,6} cannot partition it and is logged
+    // Untransducible; the transducible base-6 groupings (group_len 3 → 216, or
+    // Delta-of-pair over the 416 differenced moves → 36) survive and host the
+    // language. The best candidate is logged as a HYPOTHESIS and its rendered_text
+    // SHOWS the reinserted spaces; the bigram scorer SKIPS them. NO hard-coded
+    // decode asserted.
+    #[test]
+    fn corpus_six_grouping_reinserts_spaces_and_logs_hypothesis() {
+        let english = english_model().unwrap();
+        let finnish = finnish_model().unwrap();
+        let parsed = parse_corpus_puzzle(
+            include_str!("../research/data/practice-puzzles/six"),
+            "123456",
+        );
+        assert_eq!(parsed.glyphs.len(), 417);
+        assert!(
+            !parsed.transparent.is_empty(),
+            "puzzle six preserves word-boundary spaces and blank-line newlines"
+        );
+
+        let request = corpus_codec_request(&parsed, 6, &english, &finnish);
+        let outcome = solve_with_codec_trace(&request).unwrap();
+        assert!(
+            !outcome.candidates.is_empty(),
+            "six should surface a transducible base-6 grouping candidate"
+        );
+        assert!(
+            !outcome.skipped.is_empty(),
+            "pruned codecs (incl. group_len 2, untransducible on the odd 417) must be logged"
+        );
+
+        let top = outcome.candidates.first().unwrap();
+        assert!(top.crypto_round_trip_ok);
+        assert!(top.codec_round_trip_ok);
+
+        // The preserved spaces are reinserted into rendered_text at their
+        // (group-boundary-snapped) positions.
+        assert!(
+            top.rendered_text.contains(' '),
+            "six's preserved spaces must survive into rendered_text"
+        );
+
+        // ...and the bigram scorer SKIPS them: the candidate's score (computed on the
+        // space-free mapped indices) equals re-scoring the SPACED rendered_text under
+        // the same model, because normalize_text strips the transparent chars.
+        let model: &LanguageModel = match top.language {
+            Language::Finnish => &finnish,
+            Language::English => &english,
+        };
+        let rescored = model
+            .score_text(&top.rendered_text)
+            .unwrap()
+            .bigram_mean_log_likelihood;
+        assert!(
+            (rescored - top.score).abs() < 1e-6,
+            "scorer must skip transparent chars (rescored {rescored} vs score {})",
+            top.score
+        );
+
+        let dir = std::env::temp_dir().join(format!("noita-corpus-six-{}", std::process::id()));
+        let _removed = std::fs::remove_dir_all(&dir);
+        let path = super::log_solve_run(
+            &dir,
+            "six",
+            super::DEFAULT_SEED,
+            6,
+            &outcome.candidates,
+            &english,
+            &finnish,
+        )
+        .unwrap();
+        let record = std::fs::read_to_string(&path).unwrap();
+        assert!(record.contains(super::SOLVE_CLAIM_CEILING));
+        assert!(record.contains("HYPOTHESIS"));
+        // The reinserted spaces appear in the logged cleartext too.
+        assert!(record.contains(' '));
         let _cleanup = std::fs::remove_dir_all(&dir);
     }
 
@@ -3083,6 +3387,8 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
     fn solve_record_renders_ceiling_label_gates_and_both_languages() {
         let top = super::SolveRecordCandidate {
             cipher_name: "Identity",
+            codec_name: "fixed-grouping",
+            codec_round_trip_ok: true,
             crypto_round_trip_ok: true,
             score: -2.85,
             heldout_mapping_score: -2.96,
@@ -3107,7 +3413,13 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         assert!(body.contains(super::SOLVE_CLAIM_CEILING));
         assert!(body.contains("HYPOTHESIS, NOT a decode"));
         assert!(body.contains("CANDIDATE SURVIVED ALL THREE GATES"));
+        assert!(body.contains("Top candidate codec: fixed-grouping"));
         assert!(body.contains("Gate 1 cipher round-trip"));
+        assert!(
+            body.contains(
+                "Gate 1b codec round-trip (codec/cipher consistency, NOT a decode): true"
+            )
+        );
         assert!(body.contains("Gate 2 held-out mapping score"));
         assert!(body.contains("beats_null: true"));
         assert!(body.contains("Finnish bigram mean log-likelihood: -3.40"));
