@@ -25,6 +25,9 @@
 //! - [`ciphers`]: Experiment 12 candidate-cipher primitives and exact
 //!   round-trip controls.
 //! - [`controls`]: positive-control fixtures for solved cipher classes.
+//! - [`first_trigram`]: first-trigram "message start" tabulation in both the
+//!   storage-order base-5 and honeycomb reading-layer representations, with
+//!   index/checksum/last-character/base-5 digit-structure hypothesis verdicts.
 //! - [`conditional_structure`]: first-order transition-matrix and
 //!   successor-graph analysis against within-message shuffle nulls.
 //! - [`corpus`]: the verified transcribed message data.
@@ -107,6 +110,8 @@ pub mod analysis;
 pub mod chaining;
 #[path = "analysis/chaining_graph.rs"]
 pub mod chaining_graph;
+#[path = "analysis/first_trigram.rs"]
+pub mod first_trigram;
 #[path = "analysis/grouping.rs"]
 pub mod grouping;
 #[path = "analysis/honeycomb.rs"]
