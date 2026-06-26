@@ -68,6 +68,9 @@
 //!   Pyry's nine-condition checklist across generated cipher-family fixtures.
 //! - [`quadgram`]: large-corpus `A..Z` quadgram English language model for
 //!   scoring candidate plaintexts during polyalphabetic key search.
+//! - [`ragbaby`]: general (non-keyword) Ragbaby keyed-alphabet cracker with a
+//!   simulated-annealing search, quadgram scoring, a planted-recovery positive
+//!   control, and a matched-null/held-out survival gate.
 //! - [`report`]: CLI report rendering and domain error formatting.
 //! - [`solve`]: unified search-and-score solve pipeline for candidate
 //!   hypotheses, with round-trip, held-out, and matched-null gates.
@@ -150,6 +153,9 @@ pub mod keystream;
 // role: n-gram model consumed only by the attack/grouping cleartext gates.
 #[path = "attack/language.rs"]
 pub mod language;
+// role: general (non-keyword) Ragbaby keyed-alphabet cracker (attack pipeline).
+#[path = "attack/ragbaby.rs"]
+pub mod ragbaby;
 // role: ciphertext structural profile for the practice letter puzzles (attack).
 #[path = "attack/profile.rs"]
 pub mod profile;

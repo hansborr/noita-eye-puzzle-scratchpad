@@ -45,9 +45,11 @@ Notes:
   either. They are **aperiodic polyalphabetic / position-keyed** ciphers that still
   preserve word boundaries (repeated whole words encrypt identically in `five`, single
   letters shift) — consistent with Ragbaby-class or running-key. Validated negatives so
-  far: keyword-Ragbaby (all four), keyword per-word Bifid (`three`/`four`), long-primer
-  ciphertext-autokey (L=1..60); running-key two-stream beam is a weak, non-surviving
-  positive (z≈2.4) on `five`. `seven`'s gap-40 `UXECHTINIT`-style framing was a red
+  far: keyword-Ragbaby (all four), **general (non-keyword) Ragbaby (all four; `five`
+  RULED OUT with a planted-recovery control of 1.00 @274, three/seven/four 0.70–0.83
+  power — see `RAGBABY-RESULTS.md`)**, keyword per-word Bifid (`three`/`four`),
+  long-primer ciphertext-autokey (L=1..60); running-key two-stream beam is a weak,
+  non-surviving positive (z≈2.4) on `five`. `seven`'s gap-40 `UXECHTINIT`-style framing was a red
   herring — its `five` analogue crosses a word boundary (continuous keystream, not a key
   period). See `KEYSTREAM-RESULTS.md` for the full battery.
 - The small-alphabet puzzles (`one`/`two`/`six`) cannot carry 26–29-letter English

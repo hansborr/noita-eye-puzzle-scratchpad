@@ -177,6 +177,35 @@ impl QuadgramModel {
         sum / window_count as f64
     }
 
+    /// Scores normalized `A..Z` indices as the **sum** of log-probability over
+    /// every length-4 window (not the mean).
+    ///
+    /// This is the well-scaled objective for a permutation-key simulated anneal:
+    /// the per-window mean ([`Self::score_indices`]) makes single-move score
+    /// deltas vanishingly small (≈0.01 nats), so any sane temperature degenerates
+    /// to a random walk; the sum keeps deltas at the ≈1–100 nat scale the
+    /// Metropolis schedule needs. Because the scored stream has a fixed length
+    /// during a search, the sum and the mean are monotonically related
+    /// (`sum = mean * window_count`), so they rank permutations identically — the
+    /// sum is used only to recover usable temperature scaling.
+    ///
+    /// Edge cases mirror [`Self::score_indices`]: fewer than four indices returns
+    /// the shared floor log-probability, and any out-of-range window is scored at
+    /// the floor rather than indexed (never panics).
+    #[must_use]
+    pub fn score_indices_sum(&self, indices: &[usize]) -> f64 {
+        if indices.len() < 4 {
+            return f64::from(self.floor_logprob);
+        }
+        let mut sum = 0.0_f64;
+        for window in indices.windows(4) {
+            if let &[a, b, c, d] = window {
+                sum += f64::from(self.window_logprob(a, b, c, d));
+            }
+        }
+        sum
+    }
+
     /// Normalizes `text` to `A..Z` indices and scores it via [`Self::score_indices`].
     ///
     /// Normalization follows the same rules as [`Self::from_sample`]: ASCII

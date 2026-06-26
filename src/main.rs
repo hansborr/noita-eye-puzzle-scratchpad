@@ -14,7 +14,7 @@ use noita_eye_puzzle::{
     glyph::{Alphabet, Sequence},
     grouping, honeycomb, ingest, isomorph_null, keystream, language, modular_diff, null, orders,
     orientation_homogeneity, perfect_isomorphism, periodicity, perseus, pipeline_null, profile,
-    pyry_conditions, quadgram,
+    pyry_conditions, quadgram, ragbaby,
     report::{self, Report},
     solve, transitivity, tree_residual, zero_adjacency_null,
 };
@@ -117,6 +117,12 @@ enum Command {
     /// non-periodic puzzles; any survivor is a HYPOTHESIS, never a decode.
     #[command(name = "keystream")]
     Keystream(KeystreamArgs),
+    /// Crack a general (non-keyword) Ragbaby keyed-alphabet cipher on a practice
+    /// letter-puzzle, or run the planted-recovery positive control (`--control`).
+    /// HONEST-NEGATIVE is the expected outcome on the puzzles; any survivor is a
+    /// HYPOTHESIS, never a decode.
+    #[command(name = "ragbaby")]
+    Ragbaby(RagbabyArgs),
     /// Ciphertext structural profile (`IoC`, per-period flatness, absent letters,
     /// per-word columns, cross-boundary repeats) for a practice letter-puzzle.
     /// These are structural NEGATIVE findings that constrain the cipher family.
@@ -340,6 +346,103 @@ impl From<KeystreamFamilyArg> for keystream::KeystreamFamily {
             KeystreamFamilyArg::Beaufort => Self::Beaufort,
             KeystreamFamilyArg::AutokeyPt => Self::PlaintextAutokey,
             KeystreamFamilyArg::AutokeyCt => Self::CiphertextAutokey,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Args)]
+struct RagbabyArgs {
+    /// Built-in practice letter-puzzle to crack (raw text; word structure kept).
+    #[arg(long, value_enum, conflicts_with_all = ["input_file", "stdin"])]
+    puzzle: Option<KeystreamPuzzleArg>,
+    /// Read raw puzzle text (word structure preserved) from a file.
+    #[arg(long = "input-file", conflicts_with = "stdin")]
+    input_file: Option<std::path::PathBuf>,
+    /// Read raw puzzle text from stdin.
+    #[arg(long, conflicts_with = "input_file")]
+    stdin: bool,
+    /// Alphabet bases to sweep (24 drops J,V; 25 drops J; 26 keeps A-Z).
+    #[arg(long, value_delimiter = ',', default_value = "24,25,26")]
+    bases: Vec<usize>,
+    /// Numbering conventions to sweep. Repeat or comma-separate; default = all.
+    #[arg(long, value_enum, value_delimiter = ',')]
+    numbering: Vec<RagbabyNumberingArg>,
+    /// Shift sign(s) to search.
+    #[arg(long, value_enum, default_value_t = RagbabySignArg::Both)]
+    sign: RagbabySignArg,
+    /// Annealed-search random restarts.
+    #[arg(long, default_value_t = ragbaby::DEFAULT_RESTARTS)]
+    restarts: usize,
+    /// Simulated-annealing iterations per restart.
+    #[arg(long, default_value_t = ragbaby::DEFAULT_ITERATIONS)]
+    iterations: usize,
+    /// Basin-hopping perturbation rounds per restart.
+    #[arg(long = "basin-hops", default_value_t = ragbaby::DEFAULT_BASIN_HOPS)]
+    basin_hops: usize,
+    /// Matched-null trials (reruns of the search on shuffled letters) — the
+    /// survival gate. 0 disables survival.
+    #[arg(long = "matched-null-trials", default_value_t = ragbaby::DEFAULT_MATCHED_NULL_TRIALS)]
+    matched_null_trials: usize,
+    /// Random-keyed-alphabet null trials for the reported DIAGNOSTIC.
+    #[arg(long = "null-trials", default_value_t = ragbaby::DEFAULT_NULL_TRIALS)]
+    null_trials: usize,
+    /// Deterministic seed for the search and both nulls.
+    #[arg(long, default_value_t = ragbaby::DEFAULT_SEED)]
+    seed: u64,
+    /// Run the planted-recovery positive control (length sweep) instead of
+    /// attacking a puzzle.
+    #[arg(long)]
+    control: bool,
+    /// Plaintext letter-lengths to sweep in `--control`.
+    #[arg(long = "control-lengths", value_delimiter = ',', default_value = "274")]
+    control_lengths: Vec<usize>,
+    /// Planted-recovery trials per `(length, base)` cell in `--control`.
+    #[arg(long = "control-trials", default_value_t = ragbaby::DEFAULT_CONTROL_TRIALS)]
+    control_trials: usize,
+    /// Directory for any surviving candidate's record (a labelled HYPOTHESIS).
+    #[arg(long = "candidates-dir", default_value = DEFAULT_CANDIDATES_DIR)]
+    candidates_dir: std::path::PathBuf,
+    /// Stable label for candidate-record filenames (defaults to the puzzle name).
+    #[arg(long)]
+    label: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+enum RagbabyNumberingArg {
+    /// Standard ACA numbering (`N = w + (k - 1)`).
+    Std,
+    /// Per-word numbering (`1, 2, 3, …` within each word).
+    Perword,
+    /// Continuous numbering across the whole text.
+    Continuous,
+}
+
+impl From<RagbabyNumberingArg> for ragbaby::Numbering {
+    fn from(arg: RagbabyNumberingArg) -> Self {
+        match arg {
+            RagbabyNumberingArg::Std => Self::Std,
+            RagbabyNumberingArg::Perword => Self::PerWord,
+            RagbabyNumberingArg::Continuous => Self::Continuous,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+enum RagbabySignArg {
+    /// Search both `+1` and `-1`.
+    Both,
+    /// Search `+1` only.
+    Plus,
+    /// Search `-1` only.
+    Minus,
+}
+
+impl RagbabySignArg {
+    fn signs(self) -> Vec<ragbaby::Sign> {
+        match self {
+            Self::Both => vec![ragbaby::Sign::Plus, ragbaby::Sign::Minus],
+            Self::Plus => vec![ragbaby::Sign::Plus],
+            Self::Minus => vec![ragbaby::Sign::Minus],
         }
     }
 }
@@ -920,6 +1023,7 @@ fn main() -> ExitCode {
         Command::Controls(args) => run_controls(args),
         Command::Solve(args) => run_solve(&args),
         Command::Keystream(args) => run_keystream(&args),
+        Command::Ragbaby(args) => run_ragbaby(&args),
         Command::Profile(args) => run_profile(&args),
         // Uniform experiments: build config, run, render report (or label the
         // error) via the generic `dispatch`/`emit` registry. The `&str` label
@@ -1746,6 +1850,252 @@ fn emit_keystream_verdict(
         );
         println!("  full decrypt: {}", candidate.render_plaintext());
         match keystream::write_keystream_record(candidates_dir, label, seed, candidate) {
+            Ok(path) => println!("  record: {}", path.display()),
+            Err(error) => {
+                eprintln!("failed to write candidate record: {error}");
+                return ExitCode::FAILURE;
+            }
+        }
+    }
+    ExitCode::SUCCESS
+}
+
+fn ragbaby_search_config(args: &RagbabyArgs) -> ragbaby::RagbabySearchConfig {
+    ragbaby::RagbabySearchConfig {
+        restarts: args.restarts,
+        iterations: args.iterations,
+        basin_hops: args.basin_hops,
+        t0: ragbaby::DEFAULT_T0,
+        t1: ragbaby::DEFAULT_T1,
+        seed: args.seed,
+        null_trials: args.null_trials,
+        matched_null_trials: args.matched_null_trials,
+    }
+}
+
+fn ragbaby_numberings(args: &RagbabyArgs) -> Vec<ragbaby::Numbering> {
+    if args.numbering.is_empty() {
+        ragbaby::Numbering::all().to_vec()
+    } else {
+        args.numbering
+            .iter()
+            .map(|numbering| (*numbering).into())
+            .collect()
+    }
+}
+
+fn ragbaby_input_text(args: &RagbabyArgs) -> Result<String, ExitCode> {
+    if let Some(puzzle) = args.puzzle {
+        return Ok(keystream::practice_puzzle_text(puzzle.into()).to_owned());
+    }
+    match resolve_input_text(None, args.input_file.as_ref(), args.stdin) {
+        Ok(text) => Ok(text),
+        Err(error) => {
+            eprintln!("failed to read input: {error}");
+            Err(ExitCode::FAILURE)
+        }
+    }
+}
+
+fn run_ragbaby(args: &RagbabyArgs) -> ExitCode {
+    // The keyed-alphabet search assumes the modulus equals the kept-alphabet size,
+    // which only holds for the three supported bases; reject anything else up front
+    // rather than risk an out-of-bounds move on a mismatched key length.
+    for &base in &args.bases {
+        if !matches!(base, 24..=26) {
+            eprintln!("invalid --bases value {base}: only 24, 25, 26 are supported");
+            return ExitCode::FAILURE;
+        }
+    }
+    let model = match quadgram::QuadgramModel::english() {
+        Ok(model) => model,
+        Err(error) => {
+            eprintln!("quadgram model error: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let cfg = ragbaby_search_config(args);
+    if args.control {
+        return run_ragbaby_control(args, &cfg, &model);
+    }
+    let text = match ragbaby_input_text(args) {
+        Ok(text) => text,
+        Err(code) => return code,
+    };
+    let numberings = ragbaby_numberings(args);
+    let signs = args.sign.signs();
+    let mut candidates: Vec<ragbaby::RagbabyCandidate> = Vec::new();
+    for &base in &args.bases {
+        for &numbering in &numberings {
+            for &sign in &signs {
+                let (cipher, nums) = ragbaby::prepare(&text, numbering, base);
+                if cipher.is_empty() {
+                    continue;
+                }
+                let problem = ragbaby::RagbabyProblem {
+                    cipher: &cipher,
+                    nums: &nums,
+                    base,
+                    sign,
+                    numbering,
+                };
+                candidates.push(ragbaby::crack_with_model(&problem, &cfg, &model));
+            }
+        }
+    }
+    if candidates.is_empty() {
+        eprintln!("no cipher letters in input");
+        return ExitCode::FAILURE;
+    }
+    print_ragbaby_table(&candidates);
+    print_ragbaby_best(&candidates);
+
+    let label = args
+        .label
+        .clone()
+        .or_else(|| args.puzzle.map(|puzzle| puzzle.label().to_owned()))
+        .unwrap_or_else(|| "input".to_owned());
+    emit_ragbaby_verdict(&candidates, &args.candidates_dir, &label, args.seed)
+}
+
+fn run_ragbaby_control(
+    args: &RagbabyArgs,
+    cfg: &ragbaby::RagbabySearchConfig,
+    model: &quadgram::QuadgramModel,
+) -> ExitCode {
+    let numberings = ragbaby_numberings(args);
+    let numbering = numberings
+        .first()
+        .copied()
+        .unwrap_or(ragbaby::Numbering::Std);
+    let signs = args.sign.signs();
+    let sign = signs.first().copied().unwrap_or(ragbaby::Sign::Plus);
+    let control = ragbaby::ControlConfig {
+        lengths: args.control_lengths.clone(),
+        bases: args.bases.clone(),
+        trials: args.control_trials,
+        numbering,
+        sign,
+        search: *cfg,
+    };
+    let points = ragbaby::control_sweep(quadgram::ENGLISH_CORPUS_LARGE, &control, model);
+    println!(
+        "CONTROL numbering={} sign={} restarts={} iters={} basin={} t0={} t1={}",
+        numbering.name(),
+        sign.label(),
+        cfg.restarts,
+        cfg.iterations,
+        cfg.basin_hops,
+        cfg.t0,
+        cfg.t1,
+    );
+    println!(
+        "{:>5} {:>4} {:>6} {:>9} {:>8} {:>8}",
+        "len", "base", "trials", "recov>=.9", "med_acc", "mean_acc"
+    );
+    for point in &points {
+        println!(
+            "{:>5} {:>4} {:>6} {:>9.2} {:>8.3} {:>8.3}",
+            point.length,
+            point.base,
+            point.trials,
+            point.recovery_rate,
+            point.median_acc,
+            point.mean_acc,
+        );
+    }
+    ExitCode::SUCCESS
+}
+
+fn print_ragbaby_table(candidates: &[ragbaby::RagbabyCandidate]) {
+    println!("Ragbaby candidates: HYPOTHESIS, not decode");
+    println!(
+        "survives requires the matched-null (search-overfitting) gate AND round-trip AND held-out"
+    );
+    println!(
+        "{:>4} {:>11} {:>5} {:>10} {:>12} {:>10} {:>10} {:>8}",
+        "base", "numbering", "sign", "best", "matched_mean", "matched_z", "round_trip", "survives"
+    );
+    for candidate in candidates {
+        println!(
+            "{:>4} {:>11} {:>5} {:>10.4} {:>12.4} {:>10.2} {:>10} {:>8}",
+            candidate.base,
+            candidate.numbering.name(),
+            candidate.sign.label(),
+            candidate.best_score,
+            candidate.matched_mean,
+            candidate.matched_z,
+            candidate.round_trip_ok,
+            candidate.survives,
+        );
+    }
+}
+
+fn print_ragbaby_best(candidates: &[ragbaby::RagbabyCandidate]) {
+    let best = candidates
+        .iter()
+        .filter(|candidate| candidate.survives)
+        .max_by(|left, right| left.matched_z.total_cmp(&right.matched_z))
+        .or_else(|| {
+            candidates
+                .iter()
+                .max_by(|left, right| left.best_score.total_cmp(&right.best_score))
+        });
+    let Some(best) = best else {
+        return;
+    };
+    println!(
+        "best ({}):",
+        if best.survives {
+            "surviving, highest matched_z"
+        } else {
+            "non-surviving, highest mean score"
+        }
+    );
+    println!(
+        "  base: {}  numbering: {}  sign: {}",
+        best.base,
+        best.numbering.name(),
+        best.sign.label()
+    );
+    println!(
+        "  best_score (mean): {:.4}  matched_z: {:.4}  matched_mean: {:.4}",
+        best.best_score, best.matched_z, best.matched_mean
+    );
+    println!(
+        "  decrypt: {}",
+        display_prefix(&best.render_plaintext(), 120)
+    );
+}
+
+fn emit_ragbaby_verdict(
+    candidates: &[ragbaby::RagbabyCandidate],
+    candidates_dir: &std::path::Path,
+    label: &str,
+    seed: u64,
+) -> ExitCode {
+    let survivors: Vec<&ragbaby::RagbabyCandidate> = candidates
+        .iter()
+        .filter(|candidate| candidate.survives)
+        .collect();
+    if survivors.is_empty() {
+        println!(
+            "HONEST-NEGATIVE: no (base, numbering, sign) keyed-alphabet candidate cleared the round-trip + matched-null (z>={:.0} AND margin>={:.0} nat) + held-out gates. A clean honest negative is a SUCCESS, not an error.",
+            ragbaby::Z_THRESHOLD,
+            ragbaby::MIN_NAT_MARGIN,
+        );
+        return ExitCode::SUCCESS;
+    }
+    for candidate in survivors {
+        println!(
+            "HYPOTHESIS (not a confirmed decode; cleared the matched-null gate): base={} numbering={} sign={} matched_z={:.2}",
+            candidate.base,
+            candidate.numbering.name(),
+            candidate.sign.label(),
+            candidate.matched_z,
+        );
+        println!("  full decrypt: {}", candidate.render_plaintext());
+        match ragbaby::write_ragbaby_record(candidates_dir, label, seed, candidate) {
             Ok(path) => println!("  record: {}", path.display()),
             Err(error) => {
                 eprintln!("failed to write candidate record: {error}");

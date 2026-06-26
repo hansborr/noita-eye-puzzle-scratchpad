@@ -120,19 +120,20 @@ controls that cleanly recover the plant).
 
 ## What is STILL NOT ruled out (next steps)
 
-1. **General (non-keyword) Ragbaby** with a *strong* keyed-alphabet annealer — the
-   keyword form is out, but a random/transposition-keyed alphabet is untested and
-   needs an optimizer that first passes a planted-Ragbaby control (the naive
-   single-swap anneal does not).
+1. **General (non-keyword) Ragbaby** — DONE (2026-06-26). A strong keyed-alphabet
+   optimizer (sum-objective SA + slide/revseg + basin-hopping) that *passes* its
+   planted-Ragbaby control now exists (`ragbaby` subcommand). Result: HONEST-NEGATIVE
+   on all four puzzles, calibrated — **five RULED OUT** (planted recovery 1.00 @274),
+   three/seven/four reasonably-to-fully powered (0.70–0.83). See `RAGBABY-RESULTS.md`.
 2. **Running-key** with a stronger beam + crib constraints (the z≈2.4 lead), and
    **plaintext** long-autokey (a recurrence `p_i = c_i − p_{i−L}`, not the key-
    independent ciphertext form, so it needs a real search).
 3. **Alberti with explicit index markers** — `seven`'s `#` (`KB#K`, `B#TV`,
-   `OG#PJ`) as a disk-rotation index; currently stripped.
-4. **Finnish plaintext** — the quadgram model is English-only. Noita is a Finnish
-   game, so a Finnish puzzle would defeat every English-scored search regardless of
-   cipher; a large Finnish corpus + rerun is needed before any language-independent
-   negative.
+   `OG#PJ`) as a disk-rotation index; currently stripped. (Ragbaby with `#` as a
+   null-delete or word-break is already negative — see `RAGBABY-RESULTS.md`.)
+
+Plaintext is **English** (maintainer-confirmed), so the earlier "Finnish plaintext"
+open item is dropped: every English-scored negative is language-correct.
 
 ## Reproduce
 
