@@ -61,6 +61,9 @@
 //!   within-message shuffle null.
 //! - [`pipeline_null`]: Experiment 2 nulls for testing whether the base-7
 //!   generation pipeline manufactures reading-layer statistics.
+//! - [`profile`]: ciphertext structural profile (whole-stream and per-period
+//!   index of coincidence, absent letters, per-word column `IoC`, and maximal
+//!   cross-word-boundary repeats) for the practice letter puzzles.
 //! - [`pyry_conditions`]: capstone structural falsification harness encoding
 //!   Pyry's nine-condition checklist across generated cipher-family fixtures.
 //! - [`quadgram`]: large-corpus `A..Z` quadgram English language model for
@@ -147,6 +150,9 @@ pub mod keystream;
 // role: n-gram model consumed only by the attack/grouping cleartext gates.
 #[path = "attack/language.rs"]
 pub mod language;
+// role: ciphertext structural profile for the practice letter puzzles (attack).
+#[path = "attack/profile.rs"]
+pub mod profile;
 // role: quadgram English model scoring keystream/solve candidates.
 #[path = "attack/quadgram.rs"]
 pub mod quadgram;
