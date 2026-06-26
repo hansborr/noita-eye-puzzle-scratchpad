@@ -710,7 +710,7 @@ fn run_gak_attack_eyes(config: gak_attack::EyesAttackConfig) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    report::print_gak_attack_eyes_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
