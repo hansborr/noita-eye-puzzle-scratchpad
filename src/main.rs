@@ -13,7 +13,7 @@ use noita_eye_puzzle::{
     controls, corpus, dof_null, gak_attack,
     glyph::{Alphabet, Sequence},
     grouping, honeycomb, ingest, isomorph_null, keystream, language, modular_diff, null, orders,
-    orientation_homogeneity, perfect_isomorphism, periodicity, perseus, pipeline_null,
+    orientation_homogeneity, perfect_isomorphism, periodicity, perseus, pipeline_null, profile,
     pyry_conditions, quadgram,
     report::{self, Report},
     solve, transitivity, tree_residual, zero_adjacency_null,
@@ -117,6 +117,10 @@ enum Command {
     /// non-periodic puzzles; any survivor is a HYPOTHESIS, never a decode.
     #[command(name = "keystream")]
     Keystream(KeystreamArgs),
+    /// Ciphertext structural profile (`IoC`, per-period flatness, absent letters,
+    /// per-word columns, cross-boundary repeats) for a practice letter-puzzle.
+    /// These are structural NEGATIVE findings that constrain the cipher family.
+    Profile(ProfileArgs),
 }
 
 #[derive(Debug, Args)]
@@ -338,6 +342,17 @@ impl From<KeystreamFamilyArg> for keystream::KeystreamFamily {
             KeystreamFamilyArg::AutokeyCt => Self::CiphertextAutokey,
         }
     }
+}
+
+#[derive(Clone, Debug, Args)]
+struct ProfileArgs {
+    /// Built-in practice letter-puzzle to profile.
+    #[arg(long, value_enum, conflicts_with = "input_file")]
+    puzzle: Option<KeystreamPuzzleArg>,
+    /// Read raw puzzle text from this file instead of a built-in puzzle (falls
+    /// back to stdin when neither is given).
+    #[arg(long = "input-file")]
+    input_file: Option<std::path::PathBuf>,
 }
 
 #[derive(Clone, Copy, Debug, Args)]
@@ -905,6 +920,7 @@ fn main() -> ExitCode {
         Command::Controls(args) => run_controls(args),
         Command::Solve(args) => run_solve(&args),
         Command::Keystream(args) => run_keystream(&args),
+        Command::Profile(args) => run_profile(&args),
         // Uniform experiments: build config, run, render report (or label the
         // error) via the generic `dispatch`/`emit` registry. The `&str` label
         // is the exact pre-registry stderr prefix.
@@ -1536,6 +1552,25 @@ fn display_prefix(text: &str, max_chars: usize) -> String {
         rendered.push_str("...");
     }
     rendered
+}
+
+fn run_profile(args: &ProfileArgs) -> ExitCode {
+    let report = if let Some(puzzle) = args.puzzle {
+        profile::profile_puzzle(puzzle.into()).render_report()
+    } else {
+        // No built-in puzzle selected: read raw text from the file or stdin.
+        let text =
+            match resolve_input_text(None, args.input_file.as_ref(), args.input_file.is_none()) {
+                Ok(text) => text,
+                Err(error) => {
+                    eprintln!("failed to read input: {error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+        profile::profile_text(&text).render_report()
+    };
+    print!("{report}");
+    ExitCode::SUCCESS
 }
 
 fn run_keystream(args: &KeystreamArgs) -> ExitCode {

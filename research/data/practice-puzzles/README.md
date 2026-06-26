@@ -27,19 +27,29 @@ the sole honest-negative.
 | ---- | ------- | ------------------- | -------------------- | ------------------------ |
 | `one`   | 266 | 5 digits `{0,1,2,3,4}`, no spaces | **±1 walk on C5** (all 265 transitions ±1 mod 5: +1×125, −1×140); `H1≈2.321/2.322` | small-alphabet keystream/GAK → **needs codec** |
 | `two`   | 698 | 12 letters `{A..L}`, no spaces | near-flat marginal (`H1≈3.578/3.585`), out-degree ≈8 | polyalphabetic/keystream → **needs codec** |
-| `three` | 142 | ~letters `{A..Z}` (J, V absent) + space `,` `.` | word + two-sentence structure, spaces preserved | letter **substitution** |
-| `four`  | 128 | letters + space `,` `.` `?`, 6 lines | multi-sentence, spaces + punctuation preserved | letter **substitution** |
-| `five`  | 281 | letters + space `!` `,` `.` `?`, 7 lines | multi-sentence, spaces + punctuation preserved | letter **substitution** |
+| `three` | 142 | ~letters `{A..Z}` (J, V absent) + space `,` `.` | word + two-sentence structure, spaces preserved | NOT mono, NOT periodic ≤40 (flat IoC) → **aperiodic polyalphabetic / position-keyed**; see `profile` |
+| `four`  | 128 | letters + space `,` `.` `?`, 6 lines | multi-sentence, spaces + punctuation preserved | NOT mono, NOT periodic ≤40 → **aperiodic polyalphabetic / position-keyed**; see `profile` |
+| `five`  | 281 | letters + space `!` `,` `.` `?`, 7 lines | multi-sentence, spaces + punctuation preserved | NOT mono, NOT periodic ≤40 → **aperiodic polyalphabetic / position-keyed**; see `profile` |
 | `six`   | 417 | 6 digits `{1..6}` + **spaces**, 3 data lines | word boundaries preserved; `H1≈2.582/2.585` (not a pure walk) | base-6 **digit-grouping codec** (pairs → ≤36 ≥ 26) → needs codec |
-| `seven` | 164 | letters + `#` + space `,` `?`, 5 lines | word structure preserved; `#` used as a symbol | letter **substitution** (`#` = rare letter/space?) |
+| `seven` | 164 | letters + `#` + space `,` `?`, 5 lines | word structure preserved; `#` used as a symbol | NOT mono, NOT periodic ≤40 → **aperiodic polyalphabetic** (`#` = symbol/Alberti index?); see `profile` |
 
 Notes:
 - `one` was previously referred to as `/tmp/gak_cipher_example`; `two` as
   `/tmp/gak_example_two`. They are byte-identical to those files.
 - The letter puzzles (`three`/`four`/`five`/`seven`) **preserve word boundaries and
-  punctuation** — a strong crib. In the solve engine's framing a monoalphabetic
-  substitution *is* the symbol→letter mapping search (Identity cipher), with
-  spaces/punctuation passed through as transparent symbols.
+  punctuation** — a strong crib. CORRECTION (2026-06-26): the earlier "monoalphabetic
+  substitution" reading is **falsified** — the `profile` subcommand shows all four have
+  a **flat IoC** (~0.036–0.044 vs English ~0.0667), so they are *not* monoalphabetic;
+  and the per-period IoC is flat at every period 2..40 (both keystream-advance
+  conventions), so they are *not* periodic Vigenère/Beaufort/Quagmire/Gronsfeld/Porta
+  either. They are **aperiodic polyalphabetic / position-keyed** ciphers that still
+  preserve word boundaries (repeated whole words encrypt identically in `five`, single
+  letters shift) — consistent with Ragbaby-class or running-key. Validated negatives so
+  far: keyword-Ragbaby (all four), keyword per-word Bifid (`three`/`four`), long-primer
+  ciphertext-autokey (L=1..60); running-key two-stream beam is a weak, non-surviving
+  positive (z≈2.4) on `five`. `seven`'s gap-40 `UXECHTINIT`-style framing was a red
+  herring — its `five` analogue crosses a word boundary (continuous keystream, not a key
+  period). See `KEYSTREAM-RESULTS.md` for the full battery.
 - The small-alphabet puzzles (`one`/`two`/`six`) cannot carry 26–29-letter English
   under a direct substitution; recovering them needs the **codec/transduction
   (grouping) layer** of brief 04a. `six`'s preserved spaces make it the clearest
