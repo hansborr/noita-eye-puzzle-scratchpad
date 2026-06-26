@@ -60,7 +60,7 @@ setup:
 
 ## run: run the CLI, e.g. `make run ARGS=demo`
 run:
-	cargo run -- $(ARGS)
+	cargo run --locked -- $(ARGS)
 
 ## clean: remove build artifacts
 clean:

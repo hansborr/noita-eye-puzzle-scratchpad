@@ -115,3 +115,10 @@ The cleartext path is therefore **SPECULATIVE, gated, and never primary**.
       beats its in-sample null but FAILS the held-out gate (overfit); `six` fails
       both — each a HYPOTHESIS, never a decode. The runbook and the in-record
       provenance agree by construction.
+
+      Reproducibility is verified **on demand** by re-running the embedded command
+      (no CI test pins it byte-for-byte: a faithful reproduction would have to write
+      back into this very directory and re-run the full caesar-family codec search).
+      It rests on the deterministic `SplitMix64` PRNG plus the crate-wide no-wall-clock
+      and `unsafe`-forbidden rules; if the solve/null/codec path ever gains threaded
+      or clock-dependent nondeterminism, regenerate and re-commit these three records.
