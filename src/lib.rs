@@ -31,6 +31,8 @@
 //! - [`conditional_structure`]: first-order transition-matrix and
 //!   successor-graph analysis against within-message shuffle nulls.
 //! - [`corpus`]: the verified transcribed message data.
+//! - [`heldout`]: shared held-out-fold helpers for the survival gates (the
+//!   alternating fold extraction + matched-null full/held-out statistics).
 //! - [`dof_null`]: calibrated adaptive null for researcher degrees of freedom
 //!   across traversal, grouping, and headline-statistic choice.
 //! - [`gak_attack`]: Thread 4 synthetic GAK generator and the decisive GCTAK
@@ -126,6 +128,8 @@ pub mod perfect_isomorphism;
 // nulls: matched-null distributions and DoF-calibrated null drivers.
 #[path = "nulls/dof_null.rs"]
 pub mod dof_null;
+#[path = "nulls/heldout.rs"]
+pub mod heldout;
 #[path = "nulls/isomorph_null.rs"]
 pub mod isomorph_null;
 #[path = "nulls/null.rs"]

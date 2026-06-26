@@ -407,6 +407,13 @@ pub struct KeystreamCandidate {
     pub round_trip_ok: bool,
     /// Quadgram score of the odd-indexed held-out fold of the best decrypt.
     pub heldout_score: f64,
+    /// Mean held-out (odd-index) fold score across the matched-null reruns — the
+    /// apples-to-apples baseline the candidate's `heldout_score` must beat.
+    /// Comparing `heldout_score` to the full-stream `matched_mean` instead (the old
+    /// bug) falsely failed a true decode, since a fold of English is not contiguous
+    /// English and so scores below the full stream while the null pays no such
+    /// penalty. `0.0` when `matched_null_trials == 0`.
+    pub matched_heldout_mean: f64,
     /// Survival gate (random-key null): whether the candidate clears
     /// [`Z_THRESHOLD`] and [`MIN_NAT_MARGIN`] against the random-key null. This is
     /// the only gate that polices the [`KeystreamFamily::CiphertextAutokey`]
@@ -417,8 +424,9 @@ pub struct KeystreamCandidate {
     /// and [`MIN_NAT_MARGIN`] against the MATCHED null (and
     /// `matched_null_trials > 0`). Polices search overfitting at high key length.
     pub beats_matched_null: bool,
-    /// Whether `heldout_score > matched_mean` (the held-out fold reads above the
-    /// matched-null baseline). `false` when `matched_null_trials == 0`.
+    /// Whether `heldout_score > matched_heldout_mean` (the held-out fold reads above
+    /// the matched null's held-out fold — apples-to-apples). `false` when
+    /// `matched_null_trials == 0`.
     pub heldout_ok: bool,
     /// `round_trip_ok && beats_matched_null && beats_null && heldout_ok` — both
     /// nulls must be cleared (each polices a distinct failure mode).
@@ -548,19 +556,21 @@ fn random_key_null(
     mean_std(&scores)
 }
 
-/// Builds the matched null `(mean, std)` for a `(family, key length)`: the
-/// honest survival bar.
+/// Builds the matched null `(full_mean, full_std, heldout_mean)` for a `(family,
+/// key length)`: the honest survival bar.
 ///
 /// For each of `cfg.matched_null_trials` trials this Fisher-Yates **shuffles** a
 /// copy of the ciphertext (preserving the exact letter multiset, so unigram
 /// frequency is held fixed and only higher-order structure is destroyed) and
 /// reruns the IDENTICAL annealed search (same `family`, `key_len`, `restarts`,
-/// `iterations`, `anneal_temp`) on it, recording the search's best score. The
-/// mean/std over those best scores capture the search's own optimization power on
-/// structureless text — which the random-key null cannot, because it never
-/// optimizes. This calls the bare [`search`], never the gated [`crack`], so the
-/// trials do not recurse into matched-null computation. Caller ensures `l >= 1`
-/// and `n >= 1`; returns `(0.0, 0.0)` when `cfg.matched_null_trials == 0`.
+/// `iterations`, `anneal_temp`) on it, recording the search's best score AND the
+/// odd-index held-out fold score of that best decrypt. The full mean/std capture
+/// the search's own optimization power on structureless text (which the random-key
+/// null cannot, since it never optimizes); the held-out mean is the apples-to-apples
+/// baseline for the generalization gate (fold-vs-fold, never fold-vs-full-stream).
+/// This calls the bare [`search`], never the gated [`crack`], so the trials do not
+/// recurse into matched-null computation. Caller ensures `l >= 1` and `n >= 1`;
+/// returns `(0.0, 0.0, 0.0)` when `cfg.matched_null_trials == 0`.
 fn matched_null(
     ciphertext: &[u8],
     family: KeystreamFamily,
@@ -568,11 +578,14 @@ fn matched_null(
     n: usize,
     cfg: &KeystreamSearchConfig,
     model: &QuadgramModel,
-) -> (f64, f64) {
+) -> (f64, f64, f64) {
     if cfg.matched_null_trials == 0 {
-        return (0.0, 0.0);
+        return (0.0, 0.0, 0.0);
     }
-    let mut scores: Vec<f64> = Vec::with_capacity(cfg.matched_null_trials);
+    // Per-trial (full-stream best score, held-out odd-index fold score) pairs,
+    // aggregated by the shared [`crate::heldout::matched_null_stats`].
+    let mut trials: Vec<(f64, f64)> = Vec::with_capacity(cfg.matched_null_trials);
+    let mut buffer: Vec<usize> = Vec::with_capacity(ciphertext.len());
     for trial in 0..cfg.matched_null_trials {
         // Per-trial shuffle seed (golden-ratio tag + family + key length + trial),
         // so each trial draws a distinct, reproducible permutation.
@@ -598,10 +611,16 @@ fn matched_null(
             seed: search_seed,
             ..*cfg
         };
-        let (_key, best) = search(&shuffled, family, l, n, &trial_cfg, model);
-        scores.push(best);
+        let (key, best) = search(&shuffled, family, l, n, &trial_cfg, model);
+        // The held-out fold of THIS trial's best decrypt, computed with the same
+        // odd-index fold the candidate uses (re-decrypt to recover the stream the
+        // `best` score was taken on; `best` equals its full-stream score).
+        decrypt_into(family, &shuffled, &key, n, &mut buffer);
+        let heldout_score = model.score_indices(&crate::heldout::odd_index_fold(&buffer));
+        trials.push((best, heldout_score));
     }
-    mean_std(&scores)
+    let stats = crate::heldout::matched_null_stats(&trials);
+    (stats.full_mean, stats.full_std, stats.heldout_mean)
 }
 
 /// Population mean and standard deviation (`(0.0, 0.0)` for an empty slice).
@@ -656,13 +675,7 @@ pub fn crack_with_model(
     decrypt_into(family, ciphertext, &key, n, &mut buffer);
     let best_score = model.score_indices(&buffer);
     let decrypt_indices: Vec<u8> = buffer.iter().map(|&v| v as u8).collect();
-    let heldout: Vec<usize> = buffer
-        .iter()
-        .copied()
-        .enumerate()
-        .filter_map(|(position, value)| (position % 2 == 1).then_some(value))
-        .collect();
-    let heldout_score = model.score_indices(&heldout);
+    let heldout_score = model.score_indices(&crate::heldout::odd_index_fold(&buffer));
 
     // Random-key null: a DIAGNOSTIC only (too weak to gate — it never pays for
     // the search's optimization power, so it green-lights overfitting at high L).
@@ -675,7 +688,8 @@ pub fn crack_with_model(
     };
 
     // Matched null: the survival bar (same search rerun on shuffled ciphertext).
-    let (matched_mean, matched_std) = matched_null(ciphertext, family, l, n, cfg, model);
+    let (matched_mean, matched_std, matched_heldout_mean) =
+        matched_null(ciphertext, family, l, n, cfg, model);
     let matched_margin = best_score - matched_mean;
     let matched_z = if matched_std > 0.0 {
         matched_margin / matched_std
@@ -698,8 +712,11 @@ pub fn crack_with_model(
     // cannot clear it. `matched_null_trials == 0` never silently passes.
     let beats_matched_null =
         cfg.matched_null_trials > 0 && matched_z >= Z_THRESHOLD && matched_margin >= MIN_NAT_MARGIN;
-    // Held-out fold judged against the honest matched-null baseline.
-    let heldout_ok = cfg.matched_null_trials > 0 && heldout_score > matched_mean;
+    // Held-out fold judged against the matched null's HELD-OUT fold (apples-to-apples).
+    // Comparing to the full-stream `matched_mean` instead falsely failed a true decode,
+    // since a fold of English is not contiguous English and so scores below the full
+    // stream while the null pays no such penalty.
+    let heldout_ok = cfg.matched_null_trials > 0 && heldout_score > matched_heldout_mean;
     // Survival requires clearing BOTH nulls: the matched null (overfitting) AND the
     // random-key null (the ct-autokey key-independence leak). A true keyed recovery
     // clears both; overfitting fails the matched null; the ct-autokey leak fails the
@@ -720,6 +737,7 @@ pub fn crack_with_model(
         matched_z,
         round_trip_ok,
         heldout_score,
+        matched_heldout_mean,
         beats_null,
         beats_matched_null,
         heldout_ok,
@@ -878,8 +896,8 @@ fn render_record(
     )?;
     writeln!(
         out,
-        "- heldout_score: {:.6}  heldout_ok (> matched_mean): {}",
-        candidate.heldout_score, candidate.heldout_ok
+        "- heldout_score: {:.6}  matched_heldout_mean: {:.6}  heldout_ok (> matched_heldout_mean): {}",
+        candidate.heldout_score, candidate.matched_heldout_mean, candidate.heldout_ok
     )?;
     writeln!(out)?;
     writeln!(out, "## Recovered key (letter indices)")?;
@@ -1032,6 +1050,63 @@ mod tests {
                 candidate.best_score
             );
         }
+    }
+
+    #[test]
+    fn planted_decode_survives_full_gate() {
+        // Regression for the held-out gate miscalibration (T1): the gate must compare
+        // the candidate's odd-index held-out fold against the matched null's HELD-OUT
+        // fold (`matched_heldout_mean`), not the full-stream `matched_mean`. A fold of
+        // English is not contiguous English, so it scores below the full stream; the
+        // old fold-vs-full-stream comparison could falsely fail a perfectly recovered
+        // decode. A planted true decode MUST clear the corrected gate.
+        let model = QuadgramModel::english().unwrap();
+        let plain = normalize_puzzle(PLAINTEXT);
+        assert!(
+            plain.len() >= 250,
+            "planted corpus too short: {}",
+            plain.len()
+        );
+        let n = 26usize;
+        let key = vec![3u8, 15, 8, 20, 13];
+        let cfg = KeystreamSearchConfig {
+            alphabet_size: n,
+            restarts: 20,
+            iterations: 4_000,
+            anneal_temp: 1.0,
+            seed: 0x00C0_FFEE,
+            null_trials: 40,
+            matched_null_trials: 4,
+        };
+        let cipher = encrypt(KeystreamFamily::Vigenere, &plain, &key, n);
+        let candidate =
+            crack_with_model(&cipher, KeystreamFamily::Vigenere, key.len(), &cfg, &model);
+        assert!(
+            candidate.round_trip_ok,
+            "round-trip is an algebraic identity"
+        );
+        assert!(
+            candidate.beats_matched_null,
+            "planted decode failed matched-null (best={:.3} matched_mean={:.3} matched_z={:.2})",
+            candidate.best_score, candidate.matched_mean, candidate.matched_z
+        );
+        // The corrected (fold-vs-fold) held-out comparison.
+        assert!(
+            candidate.heldout_score > candidate.matched_heldout_mean,
+            "held-out fold must beat the matched null's held-out fold \
+             (heldout={:.3} matched_heldout_mean={:.3})",
+            candidate.heldout_score,
+            candidate.matched_heldout_mean
+        );
+        assert!(
+            candidate.heldout_ok,
+            "planted decode failed held-out (heldout={:.3} matched_heldout_mean={:.3})",
+            candidate.heldout_score, candidate.matched_heldout_mean
+        );
+        assert!(
+            candidate.survives,
+            "a recovered planted decode MUST survive the gate (else the gate is too strict)"
+        );
     }
 
     #[test]
@@ -1198,6 +1273,10 @@ mod tests {
         // Matched-null stats (and the verdict they drive) are deterministic too.
         assert_eq!(first.matched_mean.to_bits(), second.matched_mean.to_bits());
         assert_eq!(first.matched_std.to_bits(), second.matched_std.to_bits());
+        assert_eq!(
+            first.matched_heldout_mean.to_bits(),
+            second.matched_heldout_mean.to_bits()
+        );
         assert_eq!(first.matched_z.to_bits(), second.matched_z.to_bits());
         assert_eq!(first.beats_matched_null, second.beats_matched_null);
         assert_eq!(first.survives, second.survives);
@@ -1262,6 +1341,7 @@ mod tests {
             matched_z: 10.0,
             round_trip_ok: true,
             heldout_score: -11.0,
+            matched_heldout_mean: -12.5,
             beats_null: true,
             beats_matched_null: true,
             heldout_ok: true,

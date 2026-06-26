@@ -31,8 +31,10 @@ pub struct SolveRecordCandidate<'a> {
     pub score: f64,
     /// Held-out fold mapping score (the mapping-confidence gate).
     pub heldout_mapping_score: f64,
-    /// Matched-null search mean.
+    /// Matched-null full-stream mean (the overfit bar).
     pub null_mean: f64,
+    /// Matched-null HELD-OUT fold mean (the generalization bar).
+    pub null_heldout_mean: f64,
     /// Matched-null overfit-guard verdict.
     pub beats_null: bool,
     /// The rendered text scored under the English model.
@@ -194,10 +196,10 @@ fn render_solve_gates(out: &mut String, inputs: &SolveRecordInputs<'_>) -> fmt::
     )?;
     writeln!(
         out,
-        "- Gate 2 held-out mapping score: {:.6} (matched-null mean {:.6}); generalizes: {}",
+        "- Gate 2 held-out mapping score: {:.6} (matched-null held-out mean {:.6}); generalizes: {}",
         top.heldout_mapping_score,
-        top.null_mean,
-        top.heldout_mapping_score > top.null_mean
+        top.null_heldout_mean,
+        top.heldout_mapping_score > top.null_heldout_mean
     )?;
     writeln!(
         out,
@@ -279,6 +281,7 @@ pub fn log_solve_run(
             score: candidate.score,
             heldout_mapping_score: candidate.heldout_mapping_score,
             null_mean: candidate.null_mean,
+            null_heldout_mean: candidate.null_heldout_mean,
             beats_null: candidate.beats_null,
             english_bigram: english
                 .score_text(&candidate.rendered_text)?

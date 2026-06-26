@@ -143,14 +143,21 @@ fn run_codec_search(
             // (surviving codec × mapping × cipher), so every Search candidate is gated
             // against the max-over-codecs-on-noise bar. With exactly one survivor it
             // equals the old per-codec null byte-for-byte (a pure re-aggregation).
-            let null_mean = enumeration_null_mean(req, family, *language, search, &survivors)?;
+            let (null_mean, null_heldout_mean) =
+                enumeration_null_mean(req, family, *language, search, &survivors)?;
             for (index, codec) in &survivors {
                 match &req.space.mappings {
                     MappingStrategy::Fixed(mappings) => {
                         for mapping in mappings {
                             for cipher in &family.ciphers {
                                 if let Some(candidate) = evaluate_cipher(
-                                    req, cipher, mapping, *language, null_mean, codec,
+                                    req,
+                                    cipher,
+                                    mapping,
+                                    *language,
+                                    null_mean,
+                                    null_heldout_mean,
+                                    codec,
                                 )? {
                                     candidates
                                         .push(stamp_enumeration_beats_null(candidate, null_mean));
@@ -171,6 +178,7 @@ fn run_codec_search(
                                 cipher_index,
                                 *language,
                                 null_mean,
+                                null_heldout_mean,
                                 &derived,
                                 codec,
                             )? {
@@ -234,13 +242,17 @@ fn validate_ciphertext_symbols(
 /// This is a *derived* reporting verdict for records and tests — the three gates
 /// stay separate on the [`Candidate`] and are never collapsed into a stored
 /// boolean. A surviving candidate must (1) pass the cipher-layer round-trip,
-/// (2) beat its matched-null search mean (the overfit guard), and (3) generalize
-/// to the held-out fold above that same null mean (the mapping-confidence gate).
+/// (2) beat its matched-null full-stream mean (the overfit guard), and (3)
+/// generalize — its held-out fold must beat the matched null's HELD-OUT fold
+/// (`null_heldout_mean`), apples-to-apples. Comparing the held-out fold to the
+/// full-stream `null_mean` instead (the old bug) falsely failed a true decode,
+/// since a fold of natural-language text scores below the contiguous full stream
+/// while the full-stream null pays no such penalty.
 #[must_use]
 pub fn candidate_survives(candidate: &Candidate) -> bool {
     candidate.crypto_round_trip_ok
         && candidate.beats_null
-        && candidate.heldout_mapping_score > candidate.null_mean
+        && candidate.heldout_mapping_score > candidate.null_heldout_mean
 }
 
 #[cfg(test)]
@@ -415,22 +427,27 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
             "the eyes unexpectedly surfaced a surviving candidate — the standing conclusion is BLOCKED"
         );
         if let Some(top) = candidates.first() {
+            // Pin the REASON the honest negative holds, not just the verdict. The
+            // LOAD-BEARING gate is the in-sample overfit bar (Gate 3): the re-fit
+            // mapping's in-sample score does NOT clear the matched null's in-sample
+            // mean, so the candidate cannot survive regardless of the other gates.
+            // (Direction only — no brittle exact float — robust to search-config
+            // tweaks.)
             assert!(
                 !top.beats_null,
                 "the eyes beat their matched null (score {}, null {}) — investigate before claiming signal",
                 top.score, top.null_mean
             );
-            // Pin the REASON the honest negative holds, not just the verdict: the
-            // re-fit mapping does NOT generalize to the held-out fold, so its
-            // held-out score sits BELOW the matched-null mean. (Direction only —
-            // no brittle exact float — so it locks the reason against silent
-            // drift while staying robust to search-config tweaks.)
-            assert!(
-                top.heldout_mapping_score < top.null_mean,
-                "eyes held-out score {} unexpectedly reached/beat the null mean {}",
-                top.heldout_mapping_score,
-                top.null_mean
-            );
+            // T1 NOTE (corrected, apples-to-apples held-out gate): under the OLD
+            // bug — comparing the held-out fold to the FULL-stream null mean — the
+            // eyes' top candidate also "failed" Gate 2, which over-attributed the
+            // honest negative. With the fold-vs-fold comparison the eyes' held-out
+            // fold actually sits marginally ABOVE the null's held-out fold (Gate 2 is
+            // a near-tie, within search noise), so Gate 2 is NOT load-bearing here.
+            // The honest negative stands entirely on Gate 3 above — the decode remains
+            // BLOCKED for the honest reason (no in-sample signal above noise), not an
+            // artifactual held-out miscalibration. The near-tie margin is too small to
+            // assert a direction robustly, so it is documented, not pinned.
         }
 
         // The honest negative is logged with the verbatim claim ceiling.
@@ -1294,15 +1311,19 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         let family = request.space.families.first().unwrap();
 
         // The enumeration-level null maxes over ALL survivors per shuffle...
+        // (`.0` is the full-stream mean — the selection-complete overfit bar under
+        // test here; `.1` is the held-out mean, exercised separately.)
         let full = enumeration_null_mean(&request, family, Language::English, &search, &survivors)
-            .unwrap();
+            .unwrap()
+            .0;
         // ...so it dominates every single-codec on-noise null computed with the SAME
         // shuffles and codec-index-derived seeds (the per-trial max >= any one codec).
         let mut max_single = f64::NEG_INFINITY;
         for survivor in &survivors {
             let single = vec![survivor.clone()];
             let one = enumeration_null_mean(&request, family, Language::English, &search, &single)
-                .unwrap();
+                .unwrap()
+                .0;
             assert!(
                 full >= one,
                 "enumeration null {full} below single-codec null {one} (selection not paid for)"
@@ -1366,10 +1387,10 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         let top = candidates.first().unwrap();
         assert_eq!(top.cipher, AnyCipher::Caesar(key));
         assert!(
-            top.heldout_mapping_score > top.null_mean,
-            "held-out {} did not clear the matched null {}",
+            top.heldout_mapping_score > top.null_heldout_mean,
+            "held-out {} did not clear the matched null's held-out fold {}",
             top.heldout_mapping_score,
-            top.null_mean
+            top.null_heldout_mean
         );
         assert!(top.beats_null);
         assert!(candidate_survives(top));
@@ -1805,6 +1826,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
             score: -2.85,
             heldout_mapping_score: -2.96,
             null_mean: -3.22,
+            null_heldout_mean: -3.30,
             beats_null: true,
             english_bigram: -2.85,
             finnish_bigram: -3.40,

@@ -223,8 +223,15 @@ pub struct Candidate {
     pub score: f64,
     /// Held-out mapping score on a disjoint fold.
     pub heldout_mapping_score: f64,
-    /// Mean score from the matched Fisher-Yates null.
+    /// Mean full-stream score from the matched Fisher-Yates null (the overfit bar).
     pub null_mean: f64,
+    /// Mean HELD-OUT fold score from the matched Fisher-Yates null — the
+    /// apples-to-apples baseline the candidate's `heldout_mapping_score` must beat to
+    /// count as generalizing. Computed with the same fold scheme as the candidate's
+    /// held-out score (alternating for fixed mappings, contiguous for searched
+    /// mappings). Comparing `heldout_mapping_score` to the full-stream `null_mean`
+    /// instead (the old bug) falsely failed a true decode.
+    pub null_heldout_mean: f64,
     /// Whether this candidate beats its matched null mean.
     pub beats_null: bool,
 }

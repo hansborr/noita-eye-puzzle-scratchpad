@@ -166,22 +166,24 @@ pub(super) fn enumeration_null_mean(
     language: Language,
     search: &CodecSearch,
     survivors: &[(usize, AnyCodec)],
-) -> Result<f64, SolveError> {
+) -> Result<(f64, f64), SolveError> {
     if survivors.is_empty() {
-        return Ok(0.0);
+        return Ok((0.0, 0.0));
     }
     let model = model_for(req, language);
     let shuffle_seed = mix_seed(req.space.seed, family_seed_tag(family) ^ 0x6e75_6c6c);
     let mut rng = SplitMix64::new(shuffle_seed);
-    let mut total = 0.0;
+    let mut trials: Vec<(f64, f64)> = Vec::with_capacity(req.space.null_trials);
     for trial in 0..req.space.null_trials {
         let mut shuffled = req.ciphertext.to_vec();
         fisher_yates(&mut shuffled, &mut rng)?;
         // MAX over all surviving codecs for this shuffle — the codec selection the
-        // real run performs (top-of-N-codecs wins).
-        let mut trial_best: Option<f64> = None;
+        // real run performs (top-of-N-codecs wins). The held-out fold score travels
+        // with the selected (max-in-sample) codec so the null exposes a held-out
+        // baseline, not just the full-stream one.
+        let mut trial_best: Option<(f64, f64)> = None;
         for (index, codec) in survivors {
-            let score = match &req.space.mappings {
+            let (score, heldout) = match &req.space.mappings {
                 MappingStrategy::Fixed(mappings) => {
                     best_codec_fixed_null_score(&shuffled, family, mappings, model, codec)?
                 }
@@ -199,11 +201,14 @@ pub(super) fn enumeration_null_mean(
                     )?
                 }
             };
-            trial_best = Some(trial_best.map_or(score, |best| best.max(score)));
+            if trial_best.is_none_or(|(previous, _)| score > previous) {
+                trial_best = Some((score, heldout));
+            }
         }
         if let Some(best) = trial_best {
-            total += best;
+            trials.push(best);
         }
     }
-    Ok(total / req.space.null_trials as f64)
+    let stats = crate::heldout::matched_null_stats(&trials);
+    Ok((stats.full_mean, stats.heldout_mean))
 }

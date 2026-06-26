@@ -888,13 +888,7 @@ fn random_key_null(
 /// English, so its absolute quadgram score is low; comparing it to the full-stream
 /// mean (as an earlier version did) falsely fails even a perfect decode.
 fn heldout_fold_score(decrypt: &[usize], model: &QuadgramModel) -> f64 {
-    let fold: Vec<usize> = decrypt
-        .iter()
-        .copied()
-        .enumerate()
-        .filter_map(|(position, value)| (position % 2 == 1).then_some(value))
-        .collect();
-    model.score_indices(&fold)
+    model.score_indices(&crate::heldout::odd_index_fold(decrypt))
 }
 
 /// Matched null: reruns the identical search on Fisher–Yates-shuffled cipher
@@ -909,8 +903,10 @@ fn matched_null(
     if cfg.matched_null_trials == 0 {
         return (0.0, 0.0, 0.0);
     }
-    let mut scores: Vec<f64> = Vec::with_capacity(cfg.matched_null_trials);
-    let mut heldouts: Vec<f64> = Vec::with_capacity(cfg.matched_null_trials);
+    // Per-trial (full-stream score, held-out odd-index fold score) pairs, aggregated
+    // by the shared [`crate::heldout::matched_null_stats`] (de-dups the full mean/std
+    // + held-out mean shared with keystream and solve).
+    let mut trials: Vec<(f64, f64)> = Vec::with_capacity(cfg.matched_null_trials);
     for trial in 0..cfg.matched_null_trials {
         let shuffle_seed = cfg.seed ^ MATCHED_NULL_SEED_TAG ^ problem.tag() ^ (trial as u64);
         let mut shuffle_rng = SplitMix64::new(shuffle_seed);
@@ -938,12 +934,13 @@ fn matched_null(
         };
         let (key, _sum) = search(&ctx, &trial_cfg);
         let decrypt = ctx.decrypt(&key);
-        scores.push(model.score_indices(&decrypt));
-        heldouts.push(heldout_fold_score(&decrypt, model));
+        trials.push((
+            model.score_indices(&decrypt),
+            heldout_fold_score(&decrypt, model),
+        ));
     }
-    let (mean, std) = mean_std(&scores);
-    let (heldout_mean, _heldout_std) = mean_std(&heldouts);
-    (mean, std, heldout_mean)
+    let stats = crate::heldout::matched_null_stats(&trials);
+    (stats.full_mean, stats.full_std, stats.heldout_mean)
 }
 
 /// Cracks one prepared `(base, numbering, sign)` problem against a prebuilt

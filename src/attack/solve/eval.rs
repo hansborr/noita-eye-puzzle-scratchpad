@@ -4,21 +4,25 @@ use super::{
     fisher_yates, mix_seed,
 };
 
-/// Best fixed-mapping in-sample score for one codec on a (shuffled) stream, maxed
-/// over the declared mapping set × the cipher family. The enumeration null maxes this
-/// over codecs in turn, mirroring the real run's selection across (codec × mapping ×
-/// cipher).
+/// Best fixed-mapping `(in-sample score, held-out fold score)` for one codec on a
+/// (shuffled) stream, taken at the mapping × cipher that maximizes the in-sample
+/// score. The enumeration null maxes this over codecs in turn, mirroring the real
+/// run's selection across (codec × mapping × cipher); the held-out score travels
+/// with the selected pair so the null exposes a HELD-OUT baseline, not just a
+/// full-stream one (the apples-to-apples generalization bar).
 pub(super) fn best_codec_fixed_null_score(
     ciphertext: &[Glyph],
     family: &CipherFamilySpec,
     mappings: &[Mapping],
     model: &LanguageModel,
     codec: &AnyCodec,
-) -> Result<f64, SolveError> {
-    let mut best: Option<f64> = None;
+) -> Result<(f64, f64), SolveError> {
+    let mut best: Option<(f64, f64)> = None;
     for mapping in mappings {
-        let score = best_family_score(ciphertext, family, mapping, model, codec)?;
-        best = Some(best.map_or(score, |previous: f64| previous.max(score)));
+        let (score, heldout) = best_family_score(ciphertext, family, mapping, model, codec)?;
+        if best.is_none_or(|(previous, _)| score > previous) {
+            best = Some((score, heldout));
+        }
     }
     best.ok_or(SolveError::EmptyMappingSet)
 }
@@ -32,11 +36,18 @@ pub(super) fn evaluate_family(
     let mut candidates = Vec::new();
     for mapping in mappings {
         for language in req.space.language.languages() {
-            let null_mean = matched_null_mean(req, family, mapping, *language, codec)?;
+            let (null_mean, null_heldout_mean) =
+                matched_null_mean(req, family, mapping, *language, codec)?;
             for cipher in &family.ciphers {
-                if let Some(candidate) =
-                    evaluate_cipher(req, cipher, mapping, *language, null_mean, codec)?
-                {
+                if let Some(candidate) = evaluate_cipher(
+                    req,
+                    cipher,
+                    mapping,
+                    *language,
+                    null_mean,
+                    null_heldout_mean,
+                    codec,
+                )? {
                     candidates.push(candidate);
                 }
             }
@@ -45,12 +56,20 @@ pub(super) fn evaluate_family(
     Ok(candidates)
 }
 
+// The fixed-mapping evaluator threads both null baselines (full-stream mean for the
+// overfit gate, held-out fold mean for the generalization gate) plus the codec; the
+// params are the established pipeline shape, so a context struct would obscure them.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "established fixed-mapping pipeline shape + the held-out null baseline (T1)"
+)]
 pub(super) fn evaluate_cipher(
     req: &SolveRequest<'_>,
     cipher: &AnyCipher,
     mapping: &Mapping,
     language: Language,
     null_mean: f64,
+    null_heldout_mean: f64,
     codec: &AnyCodec,
 ) -> Result<Option<Candidate>, SolveError> {
     let Some(decrypted_symbols) = decrypt_round_trip(cipher, req.ciphertext)? else {
@@ -71,6 +90,7 @@ pub(super) fn evaluate_cipher(
         score: scored.score,
         heldout_mapping_score: scored.heldout_mapping_score,
         null_mean,
+        null_heldout_mean,
         beats_null: scored.score > null_mean,
     }))
 }
@@ -108,41 +128,49 @@ fn score_transduced(
     })
 }
 
+/// Matched null for the fixed-mapping path: `(full-stream mean, held-out fold mean)`
+/// over `null_trials` Fisher-Yates shuffles. The held-out mean is the apples-to-apples
+/// baseline for the generalization gate (the candidate's odd-index held-out fold must
+/// beat the null's odd-index held-out fold — never the full-stream mean).
 fn matched_null_mean(
     req: &SolveRequest<'_>,
     family: &CipherFamilySpec,
     mapping: &Mapping,
     language: Language,
     codec: &AnyCodec,
-) -> Result<f64, SolveError> {
+) -> Result<(f64, f64), SolveError> {
     let model = model_for(req, language);
     let seed = mix_seed(req.space.seed, family_seed_tag(family) ^ 0x6e75_6c6c);
     let mut rng = SplitMix64::new(seed);
-    let mut total = 0.0;
+    let mut trials: Vec<(f64, f64)> = Vec::with_capacity(req.space.null_trials);
     for _trial in 0..req.space.null_trials {
         let mut shuffled = req.ciphertext.to_vec();
         fisher_yates(&mut shuffled, &mut rng)?;
-        total += best_family_score(&shuffled, family, mapping, model, codec)?;
+        trials.push(best_family_score(&shuffled, family, mapping, model, codec)?);
     }
-    Ok(total / req.space.null_trials as f64)
+    let stats = crate::heldout::matched_null_stats(&trials);
+    Ok((stats.full_mean, stats.heldout_mean))
 }
 
+/// Best `(in-sample score, held-out fold score)` over the cipher family, at the
+/// cipher that maximizes the in-sample score (the held-out score is that cipher's,
+/// so the null's held-out baseline mirrors the selected candidate's).
 fn best_family_score(
     ciphertext: &[Glyph],
     family: &CipherFamilySpec,
     mapping: &Mapping,
     model: &LanguageModel,
     codec: &AnyCodec,
-) -> Result<f64, SolveError> {
-    let mut best = None;
+) -> Result<(f64, f64), SolveError> {
+    let mut best: Option<(f64, f64)> = None;
     for cipher in &family.ciphers {
         let Some(decrypted_symbols) = decrypt_round_trip(cipher, ciphertext)? else {
             continue;
         };
         let transduced = codec.transduce(&decrypted_symbols)?;
-        let score = score_transduced(&transduced, mapping, model)?.score;
-        if best.is_none_or(|previous| score > previous) {
-            best = Some(score);
+        let scored = score_transduced(&transduced, mapping, model)?;
+        if best.is_none_or(|(previous, _)| scored.score > previous) {
+            best = Some((scored.score, scored.heldout_mapping_score));
         }
     }
     best.ok_or(SolveError::EmptyHypothesisSpace)

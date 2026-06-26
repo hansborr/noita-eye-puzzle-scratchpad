@@ -11,6 +11,12 @@ use super::{
 // Phase 2 — mapping search (hill-climb / simulated annealing).
 // ---------------------------------------------------------------------------
 
+/// Seed tag that derives the held-out-fold search seed from the in-sample search
+/// seed (the ASCII bytes of "heldout"). Shared by the real run
+/// ([`evaluate_cipher_search`]) and the matched null ([`best_family_search_score`])
+/// so the null's held-out baseline mirrors the candidate's exactly.
+const HELDOUT_SEED_TAG: u64 = 0x0068_656c_646f_7574;
+
 /// Outcome of one mapping search: the best mapping found and its in-sample score.
 struct MappingSearchOutcome {
     mapping: Mapping,
@@ -33,7 +39,8 @@ pub(super) fn solve_search(
     let mut candidates = Vec::new();
     for family in &req.space.families {
         for language in req.space.language.languages() {
-            let null_mean = matched_null_search_mean(req, family, *language, search, codec)?;
+            let (null_mean, null_heldout_mean) =
+                matched_null_search_mean(req, family, *language, search, codec)?;
             for (cipher_index, cipher) in family.ciphers.iter().enumerate() {
                 if let Some(candidate) = evaluate_cipher_search(
                     req,
@@ -42,6 +49,7 @@ pub(super) fn solve_search(
                     cipher_index,
                     *language,
                     null_mean,
+                    null_heldout_mean,
                     search,
                     codec,
                 )? {
@@ -58,7 +66,7 @@ pub(super) fn solve_search(
 // them into a context struct would obscure rather than clarify.
 #[allow(
     clippy::too_many_arguments,
-    reason = "Phase-1 codec wiring adds one codec parameter to the existing search path"
+    reason = "Phase-1 codec wiring + the held-out null baseline (T1) on the existing search path"
 )]
 pub(super) fn evaluate_cipher_search(
     req: &SolveRequest<'_>,
@@ -67,6 +75,7 @@ pub(super) fn evaluate_cipher_search(
     cipher_index: usize,
     language: Language,
     null_mean: f64,
+    null_heldout_mean: f64,
     search: &MappingSearch,
     codec: &AnyCodec,
 ) -> Result<Option<Candidate>, SolveError> {
@@ -90,7 +99,7 @@ pub(super) fn evaluate_cipher_search(
         mapping_domain,
         model,
         search,
-        mix_seed(seed, 0x0068_656c_646f_7574),
+        mix_seed(seed, HELDOUT_SEED_TAG),
     )?;
 
     Ok(Some(Candidate {
@@ -105,6 +114,7 @@ pub(super) fn evaluate_cipher_search(
         score: full.score,
         heldout_mapping_score,
         null_mean,
+        null_heldout_mean,
         beats_null: full.score >= null_mean + SEARCH_BEATS_NULL_MARGIN,
     }))
 }
@@ -139,29 +149,32 @@ fn heldout_search_score(
         .bigram_mean_log_likelihood)
 }
 
-/// Reruns the IDENTICAL search on `null_trials` Fisher-Yates-shuffled copies of
-/// the ciphertext and returns the mean best-per-family in-sample score.
+/// Reruns the IDENTICAL search on `null_trials` Fisher-Yates-shuffled copies of the
+/// ciphertext and returns `(mean best-per-family in-sample score, mean held-out fold
+/// score)`.
 ///
 /// Same seed-tag discipline as the fixed-mapping null (`mix_seed(seed, tag ^
 /// 0x6e75_6c6c)`), so the searched null is calibrated identically. A search on
 /// shuffled symbols still fits noise, which is exactly why
-/// [`SEARCH_BEATS_NULL_MARGIN`] guards [`Candidate::beats_null`].
+/// [`SEARCH_BEATS_NULL_MARGIN`] guards [`Candidate::beats_null`]; the held-out mean is
+/// the apples-to-apples baseline for the generalization gate (a CONTIGUOUS-fold
+/// re-fit, mirroring the candidate's [`heldout_search_score`]).
 fn matched_null_search_mean(
     req: &SolveRequest<'_>,
     family: &CipherFamilySpec,
     language: Language,
     search: &MappingSearch,
     codec: &AnyCodec,
-) -> Result<f64, SolveError> {
+) -> Result<(f64, f64), SolveError> {
     let model = model_for(req, language);
     let shuffle_seed = mix_seed(req.space.seed, family_seed_tag(family) ^ 0x6e75_6c6c);
     let mut rng = SplitMix64::new(shuffle_seed);
-    let mut total = 0.0;
+    let mut trials: Vec<(f64, f64)> = Vec::with_capacity(req.space.null_trials);
     for trial in 0..req.space.null_trials {
         let mut shuffled = req.ciphertext.to_vec();
         fisher_yates(&mut shuffled, &mut rng)?;
         let trial_seed = search_seed(search.seed, family, trial, language);
-        total += best_family_search_score(
+        trials.push(best_family_search_score(
             &shuffled,
             family,
             req.space.cipher_alphabet_size,
@@ -169,11 +182,17 @@ fn matched_null_search_mean(
             search,
             trial_seed,
             codec,
-        )?;
+        )?);
     }
-    Ok(total / req.space.null_trials as f64)
+    let stats = crate::heldout::matched_null_stats(&trials);
+    Ok((stats.full_mean, stats.heldout_mean))
 }
 
+/// Best `(in-sample score, held-out fold score)` over the cipher family on one
+/// (shuffled) stream, taken at the cipher that maximizes the in-sample score. The
+/// held-out score is the selected cipher's CONTIGUOUS-fold [`heldout_search_score`]
+/// (re-fit on the train half, scored on the held-out half) — recomputed once for the
+/// winner so the null's held-out baseline mirrors the real candidate's exactly.
 #[allow(
     clippy::too_many_arguments,
     reason = "Phase-1 codec wiring adds one codec parameter to the existing search path"
@@ -186,8 +205,8 @@ pub(super) fn best_family_search_score(
     search: &MappingSearch,
     seed: u64,
     codec: &AnyCodec,
-) -> Result<f64, SolveError> {
-    let mut best = None;
+) -> Result<(f64, f64), SolveError> {
+    let mut best: Option<(f64, Vec<usize>, u64)> = None;
     let mapping_domain = resolved_output_alphabet_size(codec, cipher_alphabet_size);
     for (cipher_index, cipher) in family.ciphers.iter().enumerate() {
         let Some(decrypted_symbols) = decrypt_round_trip(cipher, ciphertext)? else {
@@ -197,11 +216,22 @@ pub(super) fn best_family_search_score(
         let symbols = to_symbol_indices(&transduced, mapping_domain)?;
         let cipher_seed = mix_seed(seed, cipher_index as u64);
         let outcome = search_mapping(&symbols, mapping_domain, model, search, cipher_seed)?;
-        if best.is_none_or(|previous| outcome.score > previous) {
-            best = Some(outcome.score);
+        if best
+            .as_ref()
+            .is_none_or(|(previous, _, _)| outcome.score > *previous)
+        {
+            best = Some((outcome.score, symbols, cipher_seed));
         }
     }
-    best.ok_or(SolveError::EmptyHypothesisSpace)
+    let (score, symbols, cipher_seed) = best.ok_or(SolveError::EmptyHypothesisSpace)?;
+    let heldout = heldout_search_score(
+        &symbols,
+        mapping_domain,
+        model,
+        search,
+        mix_seed(cipher_seed, HELDOUT_SEED_TAG),
+    )?;
+    Ok((score, heldout))
 }
 
 /// Hill-climbs (or anneals) a symbol→letter mapping maximizing the in-sample
