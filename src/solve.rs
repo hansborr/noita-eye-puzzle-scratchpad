@@ -1450,6 +1450,208 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         ));
     }
 
+    // Step 10(b) — letter-puzzle validation over the checked-in practice corpus.
+    //
+    // HONEST OUTCOME (claim discipline): the pipeline runs end-to-end, all three
+    // gates fire, and the top candidate is LOGGED as a labelled HYPOTHESIS. But
+    // with the bigram language model these short (~120-280 letter) single streams
+    // do NOT beat the matched null and do NOT clear the held-out gate (measured:
+    // even a 16x60000 anneal leaves the margin near zero and the held-out score at
+    // chance). So the gates correctly REFUSE to promote them as decodes. That is
+    // the candidates-README trap working as designed — a high in-sample score with
+    // no held-out validation is never reported as signal — not a pipeline failure.
+    // No plaintext is ever asserted (no cleartext is committed).
+    #[test]
+    fn letter_puzzles_run_end_to_end_and_log_as_hypotheses() {
+        let english = english_model().unwrap();
+        let finnish = finnish_model().unwrap();
+        let dir = std::env::temp_dir().join(format!("noita-solve-letters-{}", std::process::id()));
+        let _removed = std::fs::remove_dir_all(&dir);
+
+        for (name, text) in [
+            (
+                "three",
+                include_str!("../research/data/practice-puzzles/three"),
+            ),
+            (
+                "four",
+                include_str!("../research/data/practice-puzzles/four"),
+            ),
+            (
+                "five",
+                include_str!("../research/data/practice-puzzles/five"),
+            ),
+            (
+                "seven",
+                include_str!("../research/data/practice-puzzles/seven"),
+            ),
+        ] {
+            let glyphs = parse_letter_puzzle(text);
+            assert!(!glyphs.is_empty(), "{name} parsed to no cipher symbols");
+            let request = letter_request(&glyphs, &english, &finnish, anneal_search(4, 6000, 0.02));
+            let candidates = solve(&request).unwrap();
+            let top = candidates.first().unwrap();
+
+            // The pipeline ran and every gate fired (finite, computed).
+            assert!(top.crypto_round_trip_ok);
+            assert!(top.score.is_finite());
+            assert!(top.heldout_mapping_score.is_finite());
+            assert!(top.null_mean.is_finite());
+
+            // The candidate is logged as a labelled HYPOTHESIS for human review.
+            let path = super::log_solve_run(
+                &dir,
+                name,
+                super::DEFAULT_SEED,
+                26,
+                &candidates,
+                &english,
+                &finnish,
+            )
+            .unwrap();
+            let record = std::fs::read_to_string(&path).unwrap();
+            assert!(record.contains(super::SOLVE_CLAIM_CEILING));
+            assert!(record.contains("HYPOTHESIS, NOT a decode"));
+
+            // Claim discipline: on a short single stream with a bigram model the
+            // matched-null + held-out gates correctly do NOT promote a decode.
+            assert!(
+                !candidate_survives(top),
+                "{name} unexpectedly surfaced a surviving candidate (score {}, null {}, heldout {})",
+                top.score,
+                top.null_mean,
+                top.heldout_mapping_score
+            );
+        }
+        let _cleanup = std::fs::remove_dir_all(&dir);
+    }
+
+    // Step 10(c) — THE EYES HONEST NEGATIVE (the single most important test).
+    // Load the embedded 83-symbol reading-layer eye corpus via corpus/orders (NOT
+    // /tmp), run the mapping search, and confirm it surfaces NO surviving
+    // candidate: the decode REMAINS BLOCKED on the unknown symbol->meaning
+    // mapping. A clean honest negative is the SUCCESS condition. Note the 83->29
+    // mapping is many-to-one => non-invertible, so a cipher round-trip can hold
+    // yet NO surviving candidate may exist; the held-out + matched-null gates carry
+    // the load.
+    #[test]
+    fn eyes_search_surfaces_no_surviving_candidate() {
+        let english = english_model().unwrap();
+        let finnish = finnish_model().unwrap();
+        let eyes = eye_reading_layer();
+        assert!(eyes.len() > 100, "eye reading-layer stream looks truncated");
+
+        let request = eye_request(&eyes, &english, &finnish, anneal_search(3, 4000, 0.02));
+        let candidates = solve(&request).unwrap();
+
+        // Identity round-trips trivially on the eyes, so candidates DO appear...
+        assert!(!candidates.is_empty());
+        // ...but NONE survives all three gates: the decode remains blocked.
+        assert!(
+            candidates
+                .iter()
+                .all(|candidate| !candidate_survives(candidate)),
+            "the eyes unexpectedly surfaced a surviving candidate — the standing conclusion is BLOCKED"
+        );
+        if let Some(top) = candidates.first() {
+            assert!(
+                !top.beats_null,
+                "the eyes beat their matched null (score {}, null {}) — investigate before claiming signal",
+                top.score, top.null_mean
+            );
+        }
+
+        // The honest negative is logged with the verbatim claim ceiling.
+        let dir = std::env::temp_dir().join(format!("noita-solve-eyes-{}", std::process::id()));
+        let _removed = std::fs::remove_dir_all(&dir);
+        let path = super::log_solve_run(
+            &dir,
+            "eyes-reading-layer",
+            super::DEFAULT_SEED,
+            crate::ciphers::EYE_READING_ALPHABET_SIZE,
+            &candidates,
+            &english,
+            &finnish,
+        )
+        .unwrap();
+        let record = std::fs::read_to_string(&path).unwrap();
+        assert!(record.contains(super::SOLVE_CLAIM_CEILING));
+        assert!(record.contains("NO surviving candidate"));
+        let _cleanup = std::fs::remove_dir_all(&dir);
+    }
+
+    fn parse_letter_puzzle(text: &str) -> Vec<Glyph> {
+        let alphabet = crate::glyph::Alphabet::from_chars("ABCDEFGHIJKLMNOPQRSTUVWXYZ").unwrap();
+        let transparent = crate::ingest::TransparentSet::default();
+        crate::ingest::parse_sequence(
+            text,
+            crate::ingest::SequenceLayer::CipherAlphabet {
+                alphabet: &alphabet,
+                transparent: &transparent,
+            },
+        )
+        .unwrap()
+        .glyphs
+    }
+
+    fn eye_reading_layer() -> Vec<Glyph> {
+        let grids = crate::orders::corpus_grids().unwrap();
+        let order = crate::orders::accepted_honeycomb_order();
+        crate::orders::read_corpus_values(&grids, order)
+            .unwrap()
+            .iter()
+            .map(|value| Glyph(u16::from(value.get())))
+            .collect()
+    }
+
+    fn letter_request<'a>(
+        ciphertext: &'a [Glyph],
+        english: &'a LanguageModel,
+        finnish: &'a LanguageModel,
+        search: MappingSearch,
+    ) -> SolveRequest<'a> {
+        SolveRequest {
+            ciphertext,
+            space: HypothesisSpace {
+                families: vec![CipherFamilySpec {
+                    label: "identity".to_owned(),
+                    ciphers: vec![AnyCipher::Identity],
+                }],
+                mappings: MappingStrategy::Search(search),
+                language: LanguageChoice::Both,
+                cipher_alphabet_size: 26,
+                seed: DEFAULT_SEED,
+                null_trials: 2,
+            },
+            english,
+            finnish,
+        }
+    }
+
+    fn eye_request<'a>(
+        ciphertext: &'a [Glyph],
+        english: &'a LanguageModel,
+        finnish: &'a LanguageModel,
+        search: MappingSearch,
+    ) -> SolveRequest<'a> {
+        SolveRequest {
+            ciphertext,
+            space: HypothesisSpace {
+                families: vec![CipherFamilySpec {
+                    label: "identity".to_owned(),
+                    ciphers: vec![AnyCipher::Identity],
+                }],
+                mappings: MappingStrategy::Search(search),
+                language: LanguageChoice::Both,
+                cipher_alphabet_size: crate::ciphers::EYE_READING_ALPHABET_SIZE,
+                seed: DEFAULT_SEED,
+                null_trials: 2,
+            },
+            english,
+            finnish,
+        }
+    }
+
     #[test]
     fn identity_codec_passes_symbols_through() {
         let input = glyphs(&[3, 1, 4]);
