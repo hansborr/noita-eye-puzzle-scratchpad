@@ -2120,6 +2120,106 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         assert_eq!(first, second);
     }
 
+    // Step 6 — the matched null stays FLAT under codec search: rerunning the
+    // identical codec enumeration + mapping search on a Fisher-Yates-shuffled
+    // ciphertext does not manufacture a beats-null winner. Here the base-6 plant's
+    // ciphertext is shuffled into noise, then the SAME codec search (base 6,
+    // group_len -> 6^2 = 36 widening) + mapping search runs on it; no candidate may
+    // beat its matched null or survive the gates.
+    #[test]
+    fn codec_search_matched_null_stays_flat_on_shuffled_noise() {
+        let english = english_model().unwrap();
+        let finnish = finnish_model().unwrap();
+        let base = 6usize;
+        let (planted, _key, _indices) = plant_base6_pair_english(&english);
+
+        // Destroy the bigram structure by shuffling the ciphertext once.
+        let mut shuffled = planted;
+        let mut rng = SplitMix64::new(0x0053_4855_4636_3636);
+        crate::null::fisher_yates(&mut shuffled, &mut rng).unwrap();
+
+        let request = SolveRequest {
+            ciphertext: &shuffled,
+            space: HypothesisSpace {
+                families: vec![CipherFamilySpec {
+                    label: "identity".to_owned(),
+                    ciphers: vec![AnyCipher::Identity],
+                }],
+                codec: CodecStrategy::Search(CodecSearch {
+                    max_group_len: 2,
+                    try_delta: false,
+                    orders: vec![DigitOrder::Msb],
+                    seed: DEFAULT_SEED,
+                }),
+                mappings: MappingStrategy::Search(hillclimb(6, 4000)),
+                language: LanguageChoice::English,
+                cipher_alphabet_size: base,
+                seed: DEFAULT_SEED,
+                null_trials: 3,
+            },
+            english: &english,
+            finnish: &finnish,
+        };
+
+        let candidates = solve(&request).unwrap();
+        let top = candidates.first().unwrap();
+        assert!(
+            !top.beats_null,
+            "codec search on shuffled noise beat its matched null (score {}, null {})",
+            top.score, top.null_mean
+        );
+        assert!(!candidate_survives(top));
+    }
+
+    // Step 6 — held-out fold ABOVE the shuffled baseline on the synthetic plant:
+    // the codec-searched candidate's held-out mapping score sits above its matched
+    // null, i.e. the mapping generalizes to unseen positions rather than overfitting
+    // the in-sample fold. (Uses the known grouped-value->letter mapping so the
+    // held-out signal is the codec/null plumbing under test, not the mapping search.)
+    #[test]
+    fn codec_search_heldout_above_null_on_plant() {
+        let english = english_model().unwrap();
+        let finnish = finnish_model().unwrap();
+        let base = 6usize;
+        let (ciphertext, key, _indices) = plant_base6_pair_english(&english);
+        let mapping = grouped_value_identity_mapping(&english);
+
+        let request = SolveRequest {
+            ciphertext: &ciphertext,
+            space: HypothesisSpace {
+                families: vec![CipherFamilySpec {
+                    label: "Caesar".to_owned(),
+                    ciphers: vec![AnyCipher::Identity, AnyCipher::Caesar(key)],
+                }],
+                codec: CodecStrategy::Search(CodecSearch {
+                    max_group_len: 2,
+                    try_delta: false,
+                    orders: vec![DigitOrder::Msb],
+                    seed: DEFAULT_SEED,
+                }),
+                mappings: MappingStrategy::Fixed(vec![mapping]),
+                language: LanguageChoice::English,
+                cipher_alphabet_size: base,
+                seed: DEFAULT_SEED,
+                null_trials: 8,
+            },
+            english: &english,
+            finnish: &finnish,
+        };
+
+        let candidates = solve(&request).unwrap();
+        let top = candidates.first().unwrap();
+        assert_eq!(top.cipher, AnyCipher::Caesar(key));
+        assert!(
+            top.heldout_mapping_score > top.null_mean,
+            "held-out {} did not clear the matched null {}",
+            top.heldout_mapping_score,
+            top.null_mean
+        );
+        assert!(top.beats_null);
+        assert!(candidate_survives(top));
+    }
+
     #[test]
     fn fixed_mapping_caesar_plant_recovers_top_candidate() {
         let english = english_model().unwrap();
