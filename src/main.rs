@@ -163,8 +163,10 @@ struct SolveArgs {
     /// Cipher family to enumerate. Repeat to include more than one.
     #[arg(long = "family", value_enum)]
     family: Vec<SolveFamilyArg>,
-    /// Deterministic seed for the matched-null control.
-    #[arg(long, default_value_t = solve::DEFAULT_SEED)]
+    /// Deterministic seed for the matched-null control. Accepts decimal or a
+    /// `0x`-prefixed hex value, so the `--seed 0x{:016x}` form printed in a
+    /// record's Provenance section is itself copy-pasteable (the D2 guarantee).
+    #[arg(long, default_value_t = solve::DEFAULT_SEED, value_parser = parse_seed)]
     seed: u64,
     /// Number of matched-null shuffles.
     #[arg(long = "null-trials", default_value_t = solve::DEFAULT_NULL_TRIALS)]
@@ -1412,6 +1414,11 @@ fn run_solve(args: &SolveArgs) -> ExitCode {
     // Auto-log: persist the verbatim claim ceiling, all three gates, and both
     // language scores as a labelled HYPOTHESIS (the eyes honest-negative record
     // included). This is load-bearing claim discipline, not just stdout.
+    //
+    // The provenance string is the exact, clock-free command that reproduces this
+    // record (defect D2): every run-affecting flag is printed explicitly so the
+    // command is default-drift-proof.
+    let provenance = solve_provenance_command(args);
     match solve::log_solve_run(
         &args.candidates_dir,
         &args.label,
@@ -1420,6 +1427,7 @@ fn run_solve(args: &SolveArgs) -> ExitCode {
         // The ciphertext (cipher-symbol) count, so the record header reports the
         // real length even on the zero-candidate honest negative.
         parsed.glyphs.len(),
+        &provenance,
         &candidates,
         &english,
         &finnish,
@@ -1433,6 +1441,60 @@ fn run_solve(args: &SolveArgs) -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+/// Parses a `--seed` value as either decimal or a `0x`/`0X`-prefixed hexadecimal
+/// integer. The solve record's Provenance section prints the seed as
+/// `--seed 0x{:016x}`, so accepting that hex form here keeps the emitted command
+/// copy-pasteable (the D2 reproducibility guarantee).
+fn parse_seed(raw: &str) -> Result<u64, std::num::ParseIntError> {
+    match raw.strip_prefix("0x").or_else(|| raw.strip_prefix("0X")) {
+        Some(hex) => u64::from_str_radix(hex, 16),
+        None => raw.parse::<u64>(),
+    }
+}
+
+/// Builds the canonical, clock-free command embedded in the solve record's
+/// Provenance section (defect D2): the copy-pasteable invocation that reproduces
+/// the record byte-for-byte. Every run-affecting flag is printed EXPLICITLY (no
+/// reliance on compiled-in defaults) so the command stays reproducible even if a
+/// default later drifts. Only the codec/mapping mode actually in effect is
+/// emitted (`--codec-search` OR `--mapping-search` OR a non-identity `--codec`);
+/// the eyes/default path emits none of them.
+fn solve_provenance_command(args: &SolveArgs) -> String {
+    let mut parts: Vec<String> = vec!["solve".to_owned()];
+    if let Some(path) = args.input_file.as_ref() {
+        parts.push(format!("--input-file {}", path.display()));
+    } else if args.stdin {
+        parts.push("--stdin".to_owned());
+    } else if let Some(ciphertext) = args.ciphertext.as_ref() {
+        // Positional ciphertext (rare for these file-backed puzzles); emit it
+        // verbatim right after the subcommand.
+        parts.push(ciphertext.clone());
+    }
+    if args.honeycomb {
+        parts.push("--honeycomb".to_owned());
+    }
+    if let Some(alphabet) = args.alphabet.as_ref() {
+        parts.push(format!("--alphabet {alphabet}"));
+    }
+    if args.codec_search {
+        parts.push("--codec-search".to_owned());
+    } else if args.mapping_search {
+        parts.push("--mapping-search".to_owned());
+    } else if matches!(args.codec, SolveCodecArg::Honeycomb) {
+        parts.push("--codec honeycomb".to_owned());
+    }
+    parts.push(format!("--restarts {}", args.restarts));
+    parts.push(format!("--iterations {}", args.iterations));
+    parts.push(format!("--null-trials {}", args.null_trials));
+    parts.push(format!("--seed 0x{:016x}", args.seed));
+    parts.push(format!("--label {}", args.label));
+    parts.push(format!(
+        "--candidates-dir {}",
+        args.candidates_dir.display()
+    ));
+    format!("make run ARGS='{}'", parts.join(" "))
 }
 
 /// Resolves the codec stage from the CLI flags. `--codec-search` takes precedence

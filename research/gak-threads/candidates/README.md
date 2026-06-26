@@ -100,3 +100,18 @@ The cleartext path is therefore **SPECULATIVE, gated, and never primary**.
     base-6 grouping reinserts its preserved word-boundary spaces into the rendered
     cleartext. None is a decode — each is a labelled HYPOTHESIS pending human
     confirmation against (for `two`, withheld) ground truth.
+    - **Reproduce.** Each record's `## Provenance (reproducible)` section carries
+      the exact, clock-free command that regenerates it byte-for-byte (deterministic
+      SplitMix64 — no wall-clock; re-running diffs empty). They are, verbatim:
+
+      ```sh
+      make run ARGS='solve --input-file research/data/practice-puzzles/one --alphabet 01234 --codec-search --restarts 4 --iterations 2000 --null-trials 16 --seed 0x0000736f6c766504 --label one --candidates-dir research/gak-threads/candidates'
+      make run ARGS='solve --input-file research/data/practice-puzzles/two --alphabet ABCDEFGHIJKL --codec-search --restarts 4 --iterations 2000 --null-trials 16 --seed 0x0000736f6c766504 --label two --candidates-dir research/gak-threads/candidates'
+      make run ARGS='solve --input-file research/data/practice-puzzles/six --alphabet 123456 --codec-search --restarts 4 --iterations 2000 --null-trials 16 --seed 0x0000736f6c766504 --label six --candidates-dir research/gak-threads/candidates'
+      ```
+
+      `--codec-search` auto-enables the mapping search (one-line stderr note). All
+      three stay **honest negatives** — `one` surfaces no codec candidate; `two`
+      beats its in-sample null but FAILS the held-out gate (overfit); `six` fails
+      both — each a HYPOTHESIS, never a decode. The runbook and the in-record
+      provenance agree by construction.

@@ -1675,6 +1675,9 @@ pub struct SolveRecordInputs<'a> {
     pub cipher_alphabet_size: usize,
     /// Number of cipher symbols in the ciphertext.
     pub total_symbols: usize,
+    /// The exact, copy-pasteable command that reproduces this record; clock-free;
+    /// the D2 reproducibility guarantee.
+    pub provenance: &'a str,
     /// Number of round-trip-consistent candidates the run produced.
     pub candidates_evaluated: usize,
     /// Number of candidates that cleared all three gates.
@@ -1751,6 +1754,10 @@ pub fn render_solve_candidate_record(inputs: &SolveRecordInputs<'_>) -> Result<S
         "Stable label (NO wall-clock): label={} seed=0x{:016x} cipher-alphabet={} symbols={}",
         inputs.label, inputs.seed, inputs.cipher_alphabet_size, inputs.total_symbols
     )?;
+    writeln!(out)?;
+    writeln!(out, "## Provenance (reproducible)")?;
+    writeln!(out)?;
+    writeln!(out, "{}", inputs.provenance)?;
     writeln!(out)?;
     writeln!(out, "## Verdict")?;
     writeln!(out)?;
@@ -1855,15 +1862,20 @@ fn render_solve_gates(out: &mut String, inputs: &SolveRecordInputs<'_>) -> fmt::
 /// then. Every cipher family is length-preserving, so on the has-candidate path
 /// this equals the top candidate's `decrypted_symbols.len()`.
 ///
+/// `provenance` is the exact, clock-free command that reproduces this record (the
+/// D2 reproducibility guarantee); it is threaded verbatim into the record's
+/// Provenance section.
+///
 /// # Errors
 /// Returns [`SolveError`] if a language score fails or the record cannot be
 /// written.
 // The args are the auto-log's cohesive inputs (record dir + run identity/shape +
-// candidates + both language models); defect-3's `total_symbols` count pushes this
-// to 8. Bundling them into a context struct would obscure rather than clarify.
+// provenance command + candidates + both language models); defect-3's
+// `total_symbols` count and defect-D2's `provenance` string push this to 9.
+// Bundling them into a context struct would obscure rather than clarify.
 #[allow(
     clippy::too_many_arguments,
-    reason = "auto-log inputs: dir + run identity/shape (incl. defect-3 total_symbols) + candidates + both models"
+    reason = "auto-log inputs: dir + run identity/shape (incl. defect-3 total_symbols + defect-D2 provenance) + candidates + both models"
 )]
 pub fn log_solve_run(
     dir: &Path,
@@ -1871,6 +1883,7 @@ pub fn log_solve_run(
     seed: u64,
     cipher_alphabet_size: usize,
     total_symbols: usize,
+    provenance: &str,
     candidates: &[Candidate],
     english: &LanguageModel,
     finnish: &LanguageModel,
@@ -1902,6 +1915,7 @@ pub fn log_solve_run(
         seed,
         cipher_alphabet_size,
         total_symbols,
+        provenance,
         candidates_evaluated: candidates.len(),
         survivors,
         top,
@@ -2030,6 +2044,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
                 super::DEFAULT_SEED,
                 26,
                 glyphs.len(),
+                "test: letter-puzzle log_solve_run",
                 &candidates,
                 &english,
                 &finnish,
@@ -2107,6 +2122,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
             super::DEFAULT_SEED,
             crate::ciphers::EYE_READING_ALPHABET_SIZE,
             eyes.len(),
+            "test: eyes honest-negative log_solve_run",
             &candidates,
             &english,
             &finnish,
@@ -2227,6 +2243,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
             super::DEFAULT_SEED,
             5,
             parsed.glyphs.len(),
+            "test: corpus one log_solve_run",
             &outcome.candidates,
             &english,
             &finnish,
@@ -2291,6 +2308,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
             super::DEFAULT_SEED,
             12,
             parsed.glyphs.len(),
+            "test: corpus two log_solve_run",
             &outcome.candidates,
             &english,
             &finnish,
@@ -2400,6 +2418,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
             super::DEFAULT_SEED,
             6,
             parsed.glyphs.len(),
+            "test: corpus six log_solve_run",
             &outcome.candidates,
             &english,
             &finnish,
@@ -3531,6 +3550,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
             seed: super::DEFAULT_SEED,
             cipher_alphabet_size: 29,
             total_symbols: 15,
+            provenance: "make run ARGS='solve --label positive-control'",
             candidates_evaluated: 3,
             survivors: 1,
             top: Some(top),
@@ -3539,6 +3559,8 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
 
         assert!(body.contains(super::SOLVE_CLAIM_CEILING));
         assert!(body.contains("HYPOTHESIS, NOT a decode"));
+        assert!(body.contains("## Provenance (reproducible)"));
+        assert!(body.contains("make run ARGS='solve --label positive-control'"));
         assert!(body.contains("CANDIDATE SURVIVED ALL THREE GATES"));
         assert!(body.contains("Top candidate codec: fixed-grouping"));
         assert!(body.contains("Gate 1 cipher round-trip"));
@@ -3561,6 +3583,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
             seed: super::DEFAULT_SEED,
             cipher_alphabet_size: 83,
             total_symbols: 400,
+            provenance: "make run ARGS='solve --label eyes --candidates-dir research/gak-threads/candidates'",
             candidates_evaluated: 0,
             survivors: 0,
             top: None,
@@ -3570,6 +3593,10 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         assert!(body.contains("NO surviving candidate — decode remains blocked"));
         assert!(body.contains(super::SOLVE_CLAIM_CEILING));
         assert!(body.contains("nothing to score"));
+        assert!(body.contains("## Provenance (reproducible)"));
+        assert!(body.contains(
+            "make run ARGS='solve --label eyes --candidates-dir research/gak-threads/candidates'"
+        ));
     }
 
     #[test]
@@ -3588,6 +3615,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
             super::DEFAULT_SEED,
             size,
             ciphertext.len(),
+            "test: log_solve_run_writes_seed_derived_record",
             &candidates,
             &english,
             &finnish,
