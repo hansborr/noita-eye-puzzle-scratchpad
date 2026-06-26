@@ -157,7 +157,7 @@ pub mod profile;
 #[path = "attack/quadgram.rs"]
 pub mod quadgram;
 // role: unified search-and-score solve pipeline (brief 04).
-#[path = "attack/solve.rs"]
+#[path = "attack/solve/mod.rs"]
 pub mod solve;
 
 // experiments: the structural-battery experiment drivers.
