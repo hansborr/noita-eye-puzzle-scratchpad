@@ -605,6 +605,16 @@ fn render_indices(indices: &[usize], model: &LanguageModel) -> Result<String, So
     Ok(rendered)
 }
 
+// NOTE: this FIXED-mapping held-out helper scores ALTERNATING (odd) positions,
+// whereas the SEARCH path (`heldout_search_score`) uses CONTIGUOUS folds. The
+// difference is deliberate and behavior-preserving: the fixed path applies ONE
+// already-given mapping (no re-fit), so the held-out score is purely
+// informational and its alternating value is pinned byte-for-byte by the
+// `solve_caesar_s123_nt4` golden fixture — switching it to contiguous would
+// silently change that committed number. The search path instead RE-FITS a
+// mapping on the train fold, so it needs contiguous folds to keep bigram
+// adjacency intact (an alternating split would shred the very structure the
+// re-fit must generalize).
 fn heldout_score(indices: &[usize], model: &LanguageModel) -> Result<f64, SolveError> {
     let heldout = indices
         .iter()
@@ -1559,6 +1569,17 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
                 "the eyes beat their matched null (score {}, null {}) — investigate before claiming signal",
                 top.score, top.null_mean
             );
+            // Pin the REASON the honest negative holds, not just the verdict: the
+            // re-fit mapping does NOT generalize to the held-out fold, so its
+            // held-out score sits BELOW the matched-null mean. (Direction only —
+            // no brittle exact float — so it locks the reason against silent
+            // drift while staying robust to search-config tweaks.)
+            assert!(
+                top.heldout_mapping_score < top.null_mean,
+                "eyes held-out score {} unexpectedly reached/beat the null mean {}",
+                top.heldout_mapping_score,
+                top.null_mean
+            );
         }
 
         // The honest negative is logged with the verbatim claim ceiling.
@@ -1621,7 +1642,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
                 language: LanguageChoice::Both,
                 cipher_alphabet_size: 26,
                 seed: DEFAULT_SEED,
-                null_trials: 2,
+                null_trials: 5,
             },
             english,
             finnish,
@@ -1645,7 +1666,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
                 language: LanguageChoice::Both,
                 cipher_alphabet_size: crate::ciphers::EYE_READING_ALPHABET_SIZE,
                 seed: DEFAULT_SEED,
-                null_trials: 2,
+                null_trials: 5,
             },
             english,
             finnish,
