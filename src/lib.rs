@@ -8,6 +8,8 @@
 //!   isomorph experiments and controls.
 //! - [`isomorph_null`]: Experiment 7A repeated-pattern analysis against a
 //!   within-message shuffle null.
+//! - [`keystream`]: polyalphabetic keystream cracker (Vigenere/Beaufort/autokey)
+//!   with an annealed key search, quadgram scoring, and z-score/held-out gates.
 //! - [`trigram`]: the base-5 reading layer over rendered orientations.
 //! - [`analysis`]: encoding-agnostic cryptanalysis statistics (frequencies,
 //!   entropy, index of coincidence, chi-square goodness of fit, n-grams).
@@ -96,6 +98,7 @@ pub mod honeycomb;
 pub mod ingest;
 pub mod isomorph;
 pub mod isomorph_null;
+pub mod keystream;
 pub mod language;
 pub mod modular_diff;
 pub mod null;
