@@ -45,6 +45,16 @@ pub trait Codec {
     /// alphabet, which a unit variant cannot know; it therefore returns `0` as a
     /// passthrough sentinel. Resolve it against the cipher alphabet size with
     /// [`resolved_output_alphabet_size`].
+    ///
+    /// # Do NOT use this for alphabet-size sanity / search pruning
+    /// Because this bare method returns the `0` passthrough sentinel for
+    /// [`AnyCodec::Identity`], the obvious pruning idiom
+    /// `codec.output_alphabet_size() >= N` would WRONGLY reject `Identity` over ANY
+    /// cipher alphabet — including `Identity`-over-the-83-symbol-eyes, the one path
+    /// that must always survive (`0 >= 29` is false). Always resolve the true
+    /// mapping domain via
+    /// [`resolved_output_alphabet_size(codec, cipher_alphabet_size)`](resolved_output_alphabet_size)
+    /// (or [`output_alphabet_hosts_language`]) before any sanity check or prune.
     fn output_alphabet_size(&self) -> usize;
 
     /// Stable family name for candidate reports.
@@ -52,8 +62,13 @@ pub trait Codec {
 
     /// Whether [`transduce`](Codec::transduce) is invertible (enables a codec
     /// round-trip check via [`codec_round_trip_ok`]). This is a property of the
-    /// codec *type*; a specific lossy input (e.g. a trailing partial group) still
-    /// yields an honest `false` from [`codec_round_trip_ok`].
+    /// codec *configuration*: it is now configuration-honest for the decidable
+    /// overlapping-stride case — an [`AnyCodec::FixedGrouping`] with a non-partition
+    /// stride (`stride != group_len`) is structurally non-invertible and returns
+    /// `false` here. The remaining, input-dependent loss (a trailing partial group
+    /// on an otherwise `stride == group_len` stream) is not decidable from the
+    /// configuration alone and still yields an honest `false` at runtime from
+    /// [`codec_round_trip_ok`].
     fn is_invertible(&self) -> bool;
 }
 
@@ -210,7 +225,10 @@ impl Codec for AnyCodec {
 
     fn output_alphabet_size(&self) -> usize {
         match self {
-            // Passthrough sentinel: resolve with `resolved_output_alphabet_size`.
+            // Passthrough sentinel `0`: NOT a real alphabet size. Never compare it
+            // against a language/prune threshold (`0 >= N` wrongly rejects Identity,
+            // including Identity-over-the-83-symbol-eyes). Resolve the true domain
+            // with `resolved_output_alphabet_size` / `output_alphabet_hosts_language`.
             Self::Identity => 0,
             Self::FixedGrouping(codec) => grouping_output_alphabet_size(codec),
             Self::Delta(codec) => resolved_output_alphabet_size(&codec.then, codec.base),
@@ -226,10 +244,18 @@ impl Codec for AnyCodec {
     }
 
     fn is_invertible(&self) -> bool {
-        // Identity is trivially invertible; FixedGrouping is invertible on a
-        // full-length multiple (a trailing partial group is the only loss, caught
-        // by `codec_round_trip_ok`); Delta is invertible given its seed symbol.
-        true
+        match self {
+            // Identity is trivially invertible; Delta is invertible given its seed
+            // symbol.
+            Self::Identity | Self::Delta(_) => true,
+            // FixedGrouping inverts via `ungroup`, which assumes the non-overlapping
+            // `stride == group_len` partition. An overlapping/gapped stride
+            // (`stride != group_len`) is structurally non-invertible, so report it
+            // honestly here. On a non-overlapping stride it is invertible on a
+            // full-length multiple (a trailing partial group is the only remaining
+            // loss, caught at runtime by `codec_round_trip_ok`).
+            Self::FixedGrouping(codec) => codec.stride == codec.group_len,
+        }
     }
 }
 
@@ -307,12 +333,23 @@ fn combine_digits(group: &[Glyph], base: usize, order: DigitOrder) -> Result<Gly
 }
 
 /// One Horner step `value * base + digit`, validating `digit < base`.
+///
+/// Uses checked arithmetic (mirroring the `saturating_pow` discipline in
+/// [`grouping_output_alphabet_size`]) so a pathological grouping config (e.g.
+/// `base = 2` with a large `group_len`) cannot overflow `usize` mid-loop — which
+/// would panic in debug and silently wrap in release. On overflow it reports the
+/// pre-overflow accumulator via [`CodecError::OutputValueTooWide`]; the distinct
+/// glyph-width ceiling (`value > u16::MAX`) still runs after the loop in
+/// [`combine_digits`].
 fn horner_step(value: usize, glyph: Glyph, base: usize) -> Result<usize, CodecError> {
     let digit = usize::from(glyph.0);
     if digit >= base {
         return Err(CodecError::ValueOutsideBase { value: digit, base });
     }
-    Ok(value * base + digit)
+    value
+        .checked_mul(base)
+        .and_then(|shifted| shifted.checked_add(digit))
+        .ok_or(CodecError::OutputValueTooWide { value })
 }
 
 /// Forward Delta: first-difference (mod `base`) into a move stream, then transduce
@@ -388,6 +425,18 @@ pub fn codec_round_trip_ok(codec: &AnyCodec, symbols: &[Glyph]) -> bool {
 /// over a 5- or 12-symbol cipher alphabet FAILS for 29-letter English, while
 /// `Identity` over the 83-symbol eyes passes. For the default language pass
 /// [`DEFAULT_LANGUAGE_ALPHABET_SIZE`].
+///
+/// # Phase boundary (not an oversight that this has no live call site yet)
+/// This predicate is the **Phase 1** deliverable — predicate + unit tests only
+/// (brief 04a step 3). Its **enforcement as a pruning filter** is wired in
+/// **Phase 2** under [`CodecStrategy::Search`] (brief 04a step 5): each enumerated
+/// codec is pruned by this predicate and any skip is `log()`-ed (no silent
+/// truncation). The [`CodecStrategy::Fixed`] path intentionally does **not** reject
+/// on this predicate — `Fixed` codecs are user-declared and round-tripped + scored
+/// only (no search), so e.g. a `Fixed` [`AnyCodec::Identity`] over a 26-letter
+/// Latin alphabet must still solve: 26 hosts English, and the `29` threshold here
+/// is the Finnish-inclusive [`DEFAULT_LANGUAGE_ALPHABET_SIZE`], not a floor for
+/// English.
 #[must_use]
 pub fn output_alphabet_hosts_language(
     codec: &AnyCodec,
@@ -783,5 +832,45 @@ mod tests {
             output_exceeds_accepted_alphabet(&codec, &glyphs(&[3, 1, 2, 4, 4, 4]), accepted)
                 .unwrap()
         );
+    }
+
+    #[test]
+    fn horner_usize_overflow_is_output_value_too_wide_not_panic() {
+        // base 2 over a 70-digit group doubles the accumulator ~70 times, overflowing
+        // usize around step 64. The checked Horner step must surface this as an
+        // `OutputValueTooWide` error — never a debug panic or a silent release wrap.
+        let codec = AnyCodec::FixedGrouping(GroupingCodec {
+            group_len: 70,
+            base: 2,
+            order: DigitOrder::Msb,
+            stride: 70,
+        });
+        let input = glyphs(&[1; 70]);
+        let error = codec.transduce(&input).unwrap_err();
+        assert!(
+            matches!(error, CodecError::OutputValueTooWide { .. }),
+            "expected OutputValueTooWide, got {error:?}"
+        );
+    }
+
+    #[test]
+    fn overlapping_stride_is_not_invertible_and_does_not_round_trip() {
+        // stride (2) != group_len (3): an overlapping partition that `ungroup`
+        // cannot invert. `is_invertible` now reports this honestly from the config,
+        // and `codec_round_trip_ok` short-circuits to false on it.
+        let overlapping = AnyCodec::FixedGrouping(GroupingCodec {
+            group_len: 3,
+            base: 5,
+            order: DigitOrder::Msb,
+            stride: 2,
+        });
+        assert!(!overlapping.is_invertible());
+        assert!(!codec_round_trip_ok(
+            &overlapping,
+            &glyphs(&[1, 2, 3, 0, 4, 2])
+        ));
+
+        // A non-overlapping (`stride == group_len`) grouping stays invertible.
+        assert!(AnyCodec::FixedGrouping(honeycomb_grouping()).is_invertible());
     }
 }

@@ -425,6 +425,12 @@ pub fn solve(req: &SolveRequest<'_>) -> Result<Vec<Candidate>, SolveError> {
         CodecStrategy::Search(_) => return Err(SolveError::CodecSearchUnavailable),
     };
     let mut candidates = Vec::new();
+    // Alphabet-size sanity (`codec::output_alphabet_hosts_language`) is intentionally
+    // NOT enforced on this Fixed path: these codecs are user-declared and scored
+    // as-is (round-tripped + scored only, no search). Enforcement as a pruning
+    // filter is a Phase-2 codec-search concern (brief 04a step 5, under
+    // `CodecStrategy::Search`), where each enumerated codec is pruned by that
+    // predicate and every skip is `log()`-ed.
     for codec in codecs {
         match &req.space.mappings {
             MappingStrategy::Fixed(mappings) => {
