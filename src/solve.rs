@@ -2307,6 +2307,109 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         assert_eq!(outcome, again);
     }
 
+    // Step 8 — the synthetic plant-through-codec positive control (the real proof).
+    // A known English plaintext is pushed through the INVERSE of a
+    // FixedGrouping{3,5,Msb,3} codec (each letter -> three base-5 digits) then a
+    // known Caesar cipher; solve + codec SEARCH must recover the (cipher key + codec
+    // + mapping) and reproduce the EXACT planted English, with all four gates green.
+    // Exact match (not merely a high score) is required because the plaintext is
+    // known: a 5-symbol cipher alphabet cannot host 29 letters directly, so the
+    // search must DISCOVER the base-5 trigram widening (5^3 = 125 >= 29), the MSB
+    // order, AND the Caesar key. A broken search (wrong codec/order/key, mis-pruned
+    // survivor, or mis-ranked candidate) renders different text and fails here.
+    #[test]
+    fn codec_search_positive_control_recovers_exact_english() {
+        let english = english_model().unwrap();
+        let finnish = finnish_model().unwrap();
+        let base = 5usize;
+        let (ciphertext, key, plaintext_indices) = plant_base5_trigram_english(&english);
+        let mapping = grouped_value_identity_mapping(&english);
+
+        let request = SolveRequest {
+            ciphertext: &ciphertext,
+            space: HypothesisSpace {
+                families: vec![CipherFamilySpec {
+                    label: "Caesar".to_owned(),
+                    ciphers: identity_plus_caesar_ciphers(base),
+                }],
+                // A full search: group_len 1..=3, both orders, delta on/off. Only the
+                // direct base-5 MSB trigram grouping recovers the plant; the rest are
+                // sanity-skipped (5, 25 < 29), length-skipped (delta trigram), or
+                // score below it (Lsb order, wrong Caesar key).
+                codec: CodecStrategy::Search(CodecSearch {
+                    max_group_len: 3,
+                    try_delta: true,
+                    orders: vec![DigitOrder::Msb, DigitOrder::Lsb],
+                    seed: DEFAULT_SEED,
+                }),
+                mappings: MappingStrategy::Fixed(vec![mapping]),
+                language: LanguageChoice::English,
+                cipher_alphabet_size: base,
+                seed: DEFAULT_SEED,
+                null_trials: DEFAULT_NULL_TRIALS,
+            },
+            english: &english,
+            finnish: &finnish,
+        };
+
+        let outcome = solve_with_codec_trace(&request).unwrap();
+        let top = outcome.candidates.first().unwrap();
+
+        // Recovered (cipher key + codec + mapping): the exact planted configuration.
+        assert_eq!(top.cipher, AnyCipher::Caesar(key));
+        assert_eq!(
+            top.codec,
+            AnyCodec::FixedGrouping(GroupingCodec {
+                group_len: 3,
+                base,
+                order: DigitOrder::Msb,
+                stride: 3,
+            })
+        );
+        assert_eq!(top.mapping, grouped_value_identity_mapping(&english));
+
+        // All four gates green: crypto round-trip, codec round-trip, beats matched
+        // null, and held-out generalizes above the null (candidate_survives bundles
+        // the latter three without collapsing them).
+        assert!(top.crypto_round_trip_ok);
+        assert!(top.codec_round_trip_ok);
+        assert!(top.beats_null, "score {} null {}", top.score, top.null_mean);
+        assert!(
+            top.heldout_mapping_score > top.null_mean,
+            "held-out {} did not clear the matched null {}",
+            top.heldout_mapping_score,
+            top.null_mean
+        );
+        assert!(candidate_survives(top));
+
+        // EXACT planted English (the proof), not merely a high score.
+        let expected: String = plaintext_indices
+            .iter()
+            .map(|&index| english.alphabet().symbol(index).unwrap())
+            .collect();
+        assert_eq!(top.rendered_text, expected);
+        // Guard against a trivially-satisfied assertion: the plaintext is a long,
+        // varied passage, not a degenerate constant string.
+        assert!(expected.len() > 200);
+        assert!(
+            expected
+                .chars()
+                .any(|c| c != expected.chars().next().unwrap())
+        );
+
+        // The too-small codecs were logged-and-skipped, never silently dropped.
+        assert!(
+            outcome
+                .skipped
+                .iter()
+                .any(|skip| matches!(skip.reason, CodecSkipReason::SanityTooSmall { .. }))
+        );
+
+        // Reproducible for the fixed seed.
+        let again = solve_with_codec_trace(&request).unwrap();
+        assert_eq!(outcome, again);
+    }
+
     #[test]
     fn fixed_mapping_caesar_plant_recovers_top_candidate() {
         let english = english_model().unwrap();
@@ -2799,6 +2902,29 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         }
         let key = CaesarKey::new(base, 3).unwrap();
         let ciphertext = caesar_encrypt(&walk, &key).unwrap();
+        (ciphertext, key, plaintext_indices)
+    }
+
+    /// Plants English through the INVERSE of a `FixedGrouping{3,5,Msb,3}` codec
+    /// (the honeycomb generalization): each letter index becomes three base-5 MSB
+    /// digits, then Caesar(base 5, shift 3) encrypts the digit stream. Unlike the
+    /// delta plant, the per-digit Caesar wrap makes the key uniquely identifiable
+    /// (only the correct shift regroups to the planted indices). Returns the
+    /// ciphertext, the Caesar key, and the planted language indices.
+    fn plant_base5_trigram_english(model: &LanguageModel) -> (Vec<Glyph>, CaesarKey, Vec<usize>) {
+        let base = 5usize;
+        let plaintext_indices = model
+            .alphabet()
+            .normalize_text(POSITIVE_CONTROL_TEXT)
+            .unwrap();
+        let mut digits: Vec<Glyph> = Vec::with_capacity(plaintext_indices.len() * 3);
+        for &index in &plaintext_indices {
+            digits.push(Glyph((index / 25) as u16));
+            digits.push(Glyph(((index / 5) % 5) as u16));
+            digits.push(Glyph((index % 5) as u16));
+        }
+        let key = CaesarKey::new(base, 3).unwrap();
+        let ciphertext = caesar_encrypt(&digits, &key).unwrap();
         (ciphertext, key, plaintext_indices)
     }
 
