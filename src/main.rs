@@ -22,6 +22,9 @@ const DEFAULT_NULL_TRIALS: usize = 1_000;
 const DEFAULT_DOF_NULL_SEED: u64 = 0x646f_666e_756c_6c00;
 const DEFAULT_DOF_NULL_TRIALS: usize = 1_000;
 const DEFAULT_SOLVE_ALPHABET: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const DEFAULT_CANDIDATES_DIR: &str = "research/gak-threads/candidates";
+const DEFAULT_SOLVE_RESTARTS: usize = 6;
+const DEFAULT_SOLVE_ITERATIONS: usize = 8_000;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -155,6 +158,27 @@ struct SolveArgs {
     /// Number of matched-null shuffles.
     #[arg(long = "null-trials", default_value_t = solve::DEFAULT_NULL_TRIALS)]
     null_trials: usize,
+    /// Hill-climb / anneal the symbol->letter mapping (Phase 2) instead of
+    /// scoring the fixed declared mappings.
+    #[arg(long = "mapping-search")]
+    mapping_search: bool,
+    /// Mapping-search random restarts (only with --mapping-search).
+    #[arg(long, default_value_t = DEFAULT_SOLVE_RESTARTS)]
+    restarts: usize,
+    /// Mapping-search proposals per restart (only with --mapping-search).
+    #[arg(long, default_value_t = DEFAULT_SOLVE_ITERATIONS)]
+    iterations: usize,
+    /// Annealing start temperature (only with --mapping-search); 0 = pure
+    /// hill-climb (accept only non-worsening proposals).
+    #[arg(long = "anneal-temp", default_value_t = 0.0)]
+    anneal_temp: f64,
+    /// Directory for the machine-written candidate record (a labelled
+    /// HYPOTHESIS, never a decode). Auto-logged after every run.
+    #[arg(long = "candidates-dir", default_value = DEFAULT_CANDIDATES_DIR)]
+    candidates_dir: std::path::PathBuf,
+    /// Stable label for the candidate-record filename (no wall clock).
+    #[arg(long, default_value = "cli")]
+    label: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
@@ -1251,14 +1275,12 @@ fn run_solve(args: &SolveArgs) -> ExitCode {
         }
     };
     let cipher_alphabet_size = solve_alphabet_size(args, alphabet_spec, &parsed);
+    let mappings = solve_mapping_strategy(args, cipher_alphabet_size, english.alphabet().len());
     let request = solve::SolveRequest {
         ciphertext: &parsed.glyphs,
         space: solve::HypothesisSpace {
             families: solve_families(cipher_alphabet_size, &args.family),
-            mappings: solve::MappingStrategy::Fixed(solve_mappings(
-                cipher_alphabet_size,
-                english.alphabet().len(),
-            )),
+            mappings,
             language: solve::LanguageChoice::Both,
             cipher_alphabet_size,
             seed: args.seed,
@@ -1268,15 +1290,55 @@ fn run_solve(args: &SolveArgs) -> ExitCode {
         finnish: &finnish,
     };
 
-    match solve::solve(&request) {
-        Ok(candidates) => {
-            print_solve_report(&candidates);
+    let candidates = match solve::solve(&request) {
+        Ok(candidates) => candidates,
+        Err(error) => {
+            eprintln!("solve error: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    print_solve_report(&candidates);
+
+    // Auto-log: persist the verbatim claim ceiling, all three gates, and both
+    // language scores as a labelled HYPOTHESIS (the eyes honest-negative record
+    // included). This is load-bearing claim discipline, not just stdout.
+    match solve::log_solve_run(
+        &args.candidates_dir,
+        &args.label,
+        args.seed,
+        cipher_alphabet_size,
+        &candidates,
+        &english,
+        &finnish,
+    ) {
+        Ok(path) => {
+            println!("record: {}", path.display());
             ExitCode::SUCCESS
         }
         Err(error) => {
-            eprintln!("solve error: {error}");
+            eprintln!("failed to write candidate record: {error}");
             ExitCode::FAILURE
         }
+    }
+}
+
+fn solve_mapping_strategy(
+    args: &SolveArgs,
+    cipher_alphabet_size: usize,
+    language_alphabet_size: usize,
+) -> solve::MappingStrategy {
+    if args.mapping_search {
+        solve::MappingStrategy::Search(solve::MappingSearch {
+            restarts: args.restarts,
+            iterations: args.iterations,
+            anneal: (args.anneal_temp > 0.0).then_some(solve::AnnealSchedule {
+                start_temperature: args.anneal_temp,
+                end_temperature: 0.0,
+            }),
+            seed: args.seed,
+        })
+    } else {
+        solve::MappingStrategy::Fixed(solve_mappings(cipher_alphabet_size, language_alphabet_size))
     }
 }
 

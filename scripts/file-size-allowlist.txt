@@ -25,7 +25,7 @@ src/modular_diff.rs                 1353  # structural experiment; briefs 05, 07
 src/cipher_attack.rs                1342  # attack scorer; briefs 04, 07b
 src/orders.rs                       1340  # reading layer; briefs 04a, 07b
 src/controls.rs                     1304  # positive controls; briefs 05, 07b
-src/main.rs                         1397  # CLI dispatch; +solve subcommand (brief 04); brief 08
+src/main.rs                         1459  # CLI dispatch; +solve subcommand & Phase-2 --mapping-search/--candidates-dir auto-log (brief 04); brief 08
 src/grouping.rs                     1129  # structural analysis; brief 07b
 src/honeycomb.rs                    1085  # structural analysis; brief 07b
 src/perseus.rs                      1077  # matched-null driver; brief 05
