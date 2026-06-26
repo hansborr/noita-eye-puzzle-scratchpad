@@ -8,33 +8,33 @@
 # shows up in `git diff` and is reviewed — never a silent carve-out.
 #
 # <path>                            <max-lines>  # reason / retiring brief
-src/gak_attack/mod.rs               2279  # god-file remnant; brief 07A split underway, shrinks as modules extract (tracks engine-spine)
-src/gak_attack/eyes.rs              2111  # brief 07A fragment from gak_attack god-file (tracks engine-spine)
+src/gak_attack/mod.rs               2681  # god-file remnant; brief 07A split + brief 06 GAK report render re-applied at maint integration; shrinks under 07b
+src/gak_attack/eyes.rs              2316  # brief 07A fragment + brief 06 EYES report render re-applied at maint integration; shrinks under 07b
 src/gak_attack/marginalization.rs   1026  # brief 07A fragment from gak_attack god-file (tracks engine-spine)
 src/gak_attack/solver.rs            1993  # brief 07A fragment from gak_attack god-file (tracks engine-spine)
 src/gak_attack/generator.rs         647   # brief 07A fragment from gak_attack god-file (tracks engine-spine)
-src/report.rs                       5694  # god-file; dissolved by brief 06
 src/ciphers.rs                      3673  # cipher zoo; +Identity/Transposition (brief 04 solve pipeline); shrinks under briefs 02, 07b
+src/conditional_structure.rs        2283  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/solve.rs                        2112  # brief 04 Phase 2: mapping search + held-out + matched-null + record writer + positive-control/letter-puzzle/eyes validation; stays flat per brief (module move is 07B)
-src/perfect_isomorphism.rs          1749  # structural experiment; briefs 05, 07b
-src/conditional_structure.rs        1664  # structural experiment; briefs 05, 07b
-src/chaining_graph.rs               1590  # structural experiment; briefs 05, 07b
-src/dof_null.rs                     1473  # matched-null driver; brief 05
-src/pyry_conditions.rs              1465  # structural experiment; briefs 05, 07b
-src/modular_diff.rs                 1353  # structural experiment; briefs 05, 07b
-src/cipher_attack.rs                1342  # attack scorer; briefs 04, 07b
-src/orders.rs                       1340  # reading layer; briefs 04a, 07b
-src/controls.rs                     1304  # positive controls; briefs 05, 07b
+src/perfect_isomorphism.rs          2056  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
+src/chaining_graph.rs               1830  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
+src/dof_null.rs                     1786  # matched-null driver; brief 05 harness + brief 06 colocated report render
+src/pyry_conditions.rs              1767  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
+src/cipher_attack.rs                1720  # attack scorer; brief 06 colocated report render; briefs 04, 07b
+src/null.rs                         1664  # matched-null harness core; brief 05 (shared null harness lives here)
+src/controls.rs                     1636  # positive controls; brief 05 harness + brief 06 colocated report render; briefs 07b
+src/modular_diff.rs                 1600  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
+src/grouping.rs                     1511  # structural analysis; brief 06 colocated report render; brief 07b
 src/main.rs                         1459  # CLI dispatch; +solve subcommand & Phase-2 --mapping-search/--candidates-dir auto-log (brief 04); brief 08
-src/grouping.rs                     1129  # structural analysis; brief 07b
-src/honeycomb.rs                    1085  # structural analysis; brief 07b
-src/perseus.rs                      1077  # matched-null driver; brief 05
-src/chaining.rs                     1036  # structural analysis; brief 07b
-src/agl_gak.rs                      1011  # attack; brief 07b
-src/tree_residual.rs                992   # matched-null driver; brief 05
-src/periodicity.rs                  924   # structural experiment; briefs 05, 07b
-src/null.rs                         832   # matched-null core; brief 05
-src/orientation_homogeneity.rs      822   # structural experiment; briefs 05, 07b
-src/zero_adjacency_null.rs          671   # matched-null driver; brief 05
+src/orders.rs                       1340  # reading layer; briefs 04a, 07b
+src/periodicity.rs                  1322  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
+src/perseus.rs                      1316  # matched-null driver; brief 05 harness + brief 06 colocated report render
+src/honeycomb.rs                    1292  # structural analysis; brief 06 colocated report render; brief 07b
+src/chaining.rs                     1242  # structural analysis; brief 06 colocated report render; brief 07b
+src/tree_residual.rs                1226  # matched-null driver; brief 05 harness + brief 06 colocated report render
+src/agl_gak.rs                      1208  # attack; brief 06 colocated report render; brief 07b
+src/orientation_homogeneity.rs      1138  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
+src/pipeline_null.rs                684   # matched-null driver; brief 05 harness + brief 06 colocated report render; trim under 07b
+src/zero_adjacency_null.rs          848   # matched-null driver; brief 05 harness + brief 06 colocated report render
 src/language.rs                     618   # language scorer; brief 04
 src/ingest.rs                       610   # new (brief 03); trim under 600 next

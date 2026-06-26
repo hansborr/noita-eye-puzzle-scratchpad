@@ -5,6 +5,8 @@
 //! tests cross-check these strings against the vendored ngraham20 transcription
 //! and against Xkeeper0's base-7 engine transcoder data.
 
+use std::fmt;
+
 use crate::glyph::{Orientation, RenderedSymbol, Sequence, SymbolError};
 use crate::trigram::ReadingTrigram;
 
@@ -26,6 +28,29 @@ pub enum CorpusError {
         orientations: usize,
     },
 }
+
+impl fmt::Display for CorpusError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MalformedSymbol {
+                message_key,
+                symbol,
+            } => write!(
+                f,
+                "corpus parse error in {message_key}: invalid symbol {symbol:?}"
+            ),
+            Self::IncompleteTrigram {
+                message_key,
+                orientations,
+            } => write!(
+                f,
+                "corpus parse error in {message_key}: {orientations} orientations cannot form complete trigrams"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for CorpusError {}
 
 /// East or West parallel-world side for an eye message.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

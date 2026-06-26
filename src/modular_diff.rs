@@ -9,6 +9,8 @@
 //! Message boundaries are always hard resets. No raw value or differenced
 //! value from one eye message is paired with a value from another message.
 
+use std::fmt;
+
 use crate::analysis;
 use crate::ciphers::{
     self, DeckCipherKey, IncrementingWheelKey, VigenereKey, deck_cipher_encrypt,
@@ -16,7 +18,7 @@ use crate::ciphers::{
 };
 use crate::glyph::Glyph;
 use crate::null::{
-    SplitMix64, fisher_yates, median_f64, random_index_below, scaled_quantile_index,
+    F64Band, NullSampler, SplitMix64, WithinMessageShuffle, f64_band, random_index_below,
     shuffled_permutation, stateless_splitmix,
 };
 use crate::orders::{
@@ -24,6 +26,7 @@ use crate::orders::{
     count_message_lag_matches, glyph_messages_from_values, read_corpus_message_values,
 };
 use crate::periodicity;
+use crate::report::{self, Report};
 use crate::trigram::TrigramValue;
 
 /// Default deterministic seed for fixture and shuffle calibration.
@@ -123,6 +126,39 @@ impl From<crate::null::RandomBoundError> for ModularDiffError {
         Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
+
+impl fmt::Display for ModularDiffError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Grid(grid_error) => write!(f, "grid/order error: {grid_error:?}"),
+            Self::ZeroTrials => {
+                write!(
+                    f,
+                    "at least one generated fixture and shuffle trial is required"
+                )
+            }
+            Self::ZeroMaxPeriod => write!(f, "max period must be at least 1"),
+            Self::ZeroMaxLag => write!(f, "max lag must be at least 1"),
+            Self::InvalidModulus { modulus } => {
+                write!(f, "invalid modulus {modulus}; expected 1..=125")
+            }
+            Self::ValueOutsideModulus { value, modulus } => {
+                write!(
+                    f,
+                    "stream value {value} is outside configured modulus {modulus}"
+                )
+            }
+            Self::Cipher(cipher_error) => {
+                write!(f, "generated fixture cipher error: {cipher_error}")
+            }
+            Self::RandomBoundTooLarge { bound } => {
+                write!(f, "random draw bound {bound} is too large")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ModularDiffError {}
 
 /// Generated fixture family used for calibration.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -236,6 +272,20 @@ pub struct ScalarBand {
     pub q975: f64,
     /// Largest sampled value.
     pub max: f64,
+}
+
+impl From<F64Band> for ScalarBand {
+    fn from(band: F64Band) -> Self {
+        Self {
+            trials: band.trials,
+            min: band.min,
+            mean: band.mean,
+            q025: band.q025,
+            median: band.median,
+            q975: band.q975,
+            max: band.max,
+        }
+    }
 }
 
 /// Calibration bands for the scalar fingerprint used by classification.
@@ -402,6 +452,273 @@ pub struct ModularDiffReport {
     pub controls: Vec<ControlOrderReport>,
     /// Headline placement for first differences under `mod 83`.
     pub headline_placement: FamilyPlacement,
+}
+
+impl Report for ModularDiffReport {
+    fn render(&self) -> String {
+        let mut out = String::new();
+        report::appendln!(
+            &mut out,
+            "Experiment 13 modular-difference family fingerprint"
+        );
+        report::appendln!(&mut out, "order: {}", self.order.name());
+        report::appendln!(
+            &mut out,
+            "headline modulus: 83-symbol accepted honeycomb alphabet"
+        );
+        report::appendln!(
+            &mut out,
+            "secondary modulus: 125-symbol base-5 trigram space"
+        );
+        report::appendln!(&mut out, "seed: {}", self.config.seed);
+        report::appendln!(
+            &mut out,
+            "trials per control/shuffle row: {}",
+            self.config.trials
+        );
+        report::appendln!(&mut out, "max period: {}", self.config.max_period);
+        report::appendln!(&mut out, "max lag: {}", self.config.max_lag);
+        report::appendln!(
+            &mut out,
+            "message lengths: {}",
+            report::format_message_lengths(&self.message_lengths)
+        );
+        report::appendln!(&mut out, "pooled raw length: {}", self.total_length);
+        report::appendln!(
+            &mut out,
+            "boundary rule: every modular difference resets at message starts; no pair crosses a message join"
+        );
+        report::appendln!(
+            &mut out,
+            "mapping rule: a global additive offset cancels in the difference stream; no symbol-to-language mapping is scored"
+        );
+        report::appendln!(
+            &mut out,
+            "controls: generated wheel, period-7 Vigenere, S83 deck-keystream, flat random, plus within-message multiset-preserving shuffles"
+        );
+        report::appendln!(&mut out);
+        append_modular_diff_modulus(
+            &mut out,
+            "primary mod-83 differenced streams",
+            &self.primary,
+        );
+        report::appendln!(&mut out);
+        append_modular_diff_modulus(
+            &mut out,
+            "secondary mod-125 differenced streams",
+            &self.secondary,
+        );
+        report::appendln!(&mut out);
+        append_modular_diff_calibration(&mut out, self);
+        report::appendln!(&mut out);
+        append_modular_diff_interpretation(&mut out, self);
+        out
+    }
+}
+
+fn append_modular_diff_modulus(out: &mut String, title: &str, modulus: &ModulusReport) {
+    report::appendln!(out, "{title}");
+    report::appendln!(
+        out,
+        "  raw message-weighted IoC: {:.6} (normalized {:.3})",
+        modulus.raw_ioc,
+        modulus.raw_ioc * modulus.modulus as f64
+    );
+    report::appendln!(
+        out,
+        "  {:>1} {:>5} {:>8} {:>7} {:>10} {:>9} {:>4} {:>8} {:>7} {:>9} {:>9} {:>13}",
+        "k",
+        "len",
+        "IoC",
+        "norm",
+        "delta",
+        "chi2",
+        "supp",
+        "top",
+        "topx",
+        "bestP",
+        "bestLag",
+        "shuf struct"
+    );
+    for row in &modulus.differences {
+        let stats = &row.stats;
+        report::appendln!(
+            out,
+            "  {:>1} {:>5} {:>8.6} {:>7.3} {:>+10.6} {:>9.2} {:>4} {:>8} {:>7.3} {:>9} {:>9} {:>13}",
+            row.difference_order,
+            stats.length,
+            stats.ioc,
+            stats.normalized_ioc,
+            stats.delta_ioc,
+            stats.chi_square_uniform,
+            stats.distinct_support_size,
+            format_moddiff_peak(stats.top_difference),
+            stats.top_difference.over_uniform,
+            format_moddiff_period(stats.best_period_ioc),
+            format_moddiff_lag(stats.best_autocorrelation),
+            format_moddiff_band(row.shuffle_baseline.structure_score)
+        );
+    }
+}
+
+fn append_modular_diff_calibration(out: &mut String, report: &ModularDiffReport) {
+    report::appendln!(out, "primary fixture calibration");
+    append_modular_diff_fixture_keys(out, report);
+    report::appendln!(
+        out,
+        "  {:>1} {:>11} {:>13} {:>13} {:>13} {:>13} {:>8} {:>13}",
+        "k",
+        "wheel top",
+        "Vig p-excess",
+        "deck struct",
+        "flat struct",
+        "shuffle struct",
+        "sep",
+        "eye band"
+    );
+    for control in &report.controls {
+        report::appendln!(
+            out,
+            "  {:>1} {:>11} {:>13} {:>13} {:>13} {:>13} {:>8} {:>13}",
+            control.difference_order,
+            format_family_metric(
+                &control.family_bands,
+                ControlFamily::IncrementingWheel,
+                |band| band.fingerprint.top_rate
+            ),
+            format_family_metric(
+                &control.family_bands,
+                ControlFamily::PeriodicVigenere,
+                |band| { band.fingerprint.period_excess }
+            ),
+            format_family_metric(
+                &control.family_bands,
+                ControlFamily::DeckS83Keystream,
+                |band| { band.fingerprint.structure_score }
+            ),
+            format_family_metric(&control.family_bands, ControlFamily::FlatRandom, |band| {
+                band.fingerprint.structure_score
+            }),
+            format_primary_shuffle_structure(report, control.difference_order),
+            format_moddiff_separation(control.separation),
+            control.eye_placement.label()
+        );
+    }
+    report::appendln!(
+        out,
+        "  deck and flat are treated as a shared structureless band; their overlap is a calibration check, not a failure."
+    );
+}
+
+fn append_modular_diff_fixture_keys(out: &mut String, report: &ModularDiffReport) {
+    let Some(first) = report.controls.first() else {
+        return;
+    };
+    report::appendln!(out, "  fixture keys:");
+    for band in &first.family_bands {
+        report::appendln!(out, "    {}: {}", band.family.label(), band.key_summary);
+    }
+}
+
+fn append_modular_diff_interpretation(out: &mut String, report: &ModularDiffReport) {
+    if let Some(row) = report
+        .primary
+        .differences
+        .iter()
+        .find(|row| row.difference_order == 1)
+    {
+        let stats = &row.stats;
+        report::appendln!(
+            out,
+            "Headline k=1 mod-83: top difference {} occurs {}/{} ({:.4}); delta-IoC {:+.6}; placement {}.",
+            stats.top_difference.value,
+            stats.top_difference.count,
+            stats.length,
+            stats.top_difference.rate,
+            stats.delta_ioc,
+            report.headline_placement.label()
+        );
+    }
+
+    match report.headline_placement {
+        FamilyPlacement::StructurelessLike => report::appendln!(
+            out,
+            "Interpretation: the first-difference eye stream lands in the calibrated structureless deck/flat/shuffle band, not the incrementing-wheel band. It has no dominant constant difference, which disfavors the simple incrementing-wheel fingerprint specifically while remaining consistent with deck, autokey, flat substitution, or other non-wheel structures."
+        ),
+        FamilyPlacement::WheelLike => report::appendln!(
+            out,
+            "Interpretation: the first-difference eye stream has a dominant constant-difference signature. That would be a near-decode lead only after rechecking the Experiment-0 corpus and transcription integrity."
+        ),
+        FamilyPlacement::VigenereLike => report::appendln!(
+            out,
+            "Interpretation: the first-difference eye stream matches the generated periodic-key difference fingerprint. This is structural evidence only; it does not identify plaintext or a symbol mapping."
+        ),
+        FamilyPlacement::BetweenBands => report::appendln!(
+            out,
+            "Interpretation: the first-difference eye stream falls between separated fixture bands. Treat this as unresolved structural placement, not a decode."
+        ),
+        FamilyPlacement::Uncalibrated => report::appendln!(
+            out,
+            "Interpretation: the generated positive controls did not separate enough for a calibrated placement, so no family verdict is reported."
+        ),
+    }
+    report::appendln!(
+        out,
+        "This experiment is mapping-independent and structural. It scores no language model and makes no plaintext claim."
+    );
+}
+
+fn format_moddiff_peak(peak: ValuePeak) -> String {
+    format!("{}:{}", peak.value, peak.count)
+}
+
+fn format_moddiff_period(row: Option<PeriodIoc>) -> String {
+    row.map_or_else(
+        || "none".to_owned(),
+        |period| format!("p{}={:.3}", period.period, period.normalized_ioc),
+    )
+}
+
+fn format_moddiff_lag(row: Option<LagAutocorrelation>) -> String {
+    row.map_or_else(
+        || "none".to_owned(),
+        |lag| format!("l{}={:.3}", lag.lag, lag.normalized_rate),
+    )
+}
+
+fn format_moddiff_band(band: ScalarBand) -> String {
+    format!("{:.3}..{:.3}", band.q025, band.q975)
+}
+
+fn format_family_metric(
+    bands: &[ControlFamilyBand],
+    family: ControlFamily,
+    metric: impl Fn(&ControlFamilyBand) -> ScalarBand,
+) -> String {
+    bands.iter().find(|band| band.family == family).map_or_else(
+        || "n/a".to_owned(),
+        |band| format_moddiff_band(metric(band)),
+    )
+}
+
+fn format_primary_shuffle_structure(report: &ModularDiffReport, difference_order: usize) -> String {
+    report
+        .primary
+        .differences
+        .iter()
+        .find(|row| row.difference_order == difference_order)
+        .map_or_else(
+            || "n/a".to_owned(),
+            |row| format_moddiff_band(row.shuffle_baseline.structure_score),
+        )
+}
+
+fn format_moddiff_separation(separation: ControlSeparation) -> &'static str {
+    if separation.is_calibrated() {
+        "ok"
+    } else {
+        "overlap"
+    }
 }
 
 /// Runs the modular-difference family fingerprint on the verified corpus.
@@ -970,8 +1287,11 @@ fn shuffle_baseline(
         0x7368_7566_666c_6500 ^ ((modulus as u64) << 8) ^ difference_order as u64,
     ));
     let mut samples = Vec::with_capacity(config.trials);
+    let shuffle = WithinMessageShuffle {
+        messages: message_values,
+    };
     for _trial in 0..config.trials {
-        let shuffled = shuffled_messages(message_values, &mut rng)?;
+        let shuffled = shuffle.sample(&mut rng)?;
         let differenced = modular_difference_messages(&shuffled, difference_order, modulus)?;
         let stats = summarize_difference_stream(
             &differenced,
@@ -984,17 +1304,6 @@ fn shuffle_baseline(
         samples.push(Fingerprint::from_stats(&stats));
     }
     Ok(fingerprint_band(&samples))
-}
-
-fn shuffled_messages(
-    message_values: &[Vec<TrigramValue>],
-    rng: &mut SplitMix64,
-) -> Result<Vec<Vec<TrigramValue>>, ModularDiffError> {
-    let mut shuffled = message_values.to_vec();
-    for values in &mut shuffled {
-        fisher_yates(values, rng)?;
-    }
-    Ok(shuffled)
 }
 
 fn build_control_fixture(
@@ -1136,80 +1445,18 @@ fn trigram_from_usize(value: usize, modulus: usize) -> Result<TrigramValue, Modu
 }
 
 fn fingerprint_band(samples: &[Fingerprint]) -> FingerprintBand {
+    let band = |select: fn(&Fingerprint) -> f64| {
+        ScalarBand::from(f64_band(&samples.iter().map(select).collect::<Vec<_>>()))
+    };
     FingerprintBand {
-        ioc: scalar_band(&samples.iter().map(|sample| sample.ioc).collect::<Vec<_>>()),
-        delta_ioc: scalar_band(
-            &samples
-                .iter()
-                .map(|sample| sample.delta_ioc)
-                .collect::<Vec<_>>(),
-        ),
-        top_rate: scalar_band(
-            &samples
-                .iter()
-                .map(|sample| sample.top_rate)
-                .collect::<Vec<_>>(),
-        ),
-        top_over_uniform: scalar_band(
-            &samples
-                .iter()
-                .map(|sample| sample.top_over_uniform)
-                .collect::<Vec<_>>(),
-        ),
-        period_excess: scalar_band(
-            &samples
-                .iter()
-                .map(|sample| sample.period_excess)
-                .collect::<Vec<_>>(),
-        ),
-        best_lag_normalized_rate: scalar_band(
-            &samples
-                .iter()
-                .map(|sample| sample.best_lag_normalized_rate)
-                .collect::<Vec<_>>(),
-        ),
-        structure_score: scalar_band(
-            &samples
-                .iter()
-                .map(|sample| sample.structure_score)
-                .collect::<Vec<_>>(),
-        ),
+        ioc: band(|sample| sample.ioc),
+        delta_ioc: band(|sample| sample.delta_ioc),
+        top_rate: band(|sample| sample.top_rate),
+        top_over_uniform: band(|sample| sample.top_over_uniform),
+        period_excess: band(|sample| sample.period_excess),
+        best_lag_normalized_rate: band(|sample| sample.best_lag_normalized_rate),
+        structure_score: band(|sample| sample.structure_score),
     }
-}
-
-fn scalar_band(samples: &[f64]) -> ScalarBand {
-    let mut sorted = samples.to_vec();
-    sorted.sort_by(f64::total_cmp);
-    ScalarBand {
-        trials: samples.len(),
-        min: sorted.first().copied().unwrap_or(0.0),
-        mean: mean_f64(samples.iter().copied()),
-        q025: quantile_f64(&sorted, 25, 1_000),
-        median: median_f64(&sorted),
-        q975: quantile_f64(&sorted, 975, 1_000),
-        max: sorted.last().copied().unwrap_or(0.0),
-    }
-}
-
-fn mean_f64(values: impl IntoIterator<Item = f64>) -> f64 {
-    let mut total = 0.0;
-    let mut count = 0usize;
-    for value in values {
-        total += value;
-        count += 1;
-    }
-    if count == 0 {
-        0.0
-    } else {
-        total / count as f64
-    }
-}
-
-fn quantile_f64(sorted: &[f64], numerator: usize, denominator: usize) -> f64 {
-    sorted
-        .get(scaled_quantile_index(sorted.len(), numerator, denominator))
-        .copied()
-        .unwrap_or(0.0)
 }
 
 fn max_f64(values: impl IntoIterator<Item = f64>) -> f64 {

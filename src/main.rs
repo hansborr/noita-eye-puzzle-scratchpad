@@ -14,7 +14,9 @@ use noita_eye_puzzle::{
     glyph::{Alphabet, Sequence},
     grouping, honeycomb, ingest, isomorph_null, language, modular_diff, null, orders,
     orientation_homogeneity, perfect_isomorphism, periodicity, perseus, pipeline_null,
-    pyry_conditions, report, solve, transitivity, tree_residual, zero_adjacency_null,
+    pyry_conditions,
+    report::{self, Report},
+    solve, transitivity, tree_residual, zero_adjacency_null,
 };
 
 const DEFAULT_NULL_SEED: u64 = 0x6e6f_6974_612d_6579;
@@ -733,11 +735,14 @@ fn main() -> ExitCode {
 fn run_demo() -> ExitCode {
     match corpus::combined_sequence() {
         Ok(seq) => {
-            report::print_report("verified eye corpus", &seq);
+            print!(
+                "{}",
+                report::render_sequence_report("verified eye corpus", &seq)
+            );
             ExitCode::SUCCESS
         }
         Err(error) => {
-            eprintln!("{}", report::format_corpus_error(error));
+            eprintln!("{error}");
             ExitCode::FAILURE
         }
     }
@@ -747,11 +752,11 @@ fn run_nulltest(config: null::NullConfig) -> ExitCode {
     let report = match null::run_standard36_null(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!("null test error: {}", report::format_null_run_error(error));
+            eprintln!("null test error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_null_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -759,11 +764,11 @@ fn run_agl_gak(config: agl_gak::AglGakConfig) -> ExitCode {
     let report = match agl_gak::run_agl_gak(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!("AGL-GAK error: {}", report::format_agl_gak_error(&error));
+            eprintln!("AGL-GAK error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_agl_gak_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -771,14 +776,11 @@ fn run_gak_attack(config: gak_attack::GakAttackConfig) -> ExitCode {
     let report = match gak_attack::run_gak_attack(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "GAK-attack error: {}",
-                report::format_gak_attack_error(&error)
-            );
+            eprintln!("GAK-attack error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_gak_attack_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -786,14 +788,11 @@ fn run_gak_attack_eyes(config: gak_attack::EyesAttackConfig) -> ExitCode {
     let report = match gak_attack::run_gak_attack_eyes(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "GAK-attack eyes error: {}",
-                report::format_gak_attack_error(&error)
-            );
+            eprintln!("GAK-attack eyes error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_gak_attack_eyes_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -801,11 +800,11 @@ fn run_dofnull(config: dof_null::DofNullConfig) -> ExitCode {
     let report = match dof_null::run_dof_null(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!("DoF null error: {}", report::format_dof_null_error(&error));
+            eprintln!("DoF null error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_dof_null_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -813,14 +812,11 @@ fn run_periodicity(config: periodicity::PeriodicityConfig) -> ExitCode {
     let report = match periodicity::run_periodicity(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "periodicity error: {}",
-                report::format_periodicity_error(error)
-            );
+            eprintln!("periodicity error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_periodicity_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -828,14 +824,11 @@ fn run_honeycomb(config: honeycomb::HoneycombConfig) -> ExitCode {
     let report = match honeycomb::run_honeycomb(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "honeycomb lattice error: {}",
-                report::format_honeycomb_error(error)
-            );
+            eprintln!("honeycomb lattice error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_honeycomb_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -843,10 +836,7 @@ fn run_pipelinenull(config: null::NullConfig) -> ExitCode {
     let pipeline_report = match pipeline_null::run_pipeline_null(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "pipeline null error: {}",
-                report::format_null_run_error(error)
-            );
+            eprintln!("pipeline null error: {error}");
             return ExitCode::FAILURE;
         }
     };
@@ -857,9 +847,9 @@ fn run_pipelinenull(config: null::NullConfig) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    report::print_pipeline_null_report(&pipeline_report);
+    print!("{}", pipeline_report.render());
     println!();
-    report::print_input_randomness_report(&input_report);
+    print!("{}", input_report.render());
     ExitCode::SUCCESS
 }
 
@@ -867,11 +857,11 @@ fn run_grouping() -> ExitCode {
     let report = match grouping::run_experiment8() {
         Ok(report) => report,
         Err(error) => {
-            eprintln!("grouping error: {}", report::format_grouping_error(error));
+            eprintln!("grouping error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_grouping_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -879,14 +869,11 @@ fn run_homogeneity(config: orientation_homogeneity::OrientationHomogeneityConfig
     let report = match orientation_homogeneity::run_orientation_homogeneity(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "orientation homogeneity error: {}",
-                report::format_orientation_homogeneity_error(error)
-            );
+            eprintln!("orientation homogeneity error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_orientation_homogeneity_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -894,14 +881,11 @@ fn run_isomorphnull(config: isomorph_null::IsomorphNullConfig) -> ExitCode {
     let report = match isomorph_null::run_isomorph_null(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "isomorph null error: {}",
-                report::format_isomorph_null_error(error)
-            );
+            eprintln!("isomorph null error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_isomorph_null_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -909,11 +893,11 @@ fn run_chaining(config: chaining::ChainingConfig) -> ExitCode {
     let report = match chaining::run_chaining(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!("chaining error: {}", report::format_chaining_error(error));
+            eprintln!("chaining error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_chaining_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -921,14 +905,11 @@ fn run_chaining_graph(config: chaining_graph::ChainingGraphConfig) -> ExitCode {
     let report = match chaining_graph::run_chaining_graph(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "chaining-graph error: {}",
-                report::format_chaining_graph_error(&error)
-            );
+            eprintln!("chaining-graph error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_chaining_graph_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -936,14 +917,11 @@ fn run_moddiff(config: modular_diff::ModularDiffConfig) -> ExitCode {
     let report = match modular_diff::run_modular_diff(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "modular-difference error: {}",
-                report::format_modular_diff_error(error)
-            );
+            eprintln!("modular-difference error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_modular_diff_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -951,14 +929,11 @@ fn run_perseus(config: perseus::PerseusConfig) -> ExitCode {
     let report = match perseus::run_perseus(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "Perseus recurrence error: {}",
-                report::format_perseus_error(error)
-            );
+            eprintln!("Perseus recurrence error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_perseus_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -966,14 +941,11 @@ fn run_perfectiso(config: perfect_isomorphism::PerfectIsomorphismConfig) -> Exit
     let report = match perfect_isomorphism::run_perfect_isomorphism(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "perfect-isomorphism error: {}",
-                report::format_perfect_isomorphism_error(&error)
-            );
+            eprintln!("perfect-isomorphism error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_perfect_isomorphism_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -981,14 +953,11 @@ fn run_zeroadjnull(config: zero_adjacency_null::ZeroAdjacencyNullConfig) -> Exit
     let report = match zero_adjacency_null::run_zero_adjacency_null(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "zero-adjacency null error: {}",
-                report::format_zero_adjacency_null_error(error)
-            );
+            eprintln!("zero-adjacency null error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_zero_adjacency_null_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -996,14 +965,11 @@ fn run_treeresidual(config: tree_residual::TreeResidualConfig) -> ExitCode {
     let report = match tree_residual::run_tree_residual(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "tree-residual null error: {}",
-                report::format_tree_residual_error(error)
-            );
+            eprintln!("tree-residual null error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_tree_residual_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -1011,14 +977,11 @@ fn run_transitivity(config: transitivity::TransitivityConfig) -> ExitCode {
     let report = match transitivity::run_transitivity(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "transitivity error: {}",
-                report::format_transitivity_error(&error)
-            );
+            eprintln!("transitivity error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_transitivity_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -1026,14 +989,11 @@ fn run_conditional(config: conditional_structure::ConditionalStructureConfig) ->
     let report = match conditional_structure::run_conditional_structure(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "conditional structure error: {}",
-                report::format_conditional_structure_error(error)
-            );
+            eprintln!("conditional structure error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_conditional_structure_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -1041,14 +1001,11 @@ fn run_cipherattack(config: cipher_attack::CipherAttackConfig) -> ExitCode {
     let report = match cipher_attack::run_cipher_attack(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "cipher attack error: {}",
-                report::format_cipher_attack_error(&error)
-            );
+            eprintln!("cipher attack error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_cipher_attack_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -1056,14 +1013,11 @@ fn run_pyry(config: pyry_conditions::PyryConditionsConfig) -> ExitCode {
     let report = match pyry_conditions::run_pyry_conditions(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "Pyry's Conditions error: {}",
-                report::format_pyry_conditions_error(&error)
-            );
+            eprintln!("Pyry's Conditions error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_pyry_conditions_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -1085,14 +1039,11 @@ fn run_monoalphabetic_control(config: controls::MonoalphabeticControlConfig) -> 
     let report = match controls::run_monoalphabetic_control(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "monoalphabetic control failed: {}",
-                report::format_controls_error(&error)
-            );
+            eprintln!("monoalphabetic control failed: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_monoalphabetic_control_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -1100,14 +1051,11 @@ fn run_isomorph_control(config: controls::IsomorphControlConfig) -> ExitCode {
     let report = match controls::run_isomorph_control(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "isomorph control failed: {}",
-                report::format_controls_error(&error)
-            );
+            eprintln!("isomorph control failed: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_isomorph_control_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -1134,7 +1082,10 @@ fn run_orders() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    report::print_orders_report(&summary, &stats, &flatness);
+    print!(
+        "{}",
+        report::render_orders_report(&summary, &stats, &flatness)
+    );
     ExitCode::SUCCESS
 }
 
@@ -1215,7 +1166,7 @@ fn run_stats(args: &StatsArgs) -> ExitCode {
             let seq = Sequence {
                 glyphs: parsed.glyphs,
             };
-            report::print_report("input", &seq);
+            print!("{}", report::render_sequence_report("input", &seq));
             ExitCode::SUCCESS
         }
         // Behavior-preserving: the pre-refactor rendered parser returned an empty
@@ -1227,7 +1178,10 @@ fn run_stats(args: &StatsArgs) -> ExitCode {
         // layer (the honeycomb / cipher-alphabet paths are new, so their `Empty`
         // surfaces as an error).
         Err(CliSequenceError::Ingest(ingest::IngestError::Empty)) if rendered_layer => {
-            report::print_report("input", &Sequence { glyphs: Vec::new() });
+            print!(
+                "{}",
+                report::render_sequence_report("input", &Sequence { glyphs: Vec::new() })
+            );
             ExitCode::SUCCESS
         }
         Err(error) => {

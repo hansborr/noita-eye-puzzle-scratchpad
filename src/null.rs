@@ -12,10 +12,13 @@
 //! grouping rule, or which statistic to headline. For that broader calibrated
 //! adaptive correction, see [`crate::dof_null`].
 
+use std::fmt;
+
 use crate::glyph::Orientation;
 use crate::orders::{
     GlyphGrid, GridError, corpus_grids, read_corpus_message_values, standard36_orders,
 };
+use crate::report::{self, Report};
 use crate::trigram::TrigramValue;
 
 const TRIGRAM_ALPHABET_SIZE: f64 = 125.0;
@@ -181,6 +184,16 @@ pub enum NullConfigError {
     ZeroTrials,
 }
 
+impl fmt::Display for NullConfigError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ZeroTrials => write!(f, "at least one Monte-Carlo trial is required"),
+        }
+    }
+}
+
+impl std::error::Error for NullConfigError {}
+
 impl NullConfig {
     /// Validates that the configuration can drive a Monte-Carlo null run.
     ///
@@ -216,6 +229,17 @@ pub enum NullRunError {
     /// The verified corpus grids could not be reconstructed or read.
     Grid(GridError),
 }
+
+impl fmt::Display for NullRunError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Config(config_error) => write!(f, "{config_error}"),
+            Self::Grid(grid_error) => write!(f, "grid/order error: {grid_error:?}"),
+        }
+    }
+}
+
+impl std::error::Error for NullRunError {}
 
 impl From<NullConfigError> for NullRunError {
     fn from(error: NullConfigError) -> Self {
@@ -296,6 +320,97 @@ pub struct NullReport {
     pub distance4_ratio_max: f64,
     /// Analytic fixed-order probability bounds for the headline event.
     pub analytic_bounds: AnalyticBounds,
+}
+
+impl Report for NullReport {
+    fn render(&self) -> String {
+        let mut out = String::new();
+        report::appendln!(&mut out, "standard36 random-grid null");
+        report::appendln!(&mut out, "seed: {}", self.config.seed);
+        report::appendln!(&mut out, "trials: {}", self.config.trials);
+        report::appendln!(&mut out, "orders searched per trial: {}", self.family_size);
+        report::appendln!(
+            &mut out,
+            "resampled: verified row-width structure with uniform orientation cells 0..=4"
+        );
+        report::appendln!(
+            &mut out,
+            "held fixed: honeycomb traversal, trigram grouping, and the statistic family"
+        );
+        report::appendln!(&mut out);
+
+        append_interval(
+            &mut out,
+            "headline exact 0..=82",
+            wilson_95(self.headline_count, self.config.trials),
+        );
+        append_interval(
+            &mut out,
+            "some order adjacent_equal == 0",
+            wilson_95(self.adjacent_zero_count, self.config.trials),
+        );
+        report::appendln!(
+            &mut out,
+            "min distinct achieved over standard36: {}",
+            report::format_histogram(&self.min_distinct_histogram)
+        );
+        report::appendln!(
+            &mut out,
+            "min ceiling achieved over standard36: {}",
+            report::format_histogram(&self.min_ceiling_histogram)
+        );
+        report::appendln!(
+            &mut out,
+            "best distance-4 ratio d4/mean(d1..d6): min {:.3}, median {:.3}, max {:.3}",
+            self.distance4_ratio_min,
+            self.distance4_ratio_median,
+            self.distance4_ratio_max
+        );
+        report::appendln!(&mut out);
+        report::appendln!(
+            &mut out,
+            "analytic fixed-order headline bounds under independent uniform trigrams:"
+        );
+        report::appendln!(
+            &mut out,
+            "  per-order (83/125)^1036: {:.6e}",
+            self.analytic_bounds.per_order
+        );
+        report::appendln!(
+            &mut out,
+            "  Bonferroni over {} orders: {:.6e}",
+            self.analytic_bounds.family_size,
+            self.analytic_bounds.bonferroni
+        );
+        report::appendln!(
+            &mut out,
+            "  Sidak over {} orders: {:.6e}",
+            self.analytic_bounds.family_size,
+            self.analytic_bounds.sidak
+        );
+        report::appendln!(&mut out);
+        report::appendln!(
+            &mut out,
+            "Interpretation: this corrects grid-content randomness and fixed standard36 digit-permutation selection only. It does not correct for broader researcher degrees of freedom such as choosing the traversal family, grouping rule, or headline statistic after looking at the data."
+        );
+        report::appendln!(
+            &mut out,
+            "Seed-stability note: multi-seed regressions over seeds 12345, 67890, 13579, 24680, and 424242 keep the exact contiguous-0..=82 headline count at zero; changing seed only moves sampled null summaries."
+        );
+        out
+    }
+}
+
+fn append_interval(out: &mut String, label: &str, interval: WilsonInterval) {
+    report::appendln!(
+        out,
+        "{label}: {}/{} = {:.6} (95% Wilson {:.6}..{:.6})",
+        interval.count,
+        interval.trials,
+        interval.estimate,
+        interval.lower,
+        interval.upper
+    );
 }
 
 /// Runs the standard-36 reading-order null over synthetic uniform grids.
@@ -641,6 +756,450 @@ pub fn scaled_quantile_index(len: usize, numerator: usize, denominator: usize) -
     len.saturating_sub(1).saturating_mul(numerator) / denominator
 }
 
+// ===========================================================================
+// Matched-null harness
+//
+// The within-message shuffle nulls in the structural battery
+// (`isomorph_null`, `zero_adjacency_null`, `perseus`, `tree_residual`,
+// `orientation_homogeneity`, `conditional_structure`, `modular_diff`,
+// `periodicity`) all share the same scaffolding: clone a real observation,
+// resample it, recompute a statistic, count tails, and summarize the sample
+// set into a band. The types and functions below centralize that scaffolding
+// while leaving every numeric convention (p-value combiner, band fields, tail
+// direction) with the caller — the harness performs only the mechanical loop.
+// ===========================================================================
+
+/// A resampling scheme: produces one synthetic draw from `rng`, of the same
+/// shape as the real observation it is calibrating.
+///
+/// The associated [`NullSampler::Draw`] type lets each scheme preserve its own
+/// draw shape (per-message value vectors, segment-shaped messages, repartition
+/// tables, …) rather than flattening to a single `Vec` and discarding the
+/// boundary structure the null exists to preserve.
+pub trait NullSampler {
+    /// The unit of data a statistic consumes (for example
+    /// `Vec<Vec<TrigramValue>>` for a within-message shuffle).
+    type Draw;
+
+    /// Produces one synthetic draw.
+    ///
+    /// # Errors
+    /// Returns [`RandomBoundError`] if a bounded index draw fails; this is
+    /// unreachable for in-bounds slices on 64-bit targets.
+    fn sample(&self, rng: &mut SplitMix64) -> Result<Self::Draw, RandomBoundError>;
+}
+
+/// Within-message Fisher-Yates shuffle: clones each message's value multiset
+/// and shuffles it in place, preserving per-message length and multiset.
+///
+/// This is the shared form of the per-module `shuffled_messages` helper that the
+/// structural battery used to copy verbatim. Messages are iterated in order and
+/// each is shuffled with one [`fisher_yates`] pass, so the PRNG draw order is
+/// identical to the hand-written loops it replaces.
+pub struct WithinMessageShuffle<'a, T: Clone> {
+    /// The real per-message value vectors to resample.
+    pub messages: &'a [Vec<T>],
+}
+
+impl<T: Clone> NullSampler for WithinMessageShuffle<'_, T> {
+    type Draw = Vec<Vec<T>>;
+
+    fn sample(&self, rng: &mut SplitMix64) -> Result<Self::Draw, RandomBoundError> {
+        let mut shuffled = self.messages.to_vec();
+        for values in &mut shuffled {
+            fisher_yates(values, rng)?;
+        }
+        Ok(shuffled)
+    }
+}
+
+/// Outcome of comparing a real statistic to a Monte-Carlo shuffle null.
+///
+/// Carries the raw samples (in draw order) and both tail counts only; it
+/// deliberately does **not** compute a p-value or band, because those
+/// conventions differ per caller. Finish with [`add_one_p_value`] and the shared
+/// band constructors ([`usize_band`] / [`f64_band`]).
+#[derive(Clone, Debug, PartialEq)]
+pub struct NullResult<T> {
+    /// The real observed statistic the samples are compared against.
+    pub observed: T,
+    /// Sampled statistics in draw order; callers that pin sample order rely on
+    /// this ordering being stable.
+    pub samples: Vec<T>,
+    /// Number of samples less than or equal to `observed`.
+    pub lower_tail_count: usize,
+    /// Number of samples greater than or equal to `observed`.
+    pub upper_tail_count: usize,
+    /// Total number of trials sampled.
+    pub trials: usize,
+}
+
+/// Error returned by [`run_null_test`] / [`run_null_test_streams`].
+///
+/// Folds the harness's own [`RandomBoundError`] and the statistic's error `E`
+/// into one type so each caller can map it into its own error variant exactly as
+/// it maps [`RandomBoundError`] today. An infallible statistic uses
+/// `E = core::convert::Infallible`, leaving the [`NullTestError::Statistic`] arm
+/// uninhabited.
+///
+/// This is the generic per-trial error type; it is distinct from the non-generic
+/// [`NullRunError`] used by the grid-content standard-36 null.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NullTestError<E> {
+    /// A bounded PRNG draw failed inside the sampler.
+    Random(RandomBoundError),
+    /// The statistic returned an error for a synthetic draw.
+    Statistic(E),
+}
+
+impl<E> From<RandomBoundError> for NullTestError<E> {
+    fn from(error: RandomBoundError) -> Self {
+        Self::Random(error)
+    }
+}
+
+/// Error returned by [`run_null_test_columns`] /
+/// [`run_null_test_columns_streams`].
+///
+/// Like [`NullTestError`] but adds a [`NullColumnError::WidthMismatch`] arm for
+/// the case where the row statistic returns a row whose width differs from the
+/// observed row.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NullColumnError<E> {
+    /// A row statistic returned a row of unexpected width.
+    WidthMismatch {
+        /// Expected column count (the observed row width).
+        expected: usize,
+        /// Observed column count returned by the statistic.
+        observed: usize,
+    },
+    /// A bounded PRNG draw failed inside the sampler.
+    Random(RandomBoundError),
+    /// The statistic returned an error for a synthetic draw.
+    Statistic(E),
+}
+
+impl<E> From<RandomBoundError> for NullColumnError<E> {
+    fn from(error: RandomBoundError) -> Self {
+        Self::Random(error)
+    }
+}
+
+/// Runs `trials` shuffle draws, scoring each with `statistic`, counting both
+/// tails against `observed`.
+///
+/// Deterministic in `seed`: a fresh [`SplitMix64`] is seeded and threaded
+/// through every sampler call, so the PRNG stream — and therefore every reported
+/// number — depends only on `seed`, the sampler, and the statistic. The
+/// `statistic` is fallible (`Result<T, E>`); the loop propagates the first `Err`
+/// as [`NullTestError::Statistic`], and a sampler draw failure surfaces as
+/// [`NullTestError::Random`].
+///
+/// # Errors
+/// Returns [`NullTestError::Random`] if a sampler draw fails, or
+/// [`NullTestError::Statistic`] if the statistic returns an error.
+pub fn run_null_test<S, T, E>(
+    statistic: impl Fn(&S::Draw) -> Result<T, E>,
+    observed: T,
+    sampler: &S,
+    trials: usize,
+    seed: u64,
+) -> Result<NullResult<T>, NullTestError<E>>
+where
+    S: NullSampler,
+    T: PartialOrd + Copy,
+{
+    let mut outcomes = Vec::with_capacity(trials);
+    let mut lower_tail_count = 0usize;
+    let mut upper_tail_count = 0usize;
+    let mut rng = SplitMix64::new(seed);
+    for _trial in 0..trials {
+        let draw = sampler.sample(&mut rng)?;
+        let value = statistic(&draw).map_err(NullTestError::Statistic)?;
+        if value <= observed {
+            lower_tail_count += 1;
+        }
+        if value >= observed {
+            upper_tail_count += 1;
+        }
+        outcomes.push(value);
+    }
+    Ok(NullResult {
+        observed,
+        samples: outcomes,
+        lower_tail_count,
+        upper_tail_count,
+        trials,
+    })
+}
+
+/// Runs [`run_null_test`] once per derived seed stream and concatenates the
+/// samples, reproducing the `seed_count × trials_per_stream` loops that several
+/// modules write by hand.
+///
+/// `derive_seed(stream_index)` stays caller-supplied because the derivation
+/// differs per module (a chained base RNG, a wrapping stride, an xor-mix). It is
+/// [`FnMut`] so a *stateful* derivation — for example one that advances a single
+/// captured base [`SplitMix64`] per stream — can mutate its captured state. The
+/// returned [`NullResult::trials`] is the total over all streams, and the tail
+/// counts are summed (counting is additive over disjoint sample partitions).
+///
+/// # Errors
+/// Returns [`NullTestError::Random`] if a sampler draw fails, or
+/// [`NullTestError::Statistic`] if the statistic returns an error.
+pub fn run_null_test_streams<S, T, E>(
+    statistic: impl Fn(&S::Draw) -> Result<T, E>,
+    observed: T,
+    sampler: &S,
+    streams: usize,
+    trials_per_stream: usize,
+    mut derive_seed: impl FnMut(usize) -> u64,
+) -> Result<NullResult<T>, NullTestError<E>>
+where
+    S: NullSampler,
+    T: PartialOrd + Copy,
+{
+    let mut outcomes = Vec::with_capacity(streams.saturating_mul(trials_per_stream));
+    let mut lower_tail_count = 0usize;
+    let mut upper_tail_count = 0usize;
+    for stream_index in 0..streams {
+        let seed = derive_seed(stream_index);
+        let stream = run_null_test(&statistic, observed, sampler, trials_per_stream, seed)?;
+        lower_tail_count += stream.lower_tail_count;
+        upper_tail_count += stream.upper_tail_count;
+        outcomes.extend(stream.samples);
+    }
+    let trials = outcomes.len();
+    Ok(NullResult {
+        observed,
+        samples: outcomes,
+        lower_tail_count,
+        upper_tail_count,
+        trials,
+    })
+}
+
+/// Like [`run_null_test`] but the statistic emits a fixed-width row of scalars,
+/// returning one [`NullResult`] per column.
+///
+/// Every trial draws once from `sampler`, scores the draw into a row, and
+/// distributes the row across the per-column accumulators (so all columns share
+/// the same draws, exactly as the hand-written multi-statistic loops do). The
+/// width is fixed by `observed.len()`; a row of any other width is a
+/// [`NullColumnError::WidthMismatch`].
+///
+/// # Errors
+/// Returns [`NullColumnError::Random`] if a sampler draw fails,
+/// [`NullColumnError::Statistic`] if the statistic returns an error, or
+/// [`NullColumnError::WidthMismatch`] if a row's width differs from `observed`.
+pub fn run_null_test_columns<S, T, E>(
+    row_statistic: impl Fn(&S::Draw) -> Result<Vec<T>, E>,
+    observed: Vec<T>,
+    sampler: &S,
+    trials: usize,
+    seed: u64,
+) -> Result<Vec<NullResult<T>>, NullColumnError<E>>
+where
+    S: NullSampler,
+    T: PartialOrd + Copy,
+{
+    let width = observed.len();
+    let mut columns = observed
+        .into_iter()
+        .map(|observed| NullResult {
+            observed,
+            samples: Vec::with_capacity(trials),
+            lower_tail_count: 0,
+            upper_tail_count: 0,
+            trials,
+        })
+        .collect::<Vec<_>>();
+    let mut rng = SplitMix64::new(seed);
+    for _trial in 0..trials {
+        let draw = sampler.sample(&mut rng)?;
+        let row = row_statistic(&draw).map_err(NullColumnError::Statistic)?;
+        if row.len() != width {
+            return Err(NullColumnError::WidthMismatch {
+                expected: width,
+                observed: row.len(),
+            });
+        }
+        for (column, value) in columns.iter_mut().zip(row) {
+            if value <= column.observed {
+                column.lower_tail_count += 1;
+            }
+            if value >= column.observed {
+                column.upper_tail_count += 1;
+            }
+            column.samples.push(value);
+        }
+    }
+    Ok(columns)
+}
+
+/// Runs [`run_null_test_columns`] once per derived seed stream and concatenates
+/// each column's samples, the columnar analogue of [`run_null_test_streams`].
+///
+/// `derive_seed` is [`FnMut`] for the same stateful-derivation reason as
+/// [`run_null_test_streams`]. Per-column tail counts and trial totals are summed
+/// across streams.
+///
+/// # Errors
+/// Returns [`NullColumnError::Random`] if a sampler draw fails,
+/// [`NullColumnError::Statistic`] if the statistic returns an error, or
+/// [`NullColumnError::WidthMismatch`] if a row's width differs from `observed`.
+pub fn run_null_test_columns_streams<S, T, E>(
+    row_statistic: impl Fn(&S::Draw) -> Result<Vec<T>, E>,
+    observed: &[T],
+    sampler: &S,
+    streams: usize,
+    trials_per_stream: usize,
+    mut derive_seed: impl FnMut(usize) -> u64,
+) -> Result<Vec<NullResult<T>>, NullColumnError<E>>
+where
+    S: NullSampler,
+    T: PartialOrd + Copy,
+{
+    let mut merged = observed
+        .iter()
+        .copied()
+        .map(|observed| NullResult {
+            observed,
+            samples: Vec::new(),
+            lower_tail_count: 0,
+            upper_tail_count: 0,
+            trials: 0,
+        })
+        .collect::<Vec<_>>();
+    for stream_index in 0..streams {
+        let seed = derive_seed(stream_index);
+        let columns = run_null_test_columns(
+            &row_statistic,
+            observed.to_vec(),
+            sampler,
+            trials_per_stream,
+            seed,
+        )?;
+        for (accumulator, column) in merged.iter_mut().zip(columns) {
+            accumulator.lower_tail_count += column.lower_tail_count;
+            accumulator.upper_tail_count += column.upper_tail_count;
+            accumulator.trials += column.trials;
+            accumulator.samples.extend(column.samples);
+        }
+    }
+    Ok(merged)
+}
+
+/// Monte-Carlo band over a `usize` sample set.
+///
+/// Holds `{trials, mean, min, q025, median, q975, max}`, computed with the same
+/// conventions every per-module `null_band` used: arithmetic `mean`, raw
+/// `min`/`max` from the sorted ends, `scaled_quantile_index(_, 25|975, 1000)`
+/// for the percentile edges, and [`median_usize`] for the median. Modules bridge
+/// their named band struct from this via a `From` conversion.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct UsizeBand {
+    /// Number of samples summarized.
+    pub trials: usize,
+    /// Arithmetic mean of the samples.
+    pub mean: f64,
+    /// Smallest sampled value.
+    pub min: usize,
+    /// Lower pointwise 95% percentile edge.
+    pub q025: usize,
+    /// Sample median.
+    pub median: f64,
+    /// Upper pointwise 95% percentile edge.
+    pub q975: usize,
+    /// Largest sampled value.
+    pub max: usize,
+}
+
+/// Summarizes a `usize` sample set into a [`UsizeBand`].
+#[must_use]
+pub fn usize_band(samples: &[usize]) -> UsizeBand {
+    let mut sorted = samples.to_vec();
+    sorted.sort_unstable();
+    UsizeBand {
+        trials: samples.len(),
+        mean: usize_sample_mean(samples),
+        min: sorted.first().copied().unwrap_or_default(),
+        q025: sorted
+            .get(scaled_quantile_index(sorted.len(), 25, 1_000))
+            .copied()
+            .unwrap_or_default(),
+        median: median_usize(&sorted),
+        q975: sorted
+            .get(scaled_quantile_index(sorted.len(), 975, 1_000))
+            .copied()
+            .unwrap_or_default(),
+        max: sorted.last().copied().unwrap_or_default(),
+    }
+}
+
+fn usize_sample_mean(samples: &[usize]) -> f64 {
+    if samples.is_empty() {
+        0.0
+    } else {
+        samples.iter().sum::<usize>() as f64 / samples.len() as f64
+    }
+}
+
+/// Monte-Carlo band over an `f64` sample set.
+///
+/// Holds `{trials, mean, min, q025, median, q975, max}`, computed with the same
+/// conventions every per-module `scalar_null_band`/`scalar_band` used: arithmetic
+/// `mean` over the samples in slice order, a [`f64::total_cmp`] sort, raw
+/// `min`/`max` from the sorted ends, `scaled_quantile_index(_, 25|975, 1000)` for
+/// the percentile edges, and [`median_f64`] for the median.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct F64Band {
+    /// Number of samples summarized.
+    pub trials: usize,
+    /// Arithmetic mean of the samples.
+    pub mean: f64,
+    /// Smallest sampled value.
+    pub min: f64,
+    /// Lower pointwise 95% percentile edge.
+    pub q025: f64,
+    /// Sample median.
+    pub median: f64,
+    /// Upper pointwise 95% percentile edge.
+    pub q975: f64,
+    /// Largest sampled value.
+    pub max: f64,
+}
+
+/// Summarizes an `f64` sample set into a [`F64Band`].
+#[must_use]
+pub fn f64_band(samples: &[f64]) -> F64Band {
+    let mut sorted = samples.to_vec();
+    sorted.sort_by(f64::total_cmp);
+    F64Band {
+        trials: samples.len(),
+        mean: f64_sample_mean(samples),
+        min: sorted.first().copied().unwrap_or(0.0),
+        q025: sorted
+            .get(scaled_quantile_index(sorted.len(), 25, 1_000))
+            .copied()
+            .unwrap_or(0.0),
+        median: median_f64(&sorted),
+        q975: sorted
+            .get(scaled_quantile_index(sorted.len(), 975, 1_000))
+            .copied()
+            .unwrap_or(0.0),
+        max: sorted.last().copied().unwrap_or(0.0),
+    }
+}
+
+fn f64_sample_mean(samples: &[f64]) -> f64 {
+    if samples.is_empty() {
+        0.0
+    } else {
+        samples.iter().sum::<f64>() / samples.len() as f64
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -828,5 +1387,278 @@ mod tests {
                 "seed {seed} reproduced the contiguous 0..=82 headline"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod harness_tests {
+    use super::{
+        F64Band, NullColumnError, NullSampler, SplitMix64, UsizeBand, WithinMessageShuffle,
+        f64_band, median_f64, median_usize, run_null_test, run_null_test_columns,
+        run_null_test_columns_streams, run_null_test_streams, scaled_quantile_index, usize_band,
+    };
+    use core::convert::Infallible;
+
+    fn first_value(draw: &[Vec<usize>]) -> usize {
+        draw.first()
+            .and_then(|message| message.first())
+            .copied()
+            .unwrap_or_default()
+    }
+
+    fn last_value(draw: &[Vec<usize>]) -> usize {
+        draw.first()
+            .and_then(|message| message.last())
+            .copied()
+            .unwrap_or_default()
+    }
+
+    fn total_value(draw: &[Vec<usize>]) -> usize {
+        draw.iter().flatten().copied().sum()
+    }
+
+    #[test]
+    fn within_message_shuffle_preserves_each_message_multiset() {
+        let messages = vec![vec![0usize, 0, 1, 1, 2, 2], vec![3, 4, 5]];
+        let sampler = WithinMessageShuffle {
+            messages: &messages,
+        };
+        let mut rng = SplitMix64::new(0x5151);
+
+        let draw = sampler.sample(&mut rng).unwrap();
+
+        assert_eq!(draw.len(), messages.len());
+        for (original, shuffled) in messages.iter().zip(&draw) {
+            assert_eq!(shuffled.len(), original.len());
+            let mut original_sorted = original.clone();
+            let mut shuffled_sorted = shuffled.clone();
+            original_sorted.sort_unstable();
+            shuffled_sorted.sort_unstable();
+            assert_eq!(shuffled_sorted, original_sorted);
+        }
+    }
+
+    #[test]
+    fn run_null_test_with_invariant_statistic_is_hand_checkable() {
+        let messages = vec![vec![0usize, 1, 2], vec![3, 4]];
+        let sampler = WithinMessageShuffle {
+            messages: &messages,
+        };
+
+        // Sum is invariant under a within-message shuffle, so every sample is
+        // exactly the observed total and the observed value sits in both tails.
+        let result = run_null_test(
+            |draw| Ok::<usize, Infallible>(total_value(draw)),
+            10,
+            &sampler,
+            5,
+            0xABCD,
+        )
+        .unwrap();
+
+        assert_eq!(result.observed, 10);
+        assert_eq!(result.samples, vec![10usize; 5]);
+        assert_eq!(result.lower_tail_count, 5);
+        assert_eq!(result.upper_tail_count, 5);
+        assert_eq!(result.trials, 5);
+    }
+
+    #[test]
+    fn run_null_test_is_deterministic_in_seed() {
+        let messages = vec![vec![0usize, 1, 2, 3, 4]];
+        let sampler = WithinMessageShuffle {
+            messages: &messages,
+        };
+
+        let first = run_null_test(
+            |draw| Ok::<usize, Infallible>(first_value(draw)),
+            0,
+            &sampler,
+            16,
+            0x1234,
+        )
+        .unwrap();
+        let second = run_null_test(
+            |draw| Ok::<usize, Infallible>(first_value(draw)),
+            0,
+            &sampler,
+            16,
+            0x1234,
+        )
+        .unwrap();
+
+        assert_eq!(first, second);
+    }
+
+    #[test]
+    fn run_null_test_streams_concatenates_in_stream_order() {
+        let messages = vec![vec![0usize, 1, 2, 3, 4, 5]];
+        let sampler = WithinMessageShuffle {
+            messages: &messages,
+        };
+        let seeds = [111u64, 222, 333];
+
+        let streamed = run_null_test_streams(
+            |draw| Ok::<usize, Infallible>(first_value(draw)),
+            2,
+            &sampler,
+            3,
+            4,
+            |index| seeds.get(index).copied().unwrap_or_default(),
+        )
+        .unwrap();
+
+        let mut expected_samples = Vec::new();
+        let mut lower = 0usize;
+        let mut upper = 0usize;
+        for &seed in &seeds {
+            let stream = run_null_test(
+                |draw| Ok::<usize, Infallible>(first_value(draw)),
+                2,
+                &sampler,
+                4,
+                seed,
+            )
+            .unwrap();
+            expected_samples.extend(stream.samples);
+            lower += stream.lower_tail_count;
+            upper += stream.upper_tail_count;
+        }
+
+        assert_eq!(streamed.samples, expected_samples);
+        assert_eq!(streamed.trials, 12);
+        assert_eq!(streamed.lower_tail_count, lower);
+        assert_eq!(streamed.upper_tail_count, upper);
+    }
+
+    #[test]
+    fn run_null_test_columns_reports_width_mismatch() {
+        let messages = vec![vec![0usize, 1, 2]];
+        let sampler = WithinMessageShuffle {
+            messages: &messages,
+        };
+
+        let result: Result<_, NullColumnError<Infallible>> = run_null_test_columns(
+            |_draw| Ok(vec![1usize, 2]),
+            vec![0usize, 0, 0],
+            &sampler,
+            4,
+            7,
+        );
+
+        assert_eq!(
+            result,
+            Err(NullColumnError::WidthMismatch {
+                expected: 3,
+                observed: 2,
+            })
+        );
+    }
+
+    #[test]
+    fn run_null_test_columns_streams_matches_per_stream_columns() {
+        let messages = vec![vec![0usize, 1, 2, 3]];
+        let sampler = WithinMessageShuffle {
+            messages: &messages,
+        };
+        let seeds = [7u64, 9, 11];
+        let observed = [1usize, 2];
+
+        let columns = run_null_test_columns_streams(
+            |draw| Ok::<Vec<usize>, Infallible>(vec![first_value(draw), last_value(draw)]),
+            &observed,
+            &sampler,
+            3,
+            5,
+            |index| seeds.get(index).copied().unwrap_or_default(),
+        )
+        .unwrap();
+
+        let mut expected: Vec<Vec<usize>> = vec![Vec::new(), Vec::new()];
+        for &seed in &seeds {
+            let per_stream = run_null_test_columns(
+                |draw| Ok::<Vec<usize>, Infallible>(vec![first_value(draw), last_value(draw)]),
+                observed.to_vec(),
+                &sampler,
+                5,
+                seed,
+            )
+            .unwrap();
+            for (slot, column) in expected.iter_mut().zip(&per_stream) {
+                slot.extend(column.samples.iter().copied());
+            }
+        }
+
+        assert_eq!(columns.len(), 2);
+        for (column, expected_samples) in columns.iter().zip(&expected) {
+            assert_eq!(&column.samples, expected_samples);
+            assert_eq!(column.trials, 15);
+        }
+    }
+
+    #[test]
+    fn usize_band_matches_explicit_quantile_math() {
+        let samples: Vec<usize> = vec![5, 3, 8, 1, 9, 2, 7, 4, 6, 0];
+        let band: UsizeBand = usize_band(&samples);
+
+        let mut sorted = samples.clone();
+        sorted.sort_unstable();
+        assert_eq!(band.trials, samples.len());
+        assert_eq!(band.min, sorted.first().copied().unwrap());
+        assert_eq!(band.max, sorted.last().copied().unwrap());
+        assert_eq!(
+            band.q025,
+            sorted
+                .get(scaled_quantile_index(sorted.len(), 25, 1_000))
+                .copied()
+                .unwrap()
+        );
+        assert_eq!(
+            band.q975,
+            sorted
+                .get(scaled_quantile_index(sorted.len(), 975, 1_000))
+                .copied()
+                .unwrap()
+        );
+        assert_eq!(band.median.to_bits(), median_usize(&sorted).to_bits());
+        let expected_mean = samples.iter().sum::<usize>() as f64 / samples.len() as f64;
+        assert_eq!(band.mean.to_bits(), expected_mean.to_bits());
+    }
+
+    #[test]
+    fn f64_band_matches_explicit_quantile_math() {
+        let samples: Vec<f64> = vec![5.0, 3.0, 8.5, 1.0, 9.0, 2.0, 7.0, 4.0, 6.0, 0.5];
+        let band: F64Band = f64_band(&samples);
+
+        let mut sorted = samples.clone();
+        sorted.sort_by(f64::total_cmp);
+        assert_eq!(band.trials, samples.len());
+        assert_eq!(
+            band.min.to_bits(),
+            sorted.first().copied().unwrap().to_bits()
+        );
+        assert_eq!(
+            band.max.to_bits(),
+            sorted.last().copied().unwrap().to_bits()
+        );
+        assert_eq!(
+            band.q025.to_bits(),
+            sorted
+                .get(scaled_quantile_index(sorted.len(), 25, 1_000))
+                .copied()
+                .unwrap()
+                .to_bits()
+        );
+        assert_eq!(
+            band.q975.to_bits(),
+            sorted
+                .get(scaled_quantile_index(sorted.len(), 975, 1_000))
+                .copied()
+                .unwrap()
+                .to_bits()
+        );
+        assert_eq!(band.median.to_bits(), median_f64(&sorted).to_bits());
+        let expected_mean = samples.iter().sum::<f64>() / samples.len() as f64;
+        assert_eq!(band.mean.to_bits(), expected_mean.to_bits());
     }
 }
