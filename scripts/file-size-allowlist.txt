@@ -14,26 +14,26 @@ src/attack/gak_attack/marginalization.rs 1026  # brief 07A fragment from gak_att
 src/attack/gak_attack/solver.rs     1993  # brief 07A fragment from gak_attack god-file (tracks engine-spine)
 src/attack/gak_attack/generator.rs  647   # brief 07A fragment from gak_attack god-file (tracks engine-spine)
 src/ciphers/mod.rs                  3673  # cipher zoo; +Identity/Transposition (brief 04 solve pipeline); shrinks under briefs 02, 07b
-src/conditional_structure.rs        2283  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
+src/experiments/conditional_structure.rs 2283  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/attack/solve.rs                 4016  # brief 04 Phase 2 + brief 04a Phase 1+2: codec stage wired through fixed/search paths + brief 04a steps 5-8 CodecStrategy::Search driver (run_codec_search + SolveOutcome skip trace) + transduced-level matched-null/held-out + delta +/-1-C5 + plant-through-codec positive-control tests; module move is 07B; +brief 04a Phase-2a review follow-up: joint codec×mapping-search positive control; +brief 04a Phase-2a fix: enumeration-level codec-search matched null (selection-complete) + surviving_codecs/enumeration_null_mean + flat-on-noise + selection-completeness tests; +brief 04a Phase-2b: transparent-space reinsertion (SolveRequest.transparent + reinsert_transparent codec-aware snap) + record codec name()/round-trip + corpus one/two/six end-to-end codec-search HYPOTHESIS tests; +Phase-2b defect fixes: MappingDomainMismatch skip-with-log prune (d) + log_solve_run total_symbols threading + skip-with-log test; +brief 04a D2: SolveRecordInputs.provenance field + "## Provenance (reproducible)" record section + log_solve_run provenance param threaded through all call sites
 src/analysis/perfect_isomorphism.rs 2056  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/analysis/chaining_graph.rs      1830  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/nulls/dof_null.rs               1786  # matched-null driver; brief 05 harness + brief 06 colocated report render
-src/pyry_conditions.rs              1767  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
+src/experiments/pyry_conditions.rs  1767  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/attack/cipher_attack.rs         1720  # attack scorer; brief 06 colocated report render; briefs 04, 07b
 src/nulls/null.rs                   1664  # matched-null harness core; brief 05 (shared null harness lives here)
-src/controls.rs                     1636  # positive controls; brief 05 harness + brief 06 colocated report render; briefs 07b
-src/modular_diff.rs                 1600  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
+src/experiments/controls.rs         1636  # positive controls; brief 05 harness + brief 06 colocated report render; briefs 07b
+src/experiments/modular_diff.rs     1600  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/analysis/grouping.rs            1511  # structural analysis; brief 06 colocated report render; brief 07b
 src/main.rs                         1722  # CLI dispatch; +solve subcommand & Phase-2 --mapping-search/--candidates-dir auto-log (brief 04); +brief 04a default Identity codec strategy; +brief 04a Phase-2b transparent passthrough wired into solve request + --codec/--codec-search flags (solve_codec_strategy); +Phase-2b defect fix: --codec-search auto-enables --mapping-search + threads ciphertext length into log_solve_run; +keystream subcommand merged from exploration (KeystreamArgs + run_keystream table/best/verdict + matched-null gate --matched-null-trials); +brief 04a D2: solve_provenance_command builds the reproducing "## Provenance" command + hex-or-decimal parse_seed so the emitted --seed 0x.. is copy-pasteable; brief 08 collapsed the 20 uniform run_* fns into a generic dispatch/emit registry (ratchet lowered 1843->1722)
 src/analysis/orders.rs              1340  # reading layer; briefs 04a, 07b
-src/periodicity.rs                  1322  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
+src/experiments/periodicity.rs      1322  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/nulls/perseus.rs                1316  # matched-null driver; brief 05 harness + brief 06 colocated report render
 src/analysis/honeycomb.rs           1292  # structural analysis; brief 06 colocated report render; brief 07b
 src/analysis/chaining.rs            1242  # structural analysis; brief 06 colocated report render; brief 07b
 src/nulls/tree_residual.rs          1226  # matched-null driver; brief 05 harness + brief 06 colocated report render
 src/attack/agl_gak.rs               1208  # attack; brief 06 colocated report render; brief 07b
-src/orientation_homogeneity.rs      1138  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
+src/experiments/orientation_homogeneity.rs 1138  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/nulls/pipeline_null.rs          684   # matched-null driver; brief 05 harness + brief 06 colocated report render; trim under 07b
 src/nulls/zero_adjacency_null.rs    848   # matched-null driver; brief 05 harness + brief 06 colocated report render
 src/attack/codec.rs                 1134  # new (brief 04a codec layer); +brief 04a step 5: codec-search enumeration (enumerate_codecs + MAX_SEARCH_OUTPUT_ALPHABET + SkippedCodec/CodecSkipReason) + enumeration tests; +brief 04a Phase-2b CLI helpers (default_codec_search + honeycomb_codec); +Phase-2b defect fix: CodecSkipReason::MappingDomainMismatch variant

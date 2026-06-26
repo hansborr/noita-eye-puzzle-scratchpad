@@ -154,11 +154,20 @@ pub mod quadgram;
 #[path = "attack/solve.rs"]
 pub mod solve;
 
+// experiments: the structural-battery experiment drivers.
+#[path = "experiments/conditional_structure.rs"]
 pub mod conditional_structure;
+#[path = "experiments/controls.rs"]
 pub mod controls;
+#[path = "experiments/modular_diff.rs"]
 pub mod modular_diff;
+#[path = "experiments/orientation_homogeneity.rs"]
 pub mod orientation_homogeneity;
+#[path = "experiments/periodicity.rs"]
 pub mod periodicity;
+#[path = "experiments/pyry_conditions.rs"]
 pub mod pyry_conditions;
-pub mod report;
+#[path = "experiments/transitivity.rs"]
 pub mod transitivity;
+
+pub mod report;
