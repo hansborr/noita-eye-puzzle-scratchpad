@@ -306,7 +306,7 @@ mod tests {
     use crate::corpus::messages;
     use crate::glyph::Orientation;
 
-    const XK_EYE: &str = include_str!("../research/data/eye-messages/xk_eye.php");
+    const XK_EYE: &str = include_str!("../../research/data/eye-messages/xk_eye.php");
 
     fn render(symbols: &[i8]) -> String {
         symbols

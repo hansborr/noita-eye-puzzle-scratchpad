@@ -88,6 +88,12 @@ pub mod trigram;
 #[path = "core/ingest.rs"]
 pub mod ingest;
 
+// data: the verified corpus and the engine base-7 decoder/generator.
+#[path = "data/corpus.rs"]
+pub mod corpus;
+#[path = "data/generator.rs"]
+pub mod generator;
+
 pub mod agl_gak;
 pub mod analysis;
 pub mod chaining;
@@ -97,10 +103,8 @@ pub mod ciphers;
 pub mod codec;
 pub mod conditional_structure;
 pub mod controls;
-pub mod corpus;
 pub mod dof_null;
 pub mod gak_attack;
-pub mod generator;
 pub mod grouping;
 pub mod honeycomb;
 pub mod isomorph;

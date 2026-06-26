@@ -340,8 +340,8 @@ mod tests {
     use super::{CorpusError, MESSAGES, Message, PROVENANCE, Region, messages};
     use crate::glyph::StorageSymbol;
 
-    const NG_EYES: &str = include_str!("../research/data/eye-messages/ng_eyes.json");
-    const XK_EYE: &str = include_str!("../research/data/eye-messages/xk_eye.php");
+    const NG_EYES: &str = include_str!("../../research/data/eye-messages/ng_eyes.json");
+    const XK_EYE: &str = include_str!("../../research/data/eye-messages/xk_eye.php");
 
     #[test]
     fn experiment_0_cross_validates_transcription_against_engine_decode() {
