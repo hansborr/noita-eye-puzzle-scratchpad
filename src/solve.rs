@@ -594,6 +594,15 @@ fn surviving_codecs(
 ) -> (Vec<(usize, AnyCodec)>, Vec<SkippedCodec>) {
     let mut survivors = Vec::new();
     let mut skipped = Vec::new();
+    // The binding fixed-mapping domain (smallest declared mapping table). `None`
+    // for a mapping SEARCH, whose tables are sized to each codec's resolved output
+    // and therefore impose no domain prune. This is content-independent (it depends
+    // only on the declared mappings), so the survivor set is identical on every
+    // null shuffle — preserving the shared-enumeration invariant the null relies on.
+    let fixed_mapping_domain = match &req.space.mappings {
+        MappingStrategy::Fixed(mappings) => mappings.iter().map(|m| m.table().len()).min(),
+        MappingStrategy::Search(_) => None,
+    };
     for (index, codec) in enumerate_codecs(search, cipher_alphabet_size)
         .into_iter()
         .enumerate()
@@ -639,6 +648,23 @@ fn surviving_codecs(
         if codec.transduce(req.ciphertext).is_err() {
             skipped.push(SkippedCodec {
                 reason: CodecSkipReason::Untransducible,
+                codec,
+            });
+            continue;
+        }
+        // Prune (d) — fixed-mapping domain (defense-in-depth). A `CodecStrategy::Search`
+        // can be paired with an explicit `MappingStrategy::Fixed` whose table is sized
+        // to the BARE cipher alphabet; a widening codec then emits symbols past that
+        // table. Skip-with-log (mirroring the prunes above) instead of letting
+        // `Mapping::apply` hard-error with `MappingSymbolOutsideTable`. Only a fixed
+        // mapping imposes this domain — a mapping search sizes its tables to `resolved`,
+        // so `fixed_mapping_domain` is `None` there and this prune is inert.
+        if let Some(mapping_domain) = fixed_mapping_domain.filter(|&domain| resolved > domain) {
+            skipped.push(SkippedCodec {
+                reason: CodecSkipReason::MappingDomainMismatch {
+                    resolved,
+                    mapping_domain,
+                },
                 codec,
             });
             continue;
@@ -1823,20 +1849,33 @@ fn render_solve_gates(out: &mut String, inputs: &SolveRecordInputs<'_>) -> fmt::
 /// to [`write_solve_candidate_record`]. This is the auto-logging entry the CLI
 /// and validation tests call.
 ///
+/// `total_symbols` is the ciphertext length (cipher-symbol count), passed by the
+/// caller so the record header reports it even on the zero-candidate honest
+/// negative — it must not be derived from `candidates.first()`, which is empty
+/// then. Every cipher family is length-preserving, so on the has-candidate path
+/// this equals the top candidate's `decrypted_symbols.len()`.
+///
 /// # Errors
 /// Returns [`SolveError`] if a language score fails or the record cannot be
 /// written.
+// The args are the auto-log's cohesive inputs (record dir + run identity/shape +
+// candidates + both language models); defect-3's `total_symbols` count pushes this
+// to 8. Bundling them into a context struct would obscure rather than clarify.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "auto-log inputs: dir + run identity/shape (incl. defect-3 total_symbols) + candidates + both models"
+)]
 pub fn log_solve_run(
     dir: &Path,
     label: &str,
     seed: u64,
     cipher_alphabet_size: usize,
+    total_symbols: usize,
     candidates: &[Candidate],
     english: &LanguageModel,
     finnish: &LanguageModel,
 ) -> Result<PathBuf, SolveError> {
     let survivors = candidates.iter().filter(|c| candidate_survives(c)).count();
-    let total_symbols = candidates.first().map_or(0, |c| c.decrypted_symbols.len());
     let top = match candidates.first() {
         Some(candidate) => Some(SolveRecordCandidate {
             cipher_name: candidate.cipher.name(),
@@ -1990,6 +2029,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
                 name,
                 super::DEFAULT_SEED,
                 26,
+                glyphs.len(),
                 &candidates,
                 &english,
                 &finnish,
@@ -2066,6 +2106,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
             "eyes-reading-layer",
             super::DEFAULT_SEED,
             crate::ciphers::EYE_READING_ALPHABET_SIZE,
+            eyes.len(),
             &candidates,
             &english,
             &finnish,
@@ -2139,12 +2180,17 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         }
     }
 
-    // `one`: 266 digits {0..4}, the ±1-C5 walk. EXPECTED HONEST NEGATIVE: 266 =
-    // 2·7·19 and the differenced 265 = 5·53 admit no group_len that BOTH clears the
-    // 29-symbol sanity floor (5²=25 < 29) AND stays under the 256 output-alphabet
-    // ceiling (5⁷ = 78125), so EVERY enumerated codec is logged-and-skipped. The
-    // ±1-C5 structure is a documented Delta SEARCH HINT (an observed ciphertext
-    // property), never a decode or triviality claim. NO hard-coded decode asserted.
+    // `one`: 266 digits {0..4}, the ±1-C5 walk. EXPECTED HONEST NEGATIVE — but the
+    // binding constraint is TRANSDUCE FEASIBILITY, not the sanity floor/ceiling.
+    // group_len 1/2 fail the 29-symbol sanity floor (5, 25 < 29); group_len 3
+    // (5³ = 125) DOES clear BOTH that floor and the 256 output-alphabet ceiling, yet
+    // 266 = 2·7·19 is not divisible by 3, so the grouping cannot partition the stream
+    // (transduce-feasibility prune (c) → Untransducible). The delta variants
+    // difference first: the 265 = 5·53 move stream is divisible by neither 2 nor 3,
+    // so no in-budget (group_len ≤ 3) codec partitions it either. EVERY enumerated
+    // codec is therefore logged-and-skipped. The ±1-C5 structure is a documented
+    // Delta SEARCH HINT (an observed ciphertext property), never a decode or
+    // triviality claim. NO hard-coded decode asserted.
     #[test]
     fn corpus_one_runs_end_to_end_and_logs_hypothesis() {
         let english = english_model().unwrap();
@@ -2180,6 +2226,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
             "one",
             super::DEFAULT_SEED,
             5,
+            parsed.glyphs.len(),
             &outcome.candidates,
             &english,
             &finnish,
@@ -2188,6 +2235,13 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         let record = std::fs::read_to_string(&path).unwrap();
         assert!(record.contains(super::SOLVE_CLAIM_CEILING));
         assert!(record.contains("NO surviving candidate"));
+        // Defect 3 regression: the header reports the REAL ciphertext length (266),
+        // not 0, even though there are no candidates to derive it from.
+        assert_eq!(outcome.candidates.len(), 0);
+        assert!(
+            record.contains("symbols=266"),
+            "zero-candidate record must still report the 266-symbol ciphertext length"
+        );
         let _cleanup = std::fs::remove_dir_all(&dir);
     }
 
@@ -2236,6 +2290,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
             "two",
             super::DEFAULT_SEED,
             12,
+            parsed.glyphs.len(),
             &outcome.candidates,
             &english,
             &finnish,
@@ -2344,6 +2399,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
             "six",
             super::DEFAULT_SEED,
             6,
+            parsed.glyphs.len(),
             &outcome.candidates,
             &english,
             &finnish,
@@ -2712,6 +2768,77 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         );
         // The surviving group_len-3 codec still produced candidates.
         assert!(!outcome.candidates.is_empty());
+    }
+
+    // Defect-1(b) defense-in-depth — a `CodecStrategy::Search` paired with an
+    // EXPLICIT `MappingStrategy::Fixed` whose table is sized to the BARE cipher
+    // alphabet must SKIP-WITH-LOG (not hard-error) every widening codec the mapping
+    // cannot host. Without this prune the group_len-2 grouping (6² = 36) would feed
+    // 36-valued symbols to a 6-entry mapping table and `Mapping::apply` would return
+    // `MappingSymbolOutsideTable`, aborting the whole search. (The CLI never reaches
+    // here — it auto-enables the mapping search under `--codec-search`.)
+    #[test]
+    fn codec_search_skips_codec_too_wide_for_fixed_mapping() {
+        let english = english_model().unwrap();
+        let finnish = finnish_model().unwrap();
+        let base = 6usize;
+        // Length divisible by 2 so the group_len-2 codec is otherwise transducible:
+        // its skip must be the MAPPING-domain prune, not Untransducible.
+        let ciphertext = glyphs(&[0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5]);
+        let request = SolveRequest {
+            ciphertext: &ciphertext,
+            transparent: &[],
+            space: HypothesisSpace {
+                families: vec![CipherFamilySpec {
+                    label: "identity".to_owned(),
+                    ciphers: vec![AnyCipher::Identity],
+                }],
+                codec: CodecStrategy::Search(CodecSearch {
+                    max_group_len: 2,
+                    try_delta: false,
+                    orders: vec![DigitOrder::Msb],
+                    seed: DEFAULT_SEED,
+                }),
+                // Domain == the bare 6-symbol cipher alphabet — too small to host the
+                // group_len-2 widening (36 symbols).
+                mappings: MappingStrategy::Fixed(vec![Mapping::identity(base)]),
+                language: LanguageChoice::English,
+                cipher_alphabet_size: base,
+                seed: DEFAULT_SEED,
+                null_trials: 2,
+            },
+            english: &english,
+            finnish: &finnish,
+        };
+
+        // The whole point: it returns Ok (skips-with-log), it does NOT hard-error
+        // with MappingSymbolOutsideTable.
+        let outcome = solve_with_codec_trace(&request).unwrap();
+
+        // group_len 2 (6² = 36 > the 6-entry mapping domain) is logged as a
+        // MappingDomainMismatch, never silently dropped nor hard-errored.
+        assert!(
+            outcome.skipped.iter().any(|skip| matches!(
+                skip.reason,
+                CodecSkipReason::MappingDomainMismatch {
+                    resolved: 36,
+                    mapping_domain: 6,
+                }
+            )),
+            "expected a MappingDomainMismatch(36, 6) skip in {:?}",
+            outcome.skipped
+        );
+        // group_len 1 (Identity, 6 < 29) is the sanity-floor skip; with both codecs
+        // pruned there is no survivor and thus no candidate — but NO error.
+        assert!(
+            outcome
+                .skipped
+                .iter()
+                .any(|skip| matches!(skip.reason, CodecSkipReason::SanityTooSmall { .. })),
+            "expected a SanityTooSmall skip in {:?}",
+            outcome.skipped
+        );
+        assert!(outcome.candidates.is_empty());
     }
 
     #[test]
@@ -3460,6 +3587,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
             "small-alphabet",
             super::DEFAULT_SEED,
             size,
+            ciphertext.len(),
             &candidates,
             &english,
             &finnish,

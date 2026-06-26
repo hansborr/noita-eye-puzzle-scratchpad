@@ -175,6 +175,8 @@ struct SolveArgs {
     /// and run the mapping strategy on each transduced stream, flipping the codec
     /// stage from Fixed to Search (parallel to --mapping-search). Widens a small
     /// cipher alphabet (5/6/12 symbols) enough to host 26-29-letter language.
+    /// IMPLIES --mapping-search: a widened (`base^group_len`) alphabet has no fixed
+    /// mapping, so this auto-enables the mapping search over the codec's output.
     #[arg(long = "codec-search")]
     codec_search: bool,
     /// Hill-climb / anneal the symbol->letter mapping (Phase 2) instead of
@@ -1296,6 +1298,9 @@ fn run_solve(args: &SolveArgs) -> ExitCode {
         &args.label,
         args.seed,
         cipher_alphabet_size,
+        // The ciphertext (cipher-symbol) count, so the record header reports the
+        // real length even on the zero-candidate honest negative.
+        parsed.glyphs.len(),
         &candidates,
         &english,
         &finnish,
@@ -1331,7 +1336,18 @@ fn solve_mapping_strategy(
     cipher_alphabet_size: usize,
     language_alphabet_size: usize,
 ) -> solve::MappingStrategy {
-    if args.mapping_search {
+    // `--codec-search` enables a WIDENING codec search: a grouping codec lifts the
+    // bare cipher alphabet to base^group_len, which the default `Fixed` mapping
+    // (sized to the bare alphabet) cannot host. A codec search therefore REQUIRES a
+    // mapping search over the widened alphabet, so auto-enable it (with a one-line
+    // note) when the user asked for `--codec-search` but not `--mapping-search`.
+    // The no-flag default is unchanged: neither set => `Fixed`.
+    if args.codec_search && !args.mapping_search {
+        eprintln!(
+            "note: --codec-search implies a mapping search over the widened alphabet; enabling --mapping-search"
+        );
+    }
+    if args.mapping_search || args.codec_search {
         solve::MappingStrategy::Search(solve::MappingSearch {
             restarts: args.restarts,
             iterations: args.iterations,

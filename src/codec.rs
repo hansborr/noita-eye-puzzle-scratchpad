@@ -242,6 +242,21 @@ pub enum CodecSkipReason {
     /// an ill-fitting config never silently truncates the stream nor aborts the
     /// whole search.
     Untransducible,
+    /// The resolved output alphabet exceeds the domain of the declared
+    /// [`MappingStrategy::Fixed`](crate::solve::MappingStrategy::Fixed) mapping, so
+    /// that mapping cannot host the widened stream. Logged-and-skipped
+    /// (defense-in-depth) rather than hard-erroring with
+    /// [`SolveError::MappingSymbolOutsideTable`](crate::solve::SolveError::MappingSymbolOutsideTable):
+    /// a [`CodecStrategy::Search`] paired with an explicit fixed mapping skips the
+    /// codecs the mapping is too small to host instead of aborting the whole
+    /// search. (The CLI never reaches this path — it auto-enables the mapping
+    /// search under `--codec-search`.)
+    MappingDomainMismatch {
+        /// Resolved output alphabet size of the skipped codec.
+        resolved: usize,
+        /// Domain (table length) of the smallest declared fixed mapping.
+        mapping_domain: usize,
+    },
 }
 
 /// An enumerated codec that the search pruned, paired with the reason. Returned as
