@@ -11,6 +11,9 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use crate::ciphers::{AnyCipher, CipherError};
+use crate::codec::{
+    AnyCodec, Codec, CodecError, CodecStrategy, codec_round_trip_ok, resolved_output_alphabet_size,
+};
 use crate::glyph::Glyph;
 use crate::ingest::IngestError;
 use crate::language::{LanguageError, LanguageModel};
@@ -78,26 +81,6 @@ impl Mapping {
     #[must_use]
     pub fn table(&self) -> &[usize] {
         &self.table
-    }
-}
-
-/// Minimal codec stage for Phase 1.
-///
-/// The full codec family belongs to brief 04a. Phase 1 threads this enum
-/// through candidates so later widening codecs have a stable field to extend.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum AnyCodec {
-    /// Pass decrypted cipher symbols through unchanged.
-    Identity,
-}
-
-impl AnyCodec {
-    /// Transduces decrypted cipher symbols into the mapping domain.
-    #[must_use]
-    pub fn transduce(self, symbols: &[Glyph]) -> Vec<Glyph> {
-        match self {
-            Self::Identity => symbols.to_vec(),
-        }
     }
 }
 
@@ -196,6 +179,10 @@ pub struct CipherFamilySpec {
 pub struct HypothesisSpace {
     /// Cipher families and keyed candidates to evaluate.
     pub families: Vec<CipherFamilySpec>,
+    /// Codec stage between decrypted cipher symbols and the mapping domain. Phase
+    /// 1 implements [`CodecStrategy::Fixed`] only; the default is a single
+    /// [`AnyCodec::Identity`] (cipher alphabet already >= language alphabet).
+    pub codec: CodecStrategy,
     /// Fixed mappings in Phase 1; search configuration in Phase 2.
     pub mappings: MappingStrategy,
     /// Language models to score, with Finnish evaluated first for [`Both`].
@@ -233,6 +220,11 @@ pub struct Candidate {
     pub crypto_round_trip_ok: bool,
     /// Codec used between cipher symbols and mapping domain.
     pub codec: AnyCodec,
+    /// Whether the codec round-trips: re-expanding the transduced stream (ungroup
+    /// digits / re-integrate a delta from its seed) reproduces `decrypted_symbols`.
+    /// Trivially `true` for [`AnyCodec::Identity`]; an honest fourth gate alongside
+    /// `crypto_round_trip_ok`.
+    pub codec_round_trip_ok: bool,
     /// Symbol-to-language-index mapping used for rendering and scoring.
     pub mapping: Mapping,
     /// Language model used for the reported score.
@@ -256,6 +248,8 @@ pub enum SolveError {
     Language(LanguageError),
     /// Cipher construction or translation failed.
     Cipher(CipherError),
+    /// Codec transduction failed.
+    Codec(CodecError),
     /// External ciphertext ingest failed.
     Ingest(IngestError),
     /// A deterministic random draw could not be made for the given bound.
@@ -274,6 +268,10 @@ pub enum SolveError {
     ZeroNullTrials,
     /// The fixed mapping set was empty.
     EmptyMappingSet,
+    /// The fixed codec set was empty.
+    EmptyCodecSet,
+    /// Codec search is a Phase-2 feature and is not implemented in Phase 1.
+    CodecSearchUnavailable,
     /// A mapped symbol was outside the mapping table.
     MappingSymbolOutsideTable {
         /// Offending cipher symbol.
@@ -309,6 +307,7 @@ impl fmt::Display for SolveError {
         match self {
             Self::Language(error) => write!(f, "language scoring failed: {error}"),
             Self::Cipher(error) => write!(f, "cipher operation failed: {error}"),
+            Self::Codec(error) => write!(f, "codec transduction failed: {error}"),
             Self::Ingest(error) => write!(f, "ciphertext ingest failed: {error}"),
             Self::RandomBoundTooLarge { bound } => {
                 write!(f, "random bound {bound} is zero or too large")
@@ -319,6 +318,8 @@ impl fmt::Display for SolveError {
             Self::EmptyHypothesisSpace => f.write_str("solve hypothesis space is empty"),
             Self::ZeroNullTrials => f.write_str("solve matched null requires at least one trial"),
             Self::EmptyMappingSet => f.write_str("solve fixed mapping set is empty"),
+            Self::EmptyCodecSet => f.write_str("solve fixed codec set is empty"),
+            Self::CodecSearchUnavailable => f.write_str("codec search is reserved for Phase 2"),
             Self::MappingSymbolOutsideTable { symbol, table_len } => write!(
                 f,
                 "cipher symbol {symbol} is outside mapping table length {table_len}"
@@ -350,6 +351,7 @@ impl std::error::Error for SolveError {
         match self {
             Self::Language(error) => Some(error),
             Self::Cipher(error) => Some(error),
+            Self::Codec(error) => Some(error),
             Self::Ingest(error) => Some(error),
             Self::CandidateRecordWrite { source, .. } => Some(source),
             Self::RandomBoundTooLarge { .. }
@@ -357,6 +359,8 @@ impl std::error::Error for SolveError {
             | Self::EmptyHypothesisSpace
             | Self::ZeroNullTrials
             | Self::EmptyMappingSet
+            | Self::EmptyCodecSet
+            | Self::CodecSearchUnavailable
             | Self::MappingSymbolOutsideTable { .. }
             | Self::CiphertextSymbolOutsideAlphabet { .. }
             | Self::LanguageIndexOutsideAlphabet { .. }
@@ -374,6 +378,12 @@ impl From<LanguageError> for SolveError {
 impl From<CipherError> for SolveError {
     fn from(error: CipherError) -> Self {
         Self::Cipher(error)
+    }
+}
+
+impl From<CodecError> for SolveError {
+    fn from(error: CodecError) -> Self {
+        Self::Codec(error)
     }
 }
 
@@ -407,16 +417,26 @@ impl From<crate::null::RandomBoundError> for SolveError {
 /// complete.
 pub fn solve(req: &SolveRequest<'_>) -> Result<Vec<Candidate>, SolveError> {
     validate_request(req)?;
-    let mut candidates = match &req.space.mappings {
-        MappingStrategy::Fixed(mappings) => {
-            let mut collected = Vec::new();
-            for family in &req.space.families {
-                collected.extend(evaluate_family(req, family, mappings)?);
-            }
-            collected
-        }
-        MappingStrategy::Search(search) => solve_search(req, search)?,
+    let codecs = match &req.space.codec {
+        CodecStrategy::Fixed(codecs) => codecs,
+        // Phase-1 seam: the codec search (codec parameters x brief 04's mapping
+        // search) is brief 04a Phase 2. Mirror how MappingStrategy::Search is left
+        // unavailable in Phase 1 rather than silently degrading.
+        CodecStrategy::Search(_) => return Err(SolveError::CodecSearchUnavailable),
     };
+    let mut candidates = Vec::new();
+    for codec in codecs {
+        match &req.space.mappings {
+            MappingStrategy::Fixed(mappings) => {
+                for family in &req.space.families {
+                    candidates.extend(evaluate_family(req, family, mappings, codec)?);
+                }
+            }
+            MappingStrategy::Search(search) => {
+                candidates.extend(solve_search(req, search, codec)?);
+            }
+        }
+    }
     candidates.sort_by(|left, right| right.score.total_cmp(&left.score));
     Ok(candidates)
 }
@@ -438,6 +458,9 @@ fn validate_request(req: &SolveRequest<'_>) -> Result<(), SolveError> {
     }
     if matches!(&req.space.mappings, MappingStrategy::Fixed(mappings) if mappings.is_empty()) {
         return Err(SolveError::EmptyMappingSet);
+    }
+    if matches!(&req.space.codec, CodecStrategy::Fixed(codecs) if codecs.is_empty()) {
+        return Err(SolveError::EmptyCodecSet);
     }
     validate_ciphertext_symbols(req.ciphertext, req.space.cipher_alphabet_size)
 }
@@ -462,14 +485,15 @@ fn evaluate_family(
     req: &SolveRequest<'_>,
     family: &CipherFamilySpec,
     mappings: &[Mapping],
+    codec: &AnyCodec,
 ) -> Result<Vec<Candidate>, SolveError> {
     let mut candidates = Vec::new();
     for mapping in mappings {
         for language in req.space.language.languages() {
-            let null_mean = matched_null_mean(req, family, mapping, *language)?;
+            let null_mean = matched_null_mean(req, family, mapping, *language, codec)?;
             for cipher in &family.ciphers {
                 if let Some(candidate) =
-                    evaluate_cipher(req, cipher, mapping, *language, null_mean)?
+                    evaluate_cipher(req, cipher, mapping, *language, null_mean, codec)?
                 {
                     candidates.push(candidate);
                 }
@@ -485,18 +509,19 @@ fn evaluate_cipher(
     mapping: &Mapping,
     language: Language,
     null_mean: f64,
+    codec: &AnyCodec,
 ) -> Result<Option<Candidate>, SolveError> {
     let Some(decrypted_symbols) = decrypt_round_trip(cipher, req.ciphertext)? else {
         return Ok(None);
     };
-    let codec = AnyCodec::Identity;
-    let transduced = codec.transduce(&decrypted_symbols);
+    let transduced = codec.transduce(&decrypted_symbols)?;
     let scored = score_transduced(&transduced, mapping, model_for(req, language))?;
     Ok(Some(Candidate {
         cipher: cipher.clone(),
-        decrypted_symbols,
         crypto_round_trip_ok: true,
-        codec,
+        codec_round_trip_ok: codec_round_trip_ok(codec, &decrypted_symbols),
+        decrypted_symbols,
+        codec: codec.clone(),
         mapping: mapping.clone(),
         language,
         rendered_text: scored.rendered_text,
@@ -545,6 +570,7 @@ fn matched_null_mean(
     family: &CipherFamilySpec,
     mapping: &Mapping,
     language: Language,
+    codec: &AnyCodec,
 ) -> Result<f64, SolveError> {
     let model = model_for(req, language);
     let seed = mix_seed(req.space.seed, family_seed_tag(family) ^ 0x6e75_6c6c);
@@ -553,7 +579,7 @@ fn matched_null_mean(
     for _trial in 0..req.space.null_trials {
         let mut shuffled = req.ciphertext.to_vec();
         fisher_yates(&mut shuffled, &mut rng)?;
-        total += best_family_score(&shuffled, family, mapping, model)?;
+        total += best_family_score(&shuffled, family, mapping, model, codec)?;
     }
     Ok(total / req.space.null_trials as f64)
 }
@@ -563,13 +589,14 @@ fn best_family_score(
     family: &CipherFamilySpec,
     mapping: &Mapping,
     model: &LanguageModel,
+    codec: &AnyCodec,
 ) -> Result<f64, SolveError> {
     let mut best = None;
     for cipher in &family.ciphers {
         let Some(decrypted_symbols) = decrypt_round_trip(cipher, ciphertext)? else {
             continue;
         };
-        let transduced = AnyCodec::Identity.transduce(&decrypted_symbols);
+        let transduced = codec.transduce(&decrypted_symbols)?;
         let score = score_transduced(&transduced, mapping, model)?.score;
         if best.is_none_or(|previous| score > previous) {
             best = Some(score);
@@ -649,11 +676,12 @@ enum Proposal {
 fn solve_search(
     req: &SolveRequest<'_>,
     search: &MappingSearch,
+    codec: &AnyCodec,
 ) -> Result<Vec<Candidate>, SolveError> {
     let mut candidates = Vec::new();
     for family in &req.space.families {
         for language in req.space.language.languages() {
-            let null_mean = matched_null_search_mean(req, family, *language, search)?;
+            let null_mean = matched_null_search_mean(req, family, *language, search, codec)?;
             for (cipher_index, cipher) in family.ciphers.iter().enumerate() {
                 if let Some(candidate) = evaluate_cipher_search(
                     req,
@@ -663,6 +691,7 @@ fn solve_search(
                     *language,
                     null_mean,
                     search,
+                    codec,
                 )? {
                     candidates.push(candidate);
                 }
@@ -672,6 +701,13 @@ fn solve_search(
     Ok(candidates)
 }
 
+// The codec stage threads an extra dimension through the established search
+// pipeline; the params are the existing pipeline shape plus `codec`, so bundling
+// them into a context struct would obscure rather than clarify.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Phase-1 codec wiring adds one codec parameter to the existing search path"
+)]
 fn evaluate_cipher_search(
     req: &SolveRequest<'_>,
     family: &CipherFamilySpec,
@@ -680,28 +716,25 @@ fn evaluate_cipher_search(
     language: Language,
     null_mean: f64,
     search: &MappingSearch,
+    codec: &AnyCodec,
 ) -> Result<Option<Candidate>, SolveError> {
     let Some(decrypted_symbols) = decrypt_round_trip(cipher, req.ciphertext)? else {
         return Ok(None);
     };
     let model = model_for(req, language);
-    let codec = AnyCodec::Identity;
-    let transduced = codec.transduce(&decrypted_symbols);
-    let symbols = to_symbol_indices(&transduced, req.space.cipher_alphabet_size)?;
+    let transduced = codec.transduce(&decrypted_symbols)?;
+    // The mapping search domain is the codec's output alphabet (Identity resolves
+    // back to the cipher alphabet size, keeping the eyes path byte-for-byte).
+    let mapping_domain = resolved_output_alphabet_size(codec, req.space.cipher_alphabet_size);
+    let symbols = to_symbol_indices(&transduced, mapping_domain)?;
     let seed = search_seed(search.seed, family, cipher_index, language);
 
-    let full = search_mapping(
-        &symbols,
-        req.space.cipher_alphabet_size,
-        model,
-        search,
-        seed,
-    )?;
+    let full = search_mapping(&symbols, mapping_domain, model, search, seed)?;
     let mapped = full.mapping.apply(&transduced)?;
     let rendered_text = render_indices(&mapped, model)?;
     let heldout_mapping_score = heldout_search_score(
         &symbols,
-        req.space.cipher_alphabet_size,
+        mapping_domain,
         model,
         search,
         mix_seed(seed, 0x0068_656c_646f_7574),
@@ -709,9 +742,10 @@ fn evaluate_cipher_search(
 
     Ok(Some(Candidate {
         cipher: cipher.clone(),
-        decrypted_symbols,
         crypto_round_trip_ok: true,
-        codec,
+        codec_round_trip_ok: codec_round_trip_ok(codec, &decrypted_symbols),
+        decrypted_symbols,
+        codec: codec.clone(),
         mapping: full.mapping,
         language,
         rendered_text,
@@ -764,6 +798,7 @@ fn matched_null_search_mean(
     family: &CipherFamilySpec,
     language: Language,
     search: &MappingSearch,
+    codec: &AnyCodec,
 ) -> Result<f64, SolveError> {
     let model = model_for(req, language);
     let shuffle_seed = mix_seed(req.space.seed, family_seed_tag(family) ^ 0x6e75_6c6c);
@@ -780,11 +815,16 @@ fn matched_null_search_mean(
             model,
             search,
             trial_seed,
+            codec,
         )?;
     }
     Ok(total / req.space.null_trials as f64)
 }
 
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Phase-1 codec wiring adds one codec parameter to the existing search path"
+)]
 fn best_family_search_score(
     ciphertext: &[Glyph],
     family: &CipherFamilySpec,
@@ -792,16 +832,18 @@ fn best_family_search_score(
     model: &LanguageModel,
     search: &MappingSearch,
     seed: u64,
+    codec: &AnyCodec,
 ) -> Result<f64, SolveError> {
     let mut best = None;
+    let mapping_domain = resolved_output_alphabet_size(codec, cipher_alphabet_size);
     for (cipher_index, cipher) in family.ciphers.iter().enumerate() {
         let Some(decrypted_symbols) = decrypt_round_trip(cipher, ciphertext)? else {
             continue;
         };
-        let transduced = AnyCodec::Identity.transduce(&decrypted_symbols);
-        let symbols = to_symbol_indices(&transduced, cipher_alphabet_size)?;
+        let transduced = codec.transduce(&decrypted_symbols)?;
+        let symbols = to_symbol_indices(&transduced, mapping_domain)?;
         let cipher_seed = mix_seed(seed, cipher_index as u64);
-        let outcome = search_mapping(&symbols, cipher_alphabet_size, model, search, cipher_seed)?;
+        let outcome = search_mapping(&symbols, mapping_domain, model, search, cipher_seed)?;
         if best.is_none_or(|previous| outcome.score > previous) {
             best = Some(outcome.score);
         }
@@ -1402,13 +1444,14 @@ pub fn log_solve_run(
 #[cfg(test)]
 mod tests {
     use super::{
-        AnnealSchedule, AnyCodec, CipherFamilySpec, DEFAULT_NULL_TRIALS, DEFAULT_SEED,
-        HypothesisSpace, Language, LanguageChoice, Mapping, MappingSearch, MappingStrategy,
-        SolveError, SolveRequest, candidate_survives, solve,
+        AnnealSchedule, AnyCodec, CipherFamilySpec, Codec, CodecStrategy, DEFAULT_NULL_TRIALS,
+        DEFAULT_SEED, HypothesisSpace, Language, LanguageChoice, Mapping, MappingSearch,
+        MappingStrategy, SolveError, SolveRequest, candidate_survives, solve,
     };
     use crate::ciphers::{
         AnyCipher, CaesarKey, TranspositionKey, caesar_encrypt, transposition_encrypt,
     };
+    use crate::codec::{DigitOrder, GroupingCodec};
     use crate::glyph::Glyph;
     use crate::language::{LanguageModel, english_model, finnish_model};
     use crate::null::{SplitMix64, shuffled_permutation};
@@ -1638,6 +1681,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
                     label: "identity".to_owned(),
                     ciphers: vec![AnyCipher::Identity],
                 }],
+                codec: CodecStrategy::Fixed(vec![AnyCodec::Identity]),
                 mappings: MappingStrategy::Search(search),
                 language: LanguageChoice::Both,
                 cipher_alphabet_size: 26,
@@ -1662,6 +1706,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
                     label: "identity".to_owned(),
                     ciphers: vec![AnyCipher::Identity],
                 }],
+                codec: CodecStrategy::Fixed(vec![AnyCodec::Identity]),
                 mappings: MappingStrategy::Search(search),
                 language: LanguageChoice::Both,
                 cipher_alphabet_size: crate::ciphers::EYE_READING_ALPHABET_SIZE,
@@ -1677,7 +1722,126 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
     fn identity_codec_passes_symbols_through() {
         let input = glyphs(&[3, 1, 4]);
 
-        assert_eq!(AnyCodec::Identity.transduce(&input), input);
+        assert_eq!(AnyCodec::Identity.transduce(&input).unwrap(), input);
+    }
+
+    // Step 4 — synthetic plant-through-codec positive control (fixed codec).
+    // Plant: English (language indices 0..28) -> expand each letter into TWO base-6
+    // digits (MSB) -> a base-6 digit stream -> Caesar(base 6, shift 2) -> ciphertext.
+    // solve with the matching FixedGrouping{2,6,Msb,2} + the known grouped-value ->
+    // letter mapping recovers the planted English as the TOP, codec+cipher
+    // round-trip-consistent candidate. (A direct 6-symbol substitution could never
+    // host 29 letters; the codec widens 6 -> 6^2 = 36 >= 29 first.)
+    #[test]
+    fn fixed_grouping_plant_recovers_planted_english() {
+        let english = english_model().unwrap();
+        let finnish = finnish_model().unwrap();
+        let base = 6usize;
+        let group_len = 2usize;
+        let language_size = english.alphabet().len(); // 29 <= 36 = 6^2
+
+        let plaintext_indices = english
+            .alphabet()
+            .normalize_text(
+                "THE NORTHERN STARS SHINE ON THE ROSE AND THE HEART OF IRON RESTS IN THE STONE \
+                 THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG NEAR THE FOGGY HARBOR EVERY MORNING",
+            )
+            .unwrap();
+
+        // Inverse codec: expand each language index into group_len base-6 digits (MSB).
+        let mut digits: Vec<Glyph> = Vec::with_capacity(plaintext_indices.len() * group_len);
+        for &index in &plaintext_indices {
+            digits.push(Glyph((index / base) as u16));
+            digits.push(Glyph((index % base) as u16));
+        }
+
+        // Known cipher: Caesar over base 6, shift 2.
+        let key = CaesarKey::new(base, 2).unwrap();
+        let ciphertext = caesar_encrypt(&digits, &key).unwrap();
+
+        // Known mapping: grouped value v (0..36) -> language index v for v < size.
+        // The planted English only produces v == index < size, so it renders exactly.
+        let mapping = Mapping::from_table(
+            (0..base.pow(group_len as u32))
+                .map(|value| if value < language_size { value } else { 0 })
+                .collect(),
+        );
+        let codec = AnyCodec::FixedGrouping(GroupingCodec {
+            group_len,
+            base,
+            order: DigitOrder::Msb,
+            stride: group_len,
+        });
+
+        let request = SolveRequest {
+            ciphertext: &ciphertext,
+            space: HypothesisSpace {
+                families: vec![CipherFamilySpec {
+                    label: "Caesar".to_owned(),
+                    ciphers: identity_plus_caesar_ciphers(base),
+                }],
+                codec: CodecStrategy::Fixed(vec![codec]),
+                mappings: MappingStrategy::Fixed(vec![mapping]),
+                language: LanguageChoice::English,
+                cipher_alphabet_size: base,
+                seed: DEFAULT_SEED,
+                null_trials: DEFAULT_NULL_TRIALS,
+            },
+            english: &english,
+            finnish: &finnish,
+        };
+
+        let candidates = solve(&request).unwrap();
+        let top = candidates.first().unwrap();
+
+        // Recovered as the TOP, codec+cipher round-trip-consistent candidate.
+        assert_eq!(top.cipher, AnyCipher::Caesar(key));
+        assert!(top.crypto_round_trip_ok);
+        assert!(top.codec_round_trip_ok);
+        assert!(top.beats_null, "score {} null {}", top.score, top.null_mean);
+
+        // The rendered text is exactly the planted English (letters, no spaces).
+        let expected: String = plaintext_indices
+            .iter()
+            .map(|&index| english.alphabet().symbol(index).unwrap())
+            .collect();
+        assert_eq!(top.rendered_text, expected);
+    }
+
+    // The Phase-2 codec search is a clean seam in Phase 1: it returns a clear
+    // unavailable error rather than silently degrading (mirrors MappingSearch).
+    #[test]
+    fn codec_search_strategy_is_unavailable_in_phase_1() {
+        let english = english_model().unwrap();
+        let finnish = finnish_model().unwrap();
+        let ciphertext = glyphs(&[0, 1, 2, 3, 4]);
+        let request = SolveRequest {
+            ciphertext: &ciphertext,
+            space: HypothesisSpace {
+                families: vec![CipherFamilySpec {
+                    label: "identity".to_owned(),
+                    ciphers: vec![AnyCipher::Identity],
+                }],
+                codec: CodecStrategy::Search(crate::codec::CodecSearch {
+                    max_group_len: 3,
+                    try_delta: true,
+                    orders: vec![DigitOrder::Msb],
+                    seed: DEFAULT_SEED,
+                }),
+                mappings: MappingStrategy::Fixed(vec![Mapping::identity(5)]),
+                language: LanguageChoice::English,
+                cipher_alphabet_size: 5,
+                seed: DEFAULT_SEED,
+                null_trials: 2,
+            },
+            english: &english,
+            finnish: &finnish,
+        };
+
+        assert!(matches!(
+            solve(&request).unwrap_err(),
+            SolveError::CodecSearchUnavailable
+        ));
     }
 
     #[test]
@@ -1697,6 +1861,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
                     label: "Caesar".to_owned(),
                     ciphers: identity_plus_caesar_ciphers(english.alphabet().len()),
                 }],
+                codec: CodecStrategy::Fixed(vec![AnyCodec::Identity]),
                 mappings: MappingStrategy::Fixed(vec![Mapping::identity(english.alphabet().len())]),
                 language: LanguageChoice::English,
                 cipher_alphabet_size: english.alphabet().len(),
@@ -1746,6 +1911,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
                         AnyCipher::Transposition(key.clone()),
                     ],
                 }],
+                codec: CodecStrategy::Fixed(vec![AnyCodec::Identity]),
                 mappings: MappingStrategy::Fixed(vec![Mapping::identity(english.alphabet().len())]),
                 language: LanguageChoice::English,
                 cipher_alphabet_size: english.alphabet().len(),
@@ -2006,6 +2172,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
                     label: "identity".to_owned(),
                     ciphers: vec![AnyCipher::Identity],
                 }],
+                codec: CodecStrategy::Fixed(vec![AnyCodec::Identity]),
                 mappings: MappingStrategy::Search(search),
                 language: LanguageChoice::English,
                 cipher_alphabet_size,

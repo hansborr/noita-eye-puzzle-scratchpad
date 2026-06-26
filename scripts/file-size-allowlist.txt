@@ -15,7 +15,7 @@ src/gak_attack/solver.rs            1993  # brief 07A fragment from gak_attack g
 src/gak_attack/generator.rs         647   # brief 07A fragment from gak_attack god-file (tracks engine-spine)
 src/ciphers.rs                      3673  # cipher zoo; +Identity/Transposition (brief 04 solve pipeline); shrinks under briefs 02, 07b
 src/conditional_structure.rs        2283  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
-src/solve.rs                        2112  # brief 04 Phase 2: mapping search + held-out + matched-null + record writer + positive-control/letter-puzzle/eyes validation; stays flat per brief (module move is 07B)
+src/solve.rs                        2279  # brief 04 Phase 2 + brief 04a Phase 1: codec stage wired through fixed/search paths (CodecStrategy, codec_round_trip_ok, FixedGrouping plant control); module move is 07B
 src/perfect_isomorphism.rs          2056  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/chaining_graph.rs               1830  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/dof_null.rs                     1786  # matched-null driver; brief 05 harness + brief 06 colocated report render
@@ -25,7 +25,7 @@ src/null.rs                         1664  # matched-null harness core; brief 05 
 src/controls.rs                     1636  # positive controls; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/modular_diff.rs                 1600  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/grouping.rs                     1511  # structural analysis; brief 06 colocated report render; brief 07b
-src/main.rs                         1413  # CLI dispatch; +solve subcommand & Phase-2 --mapping-search/--candidates-dir auto-log (brief 04); shrank at maint merge (.render()/{error} call sites); brief 08
+src/main.rs                         1417  # CLI dispatch; +solve subcommand & Phase-2 --mapping-search/--candidates-dir auto-log (brief 04); +brief 04a default Identity codec strategy; brief 08
 src/orders.rs                       1340  # reading layer; briefs 04a, 07b
 src/periodicity.rs                  1322  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/perseus.rs                      1316  # matched-null driver; brief 05 harness + brief 06 colocated report render
@@ -36,6 +36,6 @@ src/agl_gak.rs                      1208  # attack; brief 06 colocated report re
 src/orientation_homogeneity.rs      1138  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/pipeline_null.rs                684   # matched-null driver; brief 05 harness + brief 06 colocated report render; trim under 07b
 src/zero_adjacency_null.rs          848   # matched-null driver; brief 05 harness + brief 06 colocated report render
-src/codec.rs                        759   # new (brief 04a codec layer)
+src/codec.rs                        787   # new (brief 04a codec layer)
 src/language.rs                     618   # language scorer; brief 04
 src/ingest.rs                       610   # new (brief 03); trim under 600 next

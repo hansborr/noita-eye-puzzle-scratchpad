@@ -116,6 +116,34 @@ pub enum DigitOrder {
     Lsb,
 }
 
+/// Codec strategy for a solve request: which codecs sit between the cipher's
+/// decrypted symbols and the symbol->letter mapping.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CodecStrategy {
+    /// Phase 1: a declared set of codecs, each round-tripped + scored (no search).
+    /// The behavior-preserving default is a single [`AnyCodec::Identity`].
+    Fixed(Vec<AnyCodec>),
+    /// Phase 2 seam: enumerate codec parameters and run the mapping search on each
+    /// transduced stream, ranked by held-out + matched-null. **Not implemented in
+    /// Phase 1** — the solve pipeline returns a clear phase-2-unavailable error.
+    Search(CodecSearch),
+}
+
+/// Phase-2 codec-search configuration (a seam in Phase 1; the enumeration is not
+/// implemented yet). `base` is fixed to the cipher alphabet size, not searched.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CodecSearch {
+    /// `group_len` is enumerated over `1..=max_group_len`.
+    pub max_group_len: usize,
+    /// Whether to enumerate the delta codec in `{off, on}`.
+    pub try_delta: bool,
+    /// Digit orders to enumerate (a subset of `{Msb, Lsb}`).
+    pub orders: Vec<DigitOrder>,
+    /// Deterministic seed for the enumeration (drives `SplitMix64`); same seed =>
+    /// same enumeration.
+    pub seed: u64,
+}
+
 /// Error returned by the codec layer. Hand-written `Display` + [`std::error::Error`]
 /// (mirrors [`crate::ciphers::CipherError`]); no `thiserror`.
 #[derive(Clone, Debug, PartialEq, Eq)]

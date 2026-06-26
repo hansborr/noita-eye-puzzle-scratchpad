@@ -9,8 +9,8 @@ use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use noita_eye_puzzle::{
-    agl_gak, chaining, chaining_graph, cipher_attack, ciphers, conditional_structure, controls,
-    corpus, dof_null, gak_attack,
+    agl_gak, chaining, chaining_graph, cipher_attack, ciphers, codec, conditional_structure,
+    controls, corpus, dof_null, gak_attack,
     glyph::{Alphabet, Sequence},
     grouping, honeycomb, ingest, isomorph_null, language, modular_diff, null, orders,
     orientation_homogeneity, perfect_isomorphism, periodicity, perseus, pipeline_null,
@@ -1234,6 +1234,10 @@ fn run_solve(args: &SolveArgs) -> ExitCode {
         ciphertext: &parsed.glyphs,
         space: solve::HypothesisSpace {
             families: solve_families(cipher_alphabet_size, &args.family),
+            // Phase 1 default: Identity codec (the eyes' 83-symbol alphabet already
+            // spans the 29-letter language; small-alphabet widening codecs land via
+            // the library CodecStrategy as later phases wire CLI controls).
+            codec: codec::CodecStrategy::Fixed(vec![codec::AnyCodec::Identity]),
             mappings,
             language: solve::LanguageChoice::Both,
             cipher_alphabet_size,
