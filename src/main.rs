@@ -12,9 +12,9 @@ use noita_eye_puzzle::{
     agl_gak, chaining, chaining_graph, cipher_attack, ciphers, codec, conditional_structure,
     controls, corpus, dof_null, gak_attack,
     glyph::{Alphabet, Sequence},
-    grouping, honeycomb, ingest, isomorph_null, language, modular_diff, null, orders,
+    grouping, honeycomb, ingest, isomorph_null, keystream, language, modular_diff, null, orders,
     orientation_homogeneity, perfect_isomorphism, periodicity, perseus, pipeline_null,
-    pyry_conditions,
+    pyry_conditions, quadgram,
     report::{self, Report},
     solve, transitivity, tree_residual, zero_adjacency_null,
 };
@@ -112,6 +112,11 @@ enum Command {
     Controls(ControlsArgs),
     /// Search and score solve hypotheses; candidates are HYPOTHESES, not decodes.
     Solve(SolveArgs),
+    /// Crack a polyalphabetic keystream cipher (Vigenere/Beaufort/autokey) on a
+    /// practice letter-puzzle. HONEST-NEGATIVE is the expected outcome on the
+    /// non-periodic puzzles; any survivor is a HYPOTHESIS, never a decode.
+    #[command(name = "keystream")]
+    Keystream(KeystreamArgs),
 }
 
 #[derive(Debug, Args)]
@@ -218,6 +223,119 @@ enum SolveCodecArg {
     Identity,
     /// The eye honeycomb base-5 trigram grouping (`FixedGrouping{3,5,Msb,3}`).
     Honeycomb,
+}
+
+#[derive(Clone, Debug, Args)]
+struct KeystreamArgs {
+    /// Built-in practice letter-puzzle to crack.
+    #[arg(long, value_enum, conflicts_with_all = ["input_file", "stdin"])]
+    puzzle: Option<KeystreamPuzzleArg>,
+    /// Read the ciphertext (letters only; other characters dropped) from a file.
+    #[arg(long = "input-file", conflicts_with = "stdin")]
+    input_file: Option<std::path::PathBuf>,
+    /// Read the ciphertext from stdin.
+    #[arg(long, conflicts_with = "input_file")]
+    stdin: bool,
+    /// Cipher family to search. Repeat to include more than one; default = all.
+    #[arg(long = "family", value_enum)]
+    family: Vec<KeystreamFamilyArg>,
+    /// Smallest key length searched (used unless --key-len is given).
+    #[arg(long = "min-key-len", default_value_t = 1)]
+    min_key_len: usize,
+    /// Largest key length searched (used unless --key-len is given).
+    #[arg(long = "max-key-len", default_value_t = 20)]
+    max_key_len: usize,
+    /// Search a single fixed key length (overrides --min-key-len/--max-key-len).
+    #[arg(long = "key-len")]
+    key_len: Option<usize>,
+    /// Alphabet size N.
+    #[arg(long = "alphabet-size", default_value_t = keystream::DEFAULT_ALPHABET_SIZE)]
+    alphabet_size: usize,
+    /// Annealed-search random restarts.
+    #[arg(long, default_value_t = keystream::DEFAULT_RESTARTS)]
+    restarts: usize,
+    /// Annealing iterations per restart.
+    #[arg(long, default_value_t = keystream::DEFAULT_ITERATIONS)]
+    iterations: usize,
+    /// Annealing start temperature; 0 = pure hill-climb.
+    #[arg(long = "anneal-temp", default_value_t = keystream::DEFAULT_ANNEAL_TEMP)]
+    anneal_temp: f64,
+    /// Deterministic seed for the search and the matched null.
+    #[arg(long, default_value_t = keystream::DEFAULT_SEED)]
+    seed: u64,
+    /// Number of random-key null trials for the reported DIAGNOSTIC (not the gate).
+    #[arg(long = "null-trials", default_value_t = keystream::DEFAULT_NULL_TRIALS)]
+    null_trials: usize,
+    /// Number of matched-null trials (reruns of the search on shuffled
+    /// ciphertext) — the survival gate. 0 disables survival.
+    #[arg(long = "matched-null-trials", default_value_t = keystream::DEFAULT_MATCHED_NULL_TRIALS)]
+    matched_null_trials: usize,
+    /// Directory for any surviving candidate's record (a labelled HYPOTHESIS).
+    #[arg(long = "candidates-dir", default_value = DEFAULT_CANDIDATES_DIR)]
+    candidates_dir: std::path::PathBuf,
+    /// Stable label for candidate-record filenames (defaults to the puzzle name).
+    #[arg(long)]
+    label: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+enum KeystreamPuzzleArg {
+    /// Practice puzzle `three`.
+    Three,
+    /// Practice puzzle `four`.
+    Four,
+    /// Practice puzzle `five`.
+    Five,
+    /// Practice puzzle `seven`.
+    Seven,
+}
+
+impl From<KeystreamPuzzleArg> for keystream::PracticePuzzle {
+    fn from(arg: KeystreamPuzzleArg) -> Self {
+        match arg {
+            KeystreamPuzzleArg::Three => Self::Three,
+            KeystreamPuzzleArg::Four => Self::Four,
+            KeystreamPuzzleArg::Five => Self::Five,
+            KeystreamPuzzleArg::Seven => Self::Seven,
+        }
+    }
+}
+
+impl KeystreamPuzzleArg {
+    /// Stable lowercase label used for the default candidate-record filename.
+    const fn label(self) -> &'static str {
+        match self {
+            Self::Three => "three",
+            Self::Four => "four",
+            Self::Five => "five",
+            Self::Seven => "seven",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+enum KeystreamFamilyArg {
+    /// Periodic additive keystream.
+    Vigenere,
+    /// Periodic subtractive involution.
+    Beaufort,
+    /// Autokey whose keystream is primer ++ plaintext.
+    #[value(name = "autokey-pt")]
+    AutokeyPt,
+    /// Autokey whose keystream is primer ++ ciphertext.
+    #[value(name = "autokey-ct")]
+    AutokeyCt,
+}
+
+impl From<KeystreamFamilyArg> for keystream::KeystreamFamily {
+    fn from(arg: KeystreamFamilyArg) -> Self {
+        match arg {
+            KeystreamFamilyArg::Vigenere => Self::Vigenere,
+            KeystreamFamilyArg::Beaufort => Self::Beaufort,
+            KeystreamFamilyArg::AutokeyPt => Self::PlaintextAutokey,
+            KeystreamFamilyArg::AutokeyCt => Self::CiphertextAutokey,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Args)]
@@ -756,6 +874,7 @@ fn main() -> ExitCode {
         Command::Pyry(args) => run_pyry(args.into()),
         Command::Controls(args) => run_controls(args),
         Command::Solve(args) => run_solve(&args),
+        Command::Keystream(args) => run_keystream(&args),
     }
 }
 
@@ -1476,4 +1595,187 @@ fn display_prefix(text: &str, max_chars: usize) -> String {
         rendered.push_str("...");
     }
     rendered
+}
+
+fn run_keystream(args: &KeystreamArgs) -> ExitCode {
+    let ciphertext = match keystream_ciphertext(args) {
+        Ok(ciphertext) => ciphertext,
+        Err(code) => return code,
+    };
+    if ciphertext.is_empty() {
+        eprintln!("no cipher letters in input");
+        return ExitCode::FAILURE;
+    }
+    let model = match quadgram::QuadgramModel::english() {
+        Ok(model) => model,
+        Err(error) => {
+            eprintln!("quadgram model error: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let families: Vec<keystream::KeystreamFamily> = if args.family.is_empty() {
+        keystream::KeystreamFamily::all().to_vec()
+    } else {
+        args.family.iter().map(|family| (*family).into()).collect()
+    };
+    let key_lengths: Vec<usize> = if let Some(fixed) = args.key_len {
+        vec![fixed.max(1)]
+    } else {
+        let lo = args.min_key_len.max(1);
+        let hi = args.max_key_len.max(lo);
+        (lo..=hi).collect()
+    };
+    let cfg = keystream::KeystreamSearchConfig {
+        alphabet_size: args.alphabet_size.max(1),
+        restarts: args.restarts,
+        iterations: args.iterations,
+        anneal_temp: args.anneal_temp,
+        seed: args.seed,
+        null_trials: args.null_trials,
+        matched_null_trials: args.matched_null_trials,
+    };
+
+    let mut candidates = Vec::new();
+    for &family in &families {
+        for &key_len in &key_lengths {
+            candidates.push(keystream::crack_with_model(
+                &ciphertext,
+                family,
+                key_len,
+                &cfg,
+                &model,
+            ));
+        }
+    }
+
+    print_keystream_table(&candidates);
+    print_keystream_best(&candidates);
+
+    let label = args
+        .label
+        .clone()
+        .or_else(|| args.puzzle.map(|puzzle| puzzle.label().to_owned()))
+        .unwrap_or_else(|| "input".to_owned());
+    emit_keystream_verdict(&candidates, &args.candidates_dir, &label, args.seed)
+}
+
+fn keystream_ciphertext(args: &KeystreamArgs) -> Result<Vec<u8>, ExitCode> {
+    if let Some(puzzle) = args.puzzle {
+        return Ok(keystream::normalize_puzzle(
+            keystream::practice_puzzle_text(puzzle.into()),
+        ));
+    }
+    match resolve_input_text(None, args.input_file.as_ref(), args.stdin) {
+        Ok(text) => Ok(keystream::normalize_puzzle(&text)),
+        Err(error) => {
+            eprintln!("failed to read input: {error}");
+            Err(ExitCode::FAILURE)
+        }
+    }
+}
+
+fn print_keystream_table(candidates: &[keystream::KeystreamCandidate]) {
+    println!("Keystream candidates: HYPOTHESIS, not decode");
+    println!(
+        "survives requires BOTH nulls: matched_z (search-overfitting gate) AND null_z (ct-autokey key-independence-leak gate)"
+    );
+    println!(
+        "{:11} {:>3} {:>10} {:>12} {:>10} {:>8} {:>10} {:>8}",
+        "family", "L", "best", "matched_mean", "matched_z", "null_z", "round_trip", "survives"
+    );
+    for candidate in candidates {
+        println!(
+            "{:11} {:>3} {:>10.4} {:>12.4} {:>10.2} {:>8.2} {:>10} {:>8}",
+            candidate.family.name(),
+            candidate.key_len,
+            candidate.best_score,
+            candidate.matched_mean,
+            candidate.matched_z,
+            candidate.z,
+            candidate.round_trip_ok,
+            candidate.survives,
+        );
+    }
+}
+
+fn print_keystream_best(candidates: &[keystream::KeystreamCandidate]) {
+    // Rank by matched_z (the survival statistic), survivors first.
+    let best = candidates
+        .iter()
+        .filter(|candidate| candidate.survives)
+        .max_by(|left, right| left.matched_z.total_cmp(&right.matched_z))
+        .or_else(|| {
+            candidates
+                .iter()
+                .max_by(|left, right| left.matched_z.total_cmp(&right.matched_z))
+        });
+    let Some(best) = best else {
+        return;
+    };
+    println!(
+        "best (highest matched_z{}):",
+        if best.survives {
+            ", surviving"
+        } else {
+            ", non-surviving"
+        }
+    );
+    println!(
+        "  family: {}  key-len: {}",
+        best.family.name(),
+        best.key_len
+    );
+    println!("  key: {:?}", best.key);
+    println!(
+        "  matched_z: {:.4}  matched_margin: {:.4}  matched_mean: {:.4}",
+        best.matched_z,
+        best.best_score - best.matched_mean,
+        best.matched_mean,
+    );
+    println!(
+        "  random-key null_z (ct-autokey-leak gate): {:.4}  null_mean: {:.4}",
+        best.z, best.null_mean,
+    );
+    println!(
+        "  decrypt: {}",
+        display_prefix(&best.render_plaintext(), 120)
+    );
+}
+
+fn emit_keystream_verdict(
+    candidates: &[keystream::KeystreamCandidate],
+    candidates_dir: &std::path::Path,
+    label: &str,
+    seed: u64,
+) -> ExitCode {
+    let survivors: Vec<&keystream::KeystreamCandidate> = candidates
+        .iter()
+        .filter(|candidate| candidate.survives)
+        .collect();
+    if survivors.is_empty() {
+        println!(
+            "HONEST-NEGATIVE: no (family, key length) candidate cleared the round-trip + matched-null + random-key-null (each z>={:.0} AND margin>={:.0} nat) + held-out gates. A clean honest negative is a SUCCESS, not an error.",
+            keystream::Z_THRESHOLD,
+            keystream::MIN_NAT_MARGIN,
+        );
+        return ExitCode::SUCCESS;
+    }
+    for candidate in survivors {
+        println!(
+            "HYPOTHESIS (not a confirmed decode; cleared BOTH null gates): family={} key-len={} matched_z={:.2} null_z={:.2}",
+            candidate.family.name(),
+            candidate.key_len,
+            candidate.matched_z,
+            candidate.z,
+        );
+        println!("  full decrypt: {}", candidate.render_plaintext());
+        match keystream::write_keystream_record(candidates_dir, label, seed, candidate) {
+            Ok(path) => println!("  record: {}", path.display()),
+            Err(error) => {
+                eprintln!("failed to write candidate record: {error}");
+                return ExitCode::FAILURE;
+            }
+        }
+    }
+    ExitCode::SUCCESS
 }

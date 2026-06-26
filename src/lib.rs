@@ -8,6 +8,8 @@
 //!   isomorph experiments and controls.
 //! - [`isomorph_null`]: Experiment 7A repeated-pattern analysis against a
 //!   within-message shuffle null.
+//! - [`keystream`]: polyalphabetic keystream cracker (Vigenere/Beaufort/autokey)
+//!   with an annealed key search, quadgram scoring, and z-score/held-out gates.
 //! - [`trigram`]: the base-5 reading layer over rendered orientations.
 //! - [`analysis`]: encoding-agnostic cryptanalysis statistics (frequencies,
 //!   entropy, index of coincidence, chi-square goodness of fit, n-grams).
@@ -61,6 +63,8 @@
 //!   generation pipeline manufactures reading-layer statistics.
 //! - [`pyry_conditions`]: capstone structural falsification harness encoding
 //!   Pyry's nine-condition checklist across generated cipher-family fixtures.
+//! - [`quadgram`]: large-corpus `A..Z` quadgram English language model for
+//!   scoring candidate plaintexts during polyalphabetic key search.
 //! - [`report`]: CLI report rendering and domain error formatting.
 //! - [`solve`]: unified search-and-score solve pipeline for candidate
 //!   hypotheses, with round-trip, held-out, and matched-null gates.
@@ -94,6 +98,7 @@ pub mod honeycomb;
 pub mod ingest;
 pub mod isomorph;
 pub mod isomorph_null;
+pub mod keystream;
 pub mod language;
 pub mod modular_diff;
 pub mod null;
@@ -104,6 +109,7 @@ pub mod periodicity;
 pub mod perseus;
 pub mod pipeline_null;
 pub mod pyry_conditions;
+pub mod quadgram;
 pub mod report;
 pub mod solve;
 pub mod transitivity;
