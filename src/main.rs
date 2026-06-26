@@ -781,11 +781,11 @@ fn run_grouping() -> ExitCode {
     let report = match grouping::run_experiment8() {
         Ok(report) => report,
         Err(error) => {
-            eprintln!("grouping error: {}", report::format_grouping_error(error));
+            eprintln!("grouping error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_grouping_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
