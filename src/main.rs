@@ -694,10 +694,7 @@ fn run_gak_attack(config: gak_attack::GakAttackConfig) -> ExitCode {
     let report = match gak_attack::run_gak_attack(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "GAK-attack error: {}",
-                report::format_gak_attack_error(&error)
-            );
+            eprintln!("GAK-attack error: {error}");
             return ExitCode::FAILURE;
         }
     };
@@ -709,10 +706,7 @@ fn run_gak_attack_eyes(config: gak_attack::EyesAttackConfig) -> ExitCode {
     let report = match gak_attack::run_gak_attack_eyes(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "GAK-attack eyes error: {}",
-                report::format_gak_attack_error(&error)
-            );
+            eprintln!("GAK-attack eyes error: {error}");
             return ExitCode::FAILURE;
         }
     };

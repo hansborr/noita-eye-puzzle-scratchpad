@@ -54,7 +54,7 @@
 //! depend on it (it runs in the unconstrained regime by default).
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::fmt::Write as _;
+use std::fmt::{self, Write as _};
 use std::path::{Path, PathBuf};
 
 use crate::chaining_graph::{
@@ -364,6 +364,102 @@ pub enum GakAttackError {
     /// error, never a finding.
     EyesZeroTrials,
 }
+
+impl fmt::Display for GakAttackError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Cipher(cipher_error) => write!(f, "GAK-attack cipher error: {cipher_error}"),
+            Self::RandomBoundTooLarge { bound } => {
+                write!(
+                    f,
+                    "random draw bound {bound} is too large for the in-crate sampler"
+                )
+            }
+            Self::ZeroSeeds => {
+                write!(
+                    f,
+                    "at least one seed per group kind is required for the gate matrix"
+                )
+            }
+            Self::DihedralHalfOrderTooSmall { half_order } => {
+                write!(
+                    f,
+                    "dihedral half-order {half_order} is below 3 (would not be non-commutative)"
+                )
+            }
+            Self::CyclicOrderTooSmall { order } => write!(f, "cyclic order {order} is below 2"),
+            Self::DeckStateSizeTooSmall { state_size } => write!(
+                f,
+                "deck size n={state_size} is below 3: the non-trivial-H deck attack requires n>=3 (n=2 is trivial-H GCTAK and collapses the merge threshold to 1)"
+            ),
+            Self::TooManyLetters {
+                requested,
+                available,
+            } => write!(
+                f,
+                "requested {requested} plaintext letters but the group has only {available} non-identity generators"
+            ),
+            Self::TooFewLetters { requested } => write!(
+                f,
+                "requested {requested} plaintext letters but at least 2 are required (the dihedral non-commutative witness and a non-degenerate repeated-phrase partition both need >=2)"
+            ),
+            Self::SmallSupportRadiusUnsupported { requested } => write!(
+                f,
+                "small-support radius {requested} is rejected for the GCTAK gate, which runs unconstrained (radius 0); the small-support prior is exercised only by the deck/marginalization validation sweeps"
+            ),
+            Self::SymbolOutOfRange { value } => {
+                write!(
+                    f,
+                    "generated symbol {value} cannot be represented as a reading-layer value"
+                )
+            }
+            Self::EmptyTemplate => write!(f, "the generated plaintext template was empty"),
+            Self::PositiveControlFailed {
+                group,
+                seed,
+                real_recovered,
+                null_recovered,
+            } => write!(
+                f,
+                "positive control failed for {group} seed {seed}: real_recovered={real_recovered}, null_recovered={null_recovered} (methodology bug, never a data finding)"
+            ),
+            Self::Grid(grid_error) => write!(f, "eye corpus grid/order error: {grid_error:?}"),
+            Self::PerfectIsomorphism(error) => {
+                write!(
+                    f,
+                    "Thread-3 perfect-isomorphism consistency scan failed: {error}"
+                )
+            }
+            Self::HeldOutPositiveControlFailed {
+                real_score,
+                null_score,
+            } => write!(
+                f,
+                "held-out positive control did not fire on the synthetic isomorph-rich fixture (real score={real_score} <= worst-case null score={null_score}); the held-out gate is not trustworthy (methodology bug, never an eye finding)"
+            ),
+            Self::Language(error) => {
+                write!(
+                    f,
+                    "language model for the SPECULATIVE cleartext gate could not be built: {error}"
+                )
+            }
+            Self::CandidateRecordWrite { path } => {
+                write!(
+                    f,
+                    "could not write the mandatory candidate record to {path}"
+                )
+            }
+            Self::EyesZeroTrials => {
+                write!(
+                    f,
+                    "the eyes Step-3 held-out gate needs at least one matched-null trial (zero trials would define the p-value over an empty sample)"
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for GakAttackError {}
 
 impl From<CipherError> for GakAttackError {
     fn from(value: CipherError) -> Self {
