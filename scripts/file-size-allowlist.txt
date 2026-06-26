@@ -25,7 +25,7 @@ src/null.rs                         1664  # matched-null harness core; brief 05 
 src/controls.rs                     1636  # positive controls; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/modular_diff.rs                 1600  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/grouping.rs                     1511  # structural analysis; brief 06 colocated report render; brief 07b
-src/main.rs                         1459  # CLI dispatch; +solve subcommand & Phase-2 --mapping-search/--candidates-dir auto-log (brief 04); brief 08
+src/main.rs                         1413  # CLI dispatch; +solve subcommand & Phase-2 --mapping-search/--candidates-dir auto-log (brief 04); shrank at maint merge (.render()/{error} call sites); brief 08
 src/orders.rs                       1340  # reading layer; briefs 04a, 07b
 src/periodicity.rs                  1322  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/perseus.rs                      1316  # matched-null driver; brief 05 harness + brief 06 colocated report render
