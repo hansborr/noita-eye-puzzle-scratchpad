@@ -76,11 +76,11 @@ use crate::trigram::TrigramValue;
 mod error;
 mod eyes;
 // `generator`/`solver`/`marginalization` are `pub(crate)` so the solve pipeline
-// (brief 04) can import the beam-search / fixture internals directly via
-// `crate::gak_attack::{generator,solver,marginalization}::*`; this widens no
-// external (`pub`) surface — the public path stays `crate::gak_attack::*` via the
-// `pub use` block below.
+// (brief 04) can import their internals; this widens no external (`pub`) surface —
+// the public path stays `crate::gak_attack::*` via the `pub use` block below.
 pub(crate) mod generator;
+#[cfg(test)]
+mod known_answer; // Thread G1: known-answer validation on practice puzzles.
 pub(crate) mod marginalization;
 pub(crate) mod solver;
 
