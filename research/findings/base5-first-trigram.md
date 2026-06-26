@@ -89,8 +89,9 @@ ciphertext signature, `first == last`, is absent.)
    all nine [A] values are `≡ 1 (mod 5)`). This is the cleanest pattern, but read
    it carefully:
    - It is **specific to the first trigram**. Over all 1036 storage trigrams the
-     units digit is roughly flat — histogram `[263, 254, 238, 163, 118]` for
-     digits 0-4, so digit 1 is only ~25% corpus-wide, not ~100%.
+     units digit is not concentrated on 1 — histogram `[263, 254, 238, 163, 118]`
+     for digits 0-4 (itself skewed, peaking at digit 0), so digit 1 is only
+     ~24.5% corpus-wide, not ~100%.
    - A naive uniform-random null gives `P = (1/5)^9 ≈ 5e-7`, which *looks*
      decisive — but the nine messages are **not independent**: they share large
      sections right after the start. The constant units digit is exactly "the

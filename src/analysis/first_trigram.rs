@@ -283,8 +283,10 @@ pub struct FirstTrigramAnalysis {
     pub reading_checksum: ChecksumVerdict,
     /// Units-digit histogram over *all* storage trigrams (index = digit `0..=4`).
     ///
-    /// Context for the first-trigram units observation: a flat histogram shows
-    /// that a constant first-trigram units digit is not a corpus-wide property.
+    /// Context for the first-trigram units observation: corpus-wide the units
+    /// digit is not concentrated on 1 (digit 1 is ~24.5%), so a constant
+    /// first-trigram units digit is specific to the first trigram, not a
+    /// corpus-wide property.
     pub storage_units_histogram: [usize; 5],
 }
 
