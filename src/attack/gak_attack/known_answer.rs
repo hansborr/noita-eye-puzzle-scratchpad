@@ -32,6 +32,12 @@ use crate::null::{SplitMix64, fisher_yates};
 use crate::trigram::TrigramValue;
 use std::collections::{BTreeMap, BTreeSet};
 
+// Thread G1b: hidden-state-capable GAK attack + `two` application. Declared as a
+// child of this `#[cfg(test)]` module so the new code is test-only and adds no
+// line to the file-size-pinned `gak_attack/mod.rs`.
+#[path = "hidden_state.rs"]
+mod hidden_state;
+
 /// A recovered ciphertext-alphabet permutation as a `prev -> next` edge map
 /// (mirrors the solver's `EdgeMap`).
 type Perm = BTreeMap<u8, u8>;
