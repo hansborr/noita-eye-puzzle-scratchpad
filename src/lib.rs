@@ -94,10 +94,25 @@ pub mod corpus;
 #[path = "data/generator.rs"]
 pub mod generator;
 
-pub mod agl_gak;
+// analysis: encoding-agnostic statistics and structural analyses.
+#[path = "analysis/analysis.rs"]
 pub mod analysis;
+#[path = "analysis/chaining.rs"]
 pub mod chaining;
+#[path = "analysis/chaining_graph.rs"]
 pub mod chaining_graph;
+#[path = "analysis/grouping.rs"]
+pub mod grouping;
+#[path = "analysis/honeycomb.rs"]
+pub mod honeycomb;
+#[path = "analysis/isomorph.rs"]
+pub mod isomorph;
+#[path = "analysis/orders.rs"]
+pub mod orders;
+#[path = "analysis/perfect_isomorphism.rs"]
+pub mod perfect_isomorphism;
+
+pub mod agl_gak;
 pub mod cipher_attack;
 pub mod ciphers;
 pub mod codec;
@@ -105,17 +120,12 @@ pub mod conditional_structure;
 pub mod controls;
 pub mod dof_null;
 pub mod gak_attack;
-pub mod grouping;
-pub mod honeycomb;
-pub mod isomorph;
 pub mod isomorph_null;
 pub mod keystream;
 pub mod language;
 pub mod modular_diff;
 pub mod null;
-pub mod orders;
 pub mod orientation_homogeneity;
-pub mod perfect_isomorphism;
 pub mod periodicity;
 pub mod perseus;
 pub mod pipeline_null;
