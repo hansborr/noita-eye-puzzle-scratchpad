@@ -81,6 +81,7 @@ pub mod chaining;
 pub mod chaining_graph;
 pub mod cipher_attack;
 pub mod ciphers;
+pub mod codec;
 pub mod conditional_structure;
 pub mod controls;
 pub mod corpus;
