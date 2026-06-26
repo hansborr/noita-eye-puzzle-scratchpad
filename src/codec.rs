@@ -319,7 +319,7 @@ fn delta_transduce(codec: &DeltaCodec, symbols: &[Glyph]) -> Result<Vec<Glyph>, 
 
 #[cfg(test)]
 mod tests {
-    use super::{AnyCodec, Codec, CodecError, DigitOrder, GroupingCodec};
+    use super::{AnyCodec, Codec, CodecError, DeltaCodec, DigitOrder, GroupingCodec};
     use crate::glyph::{Glyph, Orientation};
     use crate::trigram::ReadingTrigram;
 
@@ -435,5 +435,61 @@ mod tests {
     fn fixed_grouping_empty_input_is_empty_output() {
         let codec = AnyCodec::FixedGrouping(honeycomb_grouping());
         assert_eq!(codec.transduce(&[]).unwrap(), Vec::<Glyph>::new());
+    }
+
+    // The +/-1-C5 hint (practice puzzle `one`, research/data/practice-puzzles/one):
+    // every transition of that 5-symbol sample is +/-1 mod 5 — a walk on the
+    // pentagon C5. Differencing collapses it to the MOVE stream over {+1,-1} = {1,4}
+    // mod 5; re-integrating from the seed reproduces the walk. This is an OBSERVED
+    // ciphertext property and a search hint (Delta is the natural first codec),
+    // never a claim of "no message".
+    #[test]
+    fn delta_differences_c5_walk_and_reintegrates_from_seed() {
+        let codec = AnyCodec::Delta(DeltaCodec {
+            base: 5,
+            then: Box::new(AnyCodec::Identity),
+        });
+        // A +/-1 walk on C5 (each step differs from the last by +/-1 mod 5).
+        let walk = glyphs(&[2, 3, 4, 0, 4, 3, 2, 1, 0, 1, 2]);
+        let moves = codec.transduce(&walk).unwrap();
+
+        // Differencing collapses the alphabet to the two moves {+1, -1} = {1, 4}.
+        assert_eq!(moves.len(), walk.len() - 1);
+        assert!(moves.iter().all(|step| step.0 == 1 || step.0 == 4));
+
+        // Re-integration from the seed (the first symbol) reproduces the original
+        // walk exactly: cumulative sum of the moves mod base, starting at the seed.
+        let seed = walk.first().copied().unwrap();
+        let mut accumulator = usize::from(seed.0);
+        let mut reintegrated = vec![seed];
+        for step in &moves {
+            accumulator = (accumulator + usize::from(step.0)) % 5;
+            reintegrated.push(Glyph(accumulator as u16));
+        }
+        assert_eq!(reintegrated, walk);
+
+        // Inner Identity over the differenced base-5 alphabet keeps the output at 5.
+        assert_eq!(codec.output_alphabet_size(), 5);
+        assert_eq!(codec.name(), "delta");
+        assert!(codec.is_invertible());
+    }
+
+    #[test]
+    fn delta_empty_input_errors() {
+        let codec = AnyCodec::Delta(DeltaCodec {
+            base: 5,
+            then: Box::new(AnyCodec::Identity),
+        });
+        assert_eq!(codec.transduce(&[]).unwrap_err(), CodecError::EmptyInput);
+    }
+
+    #[test]
+    fn delta_digit_outside_base_errors() {
+        let codec = AnyCodec::Delta(DeltaCodec {
+            base: 5,
+            then: Box::new(AnyCodec::Identity),
+        });
+        let error = codec.transduce(&glyphs(&[0, 1, 7])).unwrap_err();
+        assert_eq!(error, CodecError::ValueOutsideBase { value: 7, base: 5 });
     }
 }
