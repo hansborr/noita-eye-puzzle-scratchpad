@@ -83,3 +83,20 @@ The cleartext path is therefore **SPECULATIVE, gated, and never primary**.
   independent gates (cipher round-trip, held-out mapping score, matched null),
   Finnish and English scores, and any candidate cleartext verbatim for human
   review. The expected record on the eyes is "NO surviving candidate."
+  - **Codec records (brief 04a).** When a codec/transduction stage runs (the
+    `--codec` / `--codec-search` paths that widen a small cipher alphabet so a
+    symbol→letter mapping can host the language), the record additionally carries
+    the chosen codec's `name()` (`Top candidate codec: …`) and the **codec
+    round-trip verdict** (`Gate 1b codec round-trip` — codec/cipher consistency,
+    NOT a decode) alongside the existing gates, so all **four** structural
+    verdicts (cipher round-trip, codec round-trip, held-out, matched null) are
+    shown. The eyes' codec is `identity` (83 ≥ 29; no widening), and their
+    expected record is unchanged ("NO surviving candidate").
+  - **Practice-corpus records.** `solve-one`/`solve-two`/`solve-six` are codec
+    HYPOTHESIS records for the external practice puzzles
+    (`research/data/practice-puzzles/`): `one` is an honest negative (no in-budget
+    codec partitions its 266-digit / differenced-265 stream while clearing the
+    29-symbol floor); `two` is logged even though its held-out gate fails; `six`'s
+    base-6 grouping reinserts its preserved word-boundary spaces into the rendered
+    cleartext. None is a decode — each is a labelled HYPOTHESIS pending human
+    confirmation against (for `two`, withheld) ground truth.
