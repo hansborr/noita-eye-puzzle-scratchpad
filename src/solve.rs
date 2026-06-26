@@ -6,8 +6,9 @@
 //! gates needed by downstream renderers and candidate records.
 
 use std::fmt;
+use std::fmt::Write as _;
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::ciphers::{AnyCipher, CipherError};
 use crate::glyph::Glyph;
@@ -1135,6 +1136,259 @@ pub fn candidate_survives(candidate: &Candidate) -> bool {
         && candidate.heldout_mapping_score > candidate.null_mean
 }
 
+// ---------------------------------------------------------------------------
+// Step 9 — candidate auto-logging (mirrors gak_attack::eyes' private writer).
+// ---------------------------------------------------------------------------
+
+/// The verbatim claim ceiling reproduced in every solve candidate record. It is
+/// the same ceiling the eye records carry: no record may make a stronger claim.
+pub const SOLVE_CLAIM_CEILING: &str = "deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext.";
+
+/// The top candidate's record fields, scored under BOTH language models.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SolveRecordCandidate<'a> {
+    /// Stable, display-only cipher family name.
+    pub cipher_name: &'a str,
+    /// Cipher-layer round-trip gate (necessary, not sufficient).
+    pub crypto_round_trip_ok: bool,
+    /// In-sample bigram mean log-likelihood under the candidate's language.
+    pub score: f64,
+    /// Held-out fold mapping score (the mapping-confidence gate).
+    pub heldout_mapping_score: f64,
+    /// Matched-null search mean.
+    pub null_mean: f64,
+    /// Matched-null overfit-guard verdict.
+    pub beats_null: bool,
+    /// The rendered text scored under the English model.
+    pub english_bigram: f64,
+    /// The rendered text scored under the Finnish model.
+    pub finnish_bigram: f64,
+    /// Rendered candidate text (logged verbatim for human review).
+    pub rendered_text: &'a str,
+    /// Whether the candidate clears all three gates ([`candidate_survives`]).
+    pub survived: bool,
+}
+
+/// Inputs for one solve candidate record (keeps the writer signature small).
+#[derive(Clone, Copy, Debug)]
+pub struct SolveRecordInputs<'a> {
+    /// Stable run/puzzle label (used in the seed-derived filename).
+    pub label: &'a str,
+    /// Deterministic run seed (the only filename entropy — no wall clock).
+    pub seed: u64,
+    /// Declared cipher alphabet size.
+    pub cipher_alphabet_size: usize,
+    /// Number of cipher symbols in the ciphertext.
+    pub total_symbols: usize,
+    /// Number of round-trip-consistent candidates the run produced.
+    pub candidates_evaluated: usize,
+    /// Number of candidates that cleared all three gates.
+    pub survivors: usize,
+    /// The top candidate, if any survived the cipher-layer round-trip.
+    pub top: Option<SolveRecordCandidate<'a>>,
+}
+
+/// Builds the stable, clock-free record filename from the run label and seed.
+fn solve_record_filename(label: &str, seed: u64) -> String {
+    let slug: String = label
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    format!("solve-{slug}-seed-{seed:016x}.md")
+}
+
+/// Writes the mandatory solve candidate record (filename is a STABLE label/seed,
+/// no clock; re-running the same config overwrites the prior record).
+///
+/// Returns the path written. The record carries the verbatim claim ceiling, the
+/// HYPOTHESIS-not-decode label, all three gate verdicts, both language scores,
+/// and any candidate cleartext verbatim for human review.
+///
+/// # Errors
+/// Returns [`SolveError::CandidateRecordWrite`] if the directory cannot be
+/// created or the file cannot be written.
+pub fn write_solve_candidate_record(
+    dir: &Path,
+    inputs: &SolveRecordInputs<'_>,
+) -> Result<PathBuf, SolveError> {
+    let path = dir.join(solve_record_filename(inputs.label, inputs.seed));
+    let body = render_solve_candidate_record(inputs).map_err(|_error| {
+        SolveError::CandidateRecordWrite {
+            path: path.clone(),
+            source: io::Error::other("record formatting failed"),
+        }
+    })?;
+    std::fs::create_dir_all(dir).map_err(|source| SolveError::CandidateRecordWrite {
+        path: path.clone(),
+        source,
+    })?;
+    std::fs::write(&path, body).map_err(|source| SolveError::CandidateRecordWrite {
+        path: path.clone(),
+        source,
+    })?;
+    Ok(path)
+}
+
+/// Renders the candidate-record markdown body (pure; unit-testable without the
+/// filesystem).
+///
+/// # Errors
+/// Returns [`std::fmt::Error`] only if a write to the in-memory string buffer
+/// fails (in practice never).
+pub fn render_solve_candidate_record(inputs: &SolveRecordInputs<'_>) -> Result<String, fmt::Error> {
+    let mut out = String::new();
+    let verdict = match inputs.top {
+        Some(top) if top.survived => {
+            "CANDIDATE SURVIVED ALL THREE GATES — logged as a HYPOTHESIS, NOT a decode"
+        }
+        _ => "NO surviving candidate — decode remains blocked",
+    };
+    writeln!(out, "# Solve candidate record: {}", inputs.label)?;
+    writeln!(out)?;
+    writeln!(
+        out,
+        "Stable label (NO wall-clock): label={} seed=0x{:016x} cipher-alphabet={} symbols={}",
+        inputs.label, inputs.seed, inputs.cipher_alphabet_size, inputs.total_symbols
+    )?;
+    writeln!(out)?;
+    writeln!(out, "## Verdict")?;
+    writeln!(out)?;
+    writeln!(out, "**{verdict}.**")?;
+    writeln!(out)?;
+    writeln!(
+        out,
+        "This record is a HYPOTHESIS, NOT a decode. solve SEARCHES and SCORES; a high"
+    )?;
+    writeln!(
+        out,
+        "score is not a decode. Round-trip-consistent candidates: {}; survivors of all three gates: {}.",
+        inputs.candidates_evaluated, inputs.survivors
+    )?;
+    writeln!(out)?;
+    writeln!(out, "## Claim ceiling (absolute)")?;
+    writeln!(out)?;
+    writeln!(out, "{SOLVE_CLAIM_CEILING}")?;
+    writeln!(
+        out,
+        "Nothing in this record is stronger. A clean honest negative is a SUCCESS."
+    )?;
+    writeln!(out)?;
+    render_solve_gates(&mut out, inputs)?;
+    Ok(out)
+}
+
+fn render_solve_gates(out: &mut String, inputs: &SolveRecordInputs<'_>) -> fmt::Result {
+    writeln!(out, "## Three independent gates (never collapsed)")?;
+    writeln!(out)?;
+    let Some(top) = inputs.top else {
+        writeln!(
+            out,
+            "No candidate survived the cipher-layer round-trip; nothing to score."
+        )?;
+        return Ok(());
+    };
+    writeln!(out, "Top candidate cipher: {}", top.cipher_name)?;
+    writeln!(
+        out,
+        "- Gate 1 cipher round-trip (necessary, NOT sufficient): {}",
+        top.crypto_round_trip_ok
+    )?;
+    writeln!(
+        out,
+        "- Gate 2 held-out mapping score: {:.6} (matched-null mean {:.6}); generalizes: {}",
+        top.heldout_mapping_score,
+        top.null_mean,
+        top.heldout_mapping_score > top.null_mean
+    )?;
+    writeln!(
+        out,
+        "- Gate 3 matched-null in-sample: score {:.6} vs null {:.6}; beats_null: {}",
+        top.score, top.null_mean, top.beats_null
+    )?;
+    writeln!(out)?;
+    writeln!(
+        out,
+        "## Language scores (Finnish weighted at least as highly)"
+    )?;
+    writeln!(out)?;
+    writeln!(
+        out,
+        "- Finnish bigram mean log-likelihood: {:.6}",
+        top.finnish_bigram
+    )?;
+    writeln!(
+        out,
+        "- English bigram mean log-likelihood: {:.6}",
+        top.english_bigram
+    )?;
+    writeln!(out)?;
+    writeln!(
+        out,
+        "## Candidate cleartext (verbatim; a HYPOTHESIS, not a decode)"
+    )?;
+    writeln!(out)?;
+    writeln!(out, "{}", top.rendered_text)?;
+    Ok(())
+}
+
+/// Builds a [`SolveRecordInputs`] from a solve run and writes its record.
+///
+/// Scores the top candidate's rendered text under BOTH language models (Finnish
+/// first), derives the survivor counts via [`candidate_survives`], and delegates
+/// to [`write_solve_candidate_record`]. This is the auto-logging entry the CLI
+/// and validation tests call.
+///
+/// # Errors
+/// Returns [`SolveError`] if a language score fails or the record cannot be
+/// written.
+pub fn log_solve_run(
+    dir: &Path,
+    label: &str,
+    seed: u64,
+    cipher_alphabet_size: usize,
+    candidates: &[Candidate],
+    english: &LanguageModel,
+    finnish: &LanguageModel,
+) -> Result<PathBuf, SolveError> {
+    let survivors = candidates.iter().filter(|c| candidate_survives(c)).count();
+    let total_symbols = candidates.first().map_or(0, |c| c.decrypted_symbols.len());
+    let top = match candidates.first() {
+        Some(candidate) => Some(SolveRecordCandidate {
+            cipher_name: candidate.cipher.name(),
+            crypto_round_trip_ok: candidate.crypto_round_trip_ok,
+            score: candidate.score,
+            heldout_mapping_score: candidate.heldout_mapping_score,
+            null_mean: candidate.null_mean,
+            beats_null: candidate.beats_null,
+            english_bigram: english
+                .score_text(&candidate.rendered_text)?
+                .bigram_mean_log_likelihood,
+            finnish_bigram: finnish
+                .score_text(&candidate.rendered_text)?
+                .bigram_mean_log_likelihood,
+            rendered_text: &candidate.rendered_text,
+            survived: candidate_survives(candidate),
+        }),
+        None => None,
+    };
+    let inputs = SolveRecordInputs {
+        label,
+        seed,
+        cipher_alphabet_size,
+        total_symbols,
+        candidates_evaluated: candidates.len(),
+        survivors,
+        top,
+    };
+    write_solve_candidate_record(dir, &inputs)
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -1423,6 +1677,96 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
             top.score, top.null_mean
         );
         assert!(!candidate_survives(top));
+    }
+
+    // Step 9 — the record renderer is a pure string builder (no filesystem) and
+    // carries the claim ceiling, the HYPOTHESIS label, all three gate verdicts,
+    // and BOTH language scores.
+    #[test]
+    fn solve_record_renders_ceiling_label_gates_and_both_languages() {
+        let top = super::SolveRecordCandidate {
+            cipher_name: "Identity",
+            crypto_round_trip_ok: true,
+            score: -2.85,
+            heldout_mapping_score: -2.96,
+            null_mean: -3.22,
+            beats_null: true,
+            english_bigram: -2.85,
+            finnish_bigram: -3.40,
+            rendered_text: "THEWINDINGRIVER",
+            survived: true,
+        };
+        let inputs = super::SolveRecordInputs {
+            label: "positive-control",
+            seed: super::DEFAULT_SEED,
+            cipher_alphabet_size: 29,
+            total_symbols: 15,
+            candidates_evaluated: 3,
+            survivors: 1,
+            top: Some(top),
+        };
+        let body = super::render_solve_candidate_record(&inputs).unwrap();
+
+        assert!(body.contains(super::SOLVE_CLAIM_CEILING));
+        assert!(body.contains("HYPOTHESIS, NOT a decode"));
+        assert!(body.contains("CANDIDATE SURVIVED ALL THREE GATES"));
+        assert!(body.contains("Gate 1 cipher round-trip"));
+        assert!(body.contains("Gate 2 held-out mapping score"));
+        assert!(body.contains("beats_null: true"));
+        assert!(body.contains("Finnish bigram mean log-likelihood: -3.40"));
+        assert!(body.contains("English bigram mean log-likelihood: -2.85"));
+        assert!(body.contains("THEWINDINGRIVER"));
+    }
+
+    #[test]
+    fn solve_record_reports_honest_negative_when_no_candidate() {
+        let inputs = super::SolveRecordInputs {
+            label: "eyes",
+            seed: super::DEFAULT_SEED,
+            cipher_alphabet_size: 83,
+            total_symbols: 400,
+            candidates_evaluated: 0,
+            survivors: 0,
+            top: None,
+        };
+        let body = super::render_solve_candidate_record(&inputs).unwrap();
+
+        assert!(body.contains("NO surviving candidate — decode remains blocked"));
+        assert!(body.contains(super::SOLVE_CLAIM_CEILING));
+        assert!(body.contains("nothing to score"));
+    }
+
+    #[test]
+    fn log_solve_run_writes_seed_derived_record() {
+        let english = english_model().unwrap();
+        let finnish = finnish_model().unwrap();
+        let (ciphertext, size, _expected) = plant_small_alphabet(SMALL_ALPHABET_TEXT, &english);
+        let request = searched_request(&ciphertext, size, &english, &finnish, hillclimb(4, 2000));
+        let candidates = solve(&request).unwrap();
+
+        let dir = std::env::temp_dir().join(format!("noita-solve-rec-{}", std::process::id()));
+        let _removed = std::fs::remove_dir_all(&dir);
+        let path = super::log_solve_run(
+            &dir,
+            "small-alphabet",
+            super::DEFAULT_SEED,
+            size,
+            &candidates,
+            &english,
+            &finnish,
+        )
+        .unwrap();
+
+        assert!(
+            path.file_name()
+                .unwrap()
+                .to_string_lossy()
+                .starts_with("solve-small-alphabet-seed-")
+        );
+        let written = std::fs::read_to_string(&path).unwrap();
+        assert!(written.contains(super::SOLVE_CLAIM_CEILING));
+        assert!(written.contains("Finnish bigram mean log-likelihood"));
+        let _cleanup = std::fs::remove_dir_all(&dir);
     }
 
     fn searched_request<'a>(

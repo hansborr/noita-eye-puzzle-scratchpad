@@ -77,3 +77,9 @@ The cleartext path is therefore **SPECULATIVE, gated, and never primary**.
 
 - `eyes-*.md` — one machine-written record per Step-3 run (committed by the
   orchestrator; this code never commits).
+- `solve-*.md` — one machine-written record per solve-pipeline run (brief 04),
+  named from a stable run label + seed (no wall-clock). Same protocol binds:
+  the verbatim claim ceiling, the HYPOTHESIS-not-decode label, all three
+  independent gates (cipher round-trip, held-out mapping score, matched null),
+  Finnish and English scores, and any candidate cleartext verbatim for human
+  review. The expected record on the eyes is "NO surviving candidate."
