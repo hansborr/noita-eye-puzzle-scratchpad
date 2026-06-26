@@ -170,4 +170,5 @@ pub mod pyry_conditions;
 #[path = "experiments/transitivity.rs"]
 pub mod transitivity;
 
+// report: CLI report rendering and domain error formatting.
 pub mod report;
