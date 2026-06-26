@@ -25,7 +25,7 @@ src/null.rs                         1664  # matched-null harness core; brief 05 
 src/controls.rs                     1636  # positive controls; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/modular_diff.rs                 1600  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/grouping.rs                     1511  # structural analysis; brief 06 colocated report render; brief 07b
-src/main.rs                         1422  # CLI dispatch; +solve subcommand & Phase-2 --mapping-search/--candidates-dir auto-log (brief 04); +brief 04a default Identity codec strategy; +brief 04a Phase-2b transparent passthrough wired into solve request; brief 08
+src/main.rs                         1463  # CLI dispatch; +solve subcommand & Phase-2 --mapping-search/--candidates-dir auto-log (brief 04); +brief 04a default Identity codec strategy; +brief 04a Phase-2b transparent passthrough wired into solve request + --codec/--codec-search flags (solve_codec_strategy); brief 08
 src/orders.rs                       1340  # reading layer; briefs 04a, 07b
 src/periodicity.rs                  1322  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/perseus.rs                      1316  # matched-null driver; brief 05 harness + brief 06 colocated report render
@@ -36,6 +36,6 @@ src/agl_gak.rs                      1208  # attack; brief 06 colocated report re
 src/orientation_homogeneity.rs      1138  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/pipeline_null.rs                684   # matched-null driver; brief 05 harness + brief 06 colocated report render; trim under 07b
 src/zero_adjacency_null.rs          848   # matched-null driver; brief 05 harness + brief 06 colocated report render
-src/codec.rs                        1060  # new (brief 04a codec layer); +brief 04a step 5: codec-search enumeration (enumerate_codecs + MAX_SEARCH_OUTPUT_ALPHABET + SkippedCodec/CodecSkipReason) + enumeration tests
+src/codec.rs                        1119  # new (brief 04a codec layer); +brief 04a step 5: codec-search enumeration (enumerate_codecs + MAX_SEARCH_OUTPUT_ALPHABET + SkippedCodec/CodecSkipReason) + enumeration tests; +brief 04a Phase-2b CLI helpers (default_codec_search + honeycomb_codec)
 src/language.rs                     618   # language scorer; brief 04
 src/ingest.rs                       610   # new (brief 03); trim under 600 next

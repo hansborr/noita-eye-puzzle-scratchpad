@@ -136,6 +136,10 @@ struct StatsArgs {
 }
 
 #[derive(Clone, Debug, Args)]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "CLI flag struct: stdin/honeycomb/mapping-search/codec-search are independent user toggles, not a packed state machine"
+)]
 struct SolveArgs {
     /// Ciphertext sequence. Optional: omit to read from --input-file or stdin.
     ciphertext: Option<String>,
@@ -160,6 +164,19 @@ struct SolveArgs {
     /// Number of matched-null shuffles.
     #[arg(long = "null-trials", default_value_t = solve::DEFAULT_NULL_TRIALS)]
     null_trials: usize,
+    /// Fixed codec between the decrypted cipher symbols and the symbol->letter
+    /// mapping (ignored when --codec-search is set). `identity` is the
+    /// behavior-preserving default (cipher alphabet already spans the language,
+    /// e.g. the 83-symbol eyes); `honeycomb` is the canonical base-5 trigram
+    /// grouping.
+    #[arg(long = "codec", value_enum, default_value_t = SolveCodecArg::Identity)]
+    codec: SolveCodecArg,
+    /// Enumerate codec parameters (grouping `group_len`, both digit orders, delta)
+    /// and run the mapping strategy on each transduced stream, flipping the codec
+    /// stage from Fixed to Search (parallel to --mapping-search). Widens a small
+    /// cipher alphabet (5/6/12 symbols) enough to host 26-29-letter language.
+    #[arg(long = "codec-search")]
+    codec_search: bool,
     /// Hill-climb / anneal the symbol->letter mapping (Phase 2) instead of
     /// scoring the fixed declared mappings.
     #[arg(long = "mapping-search")]
@@ -191,6 +208,14 @@ enum SolveFamilyArg {
     Caesar,
     /// Small synthetic transposition candidates.
     Transposition,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+enum SolveCodecArg {
+    /// Pass-through codec: output alphabet == cipher alphabet (the eyes' codec).
+    Identity,
+    /// The eye honeycomb base-5 trigram grouping (`FixedGrouping{3,5,Msb,3}`).
+    Honeycomb,
 }
 
 #[derive(Clone, Copy, Debug, Args)]
@@ -1239,10 +1264,11 @@ fn run_solve(args: &SolveArgs) -> ExitCode {
         transparent: &parsed.transparent,
         space: solve::HypothesisSpace {
             families: solve_families(cipher_alphabet_size, &args.family),
-            // Phase 1 default: Identity codec (the eyes' 83-symbol alphabet already
-            // spans the 29-letter language; small-alphabet widening codecs land via
-            // the library CodecStrategy as later phases wire CLI controls).
-            codec: codec::CodecStrategy::Fixed(vec![codec::AnyCodec::Identity]),
+            // Codec stage: Identity by default (the eyes' 83-symbol alphabet already
+            // spans the 29-letter language); --codec selects a Fixed codec and
+            // --codec-search flips to the bounded codec enumeration that widens a
+            // small cipher alphabet (5/6/12 symbols) enough to host the language.
+            codec: solve_codec_strategy(args),
             mappings,
             language: solve::LanguageChoice::Both,
             cipher_alphabet_size,
@@ -1283,6 +1309,21 @@ fn run_solve(args: &SolveArgs) -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+/// Resolves the codec stage from the CLI flags. `--codec-search` takes precedence
+/// and flips the stage to the bounded library enumeration ([`codec::default_codec_search`]);
+/// otherwise a single declared [`codec::AnyCodec`] is scored (`--codec`). The
+/// no-flag default is `Fixed([Identity])`, byte-for-byte the pre-flag behavior.
+fn solve_codec_strategy(args: &SolveArgs) -> codec::CodecStrategy {
+    if args.codec_search {
+        return codec::CodecStrategy::Search(codec::default_codec_search(args.seed));
+    }
+    let codec = match args.codec {
+        SolveCodecArg::Identity => codec::AnyCodec::Identity,
+        SolveCodecArg::Honeycomb => codec::honeycomb_codec(),
+    };
+    codec::CodecStrategy::Fixed(vec![codec])
 }
 
 fn solve_mapping_strategy(

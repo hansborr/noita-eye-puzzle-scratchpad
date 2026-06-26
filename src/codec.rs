@@ -163,6 +163,43 @@ pub struct CodecSearch {
     pub seed: u64,
 }
 
+/// Default `max_group_len` for the CLI codec search (`solve --codec-search`).
+///
+/// Group lengths `1..=3` cover every grouping the practice corpus needs while
+/// staying under [`MAX_SEARCH_OUTPUT_ALPHABET`]: base-5 trigrams (`5³ = 125`),
+/// base-6 pairs/triples (`6² = 36`, `6³ = 216`) and base-12 pairs (`12² = 144`);
+/// `12³ = 1728` and `5⁴ = 625` are pruned by the ceiling.
+pub const DEFAULT_CODEC_SEARCH_MAX_GROUP_LEN: usize = 3;
+
+/// The default codec-search configuration the CLI `--codec-search` flag selects:
+/// group lengths `1..=`[`DEFAULT_CODEC_SEARCH_MAX_GROUP_LEN`], BOTH digit orders,
+/// and the delta codec enabled (the motivated `±1`-`C5` hint for puzzle `one`).
+/// `seed` threads the caller's deterministic seed through the enumeration.
+#[must_use]
+pub fn default_codec_search(seed: u64) -> CodecSearch {
+    CodecSearch {
+        max_group_len: DEFAULT_CODEC_SEARCH_MAX_GROUP_LEN,
+        try_delta: true,
+        orders: vec![DigitOrder::Msb, DigitOrder::Lsb],
+        seed,
+    }
+}
+
+/// The eye **honeycomb** codec the CLI `--codec honeycomb` selector declares: the
+/// canonical base-5 trigram grouping (`group_len = 3`, `base = 5`, MSB,
+/// non-overlapping) whose raw value range is `0..=124` (`src/trigram.rs`). It is a
+/// declared [`CodecStrategy::Fixed`] codec, so it only transduces a base-5 digit
+/// stream; on any other alphabet [`Codec::transduce`] errors honestly.
+#[must_use]
+pub fn honeycomb_codec() -> AnyCodec {
+    AnyCodec::FixedGrouping(GroupingCodec {
+        group_len: 3,
+        base: 5,
+        order: DigitOrder::Msb,
+        stride: 3,
+    })
+}
+
 /// Documented output-alphabet ceiling for the codec search: an enumerated codec
 /// whose resolved output alphabet exceeds this is skipped (and logged) as too wide
 /// to map honestly onto a ~29-letter language.
@@ -668,10 +705,10 @@ fn integrate(base: usize, seed: Glyph, moves: &[Glyph]) -> Result<Vec<Glyph>, Co
 #[cfg(test)]
 mod tests {
     use super::{
-        AnyCodec, Codec, CodecError, CodecSearch, DEFAULT_LANGUAGE_ALPHABET_SIZE, DeltaCodec,
-        DigitOrder, GroupingCodec, codec_round_trip_ok, enumerate_codecs,
-        output_alphabet_hosts_language, output_exceeds_accepted_alphabet,
-        resolved_output_alphabet_size,
+        AnyCodec, Codec, CodecError, CodecSearch, DEFAULT_CODEC_SEARCH_MAX_GROUP_LEN,
+        DEFAULT_LANGUAGE_ALPHABET_SIZE, DeltaCodec, DigitOrder, GroupingCodec, codec_round_trip_ok,
+        default_codec_search, enumerate_codecs, honeycomb_codec, output_alphabet_hosts_language,
+        output_exceeds_accepted_alphabet, resolved_output_alphabet_size,
     };
     use crate::glyph::{Glyph, Orientation};
     use crate::trigram::ReadingTrigram;
@@ -1022,6 +1059,28 @@ mod tests {
                 .count(),
             1
         );
+    }
+
+    #[test]
+    fn cli_codec_helpers_expose_default_search_and_honeycomb() {
+        // The CLI `--codec-search` default: group_len 1..=3, both orders, delta on.
+        let search = default_codec_search(0x1234);
+        assert_eq!(search.max_group_len, DEFAULT_CODEC_SEARCH_MAX_GROUP_LEN);
+        assert!(search.try_delta);
+        assert_eq!(search.orders, vec![DigitOrder::Msb, DigitOrder::Lsb]);
+        assert_eq!(search.seed, 0x1234);
+
+        // The CLI `--codec honeycomb` selector is the base-5 trigram grouping.
+        assert_eq!(
+            honeycomb_codec(),
+            AnyCodec::FixedGrouping(GroupingCodec {
+                group_len: 3,
+                base: 5,
+                order: DigitOrder::Msb,
+                stride: 3,
+            })
+        );
+        assert_eq!(resolved_output_alphabet_size(&honeycomb_codec(), 5), 125);
     }
 
     #[test]
