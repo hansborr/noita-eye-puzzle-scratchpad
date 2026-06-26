@@ -1232,6 +1232,11 @@ fn run_solve(args: &SolveArgs) -> ExitCode {
     let mappings = solve_mapping_strategy(args, cipher_alphabet_size, english.alphabet().len());
     let request = solve::SolveRequest {
         ciphertext: &parsed.glyphs,
+        // Transparent (pass-through) symbols recorded at ingest — e.g. puzzle
+        // `six`'s preserved spaces — reinserted into each candidate's rendered
+        // text at codec-aware spots; empty (a strict no-op) for inputs without
+        // any (the eyes, the default letter path).
+        transparent: &parsed.transparent,
         space: solve::HypothesisSpace {
             families: solve_families(cipher_alphabet_size, &args.family),
             // Phase 1 default: Identity codec (the eyes' 83-symbol alphabet already

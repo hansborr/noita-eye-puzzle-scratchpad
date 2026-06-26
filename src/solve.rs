@@ -17,7 +17,7 @@ use crate::codec::{
     enumerate_codecs, output_alphabet_hosts_language, resolved_output_alphabet_size,
 };
 use crate::glyph::Glyph;
-use crate::ingest::IngestError;
+use crate::ingest::{IngestError, TransparentMark};
 use crate::language::{LanguageError, LanguageModel};
 use crate::null::{SplitMix64, fisher_yates, mix_seed};
 
@@ -203,6 +203,13 @@ pub struct HypothesisSpace {
 pub struct SolveRequest<'a> {
     /// Ciphertext glyph stream.
     pub ciphertext: &'a [Glyph],
+    /// Transparent (pass-through) marks recorded at ingest (brief 03), reinserted
+    /// into each candidate's [`rendered_text`](Candidate::rendered_text) at
+    /// position-faithful, codec-aware spots. The cipher/codec/mapping and the
+    /// bigram scorer never see these (they are not in `ciphertext`); they are
+    /// readability plumbing only. Empty for the eyes and any no-transparent input,
+    /// for which reinsertion is a strict no-op (rendered text byte-identical).
+    pub transparent: &'a [TransparentMark],
     /// Hypothesis space to enumerate.
     pub space: HypothesisSpace,
     /// English language model.
@@ -832,6 +839,7 @@ fn evaluate_cipher(
     };
     let transduced = codec.transduce(&decrypted_symbols)?;
     let scored = score_transduced(&transduced, mapping, model_for(req, language))?;
+    let rendered_text = reinsert_transparent(&scored.rendered_text, req.transparent, codec);
     Ok(Some(Candidate {
         cipher: cipher.clone(),
         crypto_round_trip_ok: true,
@@ -840,7 +848,7 @@ fn evaluate_cipher(
         codec: codec.clone(),
         mapping: mapping.clone(),
         language,
-        rendered_text: scored.rendered_text,
+        rendered_text,
         score: scored.score,
         heldout_mapping_score: scored.heldout_mapping_score,
         null_mean,
@@ -948,6 +956,86 @@ fn render_indices(indices: &[usize], model: &LanguageModel) -> Result<String, So
     Ok(rendered)
 }
 
+/// Reinserts transparent (pass-through) marks into a rendered candidate string at
+/// position-faithful, **codec-aware** spots.
+///
+/// A [`TransparentMark::position`] is in the ORIGINAL char coordinate (cipher
+/// symbols + transparent chars interleaved). The cipher-glyph stream excludes the
+/// transparent chars, and a length-changing codec (e.g. [`AnyCodec::FixedGrouping`])
+/// compresses it further, so each mark is mapped in three hops:
+///
+/// 1. original position → cipher-stream index = the number of cipher glyphs
+///    strictly before it. Marks arrive in ascending position order, so for the
+///    `i`-th mark exactly `i` transparent chars precede it; the cipher index is
+///    therefore `position - i`.
+/// 2. cipher-stream index → rendered-char index through the codec length transform
+///    ([`rendered_index_for_cipher_index`]): `Identity` is 1:1; a grouping codec
+///    DIVIDES by `group_len`; a delta codec drops its seed (length −1) before its
+///    inner codec.
+/// 3. a mark that falls MID-GROUP is **snapped to the nearest group boundary** —
+///    the exact intra-group offset is lost to grouping, so spaces are reinserted at
+///    group-boundary granularity (documented honestly, never silently).
+///
+/// BEHAVIOR-PRESERVING: with no marks (the eyes; any no-transparent input) this is a
+/// strict no-op and returns `rendered` unchanged byte-for-byte.
+fn reinsert_transparent(rendered: &str, marks: &[TransparentMark], codec: &AnyCodec) -> String {
+    if marks.is_empty() {
+        return rendered.to_owned();
+    }
+    let rendered_chars: Vec<char> = rendered.chars().collect();
+    let rendered_len = rendered_chars.len();
+    // Each mark's snapped rendered-char index (monotonic non-decreasing in
+    // position), clamped into `0..=rendered_len` so a trailing mark lands at the end.
+    let targets: Vec<usize> = marks
+        .iter()
+        .enumerate()
+        .map(|(index, mark)| {
+            let cipher_index = mark.position.saturating_sub(index);
+            rendered_index_for_cipher_index(codec, cipher_index).min(rendered_len)
+        })
+        .collect();
+    let mut out = String::with_capacity(rendered.len() + marks.len());
+    let mut mark_idx = 0usize;
+    for r in 0..=rendered_len {
+        while targets.get(mark_idx).is_some_and(|&target| target == r) {
+            if let Some(mark) = marks.get(mark_idx) {
+                out.push(mark.ch);
+            }
+            mark_idx = mark_idx.saturating_add(1);
+        }
+        if let Some(&ch) = rendered_chars.get(r) {
+            out.push(ch);
+        }
+    }
+    out
+}
+
+/// Maps a cipher-stream index to the rendered-char index it precedes, through a
+/// codec's length transform (the snap-to-nearest-group-boundary rule for grouping).
+///
+/// - [`AnyCodec::Identity`] is 1:1 (no length change).
+/// - [`AnyCodec::FixedGrouping`] divides by `group_len`, rounding to the NEAREST
+///   group boundary (`round(cipher_index / group_len)`): a mark inside a group has
+///   no exact rendered position, so it snaps to the closer boundary.
+/// - [`AnyCodec::Delta`] drops the seed symbol (length −1: a leading mark snaps to
+///   index 0), then recurses into the inner codec.
+fn rendered_index_for_cipher_index(codec: &AnyCodec, cipher_index: usize) -> usize {
+    match codec {
+        AnyCodec::Identity => cipher_index,
+        AnyCodec::FixedGrouping(grouping) => {
+            let group_len = grouping.group_len.max(1);
+            // round(cipher_index / group_len) = floor((cipher_index + group_len/2) / group_len).
+            cipher_index
+                .saturating_add(group_len / 2)
+                .checked_div(group_len)
+                .unwrap_or(cipher_index)
+        }
+        AnyCodec::Delta(delta) => {
+            rendered_index_for_cipher_index(&delta.then, cipher_index.saturating_sub(1))
+        }
+    }
+}
+
 // NOTE: this FIXED-mapping held-out helper scores ALTERNATING (odd) positions,
 // whereas the SEARCH path (`heldout_search_score`) uses CONTIGUOUS folds. The
 // difference is deliberate and behavior-preserving: the fixed path applies ONE
@@ -1047,7 +1135,8 @@ fn evaluate_cipher_search(
 
     let full = search_mapping(&symbols, mapping_domain, model, search, seed)?;
     let mapped = full.mapping.apply(&transduced)?;
-    let rendered_text = render_indices(&mapped, model)?;
+    let rendered_text =
+        reinsert_transparent(&render_indices(&mapped, model)?, req.transparent, codec);
     let heldout_mapping_score = heldout_search_score(
         &symbols,
         mapping_domain,
@@ -1996,6 +2085,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
     ) -> SolveRequest<'a> {
         SolveRequest {
             ciphertext,
+            transparent: &[],
             space: HypothesisSpace {
                 families: vec![CipherFamilySpec {
                     label: "identity".to_owned(),
@@ -2021,6 +2111,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
     ) -> SolveRequest<'a> {
         SolveRequest {
             ciphertext,
+            transparent: &[],
             space: HypothesisSpace {
                 families: vec![CipherFamilySpec {
                     label: "identity".to_owned(),
@@ -2043,6 +2134,60 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         let input = glyphs(&[3, 1, 4]);
 
         assert_eq!(AnyCodec::Identity.transduce(&input).unwrap(), input);
+    }
+
+    // Part 1 — transparent-space reinsertion (brief 04a step 9). A
+    // `TransparentMark.position` is in the ORIGINAL char coordinate; the cipher
+    // stream excludes those chars and a grouping codec compresses it, so each mark
+    // is mapped original-position -> cipher index -> rendered index (snapped to the
+    // nearest group boundary for grouping). With no marks it is a strict no-op.
+    #[test]
+    fn reinsert_transparent_places_spaces_under_identity_and_grouping() {
+        // Original "AB CD EF": cipher glyphs at 0,1,3,4,6,7; spaces at 2 and 5.
+        let marks = [
+            crate::ingest::TransparentMark {
+                ch: ' ',
+                position: 2,
+            },
+            crate::ingest::TransparentMark {
+                ch: ' ',
+                position: 5,
+            },
+        ];
+
+        // Identity (1:1): spaces land before rendered chars 2 and 4 — exactly the
+        // original word boundaries.
+        assert_eq!(
+            super::reinsert_transparent("ABCDEF", &marks, &AnyCodec::Identity),
+            "AB CD EF"
+        );
+
+        // A base-anything pair grouping compresses 6 cipher glyphs -> 3 rendered
+        // chars; each original word (2 digits) becomes one letter, so the spaces
+        // fall on the group boundaries -> "X Y Z".
+        let pair = AnyCodec::FixedGrouping(GroupingCodec {
+            group_len: 2,
+            base: 6,
+            order: DigitOrder::Msb,
+            stride: 2,
+        });
+        assert_eq!(super::reinsert_transparent("XYZ", &marks, &pair), "X Y Z");
+
+        // Mid-group snap: a space at original position 3 ("ABC DEF") sits INSIDE the
+        // second pair (cipher index 3, group boundaries at 0,2,4,6); it snaps to the
+        // nearest boundary (rendered index 2) -> "XY Z". The exact intra-group offset
+        // is intentionally lost to grouping (documented honestly).
+        let mid = [crate::ingest::TransparentMark {
+            ch: ' ',
+            position: 3,
+        }];
+        assert_eq!(super::reinsert_transparent("XYZ", &mid, &pair), "XY Z");
+
+        // BEHAVIOR-PRESERVING: no marks => byte-identical passthrough (the eyes).
+        assert_eq!(
+            super::reinsert_transparent("ABCDEF", &[], &AnyCodec::Identity),
+            "ABCDEF"
+        );
     }
 
     // Step 4 — synthetic plant-through-codec positive control (fixed codec).
@@ -2095,6 +2240,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
 
         let request = SolveRequest {
             ciphertext: &ciphertext,
+            transparent: &[],
             space: HypothesisSpace {
                 families: vec![CipherFamilySpec {
                     label: "Caesar".to_owned(),
@@ -2146,6 +2292,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
 
         let request = SolveRequest {
             ciphertext: &ciphertext,
+            transparent: &[],
             space: HypothesisSpace {
                 families: vec![CipherFamilySpec {
                     label: "Caesar".to_owned(),
@@ -2213,6 +2360,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         let ciphertext = glyphs(&[0, 1, 2, 3, 4, 0, 1, 2, 3, 4, 0, 1]);
         let request = SolveRequest {
             ciphertext: &ciphertext,
+            transparent: &[],
             space: HypothesisSpace {
                 families: vec![CipherFamilySpec {
                     label: "identity".to_owned(),
@@ -2271,6 +2419,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         let mapping = grouped_value_identity_mapping(&english);
         let request = SolveRequest {
             ciphertext: &ciphertext,
+            transparent: &[],
             space: HypothesisSpace {
                 families: vec![CipherFamilySpec {
                     label: "Caesar".to_owned(),
@@ -2323,6 +2472,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
 
         let request = SolveRequest {
             ciphertext: &shuffled,
+            transparent: &[],
             space: HypothesisSpace {
                 families: vec![CipherFamilySpec {
                     label: "identity".to_owned(),
@@ -2401,6 +2551,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         };
         let request = SolveRequest {
             ciphertext: &shuffled,
+            transparent: &[],
             space: HypothesisSpace {
                 families: vec![CipherFamilySpec {
                     label: "identity".to_owned(),
@@ -2473,6 +2624,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
 
         let request = SolveRequest {
             ciphertext: &ciphertext,
+            transparent: &[],
             space: HypothesisSpace {
                 families: vec![CipherFamilySpec {
                     label: "Caesar".to_owned(),
@@ -2525,6 +2677,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
 
         let request = SolveRequest {
             ciphertext: &ciphertext,
+            transparent: &[],
             space: HypothesisSpace {
                 families: vec![CipherFamilySpec {
                     label: "Caesar".to_owned(),
@@ -2613,6 +2766,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
 
         let request = SolveRequest {
             ciphertext: &ciphertext,
+            transparent: &[],
             space: HypothesisSpace {
                 families: vec![CipherFamilySpec {
                     label: "Caesar".to_owned(),
@@ -2708,6 +2862,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         let ciphertext = caesar_encrypt(&plaintext, &key).unwrap();
         let request = SolveRequest {
             ciphertext: &ciphertext,
+            transparent: &[],
             space: HypothesisSpace {
                 families: vec![CipherFamilySpec {
                     label: "Caesar".to_owned(),
@@ -2752,6 +2907,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         let ciphertext = transposition_encrypt(&plaintext, &key).unwrap();
         let request = SolveRequest {
             ciphertext: &ciphertext,
+            transparent: &[],
             space: HypothesisSpace {
                 families: vec![CipherFamilySpec {
                     label: "transposition".to_owned(),
@@ -3019,6 +3175,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
     ) -> SolveRequest<'a> {
         SolveRequest {
             ciphertext,
+            transparent: &[],
             space: HypothesisSpace {
                 families: vec![CipherFamilySpec {
                     label: "identity".to_owned(),
@@ -3290,6 +3447,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
 
         let request = SolveRequest {
             ciphertext: &ciphertext,
+            transparent: &[],
             space: HypothesisSpace {
                 families: vec![CipherFamilySpec {
                     label: "Caesar".to_owned(),
