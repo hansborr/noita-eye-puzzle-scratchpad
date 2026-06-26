@@ -969,14 +969,11 @@ fn run_monoalphabetic_control(config: controls::MonoalphabeticControlConfig) -> 
     let report = match controls::run_monoalphabetic_control(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "monoalphabetic control failed: {}",
-                report::format_controls_error(&error)
-            );
+            eprintln!("monoalphabetic control failed: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_monoalphabetic_control_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
@@ -984,14 +981,11 @@ fn run_isomorph_control(config: controls::IsomorphControlConfig) -> ExitCode {
     let report = match controls::run_isomorph_control(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "isomorph control failed: {}",
-                report::format_controls_error(&error)
-            );
+            eprintln!("isomorph control failed: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_isomorph_control_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 

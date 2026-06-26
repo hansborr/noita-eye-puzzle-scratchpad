@@ -23,10 +23,13 @@
 //! Passing this control says nothing about whether the unsolved eye glyphs
 //! encode a recoverable message.
 
+use std::fmt;
+
 use crate::analysis;
 use crate::glyph::Glyph;
 use crate::isomorph::{self, IsomorphError};
 use crate::null::SplitMix64;
+use crate::report::{self, Report};
 
 pub use crate::isomorph::{PeriodSignal, SignatureSummary};
 
@@ -268,6 +271,136 @@ pub enum ControlsError {
     },
 }
 
+impl fmt::Display for ControlsError {
+    #[allow(
+        clippy::too_many_lines,
+        reason = "byte-identical Display for a large CLI error enum is clearest as one match"
+    )]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::EmptyPlaintext { label } => write!(f, "{label}: normalized plaintext is empty"),
+            Self::UnsupportedPlaintextSymbol { label, symbol } => {
+                write!(f, "{label}: unsupported plaintext symbol {symbol:?}")
+            }
+            Self::GlyphOutsideAlphabet {
+                label,
+                glyph,
+                alphabet_size,
+            } => write!(
+                f,
+                "{label}: glyph {glyph} is outside alphabet size {alphabet_size}"
+            ),
+            Self::AlphabetTooLarge { alphabet_size } => {
+                write!(
+                    f,
+                    "alphabet size {alphabet_size} is too large for this control"
+                )
+            }
+            Self::NonBijectiveKey {
+                seed,
+                alphabet_size,
+            } => write!(
+                f,
+                "seed {seed} did not produce a bijection over alphabet size {alphabet_size}"
+            ),
+            Self::IocNotPreserved {
+                label,
+                plaintext_bits,
+                ciphertext_bits,
+            } => write!(
+                f,
+                "{label}: IoC changed across substitution ({plaintext_bits:#x} != {ciphertext_bits:#x})"
+            ),
+            Self::FrequencyMultisetChanged { label } => {
+                write!(
+                    f,
+                    "{label}: frequency-count multiset changed across substitution"
+                )
+            }
+            Self::BigramMultisetChanged { label } => {
+                write!(
+                    f,
+                    "{label}: bigram-count multiset changed across substitution"
+                )
+            }
+            Self::KnownKeyRecoveryFailed { label } => {
+                write!(
+                    f,
+                    "{label}: known-key inverse did not recover the plaintext"
+                )
+            }
+            Self::RegimeSeparationFailed {
+                label,
+                plaintext_ioc,
+                flattened_ioc,
+                uniform_floor,
+            } => write!(
+                f,
+                "{label}: IoC did not separate regimes (plain {plaintext_ioc:.6}, balanced uniform {flattened_ioc:.6}, floor {uniform_floor:.6})"
+            ),
+            Self::InvalidIsomorphWindow {
+                label,
+                window,
+                sequence_len,
+            } => write!(
+                f,
+                "{label}: invalid isomorph window {window} for sequence length {sequence_len}"
+            ),
+            Self::InvalidPeriodSearch {
+                label,
+                min_period,
+                max_period,
+            } => write!(
+                f,
+                "{label}: invalid isomorph period search {min_period}..={max_period}"
+            ),
+            Self::IsomorphSignalMissing {
+                label,
+                expected_period,
+                observed_matches,
+                required_matches,
+            } => write!(
+                f,
+                "{label}: expected period {expected_period} produced {observed_matches} signature matches, below required {required_matches}"
+            ),
+            Self::IsomorphPeriodRecoveryFailed {
+                label,
+                expected_period,
+                observed_period,
+                observed_matches,
+            } => {
+                let observed =
+                    observed_period.map_or_else(|| "none".to_owned(), |period| period.to_string());
+                write!(
+                    f,
+                    "{label}: strongest recovered period was {observed} with {observed_matches} signature matches, expected {expected_period}"
+                )
+            }
+            Self::IsomorphFalsePositive {
+                label,
+                observed_period,
+                observed_matches,
+                allowed_matches,
+            } => write!(
+                f,
+                "{label}: expected-absent period signal {observed_period} produced {observed_matches} signature matches, above allowed {allowed_matches}"
+            ),
+            Self::IsomorphSeparationFailed {
+                present_label,
+                absent_label,
+                present_matches,
+                absent_matches,
+                required_gap,
+            } => write!(
+                f,
+                "{present_label}: signature-period separation from {absent_label} was {present_matches} vs {absent_matches}, below required gap {required_gap}"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for ControlsError {}
+
 /// Summary of one encrypted positive-control fixture.
 #[derive(Clone, Debug, PartialEq)]
 pub struct FixtureReport {
@@ -322,6 +455,99 @@ pub struct MonoalphabeticControlReport {
     /// Short documented Common Glyphs plaintexts, used only as known-key
     /// exactness vectors.
     pub documented_vectors: Vec<FixtureReport>,
+}
+
+impl Report for MonoalphabeticControlReport {
+    fn render(&self) -> String {
+        let mut out = String::new();
+        report::appendln!(&mut out, "Experiment 11 monoalphabetic positive control");
+        report::appendln!(&mut out, "seed: {}", self.config.seed);
+        report::appendln!(
+            &mut out,
+            "alphabet: {} symbols ({})",
+            self.alphabet_size,
+            self.alphabet
+        );
+        report::appendln!(&mut out, "generated key: {}", self.key_mapping);
+        report::appendln!(&mut out);
+        report::appendln!(
+            &mut out,
+            "long fixture: {} letters from {}",
+            self.long_fixture.length,
+            self.long_fixture.label
+        );
+        report::appendln!(
+            &mut out,
+            "plaintext:  {}",
+            report::preview_text(&self.long_fixture.normalized_plaintext, 96)
+        );
+        report::appendln!(
+            &mut out,
+            "ciphertext: {}",
+            report::preview_text(&self.long_fixture.ciphertext, 96)
+        );
+        report::appendln!(
+            &mut out,
+            "recovered:  {}",
+            report::preview_text(&self.long_fixture.recovered_plaintext, 96)
+        );
+        report::appendln!(&mut out);
+        report::appendln!(
+            &mut out,
+            "IoC plaintext/ciphertext: {:.6} / {:.6} (exactly preserved)",
+            self.long_fixture.plaintext_ioc,
+            self.long_fixture.ciphertext_ioc
+        );
+        report::appendln!(
+            &mut out,
+            "IoC balanced uniform: {:.6}; uniform floor 1/k: {:.6}",
+            self.flattened_ioc,
+            self.uniform_floor
+        );
+        report::appendln!(
+            &mut out,
+            "entropy plaintext/ciphertext/balanced uniform: {:.4} / {:.4} / {:.4} bits/symbol",
+            self.long_fixture.plaintext_entropy,
+            self.long_fixture.ciphertext_entropy,
+            self.flattened_entropy
+        );
+        report::appendln!(
+            &mut out,
+            "frequency multiset preserved: {}",
+            report::yes_no(self.long_fixture.frequency_multiset_preserved)
+        );
+        report::appendln!(
+            &mut out,
+            "bigram count multiset preserved: {}",
+            report::yes_no(self.long_fixture.bigram_multiset_preserved)
+        );
+        report::appendln!(
+            &mut out,
+            "known-key recovery: {}",
+            report::yes_no(self.long_fixture.known_key_recovered)
+        );
+        report::appendln!(&mut out);
+        report::appendln!(
+            &mut out,
+            "documented Common Glyphs plaintext vectors (known-key exactness only):"
+        );
+        for fixture in &self.documented_vectors {
+            report::appendln!(
+                &mut out,
+                "  {}: {:?} -> {} -> {}",
+                fixture.label,
+                fixture.source_plaintext,
+                fixture.ciphertext,
+                fixture.recovered_plaintext
+            );
+        }
+        report::appendln!(&mut out);
+        report::appendln!(
+            &mut out,
+            "Interpretation: this proves the frequency/substitution tooling is not systematically blind to a known monoalphabetic substitution fixture. It does not claim frequency-only recovery of the short Common Glyphs phrases, and it says nothing about whether the unsolved eye glyphs encode a message. If this control fails, the methodology is suspect."
+        );
+        out
+    }
 }
 
 /// Summary of one generated isomorph-control fixture.
@@ -394,6 +620,112 @@ pub struct IsomorphControlReport {
     pub autokey: IsomorphFixtureReport,
     /// Known-absent running-key contrast fixture.
     pub running_key: IsomorphFixtureReport,
+}
+
+impl Report for IsomorphControlReport {
+    fn render(&self) -> String {
+        let mut out = String::new();
+        report::appendln!(
+            &mut out,
+            "Experiment 11 isomorph/polyalphabetic positive control"
+        );
+        report::appendln!(&mut out, "seed: {}", self.config.seed);
+        report::appendln!(
+            &mut out,
+            "alphabet: {} symbols ({})",
+            self.alphabet_size,
+            self.alphabet
+        );
+        report::appendln!(
+            &mut out,
+            "detector: first-occurrence signatures over {}-glyph windows; periods {}..={}",
+            self.window,
+            self.min_period,
+            self.max_period
+        );
+        report::appendln!(
+            &mut out,
+            "ground truth: plaintext has period-aligned planted repeats; Vigenere key period is {}; autokey and running-key have no short repeating key",
+            self.expected_period
+        );
+        report::appendln!(
+            &mut out,
+            "invariant: Vigenere period matches >= {}; each absent fixture max period matches <= {}",
+            self.required_present_matches,
+            self.allowed_absent_matches
+        );
+        report::appendln!(&mut out);
+        append_isomorph_fixture(&mut out, &self.vigenere);
+        report::appendln!(&mut out);
+        append_isomorph_fixture(&mut out, &self.autokey);
+        report::appendln!(&mut out);
+        append_isomorph_fixture(&mut out, &self.running_key);
+        report::appendln!(&mut out);
+        report::appendln!(
+            &mut out,
+            "Interpretation: this control shows the isomorph/period tooling recovers the repeating-key Vigenere period when English prose contains period-aligned planted repeats. The autokey and running-key fixtures use the same planted repeats but do not show a short period, so the contrast isolates key structure rather than plaintext content. It does not claim arbitrary natural text would produce this signal, and it says nothing about whether the unsolved eye glyphs encode a message. If this control fails, the methodology is suspect."
+        );
+        out
+    }
+}
+
+fn append_isomorph_fixture(out: &mut String, fixture: &IsomorphFixtureReport) {
+    report::appendln!(out, "{} ({})", fixture.label, fixture.cipher);
+    report::appendln!(out, "key: {}", fixture.key_summary);
+    report::appendln!(out, "length: {} glyphs", fixture.length);
+    report::appendln!(
+        out,
+        "plaintext:  {}",
+        report::preview_text(&fixture.plaintext, 84)
+    );
+    report::appendln!(
+        out,
+        "ciphertext: {}",
+        report::preview_text(&fixture.ciphertext, 84)
+    );
+    report::appendln!(
+        out,
+        "cipher entropy/IoC/distinct: {:.4} bits / {:.6} / {}",
+        fixture.ciphertext_entropy,
+        fixture.ciphertext_ioc,
+        fixture.distinct_cipher_symbols
+    );
+    report::appendln!(out, "plaintext IoC: {:.6}", fixture.plaintext_ioc);
+    report::appendln!(
+        out,
+        "informative windows: {}; repeated signature kinds: {}; exact repeated windows: {}",
+        fixture.informative_windows,
+        fixture.repeated_signature_kinds,
+        fixture.exact_repeated_windows
+    );
+    report::appendln!(
+        out,
+        "period-{} signature matches: {}",
+        fixture.expected_period,
+        fixture.expected_period_matches
+    );
+    match fixture.best_period {
+        Some(signal) => report::appendln!(
+            out,
+            "best period: {} ({} matches across {} signatures)",
+            signal.period,
+            signal.matches,
+            signal.signature_kinds
+        ),
+        None => report::appendln!(out, "best period: none"),
+    }
+    if !fixture.strongest_signatures.is_empty() {
+        report::appendln!(out, "top period-{} signatures:", fixture.expected_period);
+        for signature in &fixture.strongest_signatures {
+            report::appendln!(
+                out,
+                "  [{}] at {} ({} period matches)",
+                signature.signature,
+                report::format_positions(&signature.occurrences),
+                signature.expected_period_matches
+            );
+        }
+    }
 }
 
 /// Runs the monoalphabetic substitution positive control.

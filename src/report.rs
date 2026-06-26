@@ -6,8 +6,7 @@
 
 use crate::glyph::Sequence;
 use crate::{
-    analysis, conditional_structure, controls, gak_attack, grouping, orders,
-    orientation_homogeneity,
+    analysis, conditional_structure, gak_attack, grouping, orders, orientation_homogeneity,
 };
 
 /// A domain report that can render itself to user-facing CLI text.
@@ -181,106 +180,6 @@ pub fn format_orientation_homogeneity_error(
     }
 }
 
-/// Formats an Experiment 11 positive-control error for CLI output.
-#[must_use]
-pub fn format_controls_error(error: &controls::ControlsError) -> String {
-    match error {
-        controls::ControlsError::EmptyPlaintext { label } => {
-            format!("{label}: normalized plaintext is empty")
-        }
-        controls::ControlsError::UnsupportedPlaintextSymbol { label, symbol } => {
-            format!("{label}: unsupported plaintext symbol {symbol:?}")
-        }
-        controls::ControlsError::GlyphOutsideAlphabet {
-            label,
-            glyph,
-            alphabet_size,
-        } => format!("{label}: glyph {glyph} is outside alphabet size {alphabet_size}"),
-        controls::ControlsError::AlphabetTooLarge { alphabet_size } => {
-            format!("alphabet size {alphabet_size} is too large for this control")
-        }
-        controls::ControlsError::NonBijectiveKey {
-            seed,
-            alphabet_size,
-        } => {
-            format!("seed {seed} did not produce a bijection over alphabet size {alphabet_size}")
-        }
-        controls::ControlsError::IocNotPreserved {
-            label,
-            plaintext_bits,
-            ciphertext_bits,
-        } => format!(
-            "{label}: IoC changed across substitution ({plaintext_bits:#x} != {ciphertext_bits:#x})"
-        ),
-        controls::ControlsError::FrequencyMultisetChanged { label } => {
-            format!("{label}: frequency-count multiset changed across substitution")
-        }
-        controls::ControlsError::BigramMultisetChanged { label } => {
-            format!("{label}: bigram-count multiset changed across substitution")
-        }
-        controls::ControlsError::KnownKeyRecoveryFailed { label } => {
-            format!("{label}: known-key inverse did not recover the plaintext")
-        }
-        controls::ControlsError::RegimeSeparationFailed {
-            label,
-            plaintext_ioc,
-            flattened_ioc,
-            uniform_floor,
-        } => format!(
-            "{label}: IoC did not separate regimes (plain {plaintext_ioc:.6}, balanced uniform {flattened_ioc:.6}, floor {uniform_floor:.6})"
-        ),
-        controls::ControlsError::InvalidIsomorphWindow {
-            label,
-            window,
-            sequence_len,
-        } => {
-            format!("{label}: invalid isomorph window {window} for sequence length {sequence_len}")
-        }
-        controls::ControlsError::InvalidPeriodSearch {
-            label,
-            min_period,
-            max_period,
-        } => format!("{label}: invalid isomorph period search {min_period}..={max_period}"),
-        controls::ControlsError::IsomorphSignalMissing {
-            label,
-            expected_period,
-            observed_matches,
-            required_matches,
-        } => format!(
-            "{label}: expected period {expected_period} produced {observed_matches} signature matches, below required {required_matches}"
-        ),
-        controls::ControlsError::IsomorphPeriodRecoveryFailed {
-            label,
-            expected_period,
-            observed_period,
-            observed_matches,
-        } => {
-            let observed =
-                observed_period.map_or_else(|| "none".to_owned(), |period| period.to_string());
-            format!(
-                "{label}: strongest recovered period was {observed} with {observed_matches} signature matches, expected {expected_period}"
-            )
-        }
-        controls::ControlsError::IsomorphFalsePositive {
-            label,
-            observed_period,
-            observed_matches,
-            allowed_matches,
-        } => format!(
-            "{label}: expected-absent period signal {observed_period} produced {observed_matches} signature matches, above allowed {allowed_matches}"
-        ),
-        controls::ControlsError::IsomorphSeparationFailed {
-            present_label,
-            absent_label,
-            present_matches,
-            absent_matches,
-            required_gap,
-        } => format!(
-            "{present_label}: signature-period separation from {absent_label} was {present_matches} vs {absent_matches}, below required gap {required_gap}"
-        ),
-    }
-}
-
 /// Formats a first-order conditional-structure error for CLI output.
 #[must_use]
 pub fn format_conditional_structure_error(
@@ -353,149 +252,6 @@ pub(crate) fn format_null_flag(pointwise: bool, envelope: bool) -> &'static str 
 
 pub(crate) fn format_match_count(matches: usize, comparisons: usize) -> String {
     format!("{matches}/{comparisons}")
-}
-
-/// Prints the Experiment 11 monoalphabetic positive-control report.
-pub fn print_monoalphabetic_control_report(report: &controls::MonoalphabeticControlReport) {
-    println!("Experiment 11 monoalphabetic positive control");
-    println!("seed: {}", report.config.seed);
-    println!(
-        "alphabet: {} symbols ({})",
-        report.alphabet_size, report.alphabet
-    );
-    println!("generated key: {}", report.key_mapping);
-    println!();
-    println!(
-        "long fixture: {} letters from {}",
-        report.long_fixture.length, report.long_fixture.label
-    );
-    println!(
-        "plaintext:  {}",
-        preview_text(&report.long_fixture.normalized_plaintext, 96)
-    );
-    println!(
-        "ciphertext: {}",
-        preview_text(&report.long_fixture.ciphertext, 96)
-    );
-    println!(
-        "recovered:  {}",
-        preview_text(&report.long_fixture.recovered_plaintext, 96)
-    );
-    println!();
-    println!(
-        "IoC plaintext/ciphertext: {:.6} / {:.6} (exactly preserved)",
-        report.long_fixture.plaintext_ioc, report.long_fixture.ciphertext_ioc
-    );
-    println!(
-        "IoC balanced uniform: {:.6}; uniform floor 1/k: {:.6}",
-        report.flattened_ioc, report.uniform_floor
-    );
-    println!(
-        "entropy plaintext/ciphertext/balanced uniform: {:.4} / {:.4} / {:.4} bits/symbol",
-        report.long_fixture.plaintext_entropy,
-        report.long_fixture.ciphertext_entropy,
-        report.flattened_entropy
-    );
-    println!(
-        "frequency multiset preserved: {}",
-        yes_no(report.long_fixture.frequency_multiset_preserved)
-    );
-    println!(
-        "bigram count multiset preserved: {}",
-        yes_no(report.long_fixture.bigram_multiset_preserved)
-    );
-    println!(
-        "known-key recovery: {}",
-        yes_no(report.long_fixture.known_key_recovered)
-    );
-    println!();
-    println!("documented Common Glyphs plaintext vectors (known-key exactness only):");
-    for fixture in &report.documented_vectors {
-        println!(
-            "  {}: {:?} -> {} -> {}",
-            fixture.label,
-            fixture.source_plaintext,
-            fixture.ciphertext,
-            fixture.recovered_plaintext
-        );
-    }
-    println!();
-    println!(
-        "Interpretation: this proves the frequency/substitution tooling is not systematically blind to a known monoalphabetic substitution fixture. It does not claim frequency-only recovery of the short Common Glyphs phrases, and it says nothing about whether the unsolved eye glyphs encode a message. If this control fails, the methodology is suspect."
-    );
-}
-
-/// Prints the Experiment 11 isomorph/polyalphabetic positive-control report.
-pub fn print_isomorph_control_report(report: &controls::IsomorphControlReport) {
-    println!("Experiment 11 isomorph/polyalphabetic positive control");
-    println!("seed: {}", report.config.seed);
-    println!(
-        "alphabet: {} symbols ({})",
-        report.alphabet_size, report.alphabet
-    );
-    println!(
-        "detector: first-occurrence signatures over {}-glyph windows; periods {}..={}",
-        report.window, report.min_period, report.max_period
-    );
-    println!(
-        "ground truth: plaintext has period-aligned planted repeats; Vigenere key period is {}; autokey and running-key have no short repeating key",
-        report.expected_period
-    );
-    println!(
-        "invariant: Vigenere period matches >= {}; each absent fixture max period matches <= {}",
-        report.required_present_matches, report.allowed_absent_matches
-    );
-    println!();
-    print_isomorph_fixture(&report.vigenere);
-    println!();
-    print_isomorph_fixture(&report.autokey);
-    println!();
-    print_isomorph_fixture(&report.running_key);
-    println!();
-    println!(
-        "Interpretation: this control shows the isomorph/period tooling recovers the repeating-key Vigenere period when English prose contains period-aligned planted repeats. The autokey and running-key fixtures use the same planted repeats but do not show a short period, so the contrast isolates key structure rather than plaintext content. It does not claim arbitrary natural text would produce this signal, and it says nothing about whether the unsolved eye glyphs encode a message. If this control fails, the methodology is suspect."
-    );
-}
-
-fn print_isomorph_fixture(fixture: &controls::IsomorphFixtureReport) {
-    println!("{} ({})", fixture.label, fixture.cipher);
-    println!("key: {}", fixture.key_summary);
-    println!("length: {} glyphs", fixture.length);
-    println!("plaintext:  {}", preview_text(&fixture.plaintext, 84));
-    println!("ciphertext: {}", preview_text(&fixture.ciphertext, 84));
-    println!(
-        "cipher entropy/IoC/distinct: {:.4} bits / {:.6} / {}",
-        fixture.ciphertext_entropy, fixture.ciphertext_ioc, fixture.distinct_cipher_symbols
-    );
-    println!("plaintext IoC: {:.6}", fixture.plaintext_ioc);
-    println!(
-        "informative windows: {}; repeated signature kinds: {}; exact repeated windows: {}",
-        fixture.informative_windows,
-        fixture.repeated_signature_kinds,
-        fixture.exact_repeated_windows
-    );
-    println!(
-        "period-{} signature matches: {}",
-        fixture.expected_period, fixture.expected_period_matches
-    );
-    match fixture.best_period {
-        Some(signal) => println!(
-            "best period: {} ({} matches across {} signatures)",
-            signal.period, signal.matches, signal.signature_kinds
-        ),
-        None => println!("best period: none"),
-    }
-    if !fixture.strongest_signatures.is_empty() {
-        println!("top period-{} signatures:", fixture.expected_period);
-        for signature in &fixture.strongest_signatures {
-            println!(
-                "  [{}] at {} ({} period matches)",
-                signature.signature,
-                format_positions(&signature.occurrences),
-                signature.expected_period_matches
-            );
-        }
-    }
 }
 
 const PRIMARY_CONDITIONAL_REPORT_STATISTICS: [conditional_structure::ConditionalStatistic; 7] = [
@@ -1578,7 +1334,7 @@ pub(crate) fn format_usize_values(values: &[usize]) -> String {
         .join(",")
 }
 
-fn yes_no(value: bool) -> &'static str {
+pub(crate) fn yes_no(value: bool) -> &'static str {
     if value { "yes" } else { "no" }
 }
 
@@ -1599,7 +1355,7 @@ pub(crate) fn preview_text(text: &str, max_chars: usize) -> String {
     preview
 }
 
-fn format_positions(positions: &[usize]) -> String {
+pub(crate) fn format_positions(positions: &[usize]) -> String {
     let mut rendered = positions
         .iter()
         .take(12)
