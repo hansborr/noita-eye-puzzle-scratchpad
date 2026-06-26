@@ -12,20 +12,19 @@
 //! Binding honesty discipline (mirrors `known_answer.rs`):
 //!
 //! 1. **Positive control first.** A synthetic hidden-state GAK whose readout
-//!    reproduces `two`'s signature exactly (12 symbols in 3 classes by index mod 3;
+//!    matches `two`'s observable signature (12 symbols in 3 classes by index mod 3;
 //!    consecutive symbols never share a class, so out-degree is exactly 8, not the
 //!    bijective `= num_letters`). With a repeated-phrase plaintext recovery **fires**
-//!    and a within-instance Fisher-Yates shuffle null recovers it **0/N**; the
-//!    signature is asserted so the generator cannot have made recovery trivial.
+//!    and a within-instance Fisher-Yates shuffle null never matches-or-exceeds it
+//!    (**0/8**); the signature guards against the main trivial-recovery degeneracies.
 //! 2. **The substrate is the lever, on ground truth.** The SAME cipher with a
-//!    *realistic* (non-repeated-phrase) plaintext recovers several times fewer true
-//!    edges — recoverability hinges on a dominant repeated phrase, which `two` lacks.
+//!    *realistic* (i.i.d., non-repeated-phrase) plaintext recovers ~2.9x fewer true
+//!    edges — the recoverable lever is a dominant repeated phrase.
 //! 3. **`two` itself: an honest negative.** The attack *runs* on `two` (no seeding
-//!    death), but real text has no dominant repeated phrase, so the beam recovers
-//!    only a few tiny column marginals covering a sliver of the stream — 76–83% of
-//!    transitions stay undecidable, so there is no whole-stream keystream to feed the
-//!    codec. No candidate text is logged (a score on the wrong structure is never a
-//!    recovery).
+//!    death) but recovers only a few tiny column marginals — 76–83% of transitions
+//!    stay undecidable (coverage collapse), so there is no whole-stream keystream to
+//!    feed the codec. No candidate text is logged (a score on the wrong structure is
+//!    never a recovery).
 //!
 //! All `#[cfg(test)]` (a child of `known_answer`): no public surface; it drives the
 //! existing `pub(crate)` recovery, reusing the codec/chain-link/beam primitives.
@@ -385,11 +384,12 @@ fn synth(plaintext: Plaintext, seed: u64) -> HiddenStateFixture {
 
 // --- C. Tests: positive control, the substrate lever, the `two` negative. ---
 
-/// The synthetic generator reproduces `two`'s hidden-state signature: 12 symbols,
-/// consecutive symbols never share a class (mod 3), out-degree exactly 8 on every
-/// symbol (so `> num_letters` — many-valued, the non-trivial hidden subgroup), the
-/// held truth is many-valued, and the held keystream is a genuine `num_letters`-way
-/// partition. A generator that secretly made recovery trivial would fail this.
+/// The synthetic generator matches `two`'s observable signature: 12 symbols,
+/// consecutive symbols never share a class (mod 3), out- and in-degree exactly 8 on
+/// every symbol (so `> num_letters` — many-valued, the non-trivial hidden subgroup),
+/// the held truth is many-valued, and the held keystream is a genuine
+/// `num_letters`-way partition. These guard against the main bijective /
+/// no-hidden-state degeneracies — not against every conceivable easy substrate.
 #[test]
 fn synthetic_reproduces_two_hidden_state_signature() {
     let fixture = synth(Plaintext::RepeatedPhrase, SYNTH_SEED);
@@ -422,38 +422,37 @@ fn synthetic_reproduces_two_hidden_state_signature() {
         fixture.num_letters,
     );
 
+    // In-degree is also exactly 8 on every symbol (the symmetric `two` signature).
+    let mut incoming: BTreeMap<u8, BTreeSet<u8>> = BTreeMap::new();
+    for pair in fixture.ciphertext.windows(2) {
+        if let [a, b] = pair {
+            let _new = incoming.entry(b.get()).or_default().insert(a.get());
+        }
+    }
+    assert!(
+        incoming.len() == ALPHABET && incoming.values().all(|p| p.len() == 8),
+        "every symbol must have in-degree 8 (the symmetric signature)"
+    );
+
     // The held truth is itself many-valued: at least one letter sends one `from` to
     // several `to` (impossible for a bijective GCTAK readout — the |H|>1 signature).
-    let multivalued_letters = fixture
-        .truth_edges
-        .iter()
-        .filter(|edges| {
-            let mut from_counts: BTreeMap<u8, usize> = BTreeMap::new();
-            for e in *edges {
-                *from_counts.entry(e.from).or_insert(0) += 1;
-            }
-            from_counts.values().any(|&c| c > 1)
-        })
-        .count();
-    assert!(
-        multivalued_letters > 0,
-        "at least one letter must be many-valued (a from with several to)"
-    );
+    let many_valued = fixture.truth_edges.iter().any(|edges| {
+        let sources: BTreeSet<u8> = edges.iter().map(|e| e.from).collect();
+        sources.len() < edges.len()
+    });
+    assert!(many_valued, "at least one letter must be many-valued");
 
     // The held keystream is a genuine num_letters-way partition (the ground-truth
     // structure a full decode would have to recover, and which `two` withholds).
     assert_eq!(fixture.keystream.len(), fixture.ciphertext.len());
-    let distinct_letters: BTreeSet<usize> = fixture.keystream.iter().copied().collect();
-    assert_eq!(
-        distinct_letters.len(),
-        SYNTH_LETTERS,
-        "keystream uses all letters"
-    );
+    let distinct: BTreeSet<usize> = fixture.keystream.iter().copied().collect();
+    assert_eq!(distinct.len(), SYNTH_LETTERS, "keystream uses all letters");
 }
 
 /// THE binding positive control. On the repeated-phrase synthetic the recovery FIRES
-/// (true per-letter coset edges, every trial) and a within-instance Fisher-Yates
-/// shuffle null recovers it **0/N** — proving the recovery is the cipher structure.
+/// (true per-letter coset edges, every trial), and a within-instance Fisher-Yates
+/// shuffle null never matches-or-exceeds it (**0/8**) — a destroy-all-structure
+/// noise-floor control that *supports* (not proves) recovery == cipher structure.
 #[test]
 fn positive_control_hidden_state_recovery_fires_and_null_fails() {
     let mut real_fired = 0usize;
@@ -481,8 +480,8 @@ fn positive_control_hidden_state_recovery_fires_and_null_fails() {
         let null_recovered = recover_marginals(&shuffled, SYNTH_PHRASE_LEN);
         let (null_true, _) = score_marginal_edges(&fixture.truth_edges, &null_recovered);
         null_total += null_true;
-        // A "null recovery" would be the null reaching the real recovery; it must
-        // not — the null only ever produces a few coincidental edges.
+        // The null DOES recover a few stray true edges; what must never happen is the
+        // null matching-or-exceeding the real recovery.
         if null_true >= real_true {
             null_matched_real += 1;
         }
@@ -498,7 +497,7 @@ fn positive_control_hidden_state_recovery_fires_and_null_fails() {
     );
     assert_eq!(
         null_matched_real, 0,
-        "matched null must recover it 0/N (matched the real recovery {null_matched_real}/{TRIALS})"
+        "null must not match-or-exceed real recovery (did {null_matched_real}/{TRIALS})"
     );
     // The null floor is a tiny fraction of the real recovery.
     assert!(
@@ -543,11 +542,10 @@ fn repeated_phrase_substrate_drives_recovery_realistic_text_degrades_it() {
 
 /// `two` — the honest negative. The attack RUNS on `two` (no seeding death, unlike
 /// `solve_gctak`): an isomorph pattern aligns and the beam emits a few column
-/// marginals. But `two` is real text with no dominant repeated phrase, so those
-/// marginals are tiny and cover only a sliver — 76–83% of the 697 transitions are
+/// marginals. But they cover only a sliver — 76–83% of the 697 transitions are
 /// undecidable by any recovered marginal, so there is no whole-stream keystream to
-/// feed the codec. No candidate text is logged. Same collapse as the substrate test,
-/// now on the real sample.
+/// feed the codec (coverage collapse). No candidate text is logged. The synthetic
+/// substrate-ablation (above) suggests the lever is a dominant repeated phrase.
 #[test]
 fn two_hidden_state_attack_honest_negative() {
     let vals = parse(
