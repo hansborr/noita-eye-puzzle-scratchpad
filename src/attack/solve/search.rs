@@ -1,9 +1,10 @@
-use super::eval::{decrypt_round_trip, reinsert_transparent, render_indices};
+use super::eval::{
+    decrypt_round_trip, family_seed_tag, model_for, reinsert_transparent, render_indices,
+};
 use super::{
     AnnealSchedule, AnyCipher, AnyCodec, Candidate, CipherFamilySpec, Codec, Glyph, Language,
     LanguageModel, Mapping, MappingSearch, SEARCH_BEATS_NULL_MARGIN, SolveError, SolveRequest,
-    SplitMix64, codec_round_trip_ok, family_seed_tag, fisher_yates, mix_seed, model_for,
-    resolved_output_alphabet_size,
+    SplitMix64, codec_round_trip_ok, fisher_yates, mix_seed, resolved_output_alphabet_size,
 };
 
 // ---------------------------------------------------------------------------
