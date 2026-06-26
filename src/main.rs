@@ -1000,7 +1000,10 @@ fn run_orders() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    report::print_orders_report(&summary, &stats, &flatness);
+    print!(
+        "{}",
+        report::render_orders_report(&summary, &stats, &flatness)
+    );
     ExitCode::SUCCESS
 }
 

@@ -138,25 +138,36 @@ pub(crate) fn format_positions(positions: &[usize]) -> String {
     rendered
 }
 
-/// Prints the reading-order audit and Experiment 4 flatness report.
-pub fn print_orders_report(
+/// Renders the reading-order audit and Experiment 4 flatness report.
+#[must_use]
+pub fn render_orders_report(
     summary: &orders::GridSummary,
     stats: &[orders::NamedOrderStats],
     flatness: &[orders::NamedReadingLayerFlatnessStats],
-) {
-    println!("grid row widths:");
+) -> String {
+    let mut out = String::new();
+    appendln!(&mut out, "grid row widths:");
     for (key, widths) in &summary.row_widths {
-        println!("  {key}: {}", format_widths(widths));
+        appendln!(&mut out, "  {key}: {}", format_widths(widths));
     }
-    println!("max row width: {}", summary.max_width);
-    println!(
+    appendln!(&mut out, "max row width: {}", summary.max_width);
+    appendln!(
+        &mut out,
         "bottom two rows differ by <=1: {}",
         summary.bottom_two_rows_differ_by_at_most_one
     );
-    println!();
-    println!(
+    appendln!(&mut out);
+    appendln!(
+        &mut out,
         "{:<24} {:>5} {:>8} {:>11} {:>9} {:>5} {:>8} {:>23}",
-        "order", "total", "distinct", "contiguous", "span", ">82", "adj-eq", "recurrence d1..d6"
+        "order",
+        "total",
+        "distinct",
+        "contiguous",
+        "span",
+        ">82",
+        "adj-eq",
+        "recurrence d1..d6"
     );
 
     let mut winners = Vec::new();
@@ -164,7 +175,8 @@ pub fn print_orders_report(
         if item.stats.is_contiguous_0_to_82() {
             winners.push(item.order.name());
         }
-        println!(
+        appendln!(
+            &mut out,
             "{:<24} {:>5} {:>8} {:>11} {:>9} {:>5} {:>8} {:>23}",
             item.order.name(),
             item.stats.total,
@@ -176,14 +188,15 @@ pub fn print_orders_report(
             format_recurrence(&item.stats.recurrence_distance_1_to_6)
         );
     }
-    println!();
+    appendln!(&mut out);
     if winners.is_empty() {
-        println!("contiguous 0..=82 orders: none");
+        appendln!(&mut out, "contiguous 0..=82 orders: none");
     } else {
-        println!("contiguous 0..=82 orders: {}", winners.join(", "));
+        appendln!(&mut out, "contiguous 0..=82 orders: {}", winners.join(", "));
     }
 
-    print_experiment_4_flatness_report(flatness);
+    append_experiment_4_flatness_report(&mut out, flatness);
+    out
 }
 
 /// Renders frequency, entropy, and `IoC` statistics for one rendered sequence.
@@ -229,17 +242,23 @@ fn format_recurrence(recurrence: &[usize; 6]) -> String {
     format!("{d1},{d2},{d3},{d4},{d5},{d6}")
 }
 
-fn print_experiment_4_flatness_report(flatness: &[orders::NamedReadingLayerFlatnessStats]) {
-    println!();
-    println!("Experiment 4 reading-layer flatness");
-    println!("alphabet: 83 reading-layer symbols, values 0..=82");
-    println!(
+fn append_experiment_4_flatness_report(
+    out: &mut String,
+    flatness: &[orders::NamedReadingLayerFlatnessStats],
+) {
+    appendln!(out);
+    appendln!(out, "Experiment 4 reading-layer flatness");
+    appendln!(out, "alphabet: 83 reading-layer symbols, values 0..=82");
+    appendln!(
+        out,
         "frequency counts are pooled across the nine messages; entropy and IoC p/msg are message-weighted"
     );
-    println!(
+    appendln!(
+        out,
         "IoC convention: probability form from analysis::index_of_coincidence; x83/all is the concatenated community-reference cross-check"
     );
-    println!(
+    appendln!(
+        out,
         "{:<24} {:>5} {:>5} {:>7} {:>7} {:>13} {:>17} {:>10} {:>10} {:>10} {:>12} {:>7} {:>12}",
         "order",
         "total",
@@ -259,7 +278,8 @@ fn print_experiment_4_flatness_report(flatness: &[orders::NamedReadingLayerFlatn
         .iter()
         .filter(|item| is_experiment_4_order(item.order))
     {
-        println!(
+        appendln!(
+            out,
             "{:<24} {:>5} {:>5} {:>7} {:>7.2} {:>13} {:>17} {:>10.6} {:>10.3} {:>10.3} {:>12} {:>7} {:>12}",
             item.order.name(),
             item.flatness.total,
@@ -276,8 +296,9 @@ fn print_experiment_4_flatness_report(flatness: &[orders::NamedReadingLayerFlatn
             format_chi_square_p_value(item.flatness.chi_square_vs_uniform_upper_tail_p_value)
         );
     }
-    println!();
-    println!(
+    appendln!(out);
+    appendln!(
+        out,
         "Interpretation: the df-aware chi-square tail tests exact iid uniformity over the 83 buckets, not whether the stream is meaningful. Flat-ish per-symbol frequency still RULES MONOALPHABETIC OUT; it does NOT rule a real message IN, and structured-but-meaningless data can also be near-uniform. Do not present flatness as evidence of encoding."
     );
 }
