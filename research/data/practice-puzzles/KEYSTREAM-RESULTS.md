@@ -75,32 +75,64 @@ non-surviving (its matched margin was 0.48 nat < the 1-nat floor). Re-run with
 fluctuation, correctly rejected by the margin floor. Lesson: prefer ≥16 matched
 trials (the CLI default) for confirmatory runs; 8 is a fast screen only.
 
-`five` at L = 40 (period | 40, the only `UXECHTINIT`-gap-40 period not already
-excluded by IoC): real `five`, shuffled `five`, and random-274 all land at
-matched_z 0–4 — **no period-40 keystream signal**.
+`five` at L = 40: real `five`, shuffled `five`, and random-274 all land at
+matched_z 0–4 — **no period-40 keystream signal**. (See the 2026-06-26 update: the
+gap-40 `UXECHTINIT` repeat is *not* a key-period clue at all — it is a continuous-
+keystream repeat that **crosses a word boundary**, so chasing "period | 40" was a
+red herring. The `profile` subcommand prints the `DUXECHTINIT` len-11 repeat at
+offsets 124/164 with `crosses-word-boundary=[yes, yes]`.)
 
 This is consistent with the prior diagnosis (these are non-periodic
 polyalphabetic; periodic Vigenère/Beaufort and short-primer autokey were already
 disfavoured by IoC/Kasiski). It is now reproduced **in the engine** with a
 defensible null.
 
-## What is NOT ruled out (next steps)
+## 2026-06-26 follow-up: structural profile + multi-cipher battery
 
-The negative covers only the searched families/lengths. Still open:
+A second wave hardened the structural negatives into the engine (`profile`
+subcommand, `src/attack/profile.rs`) and ran a broader **validated** cipher
+battery. The methodological rule that makes these trustworthy: *every "not
+cipher-X" claim has a PASSING positive control and a real wordlist* (an early
+anneal-based pass produced two FALSE negatives — the keyed-alphabet anneal failed
+its own planted-cipher control, and the keyword list was the 3-novel corpus that
+didn't even contain "MOUNTAIN"; both were redone with a 370k-word dictionary and
+controls that cleanly recover the plant).
 
-1. **Running-key** (key = a long English text). `decrypt` is implemented and
-   round-trip-tested, but the *attack* (jointly maximising quadgram likelihood of
-   plaintext **and** key, or crib-dragging) is a different algorithm — not yet
-   built. (`five`'s exact repeat argues against pure running-key anyway.)
-2. **Autokey with a long word-primer** beyond the searched `primer-length = key-
-   length` formulation, and primer lengths > 20.
-3. **Alberti with explicit index markers** — `seven`'s `#` appears mid-word
-   (`KB#K`, `B#TV`, `OG#PJ`): a disk-rotation index suspect. Currently `#` is
-   stripped; treating it as a re-key signal is untested.
-4. **Finnish plaintext** — the quadgram model is English-only (the committed
-   `finnish.txt` is 2 KB, too small for a quadgram model). A Finnish-corpus rerun
-   of the whole battery is needed before declaring a language-independent negative.
-5. Key lengths > 20 (other than `five`@40), Quagmire I–IV, Porta.
+**Newly RULED OUT (validated):**
+- **Monoalphabetic substitution** — flat whole-stream IoC (~0.036–0.044 vs English
+  ~0.0667) for all four. (Corrects the inventory README's old "letter substitution"
+  hypothesis.)
+- **Periodic polyalphabetic at any period 2..40** — per-period IoC flat under both
+  the letters-only and full-character keystream-advance conventions ⇒ Vigenère,
+  Beaufort, **Quagmire I–IV**, Gronsfeld, **Porta** of recoverable period are out.
+- **Per-word-reset Vigenère** — per-word column IoC flat (~0.04) vs English
+  positional (~0.07–0.10).
+- **Keyword-keyed Ragbaby** (all four; std + per-word numbering, both signs, bases
+  24/25/26) and **keyword-keyed per-word Bifid** (`three`/`four`; `five`/`seven`
+  excluded a priori — Bifid fixes 1-letter words but English 1-letter words are a/I).
+- **Long-primer ciphertext-autokey** — the key-independent leak `p_i = c_i − c_{i−L}`
+  checked exhaustively for L=1..60, three sign conventions: nothing English.
+
+**Weak / inconclusive:**
+- **Running-key** two-stream beam on `five` (joint quadgram of plaintext + key):
+  a *positive but non-surviving* z ≈ 2.4 vs a shuffled matched null (below the z≥6
+  gate, margin << 1 nat). The lone non-zero signal; worth a stronger beam.
+
+## What is STILL NOT ruled out (next steps)
+
+1. **General (non-keyword) Ragbaby** with a *strong* keyed-alphabet annealer — the
+   keyword form is out, but a random/transposition-keyed alphabet is untested and
+   needs an optimizer that first passes a planted-Ragbaby control (the naive
+   single-swap anneal does not).
+2. **Running-key** with a stronger beam + crib constraints (the z≈2.4 lead), and
+   **plaintext** long-autokey (a recurrence `p_i = c_i − p_{i−L}`, not the key-
+   independent ciphertext form, so it needs a real search).
+3. **Alberti with explicit index markers** — `seven`'s `#` (`KB#K`, `B#TV`,
+   `OG#PJ`) as a disk-rotation index; currently stripped.
+4. **Finnish plaintext** — the quadgram model is English-only. Noita is a Finnish
+   game, so a Finnish puzzle would defeat every English-scored search regardless of
+   cipher; a large Finnish corpus + rerun is needed before any language-independent
+   negative.
 
 ## Reproduce
 
