@@ -110,7 +110,11 @@ equivalently **a map fixing two distinct points is the identity**.
 
 This is exactly what the code computes: `fixed_point_of` returns
 `(b · (1 − a)⁻¹) mod 83` when `a ≠ 1` and `None` when `a = 1`, and the brute-force
-`fixed_point_count` agrees with it. The enumeration's headline
+`fixed_point_count` agrees with it on the enumerated set (every non-identity
+element). The two functions disagree on exactly one element — the **identity**
+`(a = 1, b = 0)`, where `fixed_point_of` returns `None` (zero denominator) while
+`fixed_point_count` returns 83 — but the identity is excluded by construction,
+since the enumeration ranges over `b ∈ {1, …, 82}`. The enumeration's headline
 `max_fixed_points = 1` is the computational witness of the lemma.
 
 ---
@@ -278,8 +282,12 @@ moved reference point — both **C83:C82** and **C83:C41** are **rigorously and
 exhaustively excluded** for the eyes. The exclusion is a theorem (the Lemma) plus a
 complete enumeration plus an observed, transcription-checked structural feature
 (varying shared runs after differing starts, witnessed by the all-nine prefix). It
-narrows the six-group transitive GAK candidate set toward **{A₈₃, S₈₃}** (with
-**D₁₆₆** ruled out separately by the community via implied element orders).
+narrows the six transitive GAK candidates. Those six (for prime degree 83) are
+`C₈₃`, `D₁₆₆`, `C₈₃:C₄₁`, `C₈₃:C₈₂` (= AGL), `A₈₃`, `S₈₃`. Removing the AGL pair
+(this doc) and `D₁₆₆` (ruled out separately by the community via implied element
+orders) leaves **{C₈₃, A₈₃, S₈₃}** — note this doc does *not* eliminate `C₈₃`, the
+cyclic "wheel" / standard CTAK; it is disfavored separately by our structural
+battery, leaving the `A₈₃`/`S₈₃` deck ciphers as the live worst case.
 
 **What it does *not* cover.**
 - It does not address **non-GAK** affine constructions, nor an AGL-GAK with a
