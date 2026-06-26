@@ -2941,4 +2941,164 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
                 .collect(),
         )
     }
+
+    /// Plants a LONGER English passage (`POSITIVE_CONTROL_TEXT` repeated `reps`
+    /// times) through the INVERSE of a `FixedGrouping{3,5,Msb,3}` codec (each letter
+    /// index becomes three base-5 MSB digits) then `Caesar(base 5, shift 3)` -- the
+    /// same construction as [`plant_base5_trigram_english`], just with more plaintext.
+    /// The joint codec+mapping SEARCH needs that extra length: a free many-to-one
+    /// mapping search over the 125-value transduced alphabet otherwise sits just
+    /// under the beats-null gate (the single-passage margin lands ~0.148 < the 0.15
+    /// `SEARCH_BEATS_NULL_MARGIN`), whereas the longer passage clears it comfortably.
+    /// Returns the ciphertext, the Caesar key, and the planted language indices.
+    fn plant_base5_trigram_repeated_english(
+        model: &LanguageModel,
+        reps: usize,
+    ) -> (Vec<Glyph>, CaesarKey, Vec<usize>) {
+        let base = 5usize;
+        let text = vec![POSITIVE_CONTROL_TEXT; reps].join(" ");
+        let plaintext_indices = model.alphabet().normalize_text(&text).unwrap();
+        let mut digits: Vec<Glyph> = Vec::with_capacity(plaintext_indices.len() * 3);
+        for &index in &plaintext_indices {
+            digits.push(Glyph((index / 25) as u16));
+            digits.push(Glyph(((index / 5) % 5) as u16));
+            digits.push(Glyph((index % 5) as u16));
+        }
+        let key = CaesarKey::new(base, 3).unwrap();
+        let ciphertext = caesar_encrypt(&digits, &key).unwrap();
+        (ciphertext, key, plaintext_indices)
+    }
+
+    // Step 8 review follow-up -- the JOINT codec-search x mapping-search positive
+    // control (closes the one coverage gap). Every other POSITIVE codec-search test
+    // FIXES the mapping (`MappingStrategy::Fixed` with the known grouped-value->letter
+    // table) and searches only the codec + cipher key; the joint composition where
+    // BOTH the codec AND the mapping are searched was exercised only NEGATIVELY (the
+    // matched-null-stays-flat-on-noise test). Phase 2b runs exactly this joint path on
+    // the real corpus -- where the mapping is UNKNOWN and must be searched -- so this
+    // synthetic positive control proves the joint path recovers a KNOWN plant and
+    // rides all four gates.
+    //
+    // A longer English passage is planted through the INVERSE of FixedGrouping{3,5,
+    // Msb,3} then Caesar(base 5, shift 3). `solve` runs `CodecStrategy::Search` (only
+    // the base-5 MSB trigram both hosts the 29-letter alphabet -- 5^3 = 125 >= 29 --
+    // and transduces the 3N-length stream; group_len 1 and 2 are sanity-skipped at 5
+    // and 25 < 29, and the delta trigram is length-skipped) AND
+    // `MappingStrategy::Search` (a free MANY-TO-ONE hill-climb over the 125-value
+    // transduced alphabet -- the same eyes-like 83->29 regime Phase 2b faces).
+    //
+    // PRIMARY assertions: codec recovery + four-gate survival + a comfortable
+    // beats-null margin -- NOT byte-exact planted English. A searched substitution
+    // over a 125-value alphabet recovers an equivalent RELABELING (and, being
+    // many-to-one, may collapse symbols), which is exactly why the sibling
+    // exact-recovery test FIXES the mapping. The Caesar key is likewise not asserted:
+    // a per-digit shift before the MSB grouping is a bijection on the 125 grouped
+    // values that the free mapping search absorbs, so the key is not identifiable.
+    #[test]
+    fn codec_search_with_mapping_search_recovers_plant_and_survives() {
+        let english = english_model().unwrap();
+        let finnish = finnish_model().unwrap();
+        let base = 5usize;
+        let (ciphertext, key, plaintext_indices) =
+            plant_base5_trigram_repeated_english(&english, 3);
+
+        let request = SolveRequest {
+            ciphertext: &ciphertext,
+            space: HypothesisSpace {
+                families: vec![CipherFamilySpec {
+                    label: "Caesar".to_owned(),
+                    // The cipher layer is genuinely in the space (identity + the
+                    // planted Caesar); its key is not asserted (the mapping absorbs it).
+                    ciphers: vec![AnyCipher::Identity, AnyCipher::Caesar(key)],
+                }],
+                // Codec SEARCH: group_len 1..=3, delta on/off, MSB order. Only the
+                // direct base-5 MSB trigram survives both prunes.
+                codec: CodecStrategy::Search(CodecSearch {
+                    max_group_len: 3,
+                    try_delta: true,
+                    orders: vec![DigitOrder::Msb],
+                    seed: DEFAULT_SEED,
+                }),
+                // Mapping SEARCH (NOT Fixed): the joint half this test exists to cover.
+                mappings: MappingStrategy::Search(hillclimb(3, 1500)),
+                language: LanguageChoice::English,
+                cipher_alphabet_size: base,
+                seed: DEFAULT_SEED,
+                null_trials: 3,
+            },
+            english: &english,
+            finnish: &finnish,
+        };
+
+        let outcome = solve_with_codec_trace(&request).unwrap();
+        let top = outcome.candidates.first().unwrap();
+
+        // (1) Recovered codec == the planted grouping. With the mapping searched
+        // (not fixed) this is the only codec the search can surface: group_len 1/2 are
+        // sanity-skipped and the delta trigram is length-skipped, so no relabel-
+        // equivalent rival (e.g. an Lsb grouping) competes for the top slot.
+        assert_eq!(
+            top.codec,
+            AnyCodec::FixedGrouping(GroupingCodec {
+                group_len: 3,
+                base,
+                order: DigitOrder::Msb,
+                stride: 3,
+            })
+        );
+
+        // (2) All four gates fire AND stay SEPARATE (distinct Candidate fields, never
+        // collapsed): cipher round-trip, codec round-trip, beats the matched null, and
+        // the held-out fold generalizes above that same null.
+        assert!(top.crypto_round_trip_ok);
+        assert!(top.codec_round_trip_ok);
+        assert!(top.beats_null, "score {} null {}", top.score, top.null_mean);
+        assert!(
+            top.heldout_mapping_score > top.null_mean,
+            "held-out {} did not clear the matched null {}",
+            top.heldout_mapping_score,
+            top.null_mean
+        );
+        assert!(candidate_survives(top));
+
+        // (3) Comfortable margins -- far above the ~0 a garbage or empty search would
+        // yield, so the test genuinely DISCRIMINATES a working joint search from a
+        // broken one. (Observed for this fixed seed: score margin ~0.247, held-out
+        // margin ~0.272; the bars below leave clear headroom yet would fail on noise.)
+        assert!(
+            top.score - top.null_mean >= 0.15,
+            "joint-search score margin {} below the comfortable bar (score {}, null {})",
+            top.score - top.null_mean,
+            top.score,
+            top.null_mean
+        );
+        assert!(
+            top.heldout_mapping_score - top.null_mean >= 0.10,
+            "held-out margin {} below the comfortable bar (held-out {}, null {})",
+            top.heldout_mapping_score - top.null_mean,
+            top.heldout_mapping_score,
+            top.null_mean
+        );
+
+        // (4) The codec search genuinely ENUMERATED and PRUNED (too-small codecs
+        // logged-and-skipped, never silently dropped), so the surviving codec is a
+        // real search result, not a fixed single option dressed up as a search.
+        assert!(
+            outcome
+                .skipped
+                .iter()
+                .any(|skip| matches!(skip.reason, CodecSkipReason::SanityTooSmall { .. }))
+        );
+
+        // (5) NOT byte-exact planted English (a searched many-to-one relabeling
+        // differs from the plant), but the rendering is full-length and
+        // non-degenerate -- guarding against an empty or constant candidate slipping
+        // through the gates.
+        assert_eq!(top.rendered_text.chars().count(), plaintext_indices.len());
+        let first = top.rendered_text.chars().next().unwrap();
+        assert!(
+            top.rendered_text.chars().any(|c| c != first),
+            "rendered text is a degenerate constant string"
+        );
+    }
 }
