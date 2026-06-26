@@ -112,27 +112,36 @@ pub mod orders;
 #[path = "analysis/perfect_isomorphism.rs"]
 pub mod perfect_isomorphism;
 
+// nulls: matched-null distributions and DoF-calibrated null drivers.
+#[path = "nulls/dof_null.rs"]
+pub mod dof_null;
+#[path = "nulls/isomorph_null.rs"]
+pub mod isomorph_null;
+#[path = "nulls/null.rs"]
+pub mod null;
+#[path = "nulls/perseus.rs"]
+pub mod perseus;
+#[path = "nulls/pipeline_null.rs"]
+pub mod pipeline_null;
+#[path = "nulls/tree_residual.rs"]
+pub mod tree_residual;
+#[path = "nulls/zero_adjacency_null.rs"]
+pub mod zero_adjacency_null;
+
 pub mod agl_gak;
 pub mod cipher_attack;
 pub mod ciphers;
 pub mod codec;
 pub mod conditional_structure;
 pub mod controls;
-pub mod dof_null;
 pub mod gak_attack;
-pub mod isomorph_null;
 pub mod keystream;
 pub mod language;
 pub mod modular_diff;
-pub mod null;
 pub mod orientation_homogeneity;
 pub mod periodicity;
-pub mod perseus;
-pub mod pipeline_null;
 pub mod pyry_conditions;
 pub mod quadgram;
 pub mod report;
 pub mod solve;
 pub mod transitivity;
-pub mod tree_residual;
-pub mod zero_adjacency_null;
