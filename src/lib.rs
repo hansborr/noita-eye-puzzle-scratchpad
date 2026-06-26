@@ -79,6 +79,15 @@
 //! meaning; the goal is to provide trustworthy primitives that constrain the
 //! hypothesis space.
 
+// core: alphabet, base-5 reading layer, and external-ciphertext ingest.
+#[path = "core/glyph.rs"]
+pub mod glyph;
+#[path = "core/trigram.rs"]
+pub mod trigram;
+// role: external-ciphertext front door (brief 03 core/sequence territory).
+#[path = "core/ingest.rs"]
+pub mod ingest;
+
 pub mod agl_gak;
 pub mod analysis;
 pub mod chaining;
@@ -92,10 +101,8 @@ pub mod corpus;
 pub mod dof_null;
 pub mod gak_attack;
 pub mod generator;
-pub mod glyph;
 pub mod grouping;
 pub mod honeycomb;
-pub mod ingest;
 pub mod isomorph;
 pub mod isomorph_null;
 pub mod keystream;
@@ -114,5 +121,4 @@ pub mod report;
 pub mod solve;
 pub mod transitivity;
 pub mod tree_residual;
-pub mod trigram;
 pub mod zero_adjacency_null;

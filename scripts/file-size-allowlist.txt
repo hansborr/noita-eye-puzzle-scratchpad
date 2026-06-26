@@ -39,4 +39,4 @@ src/zero_adjacency_null.rs          848   # matched-null driver; brief 05 harnes
 src/codec.rs                        1134  # new (brief 04a codec layer); +brief 04a step 5: codec-search enumeration (enumerate_codecs + MAX_SEARCH_OUTPUT_ALPHABET + SkippedCodec/CodecSkipReason) + enumeration tests; +brief 04a Phase-2b CLI helpers (default_codec_search + honeycomb_codec); +Phase-2b defect fix: CodecSkipReason::MappingDomainMismatch variant
 src/keystream.rs                    1280  # new keystream cracker: cipher primitives (Vigenere/Beaufort/autokey) + annealed multi-restart key search + matched-null survival gate (mirrors solve.rs) + random-key-null/held-out diagnostics + record writer + planted-recovery/overfit-rejection/negative/determinism tests
 src/language.rs                     618   # language scorer; brief 04
-src/ingest.rs                       610   # new (brief 03); trim under 600 next
+src/core/ingest.rs                  610   # new (brief 03); trim under 600 next
