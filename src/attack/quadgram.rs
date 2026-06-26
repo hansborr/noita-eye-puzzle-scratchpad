@@ -40,7 +40,7 @@ pub const DEFAULT_SMOOTHING: f64 = 0.5;
 /// This is the `~1.5 MB` corpus committed under `research/data/lang/`, distinct
 /// from the small [`crate::language::ENGLISH_SAMPLE`] used by the bigram model.
 pub const ENGLISH_CORPUS_LARGE: &str =
-    include_str!("../research/data/lang/english-corpus-large.txt");
+    include_str!("../../research/data/lang/english-corpus-large.txt");
 
 /// Error returned when a quadgram model cannot be built.
 #[derive(Clone, Copy, Debug, PartialEq)]

@@ -131,19 +131,34 @@ pub mod zero_adjacency_null;
 // ciphers: candidate-cipher primitives and exact round-trip controls.
 pub mod ciphers;
 
+// attack: cipher attacks, language models, and the solve/keystream pipelines.
+#[path = "attack/agl_gak.rs"]
 pub mod agl_gak;
+#[path = "attack/cipher_attack.rs"]
 pub mod cipher_attack;
+// role: codec transduction layer feeding the solve search (brief 04a).
+#[path = "attack/codec.rs"]
 pub mod codec;
+#[path = "attack/gak_attack/mod.rs"]
+pub mod gak_attack;
+// role: polyalphabetic keystream cracker (attack pipeline).
+#[path = "attack/keystream.rs"]
+pub mod keystream;
+// role: n-gram model consumed only by the attack/grouping cleartext gates.
+#[path = "attack/language.rs"]
+pub mod language;
+// role: quadgram English model scoring keystream/solve candidates.
+#[path = "attack/quadgram.rs"]
+pub mod quadgram;
+// role: unified search-and-score solve pipeline (brief 04).
+#[path = "attack/solve.rs"]
+pub mod solve;
+
 pub mod conditional_structure;
 pub mod controls;
-pub mod gak_attack;
-pub mod keystream;
-pub mod language;
 pub mod modular_diff;
 pub mod orientation_homogeneity;
 pub mod periodicity;
 pub mod pyry_conditions;
-pub mod quadgram;
 pub mod report;
-pub mod solve;
 pub mod transitivity;

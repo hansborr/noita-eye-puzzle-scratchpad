@@ -8,19 +8,19 @@
 # shows up in `git diff` and is reviewed — never a silent carve-out.
 #
 # <path>                            <max-lines>  # reason / retiring brief
-src/gak_attack/mod.rs               2681  # god-file remnant; brief 07A split + brief 06 GAK report render re-applied at maint integration; shrinks under 07b
-src/gak_attack/eyes.rs              2316  # brief 07A fragment + brief 06 EYES report render re-applied at maint integration; shrinks under 07b
-src/gak_attack/marginalization.rs   1026  # brief 07A fragment from gak_attack god-file (tracks engine-spine)
-src/gak_attack/solver.rs            1993  # brief 07A fragment from gak_attack god-file (tracks engine-spine)
-src/gak_attack/generator.rs         647   # brief 07A fragment from gak_attack god-file (tracks engine-spine)
+src/attack/gak_attack/mod.rs        2681  # god-file remnant; brief 07A split + brief 06 GAK report render re-applied at maint integration; shrinks under 07b
+src/attack/gak_attack/eyes.rs       2316  # brief 07A fragment + brief 06 EYES report render re-applied at maint integration; shrinks under 07b
+src/attack/gak_attack/marginalization.rs 1026  # brief 07A fragment from gak_attack god-file (tracks engine-spine)
+src/attack/gak_attack/solver.rs     1993  # brief 07A fragment from gak_attack god-file (tracks engine-spine)
+src/attack/gak_attack/generator.rs  647   # brief 07A fragment from gak_attack god-file (tracks engine-spine)
 src/ciphers/mod.rs                  3673  # cipher zoo; +Identity/Transposition (brief 04 solve pipeline); shrinks under briefs 02, 07b
 src/conditional_structure.rs        2283  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
-src/solve.rs                        4016  # brief 04 Phase 2 + brief 04a Phase 1+2: codec stage wired through fixed/search paths + brief 04a steps 5-8 CodecStrategy::Search driver (run_codec_search + SolveOutcome skip trace) + transduced-level matched-null/held-out + delta +/-1-C5 + plant-through-codec positive-control tests; module move is 07B; +brief 04a Phase-2a review follow-up: joint codec×mapping-search positive control; +brief 04a Phase-2a fix: enumeration-level codec-search matched null (selection-complete) + surviving_codecs/enumeration_null_mean + flat-on-noise + selection-completeness tests; +brief 04a Phase-2b: transparent-space reinsertion (SolveRequest.transparent + reinsert_transparent codec-aware snap) + record codec name()/round-trip + corpus one/two/six end-to-end codec-search HYPOTHESIS tests; +Phase-2b defect fixes: MappingDomainMismatch skip-with-log prune (d) + log_solve_run total_symbols threading + skip-with-log test; +brief 04a D2: SolveRecordInputs.provenance field + "## Provenance (reproducible)" record section + log_solve_run provenance param threaded through all call sites
+src/attack/solve.rs                 4016  # brief 04 Phase 2 + brief 04a Phase 1+2: codec stage wired through fixed/search paths + brief 04a steps 5-8 CodecStrategy::Search driver (run_codec_search + SolveOutcome skip trace) + transduced-level matched-null/held-out + delta +/-1-C5 + plant-through-codec positive-control tests; module move is 07B; +brief 04a Phase-2a review follow-up: joint codec×mapping-search positive control; +brief 04a Phase-2a fix: enumeration-level codec-search matched null (selection-complete) + surviving_codecs/enumeration_null_mean + flat-on-noise + selection-completeness tests; +brief 04a Phase-2b: transparent-space reinsertion (SolveRequest.transparent + reinsert_transparent codec-aware snap) + record codec name()/round-trip + corpus one/two/six end-to-end codec-search HYPOTHESIS tests; +Phase-2b defect fixes: MappingDomainMismatch skip-with-log prune (d) + log_solve_run total_symbols threading + skip-with-log test; +brief 04a D2: SolveRecordInputs.provenance field + "## Provenance (reproducible)" record section + log_solve_run provenance param threaded through all call sites
 src/analysis/perfect_isomorphism.rs 2056  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/analysis/chaining_graph.rs      1830  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/nulls/dof_null.rs               1786  # matched-null driver; brief 05 harness + brief 06 colocated report render
 src/pyry_conditions.rs              1767  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
-src/cipher_attack.rs                1720  # attack scorer; brief 06 colocated report render; briefs 04, 07b
+src/attack/cipher_attack.rs         1720  # attack scorer; brief 06 colocated report render; briefs 04, 07b
 src/nulls/null.rs                   1664  # matched-null harness core; brief 05 (shared null harness lives here)
 src/controls.rs                     1636  # positive controls; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/modular_diff.rs                 1600  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
@@ -32,11 +32,11 @@ src/nulls/perseus.rs                1316  # matched-null driver; brief 05 harnes
 src/analysis/honeycomb.rs           1292  # structural analysis; brief 06 colocated report render; brief 07b
 src/analysis/chaining.rs            1242  # structural analysis; brief 06 colocated report render; brief 07b
 src/nulls/tree_residual.rs          1226  # matched-null driver; brief 05 harness + brief 06 colocated report render
-src/agl_gak.rs                      1208  # attack; brief 06 colocated report render; brief 07b
+src/attack/agl_gak.rs               1208  # attack; brief 06 colocated report render; brief 07b
 src/orientation_homogeneity.rs      1138  # structural experiment; brief 05 harness + brief 06 colocated report render; briefs 07b
 src/nulls/pipeline_null.rs          684   # matched-null driver; brief 05 harness + brief 06 colocated report render; trim under 07b
 src/nulls/zero_adjacency_null.rs    848   # matched-null driver; brief 05 harness + brief 06 colocated report render
-src/codec.rs                        1134  # new (brief 04a codec layer); +brief 04a step 5: codec-search enumeration (enumerate_codecs + MAX_SEARCH_OUTPUT_ALPHABET + SkippedCodec/CodecSkipReason) + enumeration tests; +brief 04a Phase-2b CLI helpers (default_codec_search + honeycomb_codec); +Phase-2b defect fix: CodecSkipReason::MappingDomainMismatch variant
-src/keystream.rs                    1280  # new keystream cracker: cipher primitives (Vigenere/Beaufort/autokey) + annealed multi-restart key search + matched-null survival gate (mirrors solve.rs) + random-key-null/held-out diagnostics + record writer + planted-recovery/overfit-rejection/negative/determinism tests
-src/language.rs                     618   # language scorer; brief 04
+src/attack/codec.rs                 1134  # new (brief 04a codec layer); +brief 04a step 5: codec-search enumeration (enumerate_codecs + MAX_SEARCH_OUTPUT_ALPHABET + SkippedCodec/CodecSkipReason) + enumeration tests; +brief 04a Phase-2b CLI helpers (default_codec_search + honeycomb_codec); +Phase-2b defect fix: CodecSkipReason::MappingDomainMismatch variant
+src/attack/keystream.rs             1280  # new keystream cracker: cipher primitives (Vigenere/Beaufort/autokey) + annealed multi-restart key search + matched-null survival gate (mirrors solve.rs) + random-key-null/held-out diagnostics + record writer + planted-recovery/overfit-rejection/negative/determinism tests
+src/attack/language.rs              618   # language scorer; brief 04
 src/core/ingest.rs                  610   # new (brief 03); trim under 600 next

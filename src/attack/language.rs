@@ -32,10 +32,10 @@ pub const DEFAULT_LANGUAGE_ALPHABET: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZÅÄÖ";
 pub const DEFAULT_SMOOTHING: f64 = 1.0;
 
 /// Bundled public-domain English training sample.
-pub const ENGLISH_SAMPLE: &str = include_str!("../research/data/lang/english.txt");
+pub const ENGLISH_SAMPLE: &str = include_str!("../../research/data/lang/english.txt");
 
 /// Bundled public-domain Finnish training sample.
-pub const FINNISH_SAMPLE: &str = include_str!("../research/data/lang/finnish.txt");
+pub const FINNISH_SAMPLE: &str = include_str!("../../research/data/lang/finnish.txt");
 
 /// Error returned when a language model or candidate text is malformed.
 #[derive(Clone, Copy, Debug, PartialEq)]

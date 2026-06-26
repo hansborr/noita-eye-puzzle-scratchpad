@@ -2010,19 +2010,19 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         for (name, text) in [
             (
                 "three",
-                include_str!("../research/data/practice-puzzles/three"),
+                include_str!("../../research/data/practice-puzzles/three"),
             ),
             (
                 "four",
-                include_str!("../research/data/practice-puzzles/four"),
+                include_str!("../../research/data/practice-puzzles/four"),
             ),
             (
                 "five",
-                include_str!("../research/data/practice-puzzles/five"),
+                include_str!("../../research/data/practice-puzzles/five"),
             ),
             (
                 "seven",
-                include_str!("../research/data/practice-puzzles/seven"),
+                include_str!("../../research/data/practice-puzzles/seven"),
             ),
         ] {
             let glyphs = parse_letter_puzzle(text);
@@ -2212,7 +2212,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         let english = english_model().unwrap();
         let finnish = finnish_model().unwrap();
         let parsed = parse_corpus_puzzle(
-            include_str!("../research/data/practice-puzzles/one"),
+            include_str!("../../research/data/practice-puzzles/one"),
             "01234",
         );
         assert_eq!(parsed.glyphs.len(), 266);
@@ -2272,7 +2272,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         let english = english_model().unwrap();
         let finnish = finnish_model().unwrap();
         let parsed = parse_corpus_puzzle(
-            include_str!("../research/data/practice-puzzles/two"),
+            include_str!("../../research/data/practice-puzzles/two"),
             "ABCDEFGHIJKL",
         );
         assert_eq!(parsed.glyphs.len(), 698);
@@ -2335,7 +2335,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         let english = english_model().unwrap();
         let finnish = finnish_model().unwrap();
         let parsed = parse_corpus_puzzle(
-            include_str!("../research/data/practice-puzzles/two"),
+            include_str!("../../research/data/practice-puzzles/two"),
             "ABCDEFGHIJKL",
         );
         let request = corpus_codec_request(&parsed, 12, &english, &finnish);
@@ -2362,7 +2362,7 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         let english = english_model().unwrap();
         let finnish = finnish_model().unwrap();
         let parsed = parse_corpus_puzzle(
-            include_str!("../research/data/practice-puzzles/six"),
+            include_str!("../../research/data/practice-puzzles/six"),
             "123456",
         );
         assert_eq!(parsed.glyphs.len(), 417);

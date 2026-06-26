@@ -775,10 +775,10 @@ pub enum PracticePuzzle {
 #[must_use]
 pub fn practice_puzzle_text(puzzle: PracticePuzzle) -> &'static str {
     match puzzle {
-        PracticePuzzle::Three => include_str!("../research/data/practice-puzzles/three"),
-        PracticePuzzle::Four => include_str!("../research/data/practice-puzzles/four"),
-        PracticePuzzle::Five => include_str!("../research/data/practice-puzzles/five"),
-        PracticePuzzle::Seven => include_str!("../research/data/practice-puzzles/seven"),
+        PracticePuzzle::Three => include_str!("../../research/data/practice-puzzles/three"),
+        PracticePuzzle::Four => include_str!("../../research/data/practice-puzzles/four"),
+        PracticePuzzle::Five => include_str!("../../research/data/practice-puzzles/five"),
+        PracticePuzzle::Seven => include_str!("../../research/data/practice-puzzles/seven"),
     }
 }
 
