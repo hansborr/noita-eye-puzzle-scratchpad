@@ -698,7 +698,7 @@ fn run_gak_attack(config: gak_attack::GakAttackConfig) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    report::print_gak_attack_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
