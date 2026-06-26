@@ -491,21 +491,101 @@ fn solve_fixed_codecs(
     Ok(candidates)
 }
 
-/// The [`CodecStrategy::Search`] path (brief 04a step 5): enumerate codec
-/// parameters, prune each by alphabet-size sanity + the
+/// The [`CodecStrategy::Search`] path (brief 04a step 5; Phase-2a selection-complete
+/// null): enumerate codec parameters, prune each by alphabet-size sanity + the
 /// [`MAX_SEARCH_OUTPUT_ALPHABET`] ceiling + transduce feasibility (logging every
-/// skip), and run the mapping strategy on each surviving codec's transduced stream.
+/// skip), then run the mapping strategy on each surviving codec's transduced stream.
+///
+/// The matched null is computed at the **enumeration level**, not per codec: the
+/// real run reports the MAX in-sample score over all surviving codecs (the caller
+/// sorts and the top candidate wins), so the null must pay for that codec selection
+/// too — see [`enumeration_null_mean`]. Every emitted candidate carries that one
+/// null and is gated against it with the [`SEARCH_BEATS_NULL_MARGIN`] guard.
 ///
 /// Determinism: the enumeration order is fixed and the codec-enumeration index is
 /// mixed into the per-codec mapping-search seed, so the same `CodecSearch.seed`
-/// reproduces the same candidates. Returns the unranked candidates; the caller
-/// sorts.
+/// reproduces the same candidates (and the null mirrors that exact derivation).
+/// Returns the unranked candidates; the caller sorts.
 fn run_codec_search(
     req: &SolveRequest<'_>,
     search: &CodecSearch,
 ) -> Result<SolveOutcome, SolveError> {
     let cipher_alphabet_size = req.space.cipher_alphabet_size;
+    let (survivors, skipped) = surviving_codecs(req, search, cipher_alphabet_size);
     let mut candidates = Vec::new();
+    for family in &req.space.families {
+        for language in req.space.language.languages() {
+            // Enumeration-level matched null (brief 04a Phase-2a fix): the
+            // SELECTION-COMPLETE bar. The real run reports the MAX in-sample score
+            // over ALL surviving codecs, so a per-codec null — which maxes over
+            // ciphers within ONE codec only — is OPTIMISTIC once >1 codec survives
+            // (it never pays for codec selection). This null reruns the IDENTICAL
+            // surviving-codec enumeration on each shuffle and maxes over every
+            // (surviving codec × mapping × cipher), so every Search candidate is gated
+            // against the max-over-codecs-on-noise bar. With exactly one survivor it
+            // equals the old per-codec null byte-for-byte (a pure re-aggregation).
+            let null_mean = enumeration_null_mean(req, family, *language, search, &survivors)?;
+            for (index, codec) in &survivors {
+                match &req.space.mappings {
+                    MappingStrategy::Fixed(mappings) => {
+                        for mapping in mappings {
+                            for cipher in &family.ciphers {
+                                if let Some(candidate) = evaluate_cipher(
+                                    req, cipher, mapping, *language, null_mean, codec,
+                                )? {
+                                    candidates
+                                        .push(stamp_enumeration_beats_null(candidate, null_mean));
+                                }
+                            }
+                        }
+                    }
+                    MappingStrategy::Search(mapping_search) => {
+                        // Mix the codec-enumeration index into the mapping-search seed
+                        // so distinct codecs explore distinct (still deterministic)
+                        // random streams; the null mirrors this exact derivation.
+                        let derived = codec_search_mapping(mapping_search, search.seed, *index);
+                        for (cipher_index, cipher) in family.ciphers.iter().enumerate() {
+                            if let Some(candidate) = evaluate_cipher_search(
+                                req,
+                                family,
+                                cipher,
+                                cipher_index,
+                                *language,
+                                null_mean,
+                                &derived,
+                                codec,
+                            )? {
+                                candidates.push(stamp_enumeration_beats_null(candidate, null_mean));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(SolveOutcome {
+        candidates,
+        skipped,
+    })
+}
+
+/// Enumerates the codec search space and applies the three prunes (alphabet-size
+/// sanity, output-alphabet ceiling, transduce feasibility), returning the surviving
+/// codecs (each paired with its enumeration index, which seeds the per-codec
+/// mapping search) and the structured skip trace.
+///
+/// The real run and the enumeration-level null share this exact survivor set so the
+/// null reruns the IDENTICAL enumeration. The prunes are content-independent: sanity
+/// and ceiling depend only on the codec parameters, and (since every cipher family
+/// is length-preserving and Fisher-Yates preserves both length and alphabet) a
+/// shuffled ciphertext transduces iff the original does — so the survivor set is the
+/// same on every shuffle.
+fn surviving_codecs(
+    req: &SolveRequest<'_>,
+    search: &CodecSearch,
+    cipher_alphabet_size: usize,
+) -> (Vec<(usize, AnyCodec)>, Vec<SkippedCodec>) {
+    let mut survivors = Vec::new();
     let mut skipped = Vec::new();
     for (index, codec) in enumerate_codecs(search, cipher_alphabet_size)
         .into_iter()
@@ -556,29 +636,125 @@ fn run_codec_search(
             });
             continue;
         }
-        // Surviving codec: run the mapping strategy on the transduced stream.
-        match &req.space.mappings {
-            MappingStrategy::Fixed(mappings) => {
-                for family in &req.space.families {
-                    candidates.extend(evaluate_family(req, family, mappings, &codec)?);
+        survivors.push((index, codec));
+    }
+    (survivors, skipped)
+}
+
+/// Derives the per-codec [`MappingSearch`] for the codec at enumeration `index`:
+/// mixes the codec-enumeration index into the mapping-search seed so distinct codecs
+/// explore distinct (still deterministic) random streams. Shared by the real run and
+/// [`enumeration_null_mean`] so the null's per-codec search seeds mirror the real run
+/// exactly.
+fn codec_search_mapping(
+    mapping_search: &MappingSearch,
+    codec_search_seed: u64,
+    index: usize,
+) -> MappingSearch {
+    MappingSearch {
+        seed: mix_seed(
+            mapping_search.seed,
+            mix_seed(codec_search_seed, index as u64),
+        ),
+        ..*mapping_search
+    }
+}
+
+/// Re-stamps a [`CodecStrategy::Search`] candidate's `beats_null` against the
+/// enumeration-level null with the [`SEARCH_BEATS_NULL_MARGIN`] guard.
+///
+/// Every candidate emitted from the codec search is gated against the
+/// max-over-codecs-on-noise bar (the codec enumeration is itself a selection), so
+/// the margin applies uniformly — including the fixed-mapping sub-path, whose
+/// stand-alone [`CodecStrategy::Fixed`] null uses the bare `score > null_mean`
+/// comparison. The candidate already carries the enumeration null in `null_mean`; this
+/// only recomputes the verdict.
+fn stamp_enumeration_beats_null(mut candidate: Candidate, null_mean: f64) -> Candidate {
+    candidate.beats_null = candidate.score >= null_mean + SEARCH_BEATS_NULL_MARGIN;
+    candidate
+}
+
+/// Enumeration-level matched null for [`CodecStrategy::Search`] (brief 04a Phase-2a
+/// fix): the SELECTION-COMPLETE bar that pays for codec selection.
+///
+/// The real run reports the MAX in-sample score over all surviving codecs (the caller
+/// sorts and the top candidate wins), so a per-codec null — which maxes over ciphers
+/// within ONE codec only — is OPTIMISTIC once more than one codec survives. This
+/// reruns the IDENTICAL surviving-codec enumeration on each of `null_trials`
+/// Fisher-Yates shuffles and takes the MAX score over every (surviving codec ×
+/// mapping × cipher) per shuffle, then averages those maxima.
+///
+/// Determinism mirrors the per-codec null EXACTLY — the same per-family shuffle seed
+/// (`family_seed_tag ^ 0x6e75_6c6c`, the null tag, distinct from the real run's
+/// seeds) and the same codec-index-derived mapping-search seeds — so this is a pure
+/// RE-AGGREGATION of the same per-`(trial, codec)` scores: max-over-codecs-per-shuffle
+/// instead of mean-within-each-codec. With exactly one surviving codec (and one fixed
+/// mapping) it therefore equals the old per-codec null byte-for-byte.
+fn enumeration_null_mean(
+    req: &SolveRequest<'_>,
+    family: &CipherFamilySpec,
+    language: Language,
+    search: &CodecSearch,
+    survivors: &[(usize, AnyCodec)],
+) -> Result<f64, SolveError> {
+    if survivors.is_empty() {
+        return Ok(0.0);
+    }
+    let model = model_for(req, language);
+    let shuffle_seed = mix_seed(req.space.seed, family_seed_tag(family) ^ 0x6e75_6c6c);
+    let mut rng = SplitMix64::new(shuffle_seed);
+    let mut total = 0.0;
+    for trial in 0..req.space.null_trials {
+        let mut shuffled = req.ciphertext.to_vec();
+        fisher_yates(&mut shuffled, &mut rng)?;
+        // MAX over all surviving codecs for this shuffle — the codec selection the
+        // real run performs (top-of-N-codecs wins).
+        let mut trial_best: Option<f64> = None;
+        for (index, codec) in survivors {
+            let score = match &req.space.mappings {
+                MappingStrategy::Fixed(mappings) => {
+                    best_codec_fixed_null_score(&shuffled, family, mappings, model, codec)?
                 }
-            }
-            MappingStrategy::Search(mapping_search) => {
-                // Mix the codec-enumeration index into the mapping-search seed so
-                // distinct codecs explore distinct (still deterministic) random
-                // streams; the CodecSearch.seed is the enumeration's seed entropy.
-                let derived = MappingSearch {
-                    seed: mix_seed(mapping_search.seed, mix_seed(search.seed, index as u64)),
-                    ..*mapping_search
-                };
-                candidates.extend(solve_search(req, &derived, &codec)?);
-            }
+                MappingStrategy::Search(mapping_search) => {
+                    let derived = codec_search_mapping(mapping_search, search.seed, *index);
+                    let trial_seed = search_seed(derived.seed, family, trial, language);
+                    best_family_search_score(
+                        &shuffled,
+                        family,
+                        req.space.cipher_alphabet_size,
+                        model,
+                        &derived,
+                        trial_seed,
+                        codec,
+                    )?
+                }
+            };
+            trial_best = Some(trial_best.map_or(score, |best| best.max(score)));
+        }
+        if let Some(best) = trial_best {
+            total += best;
         }
     }
-    Ok(SolveOutcome {
-        candidates,
-        skipped,
-    })
+    Ok(total / req.space.null_trials as f64)
+}
+
+/// Best fixed-mapping in-sample score for one codec on a (shuffled) stream, maxed
+/// over the declared mapping set × the cipher family. The enumeration null maxes this
+/// over codecs in turn, mirroring the real run's selection across (codec × mapping ×
+/// cipher).
+fn best_codec_fixed_null_score(
+    ciphertext: &[Glyph],
+    family: &CipherFamilySpec,
+    mappings: &[Mapping],
+    model: &LanguageModel,
+    codec: &AnyCodec,
+) -> Result<f64, SolveError> {
+    let mut best: Option<f64> = None;
+    for mapping in mappings {
+        let score = best_family_score(ciphertext, family, mapping, model, codec)?;
+        best = Some(best.map_or(score, |previous: f64| previous.max(score)));
+    }
+    best.ok_or(SolveError::EmptyMappingSet)
 }
 
 fn validate_request(req: &SolveRequest<'_>) -> Result<(), SolveError> {
@@ -1586,8 +1762,8 @@ mod tests {
     use super::{
         AnnealSchedule, AnyCodec, CipherFamilySpec, Codec, CodecStrategy, DEFAULT_NULL_TRIALS,
         DEFAULT_SEED, HypothesisSpace, Language, LanguageChoice, Mapping, MappingSearch,
-        MappingStrategy, SolveError, SolveRequest, candidate_survives, solve,
-        solve_with_codec_trace,
+        MappingStrategy, SolveError, SolveRequest, candidate_survives, enumeration_null_mean,
+        solve, solve_with_codec_trace, surviving_codecs,
     };
     use crate::ciphers::{
         AnyCipher, CaesarKey, TranspositionKey, caesar_encrypt, transposition_encrypt,
@@ -2121,12 +2297,18 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         assert_eq!(first, second);
     }
 
-    // Step 6 — the matched null stays FLAT under codec search: rerunning the
-    // identical codec enumeration + mapping search on a Fisher-Yates-shuffled
-    // ciphertext does not manufacture a beats-null winner. Here the base-6 plant's
-    // ciphertext is shuffled into noise, then the SAME codec search (base 6,
-    // group_len -> 6^2 = 36 widening) + mapping search runs on it; no candidate may
-    // beat its matched null or survive the gates.
+    // Step 6 (brief 04a Phase-2a) — the ENUMERATION-LEVEL matched null stays FLAT
+    // under codec search WITH codec SELECTION in play. The base-6 plant's ciphertext
+    // is shuffled into noise, then a codec search that yields TWO surviving codecs
+    // (FixedGrouping{2,6} in BOTH Msb and Lsb order, each 6^2 = 36 >= 29) + a mapping
+    // search runs on it. The real run takes the MAX score over both codecs, so the
+    // null is computed at the enumeration level (max-over-codecs-per-shuffle) and the
+    // winner is gated against THAT bar — not its own single-codec null — so trying two
+    // codecs and reporting the best does NOT manufacture a beats-null winner on noise.
+    //
+    // This is the test that was VACUOUS before the Phase-2a fix: with a single
+    // surviving codec it never exercised codec selection, so the OLD per-codec null
+    // (which maxes over ciphers within one codec only) was never asked to pay for it.
     #[test]
     fn codec_search_matched_null_stays_flat_on_shuffled_noise() {
         let english = english_model().unwrap();
@@ -2146,10 +2328,13 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
                     label: "identity".to_owned(),
                     ciphers: vec![AnyCipher::Identity],
                 }],
+                // group_len 1 (Identity, 6 < 29) is sanity-skipped; group_len 2 in
+                // BOTH orders survives (36 >= 29) and transduces the even-length
+                // stream -> TWO surviving codecs, so codec SELECTION is exercised.
                 codec: CodecStrategy::Search(CodecSearch {
                     max_group_len: 2,
                     try_delta: false,
-                    orders: vec![DigitOrder::Msb],
+                    orders: vec![DigitOrder::Msb, DigitOrder::Lsb],
                     seed: DEFAULT_SEED,
                 }),
                 mappings: MappingStrategy::Search(hillclimb(6, 4000)),
@@ -2162,14 +2347,115 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
             finnish: &finnish,
         };
 
-        let candidates = solve(&request).unwrap();
-        let top = candidates.first().unwrap();
+        let outcome = solve_with_codec_trace(&request).unwrap();
+
+        // (i) At least TWO distinct surviving codecs actually ran (codec selection is
+        // real), with Identity logged-and-skipped for failing alphabet-size sanity.
+        let mut distinct: Vec<AnyCodec> = Vec::new();
+        for candidate in &outcome.candidates {
+            if !distinct.contains(&candidate.codec) {
+                distinct.push(candidate.codec.clone());
+            }
+        }
+        assert!(
+            distinct.len() >= 2,
+            "expected >=2 surviving codecs to exercise selection, saw {distinct:?}"
+        );
+        assert!(outcome.skipped.iter().any(|skip| {
+            skip.codec == AnyCodec::Identity
+                && matches!(skip.reason, CodecSkipReason::SanityTooSmall { .. })
+        }));
+
+        // (ii) On shuffled noise the top candidate does NOT beat the enumeration-level
+        // null: codec selection on noise manufactures no winner.
+        let top = outcome.candidates.first().unwrap();
         assert!(
             !top.beats_null,
-            "codec search on shuffled noise beat its matched null (score {}, null {})",
+            "codec search on shuffled noise beat its enumeration-level null (score {}, null {})",
             top.score, top.null_mean
         );
         assert!(!candidate_survives(top));
+    }
+
+    // Step 6 (brief 04a Phase-2a) — the enumeration-level null is SELECTION-COMPLETE
+    // over codecs: maxing the on-noise score over ALL surviving codecs per shuffle is
+    // >= every single codec's on-noise null (same shuffles, same seeds, no max). The
+    // winning candidate carries exactly THAT enumeration-level null — the assertion
+    // that would FAIL under the OLD per-codec null, where the winner carried only its
+    // own (smaller) single-codec null and never paid for codec selection.
+    #[test]
+    fn enumeration_null_is_selection_complete_over_codecs() {
+        let english = english_model().unwrap();
+        let finnish = finnish_model().unwrap();
+        let base = 6usize;
+        let (planted, _key, _indices) = plant_base6_pair_english(&english);
+        let mut shuffled = planted;
+        let mut rng = SplitMix64::new(0x0053_4855_4636_3637);
+        crate::null::fisher_yates(&mut shuffled, &mut rng).unwrap();
+
+        let search = CodecSearch {
+            max_group_len: 2,
+            try_delta: false,
+            orders: vec![DigitOrder::Msb, DigitOrder::Lsb],
+            seed: DEFAULT_SEED,
+        };
+        let request = SolveRequest {
+            ciphertext: &shuffled,
+            space: HypothesisSpace {
+                families: vec![CipherFamilySpec {
+                    label: "identity".to_owned(),
+                    ciphers: vec![AnyCipher::Identity],
+                }],
+                codec: CodecStrategy::Search(search.clone()),
+                mappings: MappingStrategy::Search(hillclimb(4, 2000)),
+                language: LanguageChoice::English,
+                cipher_alphabet_size: base,
+                seed: DEFAULT_SEED,
+                null_trials: 3,
+            },
+            english: &english,
+            finnish: &finnish,
+        };
+
+        // The exact survivor set the real run uses (>=2 codecs => selection is live).
+        let (survivors, _skipped) = surviving_codecs(&request, &search, base);
+        assert!(
+            survivors.len() >= 2,
+            "need >=2 survivors to exercise codec selection, saw {}",
+            survivors.len()
+        );
+        let family = request.space.families.first().unwrap();
+
+        // The enumeration-level null maxes over ALL survivors per shuffle...
+        let full = enumeration_null_mean(&request, family, Language::English, &search, &survivors)
+            .unwrap();
+        // ...so it dominates every single-codec on-noise null computed with the SAME
+        // shuffles and codec-index-derived seeds (the per-trial max >= any one codec).
+        let mut max_single = f64::NEG_INFINITY;
+        for survivor in &survivors {
+            let single = vec![survivor.clone()];
+            let one = enumeration_null_mean(&request, family, Language::English, &search, &single)
+                .unwrap();
+            assert!(
+                full >= one,
+                "enumeration null {full} below single-codec null {one} (selection not paid for)"
+            );
+            max_single = max_single.max(one);
+        }
+        assert!(
+            full >= max_single,
+            "enumeration null {full} below the best single-codec null {max_single}"
+        );
+
+        // The winning candidate carries exactly this enumeration-level null (the
+        // discriminating assertion: under the OLD per-codec null it carried only its
+        // own codec's smaller null), and it reproduces BIT-for-bit for the fixed seed.
+        // Compared via `to_bits` for exact deterministic equality (clippy::float_cmp).
+        let candidates = solve(&request).unwrap();
+        let top = candidates.first().unwrap();
+        assert_eq!(top.null_mean.to_bits(), full.to_bits());
+        let again = solve(&request).unwrap();
+        assert_eq!(again.first().unwrap().null_mean.to_bits(), full.to_bits());
     }
 
     // Step 6 — held-out fold ABOVE the shuffled baseline on the synthetic plant:
