@@ -56,10 +56,13 @@ Matched null: a within-message multiset shuffle of `one` reproduced the `±1`
 partition **0 / 12** times — the recovery is the `C5` Cayley structure, not the
 solver always emitting two classes.
 
-**This is the GAK machinery's first known-answer external positive control, and it
-passes cleanly.** Per the practice-puzzle README, `one` carries **no readable
-English** — the deliverable is the recovered `C5` keystream/structure, not a decode,
-and that is exactly what fired.
+**This is the first known-answer positive control for the GCTAK recovery gate, and it
+passes cleanly.** It validates the cyclic/GCTAK path on a real, externally-sourced
+sample — **not** the *hidden-state* GAK machinery (which `two` shows still fails). Per
+the practice-puzzle README, `one` is external and *believed decryptable to English* via
+a decrypt -> codec -> mapping pipeline, with no in-repo cleartext; G1 validated the
+recovered `C5` keystream/**structure** layer only and did **not** attempt the
+English/codec decode.
 
 ### Honesty notes on `one`
 

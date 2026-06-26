@@ -13,9 +13,10 @@
 //!   subgroup, bijective readout). Ground truth: the state group is `C5`, the two
 //!   plaintext "letters" are the `+1` and `-1` generators, and the keystream is the
 //!   sequence of `±1` steps. The solver should recover both generators and the
-//!   exact step partition. (Per the practice-puzzle README this carries **no
-//!   readable English message**; the deliverable is the recovered C5 structure, not
-//!   a decode.)
+//!   exact step partition. (`one` is external and *believed decryptable to
+//!   English* via a decrypt -> codec -> mapping pipeline — brief 04a — with no
+//!   in-repo cleartext. G1's deliverable is the recovered C5 *structure* layer
+//!   only; it does **not** attempt the English/codec decode.)
 //! - **`two`** — a 12-symbol GAK *with hidden state* (the visible readout is
 //!   many-valued: every symbol has out-degree 8). GCTAK's bijective-readout
 //!   assumption does not hold, so `solve_gctak` is expected to **fail** — a
