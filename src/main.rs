@@ -793,14 +793,11 @@ fn run_homogeneity(config: orientation_homogeneity::OrientationHomogeneityConfig
     let report = match orientation_homogeneity::run_orientation_homogeneity(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "orientation homogeneity error: {}",
-                report::format_orientation_homogeneity_error(error)
-            );
+            eprintln!("orientation homogeneity error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_orientation_homogeneity_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
