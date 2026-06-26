@@ -916,14 +916,11 @@ fn run_conditional(config: conditional_structure::ConditionalStructureConfig) ->
     let report = match conditional_structure::run_conditional_structure(config) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!(
-                "conditional structure error: {}",
-                report::format_conditional_structure_error(error)
-            );
+            eprintln!("conditional structure error: {error}");
             return ExitCode::FAILURE;
         }
     };
-    report::print_conditional_structure_report(&report);
+    print!("{}", report.render());
     ExitCode::SUCCESS
 }
 
