@@ -236,9 +236,13 @@ struct KeystreamArgs {
     /// Deterministic seed for the search and the matched null.
     #[arg(long, default_value_t = keystream::DEFAULT_SEED)]
     seed: u64,
-    /// Number of random-key null trials used to calibrate the gate.
+    /// Number of random-key null trials for the reported DIAGNOSTIC (not the gate).
     #[arg(long = "null-trials", default_value_t = keystream::DEFAULT_NULL_TRIALS)]
     null_trials: usize,
+    /// Number of matched-null trials (reruns of the search on shuffled
+    /// ciphertext) — the survival gate. 0 disables survival.
+    #[arg(long = "matched-null-trials", default_value_t = keystream::DEFAULT_MATCHED_NULL_TRIALS)]
+    matched_null_trials: usize,
     /// Directory for any surviving candidate's record (a labelled HYPOTHESIS).
     #[arg(long = "candidates-dir", default_value = DEFAULT_CANDIDATES_DIR)]
     candidates_dir: std::path::PathBuf,
@@ -1571,6 +1575,7 @@ fn run_keystream(args: &KeystreamArgs) -> ExitCode {
         anneal_temp: args.anneal_temp,
         seed: args.seed,
         null_trials: args.null_trials,
+        matched_null_trials: args.matched_null_trials,
     };
 
     let mut candidates = Vec::new();
@@ -1615,16 +1620,20 @@ fn keystream_ciphertext(args: &KeystreamArgs) -> Result<Vec<u8>, ExitCode> {
 fn print_keystream_table(candidates: &[keystream::KeystreamCandidate]) {
     println!("Keystream candidates: HYPOTHESIS, not decode");
     println!(
-        "{:11} {:>3} {:>10} {:>10} {:>9} {:>10} {:>8}",
-        "family", "L", "best", "null_mean", "z", "round_trip", "survives"
+        "survives requires BOTH nulls: matched_z (search-overfitting gate) AND null_z (ct-autokey key-independence-leak gate)"
+    );
+    println!(
+        "{:11} {:>3} {:>10} {:>12} {:>10} {:>8} {:>10} {:>8}",
+        "family", "L", "best", "matched_mean", "matched_z", "null_z", "round_trip", "survives"
     );
     for candidate in candidates {
         println!(
-            "{:11} {:>3} {:>10.4} {:>10.4} {:>9.2} {:>10} {:>8}",
+            "{:11} {:>3} {:>10.4} {:>12.4} {:>10.2} {:>8.2} {:>10} {:>8}",
             candidate.family.name(),
             candidate.key_len,
             candidate.best_score,
-            candidate.null_mean,
+            candidate.matched_mean,
+            candidate.matched_z,
             candidate.z,
             candidate.round_trip_ok,
             candidate.survives,
@@ -1633,20 +1642,21 @@ fn print_keystream_table(candidates: &[keystream::KeystreamCandidate]) {
 }
 
 fn print_keystream_best(candidates: &[keystream::KeystreamCandidate]) {
+    // Rank by matched_z (the survival statistic), survivors first.
     let best = candidates
         .iter()
         .filter(|candidate| candidate.survives)
-        .max_by(|left, right| left.z.total_cmp(&right.z))
+        .max_by(|left, right| left.matched_z.total_cmp(&right.matched_z))
         .or_else(|| {
             candidates
                 .iter()
-                .max_by(|left, right| left.z.total_cmp(&right.z))
+                .max_by(|left, right| left.matched_z.total_cmp(&right.matched_z))
         });
     let Some(best) = best else {
         return;
     };
     println!(
-        "best (highest z{}):",
+        "best (highest matched_z{}):",
         if best.survives {
             ", surviving"
         } else {
@@ -1660,9 +1670,14 @@ fn print_keystream_best(candidates: &[keystream::KeystreamCandidate]) {
     );
     println!("  key: {:?}", best.key);
     println!(
-        "  z: {:.4}  margin: {:.4}",
-        best.z,
-        best.best_score - best.null_mean
+        "  matched_z: {:.4}  matched_margin: {:.4}  matched_mean: {:.4}",
+        best.matched_z,
+        best.best_score - best.matched_mean,
+        best.matched_mean,
+    );
+    println!(
+        "  random-key null_z (ct-autokey-leak gate): {:.4}  null_mean: {:.4}",
+        best.z, best.null_mean,
     );
     println!(
         "  decrypt: {}",
@@ -1682,17 +1697,19 @@ fn emit_keystream_verdict(
         .collect();
     if survivors.is_empty() {
         println!(
-            "HONEST-NEGATIVE: no (family, key length) candidate cleared the round-trip + z>={:.0} + held-out gates. A clean honest negative is a SUCCESS, not an error.",
-            keystream::Z_THRESHOLD
+            "HONEST-NEGATIVE: no (family, key length) candidate cleared the round-trip + matched-null + random-key-null (each z>={:.0} AND margin>={:.0} nat) + held-out gates. A clean honest negative is a SUCCESS, not an error.",
+            keystream::Z_THRESHOLD,
+            keystream::MIN_NAT_MARGIN,
         );
         return ExitCode::SUCCESS;
     }
     for candidate in survivors {
         println!(
-            "HYPOTHESIS (not a confirmed decode): family={} key-len={} z={:.2}",
+            "HYPOTHESIS (not a confirmed decode; cleared BOTH null gates): family={} key-len={} matched_z={:.2} null_z={:.2}",
             candidate.family.name(),
             candidate.key_len,
-            candidate.z
+            candidate.matched_z,
+            candidate.z,
         );
         println!("  full decrypt: {}", candidate.render_plaintext());
         match keystream::write_keystream_record(candidates_dir, label, seed, candidate) {
