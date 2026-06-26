@@ -1593,7 +1593,8 @@ mod tests {
         AnyCipher, CaesarKey, TranspositionKey, caesar_encrypt, transposition_encrypt,
     };
     use crate::codec::{
-        CodecSearch, CodecSkipReason, DigitOrder, GroupingCodec, MAX_SEARCH_OUTPUT_ALPHABET,
+        CodecSearch, CodecSkipReason, DeltaCodec, DigitOrder, GroupingCodec,
+        MAX_SEARCH_OUTPUT_ALPHABET,
     };
     use crate::glyph::Glyph;
     use crate::language::{LanguageModel, english_model, finnish_model};
@@ -2220,6 +2221,92 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         assert!(candidate_survives(top));
     }
 
+    // Step 7 — the DELTA search path recovers the +/-1-`C5`-shaped plant. The
+    // planted English rides a walk on C5 (base 5) under a Caesar shift; only the
+    // `Delta{base 5}` codec over the base-5 trigram grouping both hosts the language
+    // (5^3 = 125 >= 29) AND fits the stream. The direct (non-delta) trigram grouping
+    // is logged-and-skipped: the walk length (3N+1) is not a multiple of 3, so the
+    // grouping cannot transduce it -- the +/-1 walk structure is exactly the search
+    // hint that makes the delta codec the natural first attempt. (An OBSERVED
+    // ciphertext property and a search hint, never a claim of "no message".)
+    #[test]
+    fn delta_search_recovers_delta_c5_plant() {
+        let english = english_model().unwrap();
+        let finnish = finnish_model().unwrap();
+        let base = 5usize;
+        let (ciphertext, _key, plaintext_indices) = plant_delta_c5_english(&english);
+        let mapping = grouped_value_identity_mapping(&english);
+
+        let request = SolveRequest {
+            ciphertext: &ciphertext,
+            space: HypothesisSpace {
+                families: vec![CipherFamilySpec {
+                    label: "Caesar".to_owned(),
+                    ciphers: identity_plus_caesar_ciphers(base),
+                }],
+                codec: CodecStrategy::Search(CodecSearch {
+                    max_group_len: 3,
+                    try_delta: true,
+                    orders: vec![DigitOrder::Msb],
+                    seed: DEFAULT_SEED,
+                }),
+                mappings: MappingStrategy::Fixed(vec![mapping]),
+                language: LanguageChoice::English,
+                cipher_alphabet_size: base,
+                seed: DEFAULT_SEED,
+                null_trials: DEFAULT_NULL_TRIALS,
+            },
+            english: &english,
+            finnish: &finnish,
+        };
+
+        let outcome = solve_with_codec_trace(&request).unwrap();
+        let top = outcome.candidates.first().unwrap();
+
+        // The winning codec is the delta over the base-5 trigram grouping.
+        assert_eq!(
+            top.codec,
+            AnyCodec::Delta(DeltaCodec {
+                base,
+                then: Box::new(AnyCodec::FixedGrouping(GroupingCodec {
+                    group_len: 3,
+                    base,
+                    order: DigitOrder::Msb,
+                    stride: 3,
+                })),
+            })
+        );
+        assert!(top.crypto_round_trip_ok);
+        assert!(top.codec_round_trip_ok);
+        assert!(top.beats_null, "score {} null {}", top.score, top.null_mean);
+
+        let expected: String = plaintext_indices
+            .iter()
+            .map(|&index| english.alphabet().symbol(index).unwrap())
+            .collect();
+        assert_eq!(top.rendered_text, expected);
+
+        // The DIRECT (non-delta) base-5 trigram grouping is logged-and-skipped as
+        // Untransducible (the 3N+1 walk length is not a multiple of 3); only the
+        // delta path -- which differences the +/-1 walk first -- fits. Differencing
+        // is shift-invariant, which is also why the Caesar key is not separately
+        // identifiable through the delta codec, so the cipher key is not asserted.
+        assert!(outcome.skipped.iter().any(|skip| {
+            skip.codec
+                == AnyCodec::FixedGrouping(GroupingCodec {
+                    group_len: 3,
+                    base,
+                    order: DigitOrder::Msb,
+                    stride: 3,
+                })
+                && skip.reason == CodecSkipReason::Untransducible
+        }));
+
+        // Reproducible for the fixed seed.
+        let again = solve_with_codec_trace(&request).unwrap();
+        assert_eq!(outcome, again);
+    }
+
     #[test]
     fn fixed_mapping_caesar_plant_recovers_top_candidate() {
         let english = english_model().unwrap();
@@ -2672,6 +2759,46 @@ JOVIAL EXPERT KEPT WEIGHING EVIDENCE BEFORE EVERY HONEST NEGATIVE VERDICT";
         }
         let key = CaesarKey::new(base, 2).unwrap();
         let ciphertext = caesar_encrypt(&digits, &key).unwrap();
+        (ciphertext, key, plaintext_indices)
+    }
+
+    /// Plants English through the INVERSE of a `Delta{base 5}` + base-5 trigram
+    /// grouping codec: each letter index becomes a base-5 MSB triple (a move
+    /// triple), the moves integrate from a seed into a walk on the pentagon `C5`
+    /// (base 5), then Caesar encrypts the walk. Recovering it REQUIRES the delta
+    /// codec: differencing the walk peels the Caesar shift and the seed back to the
+    /// moves, and grouping the moves by three rebuilds each letter index. This is
+    /// the synthetic analogue of the +/-1-`C5` structure observed in practice
+    /// puzzle `one` (every transition +/-1 mod 5). Returns the ciphertext, the
+    /// Caesar key, and the planted language indices.
+    fn plant_delta_c5_english(model: &LanguageModel) -> (Vec<Glyph>, CaesarKey, Vec<usize>) {
+        let base = 5usize;
+        let plaintext_indices = model
+            .alphabet()
+            .normalize_text(
+                "THE NORTHERN STARS SHINE ON THE ROSE AND THE HEART OF IRON RESTS IN THE STONE \
+                 THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG NEAR THE FOGGY HARBOR EVERY MORNING \
+                 THESE NINE SAINTS ENTER THE TENT AS THE RAIN OF THE EAST STARTS TO SHINE AGAIN",
+            )
+            .unwrap();
+        // Inverse grouping: each language index (< 5^3 = 125) -> 3 base-5 MSB digits
+        // = the moves.
+        let mut moves: Vec<usize> = Vec::with_capacity(plaintext_indices.len() * 3);
+        for &index in &plaintext_indices {
+            moves.push(index / 25);
+            moves.push((index / 5) % 5);
+            moves.push(index % 5);
+        }
+        // Inverse differencing: integrate the moves from seed 0 into a base-5 walk.
+        let mut walk: Vec<Glyph> = Vec::with_capacity(moves.len() + 1);
+        let mut accumulator = 0usize;
+        walk.push(Glyph(accumulator as u16));
+        for step in &moves {
+            accumulator = (accumulator + step) % base;
+            walk.push(Glyph(accumulator as u16));
+        }
+        let key = CaesarKey::new(base, 3).unwrap();
+        let ciphertext = caesar_encrypt(&walk, &key).unwrap();
         (ciphertext, key, plaintext_indices)
     }
 
