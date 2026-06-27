@@ -22,5 +22,4 @@ src/nulls/null.rs                          1664  # shared matched-null harness c
 src/experiments/controls.rs                1636  # Experiment-11 positive controls; render-heavy — extract the report sibling
 src/experiments/modular_diff.rs            1600  # modular finite-difference fingerprint; render-heavy — extract the report sibling
 src/main.rs                                2118  # CLI dispatch + clap arg structs; shrinks when split into a bin-local cli/ module tree
-src/attack/keystream.rs                    1360  # polyalphabetic keystream cracker; shrinks when cipher/search/record + tests split out
 src/attack/ragbaby.rs                      1744  # general Ragbaby keyed-alphabet cracker; shrinks when cipher/search/record + tests split out
