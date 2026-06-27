@@ -6,6 +6,10 @@
 //!   eye messages, including the verified rendered orientation symbols.
 //! - [`isomorph`]: first-occurrence repeated-pattern detection used by the
 //!   isomorph experiments and controls.
+//! - [`isomorph_imperfection`]: Thread G2 forward isomorph-imperfection
+//!   disproof — extended-window violation push, loose-candidate-class matched
+//!   null, word-boundary discount, and a generative imperfectly-isomorphic
+//!   cipher family for the fit comparison.
 //! - [`isomorph_null`]: Experiment 7A repeated-pattern analysis against a
 //!   within-message shuffle null.
 //! - [`keystream`]: polyalphabetic keystream cracker (Vigenere/Beaufort/autokey)
@@ -123,6 +127,8 @@ pub mod grouping;
 pub mod honeycomb;
 #[path = "analysis/isomorph.rs"]
 pub mod isomorph;
+#[path = "analysis/isomorph_imperfection.rs"]
+pub mod isomorph_imperfection;
 #[path = "analysis/leak_ceiling.rs"]
 pub mod leak_ceiling;
 #[path = "analysis/orders.rs"]
