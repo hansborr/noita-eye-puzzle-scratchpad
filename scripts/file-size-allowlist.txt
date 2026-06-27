@@ -8,7 +8,6 @@
 # reviewed — never a silent carve-out.
 #
 # <path>                                   <max-lines>  # reason
-src/attack/gak_attack/mod.rs               967   # GCTAK go/no-go gate; clears under 600 when the GAK report render extracts to report.rs
 src/attack/gak_attack/tests.rs             1702  # extracted GCTAK gate tests (synthetic fixtures); split by stage only if it grows
 src/attack/gak_attack/eyes.rs              2316  # real-eye held-out attack; shrinks when the report/record/held-out/speculative layers split out
 src/attack/gak_attack/marginalization.rs   1026  # cohesive GAK marginalization algorithm; split by stage only if it grows
