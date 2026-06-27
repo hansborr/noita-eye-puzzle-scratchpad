@@ -23,6 +23,9 @@ make run ARGS=demo
 - **`make check` (or at least `make verify`) must be green before every commit.**
   The pre-commit hook runs the correctness gate automatically once installed;
   CI runs the same gate plus the release build.
+- **Commit completed work.** Once a logical change is done and the gate is green,
+  commit it with a clear message — don't wait to be asked. Branch off `main`
+  first if you're on it.
 - **`unsafe` is forbidden** crate-wide (`unsafe_code = "forbid"`). Don't reach for it.
 - **No panics or silent failures in library/CLI code.** `unwrap`/`panic`/
   `indexing_slicing`/`unused_results` and friends are lints (warn → `-D warnings`
