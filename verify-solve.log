@@ -1,0 +1,700 @@
+cargo fmt --check
+cargo clippy --all-targets --all-features --locked -- -D warnings
+[1m[92m   Compiling[0m proc-macro2 v1.0.106
+[1m[92m   Compiling[0m autocfg v1.5.1
+[1m[92m   Compiling[0m quote v1.0.46
+[1m[92m   Compiling[0m unicode-ident v1.0.24
+[1m[92m   Compiling[0m heck v0.5.0
+[1m[92m    Checking[0m clap_lex v1.1.0
+[1m[92m    Checking[0m anstyle v1.0.14
+[1m[92m   Compiling[0m num-traits v0.2.19
+[1m[92m    Checking[0m clap_builder v4.6.0
+[1m[92m    Checking[0m approx v0.5.1
+[1m[92m    Checking[0m statrs v0.18.0
+[1m[92m   Compiling[0m syn v2.0.118
+[1m[92m   Compiling[0m clap_derive v4.6.1
+[1m[92m    Checking[0m clap v4.6.1
+[1m[92m    Checking[0m noita-eye-puzzle v0.1.0 (/home/node/persist/noita-eye-puzzle-maint)
+[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 7.48s
+./scripts/check-file-size.sh
+file-size: OK (81 Rust files within budget; default cap 600)
+RUSTFLAGS="-D warnings" cargo test --locked
+[1m[92m   Compiling[0m proc-macro2 v1.0.106
+[1m[92m   Compiling[0m quote v1.0.46
+[1m[92m   Compiling[0m unicode-ident v1.0.24
+[1m[92m   Compiling[0m autocfg v1.5.1
+[1m[92m   Compiling[0m heck v0.5.0
+[1m[92m   Compiling[0m anstyle v1.0.14
+[1m[92m   Compiling[0m clap_lex v1.1.0
+[1m[92m   Compiling[0m num-traits v0.2.19
+[1m[92m   Compiling[0m clap_builder v4.6.0
+[1m[92m   Compiling[0m approx v0.5.1
+[1m[92m   Compiling[0m statrs v0.18.0
+[1m[92m   Compiling[0m syn v2.0.118
+[1m[92m   Compiling[0m clap_derive v4.6.1
+[1m[92m   Compiling[0m clap v4.6.1
+[1m[92m   Compiling[0m noita-eye-puzzle v0.1.0 (/home/node/persist/noita-eye-puzzle-maint)
+[1m[92m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 10.22s
+[1m[92m     Running[0m unittests src/lib.rs (target/debug/deps/noita_eye_puzzle-9fac3528d1f82944)
+
+running 409 tests
+test analysis::tests::chi_square_arbitrary_expected_distribution_normalizes_weights ... ok
+test analysis::tests::chi_square_rejects_invalid_expected_distribution ... ok
+test analysis::tests::bigrams_are_counted ... ok
+test analysis::tests::chi_square_uniform_matches_toy_distribution ... ok
+test analysis::tests::chi_square_upper_tail_rejects_invalid_inputs ... ok
+test analysis::tests::chi_square_validates_expected_distribution_before_zero_observation_return ... ok
+test analysis::tests::chi_square_upper_tail_matches_known_distribution ... ok
+test analysis::tests::empty_sequence_is_well_defined ... ok
+test analysis::tests::entropy_of_constant_sequence_is_zero ... ok
+test analysis::tests::entropy_of_uniform_four_symbols_is_two_bits ... ok
+test analysis::tests::ioc_of_constant_sequence_is_one ... ok
+test chaining::tests::out_of_alphabet_values_are_rejected ... ok
+test chaining_graph::tests::chain_links_reject_length_mismatch ... ok
+test chaining_graph::tests::commutative_fixture_has_no_conflicts ... ok
+test chaining_graph::tests::union_find_handles_components_and_out_of_range ... ok
+test cipher_attack::tests::cipher_attack_interpretation_does_not_treat_small_pointwise_p_as_hit ... ok
+test ciphers::tests::agl_gak_matches_hand_computed_n5 ... ok
+test ciphers::tests::agl_gak_trait_matches_free_functions ... ok
+test ciphers::tests::agl_gak_wrong_left_update_convention_differs ... ok
+test ciphers::tests::any_cipher_agl_gak_matches_free_functions_and_round_trips ... ok
+test ciphers::tests::any_cipher_caesar_matches_free_functions_and_round_trips ... ok
+test ciphers::tests::any_cipher_chaocipher_matches_free_functions_and_round_trips ... ok
+test ciphers::tests::any_cipher_deck_cipher_matches_free_functions_and_round_trips ... ok
+test chaining_graph::tests::accepted_eye_stream_pin_matches_thread_oracle ... ok
+test ciphers::tests::any_cipher_gak_matches_free_functions_and_round_trips ... ok
+test ciphers::tests::any_cipher_identity_matches_free_functions_and_round_trips ... ok
+test ciphers::tests::any_cipher_incrementing_wheel_matches_free_functions_and_round_trips ... ok
+test ciphers::tests::any_cipher_transposition_matches_free_functions_and_round_trips ... ok
+test ciphers::tests::any_cipher_vigenere_matches_free_functions_and_round_trips ... ok
+test ciphers::tests::caesar_known_tiny_vector ... ok
+test ciphers::tests::caesar_trait_matches_free_functions ... ok
+test ciphers::tests::chaocipher_known_tiny_vector ... ok
+test ciphers::tests::caesar_round_trips_random_plaintexts ... ok
+test ciphers::tests::chaocipher_matches_classic_published_vector ... ok
+test ciphers::tests::chaocipher_trait_matches_free_functions ... ok
+test ciphers::tests::deck_cipher_known_tiny_vector ... ok
+test ciphers::tests::chaocipher_round_trips_random_plaintexts ... ok
+test ciphers::tests::deck_cipher_trait_matches_free_functions ... ok
+test chaining::tests::known_succeed_and_fail_controls_are_distinct_and_separated ... ok
+test ciphers::tests::gak_alternating_subgroup_rejects_odd_permutation ... ok
+test ciphers::tests::gak_avoid_doubles_rejects_letter_in_identity_coset ... ok
+test ciphers::tests::gak_preserves_isomorph_pattern_on_repeated_phrase ... ok
+test ciphers::tests::gak_avoid_doubles_forbids_adjacent_equal_ciphertext ... ok
+test ciphers::tests::gak_rejects_letters_sharing_a_coset ... ok
+test ciphers::tests::gak_rejects_non_invertible_coset_table ... ok
+test ciphers::tests::gak_rejects_non_permutation_letter ... ok
+test ciphers::tests::gak_rejects_oversize_coset_table ... ok
+test ciphers::tests::gak_reduces_to_gctak_when_hidden_subgroup_trivial ... ok
+test ciphers::tests::gak_round_trips_accepted_coset_table_key ... ok
+test ciphers::tests::gak_round_trips_alternating_subgroup_key ... ok
+test ciphers::tests::gak_round_trips_non_identity_initial_state ... ok
+test ciphers::tests::gak_trait_matches_free_functions ... ok
+test ciphers::tests::identity_cipher_passes_through_and_trait_matches_free_functions ... ok
+test ciphers::tests::incrementing_wheel_known_tiny_vector ... ok
+test ciphers::tests::incrementing_wheel_round_trips_random_plaintexts ... ok
+test ciphers::tests::incrementing_wheel_trait_matches_free_functions ... ok
+test ciphers::tests::transposition_known_tiny_vector_and_trait_matches_free_functions ... ok
+test ciphers::tests::transposition_round_trips_random_plaintexts ... ok
+test ciphers::tests::vigenere_known_tiny_vector ... ok
+test ciphers::tests::vigenere_round_trips_random_plaintexts ... ok
+test ciphers::tests::vigenere_trait_matches_free_functions ... ok
+test codec::tests::alphabet_size_sanity_rejects_small_identity_and_accepts_wide_grouping ... ok
+test codec::tests::cli_codec_helpers_expose_default_search_and_honeycomb ... ok
+test codec::tests::delta_differences_c5_walk_and_reintegrates_from_seed ... ok
+test codec::tests::delta_digit_outside_base_errors ... ok
+test codec::tests::delta_empty_input_errors ... ok
+test codec::tests::delta_round_trips_on_c5_walk ... ok
+test codec::tests::delta_then_fixed_grouping_round_trips ... ok
+test codec::tests::enumerate_codecs_lists_groupings_and_dedupes_unit_group ... ok
+test codec::tests::enumerate_codecs_wraps_delta_when_requested ... ok
+test codec::tests::fixed_grouping_digit_outside_base_errors ... ok
+test codec::tests::fixed_grouping_emitting_above_82_is_flagged_for_eye_consumer ... ok
+test codec::tests::fixed_grouping_empty_input_is_empty_output ... ok
+test codec::tests::fixed_grouping_lsb_reverses_significance ... ok
+test codec::tests::fixed_grouping_matches_honeycomb_trigram_values ... ok
+test codec::tests::fixed_grouping_non_multiple_length_errors ... ok
+test codec::tests::fixed_grouping_output_alphabet_size_is_base_pow_group_len ... ok
+test ciphers::tests::deck_cipher_round_trips_random_plaintexts ... ok
+test codec::tests::fixed_grouping_partial_group_is_honest_false ... ok
+test codec::tests::fixed_grouping_round_trips_on_full_multiple ... ok
+test codec::tests::horner_usize_overflow_is_output_value_too_wide_not_panic ... ok
+test codec::tests::identity_is_the_identity ... ok
+test codec::tests::identity_round_trips ... ok
+test codec::tests::overlapping_stride_is_not_invertible_and_does_not_round_trip ... ok
+test conditional_structure::tests::deterministic_alternation_has_full_first_order_information ... ok
+test agl_gak::tests::fixed_point_enumeration_counts_reproduce ... ok
+test ciphers::tests::agl_gak_round_trips_random_plaintexts ... ok
+test conditional_structure::tests::successor_graph_counts_edges_entropy_and_fsm_bound ... ok
+test conditional_structure::tests::two_sided_add_one_applies_correction_before_doubling ... ok
+test conditional_structure::tests::two_sided_add_one_comparison_is_capped ... ok
+test controls::tests::balanced_uniform_comparison_sits_below_with_replacement_floor ... ok
+test controls::tests::documented_common_glyph_plaintexts_are_known_key_vectors ... ok
+test controls::tests::generated_key_is_a_bijection ... ok
+test agl_gak::tests::eye_pins_match_verified_streams ... ok
+test agl_gak::tests::positive_controls_fire_and_eyes_are_excluded ... ok
+test chaining_graph::tests::positive_control_recovers_non_commuting_fixture ... ok
+test controls::tests::monoalphabetic_control_preserves_exact_statistics ... ok
+test controls::tests::monoalphabetic_control_separates_english_like_from_uniform ... ok
+test controls::tests::pattern_signature_uses_first_occurrence_shape ... ok
+test controls::tests::signature_detector_finds_repeated_relative_pattern_period ... ok
+test controls::tests::unsupported_plaintext_symbols_are_rejected ... ok
+test corpus::tests::experiment_0_cross_validates_transcription_against_engine_decode ... ok
+test corpus::tests::experiment_3_eye_counts_are_divisible_into_1036_trigrams ... ok
+test corpus::tests::experiment_3_raw_lengths_include_delimiters_and_most_are_not_divisible_by_3 ... ok
+test corpus::tests::real_corpus_is_parseable_and_records_origins ... ok
+test corpus::tests::trigrams_reject_non_divisible_orientation_count ... ok
+test controls::tests::isomorph_control_default_seed_numbers_are_anchored ... ok
+test ciphers::tests::gak_round_trips_random_plaintexts_small_and_eye ... ok
+test dof_null::tests::dof_null_floor_invariant_and_adaptive_regime_holds_in_ignored_sweep ... ignored, multi-seed 256+128-trial adaptive stability sweep; run with cargo test -- --ignored
+test dof_null::tests::dof_null_seed_12345_matches_headline_regression ... ignored, canonical 1000+1000-trial adaptive null regression; run with cargo test -- --ignored
+test conditional_structure::tests::eye_headline_statistics_are_pinned ... ok
+test dof_null::tests::marginal_tails_are_probabilities_on_default_space ... ok
+test dof_null::tests::min_p_matches_hand_checked_toy_case ... ok
+test dof_null::tests::planted_structure_positive_control_has_small_adaptive_p ... ok
+test agl_gak::tests::run_agl_gak_is_deterministic ... ok
+test dof_null::tests::uniform_random_negative_control_is_not_significant ... ok
+test controls::tests::isomorph_control_is_deterministic_for_seed ... ok
+test gak_attack::known_answer::hidden_state::synthetic_reproduces_two_hidden_state_signature ... ok
+test dof_null::tests::fresh_null_observation_is_not_self_rank_pinned ... ok
+test gak_attack::known_answer::hidden_state::two_hidden_state_attack_honest_negative ... ok
+test gak_attack::known_answer::hidden_state::positive_control_hidden_state_recovery_fires_and_null_fails ... ok
+test gak_attack::known_answer::hidden_state::repeated_phrase_substrate_drives_recovery_realistic_text_degrades_it ... ok
+test gak_attack::tests::beam_admits_nothing_when_held_out_fold_cannot_validate_it ... ok
+test gak_attack::known_answer::one_recovers_c5_cyclic_gctak_keystream ... ok
+test gak_attack::tests::chain_links_match_shared_chaining_graph_primitive ... ok
+test gak_attack::tests::ciphertext_is_isomorph_rich_on_repeated_phrases ... ok
+test controls::tests::isomorph_control_separates_present_and_absent_structure ... ok
+test conditional_structure::tests::add_constant_calibration_reduces_flat_random_mi_bias ... ok
+test gak_attack::known_answer::one_matched_null_does_not_recover ... ok
+test gak_attack::tests::chain_links_are_load_bearing_corruption_breaks_recovery ... ok
+test gak_attack::tests::deck_attack_true_conflict_aborts_on_a_bad_isomorph_assumption ... ok
+test conditional_structure::tests::planted_controls_separate_static_from_deck_permuted_structure ... ok
+test gak_attack::tests::deck_fixture_round_trips_and_is_genuinely_non_trivial_h ... ok
+test gak_attack::tests::deck_generator_supports_both_letter_regimes ... ok
+test gak_attack::tests::dihedral_gate_fixtures_realize_a_non_commutative_subgroup ... ok
+test gak_attack::tests::deck_attack_matched_null_symmetry_identical_pipeline_and_population ... ok
+test gak_attack::tests::deck_chain_links_are_load_bearing_corruption_breaks_recovery ... ok
+test chaining_graph::tests::wiki_gap_signature_occurrences_are_pinned ... ok
+test chaining::tests::period_calibration_is_independent_of_scan_range ... ok
+test gak_attack::tests::eyes_message_evidence_splits_disjoint_train_and_held_out_contexts ... ok
+test dof_null::tests::analytic_configured_dof_bound_is_astronomically_small_for_eyes ... ok
+test gak_attack::tests::eyes_record_logs_cleartext_verbatim_when_speculative_gate_runs ... ok
+test gak_attack::tests::eyes_run_rejects_zero_trials ... ok
+test gak_attack::known_answer::two_real_gak_dies_at_seeding_honest_negative ... ok
+test gak_attack::tests::deck_attack_is_deterministic_for_fixed_seed ... ok
+test chaining::tests::real_eye_scores_are_measured_against_the_fail_band ... ok
+test gak_attack::tests::generator_round_trips_for_both_group_kinds ... ok
+test gak_attack::tests::idea3_beam_width_bound_is_respected_and_reported ... ok
+test gak_attack::tests::idea3_beam_width_genuinely_caps_admitted_set_size ... ok
+test gak_attack::tests::idea3_held_out_validation_is_load_bearing_not_a_ground_truth_peek ... ok
+test chaining_graph::tests::chaining_graph_is_reproducible_for_fixed_seed ... ok
+test gak_attack::tests::idea3_is_deterministic_for_fixed_seed ... ok
+test gak_attack::tests::idea3_matched_null_symmetry_identical_pipeline_and_population ... ok
+test chaining::tests::multi_seed_calibration_bands_separate_for_candidate_periods ... ok
+test gak_attack::tests::idea3_recovers_nonzero_fraction_and_beats_null_on_easiest ... ok
+test gak_attack::tests::idea3_single_valued_core_of_split_matches_2a_core_definition ... ok
+test gak_attack::tests::idea3_marginalization_recovers_more_than_the_2a_single_valued_core ... ok
+test gak_attack::tests::idea3_recovery_breaks_as_hidden_state_count_grows ... ok
+test gak_attack::tests::per_letter_permutation_recovery_fraction_is_full_on_real_and_low_on_null ... ok
+test gak_attack::tests::perturbed_cyclic3_reports_realized_not_declared_structure ... ok
+test gak_attack::tests::radius_zero_gate_fixtures_are_faithful_and_bijective ... ok
+test gak_attack::tests::idea3_small_support_prior_validates_idea2 ... ok
+test gak_attack::tests::round_trip_holds_for_generated_gate_fixtures ... ok
+test gak_attack::tests::gctak_solver_recovers_cyclic_at_high_rate ... ok
+test gak_attack::tests::gctak_solver_recovers_dihedral_non_commutative_at_high_rate ... ok
+test gak_attack::tests::run_gak_attack_rejects_nonzero_small_support_radius ... ok
+test gak_attack::tests::run_gak_attack_rejects_too_few_letters_as_config_error ... ok
+test cipher_attack::tests::positive_control_recovers_caesar_and_vigenere_plants ... ok
+test cipher_attack::tests::shuffle_null_is_deterministic_for_fixed_seed ... ok
+test gak_attack::tests::deck_attack_measures_a_tractability_bound_that_breaks_as_n_grows ... ok
+test gak_attack::tests::small_support_knob_perturbs_a_permutation ... ok
+test gak_attack::tests::deck_attack_recovers_nonzero_fraction_and_beats_null_on_easiest ... ok
+test generator::tests::decode_matches_rendered_corpus_byte_for_byte ... ok
+test generator::tests::reproduces_wiki_worked_example ... ok
+test generator::tests::storage_orientation_rejects_control_values ... ok
+test generator::tests::structure_totals_match_the_confirmed_anchors ... ok
+test generator::tests::vendored_pairs_match_parsed_php_fixture ... ok
+test glyph::tests::parse_skips_whitespace_and_reports_unknown ... ok
+test glyph::tests::rejects_duplicate_alphabet_chars ... ok
+test glyph::tests::round_trips_chars_and_glyphs ... ok
+test grouping::tests::calibration_tracks_known_state_counts_without_using_used_count_as_estimate ... ok
+test grouping::tests::compatibility_is_derived_from_language_references ... ok
+test gak_attack::tests::shuffled_ciphertext_does_not_recover_exactly ... ok
+test grouping::tests::grouping_report_preserves_experiment_4_trigram_anchor ... ok
+test grouping::tests::grouping_numbers_are_deterministic_across_axes ... ok
+test grouping::tests::synthetic_fixture_estimator_is_measured_from_generated_symbols ... ok
+test heldout::tests::matched_null_stats_separates_full_and_heldout_means ... ok
+test heldout::tests::matched_null_stats_zero_for_empty ... ok
+test heldout::tests::odd_index_fold_is_empty_for_short_streams ... ok
+test heldout::tests::odd_index_fold_keeps_odd_positions_in_order ... ok
+test honeycomb::tests::independence_statistic_matches_manual_two_by_two_case ... ok
+test honeycomb::tests::lattice_flattening_reproduces_accepted_honeycomb_order ... ok
+test honeycomb::tests::real_eye_lattice_headline_numbers_are_pinned ... ok
+test honeycomb::tests::row_pair_coordinates_follow_interlocking_triangle_geometry ... ok
+test honeycomb::tests::statistics_cover_vertical_position_and_parity_signals ... ok
+test ingest::tests::cipher_alphabet_all_transparent_is_empty ... ok
+test ingest::tests::cipher_alphabet_passes_transparent_symbols_through ... ok
+test ingest::tests::cipher_alphabet_rejects_out_of_alphabet_char ... ok
+test ingest::tests::honeycomb_parses_accepted_values ... ok
+test ingest::tests::honeycomb_rejects_above_alphabet_and_non_numeric ... ok
+test ingest::tests::honeycomb_reports_token_index_among_tokens ... ok
+test ingest::tests::honeycomb_tolerates_extra_separators ... ok
+test ingest::tests::load_sequence_maps_missing_path_to_io_error ... ok
+test ingest::tests::rendered_drops_delimiter_and_whitespace ... ok
+test ingest::tests::rendered_empty_and_all_whitespace_are_empty ... ok
+test ingest::tests::rendered_matches_corpus_parser_for_all_nine_messages ... ok
+test ingest::tests::rendered_rejects_digit_above_five_with_index ... ok
+test ingest::tests::rendered_rejects_non_digit_with_index ... ok
+test ingest::tests::transparent_set_override_excludes_hash ... ok
+test isomorph_imperfection::tests::canonical_report_snapshot ... ignored, canonical full-trial run; capture headline numbers with cargo test -- --ignored --nocapture
+test grouping::tests::state_count_estimate_is_collision_based_and_compares_to_83 ... ok
+test isomorph_imperfection::tests::imperfect_family_positive_control_fires ... ok
+test isomorph_imperfection::tests::perfect_family_is_internally_clean ... ok
+test isomorph_imperfection::tests::run_is_deterministic_for_fixed_config ... ok
+test isomorph_imperfection::tests::single_broken_instance_is_an_internal_violation ... ok
+test isomorph_imperfection::tests::zero_trials_are_rejected ... ok
+test isomorph_null::tests::isomorph_null_is_reproducible_for_fixed_seed ... ok
+test isomorph_null::tests::isomorph_rich_fixture_exceeds_its_shuffle_null ... ok
+test isomorph_null::tests::uniform_random_fixture_stays_inside_its_shuffle_null ... ok
+test gak_attack::tests::idea3_small_support_prior_off_in_default_run_so_results_do_not_silently_depend_on_it ... ok
+test gak_attack::tests::retry_selected_exemplar_is_labelled_not_the_pass_evidence ... ok
+test keystream::tests::crack_builds_model_and_renders_letters ... ok
+test keystream::tests::empty_key_is_a_no_op ... ok
+test gak_attack::tests::run_gak_attack_passes_on_rate_beats_null_not_a_lucky_seed ... ok
+test gak_attack::tests::run_gak_attack_surfaces_the_idea3_marginalization_result ... ok
+test gak_attack::tests::run_gak_attack_surfaces_the_deck_partial_recovery_bound ... ok
+test keystream::tests::practice_puzzles_normalize_to_letters ... ok
+test isomorph_imperfection::tests::eyes_are_a_hardened_negative ... ok
+test keystream::tests::record_writer_emits_claim_ceiling ... ok
+test keystream::tests::round_trip_each_family ... ok
+test language::tests::additive_smoothing_keeps_unseen_bigrams_finite ... ok
+test language::tests::alphabet_rejects_duplicate_after_normalization ... ok
+test language::tests::default_alphabet_contains_ascii_and_finnish_letters ... ok
+test language::tests::held_out_language_calibration_separates_english_and_finnish ... ok
+test language::tests::model_rejects_empty_training_after_comments ... ok
+test language::tests::normalization_rejects_unsupported_alphabetic_symbols ... ok
+test language::tests::scoring_rejects_empty_and_out_of_range_candidates ... ok
+test leak_ceiling::tests::analytic_primitives_are_exact ... ok
+test leak_ceiling::tests::coverage_model_edge_cases ... ok
+test keystream::tests::deterministic_for_fixed_seed ... ok
+test leak_ceiling::tests::demand_and_ceiling_are_consistent ... ok
+test leak_ceiling::tests::measured_supply_is_pinned ... ok
+test dof_null::tests::dof_null_floor_censoring_is_invariant_and_fast_sweep_stays_in_floor_regime ... ok
+test leak_ceiling::tests::scaling_sweep_crossings_are_located ... ok
+test leak_ceiling::tests::zero_isomorph_window_is_rejected ... ok
+test leak_ceiling::tests::report_is_deterministic_and_renders ... ok
+test modular_diff::tests::first_difference_resets_at_message_boundaries ... ok
+test modular_diff::tests::higher_order_difference_math_is_modular ... ok
+test leak_ceiling::tests::two_calibration_lands_in_band ... ok
+test modular_diff::tests::wheel_fixture_has_constant_first_difference ... ok
+test null::harness_tests::f64_band_matches_explicit_quantile_math ... ok
+test null::harness_tests::run_null_test_columns_reports_width_mismatch ... ok
+test null::harness_tests::run_null_test_columns_streams_matches_per_stream_columns ... ok
+test null::harness_tests::run_null_test_is_deterministic_in_seed ... ok
+test null::harness_tests::run_null_test_streams_concatenates_in_stream_order ... ok
+test null::harness_tests::run_null_test_with_invariant_statistic_is_hand_checkable ... ok
+test null::harness_tests::usize_band_matches_explicit_quantile_math ... ok
+test null::harness_tests::within_message_shuffle_preserves_each_message_multiset ... ok
+test null::tests::add_one_p_value_uses_plus_one_estimator ... ok
+test null::tests::analytic_bound_matches_stage_a_headline_scale ... ok
+test null::tests::mix_seed_is_deterministic_splitmix_of_seed_xor_tag ... ok
+test null::tests::null_run_is_reproducible_for_fixed_seed ... ok
+test null::tests::null_run_rejects_zero_trials ... ok
+test null::tests::splitmix64_seed_is_reproducible ... ok
+test gak_attack::tests::run_gak_attack_is_deterministic_for_fixed_seed ... ok
+test null::tests::standard36_ignored_sweep_does_not_manufacture_contiguous_headline ... ignored, multi-seed 1000-trial stability sweep; run with cargo test -- --ignored
+test null::tests::standard36_seed_12345_null_matches_headline_regression ... ignored, canonical 1000-trial Monte Carlo regression; run with cargo test -- --ignored
+test orders::tests::accepted_honeycomb_message_lengths_are_distinct ... ok
+test orders::tests::audit_family_has_one_standard36_contiguous_zero_to_82_order ... ok
+test orders::tests::experiment_4_honeycomb_flatness_matches_frequency_and_ioc_anchors ... ok
+test orders::tests::experiment_4_raw_order_is_not_an_83_symbol_stream ... ok
+test orders::tests::grids_expose_observed_row_widths ... ok
+test orders::tests::identity_honeycomb_reproduces_contiguous_anchor ... ok
+test modular_diff::tests::real_headline_statistics_are_stable ... ok
+test orientation_homogeneity::tests::heterogeneous_positive_control_lands_in_upper_tail ... ok
+test orientation_homogeneity::tests::homogeneity_statistics_match_toy_table ... ok
+test orientation_homogeneity::tests::real_eye_headline_counts_are_pinned ... ok
+test orientation_homogeneity::tests::repartition_null_preserves_lengths_and_pooled_counts ... ok
+test orientation_homogeneity::tests::repartition_rejects_length_mismatch ... ok
+test perfect_isomorphism::tests::hand_built_boundary_negative_stays_boundary ... ok
+test perfect_isomorphism::tests::invalid_window_range_is_rejected ... ok
+test orders::tests::raw_order_matches_stage_a_anchor ... ok
+test perfect_isomorphism::tests::positive_control_and_regressions_fire ... ok
+test perfect_isomorphism::tests::perfect_isomorphism_run_is_deterministic_for_fixed_seed ... ok
+test keystream::tests::ciphertext_autokey_recovers_bulk_but_honestly_does_not_survive ... ok
+test perfect_isomorphism::tests::synthetic_internal_violation_control_is_detected ... ok
+test perfect_isomorphism::tests::real_eye_stream_pins_lengths_and_alphabet ... ok
+test periodicity::tests::invalid_config_is_rejected ... ok
+test periodicity::tests::kasiski_distances_record_pairwise_gcd_structure ... ok
+test periodicity::tests::fixed_period_fixture_clears_null_band ... ok
+test modular_diff::tests::calibration_controls_separate_before_eye_classification ... ok
+test perseus::tests::perseus_observation_is_invariant_and_ignored_sweep_stays_significant ... ignored, multi-seed 1000-trial within-message shuffle stability sweep; run with cargo test -- --ignored
+test perseus::tests::perseus_seed_12345_recurrence_null_matches_headline_regression ... ignored, canonical 1000-trial within-message shuffle regression; run with cargo test -- --ignored
+test perseus::tests::planted_no_recurrence_fixture_is_significant ... ok
+test perfect_isomorphism::tests::report_from_message_values_accepts_small_trial_fixture ... ok
+test perseus::tests::reconstructs_documented_perseus_partition_anchors ... ok
+test pipeline_null::tests::no_minus_one_probability_accounts_for_u64_cap ... ok
+test pipeline_null::tests::orientation_source_yields_only_orientations ... ok
+test perseus::tests::shuffled_fixture_negative_control_is_not_significant ... ok
+test pipeline_null::tests::pipeline_null_rejects_zero_trials ... ok
+test pipeline_null::tests::random_value_decodes_to_requested_length ... ok
+test pipeline_null::tests::real_inputs_are_not_random_integers ... ok
+test pipeline_null::tests::storage_histogram_formatter_is_stable ... ok
+test pipeline_null::tests::value_span_for_length_rejects_unrepresentable_length ... ok
+test profile::tests::five_has_gap_40_cross_boundary_repeat ... ok
+test profile::tests::five_scalar_profile_matches_reference ... ok
+test profile::tests::ioc_of_a_tiny_known_string ... ok
+test profile::tests::monoalphabetic_predicate_band ... ok
+test profile::tests::render_report_mentions_the_repeat_and_is_terminated ... ok
+test profile::tests::seven_uses_all_letters_and_eight_single_letter_words ... ok
+test profile::tests::three_and_four_are_missing_j_and_v ... ok
+test pyry_conditions::tests::condition_1_flat_ioc_discriminates ... ok
+test pyry_conditions::tests::condition_2_contiguous_support_discriminates ... ok
+test pyry_conditions::tests::condition_3_aligned_shared_runs_discriminates ... ok
+test pyry_conditions::tests::condition_4_isomorphs_discriminate ... ok
+test pyry_conditions::tests::condition_5_shared_after_varying_prefix_discriminates ... ok
+test pyry_conditions::tests::condition_6_near_isomorphs_discriminate ... ok
+test pyry_conditions::tests::condition_7_differing_first_shared_second_discriminates ... ok
+test pyry_conditions::tests::condition_8_no_doubled_trigrams_discriminates ... ok
+test pyry_conditions::tests::condition_9_non_shared_isomorphs_differ_discriminates ... ok
+test pyry_conditions::tests::condition_vector_counts_passes ... ok
+test perseus::tests::perseus_observation_is_invariant_and_fast_sweep_stays_significant ... ok
+test pyry_conditions::tests::eye_condition_vector_is_pinned ... ok
+test quadgram::tests::deterministic ... ok
+test quadgram::tests::english_model_builds ... ok
+test pipeline_null::tests::pipeline_null_is_reproducible_and_finds_no_contiguity ... ok
+test quadgram::tests::english_scores_above_random ... ok
+test quadgram::tests::out_of_range_indices_do_not_panic ... ok
+test quadgram::tests::rejects_bad_smoothing ... ok
+test quadgram::tests::plaintext_beats_caesar_shift ... ok
+test quadgram::tests::table_len_is_26_to_the_fourth ... ok
+test quadgram::tests::tiny_sample_errors_or_floors ... ok
+test ragbaby::tests::control_sweep_recovers_planted_english_heavy ... ignored, heavy positive-control reproduction (~10s); run with cargo test -- --ignored
+test pyry_conditions::tests::generated_family_rows_are_reproducible ... ok
+test quadgram::tests::short_input_returns_floor_without_panicking ... ok
+test ragbaby::tests::control_sweep_returns_well_formed_grid ... ok
+test ragbaby::tests::numbering_conventions_match_documented_sequences ... ok
+test ragbaby::tests::deterministic_for_fixed_seed ... ok
+test keystream::tests::planted_decode_survives_full_gate ... ok
+test null::tests::standard36_fast_sweep_does_not_manufacture_contiguous_headline ... ok
+test ragbaby::tests::record_writer_emits_claim_ceiling ... ok
+test ragbaby::tests::round_trip_all_bases ... ok
+test ragbaby::tests::worked_example_vector_and_round_trip ... ok
+test report::tests::representative_histogram_formatters_are_stable ... ok
+test report::tests::representative_scalar_formatters_are_stable ... ok
+test report::tests::representative_table_formatters_are_stable ... ok
+test solve::eval::tests::reinsert_transparent_places_spaces_under_identity_and_grouping ... ok
+test ragbaby::tests::planted_recovery_recovers_random_alphabet_base26 ... ok
+test solve::tests::codec_search_heldout_above_null_on_plant ... ok
+test solve::tests::codec_search_is_deterministic_for_fixed_seed ... ok
+test solve::tests::codec_search_logs_and_skips_out_of_budget_codecs ... ok
+test periodicity::tests::real_honeycomb_stream_has_no_familywise_period_or_lag_spike ... ok
+test solve::tests::codec_search_positive_control_recovers_exact_english ... ok
+test solve::tests::codec_search_recovers_planted_fixed_grouping ... ok
+test solve::tests::codec_search_skips_codec_too_wide_for_fixed_mapping ... ok
+test ragbaby::tests::planted_recovery_recovers_reduced_bases ... ok
+test solve::tests::corpus_one_runs_end_to_end_and_logs_hypothesis ... ok
+test ragbaby::tests::matched_null_rejects_overfitting_on_random_text ... ok
+test solve::tests::corpus_two_exact_match_pending_withheld_cleartext ... ignored, pending the maintainer's WITHHELD puzzle-two cleartext (not committed; promote to a known-answer regression once a human confirms it)
+test gak_attack::tests::synthetic_isomorph_rich_fixture_scores_above_a_shuffle ... ok
+test solve::tests::delta_search_recovers_delta_c5_plant ... ok
+test solve::tests::corpus_two_runs_end_to_end_and_logs_hypothesis ... ok
+test solve::tests::corpus_six_grouping_reinserts_spaces_and_logs_hypothesis ... ok
+test solve::tests::fixed_grouping_plant_recovers_planted_english ... ok
+test solve::tests::fixed_mapping_caesar_plant_recovers_top_candidate ... ok
+test solve::tests::fixed_mapping_transposition_plant_recovers_top_candidate ... ok
+test gak_attack::tests::eyes_candidate_record_is_written_with_honesty_strings has been running for over 60 seconds
+test gak_attack::tests::eyes_held_out_positive_control_fires_on_synthetic_signal has been running for over 60 seconds
+test gak_attack::tests::eyes_material_effect_bar_is_fair_below_the_eyes_max_achievable has been running for over 60 seconds
+test gak_attack::tests::eyes_no_candidate_verdict_is_stable_across_null_seeds has been running for over 60 seconds
+test gak_attack::tests::eyes_real_outcome_is_reported_honestly_not_hardcoded_as_passing has been running for over 60 seconds
+test gak_attack::tests::eyes_run_uses_verified_entry_path_and_pins_corpus has been running for over 60 seconds
+test solve::tests::codec_search_matched_null_stays_flat_on_shuffled_noise ... ok
+test solve::tests::identity_codec_passes_symbols_through ... ok
+test solve::tests::identity_mapping_maps_symbols_to_themselves ... ok
+test keystream::tests::matched_null_rejects_overfitting_at_high_key_len ... ok
+test keystream::tests::planted_recovery_searchable_families has been running for over 60 seconds
+test keystream::tests::random_ciphertext_yields_no_survivor has been running for over 60 seconds
+test solve::tests::enumeration_null_is_selection_complete_over_codecs ... ok
+test solve::tests::mapping_rejects_symbols_outside_table ... ok
+test solve::tests::log_solve_run_writes_seed_derived_record ... ok
+test ragbaby::tests::planted_decode_survives_full_gate ... ok
+test solve::tests::solve_record_renders_ceiling_label_gates_and_both_languages ... ok
+test solve::tests::solve_record_reports_honest_negative_when_no_candidate ... ok
+test transitivity::tests::cited_context_ids_are_distinct ... ok
+test solve::tests::codec_search_with_mapping_search_recovers_plant_and_survives ... ok
+test transitivity::tests::six_transitive_group_orders_and_hidden_subgroup_sizes_are_encoded ... ok
+test transitivity::tests::dihedral_verdict_reproduces_cited_conflict ... ok
+test tree_residual::tests::eye_headline_counts_are_pinned ... ok
+test tree_residual::tests::eye_tree_residual_null_matches_headline_regression ... ignored, canonical 1000-trial x 5-seed tree-residual regression; run with cargo test -- --ignored
+test keystream::tests::planted_recovery_searchable_families ... ok
+test tree_residual::tests::kgram_intersection_counts_distinct_cross_message_overlap ... ok
+test tree_residual::tests::kgrams_do_not_cross_residual_segments ... ok
+test tree_residual::tests::oversized_sample_count_returns_error_without_capacity_panic ... ok
+test tree_residual::tests::oversized_seed_count_returns_error_without_capacity_panic ... ok
+test solve::tests::searched_solve_is_deterministic_for_fixed_seed ... ok
+test tree_residual::tests::residual_mask_reuses_perseus_shared_partition ... ok
+test zero_adjacency_null::tests::analytic_expected_count_matches_hand_calculation ... ok
+test transitivity::tests::transitivity_is_reproducible_for_fixed_seed ... ok
+test zero_adjacency_null::tests::positive_controls_separate_free_and_no_repeat_regimes ... ok
+test zero_adjacency_null::tests::shuffle_null_is_reproducible_for_fixed_seed ... ok
+test zero_adjacency_null::tests::shuffle_null_preserves_message_multisets_and_lengths ... ok
+test tree_residual::tests::planted_common_motif_positive_control_is_significant ... ok
+test solve::tests::hillclimb_surfaces_planted_small_alphabet_substitution ... ok
+test zero_adjacency_null::tests::eye_zero_adjacency_headline_numbers_are_pinned ... ok
+test tree_residual::tests::independent_tail_negative_control_matches_shuffle_null ... ok
+test solve::tests::searched_matched_null_stays_flat_on_shuffled_ciphertext ... ok
+test gak_attack::tests::eyes_held_out_positive_control_fires_on_synthetic_signal ... ok
+test gak_attack::tests::eyes_candidate_record_is_written_with_honesty_strings ... ok
+test gak_attack::tests::eyes_real_outcome_is_reported_honestly_not_hardcoded_as_passing ... ok
+test gak_attack::tests::eyes_run_uses_verified_entry_path_and_pins_corpus ... ok
+test gak_attack::tests::eyes_material_effect_bar_is_fair_below_the_eyes_max_achievable ... ok
+test keystream::tests::random_ciphertext_yields_no_survivor ... ok
+test solve::tests::annealed_search_recovers_planted_substitution has been running for over 60 seconds
+test solve::tests::eyes_search_surfaces_no_surviving_candidate ... ok
+test solve::tests::letter_puzzles_run_end_to_end_and_log_as_hypotheses ... ok
+test solve::tests::annealed_search_recovers_planted_substitution ... ok
+test gak_attack::tests::eyes_no_candidate_verdict_is_stable_across_null_seeds ... ok
+
+test result: ok. 399 passed; 0 failed; 10 ignored; 0 measured; 0 filtered out; finished in 124.79s
+
+[1m[92m     Running[0m unittests src/main.rs (target/debug/deps/noita_eye-8804fbc5681351a1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[92m     Running[0m tests/agl_gak_cli.rs (target/debug/deps/agl_gak_cli-273722a7a5239b8d)
+
+running 1 test
+test agl_gak_subcommand_reports_exclusion_and_honesty_caveats ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+[1m[92m     Running[0m tests/basic_cli.rs (target/debug/deps/basic_cli-78c3680fb7f91f50)
+
+running 3 tests
+test stats_subcommand_reports_input_sequence_statistics ... ok
+test demo_subcommand_reports_verified_corpus_statistics ... ok
+test orders_subcommand_reports_order_audit_and_flatness ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+[1m[92m     Running[0m tests/chaining_cli.rs (target/debug/deps/chaining_cli-43bc25c80d1bcf16)
+
+running 1 test
+test chaining_subcommand_reports_calibrated_fail_signature ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+[1m[92m     Running[0m tests/chaining_graph_cli.rs (target/debug/deps/chaining_graph_cli-28694f448ca646c7)
+
+running 1 test
+test chaining_graph_subcommand_reports_conflicts_coverage_and_control ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
+
+[1m[92m     Running[0m tests/cipherattack_cli.rs (target/debug/deps/cipherattack_cli-b8d3408ad28b4e92)
+
+running 1 test
+test cipherattack_subcommand_reports_candidate_cipher_harness ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.39s
+
+[1m[92m     Running[0m tests/conditional_cli.rs (target/debug/deps/conditional_cli-3c85669f529a208e)
+
+running 1 test
+test conditional_subcommand_reports_first_order_panel ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+[1m[92m     Running[0m tests/controls_cli.rs (target/debug/deps/controls_cli-46a7afd2f46ca121)
+
+running 6 tests
+test controls_parent_seed_with_monoalphabetic_target_errors ... ok
+test controls_parent_seed_with_isomorph_target_errors ... ok
+test controls_seed_without_variant_defaults_to_monoalphabetic ... ok
+test controls_monoalphabetic_reports_positive_control ... ok
+test controls_polyalphabetic_alias_reports_isomorph_control ... ok
+test controls_isomorph_reports_polyalphabetic_positive_control ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+[1m[92m     Running[0m tests/first_trigram.rs (target/debug/deps/first_trigram-759ae1643ba47440)
+
+running 9 tests
+test base5_digits_round_trip ... ok
+test predicates_fire_on_constructed_positive_cases ... ok
+test per_position_digit_sets_are_as_documented ... ok
+test reading_layer_distinct_but_storage_forms_collide ... ok
+test storage_units_digit_is_constant_one_but_not_corpus_wide ... ok
+test index_hypothesis_is_rejected_in_both_layers ... ok
+test render_contains_table_and_verdicts ... ok
+test checksum_and_last_char_hypotheses_are_rejected ... ok
+test tabulation_matches_recomputed_corpus_values ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[92m     Running[0m tests/gak_attack_cli.rs (target/debug/deps/gak_attack_cli-b09f8bdba40e1e80)
+
+running 3 tests
+test gak_attack_subcommand_reports_synthetic_gate_and_honesty_caveats ... ok
+test gak_attack_subcommand_reports_unit_2b_marginalization_honesty_surface ... ok
+test gak_attack_eyes_subcommand_locks_the_eyes_honesty_surface ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 29.26s
+
+[1m[92m     Running[0m tests/golden_master.rs (target/debug/deps/golden_master-247ffc8455ab2926)
+
+running 36 tests
+test controls_polyalphabetic_alias_fixture_matches_isomorph_fixture ... ok
+test demo_corpus_fingerprint_headlines_remain_pinned ... ok
+test controls_monoalphabetic_stdout_matches_golden ... ok
+test demo_stdout_matches_golden ... ok
+test controls_no_target_stdout_matches_golden ... ok
+test honeycomb_stdout_matches_golden ... ok
+test homogeneity_stdout_matches_golden ... ok
+test nulltest_zero_trials_stderr_matches_golden ... ok
+test controls_isomorph_stdout_matches_golden ... ok
+test controls_polyalphabetic_stdout_matches_golden ... ok
+test agl_gak_stdout_matches_golden ... ok
+test periodicity_stdout_matches_golden ... ok
+test chaining_stdout_matches_golden ... ok
+test pipelinenull_zero_trials_stderr_matches_golden ... ok
+test perseus_stdout_matches_golden ... ok
+test nulltest_stdout_matches_golden ... ok
+test stats_all_delimiters_stdout_matches_golden ... ok
+test stats_stdout_matches_golden ... ok
+test stats_unknown_digit_stderr_matches_golden ... ok
+test isomorphnull_stdout_matches_golden ... ok
+test grouping_stdout_matches_golden ... ok
+test pipelinenull_stdout_matches_golden ... ok
+test conditional_stdout_matches_golden ... ok
+test treeresidual_stdout_matches_golden ... ok
+test orders_stdout_matches_golden ... ok
+test moddiff_stdout_matches_golden ... ok
+test pyry_stdout_matches_golden ... ok
+test perfectiso_stdout_matches_golden ... ok
+test chaining_graph_stdout_matches_golden ... ok
+test zeroadjnull_stdout_matches_golden ... ok
+test transitivity_stdout_matches_golden ... ok
+test null_and_structural_headlines_remain_pinned ... ok
+test dofnull_stdout_matches_golden ... ok
+test gak_attack_stdout_matches_golden ... ok
+test cipherattack_stdout_matches_golden ... ok
+test gak_attack_eyes_stdout_matches_golden_and_writes_record ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 27.27s
+
+[1m[92m     Running[0m tests/grouping_cli.rs (target/debug/deps/grouping_cli-0c3ade0ab2d2a07d)
+
+running 1 test
+test grouping_subcommand_reports_grouping_and_state_estimates ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+[1m[92m     Running[0m tests/honeycomb_cli.rs (target/debug/deps/honeycomb_cli-e5e8e8dd89c6ba3d)
+
+running 1 test
+test honeycomb_subcommand_reports_fixed_order_lattice_null ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+[1m[92m     Running[0m tests/modular_diff_cli.rs (target/debug/deps/modular_diff_cli-888559e0815e670b)
+
+running 1 test
+test moddiff_subcommand_reports_structureless_headline_band ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.48s
+
+[1m[92m     Running[0m tests/nulls_cli.rs (target/debug/deps/nulls_cli-f9df2fe8fdb422cd)
+
+running 8 tests
+test nulltest_rejects_zero_trials ... ok
+test pipelinenull_rejects_zero_trials ... ok
+test nulltest_subcommand_reports_standard36_null ... ok
+test pipelinenull_subcommand_reports_pipeline_and_input_controls ... ok
+test isomorphnull_subcommand_reports_shuffle_null ... ok
+test dofnull_calibration_trials_default_to_trials ... ok
+test zeroadjnull_subcommand_reports_forbidden_successor_null ... ok
+test dofnull_subcommand_reports_researcher_dof_null ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.89s
+
+[1m[92m     Running[0m tests/orientation_homogeneity_cli.rs (target/debug/deps/orientation_homogeneity_cli-cdf399182160d17c)
+
+running 1 test
+test homogeneity_subcommand_reports_orientation_frequency_null ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+[1m[92m     Running[0m tests/perfect_isomorphism_cli.rs (target/debug/deps/perfect_isomorphism_cli-6e1e74f93e213886)
+
+running 1 test
+test perfectiso_subcommand_reports_headline_and_regressions ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.49s
+
+[1m[92m     Running[0m tests/periodicity_cli.rs (target/debug/deps/periodicity_cli-95c4da88a40841bc)
+
+running 1 test
+test out_rows_do_not_print_no_exceedance_verdict ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+[1m[92m     Running[0m tests/perseus_cli.rs (target/debug/deps/perseus_cli-e84f1325dfd4f539)
+
+running 1 test
+test perseus_subcommand_reports_recurrence_null ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+[1m[92m     Running[0m tests/pyry_conditions_cli.rs (target/debug/deps/pyry_conditions_cli-eb2edca25262001c)
+
+running 1 test
+test pyry_subcommand_reports_falsification_matrix ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+[1m[92m     Running[0m tests/solve_cli.rs (target/debug/deps/solve_cli-268a7ebe91a35aa3)
+
+running 3 tests
+test solve_subcommand_stdout_matches_golden_fixture ... ok
+test solve_subcommand_reports_labelled_hypothesis_for_caesar_plant ... ok
+test solve_subcommand_mapping_search_runs_and_logs ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+[1m[92m     Running[0m tests/transitivity_cli.rs (target/debug/deps/transitivity_cli-c97c46cf815fde15)
+
+running 1 test
+test transitivity_subcommand_reports_conditional_dihedral_caveats ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.67s
+
+[1m[92m     Running[0m tests/tree_residual_cli.rs (target/debug/deps/tree_residual_cli-8b94e72f8847cf71)
+
+running 1 test
+test treeresidual_subcommand_reports_cross_tail_null ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+[1m[92m   Doc-tests[0m noita_eye_puzzle
+
+running 4 tests
+test src/data/corpus.rs - corpus::messages (line 283) ... ok
+test src/nulls/null.rs - null::SplitMix64 (line 30) ... ok
+test src/analysis/analysis.rs - analysis::shannon_entropy (line 54) ... ok
+test src/analysis/first_trigram.rs - first_trigram::analyze (line 353) ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.22s; merged doctests compilation took 0.21s
+RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --locked
+[1m[92m    Checking[0m noita-eye-puzzle v0.1.0 (/home/node/persist/noita-eye-puzzle-maint)
+[1m[92m Documenting[0m noita-eye-puzzle v0.1.0 (/home/node/persist/noita-eye-puzzle-maint)
+[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 3.04s
+[1m[92m   Generated[0m /home/node/persist/noita-eye-puzzle-maint/target/doc/noita_eye_puzzle/index.html and 1 other file
+cargo deny check
+advisories [32mok[0m, bans [32mok[0m, licenses [32mok[0m, sources [32mok[0m
