@@ -31,7 +31,6 @@ src/analysis/grouping.rs                   1511  # Experiment-8 base-N grouping;
 src/main.rs                                2118  # CLI dispatch + clap arg structs; shrinks when split into a bin-local cli/ module tree
 src/analysis/orders.rs                     1340  # reading-order machinery; render + tests extraction pending
 src/nulls/perseus.rs                       1316  # Experiment-7C shared-region recurrence null; render + tests extraction pending
-src/analysis/honeycomb.rs                  1294  # fixed-order 2-D honeycomb lattice test; render-heavy — extract the report sibling
 src/analysis/chaining.rs                   1242  # Experiment-7B alphabet-chaining signatures; render-heavy — extract the report sibling
 src/nulls/tree_residual.rs                 1226  # tree-residual cross-tail n-gram null; render + tests extraction pending
 src/attack/agl_gak.rs                      1208  # Thread-2 AGL(1,83)-GAK stress test; render + compute extraction pending
