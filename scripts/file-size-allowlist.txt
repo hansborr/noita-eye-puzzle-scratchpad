@@ -25,7 +25,6 @@ src/attack/cipher_attack.rs                1722  # Experiment-12 attack/null sco
 src/nulls/null.rs                          1664  # shared matched-null harness core (other null drivers depend on it); render + tests extraction pending
 src/experiments/controls.rs                1636  # Experiment-11 positive controls; render-heavy — extract the report sibling
 src/experiments/modular_diff.rs            1600  # modular finite-difference fingerprint; render-heavy — extract the report sibling
-src/analysis/grouping.rs                   1511  # Experiment-8 base-N grouping; render-heavy — extract the report sibling
 src/main.rs                                2118  # CLI dispatch + clap arg structs; shrinks when split into a bin-local cli/ module tree
 src/analysis/orders.rs                     1340  # reading-order machinery; render + tests extraction pending
 src/attack/agl_gak.rs                      1208  # Thread-2 AGL(1,83)-GAK stress test; render + compute extraction pending
