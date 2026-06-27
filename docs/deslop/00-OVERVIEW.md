@@ -5,6 +5,12 @@ Produced 2026-06-26 by one synthesizing agent over four parallel code
 investigations plus an independent `codex` second opinion. Every finding below
 was cross-checked against the source; file:line citations are first-hand.
 
+> **Reconciled 2026-06-26 after the `exploration` merge.** That merge added two
+> new analysis files (`analysis/isomorph_imperfection.rs`, `analysis/leak_ceiling.rs`
+> — the G2/G3 threads) and nothing else that reports 02–04 cite. All pre-merge
+> line citations below were re-verified and remain **exact**; the only updates
+> were to fold the two new files into reports 02–04 and bump the affected counts.
+
 > **These `docs/deslop/` files are themselves internal scaffolding.** They are a
 > work-plan to hand to cleanup agents — like `docs/refactor/`, they should be
 > archived or deleted before the repo goes public (see report 01).
@@ -37,7 +43,7 @@ The smells cluster into four reports, each independently executable:
 | # | Report | Theme | Risk | Effort |
 |---|--------|-------|------|--------|
 | **01** | `01-publish-blockers.md` | Legal/privacy/staleness gates that must clear before *any* public push | low (delete/edit/add) | small |
-| **02** | `02-file-decomposition.md` | 33 files over the 600-line budget; several 1.5k–3.7k lines | low–medium (behavior-preserving moves) | large |
+| **02** | `02-file-decomposition.md` | 35 files over the 600-line budget; several 1.5k–3.7k lines | low–medium (behavior-preserving moves) | large |
 | **03** | `03-duplication-and-readability.md` | Copy-paste clusters, deep nesting, magic-number inconsistency, AI-chatter in source | medium | medium |
 | **04** | `04-structure-and-api.md` | `#[path]`-flattened `lib.rs`, public-API identity, `main.rs` CLI split | medium (one breaking path change) | medium |
 

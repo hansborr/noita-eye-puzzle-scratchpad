@@ -9,7 +9,7 @@ split `main.rs` into bin-local modules.
 
 ## 1. P1 — Convert the `#[path]`-flattened `lib.rs` to a real nested module tree
 
-**Finding.** `src/lib.rs:93-195` declares ~40 leaf modules as top-level `pub mod`,
+**Finding.** `src/lib.rs:101-205` declares 41 leaf modules as top-level `pub mod`,
 each redirected with `#[path = "subdir/file.rs"]` (e.g.
 `#[path = "analysis/chaining.rs"] pub mod chaining;`). Files live in
 `core/ data/ analysis/ nulls/ ciphers/ attack/ experiments/ report/`, but **none
@@ -21,12 +21,12 @@ This is *actively misleading*, not merely terse: the filesystem looks nested but
 the module graph is flat. An outside Rust reader expects
 `src/analysis/chaining.rs` → `crate::analysis::chaining` (and
 `use noita_eye_puzzle::analysis::chaining`). `cargo doc` and rust-analyzer present
-**40 ungrouped top-level modules**, and the 88-line hand-maintained module
-catalogue at `src/lib.rs:3-91` is a manual substitute for the grouping the
+**43 ungrouped top-level modules**, and the ~96-line hand-maintained module
+catalogue at `src/lib.rs:3-98` is a manual substitute for the grouping the
 directories already imply.
 
 **The decisive tell:** the crate already nests properly where it was free to —
-`ciphers` (`lib.rs:147`) and `report` (`lib.rs:195`) are plain `pub mod` resolving
+`ciphers` (`lib.rs:158`) and `report` (`lib.rs:206`) are plain `pub mod` resolving
 to `*/mod.rs`, and inside `attack/solve/` and `attack/gak_attack/` there are
 conventional private submodules + `pub(crate)`. So the flat top level is a
 deliberate **transitional state** (the campaign "froze public paths" so files
@@ -57,9 +57,12 @@ ship.
 
 ## 2. P1 — Decide and document the library-vs-workbench identity
 
-**Finding.** `rg 'pub fn|pub struct|pub enum' src | wc -l` = **656**; `pub(crate)`
-= **146** (concentrated in `gak_attack/*`, `report`, `chaining_graph`, `ciphers` —
-so cross-module-private discipline exists where the code was nested). But **19 of
+**Finding.** `rg 'pub fn|pub struct|pub enum' src | wc -l` = **688** (was 656; the
+`exploration` merge added ~32 across the two new files — e.g. `leak_ceiling.rs`'s
+combinatorics helpers are each `pub fn`); `pub(crate)` = **146** (concentrated in
+`gak_attack/*`,
+`report`, `chaining_graph`, `ciphers` — so cross-module-private discipline exists
+where the code was nested). But **19 of
 22 integration test files spawn the compiled binary** via `CARGO_BIN_EXE`
 (`tests/common/mod.rs:23`); only `tests/first_trigram.rs` calls the library
 directly. So nearly the entire 656-item `pub` surface exists to serve a

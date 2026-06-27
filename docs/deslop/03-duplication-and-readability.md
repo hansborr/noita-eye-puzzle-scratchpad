@@ -25,13 +25,23 @@ copy-pasted **14 times verbatim**.
   note once. (The free-fn `(sequence, key)` vs trait `(key, sequence)` swap is the
   root cause of the repeated comment — consider aligning the signatures instead.)
 
-### 2. P1 — Null-driver preamble duplicated verbatim across 4 modules → a helper
+### 2. P1 — Null-driver preamble duplicated verbatim across 6 modules → a helper
 `src/nulls/isomorph_null.rs:294`, `perseus.rs:567`, `tree_residual.rs:488`,
 `zero_adjacency_null.rs:442`. Each `run_*` opens with the identical 6-line ritual:
 `validate_config` → `orders::corpus_grids()?` → map `GlyphGrid::message_key` →
 `accepted_honeycomb_order()` → `read_corpus_message_values` →
 `report_from_message_values(...)`. Cosmetic drift only (`Vec<&'static str>`
 annotation vs `.collect::<Vec<_>>()` turbofish — itself an inconsistency).
+- **Two more members from the `exploration` merge:**
+  `src/analysis/isomorph_imperfection.rs:608` is a **full** member — same ritual,
+  and it carries the `Vec<&'static str>` annotation variant of the drift.
+  `src/analysis/leak_ceiling.rs:561` shares the `corpus_grids()?` →
+  `accepted_honeycomb_order()` → `read_corpus_message_values` *triple* but stops
+  before the `report_from_message_values` tail (it's a pure-analytic driver, not a
+  matched-null one), so it would consume the front half of the same helper.
+- **Good sign (no new debt):** `isomorph_imperfection.rs` correctly imports
+  `mix_seed`/`usize_band`/`fisher_yates` from `crate::null` instead of re-defining
+  them — i.e. the newest code already follows the consolidation precedent below.
 - **Fix:** a shared `CorpusContext::load() -> (grids, keys, order, message_values)`
   helper. The `nulls/heldout.rs` helper (commit T1) shows the team is already
   consolidating this way — follow that precedent.
@@ -79,8 +89,9 @@ scaffold differing only in cipher-specific key fields.
 - **`report_from_message_values` header re-emission** — the title/alphabet/seed/
   trials lines are re-emitted in each `fn render(&self) -> String` across
   `isomorph_null.rs:308`, `perseus.rs:579`, `tree_residual.rs:502`,
-  `zero_adjacency_null.rs:465`, `periodicity.rs:679`. Consistent naming (good) but
-  a shared report-header trait would remove the repetition.
+  `zero_adjacency_null.rs:465`, `periodicity.rs:679`, and (from the `exploration`
+  merge) `leak_ceiling.rs:781`'s `append_header` (title/order variant). Consistent
+  naming (good) but a shared report-header trait would remove the repetition.
 - **Duplicate utility functions that already exist in `crate::null`:**
   - `src/experiments/modular_diff.rs:1466` defines a local `fn mix_seed` despite
     `crate::null::mix_seed` (`src/nulls/null.rs:105`). Delete the local, use the

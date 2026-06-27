@@ -1,9 +1,15 @@
 # Report 02 — File decomposition (god-file split map)
 
-`scripts/file-size-allowlist.txt` pins **33** `.rs` files over the 600-line
+`scripts/file-size-allowlist.txt` pins **35** `.rs` files over the 600-line
 default budget; several are 1.5k–3.7k lines. The ratchet *tolerates* them, but a
 visitor to a public repo sees god-files. This report is a line-range split map a
 cleanup agent can execute behavior-preserving.
+
+> **+2 since the `exploration` merge.** The merge added `analysis/isomorph_imperfection.rs`
+> (1527) and `analysis/leak_ceiling.rs` (1235), already pinned in the allowlist.
+> Both follow the codebase's uniform shape exactly, so they slot into the same
+> render-extract + test-extract playbook — mapped in their own section below. The
+> 12-largest and remaining-21 tables (= 33 files) are unchanged and re-verified.
 
 ## Two facts drive almost every split
 
@@ -56,6 +62,7 @@ directories instead of `#[path]` includes.
 | **P2** | `gak_attack/solver.rs` | `gctak.rs`/`deck.rs`/`sweep.rs` (cohesive; real cross-ref work) | medium-high | →≤~780 |
 | **P2** | the 21 mid-size analysis/null/experiment files | uniform `*_report.rs` + `*_tests.rs` sibling extraction (mechanical) | low each | most →≤600 |
 | **P2** | `pipeline_null.rs`, `language.rs`, `ingest.rs`, `generator.rs` | single small extraction each (barely over 600) | trivial | →≤600 |
+| **P2** | `isomorph_imperfection.rs`, `leak_ceiling.rs` (G2/G3 merge) | uniform `*_report.rs` + `*_tests.rs` + one compute split each (mapped below) | low each | →≤600 each |
 
 **Honestly hard-to-split (split by *stage*, don't force sub-600):** `eyes.rs`
 held-out core (`774-1538`, one algorithm), `gak_attack/solver.rs` (cohesive
@@ -185,6 +192,62 @@ near-clone finding) — **split the two together** for consistency.
 `394-666` render; `826-1424` per-family search + scoring/mapping; `1424-1572`
 positive controls; `1572-1720` tests.
 **Split:** `cipher_attack/{report,search,controls}.rs`; keep mod.rs.
+
+---
+
+## The 2 files added by the `exploration` (G2/G3) merge, mapped
+
+Both are textbook uniform-shape and **mechanical** to split (clean seams; not in
+the "honestly hard-to-split" set). Each needs three moves — a `*_report.rs`
+render extraction, a `*_tests.rs` sibling, and one compute split — because the
+render+test extraction alone leaves the core over 600.
+
+### 13. `src/analysis/isomorph_imperfection.rs` — 1527 (G2 forward falsifier)
+- `1-20` module doc; `22-86` imports + consts (window grids, tags, MOTIF fixture)
+- `90-171` `IsomorphImperfectionConfig` + `IsomorphImperfectionError`
+- `175-314` result structs (`ScanCounts`/`NullOutcome`/`StutterCandidate`/
+  `LooseCandidate`/`EpsilonFitRow`/`FamilyFit`/`IsomorphImperfectionReport`)
+- `316-601` `impl Report` + 8 `append_*_section`/verdict render fns (~285)
+- `602-648` `run_isomorph_imperfection` orchestration
+- `650-1218` break-localization + matched-null detector core (`scan_*`,
+  `localize_pair`, `classify_break`, `internal_profile`, benign-region helpers,
+  `matched_nulls`, `collect_loose_candidates`, `locate_stutter_candidate`) — the
+  **honesty-critical** word-boundary-discount / loose-vs-robust logic
+- `1220-1363` generative imperfect-family calibration (`generate_family`,
+  `run_family_fit`, `epsilon_row`, `best_fit_epsilon`, `ensure_positive_control`)
+- `1365-1527` `mod tests` (~162)
+
+**Split:** keep `isomorph_imperfection/mod.rs` = consts + config/error + structs +
+`run_*`; `isomorph_imperfection/report.rs` ←`316-601`; **extract
+`isomorph_imperfection/tests.rs` ←`1365-1527` (~162, P0 free win)**;
+`isomorph_imperfection/detector.rs` ←`650-1218` (break-localization + matched null
+— isolate the honesty-critical core); `isomorph_imperfection/family.rs`
+←`1220-1363` (generative calibration). **Notes:** reuses `crate::null`
+(`mix_seed`/`usize_band`/`fisher_yates`) — no util-dup; its `run_*` preamble is a
+member of report 03's fix #2 (and carries the `Vec<&'static str>` annotation drift).
+
+### 14. `src/analysis/leak_ceiling.rs` — 1235 (G3 information ceiling; **pure analytic, no RNG**)
+- `1-29` module doc; `31-76` imports + consts (window/sensitivity grids,
+  calibrated-geometry + `two`-calibration constants)
+- `78-132` `LeakCeilingConfig` + `LeakCeilingError`
+- `134-343` result structs (`OutDegreeSupply`/`ChainingSupply`/`IsomorphSupply`/
+  `EmpiricalSupply`/`AnalyticDemand`/`CeilingEstimate`/`ScalingPoint`/
+  `ScalingSweep`/`CalibrationControl`/`LeakCeilingReport`)
+- `345-455` **pure combinatorics helpers** (`log2_factorial`/`harmonic`/
+  `coupon_*`/`binomial_f64`/`odd_double_factorial`/`near_identity_neighborhood`/
+  `coverage_*`) — ~110 standalone `pub fn`s, independently unit-testable
+- `458-556` supply compute (`out_degree_supply`/`chaining_supply`/`isomorph_supply`)
+- `557-629` `run_leak_ceiling` orchestration
+- `631-759` demand/ceiling/calibration/scaling compute
+- `761-1057` `impl Report` + 9 `append_*` render fns (~296)
+- `1058-1235` `mod tests` (~177)
+
+**Split:** keep `leak_ceiling/mod.rs` = consts + config/error + structs + compute
+(`458-759`) + `run_*`; `leak_ceiling/report.rs` ←`761-1057`; **extract
+`leak_ceiling/tests.rs` ←`1058-1235` (~177, P0 free win)**; `leak_ceiling/math.rs`
+←`345-455` (the ~110 pure combinatorics — cleanest seam). **Notes:** shares only
+the corpus-load *triple* of report 03's fix #2 (no `report_from_message_values`
+tail); its `append_header` (`781`) joins the P2 header-reemission cluster.
 
 ---
 
