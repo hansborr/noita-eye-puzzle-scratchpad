@@ -8,6 +8,7 @@
 # shows up in `git diff` and is reviewed — never a silent carve-out.
 #
 # <path>                            <max-lines>  # reason / retiring brief
+src/analysis/leak_ceiling.rs        1236  # new (thread G3): isomorph-leak ceiling — Part A measured supply + Part B/C analytic demand/ceiling + Part D G1b coverage-model calibration + scaling sweep + colocated report render and numeric/positive-control tests
 src/attack/gak_attack/mod.rs        2681  # god-file remnant; brief 07A split + brief 06 GAK report render re-applied at maint integration; shrinks under 07b
 src/attack/gak_attack/eyes.rs       2316  # brief 07A fragment + brief 06 EYES report render re-applied at maint integration; shrinks under 07b
 src/attack/gak_attack/marginalization.rs 1026  # brief 07A fragment from gak_attack god-file (tracks engine-spine)
