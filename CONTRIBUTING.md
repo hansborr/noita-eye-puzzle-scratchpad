@@ -18,7 +18,7 @@ cargo run -- demo   # run the CLI against the verified nine-message corpus
 ## Inner loop
 
 ```sh
-make verify   # fmt-check + clippy(-D warnings) + tests + rustdoc(-D warnings) + cargo-deny
+make verify   # fmt-check + clippy(-D warnings) + filesize + tests + rustdoc(-D warnings) + cargo-deny
 make check    # everything in verify + cargo-machete + codespell + shellcheck + release build
 ```
 
