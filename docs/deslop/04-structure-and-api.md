@@ -99,8 +99,9 @@ with 31 subcommands and a **genuinely nice** dispatch registry (brief 08) —
 ones (solve/keystream/ragbaby/profile/…) correctly stay bespoke. **Keep the
 registry as-is.** The smell is only length + the ~25 `Args`-struct + hand-written
 `From<Args> for Config` pairs (repetitive but type-safe and mechanical — not a
-smell, just bulk). AGENTS.md already anticipates this ("Move to `clap`
-subcommands as the CLI grows").
+smell, just bulk). The `main.rs` file-size pin already anticipates this
+(`file-size-allowlist.txt`: "shrinks when split into a bin-local `cli/` module
+tree").
 
 **Recommendation.** A binary *can* have bin-private submodules (not `pub`, doesn't
 touch the library API). Split into a `cli/` tree (also in report 02 §5):
