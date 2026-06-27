@@ -29,7 +29,8 @@ use crate::null::{
 };
 use crate::orders::{self, GlyphGrid, GridError, ReadingOrder, read_corpus_message_values};
 use crate::perfect_isomorphism::{
-    MAX_ISLAND_COLS, MIN_TWO_SIDED_FLANK, POST_MIN, STRONG_MIN_OCCURRENCES, STRONG_MIN_REPEATS,
+    MAX_ISLAND_COLS, MIN_TWO_SIDED_FLANK, POST_MIN, SIGNIFICANCE_ALPHA, STRONG_MIN_OCCURRENCES,
+    STRONG_MIN_REPEATS,
 };
 use crate::report::{self, Report};
 
@@ -212,6 +213,33 @@ pub struct StutterCandidate {
     pub promoted_to_violation: bool,
 }
 
+/// One loose candidate break: any divergence that survives the word-boundary
+/// discount (internalness > 0), whether or not it is attributed to a named
+/// benign desync region. The negative is conditional on EVERY loose candidate
+/// being benign-attributed, so all are surfaced (not only the east4/west4 one).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LooseCandidate {
+    /// Left message key.
+    pub left_key: &'static str,
+    /// Right message key.
+    pub right_key: &'static str,
+    /// Absolute break offset in the left message.
+    pub left_offset: usize,
+    /// Absolute break offset in the right message.
+    pub right_offset: usize,
+    /// Desync island width in columns.
+    pub island_cols: usize,
+    /// Re-synced far-run length after the island.
+    pub far_run: usize,
+    /// Net internalness after the word-boundary discount.
+    pub internalness: usize,
+    /// Named benign desync region this break is attributed to, if any. `None`
+    /// means the break is non-benign and is itself a robust internal violation.
+    pub benign_region: Option<&'static str>,
+    /// Whether the break promotes to a robust internal violation.
+    pub promoted_to_violation: bool,
+}
+
 /// One imperfection-rate row in the imperfect-family fit comparison.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct EpsilonFitRow {
@@ -277,6 +305,10 @@ pub struct IsomorphImperfectionReport {
     pub robust_null: NullOutcome,
     /// Localized east4/west4 loose candidate, if present.
     pub stutter_candidate: Option<StutterCandidate>,
+    /// Every loose candidate (all breaks surviving the word-boundary discount),
+    /// so the conditional benign attribution of each is auditable, not only the
+    /// single east4/west4 one in [`Self::stutter_candidate`].
+    pub loose_candidates: Vec<LooseCandidate>,
     /// Imperfect-isomorph family fit comparison.
     pub family: FamilyFit,
 }
@@ -308,6 +340,8 @@ impl Report for IsomorphImperfectionReport {
         append_null_section(&mut out, self);
         report::appendln!(&mut out);
         append_stutter_section(&mut out, self);
+        report::appendln!(&mut out);
+        append_loose_candidates_section(&mut out, self);
         report::appendln!(&mut out);
         append_family_section(&mut out, self);
         report::appendln!(&mut out);
@@ -342,18 +376,22 @@ fn append_window_section(out: &mut String, report: &IsomorphImperfectionReport) 
         out,
         "  word-boundary discount: a break with no resync (trailing-edge divergence, no cross-island back-reference) is attributed to a possible plaintext word/segment boundary and discounted to internalness 0; only a two-sided break flanking a short island (<= {MAX_ISLAND_COLS}) with a far resync (>= {POST_MIN}) carrying a cross-island back-reference earns positive internalness"
     );
+    report::appendln!(
+        out,
+        "  detector blind spot (tested envelope): a break counts as a robust violation ONLY if far_run >= {POST_MIN} AND island_cols <= {MAX_ISLAND_COLS} AND a cross-island back-reference exists; otherwise it is discounted to internalness 0 (invisible). The eye scan AND the entire positive-control family exercise only ONE geometry (single fresh-singleton island = 1, long far resync), so \"the detector fires on imperfections\" is demonstrated ONLY for that shape. Short-resync (far_run < {POST_MIN}) or wide-island (> {MAX_ISLAND_COLS}) imperfections are OUTSIDE the tested envelope"
+    );
 }
 
 fn append_null_section(out: &mut String, report: &IsomorphImperfectionReport) {
     report::appendln!(
         out,
-        "hardened matched nulls (within-message shuffle, multiset-preserving, SplitMix64 Fisher-Yates)"
+        "matched within-message-shuffle nulls (multiset-preserving, SplitMix64 Fisher-Yates) -- NOTE: this shuffle is STRUCTURE-DESTROYING for the isomorph statistics; it is weak for the robust falsifier (see the reading line). It is NOT the calibration of the family-falsifier statistic."
     );
     append_null_row(out, "loose-candidate class", &report.loose_null);
     append_null_row(out, "robust internal      ", &report.robust_null);
     report::appendln!(
         out,
-        "  reading: the robust (non-benign) count is the family-falsifier statistic; observed {} sits within the null (add-one p {}). The loose-candidate count includes benign isomorph-internal divergences, so it EXCEEDS the structure-destroying shuffle null (the shuffle annihilates the very isomorphs an internal divergence lives in) -> the loose excess is genuine benign isomorph structure, not imperfection.",
+        "  reading: the robust (non-benign) count is the family-falsifier statistic, but this within-message shuffle is NOT its calibration -- the shuffle destroys the very isomorphs an internal divergence lives in, so for observed robust {} the add-one p {} is the TRIVIAL COUNT FLOOR (0 is the minimum possible count) and carries NO evidential weight. The BINDING calibration of the robust statistic is the generative epsilon = 0 family (mean robust 0) in the family-fit section below. For the same structure-destroying reason the loose-candidate count EXCEEDS the shuffle null (add-one p small) -> that loose excess is genuine benign isomorph structure, not imperfection.",
         report.robust_null.observed,
         report::format_probability(report.robust_null.p)
     );
@@ -401,6 +439,31 @@ fn append_stutter_section(out: &mut String, report: &IsomorphImperfectionReport)
             out,
             "  no qualifying east4/west4 loose candidate located under the extended windows"
         ),
+    }
+}
+
+fn append_loose_candidates_section(out: &mut String, report: &IsomorphImperfectionReport) {
+    report::appendln!(
+        out,
+        "all loose candidates (every break surviving the word-boundary discount; the negative is CONDITIONAL on EACH being benign-attributed, not only the east4/west4 one)"
+    );
+    report::appendln!(out, "  count: {}", report.loose_candidates.len());
+    for candidate in &report.loose_candidates {
+        report::appendln!(
+            out,
+            "  {}@{} / {}@{}: island {}, far-run {}, internalness {}, region {}, promoted {}",
+            candidate.left_key,
+            candidate.left_offset,
+            candidate.right_key,
+            candidate.right_offset,
+            candidate.island_cols,
+            candidate.far_run,
+            candidate.internalness,
+            candidate
+                .benign_region
+                .unwrap_or("UNATTRIBUTED (non-benign -> robust violation)"),
+            candidate.promoted_to_violation
+        );
     }
 }
 
@@ -461,6 +524,26 @@ fn append_family_section(out: &mut String, report: &IsomorphImperfectionReport) 
         family.observed_robust,
         family.best_fit_epsilon
     );
+    if family.observed_robust == 0 {
+        let min_positive_mean = family
+            .rows
+            .iter()
+            .filter(|row| row.epsilon > 0.0)
+            .map(|row| row.mean_robust)
+            .fold(f64::INFINITY, f64::min);
+        report::appendln!(
+            out,
+            "    note: with observed robust = 0 this best-fit is DEGENERATE -- epsilon = 0 gives mean robust 0 while every epsilon > 0 gives mean robust >= {:.3}, so the argmin is forced to 0. It is a restatement of \"robust count = 0,\" NOT an independent gradient fit. The epsilon axis is QUALITATIVE only: the family has {} synthetic messages vs the eyes' 9, robust counts scale with the message-pair count, and the motif geometry differs.",
+            min_positive_mean,
+            family.messages
+        );
+    } else {
+        report::appendln!(
+            out,
+            "    note: the epsilon axis is QUALITATIVE only -- the family has {} synthetic messages vs the eyes' 9, robust counts scale with the message-pair count, and the motif geometry differs.",
+            family.messages
+        );
+    }
 }
 
 fn append_verdict_section(out: &mut String, report: &IsomorphImperfectionReport) {
@@ -477,17 +560,34 @@ fn verdict_line(report: &IsomorphImperfectionReport) -> String {
     let promoted = report
         .stutter_candidate
         .is_some_and(|candidate| candidate.promoted_to_violation);
+    let fire_at = report
+        .family
+        .detection_threshold
+        .unwrap_or(report.family.high_epsilon);
     if robust == 0 && !promoted {
         format!(
-            "HARDENED NEGATIVE: 0 robust internal violations under extended windows {:?} (within the matched null, add-one p {}); every loose candidate is attributed to a named benign desync region and the east4/west4 Stutter candidate does not promote; the imperfect-family detector fires at high epsilon and the eyes best-fit epsilon = {:.2} -> the eyes are still perfectly isomorphic; GAK STRENGTHENED.",
+            "HARDENED NEGATIVE: 0 robust non-benign internal violations under extended windows {:?}; every loose candidate is attributed to a named benign desync region and the east4/west4 Stutter candidate does not promote. The binding calibration is the generative epsilon = 0 family (mean robust 0); the within-message shuffle is structure-destroying, so the robust-null add-one p {} at observed 0 is the trivial count floor, not evidence. The imperfect-family detector fires at epsilon >= {:.2}, and the eyes' observed robust 0 trivially places them at epsilon = 0 (a restatement of robust = 0, not an independent fit). Scope: this rules out only imperfections that produce single/double-column islands (<= {}) with a far resync (>= {}) carrying a cross-island back-reference; short-resync (far_run < {}) or wide-island (> {}) imperfections are OUTSIDE the tested envelope. Within that envelope the eyes are NOT FALSIFIED by perfect isomorphism (consistent with it) -> GAK not falsified (mildly strengthened). This does NOT prove the eyes are GAK (XGAK's upper edge is <=, not equality) and is CONDITIONAL on the benign attribution of east4/west4 (and of every loose candidate listed above).",
             report.extended_windows,
             report::format_probability(report.robust_null.p),
-            report.family.best_fit_epsilon
+            fire_at,
+            MAX_ISLAND_COLS,
+            POST_MIN,
+            POST_MIN,
+            MAX_ISLAND_COLS,
+        )
+    } else if report.robust_null.p <= SIGNIFICANCE_ALPHA {
+        format!(
+            "FAMILY-EJECTING VIOLATION: {robust} robust non-benign internal violation(s) under extended windows survive the word-boundary discount AND sit in the upper tail of the matched robust null (add-one p {} <= alpha {}); the eyes leave the perfectly-isomorphic family. Caveat: the binding calibration remains the generative epsilon = 0 family, and the falsifier is restricted to single/double-column islands (<= {}) with a far resync (>= {}) -- imperfections outside that envelope are untested.",
+            report::format_probability(report.robust_null.p),
+            SIGNIFICANCE_ALPHA,
+            MAX_ISLAND_COLS,
+            POST_MIN,
         )
     } else {
         format!(
-            "FAMILY-EJECTING VIOLATION: {robust} robust internal violation(s) survive the hardened null and the word-boundary discount under extended windows; the eyes leave the perfectly-isomorphic family (best-fit epsilon = {:.2}).",
-            report.family.best_fit_epsilon
+            "CANDIDATE VIOLATION REQUIRING FOLLOW-UP: {robust} robust non-benign internal violation(s) survive the word-boundary discount but sit WITHIN the matched robust null (add-one p {} > alpha {}). This does NOT eject the family on its own: the within-message shuffle null is structure-destroying and weak (see the nulls section), so a count inside it is not yet a falsification. Binding calibration is the generative epsilon = 0 family; this break warrants direct follow-up against a structure-preserving null.",
+            report::format_probability(report.robust_null.p),
+            SIGNIFICANCE_ALPHA,
         )
     }
 }
@@ -524,6 +624,7 @@ pub fn run_isomorph_imperfection(
 
     let (loose_null, robust_null) = matched_nulls(&key_refs, &messages, extended_counts, config)?;
     let stutter_candidate = locate_stutter_candidate(&key_refs, &extended_breaks);
+    let loose_candidates = collect_loose_candidates(&keys, &extended_breaks);
 
     let family = run_family_fit(config, extended_counts.robust_internal_violations);
     ensure_positive_control(config)?;
@@ -541,6 +642,7 @@ pub fn run_isomorph_imperfection(
         loose_null,
         robust_null,
         stutter_candidate,
+        loose_candidates,
         family,
     })
 }
@@ -1047,6 +1149,38 @@ fn null_outcome(observed: usize, samples: &[usize], trials: usize) -> NullOutcom
     }
 }
 
+fn collect_loose_candidates(
+    keys: &[&'static str],
+    breaks: &[LocalizedBreak],
+) -> Vec<LooseCandidate> {
+    breaks
+        .iter()
+        .filter(|break_row| break_row.is_loose_candidate())
+        .map(|break_row| LooseCandidate {
+            left_key: keys.get(break_row.left_index).copied().unwrap_or(""),
+            right_key: keys.get(break_row.right_index).copied().unwrap_or(""),
+            left_offset: break_row.left_offset(),
+            right_offset: break_row.right_offset(),
+            island_cols: break_row.island_cols,
+            far_run: break_row.far_run,
+            internalness: break_row.internalness(),
+            benign_region: match break_row.class {
+                BreakKind::Benign(region) => Some(benign_region_name(region)),
+                BreakKind::Boundary | BreakKind::InternalCandidate => None,
+            },
+            promoted_to_violation: break_row.is_robust_violation(),
+        })
+        .collect()
+}
+
+fn benign_region_name(region: BenignRegion) -> &'static str {
+    match region {
+        BenignRegion::FunnyLookingObstacle => "FunnyObstacle",
+        BenignRegion::Caboose => "Caboose",
+        BenignRegion::StutterSection => "Stutter",
+    }
+}
+
 fn locate_stutter_candidate(keys: &[&str], breaks: &[LocalizedBreak]) -> Option<StutterCandidate> {
     breaks
         .iter()
@@ -1280,12 +1414,13 @@ mod tests {
         assert_eq!(*report.extended_windows.last().unwrap(), 17);
         assert!(*report.extended_windows.last().unwrap() <= report.shortest_message);
 
-        // (b) The robust (non-benign) count is the family-falsifier statistic;
-        // observed 0 sits within the matched null (it is the count's minimum, so
-        // the add-one upper-tail p is 1.0). Loose candidates exist (the
-        // borderline pattern) and, being genuine benign isomorph-internal
-        // divergences, EXCEED the structure-destroying shuffle null (p small) —
-        // that is expected real structure, not a violation.
+        // (b) The robust (non-benign) count is the family-falsifier statistic.
+        // Its BINDING calibration is the generative epsilon = 0 family (mean
+        // robust 0), NOT this within-message shuffle: the shuffle is
+        // structure-destroying, so the observed-0 add-one p = 1.0 is only the
+        // trivial count floor (0 is the minimum). For the same reason the loose
+        // candidates EXCEED the shuffle null (p small) — that is expected real
+        // benign structure, not a violation.
         assert_eq!(
             report.robust_null.upper_tail_count,
             report.config.null_trials
@@ -1301,6 +1436,18 @@ mod tests {
         assert!(candidate.benign_stutter);
         assert!(!candidate.promoted_to_violation);
 
+        // (c') EVERY loose candidate is surfaced (not only east4/west4) and the
+        // surfaced list matches the loose count; each is benign-attributed and
+        // none promotes, which is what the conditional negative rests on.
+        assert_eq!(
+            report.loose_candidates.len(),
+            report.extended_counts.loose_candidates
+        );
+        for loose in &report.loose_candidates {
+            assert!(loose.benign_region.is_some());
+            assert!(!loose.promoted_to_violation);
+        }
+
         // (d) The imperfect-family detector fires, and the eyes best-fit at the
         // perfect epsilon = 0.
         assert!(report.family.positive_control_fired);
@@ -1313,7 +1460,8 @@ mod tests {
         assert!(rendered.contains("verdict"));
         assert!(rendered.contains("Claim ceiling"));
         assert!(rendered.contains("epsilon"));
-        assert!(rendered.contains("GAK STRENGTHENED"));
+        assert!(rendered.contains("GAK not falsified"));
+        assert!(rendered.contains("all loose candidates"));
     }
 
     #[test]
