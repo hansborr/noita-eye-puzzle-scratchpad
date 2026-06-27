@@ -1,40 +1,32 @@
 //! G3 — isomorph-leak information ceiling for the Noita eye-glyph puzzle.
 //!
-//! This module converts the community wiki's *soft* pessimism — "it might be
-//! unrealistic to expect chaining to ever work for the eyes" given ~1036
-//! trigrams against a near-`S₈₃` group — into a stated, mapping-independent
-//! feasibility bound. It introduces **no new attack** and never assigns a
-//! symbol→meaning mapping; it only measures the leak *supply* the real corpus
-//! exposes and compares it to the analytic *demand* a chaining recovery needs.
+//! Converts the wiki's *soft* pessimism — "it might be unrealistic to expect
+//! chaining to ever work for the eyes" given ~1036 trigrams against a near-`S₈₃`
+//! group — into a stated, mapping-independent feasibility bound. **No new attack**,
+//! no symbol→meaning mapping: it measures the leak *supply* the corpus exposes vs
+//! the analytic *demand* a chaining recovery needs. Four parts:
 //!
-//! The report is built in four parts:
+//! * **Part A — supply (measured).** Read-only stats of the accepted-honeycomb
+//!   reading-layer stream: trigram count `M`, distinct symbols, raw successor
+//!   out-degree, chaining-graph edge/coverage supply ([`crate::chaining_graph`]),
+//!   and repeated-isomorph occurrence-pair supply ([`crate::isomorph`]).
+//! * **Part B — demand (analytic).** Edge-overlap certification degree vs the
+//!   transitivity regime, and the coupon-collector cost of pinning one element's
+//!   action on the cosets of the hidden subgroup.
+//! * **Part C — the ceiling.** Per-element recurrence shortfall, an *upper* bound
+//!   on leaked bits, the needed per-position keystream entropy (unconstrained
+//!   `S_N` and near-identity), and a coverage / undecidable-fraction model.
+//! * **Part D — single-point geometry calibration.** The coverage model fed
+//!   G1b's `two` parameters, checked against its band — a **single-point,
+//!   one-free-parameter** (`G`) fit, **not** a falsifiable positive control (only
+//!   `G = 2` lands). The eyes conclusion rests on **robustness** (98.6–99.9% for
+//!   any `G ∈ {1,2,3}`), not on it; a scaling sweep over `N` gives the crossings.
 //!
-//! * **Part A — empirical supply (measured).** Read-only statistics of the real
-//!   accepted-honeycomb reading-layer stream: trigram count `M`, distinct
-//!   symbols, the raw per-symbol successor out-degree (the eyes' analogue of
-//!   G1b's "out-degree 8 on all 12 symbols"), the chaining-graph edge/coverage
-//!   supply ([`crate::chaining_graph`]), and the repeated-isomorph
-//!   occurrence-pair supply ([`crate::isomorph`]).
-//! * **Part B — demand (analytic, model-conditional).** The edge-overlap
-//!   certification degree as a function of the transitivity regime, and the
-//!   coupon-collector cost of pinning one group element's action on the cosets
-//!   of the hidden subgroup.
-//! * **Part C — the ceiling.** The per-element recurrence shortfall, an
-//!   information-theoretic **upper** bound on leaked key bits, the needed-key
-//!   entropy under both an unconstrained `S_N` neighborhood and the wiki's
-//!   near-identity (≤4-swaps/letter) neighborhood, and a coverage /
-//!   undecidable-fraction model.
-//! * **Part D — calibration.** The coverage model is fed G1b's measured `two`
-//!   parameters and checked against G1b's measured collapse band; only a passing
-//!   calibration licenses the eyes feasibility number. A scaling sweep over the
-//!   coset count `N` locates where the undecidable fraction crosses 50% and 90%.
-//!
-//! Honesty labels are binding: supply numbers are *measured*; demand, ceiling,
-//! and coverage numbers are *analytic and model-conditional*; the mutual-
-//! information figure is an *upper bound*; the coupon-collector demand is for the
-//! maximal hidden subgroup `H = S₈₂` (`N = 83` cosets) and scales down with a
-//! larger `H`. The standing claim ceiling holds: the eyes remain deterministic,
-//! engine-generated, strikingly structured data of unknown meaning; unsolved.
+//! Honesty labels bind: supply is *measured*; demand/ceiling/coverage are
+//! *analytic, model-conditional*; the MI figure is an *upper bound*; the coupon
+//! demand is for the maximal `H = S₈₂` (`N = 83`) and scales down with larger `H`.
+//! Claim ceiling holds: the eyes remain deterministic, engine-generated,
+//! strikingly structured data of unknown meaning; unsolved.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -62,10 +54,10 @@ const ISOMORPH_WINDOWS: [usize; 4] = [4, 6, 8, 11];
 
 /// Calibrated dominant-signature multiplicity `G` for the coverage model.
 ///
-/// `G` is the number of comparably-dominant repeated signatures that jointly
-/// supply recoverable coverage (G1b recovered ~3-4 columns across ~2 dominant
-/// signatures). It is the model's single geometry constant; the eyes prediction
-/// is robust to it (see [`CalibrationControl::eyes_undecidable_g_band`]).
+/// The number of comparably-dominant repeated signatures supplying coverage. It
+/// is the model's **single fitted constant** — only `G = 2` lands in G1b's band
+/// (`G = 1 → ~89%`, `G = 3 → ~67%`), so it is fit, not predicted; the eyes
+/// prediction is robust to it (see [`CalibrationControl::eyes_undecidable_g_band`]).
 const CALIBRATED_GEOMETRY: f64 = 2.0;
 
 /// G1b-measured `two` coset count (`Z₃ × S₄` visible symbols).
@@ -219,10 +211,8 @@ pub struct EmpiricalSupply {
     pub entropy_bits_per_symbol: f64,
     /// Maximum entropy for an `N`-symbol uniform stream, in bits.
     pub max_entropy_bits_per_symbol: f64,
-    /// Dominant-signature occurrence count at the isomorph reference window.
-    ///
-    /// This is the length-matched analogue of G1b's `two` length-4 dominant
-    /// signature (76 occurrences); for the eyes it is far smaller.
+    /// Dominant-signature occurrence count at the isomorph reference window
+    /// (length-matched analogue of G1b's `two` length-4 dominant, 76 occ).
     pub dominant_occurrences: usize,
     /// Richest dominant-signature occurrence count across the reported windows.
     pub richest_occurrences: usize,
@@ -248,7 +238,8 @@ pub struct AnalyticDemand {
 /// Part C — the combined recoverability ceiling.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CeilingEstimate {
-    /// Per-element full-pin demand `N·ln N` (analytic).
+    /// Per-element exact `≥ N−1` full-pin demand `N·(H_N−1)` (analytic; the
+    /// full-collection asymptotic `N·ln N` is slightly larger).
     pub per_element_demand: f64,
     /// Per-element supply: length-matched dominant-signature occurrences.
     pub per_element_supply: usize,
@@ -294,8 +285,8 @@ pub struct ScalingPoint {
 pub struct ScalingSweep {
     /// Fixed stream length `M` used across the sweep.
     pub fixed_m: usize,
-    /// Sweep points for `N = 2 … 83` (the `N = 12 … 83` band is the eyes-relevant
-    /// portion; the smaller-`N` tail locates the 50% crossing).
+    /// Sweep points for `N = 2 … 83` (the `N = 12 … 83` band is eyes-relevant;
+    /// the smaller-`N` tail locates the 50% crossing).
     pub points: Vec<ScalingPoint>,
     /// Smallest `N` whose undecidable fraction crosses 50%.
     pub crossing_50: Option<usize>,
@@ -303,7 +294,7 @@ pub struct ScalingSweep {
     pub crossing_90: Option<usize>,
 }
 
-/// Part D — calibration positive control against G1b's measured `two`.
+/// Part D — single-point geometry calibration against G1b's measured `two`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CalibrationControl {
     /// `two` coset count fed to the model.
@@ -339,7 +330,7 @@ pub struct LeakCeilingReport {
     pub demand: AnalyticDemand,
     /// Part C — combined ceiling.
     pub ceiling: CeilingEstimate,
-    /// Part D — calibration positive control.
+    /// Part D — single-point geometry calibration.
     pub calibration: CalibrationControl,
     /// Part D — scaling sweep.
     pub scaling: ScalingSweep,
@@ -426,11 +417,10 @@ pub fn near_identity_neighborhood(n: usize, max_swaps: usize) -> f64 {
 
 /// Coverage-model decodable transitions for the dominant repeated signature.
 ///
-/// `decodable = min(M, G · occ · (1 − (1 − 1/N)^occ))`. The factor
+/// `decodable = min(M, G · occ · (1 − (1 − 1/N)^occ))`, where the factor
 /// `(1 − (1 − 1/N)^occ)` is the coupon-collector coset-coverage of one recurring
-/// element after `occ` aligned observations; multiplying by `occ` counts the
-/// element's recurring positions that fall on an observed from-coset; `G` is the
-/// dominant-signature multiplicity. When `occ ≪ N` this collapses ≈ `G·occ²/N`.
+/// element after `occ` aligned observations, and `G` is the dominant-signature
+/// multiplicity. When `occ ≪ N` this collapses ≈ `G·occ²/N`.
 #[must_use]
 pub fn coverage_decodable(
     cosets: usize,
@@ -562,9 +552,8 @@ fn isomorph_supply(message_values: &[Vec<TrigramValue>], window_len: usize) -> I
 /// Runs the G3 leak-ceiling report over the verified eye corpus.
 ///
 /// # Errors
-/// Returns [`LeakCeilingError`] when the corpus cannot be reconstructed, when a
-/// chaining-graph computation fails, or when the isomorph reference window is
-/// zero.
+/// Returns [`LeakCeilingError`] when the corpus cannot be reconstructed, a
+/// chaining-graph computation fails, or the isomorph reference window is zero.
 pub fn run_leak_ceiling(config: LeakCeilingConfig) -> Result<LeakCeilingReport, LeakCeilingError> {
     if config.isomorph_window_len == 0 {
         return Err(LeakCeilingError::ZeroIsomorphWindow);
@@ -653,7 +642,9 @@ fn analytic_demand(cosets: usize) -> AnalyticDemand {
 fn ceiling_estimate(supply: &EmpiricalSupply) -> CeilingEstimate {
     let n = supply.alphabet_size;
     let m = supply.total_trigrams;
-    let per_element_demand = coupon_full_pin(n);
+    // Headline demand: exact `>= N-1` cost `N*(H_N-1)` (332.2); `N*ln N` (366.8,
+    // in Part B) is the slightly larger full-collection asymptotic.
+    let per_element_demand = coupon_demand(n, n.saturating_sub(1));
     let per_element_supply = supply.dominant_occurrences;
     let per_element_supply_richest = supply.richest_occurrences;
 
@@ -772,7 +763,7 @@ impl Report for LeakCeilingReport {
         let mut out = String::new();
         append_header(&mut out, self);
         report::appendln!(&mut out);
-        append_supply(&mut out, &self.supply);
+        append_supply(&mut out, &self.supply, self.config.isomorph_window_len);
         report::appendln!(&mut out);
         append_demand(&mut out, &self.demand);
         report::appendln!(&mut out);
@@ -803,7 +794,7 @@ fn append_header(out: &mut String, report: &LeakCeilingReport) {
     );
 }
 
-fn append_supply(out: &mut String, supply: &EmpiricalSupply) {
+fn append_supply(out: &mut String, supply: &EmpiricalSupply, isomorph_window_len: usize) {
     report::appendln!(out, "Part A — empirical supply (MEASURED, read-only)");
     report::appendln!(
         out,
@@ -850,7 +841,7 @@ fn append_supply(out: &mut String, supply: &EmpiricalSupply) {
     for iso in &supply.isomorph {
         report::appendln!(
             out,
-            "    window {:>2}: kinds {:>2} max-repeat {:>2} aligned-pairs SumC(occ,2) {:>4} informative-windows {}",
+            "    window {:>2}: kinds {:>2} max-repeat {:>2} aligned-occ-pairs SumC(occ,2) {:>4} (redundant) informative-windows {}",
             iso.window_len,
             iso.repeated_signature_kinds,
             iso.max_repeat_count,
@@ -862,7 +853,7 @@ fn append_supply(out: &mut String, supply: &EmpiricalSupply) {
         out,
         "  dominant signature occurrences: {} (window {}, length-matched to G1b two's 76); richest across windows: {}",
         supply.dominant_occurrences,
-        DEFAULT_ISOMORPH_WINDOW_LEN,
+        isomorph_window_len,
         supply.richest_occurrences
     );
     report::appendln!(
@@ -902,10 +893,10 @@ fn append_demand(out: &mut String, demand: &AnalyticDemand) {
     );
     report::appendln!(
         out,
-        "  coupon-collector full-pin demand N*lnN: N=12 -> {:.1}; N=83 -> {:.1} (harmonic-exact N*(H_N-1) = {:.1})",
-        demand.coupon_full_pin_n12,
+        "  coupon-collector full-pin demand: exact >=N-1 N*(H_N-1) = {:.1} (N=83; the Part C headline demand); full-collection asymptotic N*lnN slightly larger: N=83 -> {:.1}, N=12 -> {:.1}",
+        demand.coupon_harmonic_exact,
         demand.coupon_full_pin_n83,
-        demand.coupon_harmonic_exact
+        demand.coupon_full_pin_n12
     );
     report::appendln!(
         out,
@@ -917,7 +908,7 @@ fn append_ceiling(out: &mut String, ceiling: &CeilingEstimate) {
     report::appendln!(out, "Part C — the ceiling (supply vs demand)");
     report::appendln!(
         out,
-        "  per-element recurrence shortfall: demand N*lnN = {:.1}; supply (length-matched) = {} -> shortfall {:.1}x; richest signature = {} -> shortfall {:.1}x",
+        "  per-element recurrence shortfall: demand exact >=N-1 N*(H_N-1) = {:.1} (full-collection N*lnN slightly larger); supply occ (length-matched) = {} -> shortfall {:.1}x; richest occ = {} -> shortfall {:.1}x",
         ceiling.per_element_demand,
         ceiling.per_element_supply,
         ceiling.per_element_shortfall_ratio,
@@ -931,25 +922,25 @@ fn append_ceiling(out: &mut String, ceiling: &CeilingEstimate) {
     );
     report::appendln!(
         out,
-        "  MI UPPER bound on leaked key bits: M*H_emp = {:.0} bits",
+        "  MI UPPER bound on leaked bits (bounds the per-position keystream, NOT a GAK seed): M*H_emp = {:.0} bits",
         ceiling.mi_upper_bound_bits
     );
     report::appendln!(
         out,
-        "  needed key entropy (i) unconstrained S_N: M*log2(N!) = {:.0} bits -> underdetermination {:.1}x",
+        "  needed per-position keystream entropy (i) unconstrained S_N: M*log2(N!) = {:.0} bits -> underdetermination {:.1}x",
         ceiling.key_bits_unconstrained,
         ceiling.underdetermination_unconstrained
     );
     report::appendln!(
         out,
-        "  needed key entropy (ii) near-identity (<=4 swaps/letter): log2(neighborhood) = {:.1} bits/letter, M* = {:.0} bits -> underdetermination {:.1}x",
+        "  needed per-position keystream entropy (ii) near-identity (<=4 swaps/letter): log2(neighborhood) = {:.1} bits/letter, M* = {:.0} bits -> underdetermination {:.1}x (per-symbol 41.9/5.79, independent of the M=1036 budget)",
         ceiling.near_identity_neighborhood_log2,
         ceiling.key_bits_near_identity,
         ceiling.underdetermination_near_identity
     );
     report::appendln!(
         out,
-        "    => the near-identity prior is what makes recovery even conceivable ({:.0}x -> {:.0}x), but it is still > 1 (underdetermined).",
+        "    => the near-identity prior is what makes recovery even conceivable ({:.0}x -> {:.0}x), but it is still > 1: too little to PIN THE PER-POSITION KEYSTREAM (a model-free chaining recovery's object), not a GAK deck seed (~log2(83!)~414 bits, which 6002 bits over-determines). This treats all M positions as independent S_N draws (maximal H=S82); under a smaller hidden subgroup the leak could suffice.",
         ceiling.underdetermination_unconstrained,
         ceiling.underdetermination_near_identity
     );
@@ -964,7 +955,7 @@ fn append_ceiling(out: &mut String, ceiling: &CeilingEstimate) {
 fn append_calibration(out: &mut String, calibration: &CalibrationControl) {
     report::appendln!(
         out,
-        "Part D — calibration positive control (BINDING honesty gate)"
+        "Part D — single-point geometry calibration (one fitted constant; sanity check, not a licensing gate)"
     );
     report::appendln!(
         out,
@@ -976,24 +967,32 @@ fn append_calibration(out: &mut String, calibration: &CalibrationControl) {
     );
     report::appendln!(
         out,
-        "  model predicts undecidable {} (unique {}); G1b measured band {}..{} undecidable -> calibration {}",
+        "  model predicts undecidable {} (unique {}); G1b measured band {}..{} undecidable -> single-point fit {} (one free constant G fit to one band; only G=2 lands: G=1->~89%, G=3->~67% -> a fit, not an independent prediction)",
         report::format_percent(calibration.predicted_undecidable),
         report::format_percent(calibration.predicted_unique),
         report::format_percent(calibration.measured_undecidable_low),
         report::format_percent(calibration.measured_undecidable_high),
         if calibration.passes {
-            "PASSES"
+            "IN-BAND"
         } else {
-            "FAILS"
+            "OUT-OF-BAND"
         }
+    );
+    report::appendln!(
+        out,
+        "    weakness (a) length-matched miss: fed two's L=4 occ=76 the model says 78.3% undecidable but G1b MEASURED L=4 is 83% (band's high edge); decodable 151.8 vs measured uniquely-covered 105 (~45% optimistic) -- only lands in band because [0.76,0.83] also spans the L=6 row.\n    weakness (b) regime mismatch: for two occ=76>N=12 the coverage factor (1-(1-1/N)^occ)=0.9987 is SATURATED (~1) and was never exercised; for the eyes occ<<N so that factor (0.10/0.27) is load-bearing -- eyes survive even at coverage=1 (~95% undecidable)."
     );
     let [g1, g2, g3] = calibration.eyes_undecidable_g_band;
     report::appendln!(
         out,
-        "  eyes undecidable robustness over geometry G in {{1,2,3}}: {} / {} / {} (insensitive to the calibration constant)",
+        "  eyes undecidable robustness over geometry G in {{1,2,3}}: {} / {} / {} (THIS robustness, not the calibration, carries the conclusion)",
         report::format_percent(g1),
         report::format_percent(g2),
         report::format_percent(g3)
+    );
+    report::appendln!(
+        out,
+        "  scope: calibrated at the length-4 reference window; coverage-saturated regime; not claimed to track G1b's phrase-length dependence; eyes conclusion robust to G."
     );
 }
 
@@ -1163,9 +1162,9 @@ mod tests {
     }
 
     #[test]
-    fn two_calibration_positive_control_passes() {
-        // The BINDING honesty gate: the SAME coverage model fed G1b's measured
-        // `two` parameters must reproduce G1b's measured collapse band.
+    fn two_calibration_lands_in_band() {
+        // Sanity check (NOT a falsifiable positive control): the single-point,
+        // one-free-parameter (G) fit pins the arithmetic; only G=2 lands in band.
         let report = run_leak_ceiling(LeakCeilingConfig::default()).unwrap();
         let calibration = &report.calibration;
         let predicted = coverage_undecidable_fraction(
@@ -1220,8 +1219,8 @@ mod tests {
         assert_eq!(first, second);
         let rendered = first.render();
         assert!(rendered.contains("G3 isomorph-leak information ceiling"));
-        assert!(rendered.contains("Part D — calibration positive control"));
-        assert!(rendered.contains("PASSES"));
+        assert!(rendered.contains("Part D — single-point geometry calibration"));
+        assert!(rendered.contains("IN-BAND"));
         assert!(rendered.contains("Claim ceiling"));
     }
 
