@@ -18,7 +18,6 @@ src/attack/solve/tests.rs                  2040  # extracted solve-pipeline test
 src/analysis/perfect_isomorphism.rs        2056  # Thread-3 perfect-isomorphism scan; shrinks when report/catalog/regression split out
 src/analysis/isomorph_imperfection.rs      1529  # G2 forward isomorph-imperfection falsifier (hardened negative); render + tests extraction pending
 src/analysis/leak_ceiling.rs               1236  # G3 isomorph-leak information ceiling; render + tests extraction pending
-src/analysis/chaining_graph.rs             1641  # graph-chaining conflict/coverage audit; mostly compute + positive-control fixtures — shrinks when the report render and null/control compute split out
 src/nulls/dof_null.rs                      1789  # DoF-calibrated null driver; shrinks when report, cell-prep, and tests split out
 src/experiments/pyry_conditions.rs         1769  # Pyry nine-condition falsification harness; shrinks when report/predicates/fixtures split out
 src/attack/cipher_attack.rs                1722  # Experiment-12 attack/null scorer; shrinks when report/search/controls split out
