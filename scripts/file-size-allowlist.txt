@@ -37,7 +37,6 @@ src/analysis/chaining.rs                   1242  # Experiment-7B alphabet-chaini
 src/nulls/tree_residual.rs                 1226  # tree-residual cross-tail n-gram null; render + tests extraction pending
 src/attack/agl_gak.rs                      1208  # Thread-2 AGL(1,83)-GAK stress test; render + compute extraction pending
 src/experiments/orientation_homogeneity.rs 1138  # order-independent cross-message homogeneity test; render-heavy — extract the report sibling
-src/nulls/pipeline_null.rs                 684   # Experiment-2 pipeline null; barely over — extract the report sibling
 src/nulls/zero_adjacency_null.rs           848   # Experiment-7D zero-adjacency null (the one positive result); render + tests extraction pending
 src/attack/codec.rs                        1134  # codec transduction layer feeding the solve search; ~37% inline tests — extract the tests sibling
 src/attack/keystream.rs                    1360  # polyalphabetic keystream cracker; shrinks when cipher/search/record + tests split out
