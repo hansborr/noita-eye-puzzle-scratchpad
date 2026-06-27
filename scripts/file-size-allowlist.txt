@@ -41,4 +41,3 @@ src/nulls/zero_adjacency_null.rs           848   # Experiment-7D zero-adjacency 
 src/attack/codec.rs                        1134  # codec transduction layer feeding the solve search; ~37% inline tests — extract the tests sibling
 src/attack/keystream.rs                    1360  # polyalphabetic keystream cracker; shrinks when cipher/search/record + tests split out
 src/attack/ragbaby.rs                      1744  # general Ragbaby keyed-alphabet cracker; shrinks when cipher/search/record + tests split out
-src/core/ingest.rs                         610   # external-ciphertext ingest; barely over — extract the tests sibling, trim under 600 next
