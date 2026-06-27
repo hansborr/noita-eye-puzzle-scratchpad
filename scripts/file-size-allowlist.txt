@@ -13,7 +13,6 @@ src/attack/gak_attack/eyes.rs              2316  # real-eye held-out attack; shr
 src/attack/gak_attack/solver.rs            1993  # cohesive multi-stage GCTAK/deck solver; splits into gctak/deck/sweep
 src/ciphers/mod.rs                         2675  # candidate-cipher zoo; shrinks further when the key types and group/modular math extract to siblings
 src/ciphers/tests.rs                       992   # extracted candidate-cipher unit tests (exact round-trip controls)
-src/experiments/conditional_structure.rs   2285  # transition/successor-graph experiment; shrinks when the report render and transition/null compute split out
 src/attack/solve/tests.rs                  2040  # extracted solve-pipeline tests (unit + 8 include_str! corpus pipelines); split into tests_unit/tests_pipeline if it grows
 src/analysis/perfect_isomorphism.rs        2056  # Thread-3 perfect-isomorphism scan; shrinks when report/catalog/regression split out
 src/experiments/pyry_conditions.rs         1769  # Pyry nine-condition falsification harness; shrinks when report/predicates/fixtures split out
