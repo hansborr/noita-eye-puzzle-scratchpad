@@ -5,38 +5,8 @@ command-line workbench for analyzing — and attempting to decode — the **Noit
 eye-glyph puzzle**, a set of nine eye-symbol sequences hidden in the game.
 
 It is a map of what exists today, for a reader who wants to understand the
-codebase before changing it. For the working agreement see `AGENTS.md`; for the
-strongest defensible claim and the experiment-by-experiment results, see
-`README.md`.
-
-## Guiding discipline
-
-The crate exists to do *trustworthy* cryptanalysis: to **constrain the
-hypothesis space** rather than to announce a decode. That discipline is wired
-into the shape of the code; a contributor who removes it removes the point of the
-project.
-
-- **The claim ceiling.** The strongest statement the crate is allowed to print
-  is that the eye data is deterministic, engine-generated, strikingly structured
-  data *of unknown meaning* — unsolved, with no primary developer source
-  confirming it encodes recoverable plaintext. No module renders anything
-  stronger. Several modules carry the ceiling verbatim in their output and in the
-  records they write, so nothing downstream can quietly drift past it.
-- **Honest negative is the expected outcome.** When an attack pipeline is pointed
-  at the real eyes, *finding nothing* is the designed result, not a bug. The
-  decode is blocked on an external unknown — the 83-symbol→meaning mapping is
-  absent from the game binary's storage layer — that no pure-cryptanalysis step in
-  this repo can supply. A clean, well-controlled negative is a success.
-- **HYPOTHESIS, not decode.** Any candidate cleartext a search surfaces is logged
-  as a labelled *hypothesis* for human review, never asserted as the answer. A
-  high score is never a decode: it must clear independent gates first, and even
-  then it is a hypothesis.
-- **Every measurement is paired with a null or a positive control.** A statistic
-  with no null is a blind spot; a tool that has never fired on known signal
-  cannot make a negative meaningful. The recurring pattern across the crate is a
-  measurement on the eyes set beside (a) a matched null that says what the same
-  procedure extracts from noise, and (b) a positive control that proves the
-  procedure fires when the signal is really there.
+codebase before changing it. For research status and the strongest defensible
+claim, see `README.md`.
 
 ## The two glyph layers
 
@@ -141,42 +111,40 @@ skeleton, which is worth recognizing once:
 ## Attack pipelines
 
 Four attack pipelines live under `attack/`. Each is search-and-score, and each
-gates its output so that a high in-sample score cannot be reported as a decode.
+gates its output so an in-sample score can be told apart from a genuine recovery.
+The shared gates are a cipher-layer round-trip, a matched-null overfit bar, and a
+held-out fold that must generalize fold-vs-fold.
 
 - **`solve` — the unified solve pipeline.** Enumerates a hypothesis space
   (cipher family × codec × symbol→letter mapping), decrypts, and scores against
   English/Finnish n-gram models. A `codec` transduction layer (`attack/codec.rs`)
   can widen a small cipher alphabet by grouping digits, with every pruned codec
-  logged, never silently dropped. Every emitted `Candidate` carries three
-  independent gates — the cipher-layer round-trip, the matched-null overfit bar,
-  and a held-out fold that must generalize fold-vs-fold — and `candidate_survives`
-  requires all three. On the real eyes the pipeline runs end-to-end and surfaces
-  **no surviving candidate**: the canonical honest negative. Every run auto-logs
-  a candidate record carrying the claim ceiling.
+  logged rather than silently dropped. Every emitted `Candidate` carries the three
+  gates above, and `candidate_survives` requires all three. On the real eyes the
+  pipeline runs end-to-end; it currently surfaces no surviving candidate, and each
+  run logs a candidate record.
 - **`gak_attack` — the GCTAK go/no-go gate.** Generates **synthetic** Group-
   Ciphertext-Autokey ciphertext whose key it holds and proves an extended-chaining
   solver recovers the key at a rate that clears a documented floor *and* beats a
   matched within-message shuffle null — a true positive control. The single unit
-  that touches the real corpus (`gak-attack-eyes`) measures the standing
-  **BLOCKED** conclusion against matched nulls and asserts no decode. Synthetic
-  ground truth never transfers to the eyes, and the module says so in its output.
+  that touches the real corpus (`gak-attack-eyes`) runs that matured solver
+  against the eyes under matched nulls. Synthetic ground truth does not transfer
+  to the eyes, and the module says so in its output.
 - **`keystream` — polyalphabetic cracker for the practice letter-puzzles.** Four
   keystream families (Vigenère, Beaufort, plaintext-autokey, ciphertext-autokey)
   over letter indices, with an annealed multi-restart key search scored by the
   quadgram model. Survival requires clearing **two** complementary nulls — a
   matched null (reruns the search on shuffled ciphertext, catching search
   overfit) and a random-key null (catching the ciphertext-autokey key-independence
-  leak) — plus a held-out fold. Honest negative is the expected outcome on the
-  genuinely non-periodic puzzles.
+  leak) — plus a held-out fold.
 - **`ragbaby` — keyed-alphabet (non-keyword Ragbaby) cracker.** Recovers the
   keyed alphabet via simulated annealing with basin-hopping, gated against a
   matched null and a held-out fold, and ships a planted-recovery positive control
-  so a negative is only ever reported alongside demonstrated recovery at that
-  length.
+  that demonstrates the cracker works at a given length.
 
-The practice letter-puzzles that these last three pipelines attack are
-**external practice samples**, not the eyes; they exist to validate the tooling
-end-to-end on material whose structure is known.
+The practice letter-puzzles that these last three pipelines attack are **external
+practice samples**, not the eyes; they exist to validate the tooling end-to-end on
+material whose structure is known.
 
 ## The command-line interface
 
@@ -186,31 +154,34 @@ config, calls a library `run_*`, and renders the returned report. The binary is
 `noita-eye`; the structural battery, null tests, controls, and attack pipelines
 each have their own subcommand (see `README.md` for the full list).
 
+## Extension points
+
+Where new work goes, and what discipline applies to it:
+
+- **A new CLI subcommand.** Add a `Command` variant and its `*Args` in
+  `src/main.rs`, build a config, call a library `run_*`, and render the returned
+  `Report`. Add a golden-master fixture for the new stdout (see Guardrails).
+- **A new analysis or experiment.** Add a module under the matching role
+  directory and wire it into `src/lib.rs`, following the recurring per-module
+  shape above (config/error → result structs → `Report` render → `run_*` → tests).
+- **Reading or importing external data.** `core/ingest.rs` is the front door for
+  external ciphertext; report rendering and shared formatters live in `report/`.
+- **Nulls and controls — scoped to claims.** An analysis whose output *asserts
+  something about the eyes* pairs its statistic with a matched null and, where a
+  ground truth exists, a positive control. General-purpose tooling that makes no
+  claim about the eyes — parsers, exporters, format converters, community-facing
+  utilities — does not need a null to earn its place.
+
 ## Guardrails
 
-Correctness and trust are enforced mechanically, not by convention:
+Correctness is enforced mechanically rather than by convention. The piece worth
+describing here, because it shapes the test layout, is the **golden-master
+harness**: `tests/golden_master.rs` runs the compiled binary across the
+subcommand surface and asserts its stdout/stderr byte-for-byte against checked-in
+fixtures under `tests/golden/`. A fixture change is a behavior change to review
+line-by-line, never blindly regenerated; the regeneration recipe is recorded in
+the test file itself.
 
-- **Golden-master stdout fixtures.** `tests/golden_master.rs` runs the compiled
-  binary across the subcommand surface and asserts its stdout/stderr byte-for-byte
-  against checked-in fixtures under `tests/golden/`. A fixture change is treated
-  as a behavior change to be reviewed line-by-line, never blindly regenerated; the
-  regeneration recipe is recorded in the test file itself.
-- **The lint wall.** `unsafe` is forbidden crate-wide. Clippy runs `all` +
-  `pedantic` (with `correctness`/`perf` denied) as `-D warnings` in CI, the
-  `unwrap`/`panic`/`indexing_slicing`/`unused_results` family is warned (relaxed
-  only inside tests), every public item must be documented (`missing_docs`), and
-  doc examples must compile under `RUSTDOCFLAGS="-D warnings"`. `rustfmt` is
-  enforced; everything runs `--locked` against a pinned MSRV.
-- **File-size ratchet.** `scripts/check-file-size.sh` caps Rust files at a default
-  budget and pins the existing oversized modules in
-  `scripts/file-size-allowlist.txt` so they can only shrink — over the pin fails,
-  far under it fails (lower the pin), and dropping under the default fails (delete
-  the pin). Each pin needs a justifying reason.
-- **Supply chain.** `cargo-deny` (`deny.toml`) gates advisories and licenses to a
-  permissive allow-list, and `cargo machete` flags unused dependencies. The
-  external surface is deliberately minimal: `clap` for the CLI and `statrs` for
-  analytic chi-square tail probabilities.
-
-`make verify` runs the correctness gate (format, clippy, tests, rustdoc,
-cargo-deny); `make check` adds machete, codespell, shellcheck, and a release
-build. One of them must be green before every commit.
+The rest — the `unsafe`-forbidden lint wall, the file-size ratchet, and the
+`cargo-deny` / `cargo-machete` supply-chain gates — is catalogued in the AGENTS.md
+guardrail map and run by `make verify` / `make check`.
