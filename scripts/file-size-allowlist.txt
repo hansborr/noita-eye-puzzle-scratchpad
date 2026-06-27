@@ -31,6 +31,5 @@ src/analysis/orders.rs                     1340  # reading-order machinery; rend
 src/nulls/perseus.rs                       1316  # Experiment-7C shared-region recurrence null; render + tests extraction pending
 src/analysis/chaining.rs                   1242  # Experiment-7B alphabet-chaining signatures; render-heavy — extract the report sibling
 src/attack/agl_gak.rs                      1208  # Thread-2 AGL(1,83)-GAK stress test; render + compute extraction pending
-src/experiments/orientation_homogeneity.rs 1138  # order-independent cross-message homogeneity test; render-heavy — extract the report sibling
 src/attack/keystream.rs                    1360  # polyalphabetic keystream cracker; shrinks when cipher/search/record + tests split out
 src/attack/ragbaby.rs                      1744  # general Ragbaby keyed-alphabet cracker; shrinks when cipher/search/record + tests split out
