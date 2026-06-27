@@ -12,7 +12,7 @@ hypothesis space, not premature claims about what the glyphs mean.
 ## Commands
 
 ```sh
-make verify   # the correctness gate: fmt-check + clippy(-D) + tests + rustdoc(-D) + cargo-deny
+make verify   # the correctness gate: fmt-check + clippy(-D) + filesize + tests + rustdoc(-D) + cargo-deny
 make check    # verify + cargo-machete + codespell + shellcheck + release build (full local CI)
 make setup    # install the git pre-commit hook (core.hooksPath = .githooks)
 make run ARGS=demo
@@ -36,14 +36,12 @@ make run ARGS=demo
   small, justify additions by use, and let `cargo-deny`/`cargo-machete` gate
   supply-chain and unused-dependency risk. The in-crate `SplitMix64` PRNG stays
   for reproducible null models, not because crates.io is unavailable.
-- **Never present unverified numbers as findings.** `src/data/corpus.rs` is now the
-  real, Experiment-0-verified corpus — the engine base-7 decode is cross-checked
+- **Never present unverified numbers as findings.** `src/data/corpus.rs` is the
+  Experiment-0-verified corpus — the engine base-7 decode is cross-checked
   byte-for-byte against the ngraham20 transcription for all nine messages — so
-  statistics computed from it are meaningful. The discipline still holds for
-  anything *unverified or model-conditional*: label guessed/assumed choices as
-  such (e.g. Exp 12's unknown symbol→letter mappings, Exp 7B's
-  additive-relationship model) and never report a number more strongly than its
-  construction supports.
+  statistics from it are meaningful. For anything *unverified or
+  model-conditional*, label guessed/assumed choices as such and never report a
+  number more strongly than its construction supports.
 - **Transcription is the risk.** A single mis-read glyph invalidates downstream
   analysis. When adding real data, record its in-game source and cross-check.
 
@@ -54,8 +52,8 @@ make run ARGS=demo
   orientation inventory is settled separately: digits `0`-`4` are the five
   displayed orientations, and `5` is a non-rendered row delimiter. Do not encode
   unverifiable pixel-direction names into those orientation digits.
-- The CLI in `main.rs` is intentionally thin; logic lives in the library so it
-  stays testable. Move to `clap` subcommands as the CLI grows.
+- The CLI in `main.rs` is intentionally thin: `clap` owns argument parsing and
+  subcommands, while all domain logic lives in the library so it stays testable.
 
 ## Guardrail map
 
