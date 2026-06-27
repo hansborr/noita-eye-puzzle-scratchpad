@@ -4,15 +4,15 @@ use super::{
     MappingStrategy, SolveError, SolveRequest, candidate_survives, enumeration_null_mean, solve,
     solve_with_codec_trace, surviving_codecs,
 };
+use crate::attack::codec::{
+    CodecSearch, CodecSkipReason, DeltaCodec, DigitOrder, GroupingCodec, MAX_SEARCH_OUTPUT_ALPHABET,
+};
+use crate::attack::language::{LanguageModel, english_model, finnish_model};
 use crate::ciphers::{
     AnyCipher, CaesarKey, TranspositionKey, caesar_encrypt, transposition_encrypt,
 };
-use crate::codec::{
-    CodecSearch, CodecSkipReason, DeltaCodec, DigitOrder, GroupingCodec, MAX_SEARCH_OUTPUT_ALPHABET,
-};
-use crate::glyph::Glyph;
-use crate::language::{LanguageModel, english_model, finnish_model};
-use crate::null::{SplitMix64, shuffled_permutation};
+use crate::core::glyph::Glyph;
+use crate::nulls::null::{SplitMix64, shuffled_permutation};
 
 /// A small-alphabet English passage over only the nine letters
 /// `{A,E,H,I,N,O,R,S,T}`, where a planted substitution is well-determined by
@@ -226,12 +226,12 @@ fn eyes_search_surfaces_no_surviving_candidate() {
 // research/data/practice-puzzles/README.md); no cleartext is committed.
 // ===================================================================
 
-fn parse_corpus_puzzle(text: &str, alphabet: &str) -> crate::ingest::ParsedSequence {
-    let alphabet = crate::glyph::Alphabet::from_chars(alphabet).expect("corpus alphabet");
-    let transparent = crate::ingest::TransparentSet::default();
-    crate::ingest::parse_sequence(
+fn parse_corpus_puzzle(text: &str, alphabet: &str) -> crate::core::ingest::ParsedSequence {
+    let alphabet = crate::core::glyph::Alphabet::from_chars(alphabet).expect("corpus alphabet");
+    let transparent = crate::core::ingest::TransparentSet::default();
+    crate::core::ingest::parse_sequence(
         text,
-        crate::ingest::SequenceLayer::CipherAlphabet {
+        crate::core::ingest::SequenceLayer::CipherAlphabet {
             alphabet: &alphabet,
             transparent: &transparent,
         },
@@ -240,7 +240,7 @@ fn parse_corpus_puzzle(text: &str, alphabet: &str) -> crate::ingest::ParsedSeque
 }
 
 fn corpus_codec_request<'a>(
-    parsed: &'a crate::ingest::ParsedSequence,
+    parsed: &'a crate::core::ingest::ParsedSequence,
     cipher_alphabet_size: usize,
     english: &'a LanguageModel,
     finnish: &'a LanguageModel,
@@ -510,11 +510,11 @@ fn corpus_six_grouping_reinserts_spaces_and_logs_hypothesis() {
 }
 
 fn parse_letter_puzzle(text: &str) -> Vec<Glyph> {
-    let alphabet = crate::glyph::Alphabet::from_chars("ABCDEFGHIJKLMNOPQRSTUVWXYZ").unwrap();
-    let transparent = crate::ingest::TransparentSet::default();
-    crate::ingest::parse_sequence(
+    let alphabet = crate::core::glyph::Alphabet::from_chars("ABCDEFGHIJKLMNOPQRSTUVWXYZ").unwrap();
+    let transparent = crate::core::ingest::TransparentSet::default();
+    crate::core::ingest::parse_sequence(
         text,
-        crate::ingest::SequenceLayer::CipherAlphabet {
+        crate::core::ingest::SequenceLayer::CipherAlphabet {
             alphabet: &alphabet,
             transparent: &transparent,
         },
@@ -524,9 +524,9 @@ fn parse_letter_puzzle(text: &str) -> Vec<Glyph> {
 }
 
 fn eye_reading_layer() -> Vec<Glyph> {
-    let grids = crate::orders::corpus_grids().unwrap();
-    let order = crate::orders::accepted_honeycomb_order();
-    crate::orders::read_corpus_values(&grids, order)
+    let grids = crate::analysis::orders::corpus_grids().unwrap();
+    let order = crate::analysis::orders::accepted_honeycomb_order();
+    crate::analysis::orders::read_corpus_values(&grids, order)
         .unwrap()
         .iter()
         .map(|value| Glyph(u16::from(value.get())))
@@ -941,7 +941,7 @@ fn codec_search_matched_null_stays_flat_on_shuffled_noise() {
     // Destroy the bigram structure by shuffling the ciphertext once.
     let mut shuffled = planted;
     let mut rng = SplitMix64::new(0x0053_4855_4636_3636);
-    crate::null::fisher_yates(&mut shuffled, &mut rng).unwrap();
+    crate::nulls::null::fisher_yates(&mut shuffled, &mut rng).unwrap();
 
     let request = SolveRequest {
         ciphertext: &shuffled,
@@ -1014,7 +1014,7 @@ fn enumeration_null_is_selection_complete_over_codecs() {
     let (planted, _key, _indices) = plant_base6_pair_english(&english);
     let mut shuffled = planted;
     let mut rng = SplitMix64::new(0x0053_4855_4636_3637);
-    crate::null::fisher_yates(&mut shuffled, &mut rng).unwrap();
+    crate::nulls::null::fisher_yates(&mut shuffled, &mut rng).unwrap();
 
     let search = CodecSearch {
         max_group_len: 2,
@@ -1539,7 +1539,7 @@ fn searched_matched_null_stays_flat_on_shuffled_ciphertext() {
     // search on noise must not manufacture a beats-null winner.
     let mut shuffled = planted;
     let mut rng = SplitMix64::new(0x0053_4855_4646_4c45);
-    crate::null::fisher_yates(&mut shuffled, &mut rng).unwrap();
+    crate::nulls::null::fisher_yates(&mut shuffled, &mut rng).unwrap();
 
     let request = searched_request(&shuffled, size, &english, &finnish, hillclimb(6, 4000));
     let candidates = solve(&request).unwrap();

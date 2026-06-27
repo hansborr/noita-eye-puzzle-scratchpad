@@ -28,11 +28,11 @@
 //!   gate solves.
 //! - `Alphabet-Chaining.md` / `Graph-Chaining.md` — isomorph alignment → chain
 //!   links; GCTAK is the Cayley graph of the state group. The chain-link
-//!   primitive is **reused** from [`crate::chaining_graph`], never reimplemented.
+//!   primitive is **reused** from [`crate::analysis::chaining_graph`], never reimplemented.
 //! - `Explanation-of-Progress.md` — states GCTAK is fully solvable by extended
 //!   chaining; this module is that solver, validated on ground truth.
 //!
-//! ## Discipline (mirrors [`crate::cipher_attack`])
+//! ## Discipline (mirrors [`crate::attack::cipher_attack`])
 //!
 //! - The GCTAK solver is a **positive control**: it must fire on known signal. If
 //!   it cannot recover a synthetic GCTAK key, that is a methodology bug surfaced
@@ -40,7 +40,7 @@
 //!   finding.
 //! - Every recovery claim is paired with a **matched negative control**: the same
 //!   pipeline run on a within-message multiset shuffle of the ciphertext
-//!   ([`crate::null::fisher_yates`]) must *not* achieve exact recovery, so the
+//!   ([`crate::nulls::null::fisher_yates`]) must *not* achieve exact recovery, so the
 //!   real structure is provably the reason recovery works.
 //! - A negative or partial result is the **expected, reportable** outcome of the
 //!   later GAK steps — not a failure of the thread.
@@ -57,27 +57,27 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
-use crate::chaining_graph::{
+use crate::analysis::chaining_graph::{
     AlignedOccurrence, ChainLink, ContextId, SymbolValue, chain_links_for_pair,
 };
+use crate::analysis::isomorph::PatternSignature;
+use crate::analysis::orders;
+use crate::analysis::perfect_isomorphism;
+use crate::attack::language::{self, LanguageModel};
 use crate::ciphers::{CosetReadout, GakKey, GakKeyOptions, compose_permutations, gak_encrypt};
-use crate::glyph::Glyph;
-use crate::isomorph::PatternSignature;
-use crate::language::{self, LanguageModel};
-use crate::null::{
+use crate::core::glyph::Glyph;
+use crate::core::trigram::TrigramValue;
+use crate::nulls::null::{
     SplitMix64, add_one_p_value, fisher_yates, mix_seed, random_index_below, shuffled_permutation,
     stateless_splitmix,
 };
-use crate::orders;
-use crate::perfect_isomorphism;
-use crate::trigram::TrigramValue;
 
 mod error;
 mod eyes;
 mod render;
 // `generator`/`solver`/`marginalization` are `pub(crate)` so the solve pipeline
 // (brief 04) can import their internals; this widens no external (`pub`) surface —
-// the public path stays `crate::gak_attack::*` via the `pub use` block below.
+// the public path stays `crate::attack::gak_attack::*` via the `pub use` block below.
 pub(crate) mod generator;
 #[cfg(test)]
 mod known_answer; // Thread G1: known-answer validation on practice puzzles.

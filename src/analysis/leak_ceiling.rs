@@ -8,8 +8,8 @@
 //!
 //! * **Part A — supply (measured).** Read-only stats of the accepted-honeycomb
 //!   reading-layer stream: trigram count `M`, distinct symbols, raw successor
-//!   out-degree, chaining-graph edge/coverage supply ([`crate::chaining_graph`]),
-//!   and repeated-isomorph occurrence-pair supply ([`crate::isomorph`]).
+//!   out-degree, chaining-graph edge/coverage supply ([`crate::analysis::chaining_graph`]),
+//!   and repeated-isomorph occurrence-pair supply ([`crate::analysis::isomorph`]).
 //! * **Part B — demand (analytic).** Edge-overlap certification degree vs the
 //!   transitivity regime, and the coupon-collector cost of pinning one element's
 //!   action on the cosets of the hidden subgroup.
@@ -31,14 +31,14 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
-use crate::chaining_graph::{self, ChainingGraphError};
-use crate::isomorph::PatternSignature;
-use crate::orders::{
+use crate::analysis::chaining_graph::{self, ChainingGraphError};
+use crate::analysis::isomorph::PatternSignature;
+use crate::analysis::orders::{
     self, GridError, READING_LAYER_ALPHABET_SIZE, ReadingLayerFlatnessStats,
     read_corpus_message_values,
 };
+use crate::core::trigram::TrigramValue;
 use crate::report::{self, Report};
-use crate::trigram::TrigramValue;
 
 /// Default chaining-graph window length (the wiki D166 triple).
 pub const DEFAULT_CHAINING_WINDOW_LEN: usize = 11;
@@ -570,7 +570,7 @@ pub fn run_leak_ceiling(config: LeakCeilingConfig) -> Result<LeakCeilingReport, 
         .len();
     let message_lengths: Vec<(&'static str, usize)> = grids
         .iter()
-        .map(crate::orders::GlyphGrid::message_key)
+        .map(crate::analysis::orders::GlyphGrid::message_key)
         .zip(message_values.iter().map(Vec::len))
         .collect();
 

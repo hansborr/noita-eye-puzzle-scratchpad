@@ -3,7 +3,7 @@
 //! This module calibrates the workbench against a cipher class whose behavior
 //! is known in advance. The monoalphabetic control is deliberately a generated
 //! fixture: a known English-like plaintext is encrypted with a deterministic
-//! one-to-one substitution key produced by the in-crate [`crate::null::SplitMix64`]
+//! one-to-one substitution key produced by the in-crate [`crate::nulls::null::SplitMix64`]
 //! PRNG. That proves the frequency and substitution tooling fires on a
 //! monoalphabetic cipher with ground truth.
 //!
@@ -25,13 +25,13 @@
 
 use std::fmt;
 
-use crate::analysis;
-use crate::glyph::Glyph;
-use crate::isomorph::{self, IsomorphError};
-use crate::null::SplitMix64;
+use crate::analysis::analysis;
+use crate::analysis::isomorph::{self, IsomorphError};
+use crate::core::glyph::Glyph;
+use crate::nulls::null::SplitMix64;
 use crate::report::{self, Report};
 
-pub use crate::isomorph::{PeriodSignal, SignatureSummary};
+pub use crate::analysis::isomorph::{PeriodSignal, SignatureSummary};
 
 const ENGLISH_ALPHABET: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const ALPHABET_SIZE: usize = 26;
@@ -1411,9 +1411,9 @@ mod tests {
         normalize_plaintext, run_isomorph_control, run_monoalphabetic_control,
         sorted_frequency_counts,
     };
-    use crate::analysis;
-    use crate::glyph::Glyph;
-    use crate::isomorph::PatternSignature;
+    use crate::analysis::analysis;
+    use crate::analysis::isomorph::PatternSignature;
+    use crate::core::glyph::Glyph;
 
     #[test]
     fn monoalphabetic_control_preserves_exact_statistics() {

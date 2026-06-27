@@ -2,10 +2,10 @@
 //! known-answer practice puzzle `two`.
 //!
 //! G1 showed the bijective-readout GCTAK solver
-//! ([`solve_gctak`](crate::gak_attack::solver::solve_gctak)) **dies at seeding** on
+//! ([`solve_gctak`](crate::attack::gak_attack::solver::solve_gctak)) **dies at seeding** on
 //! `two` (every symbol has out-degree 8 — the many-valued hidden-subgroup signature).
 //! This module attacks that regime with the hidden-state machinery (idea 3's
-//! [`run_marginalization_attack`](crate::gak_attack::marginalization::run_marginalization_attack)),
+//! [`run_marginalization_attack`](crate::attack::gak_attack::marginalization::run_marginalization_attack)),
 //! which recovers, per plaintext letter, the **marginal** set of visible coset edges
 //! over hidden states (a multi-valued action, not a fixed permutation).
 //!
@@ -29,12 +29,12 @@
 //! All `#[cfg(test)]` (a child of `known_answer`): no public surface; it drives the
 //! existing `pub(crate)` recovery, reusing the codec/chain-link/beam primitives.
 
-use crate::gak_attack::marginalization::{
+use crate::attack::gak_attack::marginalization::{
     DEFAULT_BEAM_WIDTH, SmallSupportPrior, run_marginalization_attack,
 };
-use crate::gak_attack::solver::{CosetEdge, aligned_phrase_occurrences};
-use crate::null::{SplitMix64, fisher_yates, random_index_below, shuffled_permutation};
-use crate::trigram::TrigramValue;
+use crate::attack::gak_attack::solver::{CosetEdge, aligned_phrase_occurrences};
+use crate::core::trigram::TrigramValue;
+use crate::nulls::null::{SplitMix64, fisher_yates, random_index_below, shuffled_permutation};
 use std::collections::{BTreeMap, BTreeSet};
 
 // --- A. Synthetic hidden-state GAK matched to `two`'s signature. ---

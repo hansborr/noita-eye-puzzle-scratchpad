@@ -13,21 +13,23 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
-use crate::analysis;
+use crate::analysis::analysis;
+use crate::analysis::isomorph::{self, PatternSignature};
+use crate::analysis::orders::{
+    self, GlyphGrid, GridError, ReadingOrder, read_corpus_message_values,
+};
 use crate::ciphers::{
     self, DeckCipherKey, IncrementingWheelKey, VigenereKey, deck_cipher_encrypt,
     incrementing_wheel_encrypt, vigenere_encrypt,
 };
-use crate::glyph::Glyph;
-use crate::isomorph::{self, PatternSignature};
-use crate::isomorph_null::{DEFAULT_MAX_WINDOW, DEFAULT_MIN_WINDOW};
-use crate::null::{
+use crate::core::glyph::Glyph;
+use crate::core::trigram::TrigramValue;
+use crate::nulls::isomorph_null::{DEFAULT_MAX_WINDOW, DEFAULT_MIN_WINDOW};
+use crate::nulls::null::{
     SplitMix64, mix_seed, random_index_below, shuffled_permutation, stateless_splitmix,
 };
-use crate::orders::{self, GlyphGrid, GridError, ReadingOrder, read_corpus_message_values};
-use crate::perseus;
+use crate::nulls::perseus;
 use crate::report::{self, Report};
-use crate::trigram::TrigramValue;
 
 /// Default deterministic seed for generated fixture sampling.
 pub const DEFAULT_SEED: u64 = 0x7079_7279_636f_6e64;
@@ -106,8 +108,8 @@ impl From<ciphers::CipherError> for PyryConditionsError {
     }
 }
 
-impl From<crate::null::RandomBoundError> for PyryConditionsError {
-    fn from(error: crate::null::RandomBoundError) -> Self {
+impl From<crate::nulls::null::RandomBoundError> for PyryConditionsError {
+    fn from(error: crate::nulls::null::RandomBoundError) -> Self {
         Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
@@ -1628,7 +1630,7 @@ mod tests {
         ALPHABET_SIZE, CandidateFamily, ConditionVector, PyryCondition, PyryConditionsConfig,
         evaluate_corpus, run_pyry_conditions,
     };
-    use crate::trigram::TrigramValue;
+    use crate::core::trigram::TrigramValue;
 
     fn values(rows: &[&[u8]]) -> Vec<Vec<TrigramValue>> {
         rows.iter()

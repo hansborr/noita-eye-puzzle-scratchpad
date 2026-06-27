@@ -6,14 +6,14 @@
 
 use std::fmt;
 
-use crate::isomorph::{self, IsomorphError};
-use crate::null::{
+use crate::analysis::isomorph::{self, IsomorphError};
+use crate::analysis::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
+use crate::core::trigram::TrigramValue;
+use crate::nulls::null::{
     NullColumnError, UsizeBand, WithinMessageShuffle, add_one_p_value, run_null_test_columns,
     usize_band,
 };
-use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::report::{self, Report};
-use crate::trigram::TrigramValue;
 
 /// Default deterministic Monte-Carlo seed for Experiment 7A.
 pub const DEFAULT_SEED: u64 = 0x6973_6f6d_6f72_3761;
@@ -83,8 +83,8 @@ impl From<IsomorphError> for IsomorphNullError {
     }
 }
 
-impl From<crate::null::RandomBoundError> for IsomorphNullError {
-    fn from(error: crate::null::RandomBoundError) -> Self {
+impl From<crate::nulls::null::RandomBoundError> for IsomorphNullError {
+    fn from(error: crate::nulls::null::RandomBoundError) -> Self {
         Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
@@ -299,7 +299,7 @@ pub fn run_isomorph_null(
     let order = orders::accepted_honeycomb_order();
     let keys: Vec<&'static str> = grids
         .iter()
-        .map(crate::orders::GlyphGrid::message_key)
+        .map(crate::analysis::orders::GlyphGrid::message_key)
         .collect();
     let message_values = read_corpus_message_values(&grids, order)?;
     report_from_message_values(config, order, &keys, &message_values)
@@ -449,9 +449,9 @@ fn summarize_window(
 #[cfg(test)]
 mod tests {
     use super::{IsomorphNullConfig, report_from_message_values, run_isomorph_null};
-    use crate::null::SplitMix64;
-    use crate::orders;
-    use crate::trigram::TrigramValue;
+    use crate::analysis::orders;
+    use crate::core::trigram::TrigramValue;
+    use crate::nulls::null::SplitMix64;
 
     #[test]
     fn isomorph_null_is_reproducible_for_fixed_seed() {

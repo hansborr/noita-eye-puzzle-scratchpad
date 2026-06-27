@@ -13,15 +13,15 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
-use crate::analysis;
-use crate::glyph::Glyph;
-use crate::null::{F64Band, SplitMix64, f64_band};
-use crate::orders::{
+use crate::analysis::analysis;
+use crate::analysis::orders::{
     self, GlyphGrid, GridError, ReadingOrder, count_message_lag_comparisons,
     count_message_lag_matches, glyph_messages_from_values, read_corpus_message_values,
 };
+use crate::core::glyph::Glyph;
+use crate::core::trigram::TrigramValue;
+use crate::nulls::null::{F64Band, SplitMix64, f64_band};
 use crate::report::{self, Report};
-use crate::trigram::TrigramValue;
 
 /// Default maximum candidate Friedman period.
 pub const DEFAULT_MAX_PERIOD: usize = 32;
@@ -1218,7 +1218,7 @@ mod tests {
         PeriodicityConfig, PeriodicityError, accepted_honeycomb_order, report_from_message_values,
         run_periodicity,
     };
-    use crate::trigram::TrigramValue;
+    use crate::core::trigram::TrigramValue;
 
     #[test]
     fn fixed_period_fixture_clears_null_band() {

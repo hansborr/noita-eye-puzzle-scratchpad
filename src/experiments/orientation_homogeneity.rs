@@ -15,11 +15,11 @@
 
 use std::fmt;
 
-use crate::analysis;
-use crate::corpus;
-use crate::generator::{self, ENGINE_MESSAGES};
-use crate::glyph::StorageSymbol;
-use crate::null::{F64Band, SplitMix64, f64_band, fisher_yates};
+use crate::analysis::analysis;
+use crate::core::glyph::StorageSymbol;
+use crate::data::corpus;
+use crate::data::generator::{self, ENGINE_MESSAGES};
+use crate::nulls::null::{F64Band, SplitMix64, f64_band, fisher_yates};
 use crate::report::{self, Report};
 
 /// Number of engine/rendered orientation digits.
@@ -156,8 +156,8 @@ impl fmt::Display for OrientationHomogeneityError {
 
 impl std::error::Error for OrientationHomogeneityError {}
 
-impl From<crate::null::RandomBoundError> for OrientationHomogeneityError {
-    fn from(error: crate::null::RandomBoundError) -> Self {
+impl From<crate::nulls::null::RandomBoundError> for OrientationHomogeneityError {
+    fn from(error: crate::nulls::null::RandomBoundError) -> Self {
         Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
@@ -986,7 +986,7 @@ mod tests {
         homogeneity_statistics, pearson_homogeneity_statistic, positive_control, repartition_table,
         run_orientation_homogeneity,
     };
-    use crate::null::SplitMix64;
+    use crate::nulls::null::SplitMix64;
 
     #[test]
     fn homogeneity_statistics_match_toy_table() {

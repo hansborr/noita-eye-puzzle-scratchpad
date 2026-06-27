@@ -15,24 +15,24 @@ src/attack/gak_attack/solver.rs            1993  # cohesive multi-stage GCTAK/de
 src/attack/gak_attack/generator.rs         647   # synthetic GAK generator; barely over budget, small extraction pending
 src/ciphers/mod.rs                         2675  # candidate-cipher zoo; shrinks further when the key types and group/modular math extract to siblings
 src/ciphers/tests.rs                       992   # extracted candidate-cipher unit tests (exact round-trip controls)
-src/experiments/conditional_structure.rs   2283  # transition/successor-graph experiment; shrinks when the report render and transition/null compute split out
+src/experiments/conditional_structure.rs   2285  # transition/successor-graph experiment; shrinks when the report render and transition/null compute split out
 src/attack/solve/tests.rs                  2040  # extracted solve-pipeline tests (unit + 8 include_str! corpus pipelines); split into tests_unit/tests_pipeline if it grows
 src/analysis/perfect_isomorphism.rs        2056  # Thread-3 perfect-isomorphism scan; shrinks when report/catalog/regression split out
-src/analysis/isomorph_imperfection.rs      1527  # G2 forward isomorph-imperfection falsifier (hardened negative); render + tests extraction pending
+src/analysis/isomorph_imperfection.rs      1529  # G2 forward isomorph-imperfection falsifier (hardened negative); render + tests extraction pending
 src/analysis/leak_ceiling.rs               1236  # G3 isomorph-leak information ceiling; render + tests extraction pending
 src/analysis/chaining_graph.rs             1641  # graph-chaining conflict/coverage audit; mostly compute + positive-control fixtures — shrinks when the report render and null/control compute split out
-src/nulls/dof_null.rs                      1786  # DoF-calibrated null driver; shrinks when report, cell-prep, and tests split out
-src/experiments/pyry_conditions.rs         1767  # Pyry nine-condition falsification harness; shrinks when report/predicates/fixtures split out
-src/attack/cipher_attack.rs                1720  # Experiment-12 attack/null scorer; shrinks when report/search/controls split out
+src/nulls/dof_null.rs                      1789  # DoF-calibrated null driver; shrinks when report, cell-prep, and tests split out
+src/experiments/pyry_conditions.rs         1769  # Pyry nine-condition falsification harness; shrinks when report/predicates/fixtures split out
+src/attack/cipher_attack.rs                1722  # Experiment-12 attack/null scorer; shrinks when report/search/controls split out
 src/nulls/null.rs                          1664  # shared matched-null harness core (other null drivers depend on it); render + tests extraction pending
 src/experiments/controls.rs                1636  # Experiment-11 positive controls; render-heavy — extract the report sibling
 src/experiments/modular_diff.rs            1600  # modular finite-difference fingerprint; render-heavy — extract the report sibling
 src/analysis/grouping.rs                   1511  # Experiment-8 base-N grouping; render-heavy — extract the report sibling
-src/main.rs                                2107  # CLI dispatch + clap arg structs; shrinks when split into a bin-local cli/ module tree
+src/main.rs                                2118  # CLI dispatch + clap arg structs; shrinks when split into a bin-local cli/ module tree
 src/analysis/orders.rs                     1340  # reading-order machinery; render + tests extraction pending
 src/experiments/periodicity.rs             1322  # Experiment-5A periodicity/autocorrelation/Kasiski; render-heavy — extract the report sibling
 src/nulls/perseus.rs                       1316  # Experiment-7C shared-region recurrence null; render + tests extraction pending
-src/analysis/honeycomb.rs                  1292  # fixed-order 2-D honeycomb lattice test; render-heavy — extract the report sibling
+src/analysis/honeycomb.rs                  1294  # fixed-order 2-D honeycomb lattice test; render-heavy — extract the report sibling
 src/analysis/chaining.rs                   1242  # Experiment-7B alphabet-chaining signatures; render-heavy — extract the report sibling
 src/nulls/tree_residual.rs                 1226  # tree-residual cross-tail n-gram null; render + tests extraction pending
 src/attack/agl_gak.rs                      1208  # Thread-2 AGL(1,83)-GAK stress test; render + compute extraction pending
@@ -41,6 +41,6 @@ src/nulls/pipeline_null.rs                 684   # Experiment-2 pipeline null; b
 src/nulls/zero_adjacency_null.rs           848   # Experiment-7D zero-adjacency null (the one positive result); render + tests extraction pending
 src/attack/codec.rs                        1134  # codec transduction layer feeding the solve search; ~37% inline tests — extract the tests sibling
 src/attack/keystream.rs                    1360  # polyalphabetic keystream cracker; shrinks when cipher/search/record + tests split out
-src/attack/ragbaby.rs                      1736  # general Ragbaby keyed-alphabet cracker; shrinks when cipher/search/record + tests split out
+src/attack/ragbaby.rs                      1744  # general Ragbaby keyed-alphabet cracker; shrinks when cipher/search/record + tests split out
 src/attack/language.rs                     618   # English/Finnish n-gram scorer; barely over — extract the tests sibling
 src/core/ingest.rs                         610   # external-ciphertext ingest; barely over — extract the tests sibling, trim under 600 next

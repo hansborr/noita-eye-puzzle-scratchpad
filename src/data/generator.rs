@@ -9,21 +9,21 @@
 //! and `-1` is an unused control value that never occurs in the authored corpus.
 //!
 //! This is the *storage* layer and is kept deliberately separate from the base-5
-//! [`crate::trigram`] *reading* layer (see [`crate::glyph::StorageSymbol`] vs
-//! [`crate::glyph::Orientation`]). The decoder here is an independent
+//! [`crate::core::trigram`] *reading* layer (see [`crate::core::glyph::StorageSymbol`] vs
+//! [`crate::core::glyph::Orientation`]). The decoder here is an independent
 //! re-implementation of the same algorithm the `corpus` integrity test uses; the
 //! two agreeing byte-for-byte on all nine messages is the cross-check.
 //!
 //! It underpins Experiment 2 (generation-pipeline artifact test): feeding
 //! structure-matched random integers through this exact decode lets
-//! [`crate::pipeline_null`] ask whether the eyes' reading-layer structure is a
+//! [`crate::nulls::pipeline_null`] ask whether the eyes' reading-layer structure is a
 //! by-product of base-7 expansion rather than of the specific authored values.
 
-use crate::glyph::{Orientation, StorageSymbol};
+use crate::core::glyph::{Orientation, StorageSymbol};
 
 /// Verified engine `[u32, u32]` pairs (low, high) per message, vendored from
 /// Xkeeper0's transcoder. Cross-validated against the parsed PHP fixture and the
-/// rendered [`crate::corpus`] byte-for-byte in tests.
+/// rendered [`crate::data::corpus`] byte-for-byte in tests.
 #[allow(
     clippy::unreadable_literal,
     reason = "vendored engine pairs stay visually comparable to the source fixture"
@@ -303,8 +303,8 @@ mod tests {
     use super::{
         ENGINE_MESSAGES, decode_message, decode_pair, engine_pair_lengths, storage_orientation,
     };
-    use crate::corpus::messages;
-    use crate::glyph::Orientation;
+    use crate::core::glyph::Orientation;
+    use crate::data::corpus::messages;
 
     const XK_EYE: &str = include_str!("../../research/data/eye-messages/xk_eye.php");
 

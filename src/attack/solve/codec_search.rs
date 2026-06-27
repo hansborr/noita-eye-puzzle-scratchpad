@@ -209,6 +209,6 @@ pub(super) fn enumeration_null_mean(
             trials.push(best);
         }
     }
-    let stats = crate::heldout::matched_null_stats(&trials);
+    let stats = crate::nulls::heldout::matched_null_stats(&trials);
     Ok((stats.full_mean, stats.heldout_mean))
 }

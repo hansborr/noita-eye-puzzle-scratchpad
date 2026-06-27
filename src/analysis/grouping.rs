@@ -12,15 +12,15 @@
 
 use std::fmt;
 
-use crate::analysis;
-use crate::generator::{self, ENGINE_MESSAGES};
-use crate::glyph::{Glyph, Orientation};
-use crate::isomorph::{self, IsomorphError};
-use crate::language::{self, LanguageError, LanguageModel};
-use crate::null::{SplitMix64, random_index_below};
-use crate::orders::{self, GridError, ReadingOrder};
+use crate::analysis::analysis;
+use crate::analysis::isomorph::{self, IsomorphError};
+use crate::analysis::orders::{self, GridError, ReadingOrder};
+use crate::attack::language::{self, LanguageError, LanguageModel};
+use crate::core::glyph::{Glyph, Orientation};
+use crate::core::trigram::TrigramValue;
+use crate::data::generator::{self, ENGINE_MESSAGES};
+use crate::nulls::null::{SplitMix64, random_index_below};
 use crate::report::{self, Report};
-use crate::trigram::TrigramValue;
 
 const ORIENTATION_BASE: usize = 5;
 const STORAGE_BASE: usize = 7;
@@ -113,8 +113,8 @@ impl From<IsomorphError> for GroupingError {
     }
 }
 
-impl From<crate::null::RandomBoundError> for GroupingError {
-    fn from(error: crate::null::RandomBoundError) -> Self {
+impl From<crate::nulls::null::RandomBoundError> for GroupingError {
+    fn from(error: crate::nulls::null::RandomBoundError) -> Self {
         Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
@@ -1369,8 +1369,8 @@ mod tests {
         CALIBRATION_STATES, GroupingAxis, calibrate_state_count, run_experiment8,
         synthetic_state_messages,
     };
-    use crate::analysis;
-    use crate::null::SplitMix64;
+    use crate::analysis::analysis;
+    use crate::nulls::null::SplitMix64;
 
     fn grouping(report: &super::Experiment8Report, axis: GroupingAxis) -> &super::GroupingRow {
         report

@@ -4,11 +4,11 @@ use super::{
     initial_state_readout, phrase_chain_links, run_gak_attack, solve_gctak,
     truth_letter_permutations, verify_against_chain_links,
 };
-use crate::chaining_graph::{
+use crate::analysis::chaining_graph::{
     AlignedOccurrence, ChainLink, ContextId, SymbolValue, chain_links_for_pair,
 };
 use crate::ciphers::{gak_decrypt, gak_encrypt};
-use crate::glyph::Glyph;
+use crate::core::glyph::Glyph;
 
 fn cyclic(order: usize) -> GroupKind {
     GroupKind::Cyclic { order }
@@ -38,7 +38,7 @@ fn generator_round_trips_for_both_group_kinds() {
 
 #[test]
 fn ciphertext_is_isomorph_rich_on_repeated_phrases() {
-    use crate::isomorph::PatternSignature;
+    use crate::analysis::isomorph::PatternSignature;
     let config = GakAttackConfig::default();
     let fixture = generate_fixture(cyclic(6), config, 7).unwrap();
     let values = glyphs_to_values(&fixture.ciphertext).unwrap();
@@ -106,7 +106,7 @@ fn gctak_solver_recovers_dihedral_non_commutative_at_high_rate() {
 
 #[test]
 fn shuffled_ciphertext_does_not_recover_exactly() {
-    use crate::null::{SplitMix64, fisher_yates};
+    use crate::nulls::null::{SplitMix64, fisher_yates};
     let config = GakAttackConfig::default();
     let mut null_recoveries = 0usize;
     let mut trials = 0usize;
@@ -145,7 +145,7 @@ fn shuffled_ciphertext_does_not_recover_exactly() {
 
 #[test]
 fn chain_links_match_shared_chaining_graph_primitive() {
-    use crate::isomorph::PatternSignature;
+    use crate::analysis::isomorph::PatternSignature;
     // Prove the chain links genuinely come from chaining_graph::
     // chain_links_for_pair, not a private reimplementation: rebuild one pair's
     // links directly and assert they appear in the solver's link set.
@@ -330,7 +330,7 @@ fn small_support_knob_perturbs_a_permutation() {
     // representation), and non-zero radius is reserved for later
     // deck/non-trivial-H units.
     use super::apply_small_support;
-    use crate::null::SplitMix64;
+    use crate::nulls::null::SplitMix64;
     let base: Vec<usize> = (0..8).collect();
     let mut perturbed = base.clone();
     let mut rng = SplitMix64::new(0x73_6d61_6c6c_7370);
@@ -360,7 +360,7 @@ fn round_trip_holds_for_generated_gate_fixtures() {
 
 #[test]
 fn chain_links_are_load_bearing_corruption_breaks_recovery() {
-    use crate::null::{SplitMix64, fisher_yates};
+    use crate::nulls::null::{SplitMix64, fisher_yates};
     // F2: prove the chain links genuinely gate recovery — corrupting the
     // chain-link output must break the verification, so they are not tokenistic.
     let config = GakAttackConfig::default();
@@ -778,7 +778,7 @@ fn deck_attack_true_conflict_aborts_on_a_bad_isomorph_assumption() {
     ];
     let values: Vec<SymbolValue> = raw
         .into_iter()
-        .map(|v| crate::trigram::TrigramValue::new(v).unwrap())
+        .map(|v| crate::core::trigram::TrigramValue::new(v).unwrap())
         .collect();
     // Full-window grouping (core_len == window_len) is a partial bijection by
     // construction, so it can NEVER fire — proving the guard was previously
@@ -838,7 +838,7 @@ fn deck_chain_links_are_load_bearing_corruption_breaks_recovery() {
         .iter()
         .map(|v| {
             let bumped = (usize::from(v.get()) + 1) % n;
-            crate::trigram::TrigramValue::new(bumped as u8).unwrap()
+            crate::core::trigram::TrigramValue::new(bumped as u8).unwrap()
         })
         .collect();
     let broken = run_deck_attack(&corrupted, fixture.state_size, config.phrase_len);
@@ -1355,7 +1355,7 @@ use super::{
     eyes_held_out_positive_control, eyes_message_evidence, render_eyes_candidate_record,
     run_gak_attack_eyes, synthetic_isomorph_rich_eye_message,
 };
-use crate::orders;
+use crate::analysis::orders;
 
 /// A fast eyes config that writes records into the scratch dir, with a small
 /// matched-null trial count so the corpus-scale run stays inside `make verify`.

@@ -15,10 +15,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::analysis;
-use crate::corpus::{CorpusError, Message, messages};
-use crate::glyph::{Glyph, Orientation};
-use crate::trigram::{ReadingTrigram, TrigramValue};
+use crate::analysis::analysis;
+use crate::core::glyph::{Glyph, Orientation};
+use crate::core::trigram::{ReadingTrigram, TrigramValue};
+use crate::data::corpus::{CorpusError, Message, messages};
 
 /// Size of the community reading-layer alphabet used by the honeycomb winner.
 pub const READING_LAYER_ALPHABET_SIZE: usize = 83;
@@ -84,10 +84,10 @@ impl GlyphGrid {
         let mut current = Vec::new();
         for symbol in message.rendered_symbols()? {
             match symbol {
-                crate::glyph::RenderedSymbol::Orientation(orientation) => {
+                crate::core::glyph::RenderedSymbol::Orientation(orientation) => {
                     current.push(orientation);
                 }
-                crate::glyph::RenderedSymbol::RowDelimiter => {
+                crate::core::glyph::RenderedSymbol::RowDelimiter => {
                     if current.is_empty() {
                         return Err(GridError::EmptyInteriorRow {
                             message_key: message.key,

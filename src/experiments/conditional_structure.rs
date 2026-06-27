@@ -8,13 +8,15 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
-use crate::null::{
+use crate::analysis::orders::{
+    self, GlyphGrid, GridError, ReadingOrder, read_corpus_message_values,
+};
+use crate::core::trigram::TrigramValue;
+use crate::nulls::null::{
     F64Band, NullSampler, SplitMix64, WithinMessageShuffle, f64_band, fisher_yates,
     random_index_below,
 };
-use crate::orders::{self, GlyphGrid, GridError, ReadingOrder, read_corpus_message_values};
 use crate::report::{self, Report};
-use crate::trigram::TrigramValue;
 
 const ADD_CONSTANT_ALPHA: f64 = 1.0;
 const NO_REPEAT_BURN_IN_SWEEPS: usize = 100;
@@ -154,8 +156,8 @@ impl From<GridError> for ConditionalStructureError {
     }
 }
 
-impl From<crate::null::RandomBoundError> for ConditionalStructureError {
-    fn from(error: crate::null::RandomBoundError) -> Self {
+impl From<crate::nulls::null::RandomBoundError> for ConditionalStructureError {
+    fn from(error: crate::nulls::null::RandomBoundError) -> Self {
         Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
@@ -2069,8 +2071,8 @@ mod tests {
         comparison_from_samples, first_order_stats, planted_controls, report_from_message_values,
         structured_plaintext_messages, trigram_from_index,
     };
-    use crate::orders;
-    use crate::trigram::TrigramValue;
+    use crate::analysis::orders;
+    use crate::core::trigram::TrigramValue;
 
     fn values(raw: &[usize]) -> Vec<TrigramValue> {
         raw.iter()
@@ -2222,7 +2224,7 @@ mod tests {
         let grids = orders::corpus_grids().unwrap();
         let keys = grids
             .iter()
-            .map(crate::orders::GlyphGrid::message_key)
+            .map(crate::analysis::orders::GlyphGrid::message_key)
             .collect::<Vec<_>>();
         let order = orders::accepted_honeycomb_order();
         let messages = orders::read_corpus_message_values(&grids, order).unwrap();

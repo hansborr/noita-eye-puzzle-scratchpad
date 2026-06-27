@@ -9,9 +9,9 @@ use super::{
     incrementing_wheel_decrypt, incrementing_wheel_encrypt, transposition_decrypt,
     transposition_encrypt, vigenere_decrypt, vigenere_encrypt,
 };
-use crate::glyph::Glyph;
-use crate::isomorph::PatternSignature;
-use crate::null::SplitMix64;
+use crate::analysis::isomorph::PatternSignature;
+use crate::core::glyph::Glyph;
+use crate::nulls::null::SplitMix64;
 
 #[test]
 fn identity_cipher_passes_through_and_trait_matches_free_functions() {

@@ -5,9 +5,9 @@
 //! shifted along `K` by a position-dependent **key number** `N_i` derived from the
 //! word structure of the text, then read back off `K`. The unknown this module
 //! recovers is the keyed alphabet itself, found by a strong simulated-annealing
-//! optimizer scored against the bundled [`crate::quadgram`] English model.
+//! optimizer scored against the bundled [`crate::attack::quadgram`] English model.
 //!
-//! It is the keyed-alphabet analogue of [`crate::keystream`]: it searches and
+//! It is the keyed-alphabet analogue of [`crate::attack::keystream`]: it searches and
 //! scores hypotheses, gates them against a matched null and a held-out fold, and
 //! reports an explicit **honest negative** when nothing survives — the expected
 //! outcome on the practice puzzles. Crucially it ships with a **positive control**
@@ -54,14 +54,14 @@
 //! The matched null shares the search's degrees of freedom, so it measures exactly
 //! what the keyed-alphabet search extracts from noise. A random-keyed-alphabet null
 //! is reported as a diagnostic only — Ragbaby has no key-independence leak for it to
-//! police (unlike ciphertext-autokey in [`crate::keystream`]).
+//! police (unlike ciphertext-autokey in [`crate::attack::keystream`]).
 
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::null::{SplitMix64, fisher_yates, mix_seed};
-use crate::quadgram::{QuadgramError, QuadgramModel};
+use crate::attack::quadgram::{QuadgramError, QuadgramModel};
+use crate::nulls::null::{SplitMix64, fisher_yates, mix_seed};
 
 /// Minimum z-score (best score above the matched-null mean, in null standard
 /// deviations) required to clear the survival gate, on the quadgram mean-log scale.
@@ -537,7 +537,7 @@ impl AnnealSchedule {
 }
 
 /// A `[0, 1)` uniform draw from the high 53 bits of a `SplitMix64` output (mirrors
-/// [`crate::keystream`]'s Metropolis sampler).
+/// [`crate::attack::keystream`]'s Metropolis sampler).
 fn uniform01(rng: &mut SplitMix64) -> f64 {
     (rng.next_u64() >> 11) as f64 / ((1u64 << 53) as f64)
 }
@@ -702,7 +702,7 @@ impl RagbabySearch<'_> {
 }
 
 /// Runs the anneal once from a fresh `SplitMix64` seeded by `cfg.seed` (mirrors
-/// [`crate::keystream`]'s `search`).
+/// [`crate::attack::keystream`]'s `search`).
 fn search(ctx: &RagbabySearch, cfg: &RagbabySearchConfig) -> (Vec<usize>, f64) {
     let mut rng = SplitMix64::new(cfg.seed);
     ctx.run(cfg, &mut rng)
@@ -888,7 +888,7 @@ fn random_key_null(
 /// English, so its absolute quadgram score is low; comparing it to the full-stream
 /// mean (as an earlier version did) falsely fails even a perfect decode.
 fn heldout_fold_score(decrypt: &[usize], model: &QuadgramModel) -> f64 {
-    model.score_indices(&crate::heldout::odd_index_fold(decrypt))
+    model.score_indices(&crate::nulls::heldout::odd_index_fold(decrypt))
 }
 
 /// Matched null: reruns the identical search on Fisher–Yates-shuffled cipher
@@ -904,7 +904,7 @@ fn matched_null(
         return (0.0, 0.0, 0.0);
     }
     // Per-trial (full-stream score, held-out odd-index fold score) pairs, aggregated
-    // by the shared [`crate::heldout::matched_null_stats`] (de-dups the full mean/std
+    // by the shared [`crate::nulls::heldout::matched_null_stats`] (de-dups the full mean/std
     // + held-out mean shared with keystream and solve).
     let mut trials: Vec<(f64, f64)> = Vec::with_capacity(cfg.matched_null_trials);
     for trial in 0..cfg.matched_null_trials {
@@ -939,7 +939,7 @@ fn matched_null(
             heldout_fold_score(&decrypt, model),
         ));
     }
-    let stats = crate::heldout::matched_null_stats(&trials);
+    let stats = crate::nulls::heldout::matched_null_stats(&trials);
     (stats.full_mean, stats.full_std, stats.heldout_mean)
 }
 
@@ -1146,7 +1146,7 @@ fn summarize_control(length: usize, base: usize, accs: &[f64]) -> ControlPoint {
     };
     let mut sorted = accs.to_vec();
     sorted.sort_by(f64::total_cmp);
-    let median_acc = crate::null::median_f64(&sorted);
+    let median_acc = crate::nulls::null::median_f64(&sorted);
     let mean_acc = if trials == 0 {
         0.0
     } else {
@@ -1236,7 +1236,7 @@ fn record_filename(label: &str, candidate: &RagbabyCandidate, seed: u64) -> Stri
 }
 
 /// Renders the candidate-record markdown body (pure; testable without the
-/// filesystem). Reproduces [`crate::solve::SOLVE_CLAIM_CEILING`] verbatim so no
+/// filesystem). Reproduces [`crate::attack::solve::SOLVE_CLAIM_CEILING`] verbatim so no
 /// record can make a stronger claim than the solve pipeline.
 fn render_record(
     label: &str,
@@ -1266,7 +1266,7 @@ fn render_record(
     writeln!(out)?;
     writeln!(out, "## Claim ceiling (absolute)")?;
     writeln!(out)?;
-    writeln!(out, "{}", crate::solve::SOLVE_CLAIM_CEILING)?;
+    writeln!(out, "{}", crate::attack::solve::SOLVE_CLAIM_CEILING)?;
     writeln!(
         out,
         "Nothing in this record is stronger. A clean honest negative is a SUCCESS."
@@ -1347,8 +1347,8 @@ mod tests {
         decrypt_str, encrypt_indices, encrypt_str, keep_for_base, key_numbers, prepare,
         random_keyed_alphabet, write_ragbaby_record,
     };
-    use crate::null::SplitMix64;
-    use crate::quadgram::QuadgramModel;
+    use crate::attack::quadgram::QuadgramModel;
+    use crate::nulls::null::SplitMix64;
 
     // The worked-example keyed alphabet pinning the ACA std-numbering convention.
     const WORKED_KEY: &str = "CRYPTOABDEFGHIJKLMNQSUVWXZ";
@@ -1623,7 +1623,11 @@ mod tests {
                 ..RagbabySearchConfig::default()
             },
         };
-        let points = control_sweep(crate::quadgram::ENGLISH_CORPUS_LARGE, &control, &model);
+        let points = control_sweep(
+            crate::attack::quadgram::ENGLISH_CORPUS_LARGE,
+            &control,
+            &model,
+        );
         assert_eq!(points.len(), 4, "one point per (length, base) cell");
         for point in &points {
             assert!(control.lengths.contains(&point.length));
@@ -1658,7 +1662,11 @@ mod tests {
                 ..RagbabySearchConfig::default()
             },
         };
-        let points = control_sweep(crate::quadgram::ENGLISH_CORPUS_LARGE, &control, &model);
+        let points = control_sweep(
+            crate::attack::quadgram::ENGLISH_CORPUS_LARGE,
+            &control,
+            &model,
+        );
         let point = points.first().copied().unwrap();
         assert!(
             point.median_acc >= 0.9,
@@ -1728,7 +1736,7 @@ mod tests {
         let _removed = std::fs::remove_dir_all(&dir);
         let path = write_ragbaby_record(&dir, "unit", 0x1234, &candidate).unwrap();
         let body = std::fs::read_to_string(&path).unwrap();
-        assert!(body.contains(crate::solve::SOLVE_CLAIM_CEILING));
+        assert!(body.contains(crate::attack::solve::SOLVE_CLAIM_CEILING));
         assert!(body.contains("HYPOTHESIS, NOT a decode"));
         assert!(body.contains("base=26"));
         let _cleanup = std::fs::remove_dir_all(&dir);

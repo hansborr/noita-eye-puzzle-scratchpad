@@ -3,23 +3,23 @@
 //! The null used here resamples rendered grid contents only: each cell in the
 //! verified row-width structure is drawn uniformly from orientation digits
 //! `0..=4`, and every synthetic corpus is searched over the same
-//! [`crate::orders::standard36_orders`] digit-permutation family used by the
+//! [`crate::analysis::orders::standard36_orders`] digit-permutation family used by the
 //! Stage A reading-order audit.
 //!
 //! This corrects for grid-content randomness plus selection among the 36 fixed
 //! digit permutations. It does **not** correct for broader post-hoc researcher
 //! degrees of freedom such as the choice of honeycomb traversal family, trigram
 //! grouping rule, or which statistic to headline. For that broader calibrated
-//! adaptive correction, see [`crate::dof_null`].
+//! adaptive correction, see [`crate::nulls::dof_null`].
 
 use std::fmt;
 
-use crate::glyph::Orientation;
-use crate::orders::{
+use crate::analysis::orders::{
     GlyphGrid, GridError, corpus_grids, read_corpus_message_values, standard36_orders,
 };
+use crate::core::glyph::Orientation;
+use crate::core::trigram::TrigramValue;
 use crate::report::{self, Report};
-use crate::trigram::TrigramValue;
 
 const TRIGRAM_ALPHABET_SIZE: f64 = 125.0;
 const HEADLINE_ALPHABET_SIZE: f64 = 83.0;
@@ -28,7 +28,7 @@ const WILSON_Z_95: f64 = 1.959_963_984_540_054;
 /// Deterministic in-crate `SplitMix64` pseudo-random number generator.
 ///
 /// ```
-/// use noita_eye_puzzle::null::SplitMix64;
+/// use noita_eye_puzzle::nulls::null::SplitMix64;
 ///
 /// // The stream depends only on the seed, so two generators built from the
 /// // same seed agree step-for-step — the property the locked null models rely on.
@@ -198,7 +198,7 @@ impl NullConfig {
     /// Validates that the configuration can drive a Monte-Carlo null run.
     ///
     /// Both the standard-36 null ([`run_standard36_null`]) and the base-7
-    /// pipeline null ([`crate::pipeline_null::run_pipeline_null`]) consume this
+    /// pipeline null ([`crate::nulls::pipeline_null::run_pipeline_null`]) consume this
     /// config. With zero trials every reported rate would be a degenerate
     /// `0/0` (and the Wilson intervals collapse to `0..0`), so those run
     /// functions reject that input internally (surfacing
@@ -219,7 +219,7 @@ impl NullConfig {
 ///
 /// Bundles the configuration rejection ([`NullConfigError`]) and the corpus
 /// reconstruction failure ([`GridError`]) so [`run_standard36_null`] and
-/// [`crate::pipeline_null::run_pipeline_null`] enforce the zero-trials invariant
+/// [`crate::nulls::pipeline_null::run_pipeline_null`] enforce the zero-trials invariant
 /// in the library — matching every sibling null module — instead of relying on
 /// each caller to pre-validate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -432,7 +432,7 @@ pub fn run_standard36_null(config: NullConfig) -> Result<NullReport, NullRunErro
 /// `generate` receives the verified corpus grids (as width templates) plus the
 /// shared deterministic PRNG and must return one synthetic corpus per call. This
 /// lets alternative nulls — for example the base-7 pipeline null in
-/// [`crate::pipeline_null`] — reuse the identical reading-order statistics and
+/// [`crate::nulls::pipeline_null`] — reuse the identical reading-order statistics and
 /// report shape while varying only how synthetic cells are produced.
 ///
 /// # Errors
@@ -555,7 +555,7 @@ pub fn random_orientation_grids_like(
 
 fn evaluate_trial(
     grids: &[GlyphGrid],
-    orders: &[crate::orders::ReadingOrder],
+    orders: &[crate::analysis::orders::ReadingOrder],
 ) -> Result<TrialOutcome, GridError> {
     let mut headline_0_to_82 = false;
     let mut min_distinct = usize::MAX;
@@ -1207,7 +1207,7 @@ mod tests {
         analytic_headline_bounds, evaluate_trial, mix_seed, run_standard36_null,
         stateless_splitmix, wilson_95,
     };
-    use crate::orders::{corpus_grids, standard36_orders};
+    use crate::analysis::orders::{corpus_grids, standard36_orders};
 
     const STABILITY_SEEDS: [u64; 5] = [12_345, 67_890, 13_579, 24_680, 424_242];
     const FLOAT_RELATIVE_EPSILON: f64 = 1.0e-12;

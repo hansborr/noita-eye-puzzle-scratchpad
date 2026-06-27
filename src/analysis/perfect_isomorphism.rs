@@ -8,14 +8,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt;
 
-use crate::isomorph::{IsomorphError, PatternSignature};
-use crate::null::{
+use crate::analysis::isomorph::{IsomorphError, PatternSignature};
+use crate::analysis::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
+use crate::core::trigram::TrigramValue;
+use crate::nulls::null::{
     SplitMix64, add_one_p_value, fisher_yates, median_usize, mix_seed, scaled_quantile_index,
     stateless_splitmix,
 };
-use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::report::{self, Report};
-use crate::trigram::TrigramValue;
 
 /// Default deterministic seed for the internal-violation null and sampling.
 pub const DEFAULT_SEED: u64 = 0x7065_7266_6973_6f00;
@@ -110,8 +110,8 @@ impl From<GridError> for PerfectIsomorphismError {
     }
 }
 
-impl From<crate::null::RandomBoundError> for PerfectIsomorphismError {
-    fn from(error: crate::null::RandomBoundError) -> Self {
+impl From<crate::nulls::null::RandomBoundError> for PerfectIsomorphismError {
+    fn from(error: crate::nulls::null::RandomBoundError) -> Self {
         Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
@@ -662,7 +662,7 @@ pub fn run_perfect_isomorphism(
     let grids = orders::corpus_grids()?;
     let keys = grids
         .iter()
-        .map(crate::orders::GlyphGrid::message_key)
+        .map(crate::analysis::orders::GlyphGrid::message_key)
         .collect::<Vec<_>>();
     let order = orders::accepted_honeycomb_order();
     let message_values = read_corpus_message_values(&grids, order)?;
@@ -1920,7 +1920,7 @@ mod tests {
         ALPHABET_SIZE, BreakClass, PerfectIsomorphismConfig, WikiRegressionCheck,
         report_from_message_values, run_perfect_isomorphism, synthetic_internal_violation_fires,
     };
-    use crate::orders;
+    use crate::analysis::orders;
 
     #[test]
     fn perfect_isomorphism_run_is_deterministic_for_fixed_seed() {
@@ -2031,7 +2031,7 @@ mod tests {
         let grids = orders::corpus_grids().unwrap();
         let keys = grids
             .iter()
-            .map(crate::orders::GlyphGrid::message_key)
+            .map(crate::analysis::orders::GlyphGrid::message_key)
             .collect::<Vec<_>>();
         let order = orders::accepted_honeycomb_order();
         let message_values = orders::read_corpus_message_values(&grids, order).unwrap();
@@ -2046,10 +2046,10 @@ mod tests {
         assert_eq!(report.robust_internal_violations, 0);
     }
 
-    fn values(raw: &[u8]) -> Vec<crate::trigram::TrigramValue> {
+    fn values(raw: &[u8]) -> Vec<crate::core::trigram::TrigramValue> {
         raw.iter()
             .copied()
-            .map(crate::trigram::TrigramValue::new)
+            .map(crate::core::trigram::TrigramValue::new)
             .map(Result::unwrap)
             .collect()
     }

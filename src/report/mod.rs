@@ -4,8 +4,8 @@
 //! the experiment engines. They render already-computed domain reports and
 //! convert domain errors into user-facing CLI text.
 
-use crate::glyph::Sequence;
-use crate::{analysis, orders};
+use crate::analysis::{analysis, orders};
+use crate::core::glyph::Sequence;
 
 /// A domain report that can render itself to user-facing CLI text.
 pub trait Report {

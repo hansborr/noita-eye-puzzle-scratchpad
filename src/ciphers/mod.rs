@@ -15,7 +15,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
-use crate::glyph::Glyph;
+use crate::core::glyph::Glyph;
 
 /// Alphabet size of the accepted eye reading layer, values `0..=82`.
 pub const EYE_READING_ALPHABET_SIZE: usize = 83;

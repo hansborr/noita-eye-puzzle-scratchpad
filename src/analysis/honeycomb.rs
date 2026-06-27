@@ -4,7 +4,7 @@
 //! and asks whether the physical row-pair lattice carries structure beyond the
 //! one-dimensional stream. Each emitted trigram is tagged with its row-pair
 //! band, its position inside that band, and the interlocking-triangle parity
-//! from the same row-pair geometry used by [`crate::orders`].
+//! from the same row-pair geometry used by [`crate::analysis::orders`].
 //!
 //! The null preserves the verified row widths, fills rendered cells uniformly
 //! from orientation digits `0..=4`, and reuses the fixed accepted honeycomb
@@ -12,12 +12,14 @@
 
 use std::fmt;
 
-use crate::analysis;
-use crate::glyph::{Glyph, Orientation};
-use crate::null::{SplitMix64, median_f64, random_orientation_grids_like, scaled_quantile_index};
-use crate::orders::{self, GlyphGrid, GridError, ReadingOrder, TrigramPermutation};
+use crate::analysis::analysis;
+use crate::analysis::orders::{self, GlyphGrid, GridError, ReadingOrder, TrigramPermutation};
+use crate::core::glyph::{Glyph, Orientation};
+use crate::core::trigram::{ReadingTrigram, TrigramValue};
+use crate::nulls::null::{
+    SplitMix64, median_f64, random_orientation_grids_like, scaled_quantile_index,
+};
 use crate::report::{self, Report};
-use crate::trigram::{ReadingTrigram, TrigramValue};
 
 /// Default deterministic Monte-Carlo seed for the honeycomb lattice null.
 pub const DEFAULT_SEED: u64 = 0x686f_6e65_7963_6f6d;
@@ -74,9 +76,9 @@ impl std::error::Error for HoneycombError {}
 /// Interlocking-triangle branch inside one honeycomb row-pair walk.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum HoneycombParity {
-    /// First branch in [`crate::orders`] row-pair geometry.
+    /// First branch in [`crate::analysis::orders`] row-pair geometry.
     Upper,
-    /// Second branch in [`crate::orders`] row-pair geometry.
+    /// Second branch in [`crate::analysis::orders`] row-pair geometry.
     Lower,
 }
 
@@ -1065,9 +1067,9 @@ mod tests {
         HoneycombCoordinate, HoneycombParity, LatticeTrigram, MessageLattice, RowPair,
         chi_square_independence, lattice_for_grid, read_lattice_row_pair, stats_for_lattices,
     };
-    use crate::glyph::Orientation;
-    use crate::orders::{self, GlyphGrid};
-    use crate::trigram::TrigramValue;
+    use crate::analysis::orders::{self, GlyphGrid};
+    use crate::core::glyph::Orientation;
+    use crate::core::trigram::TrigramValue;
 
     const FLOAT_EPSILON: f64 = 1.0e-12;
 
@@ -1126,8 +1128,8 @@ mod tests {
                 lower_row: 1,
                 band: 0,
             },
-            crate::orders::TrigramPermutation::IDENTITY,
-            crate::orders::TrigramPermutation::IDENTITY,
+            crate::analysis::orders::TrigramPermutation::IDENTITY,
+            crate::analysis::orders::TrigramPermutation::IDENTITY,
             &mut sequence_index,
         )
         .unwrap();

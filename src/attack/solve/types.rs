@@ -17,7 +17,7 @@ pub const SEARCH_BEATS_NULL_MARGIN: f64 = 0.15;
 /// A direct symbol-to-language-index mapping.
 ///
 /// The table domain is the transduced cipher alphabet: entry `i` gives the
-/// target [`crate::language::LanguageAlphabet`] index for cipher symbol `i`.
+/// target [`crate::attack::language::LanguageAlphabet`] index for cipher symbol `i`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Mapping {
     table: Vec<usize>,
@@ -389,8 +389,8 @@ impl From<IngestError> for SolveError {
     }
 }
 
-impl From<crate::null::RandomBoundError> for SolveError {
-    fn from(error: crate::null::RandomBoundError) -> Self {
+impl From<crate::nulls::null::RandomBoundError> for SolveError {
+    fn from(error: crate::nulls::null::RandomBoundError) -> Self {
         Self::RandomBoundTooLarge { bound: error.bound }
     }
 }

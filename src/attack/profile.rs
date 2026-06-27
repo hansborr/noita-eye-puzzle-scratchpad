@@ -19,9 +19,9 @@
 //!
 //! # `IoC` reuse and the per-period convention
 //!
-//! The whole-stream and per-word `IoC` reuse [`crate::analysis::index_of_coincidence`]
+//! The whole-stream and per-word `IoC` reuse [`crate::analysis::analysis::index_of_coincidence`]
 //! by mapping each letter `A..=Z` to a [`Glyph`] index `0..=25`. The per-period
-//! statistic reuses [`crate::analysis::message_weighted_index_of_coincidence`],
+//! statistic reuses [`crate::analysis::analysis::message_weighted_index_of_coincidence`],
 //! treating each of the `P` columns as a "message": the columns' coincidence
 //! counts are pooled by pair count (equivalently, each column's `IoC` is averaged
 //! weighted by its number of letter pairs). This pair-count-weighted pooling is
@@ -35,9 +35,9 @@
 
 use std::collections::HashMap;
 
-use crate::analysis::{index_of_coincidence, message_weighted_index_of_coincidence};
-use crate::glyph::Glyph;
-use crate::keystream::{PracticePuzzle, practice_puzzle_text};
+use crate::analysis::analysis::{index_of_coincidence, message_weighted_index_of_coincidence};
+use crate::attack::keystream::{PracticePuzzle, practice_puzzle_text};
+use crate::core::glyph::Glyph;
 
 /// Index of coincidence of English letter frequencies (the monoalphabetic
 /// reference): two random letters of English prose collide with probability

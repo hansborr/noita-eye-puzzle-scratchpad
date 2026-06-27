@@ -5,23 +5,23 @@
 //! and the right-coset transitivity premise from
 //! `eye-messages.wiki/Proof-that-GAK-is-transitive.md` and
 //! `The-Transitivity-Restriction-(6-Groups-for-83).md`. It consumes the
-//! chain-link primitive from [`crate::chaining_graph`] and stays strictly at the
+//! chain-link primitive from [`crate::analysis::chaining_graph`] and stays strictly at the
 //! ciphertext-equality / group-structure layer.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
-use crate::chaining_graph::{
+use crate::analysis::chaining_graph::{
     ChainLink, ChainingConflict, ChainingGraphConfig, ChainingGraphError, ConflictCatalogue,
     ContextId, DEFAULT_CORE_LEN, DEFAULT_WINDOW_LEN, SymbolValue, compute_graph, find_context,
 };
-use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
+use crate::analysis::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::report::{self, Report};
 
 /// Default deterministic seed for the transitivity audit.
 pub const DEFAULT_SEED: u64 = 0x7472_616e_7369_7431;
 /// Default matched-null trial count delegated to the chaining-graph gate.
-pub const DEFAULT_TRIALS: usize = crate::chaining_graph::DEFAULT_TRIALS;
+pub const DEFAULT_TRIALS: usize = crate::analysis::chaining_graph::DEFAULT_TRIALS;
 
 const WIKI_MSG1_MESSAGE: usize = 1;
 const WIKI_MSG1_START: usize = 40;
@@ -103,8 +103,8 @@ impl From<ChainingGraphError> for TransitivityError {
     }
 }
 
-impl From<crate::null::RandomBoundError> for TransitivityError {
-    fn from(error: crate::null::RandomBoundError) -> Self {
+impl From<crate::nulls::null::RandomBoundError> for TransitivityError {
+    fn from(error: crate::nulls::null::RandomBoundError) -> Self {
         Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
@@ -272,7 +272,7 @@ pub fn run_transitivity(
         trials: config.trials,
         ..ChainingGraphConfig::default()
     };
-    let chaining_report = crate::chaining_graph::run_chaining_graph(chaining_config)?;
+    let chaining_report = crate::analysis::chaining_graph::run_chaining_graph(chaining_config)?;
 
     let grids = orders::corpus_grids()?;
     let order = orders::accepted_honeycomb_order();
@@ -294,7 +294,7 @@ pub fn run_transitivity(
 
 fn dihedral_verdict(
     message_values: &[Vec<SymbolValue>],
-    graph: &crate::chaining_graph::GraphComputation,
+    graph: &crate::analysis::chaining_graph::GraphComputation,
     witnesses: &[ExclusionWitness],
 ) -> DihedralVerdict {
     if wiki_occurrences(message_values).len() < 4 || wiki_contexts(graph).is_none() {
@@ -307,7 +307,7 @@ fn dihedral_verdict(
 }
 
 fn wiki_contexts(
-    graph: &crate::chaining_graph::GraphComputation,
+    graph: &crate::analysis::chaining_graph::GraphComputation,
 ) -> Option<(ContextId, ContextId)> {
     let context_a = find_context(
         &graph.contexts,
@@ -352,7 +352,7 @@ fn gap_signature(window: &[SymbolValue]) -> Vec<usize> {
 }
 
 fn cited_exclusion_witnesses(
-    graph: &crate::chaining_graph::GraphComputation,
+    graph: &crate::analysis::chaining_graph::GraphComputation,
 ) -> Vec<ExclusionWitness> {
     let Some((context_a, context_b)) = wiki_contexts(graph) else {
         return Vec::new();
@@ -509,8 +509,10 @@ mod tests {
         DihedralVerdict, SymbolicOrder, TransitivityConfig, candidate_group_orders,
         candidate_hidden_subgroup_sizes, run_transitivity,
     };
-    use crate::chaining_graph::{ContextId, DEFAULT_CORE_LEN, DEFAULT_WINDOW_LEN, compute_graph};
-    use crate::orders;
+    use crate::analysis::chaining_graph::{
+        ContextId, DEFAULT_CORE_LEN, DEFAULT_WINDOW_LEN, compute_graph,
+    };
+    use crate::analysis::orders;
 
     #[test]
     fn transitivity_is_reproducible_for_fixed_seed() {
@@ -589,7 +591,7 @@ mod tests {
         );
     }
 
-    fn display(value: crate::trigram::TrigramValue) -> char {
+    fn display(value: crate::core::trigram::TrigramValue) -> char {
         char::from_u32(u32::from(value.get()) + 32).unwrap()
     }
 }

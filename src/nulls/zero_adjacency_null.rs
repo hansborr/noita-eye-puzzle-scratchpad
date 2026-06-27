@@ -15,13 +15,13 @@ use core::convert::Infallible;
 use std::collections::BTreeMap;
 use std::fmt;
 
-use crate::null::{
+use crate::analysis::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
+use crate::core::trigram::TrigramValue;
+use crate::nulls::null::{
     NullTestError, SplitMix64, UsizeBand, WithinMessageShuffle, add_one_p_value, fisher_yates,
     run_null_test_streams, usize_band,
 };
-use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::report::{self, Report};
-use crate::trigram::TrigramValue;
 
 /// Default deterministic base seed for the zero-adjacency null.
 pub const DEFAULT_SEED: u64 = 0x7a65_726f_6164_6a00;
@@ -92,8 +92,8 @@ impl From<GridError> for ZeroAdjacencyNullError {
     }
 }
 
-impl From<crate::null::RandomBoundError> for ZeroAdjacencyNullError {
-    fn from(error: crate::null::RandomBoundError) -> Self {
+impl From<crate::nulls::null::RandomBoundError> for ZeroAdjacencyNullError {
+    fn from(error: crate::nulls::null::RandomBoundError) -> Self {
         Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
@@ -446,7 +446,7 @@ pub fn run_zero_adjacency_null(
     let grids = orders::corpus_grids()?;
     let keys: Vec<&'static str> = grids
         .iter()
-        .map(crate::orders::GlyphGrid::message_key)
+        .map(crate::analysis::orders::GlyphGrid::message_key)
         .collect();
     let order = orders::accepted_honeycomb_order();
     let message_values = read_corpus_message_values(&grids, order)?;
@@ -719,8 +719,8 @@ mod tests {
         ShuffleBandPosition, ZeroAdjacencyNullConfig, adjacency_summary, analyze_message_values,
         positive_controls, run_zero_adjacency_null,
     };
-    use crate::null::{NullSampler, SplitMix64, WithinMessageShuffle};
-    use crate::trigram::TrigramValue;
+    use crate::core::trigram::TrigramValue;
+    use crate::nulls::null::{NullSampler, SplitMix64, WithinMessageShuffle};
 
     const FLOAT_RELATIVE_EPSILON: f64 = 1.0e-12;
 

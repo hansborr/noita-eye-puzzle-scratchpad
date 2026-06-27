@@ -4,7 +4,7 @@
 //! into base-5 trigrams. This is separate from the engine-storage layer, which
 //! is base-7 over 64-bit integer chunks and can emit control values.
 
-use crate::glyph::Orientation;
+use crate::core::glyph::Orientation;
 
 /// One base-5 trigram formed from three rendered orientation digits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

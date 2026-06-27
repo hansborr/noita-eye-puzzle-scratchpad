@@ -23,17 +23,19 @@
 
 use std::fmt;
 
+use crate::analysis::orders::{self, GridError, ReadingOrder};
+use crate::attack::language::{
+    LanguageError, LanguageModel, LanguageScore, english_model, finnish_model,
+};
 use crate::ciphers::{
     CaesarKey, ChaocipherKey, CipherError, DeckCipherKey, EYE_READING_ALPHABET_SIZE,
     IncrementingWheelKey, VigenereKey, caesar_decrypt, caesar_encrypt, chaocipher_decrypt,
     deck_cipher_decrypt, incrementing_wheel_decrypt, vigenere_decrypt, vigenere_encrypt,
 };
-use crate::glyph::Glyph;
-use crate::language::{LanguageError, LanguageModel, LanguageScore, english_model, finnish_model};
-use crate::null::{SplitMix64, fisher_yates, mix_seed, random_index_below};
-use crate::orders::{self, GridError, ReadingOrder};
+use crate::core::glyph::Glyph;
+use crate::core::trigram::TrigramValue;
+use crate::nulls::null::{SplitMix64, fisher_yates, mix_seed, random_index_below};
 use crate::report::{self, Report};
-use crate::trigram::TrigramValue;
 
 /// Default deterministic seed for Experiment 12 attack sampling.
 pub const DEFAULT_SEED: u64 = 0x6579_652d_7831_3221;
@@ -120,8 +122,8 @@ impl From<CipherError> for CipherAttackError {
     }
 }
 
-impl From<crate::null::RandomBoundError> for CipherAttackError {
-    fn from(error: crate::null::RandomBoundError) -> Self {
+impl From<crate::nulls::null::RandomBoundError> for CipherAttackError {
+    fn from(error: crate::nulls::null::RandomBoundError) -> Self {
         Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
@@ -1576,7 +1578,7 @@ mod tests {
         PositiveControlReport, ScoreNull, SearchSummary, cipher_attack_interpretation_lines,
         run_cipher_attack_for_test, run_positive_controls,
     };
-    use crate::glyph::Glyph;
+    use crate::core::glyph::Glyph;
 
     #[test]
     fn shuffle_null_is_deterministic_for_fixed_seed() {

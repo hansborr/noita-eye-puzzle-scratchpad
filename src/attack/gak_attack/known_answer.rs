@@ -1,7 +1,7 @@
 //! Thread G1 — known-answer validation of the GAK recovery machinery against
 //! **externally-sourced** practice puzzles whose structure is known.
 //!
-//! Until this module, [`solve_gctak`](crate::gak_attack::solver::solve_gctak)'s
+//! Until this module, [`solve_gctak`](crate::attack::gak_attack::solver::solve_gctak)'s
 //! only positive controls were the *synthetic* fixtures in
 //! [`super::generator`], whose ground truth the generator itself produced — the
 //! weakest form of validation. The practice corpus
@@ -27,9 +27,9 @@
 //! structure*, not the solver always emitting two classes); `two`'s failure is
 //! reported as a structural obstruction, never forced into a positive.
 
-use crate::gak_attack::solver::solve_gctak;
-use crate::null::{SplitMix64, fisher_yates};
-use crate::trigram::TrigramValue;
+use crate::attack::gak_attack::solver::solve_gctak;
+use crate::core::trigram::TrigramValue;
+use crate::nulls::null::{SplitMix64, fisher_yates};
 use std::collections::{BTreeMap, BTreeSet};
 
 // Thread G1b: hidden-state-capable GAK attack + `two` application. Declared as a
@@ -223,7 +223,7 @@ fn one_matched_null_does_not_recover() {
 /// with hidden state the visible readout is many-valued, so the columns conflict —
 /// this is exactly the obstruction the count exposes.
 fn column_diag(walk: &[TrigramValue], window_len: usize) -> (usize, usize, usize, usize) {
-    use crate::isomorph::PatternSignature;
+    use crate::analysis::isomorph::PatternSignature;
     let mut by_signature: BTreeMap<Vec<usize>, Vec<usize>> = BTreeMap::new();
     for (start, window) in walk.windows(window_len).enumerate() {
         let signature = PatternSignature::from_window(window);

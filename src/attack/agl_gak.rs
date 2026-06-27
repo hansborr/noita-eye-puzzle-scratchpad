@@ -6,15 +6,15 @@
 
 use std::fmt;
 
+use crate::analysis::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::ciphers::{
     self, AglMultiplierSubgroup, agl_apply, agl_compose, agl_coset_symbol, agl_inverse,
     mul_inverse_mod, quadratic_residues_mod, sub_mod,
 };
-use crate::null::{SplitMix64, add_one_p_value, mix_seed, random_index_below};
-use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
-use crate::perseus::{self, PerseusError, SharedRunRole};
+use crate::core::trigram::TrigramValue;
+use crate::nulls::null::{SplitMix64, add_one_p_value, mix_seed, random_index_below};
+use crate::nulls::perseus::{self, PerseusError, SharedRunRole};
 use crate::report::{self, Report};
-use crate::trigram::TrigramValue;
 
 /// Default deterministic seed for the AGL-GAK stress-test controls.
 pub const DEFAULT_SEED: u64 = 0x6167_6c5f_6761_6b00;
@@ -66,7 +66,7 @@ pub enum AglGakError {
     /// An AGL-GAK cipher primitive failed validation.
     Cipher(ciphers::CipherError),
     /// A deterministic random draw failed.
-    Random(crate::null::RandomBoundError),
+    Random(crate::nulls::null::RandomBoundError),
     /// Shared-run reconstruction failed.
     Perseus(PerseusError),
     /// At least one forward-simulation trial is required.
@@ -116,8 +116,8 @@ impl From<ciphers::CipherError> for AglGakError {
     }
 }
 
-impl From<crate::null::RandomBoundError> for AglGakError {
-    fn from(value: crate::null::RandomBoundError) -> Self {
+impl From<crate::nulls::null::RandomBoundError> for AglGakError {
+    fn from(value: crate::nulls::null::RandomBoundError) -> Self {
         Self::Random(value)
     }
 }
@@ -520,7 +520,7 @@ pub fn run_agl_gak(config: AglGakConfig) -> Result<AglGakReport, AglGakError> {
     let grids = orders::corpus_grids()?;
     let keys = grids
         .iter()
-        .map(crate::orders::GlyphGrid::message_key)
+        .map(crate::analysis::orders::GlyphGrid::message_key)
         .collect::<Vec<_>>();
     let order = orders::accepted_honeycomb_order();
     let message_values = read_corpus_message_values(&grids, order)?;

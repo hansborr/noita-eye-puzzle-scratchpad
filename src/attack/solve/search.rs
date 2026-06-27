@@ -184,7 +184,7 @@ fn matched_null_search_mean(
             codec,
         )?);
     }
-    let stats = crate::heldout::matched_null_stats(&trials);
+    let stats = crate::nulls::heldout::matched_null_stats(&trials);
     Ok((stats.full_mean, stats.heldout_mean))
 }
 
@@ -359,8 +359,8 @@ fn initial_table(
     }
     if restart > 0 && cipher_alphabet_size >= 2 {
         for _swap in 0..cipher_alphabet_size {
-            let a = crate::null::random_index_below(cipher_alphabet_size, rng)?;
-            let b = crate::null::random_index_below(cipher_alphabet_size, rng)?;
+            let a = crate::nulls::null::random_index_below(cipher_alphabet_size, rng)?;
+            let b = crate::nulls::null::random_index_below(cipher_alphabet_size, rng)?;
             table.swap(a, b);
         }
     }
@@ -382,7 +382,7 @@ fn propose(
     rng: &mut SplitMix64,
 ) -> Result<Proposal, SolveError> {
     if cipher_alphabet_size < 2 {
-        let target = crate::null::random_index_below(language_size.max(1), rng)?;
+        let target = crate::nulls::null::random_index_below(language_size.max(1), rng)?;
         let old = table.first().copied().unwrap_or(0);
         if let Some(slot) = table.first_mut() {
             *slot = target;
@@ -395,9 +395,9 @@ fn propose(
         let relabel =
             unused.as_ref().is_some_and(|set| !set.is_empty()) && rng.next_u64().is_multiple_of(2);
         if let (true, Some(set)) = (relabel, unused.as_ref()) {
-            let pick = crate::null::random_index_below(set.len(), rng)?;
+            let pick = crate::nulls::null::random_index_below(set.len(), rng)?;
             let target = set.get(pick).copied().unwrap_or(0);
-            let symbol = crate::null::random_index_below(cipher_alphabet_size, rng)?;
+            let symbol = crate::nulls::null::random_index_below(cipher_alphabet_size, rng)?;
             let old = table.get(symbol).copied().unwrap_or(0);
             if let Some(slot) = table.get_mut(symbol) {
                 *slot = target;
@@ -407,8 +407,8 @@ fn propose(
         return swap_targets(table, cipher_alphabet_size, rng);
     }
     if rng.next_u64().is_multiple_of(5) {
-        let symbol = crate::null::random_index_below(cipher_alphabet_size, rng)?;
-        let target = crate::null::random_index_below(language_size.max(1), rng)?;
+        let symbol = crate::nulls::null::random_index_below(cipher_alphabet_size, rng)?;
+        let target = crate::nulls::null::random_index_below(language_size.max(1), rng)?;
         let old = table.get(symbol).copied().unwrap_or(0);
         if let Some(slot) = table.get_mut(symbol) {
             *slot = target;
@@ -423,8 +423,8 @@ fn swap_targets(
     cipher_alphabet_size: usize,
     rng: &mut SplitMix64,
 ) -> Result<Proposal, SolveError> {
-    let a = crate::null::random_index_below(cipher_alphabet_size, rng)?;
-    let mut b = crate::null::random_index_below(cipher_alphabet_size, rng)?;
+    let a = crate::nulls::null::random_index_below(cipher_alphabet_size, rng)?;
+    let mut b = crate::nulls::null::random_index_below(cipher_alphabet_size, rng)?;
     if a == b {
         b = (b + 1) % cipher_alphabet_size;
     }

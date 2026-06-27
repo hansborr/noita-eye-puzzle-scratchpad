@@ -11,23 +11,23 @@
 
 use std::fmt;
 
-use crate::analysis;
+use crate::analysis::analysis;
+use crate::analysis::orders::{
+    self, GlyphGrid, GridError, ReadingOrder, count_message_lag_comparisons,
+    count_message_lag_matches, glyph_messages_from_values, read_corpus_message_values,
+};
 use crate::ciphers::{
     self, DeckCipherKey, IncrementingWheelKey, VigenereKey, deck_cipher_encrypt,
     incrementing_wheel_encrypt, vigenere_encrypt,
 };
-use crate::glyph::Glyph;
-use crate::null::{
+use crate::core::glyph::Glyph;
+use crate::core::trigram::TrigramValue;
+use crate::experiments::periodicity;
+use crate::nulls::null::{
     F64Band, NullSampler, SplitMix64, WithinMessageShuffle, f64_band, random_index_below,
     shuffled_permutation, stateless_splitmix,
 };
-use crate::orders::{
-    self, GlyphGrid, GridError, ReadingOrder, count_message_lag_comparisons,
-    count_message_lag_matches, glyph_messages_from_values, read_corpus_message_values,
-};
-use crate::periodicity;
 use crate::report::{self, Report};
-use crate::trigram::TrigramValue;
 
 /// Default deterministic seed for fixture and shuffle calibration.
 pub const DEFAULT_SEED: u64 = 0x6d6f_6464_6966_6631;
@@ -121,8 +121,8 @@ impl From<ciphers::CipherError> for ModularDiffError {
     }
 }
 
-impl From<crate::null::RandomBoundError> for ModularDiffError {
-    fn from(error: crate::null::RandomBoundError) -> Self {
+impl From<crate::nulls::null::RandomBoundError> for ModularDiffError {
+    fn from(error: crate::nulls::null::RandomBoundError) -> Self {
         Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
@@ -1474,8 +1474,8 @@ mod tests {
         SourceSampler, build_control_fixture, modular_difference_messages, run_modular_diff,
         summarize_difference_stream,
     };
-    use crate::null::SplitMix64;
-    use crate::trigram::TrigramValue;
+    use crate::core::trigram::TrigramValue;
+    use crate::nulls::null::SplitMix64;
 
     fn values(raw: &[u8]) -> Vec<TrigramValue> {
         raw.iter()

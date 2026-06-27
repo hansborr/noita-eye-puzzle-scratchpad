@@ -18,13 +18,13 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::mem::size_of;
 
-use crate::null::{
+use crate::analysis::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
+use crate::core::trigram::TrigramValue;
+use crate::nulls::null::{
     NullSampler, RandomBoundError, SplitMix64, UsizeBand, add_one_p_value, fisher_yates, usize_band,
 };
-use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
-use crate::perseus::{self, SharedPartition};
+use crate::nulls::perseus::{self, SharedPartition};
 use crate::report::{self, Report};
-use crate::trigram::TrigramValue;
 
 /// Default deterministic base seed for the tree-residual shuffle null.
 pub const DEFAULT_SEED: u64 = 0x7472_6565_7461_696c;
@@ -121,8 +121,8 @@ impl From<perseus::PerseusError> for TreeResidualError {
     }
 }
 
-impl From<crate::null::RandomBoundError> for TreeResidualError {
-    fn from(error: crate::null::RandomBoundError) -> Self {
+impl From<crate::nulls::null::RandomBoundError> for TreeResidualError {
+    fn from(error: crate::nulls::null::RandomBoundError) -> Self {
         Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
@@ -492,7 +492,7 @@ pub fn run_tree_residual(
     let grids = orders::corpus_grids()?;
     let keys = grids
         .iter()
-        .map(crate::orders::GlyphGrid::message_key)
+        .map(crate::analysis::orders::GlyphGrid::message_key)
         .collect::<Vec<_>>();
     let order = orders::accepted_honeycomb_order();
     let message_values = read_corpus_message_values(&grids, order)?;
@@ -914,10 +914,10 @@ mod tests {
         TreeResidualScope, cross_message_statistic, max_vec_capacity_for,
         report_from_message_values, residual_segment_messages, run_tree_residual, seed_batches,
     };
-    use crate::null::SplitMix64;
-    use crate::orders;
-    use crate::perseus;
-    use crate::trigram::TrigramValue;
+    use crate::analysis::orders;
+    use crate::core::trigram::TrigramValue;
+    use crate::nulls::null::SplitMix64;
+    use crate::nulls::perseus;
 
     const FLOAT_RELATIVE_EPSILON: f64 = 1.0e-12;
 

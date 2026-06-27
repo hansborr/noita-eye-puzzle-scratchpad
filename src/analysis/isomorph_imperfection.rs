@@ -11,7 +11,7 @@
 //! Everything here is mapping-independent: only reading-layer symbol equality
 //! and first-occurrence gap structure are used. No symbol-to-meaning mapping or
 //! language model is assumed. The break-localization primitives mirror the
-//! canonical scan in [`crate::perfect_isomorphism`] and reuse its public
+//! canonical scan in [`crate::analysis::perfect_isomorphism`] and reuse its public
 //! structural constants so the two stay in lock-step; this module extends that
 //! scan with longer windows, a matched null for the loose-candidate class, an
 //! explicit word-boundary discount, and the imperfect-family fit comparison.
@@ -23,14 +23,16 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt;
 
-use crate::isomorph::PatternSignature;
-use crate::null::{
-    RandomBoundError, SplitMix64, UsizeBand, add_one_p_value, fisher_yates, mix_seed, usize_band,
+use crate::analysis::isomorph::PatternSignature;
+use crate::analysis::orders::{
+    self, GlyphGrid, GridError, ReadingOrder, read_corpus_message_values,
 };
-use crate::orders::{self, GlyphGrid, GridError, ReadingOrder, read_corpus_message_values};
-use crate::perfect_isomorphism::{
+use crate::analysis::perfect_isomorphism::{
     MAX_ISLAND_COLS, MIN_TWO_SIDED_FLANK, POST_MIN, SIGNIFICANCE_ALPHA, STRONG_MIN_OCCURRENCES,
     STRONG_MIN_REPEATS,
+};
+use crate::nulls::null::{
+    RandomBoundError, SplitMix64, UsizeBand, add_one_p_value, fisher_yates, mix_seed, usize_band,
 };
 use crate::report::{self, Report};
 
@@ -65,7 +67,7 @@ const CONTROL_TAG: u64 = 0x636f_6e74_726f_6c00;
 /// pre-break prefix carries three repeated classes, so a strong (repeat >= 3)
 /// catalog window seeds it, and whose post-break suffix resyncs while carrying a
 /// cross-island back-reference. It mirrors the proven short-island internal
-/// violation in [`crate::perfect_isomorphism`]. The irregular layout avoids the
+/// violation in [`crate::analysis::perfect_isomorphism`]. The irregular layout avoids the
 /// misaligned self-matches a periodic motif would manufacture.
 const MOTIF: [u32; 20] = [
     0, 1, 2, 0, 3, 1, 4, 2, 5, 1, 6, 7, 0, 8, 9, 10, 11, 12, 13, 14,
@@ -647,7 +649,7 @@ pub fn run_isomorph_imperfection(
     })
 }
 
-fn to_symbol_messages(message_values: &[Vec<crate::trigram::TrigramValue>]) -> Vec<Vec<u32>> {
+fn to_symbol_messages(message_values: &[Vec<crate::core::trigram::TrigramValue>]) -> Vec<Vec<u32>> {
     message_values
         .iter()
         .map(|message| message.iter().map(|value| u32::from(value.get())).collect())
@@ -672,7 +674,7 @@ fn validate_window_bound(
 // ===========================================================================
 // Break localization and classification (mapping-independent).
 //
-// These primitives mirror crate::perfect_isomorphism and reuse its public
+// These primitives mirror crate::analysis::perfect_isomorphism and reuse its public
 // structural constants (MIN_TWO_SIDED_FLANK, MAX_ISLAND_COLS, POST_MIN,
 // STRONG_MIN_REPEATS, STRONG_MIN_OCCURRENCES) so the two scans agree on the
 // real eyes. They are re-derived here only to add the extended windows, the

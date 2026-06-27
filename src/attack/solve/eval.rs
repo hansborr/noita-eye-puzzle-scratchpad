@@ -148,7 +148,7 @@ fn matched_null_mean(
         fisher_yates(&mut shuffled, &mut rng)?;
         trials.push(best_family_score(&shuffled, family, mapping, model, codec)?);
     }
-    let stats = crate::heldout::matched_null_stats(&trials);
+    let stats = crate::nulls::heldout::matched_null_stats(&trials);
     Ok((stats.full_mean, stats.heldout_mean))
 }
 
@@ -316,7 +316,7 @@ fn heldout_score(indices: &[usize], model: &LanguageModel) -> Result<f64, SolveE
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::codec::{DigitOrder, GroupingCodec};
+    use crate::attack::codec::{DigitOrder, GroupingCodec};
 
     // Part 1 — transparent-space reinsertion (brief 04a step 9). A
     // `TransparentMark.position` is in the ORIGINAL char coordinate; the cipher
@@ -327,11 +327,11 @@ mod tests {
     fn reinsert_transparent_places_spaces_under_identity_and_grouping() {
         // Original "AB CD EF": cipher glyphs at 0,1,3,4,6,7; spaces at 2 and 5.
         let marks = [
-            crate::ingest::TransparentMark {
+            crate::core::ingest::TransparentMark {
                 ch: ' ',
                 position: 2,
             },
-            crate::ingest::TransparentMark {
+            crate::core::ingest::TransparentMark {
                 ch: ' ',
                 position: 5,
             },
@@ -359,7 +359,7 @@ mod tests {
         // second pair (cipher index 3, group boundaries at 0,2,4,6); it snaps to the
         // nearest boundary (rendered index 2) -> "XY Z". The exact intra-group offset
         // is intentionally lost to grouping (documented honestly).
-        let mid = [crate::ingest::TransparentMark {
+        let mid = [crate::core::ingest::TransparentMark {
             ch: ' ',
             position: 3,
         }];

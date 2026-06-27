@@ -33,13 +33,13 @@
 
 use std::fmt;
 
-use crate::null::{
+use crate::analysis::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
+use crate::core::trigram::TrigramValue;
+use crate::nulls::null::{
     SplitMix64, fisher_yates, median_f64, median_usize, random_index_below, scaled_quantile_index,
     stateless_splitmix,
 };
-use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::report::{self, Report};
-use crate::trigram::TrigramValue;
 
 /// Default deterministic Monte-Carlo seed for Experiment 7B.
 pub const DEFAULT_SEED: u64 = 0x6368_6169_6e37_6221;
@@ -120,8 +120,8 @@ impl From<GridError> for ChainingError {
     }
 }
 
-impl From<crate::null::RandomBoundError> for ChainingError {
-    fn from(error: crate::null::RandomBoundError) -> Self {
+impl From<crate::nulls::null::RandomBoundError> for ChainingError {
+    fn from(error: crate::nulls::null::RandomBoundError) -> Self {
         Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
@@ -481,7 +481,7 @@ pub fn run_chaining(config: ChainingConfig) -> Result<ChainingReport, ChainingEr
     let grids = orders::corpus_grids()?;
     let keys: Vec<&'static str> = grids
         .iter()
-        .map(crate::orders::GlyphGrid::message_key)
+        .map(crate::analysis::orders::GlyphGrid::message_key)
         .collect();
     let order = orders::accepted_honeycomb_order();
     let message_values = read_corpus_message_values(&grids, order)?;
@@ -1113,9 +1113,9 @@ mod tests {
         ChainingClassification, ChainingConfig, SourceProfile, build_control_fixtures,
         chaining_signature, run_chaining,
     };
-    use crate::null::SplitMix64;
-    use crate::orders;
-    use crate::trigram::TrigramValue;
+    use crate::analysis::orders;
+    use crate::core::trigram::TrigramValue;
+    use crate::nulls::null::SplitMix64;
 
     #[test]
     fn known_succeed_and_fail_controls_are_distinct_and_separated() {

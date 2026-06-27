@@ -18,14 +18,14 @@
 //! [`DeltaCodec`] captures the +/-1 walk structure observed in practice puzzle
 //! `one` (`research/data/practice-puzzles/one`).
 //!
-//! This module is a peer of [`crate::solve`]; it supplies the codec types the
+//! This module is a peer of [`crate::attack::solve`]; it supplies the codec types the
 //! solve pipeline threads between `decrypt` and `mapping`. The accept-`0..=82`
 //! filter is **not** part of grouping — it is a consumer-side alphabet policy
 //! (see [`output_exceeds_accepted_alphabet`]).
 
 use std::fmt;
 
-use crate::glyph::Glyph;
+use crate::core::glyph::Glyph;
 
 /// Transduces a decrypted cipher-symbol stream into an output value alphabet, so
 /// a symbol->letter mapping can span a natural-language alphabet.
@@ -243,10 +243,10 @@ pub enum CodecSkipReason {
     /// whole search.
     Untransducible,
     /// The resolved output alphabet exceeds the domain of the declared
-    /// [`MappingStrategy::Fixed`](crate::solve::MappingStrategy::Fixed) mapping, so
+    /// [`MappingStrategy::Fixed`](crate::attack::solve::MappingStrategy::Fixed) mapping, so
     /// that mapping cannot host the widened stream. Logged-and-skipped
     /// (defense-in-depth) rather than hard-erroring with
-    /// [`SolveError::MappingSymbolOutsideTable`](crate::solve::SolveError::MappingSymbolOutsideTable):
+    /// [`SolveError::MappingSymbolOutsideTable`](crate::attack::solve::SolveError::MappingSymbolOutsideTable):
     /// a [`CodecStrategy::Search`] paired with an explicit fixed mapping skips the
     /// codecs the mapping is too small to host instead of aborting the whole
     /// search. (The CLI never reaches this path — it auto-enables the mapping
@@ -558,7 +558,7 @@ fn delta_transduce(codec: &DeltaCodec, symbols: &[Glyph]) -> Result<Vec<Glyph>, 
 // ---------------------------------------------------------------------------
 
 /// The default language alphabet size (29: 26 Latin letters plus the Finnish
-/// vowels Å, Ä, Ö), mirroring `crate::language::DEFAULT_LANGUAGE_ALPHABET`. A codec
+/// vowels Å, Ä, Ö), mirroring `crate::attack::language::DEFAULT_LANGUAGE_ALPHABET`. A codec
 /// whose resolved output alphabet is below this cannot host the default language
 /// under a symbol->letter mapping.
 pub const DEFAULT_LANGUAGE_ALPHABET_SIZE: usize = 29;
@@ -725,8 +725,8 @@ mod tests {
         default_codec_search, enumerate_codecs, honeycomb_codec, output_alphabet_hosts_language,
         output_exceeds_accepted_alphabet, resolved_output_alphabet_size,
     };
-    use crate::glyph::{Glyph, Orientation};
-    use crate::trigram::ReadingTrigram;
+    use crate::core::glyph::{Glyph, Orientation};
+    use crate::core::trigram::ReadingTrigram;
 
     fn glyphs(values: &[u16]) -> Vec<Glyph> {
         values.iter().copied().map(Glyph).collect()

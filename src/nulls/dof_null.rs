@@ -1,6 +1,6 @@
 //! Calibrated researcher-degrees-of-freedom null for adaptive headline choice.
 //!
-//! Experiment 1B in [`crate::null`] asks a narrower question: after the
+//! Experiment 1B in [`crate::nulls::null`] asks a narrower question: after the
 //! Toboter-style standard36 honeycomb traversal family is fixed, how often do
 //! same-shape random grids reproduce the headline bounded-contiguous trigram
 //! result? This module asks the broader look-elsewhere question that remained
@@ -31,11 +31,11 @@
 
 use std::fmt;
 
-use crate::glyph::Orientation;
-use crate::null::{
+use crate::analysis::orders::{self, GlyphGrid, GridError, ReadingOrder};
+use crate::core::glyph::Orientation;
+use crate::nulls::null::{
     self, SplitMix64, WilsonInterval, median_f64, random_orientation_grids_like, wilson_95,
 };
-use crate::orders::{self, GlyphGrid, GridError, ReadingOrder};
 use crate::report::{self, Report};
 
 const DEFAULT_DOF_NULL_SEED: u64 = 0x646f_666e_756c_6c00;
@@ -203,7 +203,7 @@ pub enum DofNullError {
     NoValidCells,
     /// Orientation grouping width zero is invalid.
     ZeroGroupingWidth,
-    /// The requested base-5 grouping alphabet cannot fit in [`crate::glyph::Glyph`].
+    /// The requested base-5 grouping alphabet cannot fit in [`crate::core::glyph::Glyph`].
     GroupingAlphabetTooLarge {
         /// Requested orientation grouping width.
         width: usize,
@@ -1346,9 +1346,9 @@ mod tests {
         DofNullConfig, DofSearchSpace, GroupingRule, HeadlineStatistic, run_dof_null,
         run_dof_null_for_grids, run_dof_null_with,
     };
-    use crate::glyph::Orientation;
-    use crate::null::{SplitMix64, random_orientation_grids_like};
-    use crate::orders::{GlyphGrid, ReadingOrder};
+    use crate::analysis::orders::{GlyphGrid, ReadingOrder};
+    use crate::core::glyph::Orientation;
+    use crate::nulls::null::{SplitMix64, random_orientation_grids_like};
 
     const STABILITY_SEEDS: [u64; 5] = [12_345, 67_890, 13_579, 24_680, 424_242];
     const FLOAT_RELATIVE_EPSILON: f64 = 1.0e-12;
@@ -1663,7 +1663,10 @@ mod tests {
             "best-cell marginal p-value",
         );
 
-        assert_eq!(bounds.cell.order, crate::orders::accepted_honeycomb_order());
+        assert_eq!(
+            bounds.cell.order,
+            crate::analysis::orders::accepted_honeycomb_order()
+        );
         assert_eq!(
             bounds.cell.grouping,
             GroupingRule::OrientationBase5 { width: 3 }

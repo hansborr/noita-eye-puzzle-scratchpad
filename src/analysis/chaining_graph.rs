@@ -11,14 +11,14 @@ use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
-use crate::isomorph::PatternSignature;
-use crate::null::{
+use crate::analysis::isomorph::PatternSignature;
+use crate::analysis::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
+use crate::core::trigram::TrigramValue;
+use crate::nulls::null::{
     SplitMix64, add_one_p_value, fisher_yates, median_usize, scaled_quantile_index,
     shuffled_permutation, stateless_splitmix,
 };
-use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::report::{self, Report};
-use crate::trigram::TrigramValue;
 
 /// Default deterministic Monte-Carlo seed for the chaining-graph audit.
 pub const DEFAULT_SEED: u64 = 0x6368_6169_6e67_7266;
@@ -57,7 +57,7 @@ impl ContextId {
 }
 
 /// A reading-layer ciphertext symbol value (0..=82).
-pub type SymbolValue = crate::trigram::TrigramValue;
+pub type SymbolValue = crate::core::trigram::TrigramValue;
 
 /// One observed `symbol -> symbol` mapping under a fixed context.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -343,8 +343,8 @@ impl From<GridError> for ChainingGraphError {
     }
 }
 
-impl From<crate::null::RandomBoundError> for ChainingGraphError {
-    fn from(error: crate::null::RandomBoundError) -> Self {
+impl From<crate::nulls::null::RandomBoundError> for ChainingGraphError {
+    fn from(error: crate::nulls::null::RandomBoundError) -> Self {
         Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
@@ -683,7 +683,7 @@ pub fn run_chaining_graph(
     let grids = orders::corpus_grids()?;
     let keys: Vec<&'static str> = grids
         .iter()
-        .map(crate::orders::GlyphGrid::message_key)
+        .map(crate::analysis::orders::GlyphGrid::message_key)
         .collect();
     let order = orders::accepted_honeycomb_order();
     let message_values = read_corpus_message_values(&grids, order)?;

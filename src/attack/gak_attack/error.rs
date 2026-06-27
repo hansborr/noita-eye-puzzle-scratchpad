@@ -2,10 +2,10 @@
 
 use std::fmt;
 
+use crate::analysis::orders::GridError;
+use crate::analysis::perfect_isomorphism::PerfectIsomorphismError;
+use crate::attack::language;
 use crate::ciphers::CipherError;
-use crate::language;
-use crate::orders::GridError;
-use crate::perfect_isomorphism::PerfectIsomorphismError;
 
 /// Error returned by the GAK-attack harness.
 #[derive(Clone, Debug, PartialEq)]
@@ -62,8 +62,8 @@ pub enum GakAttackError {
     /// runs **unconstrained** (radius `0`) by construction so that the report's
     /// declared GCTAK assumptions stay true; the TENTATIVE small-support prior is
     /// exercised only by the deck / marginalization validation sweeps (via
-    /// [`crate::gak_attack::DeckLetterRegime::SmallSupport`] and
-    /// [`crate::gak_attack::SmallSupportPrior`]), never by the
+    /// [`crate::attack::gak_attack::DeckLetterRegime::SmallSupport`] and
+    /// [`crate::attack::gak_attack::SmallSupportPrior`]), never by the
     /// decisive gate. A nonzero radius here would silently change those assumptions,
     /// so it is rejected rather than honored.
     SmallSupportRadiusUnsupported {
@@ -123,7 +123,7 @@ pub enum GakAttackError {
     /// held-out gate's significance rests on the matched within-message shuffle
     /// null, so it must have at least one draw; zero trials would leave the
     /// p-value and null mean defined over an empty sample (the same discipline as
-    /// [`crate::null::NullConfigError::ZeroTrials`]). This is a configuration
+    /// [`crate::nulls::null::NullConfigError::ZeroTrials`]). This is a configuration
     /// error, never a finding.
     EyesZeroTrials,
 }
@@ -230,8 +230,8 @@ impl From<CipherError> for GakAttackError {
     }
 }
 
-impl From<crate::null::RandomBoundError> for GakAttackError {
-    fn from(error: crate::null::RandomBoundError) -> Self {
+impl From<crate::nulls::null::RandomBoundError> for GakAttackError {
+    fn from(error: crate::nulls::null::RandomBoundError) -> Self {
         Self::RandomBoundTooLarge { bound: error.bound }
     }
 }

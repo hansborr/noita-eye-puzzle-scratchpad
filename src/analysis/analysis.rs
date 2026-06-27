@@ -7,7 +7,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::glyph::Glyph;
+use crate::core::glyph::Glyph;
 use statrs::distribution::{ChiSquared, ContinuousCDF};
 
 /// Error returned by [`chi_square_goodness_of_fit`].
@@ -52,7 +52,7 @@ pub fn frequencies(seq: &[Glyph]) -> BTreeMap<Glyph, usize> {
 /// `k` is the number of distinct glyphs, reached when they are equiprobable.
 ///
 /// ```
-/// use noita_eye_puzzle::{analysis, corpus};
+/// use noita_eye_puzzle::{analysis::analysis, data::corpus};
 ///
 /// let seq = corpus::combined_sequence().expect("the verified corpus decodes");
 /// let bits = analysis::shannon_entropy(&seq.glyphs);
@@ -249,7 +249,7 @@ mod tests {
         ChiSquareError, chi_square_goodness_of_fit, chi_square_goodness_of_fit_uniform,
         chi_square_upper_tail_p_value, frequencies, index_of_coincidence, ngrams, shannon_entropy,
     };
-    use crate::glyph::Glyph;
+    use crate::core::glyph::Glyph;
 
     fn glyphs(indices: &[u16]) -> Vec<Glyph> {
         indices.iter().copied().map(Glyph).collect()

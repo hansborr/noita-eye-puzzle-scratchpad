@@ -5,14 +5,14 @@
 //! the base 5 values of these first trigrams" the community has not pinned down.
 //! This module tabulates the nine first trigrams in two *distinct*
 //! representations and tests the named hypotheses, every number computed from
-//! [`crate::corpus`] rather than hand-copied.
+//! [`crate::data::corpus`] rather than hand-copied.
 //!
 //! Two representations, never conflated:
 //! 1. **Storage-order base-5 digit form** — the first trigram of
-//!    [`crate::corpus::Message::trigrams`], grouped from the raw stored digits;
+//!    [`crate::data::corpus::Message::trigrams`], grouped from the raw stored digits;
 //!    its value is `first*25 + second*5 + third`, range `0..=124`.
 //! 2. **Honeycomb reading-layer value** — the first trigram of the accepted
-//!    reading order ([`crate::orders::accepted_honeycomb_order`]), range
+//!    reading order ([`crate::analysis::orders::accepted_honeycomb_order`]), range
 //!    `0..=82`.
 //!
 //! They differ because the honeycomb walk groups a different triple of eyes than
@@ -25,8 +25,10 @@
 use std::collections::BTreeSet;
 use std::fmt;
 
-use crate::corpus::{self, CorpusError};
-use crate::orders::{self, GridError, accepted_honeycomb_order, read_corpus_message_values};
+use crate::analysis::orders::{
+    self, GridError, accepted_honeycomb_order, read_corpus_message_values,
+};
+use crate::data::corpus::{self, CorpusError};
 use crate::report::{self, Report};
 
 /// Storage-layer base-5 trigram alphabet size (`0..=124`).
@@ -351,7 +353,7 @@ fn storage_units_histogram(storage: &[Vec<u8>]) -> [usize; 5] {
 /// Computes the full first-trigram analysis from the verified corpus.
 ///
 /// ```
-/// use noita_eye_puzzle::first_trigram;
+/// use noita_eye_puzzle::analysis::first_trigram;
 ///
 /// let analysis = first_trigram::analyze().expect("the verified corpus tabulates");
 /// assert_eq!(analysis.rows.len(), 9);

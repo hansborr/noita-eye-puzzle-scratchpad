@@ -1,7 +1,7 @@
 //! Quadgram English language model for scoring candidate plaintexts.
 //!
 //! This module is calibration tooling for the polyalphabetic key search. The
-//! bigram model in [`crate::language`] is intentionally simple and trained on a
+//! bigram model in [`crate::attack::language`] is intentionally simple and trained on a
 //! tiny sample; it is too weak to separate near-English candidates from noise
 //! during a large key search. This module builds a fixed `A..Z` *quadgram*
 //! (4-gram) model from a large, committed public-domain corpus and precomputes a
@@ -38,7 +38,7 @@ pub const DEFAULT_SMOOTHING: f64 = 0.5;
 /// Bundled large public-domain English training corpus.
 ///
 /// This is the `~1.5 MB` corpus committed under `research/data/lang/`, distinct
-/// from the small [`crate::language::ENGLISH_SAMPLE`] used by the bigram model.
+/// from the small [`crate::attack::language::ENGLISH_SAMPLE`] used by the bigram model.
 pub const ENGLISH_CORPUS_LARGE: &str =
     include_str!("../../research/data/lang/english-corpus-large.txt");
 

@@ -103,7 +103,7 @@ pub(crate) struct GctakSolution {
     /// Number of distinct chain-link source symbols the solver touched.
     symbols_touched: usize,
     /// How many chain-link adjacency constraints (from
-    /// [`crate::chaining_graph::chain_links_for_pair`]) were checked against the
+    /// [`crate::analysis::chaining_graph::chain_links_for_pair`]) were checked against the
     /// recovered permutations, and how many were satisfied. The chain links are a
     /// **HARD verification gate** here: a satisfied count below the checked count
     /// means the recovered permutations contradict the shared chain-link
@@ -151,7 +151,7 @@ impl GctakSolution {
 ///    repeated phrase recurs as a repeated equality pattern and its aligned
 ///    columns share letters across occurrences.
 /// 2. **Build chain links** between aligned occurrences with
-///    [`chain_links_for_pair`] (reused from [`crate::chaining_graph`], never
+///    [`chain_links_for_pair`] (reused from [`crate::analysis::chaining_graph`], never
 ///    reimplemented). These witness the right-coset-constant context action and
 ///    give the touched-symbol coverage.
 /// 3. **Recover the group structure / place the alphabet:** seed same-letter
@@ -286,7 +286,7 @@ pub(crate) fn verify_against_chain_links(
 
 /// Counts the distinct ciphertext symbols **touched by the broad chain-link
 /// graph** — the chaining-graph coverage notion (mirrors
-/// [`crate::chaining_graph`]'s touched-symbol coverage). This makes the broad
+/// [`crate::analysis::chaining_graph`]'s touched-symbol coverage). This makes the broad
 /// [`collect_chain_links`] output load-bearing for the reported coverage (F2)
 /// rather than discarded.
 fn chain_link_symbol_coverage(links: &[ChainLink]) -> usize {
@@ -304,7 +304,7 @@ fn chain_link_symbol_coverage(links: &[ChainLink]) -> usize {
 /// Windows of length [`SOLVER_WINDOW_LEN`] are grouped by
 /// [`PatternSignature`]; each group with ≥2 occurrences yields one directed
 /// context per ordered occurrence pair (canonical, lower-start as image), exactly
-/// as [`crate::chaining_graph`] does, so this is genuine reuse of the shared
+/// as [`crate::analysis::chaining_graph`] does, so this is genuine reuse of the shared
 /// graph, not a divergent reimplementation.
 pub(crate) fn collect_chain_links(ciphertext: &[SymbolValue]) -> Vec<ChainLink> {
     let mut by_signature: BTreeMap<PatternSignature, Vec<usize>> = BTreeMap::new();
@@ -734,7 +734,7 @@ fn glyphs_to_indices(glyphs: &[Glyph]) -> Vec<usize> {
 /// A minimal union-find over `0..n` transition positions.
 ///
 /// This is a private helper over *transition positions*, a different population
-/// from [`crate::chaining_graph::UnionFind`] (which unions *symbols*). It is not
+/// from [`crate::analysis::chaining_graph::UnionFind`] (which unions *symbols*). It is not
 /// a divergent chaining graph; the shared chain-link primitive is reused for the
 /// graph itself in [`collect_chain_links`].
 #[derive(Clone)]

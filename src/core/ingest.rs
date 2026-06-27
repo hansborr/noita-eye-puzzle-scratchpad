@@ -23,7 +23,7 @@ use std::io;
 use std::path::Path;
 
 use crate::ciphers::EYE_READING_ALPHABET_SIZE;
-use crate::glyph::{Alphabet, Glyph, Orientation};
+use crate::core::glyph::{Alphabet, Glyph, Orientation};
 
 /// Where an external ciphertext is read from. There is **no `Stdin` variant** —
 /// reading stdin is the CLI's job (`main.rs` reads it to a `String`, then calls
@@ -40,7 +40,7 @@ pub enum Input<'a> {
 /// path: chars that are passed through (their positions recorded) rather than
 /// treated as cipher symbols. Default membership: space, `.`, `,`, `?`, `!`,
 /// `#`, and newline. These are *plumbing* (word boundaries / punctuation), never
-/// a decode; the 29-letter [`crate::language`] bigram model scores letters only
+/// a decode; the 29-letter [`crate::attack::language`] bigram model scores letters only
 /// (`normalize_text` strips non-letters), so transparent symbols are skipped for
 /// scoring but kept for readability.
 ///
@@ -393,7 +393,7 @@ fn finish(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::corpus;
+    use crate::data::corpus;
 
     fn glyphs(values: &[u16]) -> Vec<Glyph> {
         values.iter().copied().map(Glyph).collect()

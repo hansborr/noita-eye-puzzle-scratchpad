@@ -7,8 +7,8 @@
 
 use std::fmt;
 
-use crate::glyph::{Orientation, RenderedSymbol, Sequence, SymbolError};
-use crate::trigram::ReadingTrigram;
+use crate::core::glyph::{Orientation, RenderedSymbol, Sequence, SymbolError};
+use crate::core::trigram::ReadingTrigram;
 
 /// Error returned when corpus data fails integrity checks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -281,7 +281,7 @@ pub const MESSAGES: [Message; 9] = [
 /// Returns all verified messages in engine/message id order.
 ///
 /// ```
-/// use noita_eye_puzzle::corpus;
+/// use noita_eye_puzzle::data::corpus;
 ///
 /// // The verified investigation fixes the corpus at exactly nine messages.
 /// assert_eq!(corpus::messages().len(), 9);
@@ -338,7 +338,7 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::{CorpusError, MESSAGES, Message, PROVENANCE, Region, messages};
-    use crate::glyph::StorageSymbol;
+    use crate::core::glyph::StorageSymbol;
 
     const NG_EYES: &str = include_str!("../../research/data/eye-messages/ng_eyes.json");
     const XK_EYE: &str = include_str!("../../research/data/eye-messages/xk_eye.php");

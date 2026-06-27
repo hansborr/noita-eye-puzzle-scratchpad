@@ -8,13 +8,13 @@
 //! plaintext?
 //!
 //! This module answers it two ways, both routed through the real
-//! [`crate::generator`] decode:
+//! [`crate::data::generator`] decode:
 //!
 //! 1. [`run_pipeline_null`] — the **structure-matched null**. It rebuilds the
 //!    verified grids but fills their cells with orientations harvested from
 //!    decoding uniformly sampled 64-bit integers whose per-pair base-7 output
 //!    lengths match the real message blocks, then runs the identical
-//!    standard-36 reading-order search as [`crate::null`]. Sub-22-symbol blocks
+//!    standard-36 reading-order search as [`crate::nulls::null`]. Sub-22-symbol blocks
 //!    induce independent decoded storage symbols with a non-`-1` leading symbol
 //!    and uniform `-1..=5` interior symbols; 22-symbol blocks preserve the real
 //!    `u64` ceiling, so their high digits are mildly truncated. This makes the
@@ -40,14 +40,14 @@
 //! so this is equally consistent with structured-but-meaningless data. No
 //! isomorph null is computed here — that is Experiment 7.
 
-use crate::analysis;
-use crate::generator::{self, ENGINE_MESSAGES};
-use crate::glyph::Orientation;
-use crate::null::{
+use crate::analysis::analysis;
+use crate::analysis::orders::{GlyphGrid, GridError};
+use crate::core::glyph::Orientation;
+use crate::data::generator::{self, ENGINE_MESSAGES};
+use crate::nulls::null::{
     NullConfig, NullReport, NullRunError, SplitMix64, WilsonInterval, run_standard36_null_with,
     wilson_95,
 };
-use crate::orders::{GlyphGrid, GridError};
 use crate::report::{self, Report};
 
 const SYMBOL_BUCKETS: usize = 7;
@@ -146,7 +146,7 @@ fn append_interval(out: &mut String, label: &str, interval: WilsonInterval) {
 /// orientation harvested from decoding uniformly sampled matched-length 64-bit
 /// integers whose per-pair base-7 output lengths cycle through the verified
 /// engine block lengths. The returned [`PipelineNullReport`] uses the same
-/// statistics as [`crate::null::run_standard36_null`] so the two nulls are
+/// statistics as [`crate::nulls::null::run_standard36_null`] so the two nulls are
 /// directly comparable.
 ///
 /// # Errors
@@ -551,8 +551,8 @@ mod tests {
         no_minus_one_count_and_span, pow6_u128, pow7_u128, random_value_of_length,
         real_symbol_total, run_pipeline_null, value_span_for_length,
     };
-    use crate::generator;
-    use crate::null::{NullConfig, NullConfigError, NullRunError, SplitMix64};
+    use crate::data::generator;
+    use crate::nulls::null::{NullConfig, NullConfigError, NullRunError, SplitMix64};
 
     #[test]
     fn pipeline_null_rejects_zero_trials() {

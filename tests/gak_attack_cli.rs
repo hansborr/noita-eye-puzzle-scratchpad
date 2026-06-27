@@ -337,9 +337,9 @@ fn gak_attack_eyes_subcommand_locks_the_eyes_honesty_surface() {
     // --trials matches the value passed above; seed and beam stay at defaults.
     let expected_name = format!(
         "eyes-seed-{:016x}-trials-{}-beam-{}.md",
-        noita_eye_puzzle::gak_attack::EYES_DEFAULT_SEED,
+        noita_eye_puzzle::attack::gak_attack::EYES_DEFAULT_SEED,
         16,
-        noita_eye_puzzle::gak_attack::EYES_DEFAULT_BEAM_WIDTH,
+        noita_eye_puzzle::attack::gak_attack::EYES_DEFAULT_BEAM_WIDTH,
     );
     assert!(
         dir.join(&expected_name).is_file(),

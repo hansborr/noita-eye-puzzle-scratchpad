@@ -4,7 +4,7 @@
 
 use std::collections::BTreeSet;
 
-use noita_eye_puzzle::first_trigram::{
+use noita_eye_puzzle::analysis::first_trigram::{
     self, ChecksumRelation, ChecksumVerdict, DigitPositionSets, FirstTrigramAnalysis, IndexVerdict,
     base5_digits,
 };

@@ -3,8 +3,8 @@ use super::{
     POSITIVE_CONTROL_MIN_MARGIN, UnionFind, catalogue_from_links, chain_links_for_pair,
     compute_graph, positive_control_fixture, positive_control_null_max, run_chaining_graph,
 };
-use crate::orders;
-use crate::trigram::TrigramValue;
+use crate::analysis::orders;
+use crate::core::trigram::TrigramValue;
 use std::collections::BTreeSet;
 
 #[test]

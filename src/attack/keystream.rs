@@ -2,8 +2,8 @@
 //!
 //! This module implements four keystream cipher families over `&[u8]` letter
 //! indices (alphabet size `N`, default 26) and an annealed multi-restart key
-//! search that maximizes the [`crate::quadgram`] English model score of the
-//! decryption. It is the letter-puzzle analogue of [`crate::solve`]: it searches
+//! search that maximizes the [`crate::attack::quadgram`] English model score of the
+//! decryption. It is the letter-puzzle analogue of [`crate::attack::solve`]: it searches
 //! and scores hypotheses, gates them against a matched null and a held-out fold,
 //! and reports an explicit **honest negative** when nothing survives — which is
 //! the expected outcome on the genuinely non-periodic-polyalphabetic practice
@@ -28,7 +28,7 @@
 //! mode, plus a round-trip sanity check and a held-out fold.
 //!
 //! 1. **Matched null** (the gate this module's bug fix adds, mirroring the
-//!    defence [`crate::solve`] uses): rerun the IDENTICAL annealed search (same
+//!    defence [`crate::attack::solve`] uses): rerun the IDENTICAL annealed search (same
 //!    family, key length, restarts, iterations, temperature) on Fisher-Yates
 //!    **shuffled** copies of the ciphertext. The shuffle preserves the exact
 //!    letter multiset (unigram frequency held fixed) and destroys only
@@ -57,7 +57,7 @@
 //! matched null catches search overfitting, the random-key null catches the
 //! key-independence leak.
 //!
-//! [`crate::solve`] gates with `SEARCH_BEATS_NULL_MARGIN = 0.15` on the *bigram*
+//! [`crate::attack::solve`] gates with `SEARCH_BEATS_NULL_MARGIN = 0.15` on the *bigram*
 //! mean-log scale; that margin is far too lenient on the *quadgram* scale here
 //! (English and random-key decryptions differ by roughly four nats), which is why
 //! this module uses the z-score plus nat-floor pair above.
@@ -69,8 +69,8 @@ use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::null::{SplitMix64, fisher_yates, mix_seed};
-use crate::quadgram::{QuadgramError, QuadgramModel};
+use crate::attack::quadgram::{QuadgramError, QuadgramModel};
+use crate::nulls::null::{SplitMix64, fisher_yates, mix_seed};
 
 /// Minimum z-score (best score above a null mean, in null standard deviations)
 /// required to clear a null gate.
@@ -78,7 +78,7 @@ use crate::quadgram::{QuadgramError, QuadgramModel};
 /// Applied to the matched null for [`KeystreamCandidate::beats_matched_null`] (the
 /// survival gate) and to the random-key null for the
 /// [`beats_null`](KeystreamCandidate::beats_null) diagnostic. Calibrated for the
-/// quadgram mean-log scale, replacing [`crate::solve::SEARCH_BEATS_NULL_MARGIN`]
+/// quadgram mean-log scale, replacing [`crate::attack::solve::SEARCH_BEATS_NULL_MARGIN`]
 /// (a bigram-scale bare margin that is far too lenient here).
 pub const Z_THRESHOLD: f64 = 6.0;
 
@@ -111,7 +111,7 @@ pub const DEFAULT_NULL_TRIALS: usize = 64;
 
 /// Default matched-null trial count used by [`KeystreamSearchConfig::default`].
 ///
-/// Mirrors [`crate::solve::DEFAULT_NULL_TRIALS`]: each trial reruns the FULL
+/// Mirrors [`crate::attack::solve::DEFAULT_NULL_TRIALS`]: each trial reruns the FULL
 /// annealed search on a shuffled copy of the ciphertext, so this is the dominant
 /// cost knob — keep it modest.
 pub const DEFAULT_MATCHED_NULL_TRIALS: usize = 16;
@@ -468,7 +468,7 @@ fn temperature_at(start: f64, iteration: usize, iterations: usize) -> f64 {
     (start * (1.0 - progress)).max(0.0)
 }
 
-/// Metropolis acceptance (mirrors [`crate::solve`]): always accept a
+/// Metropolis acceptance (mirrors [`crate::attack::solve`]): always accept a
 /// non-worsening move; accept a worsening move of size `delta < 0` with
 /// probability `exp(delta / temperature)`; at `temperature <= 0` reject it.
 fn accept(delta: f64, temperature: f64, rng: &mut SplitMix64) -> bool {
@@ -583,7 +583,7 @@ fn matched_null(
         return (0.0, 0.0, 0.0);
     }
     // Per-trial (full-stream best score, held-out odd-index fold score) pairs,
-    // aggregated by the shared [`crate::heldout::matched_null_stats`].
+    // aggregated by the shared [`crate::nulls::heldout::matched_null_stats`].
     let mut trials: Vec<(f64, f64)> = Vec::with_capacity(cfg.matched_null_trials);
     let mut buffer: Vec<usize> = Vec::with_capacity(ciphertext.len());
     for trial in 0..cfg.matched_null_trials {
@@ -616,10 +616,10 @@ fn matched_null(
         // odd-index fold the candidate uses (re-decrypt to recover the stream the
         // `best` score was taken on; `best` equals its full-stream score).
         decrypt_into(family, &shuffled, &key, n, &mut buffer);
-        let heldout_score = model.score_indices(&crate::heldout::odd_index_fold(&buffer));
+        let heldout_score = model.score_indices(&crate::nulls::heldout::odd_index_fold(&buffer));
         trials.push((best, heldout_score));
     }
-    let stats = crate::heldout::matched_null_stats(&trials);
+    let stats = crate::nulls::heldout::matched_null_stats(&trials);
     (stats.full_mean, stats.full_std, stats.heldout_mean)
 }
 
@@ -675,7 +675,7 @@ pub fn crack_with_model(
     decrypt_into(family, ciphertext, &key, n, &mut buffer);
     let best_score = model.score_indices(&buffer);
     let decrypt_indices: Vec<u8> = buffer.iter().map(|&v| v as u8).collect();
-    let heldout_score = model.score_indices(&crate::heldout::odd_index_fold(&buffer));
+    let heldout_score = model.score_indices(&crate::nulls::heldout::odd_index_fold(&buffer));
 
     // Random-key null: a DIAGNOSTIC only (too weak to gate — it never pays for
     // the search's optimization power, so it green-lights overfitting at high L).
@@ -825,7 +825,7 @@ fn record_filename(label: &str, candidate: &KeystreamCandidate, seed: u64) -> St
 }
 
 /// Renders the candidate-record markdown body (pure; testable without the
-/// filesystem). Reproduces [`crate::solve::SOLVE_CLAIM_CEILING`] verbatim so no
+/// filesystem). Reproduces [`crate::attack::solve::SOLVE_CLAIM_CEILING`] verbatim so no
 /// record can make a stronger claim than the solve pipeline.
 fn render_record(
     label: &str,
@@ -854,7 +854,7 @@ fn render_record(
     writeln!(out)?;
     writeln!(out, "## Claim ceiling (absolute)")?;
     writeln!(out)?;
-    writeln!(out, "{}", crate::solve::SOLVE_CLAIM_CEILING)?;
+    writeln!(out, "{}", crate::attack::solve::SOLVE_CLAIM_CEILING)?;
     writeln!(
         out,
         "Nothing in this record is stronger. A clean honest negative is a SUCCESS."
@@ -940,8 +940,8 @@ mod tests {
         crack_with_model, decrypt, encrypt, normalize_puzzle, practice_puzzle_text,
         write_keystream_record,
     };
-    use crate::null::SplitMix64;
-    use crate::quadgram::QuadgramModel;
+    use crate::attack::quadgram::QuadgramModel;
+    use crate::nulls::null::SplitMix64;
 
     // ~265 letters of plain English (lots of common quadgrams), used as the
     // planted-recovery corpus. Real prose, not a slice of any committed corpus.
@@ -1352,7 +1352,7 @@ mod tests {
         let _removed = std::fs::remove_dir_all(&dir);
         let path = write_keystream_record(&dir, "unit", 0x1234, &candidate).unwrap();
         let body = std::fs::read_to_string(&path).unwrap();
-        assert!(body.contains(crate::solve::SOLVE_CLAIM_CEILING));
+        assert!(body.contains(crate::attack::solve::SOLVE_CLAIM_CEILING));
         assert!(body.contains("HYPOTHESIS, NOT a decode"));
         assert!(body.contains("vigenere"));
         let _cleanup = std::fs::remove_dir_all(&dir);

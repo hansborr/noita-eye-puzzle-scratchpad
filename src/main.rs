@@ -9,14 +9,25 @@ use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use noita_eye_puzzle::{
-    agl_gak, chaining, chaining_graph, cipher_attack, ciphers, codec, conditional_structure,
-    controls, corpus, dof_null, gak_attack,
-    glyph::{Alphabet, Sequence},
-    grouping, honeycomb, ingest, isomorph_null, keystream, language, modular_diff, null, orders,
-    orientation_homogeneity, perfect_isomorphism, periodicity, perseus, pipeline_null, profile,
-    pyry_conditions, quadgram, ragbaby,
+    analysis::{chaining, chaining_graph, grouping, honeycomb, orders, perfect_isomorphism},
+    attack::{
+        agl_gak, cipher_attack, codec, gak_attack, keystream, language, profile, quadgram, ragbaby,
+        solve,
+    },
+    ciphers,
+    core::{
+        glyph::{Alphabet, Sequence},
+        ingest,
+    },
+    data::corpus,
+    experiments::{
+        conditional_structure, controls, modular_diff, orientation_homogeneity, periodicity,
+        pyry_conditions, transitivity,
+    },
+    nulls::{
+        dof_null, isomorph_null, null, perseus, pipeline_null, tree_residual, zero_adjacency_null,
+    },
     report::{self, Report},
-    solve, transitivity, tree_residual, zero_adjacency_null,
 };
 
 const DEFAULT_NULL_SEED: u64 = 0x6e6f_6974_612d_6579;

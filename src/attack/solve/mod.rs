@@ -10,16 +10,16 @@ use std::fmt::Write as _;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::ciphers::{AnyCipher, CipherError};
-use crate::codec::{
+use crate::attack::codec::{
     AnyCodec, Codec, CodecError, CodecSearch, CodecSkipReason, CodecStrategy,
     DEFAULT_LANGUAGE_ALPHABET_SIZE, MAX_SEARCH_OUTPUT_ALPHABET, SkippedCodec, codec_round_trip_ok,
     enumerate_codecs, output_alphabet_hosts_language, resolved_output_alphabet_size,
 };
-use crate::glyph::Glyph;
-use crate::ingest::{IngestError, TransparentMark};
-use crate::language::{LanguageError, LanguageModel};
-use crate::null::{SplitMix64, fisher_yates, mix_seed};
+use crate::attack::language::{LanguageError, LanguageModel};
+use crate::ciphers::{AnyCipher, CipherError};
+use crate::core::glyph::Glyph;
+use crate::core::ingest::{IngestError, TransparentMark};
+use crate::nulls::null::{SplitMix64, fisher_yates, mix_seed};
 
 mod codec_search;
 mod eval;

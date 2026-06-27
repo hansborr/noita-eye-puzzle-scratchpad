@@ -17,12 +17,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
-use crate::null::{
+use crate::analysis::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
+use crate::core::trigram::TrigramValue;
+use crate::nulls::null::{
     NullTestError, UsizeBand, WithinMessageShuffle, add_one_p_value, run_null_test, usize_band,
 };
-use crate::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
 use crate::report::{self, Report};
-use crate::trigram::TrigramValue;
 
 /// Default deterministic Monte-Carlo seed for the Perseus recurrence null.
 pub const DEFAULT_SEED: u64 = 0x7065_7273_6575_7357;
@@ -96,8 +96,8 @@ impl From<GridError> for PerseusError {
     }
 }
 
-impl From<crate::null::RandomBoundError> for PerseusError {
-    fn from(error: crate::null::RandomBoundError) -> Self {
+impl From<crate::nulls::null::RandomBoundError> for PerseusError {
+    fn from(error: crate::nulls::null::RandomBoundError) -> Self {
         Self::RandomBoundTooLarge { bound: error.bound }
     }
 }
@@ -569,7 +569,7 @@ pub fn run_perseus(config: PerseusConfig) -> Result<PerseusReport, PerseusError>
     let grids = orders::corpus_grids()?;
     let keys = grids
         .iter()
-        .map(crate::orders::GlyphGrid::message_key)
+        .map(crate::analysis::orders::GlyphGrid::message_key)
         .collect::<Vec<_>>();
     let order = orders::accepted_honeycomb_order();
     let message_values = read_corpus_message_values(&grids, order)?;
@@ -1116,9 +1116,9 @@ mod tests {
         PerseusConfig, SIGNIFICANCE_ALPHA, build_shared_partition, report_from_message_values,
         report_from_partition, run_perseus,
     };
-    use crate::null::{NullSampler, SplitMix64, WithinMessageShuffle};
-    use crate::orders;
-    use crate::trigram::TrigramValue;
+    use crate::analysis::orders;
+    use crate::core::trigram::TrigramValue;
+    use crate::nulls::null::{NullSampler, SplitMix64, WithinMessageShuffle};
 
     const STABILITY_SEEDS: [u64; 5] = [12_345, 67_890, 13_579, 24_680, 424_242];
     const FLOAT_RELATIVE_EPSILON: f64 = 1.0e-12;

@@ -617,7 +617,7 @@ pub fn run_gak_attack_eyes(config: EyesAttackConfig) -> Result<EyesAttackReport,
     let grids = orders::corpus_grids()?;
     let keys: Vec<&'static str> = grids
         .iter()
-        .map(crate::orders::GlyphGrid::message_key)
+        .map(crate::analysis::orders::GlyphGrid::message_key)
         .collect();
     let order = orders::accepted_honeycomb_order();
     let message_values = orders::read_corpus_message_values(&grids, order)?;
