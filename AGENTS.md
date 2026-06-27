@@ -20,33 +20,24 @@ make run ARGS=demo
 
 ## Golden rules
 
-- **`make check` (or at least `make verify`) must be green before every commit.**
-  The pre-commit hook runs the correctness gate automatically once installed;
-  CI runs the same gate plus the release build.
-- **Commit completed work.** Once a logical change is done and the gate is green,
-  commit it with a clear message — don't wait to be asked. Branch off `main`
-  first if you're on it.
-- **`unsafe` is forbidden** crate-wide (`unsafe_code = "forbid"`). Don't reach for it.
-- **No panics or silent failures in library/CLI code.** `unwrap`/`panic`/
-  `indexing_slicing`/`unused_results` and friends are lints (warn → `-D warnings`
-  in CI). They are relaxed inside tests via `clippy.toml`. If you must allow one,
-  use `#[allow(..., reason = "...")]` — bare `#[allow]` is itself linted.
-- **Document every public item** (`missing_docs`), and keep doc examples
-  compiling: `cargo doc` runs with `RUSTDOCFLAGS="-D warnings"`.
-- **`--locked` everywhere.** Don't let a command silently re-resolve `Cargo.lock`;
-  commit lockfile changes deliberately.
-- **Vetted, minimal external crates are allowed.** Keep the dependency surface
-  small, justify additions by use, and let `cargo-deny`/`cargo-machete` gate
-  supply-chain and unused-dependency risk. The in-crate `SplitMix64` PRNG stays
-  for reproducible null models, not because crates.io is unavailable.
+These are the judgment calls. The mechanical rules (`unsafe`, panics, missing
+docs, formatting, `--locked`, file size, supply chain) are enforced by the lints
+and gate in the Guardrail map below — they fail the build, so they aren't repeated
+here.
+
+- **Commit completed work.** Once a logical change is done, commit it with a clear
+  message — don't wait to be asked. Branch off `main` first if you're on it. The
+  pre-commit hook gates the commit on the correctness gate, so there's no need to
+  run `make check`/`make verify` by hand first.
+- **Keep the dependency surface minimal.** Vetted external crates are allowed, but
+  justify each by use. The in-crate `SplitMix64` PRNG stays for reproducible null
+  models — don't swap it for a crates.io RNG.
 - **Never present unverified numbers as findings.** `src/data/corpus.rs` is the
   Experiment-0-verified corpus — the engine base-7 decode is cross-checked
   byte-for-byte against the ngraham20 transcription for all nine messages — so
   statistics from it are meaningful. For anything *unverified or
   model-conditional*, label guessed/assumed choices as such and never report a
   number more strongly than its construction supports.
-- **Transcription is the risk.** A single mis-read glyph invalidates downstream
-  analysis. When adding real data, record its in-game source and cross-check.
 
 ## Design notes
 
