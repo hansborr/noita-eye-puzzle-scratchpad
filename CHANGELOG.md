@@ -8,16 +8,16 @@ Entries are grouped by date, newest first, loosely following
 
 > **Current honest state.** The decode remains **BLOCKED** on the unknown
 > symbol→meaning mapping. Everything here *constrains the hypothesis space* — it
-> excludes cipher families, computes the null distributions the community never did,
+> excludes cipher families, pairs each test with a matched null distribution,
 > and isolates a single positive structural constraint. It is **not** a claimed
 > solution. The strongest defensible statement remains: deterministic,
 > engine-generated, strikingly structured data of unknown meaning; unsolved; no
 > primary developer source confirms it encodes recoverable plaintext.
 
-## 2026-06-26 — GAK attack threads and community-frontier wins
+## 2026-06-26 — GAK attack threads
 
 Work aligned to the community's Group Autokey (GAK / S₈₃ deck-cipher) framing,
-plus several low-cost questions the community had left open.
+plus a few low-cost open questions.
 
 ### Added
 - **Known-answer validation of the GAK recovery machinery (G1).** The GCTAK solver,
@@ -44,15 +44,15 @@ plus several low-cost questions the community had left open.
 ## 2026-06-24 — Extended structural battery and binary confirmation
 
 ### Confirmed
-- **Binary confirmation of the corpus [confirmed].** First-party Ghidra of the
-  shipping `noita.exe`: the nine messages are **hardcoded `(low, high)` u32
-  constants**, selected only by message id. The world seed drives a separate
-  placement routine and randomizes only *where* eyes appear, **not their content**.
-  All 150 transcription pairs match the decompiled immediates byte-for-byte —
-  validating the project's #1 risk (transcription error) against the binary itself.
-  The storage path holds opaque integers with **no symbol→meaning table**, confirming
-  the decode block as a genuine cryptanalytic gap, not a reverse-engineering
-  shortfall.
+- **Corpus cross-checked against the binary [confirmed].** It is already
+  community knowledge — and we re-derived it with Ghidra on the shipping
+  `noita.exe` for our own corpus validation — that the nine messages are
+  **hardcoded `(low, high)` u32 constants** selected only by message id, with the
+  world seed randomizing only *where* eyes appear, **not their content**. All 150
+  transcription pairs match the decompiled immediates byte-for-byte, which
+  re-validates the project's #1 risk (transcription error). The storage path holds
+  opaque integers with **no symbol→meaning table**, so the decode block is a real
+  cryptanalytic gap rather than missing reverse-engineering.
 
 ### Positive result
 - **Zero-adjacency forbidden-successor null** — *the one positive structural result.*
@@ -96,9 +96,8 @@ are uniformly **negative**; calibration controls fire **positive**.
 - **Exp 5A — periodicity / autocorrelation.** No period or lag clears the random
   null band (beyond the order-contingent distance-4 spike, honestly reconciled with
   Exp 1B as family-wise vs pointwise).
-- **Exp 7A — isomorph shuffle null** (the null the community never computed). The
-  eyes carry no isomorph structure beyond a within-message shuffle of their own
-  symbols.
+- **Exp 7A — isomorph shuffle null.** The eyes carry no isomorph structure beyond
+  a within-message shuffle of their own symbols.
 - **Exp 7B — alphabet chaining.** The eyes match the **known-fail** chaining
   signature, not the known-succeed Vigenère band (additive-relationship model).
 - **Exp 7C — Perseus recurrence null.** **0/185** non-shared→later-shared
