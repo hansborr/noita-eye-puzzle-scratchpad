@@ -14,5 +14,4 @@ src/attack/gak_attack/solver.rs            1993  # cohesive multi-stage GCTAK/de
 src/ciphers/mod.rs                         2675  # candidate-cipher zoo; shrinks further when the key types and group/modular math extract to siblings
 src/ciphers/tests.rs                       992   # extracted candidate-cipher unit tests (exact round-trip controls)
 src/attack/solve/tests.rs                  2040  # extracted solve-pipeline tests (unit + 8 include_str! corpus pipelines); split into tests_unit/tests_pipeline if it grows
-src/nulls/null.rs                          1664  # shared matched-null harness core (other null drivers depend on it); render + tests extraction pending
 src/main.rs                                2118  # CLI dispatch + clap arg structs; shrinks when split into a bin-local cli/ module tree
