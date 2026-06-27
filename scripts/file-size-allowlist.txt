@@ -28,7 +28,6 @@ src/experiments/modular_diff.rs            1600  # modular finite-difference fin
 src/analysis/grouping.rs                   1511  # Experiment-8 base-N grouping; render-heavy — extract the report sibling
 src/main.rs                                2118  # CLI dispatch + clap arg structs; shrinks when split into a bin-local cli/ module tree
 src/analysis/orders.rs                     1340  # reading-order machinery; render + tests extraction pending
-src/analysis/chaining.rs                   1242  # Experiment-7B alphabet-chaining signatures; render-heavy — extract the report sibling
 src/attack/agl_gak.rs                      1208  # Thread-2 AGL(1,83)-GAK stress test; render + compute extraction pending
 src/attack/keystream.rs                    1360  # polyalphabetic keystream cracker; shrinks when cipher/search/record + tests split out
 src/attack/ragbaby.rs                      1744  # general Ragbaby keyed-alphabet cracker; shrinks when cipher/search/record + tests split out
