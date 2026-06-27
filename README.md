@@ -319,7 +319,7 @@ match the decompiled immediates byte-for-byte.)
 ## Commands
 
 ```sh
-make verify   # correctness gate: fmt + clippy(-D) + tests + rustdoc(-D) + cargo-deny
+make verify   # correctness gate: fmt + clippy(-D) + filesize + tests + rustdoc(-D) + cargo-deny
 make check    # verify + cargo-machete + codespell + shellcheck + release build (full local CI)
 make setup    # install the git pre-commit hook
 ```
