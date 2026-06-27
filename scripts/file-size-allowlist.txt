@@ -17,6 +17,8 @@ src/ciphers/mod.rs                         3673  # candidate-cipher zoo; shrinks
 src/experiments/conditional_structure.rs   2283  # transition/successor-graph experiment; shrinks when the report render and transition/null compute split out
 src/attack/solve/mod.rs                    2304  # unified solve pipeline; ~89% inline tests — shrinks when the test module extracts to a sibling
 src/analysis/perfect_isomorphism.rs        2056  # Thread-3 perfect-isomorphism scan; shrinks when report/catalog/regression split out
+src/analysis/isomorph_imperfection.rs      1527  # G2 forward isomorph-imperfection falsifier (hardened negative); render + tests extraction pending
+src/analysis/leak_ceiling.rs               1236  # G3 isomorph-leak information ceiling; render + tests extraction pending
 src/analysis/chaining_graph.rs             1830  # graph-chaining conflict/coverage audit; ~60% inline tests — extract the tests sibling
 src/nulls/dof_null.rs                      1786  # DoF-calibrated null driver; shrinks when report, cell-prep, and tests split out
 src/experiments/pyry_conditions.rs         1767  # Pyry nine-condition falsification harness; shrinks when report/predicates/fixtures split out
