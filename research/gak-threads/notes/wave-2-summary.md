@@ -28,7 +28,7 @@ conclusion does not move.
 
 ## 2. The foundational structural modules (Threads 1B, 2, 3, 5)
 
-Four landings turned the prototypes into gated Rust, with codex / cross-model review on
+Four landings turned the prototypes into gated Rust, with cross-model review on
 each.
 
 - **`248fb32` — Thread 5 `chaining_graph.rs` + Thread 1B `transitivity.rs`.** The shared
@@ -107,7 +107,7 @@ ground-truth key, and the eyes corpus is not touched until unit 2c. The arc:
   **rate-beats-null, not a lucky seed**: across independent seeds the real recovery rate
   clears 0.8 *and* exceeds the matched within-message shuffle null (which recovers 0),
   including a **non-commutative dihedral** state group, with no ground-truth leak
-  (confirmed adversarially by codex). This reproduces the wiki's "GCTAK is fully
+  (confirmed adversarially). This reproduces the wiki's "GCTAK is fully
   solvable" as a synthetic **positive control** — a proof of life for the harness, NOT
   an eye result and NOT a decode.
 

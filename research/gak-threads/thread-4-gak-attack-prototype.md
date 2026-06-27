@@ -31,12 +31,12 @@ directly contradicts our standing memory claim that the mapping is recoverable o
 from an external source. It is the reason that claim is *too strong*: the mapping
 is unrecovered by the attacks tried so far, not unrecoverable in principle.
 
-Wiki sources to read first:
-- `/home/node/persist/eye-messages.wiki/Group-Autokey-(GAK).md`,
-  `Alphabet-Chaining.md`, `Graph-Chaining.md`, `Hidden-State.md`
-- `/home/node/persist/eye-messages.wiki/Chaining-Conflicts.md`,
-  `Chaining-Conflict-Rates.md`, `Deck-Cipher.md`
-- `/home/node/persist/eye-messages.wiki/Explanation-of-Progress.md` (states what is
+Wiki sources to read first (Lymm's eye-messages wiki,
+github.com/Lymm37/eye-messages/wiki):
+- pages `Group-Autokey-(GAK)`, `Alphabet-Chaining`, `Graph-Chaining`,
+  `Hidden-State`
+- pages `Chaining-Conflicts`, `Chaining-Conflict-Rates`, `Deck-Cipher`
+- page `Explanation-of-Progress` (states what is
   already solvable: GCTAK fully; simple GAK partially, given enough isomorphs)
 
 ## Approach — validate on synthetic ground truth first, always

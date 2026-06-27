@@ -7,9 +7,9 @@ correct reading order). This note checks whether the argument is valid
 
 **Sources read.**
 - `research/gak-threads/thread-1-dihedral-and-transitivity.md` (Part B).
-- `eye-messages.wiki/Proof-that-the-eyes-cannot-be-a-dihedral-GAK-cipher.md`.
-- `eye-messages.wiki/Proof-that-semidirect-product-GAK-has-a-left-action-on-CT-symbols-when-the-hidden-state-is-fixed.md`.
-- `eye-messages.wiki/{Hidden-State,Chaining-Conflicts,Dihedral-Group,Group-Autokey-(GAK),Alphabet-Chaining,Graph-Chaining,Proof-that-GAK-is-transitive,Proof-that-GAK-has-perfect-isomorphism,Isomorphs-(Gap-Patterns)}.md`.
+- Lymm's eye-messages wiki (github.com/Lymm37/eye-messages/wiki), page `Proof-that-the-eyes-cannot-be-a-dihedral-GAK-cipher`.
+- Lymm's eye-messages wiki, page `Proof-that-semidirect-product-GAK-has-a-left-action-on-CT-symbols-when-the-hidden-state-is-fixed`.
+- Lymm's eye-messages wiki, pages `{Hidden-State,Chaining-Conflicts,Dihedral-Group,Group-Autokey-(GAK),Alphabet-Chaining,Graph-Chaining,Proof-that-GAK-is-transitive,Proof-that-GAK-has-perfect-isomorphism,Isomorphs-(Gap-Patterns)}`.
 
 Scratch scripts: `…/scratchpad/{cycle_check,general_proof,chain_logic,chain_provenance,cross_msg_context,robustness,all_conflicts,independence,order83_commute,final_checks,core_only,extension_dep}.py`.
 

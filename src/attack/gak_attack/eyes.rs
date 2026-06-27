@@ -41,7 +41,7 @@ use crate::report::{self, Report};
 //   → orders::read_corpus_message_values(&grids, order)
 //
 // PER-MESSAGE streams, message boundaries KEPT; NEVER concatenate across messages;
-// NEVER re-select a reading order. (notes/reading-streams.md, notes/api-analysis.md)
+// NEVER re-select a reading order. (notes/reading-streams.md)
 //
 // ## The kill gates (in spec order; every candidate is a HYPOTHESIS until ALL pass)
 //
@@ -651,8 +651,8 @@ pub fn run_gak_attack_eyes(config: EyesAttackConfig) -> Result<EyesAttackReport,
 
     // GATE 1: per-message held-out isomorph recovery vs a MATCHED within-message
     // shuffle null, CHAINING RESTRICTED to the Thread-3 safe extents (F2), plus the
-    // population-relative material-effect bar (the leak-proof, codex-validated
-    // embargoed-consensus statistic). Boundaries are kept.
+    // population-relative material-effect bar (the leak-proof embargoed-consensus
+    // statistic). Boundaries are kept.
     let gate1 = eyes_gate1_evaluation(&keys, &message_values, &config, &safe_spans_by_message)?;
 
     // GATE 3 + VERDICT + record/report assembly (factored out to keep this entry
@@ -773,8 +773,8 @@ fn finalize_eyes_run(inputs: EyesRunFinalize) -> Result<EyesAttackReport, GakAtt
 /// to count as "beats null"; it is the same `0.05` convention used elsewhere.
 const EYES_SIGNIFICANCE_ALPHA: f64 = 0.05;
 
-/// POPULATION-RELATIVE MATERIAL-EFFECT fraction (codex's "effect size, not just
-/// p-value"; F1): the real-vs-null-mean held-out excess must reach this FRACTION of
+/// POPULATION-RELATIVE MATERIAL-EFFECT fraction (effect size, not just p-value;
+/// F1): the real-vs-null-mean held-out excess must reach this FRACTION of
 /// the population's OWN max achievable score (`scoreable_edges * (A-1)`) for a
 /// candidate to pass Gate 1. Anchoring the bar to the SAME population under test (not
 /// to the much larger synthetic positive control's population) makes it FAIR: a

@@ -50,9 +50,9 @@ statistical power. four/121 at base 26 (0.33) is near the information floor for 
 26-letter alphabet, but at its actual base 24 (0.70) the negative is reasonably
 powered.
 
-## The survival gate is validated by a planted full-gate control (codex review catch)
+## The survival gate is validated by a planted full-gate control
 
-A second-opinion review (codex) flagged that the original control proved only that
+A review flagged that the original control proved only that
 the *optimizer* recovers a plant, not that the *gate* would pass a real decode — and
 indeed the gate had a **miscalibrated held-out check**: it scored the odd-indexed
 fold of the decrypt and compared it to the *full-stream* matched mean. Every-other-

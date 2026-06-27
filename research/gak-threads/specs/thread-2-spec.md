@@ -30,7 +30,7 @@ and `corpus.rs`.
 
 ## 0. Wiki pages under test (cite these exactly; preserve "tentative")
 
-| Predicate / claim encoded | Wiki page (under `/home/node/persist/eye-messages.wiki/`) |
+| Predicate / claim encoded | Wiki page (Lymm's eye-messages wiki, github.com/Lymm37/eye-messages/wiki) |
 | --- | --- |
 | AGL(1,83) group, `ax+b`, order `φ(n)(n-1)`, semidirect `C_n ⋊ (C_n)ˣ` | `Affine-General-Linear-Group-(AGL).md` |
 | Six transitive groups for 83; hidden-subgroup sizes `{1,2,41,82,82!/2,82!}`; `C₈₃:C₄₁`, `C₈₃:C₈₂` candidates | `The-Transitivity-Restriction-(6-Groups-for-83).md` |
@@ -384,8 +384,9 @@ for *random* first-symbol vectors too, making a pass uninformative?
 New analysis module **`src/agl_gak.rs`** (alphabetically between `analysis` and
 `chaining` in `lib.rs`; one `pub mod agl_gak;` line). It owns `Config`, `Report`,
 `Error`, the `run_agl_gak` entry point, the null, the positive control, and
-tests — exactly the `pyry_conditions.rs` / `cipher_attack.rs` shape described in
-`notes/api-infra.md` §"Engine module shape". The `AglGakKey` *primitive* lives in
+tests — exactly the engine module shape of `pyry_conditions.rs` /
+`cipher_attack.rs` (one of `Config`/`Report`/`Error`/`run_*` entry point plus
+null, controls, and tests per file). The `AglGakKey` *primitive* lives in
 `ciphers.rs` (§2); the *enumeration/feasibility* logic lives here.
 
 ### 4.1 Public surface (every item documented)
@@ -417,7 +418,7 @@ pub enum AglGakError {
     PositiveControlFailed { which: &'static str },
 }
 // From<GridError>, From<CipherError>, From<RandomBoundError>, From<PerseusError>
-// so `?` works (api-infra.md §error). Display + std::error::Error if main holds &error.
+// so `?` works. Display + std::error::Error if main holds &error.
 
 pub struct AglGakReport { /* see §4.3 */ }
 
@@ -430,7 +431,7 @@ pub fn run_agl_gak(config: AglGakConfig) -> Result<AglGakReport, AglGakError>;
 
 ### 4.2 Part A algorithm (port of `agl_resync2.py` / `agl_multi.py` / `agl_null.py`)
 
-1. **Corpus, read-only, no mapping** (api-infra.md §fixtures):
+1. **Corpus, read-only, no mapping** (read the shared corpus fixtures directly):
    `let grids = orders::corpus_grids()?;`
    `let order = orders::accepted_honeycomb_order();`
    `let message_values = orders::read_corpus_message_values(&grids, order)?;`
@@ -524,8 +525,8 @@ pub struct AglGakReport {
 
 ## 5. Deliverable (e): CLI subcommand + report wiring (the four-file pattern)
 
-Per `notes/api-infra.md`, exactly four files change; the gate discovers
-everything through them. No `Cargo.toml`/`Makefile`/CI edits.
+Following the engine's four-file wiring pattern, exactly four files change; the
+gate discovers everything through them. No `Cargo.toml`/`Makefile`/CI edits.
 
 1. **`src/agl_gak.rs`** — the module above.
 2. **`src/lib.rs`** — add `pub mod agl_gak;` (keep block sorted: it goes between

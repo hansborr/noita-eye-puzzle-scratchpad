@@ -1,8 +1,8 @@
 # GAK Threads — Wave-1 PROGRESS
 
 **Date:** 2026-06-24. **Wave:** 1 (verification notes + empirical Python prototypes
-+ frozen Rust implementation specs). Source material: wiki clone at
-`/home/node/persist/eye-messages.wiki/` (content current to **2026-01-16**) and the
++ frozen Rust implementation specs). Source material: Lymm's eye-messages wiki
+(github.com/Lymm37/eye-messages/wiki, content current to **2026-01-16**) and the
 nine Experiment-0-verified streams in `src/corpus.rs` (1036 reading-layer trigrams,
 83 contiguous symbols, accepted honeycomb order `standard36-u012-d012`).
 
@@ -87,7 +87,7 @@ multiset-shuffle null; each positive control fired on known signal.
   cols 1–2 = `(66,5)`, a length-2 *varying* run shared by all nine after nine
   *distinct* first symbols, is already AGL-impossible. **Candidate set after Thread 2:
   `{A₈₃, S₈₃}`.** The varying-run fixed-point lemma excludes **both** affine variants
-  (`C₈₃:C₈₂` and `C₈₃:C₄₁`) identically — codex independently re-ran the enumerations
+  (`C₈₃:C₈₂` and `C₈₃:C₄₁`) identically — an independent cross-model re-run reproduced the enumerations
   (`0/6724` and `0/3362` discrepancies fix ≥2 points). All affine exclusions are
   conditional on the shared-plaintext interpretation of the shared sections + a single
   global cipher configuration (the same assumption the whole transitivity analysis
@@ -119,7 +119,7 @@ multiset-shuffle null; each positive control fired on known signal.
 
 ## (3) Wiki-claim audit ledger
 
-| Wiki page (under `/home/node/persist/eye-messages.wiki/`) | Verdict | Note |
+| Wiki page (under github.com/Lymm37/eye-messages/wiki) | Verdict | Note |
 | --- | --- | --- |
 | `The-Transitivity-Restriction-(6-Groups-for-83).md` ("exactly 6 groups") | **AUDITED** | Re-derived two ways; conditional on published 2-transitive classification. |
 | `Proof-that-the-eyes-cannot-be-a-dihedral-GAK-cipher.md` | **FLAGGED-WITH-A-HOLE** | Logic sound, but the contradiction is single-witness-fragile. **HOLE 1 (wiki-acknowledged):** *"a single strategic typo at col6 (or col9) does dissolve this triple's contradiction"* — the within-triple second conflict reuses col6/col9 and does not remove it. **HOLE 2 (NOT wiki-flagged):** *"the commutativity-conflict half lives entirely in the over-extension … on the high-confidence repeated 9-core the order-83 forcing fires but no conflict appears."* Exclusion holds conditional on A1+A5 for that triple. |
@@ -135,9 +135,9 @@ multiset-shuffle null; each positive control fired on known signal.
 | `Chaining-Conflicts.md` ("reflections give 2 fixed points") | **FLAGGED (minor, off-path)** | For odd `n=83` the model gives **1** fixed point; descriptive inaccuracy on a different page, irrelevant to the proof. |
 
 **Still-open / not-yet-tested-this-wave:** whether perfect isomorphism actually holds
-(unprovable without plaintext — measured as evidence only). *(Correction, post-codex:
+(unprovable without plaintext — measured as evidence only). *(Correction:
 `C₈₃:C₄₁` **is** excluded by the same varying-run fixed-point lemma as `AGL(1,83)` —
-see §2 Thread-2 verdict and `notes/codex-second-opinion.md`; the earlier "not yet
+see §2 Thread-2 verdict; the earlier "not yet
 excluded" was stale.)* **Resolved in wave 2:** "whether a GAK attack exists at all"
 (Thread 4) is now answered as far as this workbench can — a synthetic GCTAK gate
 *passes*, a real-GAK deck attack recovers *partial* visible-coset action up to a
@@ -149,7 +149,7 @@ measured hidden-state bound, and the eyes Step 3 yields **no surviving candidate
 ## (4) Recommended implementation order for the gated Rust modules
 
 All four implementation specs are frozen and ready to land under `-D warnings` with
-`make verify` green (four-file wiring per `notes/api-infra.md`; matched null +
+`make verify` green (four-file wiring; matched null +
 positive control per module; cite the exact wiki page in rustdoc + report).
 
 1. **`src/chaining_graph.rs`** — [`specs/thread-1b-5-spec.md`](specs/thread-1b-5-spec.md).
@@ -189,17 +189,16 @@ Thread 2 prunes AGL so the spike aims at the right survivors (`A₈₃/S₈₃`)
 
 ---
 
-## (5) Cross-model second opinion
+## (5) Cross-model verification
 
-**Codex cross-model second opinion: DONE.** Four focused `codex exec` passes (a
-different model family, adversarial, re-running the scratchpad Python where possible).
-Full verbatim verdicts: [`notes/codex-second-opinion.md`](notes/codex-second-opinion.md).
+**Cross-model verification: DONE.** Four focused adversarial passes by a
+different model family, re-running the scratchpad Python where possible.
 
-- **AGL exclusion — CORROBORATED.** Codex re-ran the enumerations (`0/6724`, `0/3362`,
+- **AGL exclusion — CORROBORATED.** The cross-model re-run reproduced the enumerations (`0/6724`, `0/3362`,
   `0/2M` sims) and confirmed both variants excluded; flagged the now-fixed stale
   `C₈₃:C₄₁` line. `[AGREE]×4`.
-- **Dihedral exclusion — CORROBORATED, MEDIUM confidence.** Codex built its own D₁₆₆
-  model (0 divide-order violations) and re-derived the exact column provenance (`Q->)`
+- **Dihedral exclusion — CORROBORATED, MEDIUM confidence.** An independent D₁₆₆
+  model (0 divide-order violations) re-derived the exact column provenance (`Q->)`
   is col-9 over-extension only). Net `[CONCERN]`: conditional, fragile to one
   mis-transcription — **report at medium confidence, not settled fact.**
 - **6-group count — CORROBORATED, high.** Brute-checked the projective equation; only
@@ -211,7 +210,7 @@ Full verbatim verdicts: [`notes/codex-second-opinion.md`](notes/codex-second-opi
   conclusion (0 robust internal violations) stands; **fix `POST_MIN` + regressions when
   hardening `perfect_isomorphism.rs`.**
 
-No codex verdict overturned a wave-1 conclusion; two were sharpened (dihedral →
+No cross-model verdict overturned a wave-1 conclusion; two were sharpened (dihedral →
 medium-confidence/conditional; perfect-iso artifact → hygiene fixes required) and one
 stale contradiction (`C₈₃:C₄₁`) was corrected. The claim ceiling is unchanged.
 

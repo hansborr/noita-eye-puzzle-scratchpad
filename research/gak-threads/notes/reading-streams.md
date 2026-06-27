@@ -52,8 +52,9 @@ mapping-independent structural work (symbol equality + group structure only).
 
 ## Validation against the wiki dihedral proof
 
-Source: `eye-messages.wiki/Proof-that-the-eyes-cannot-be-a-dihedral-GAK-cipher.md`
-(content current to 2026-01-16). The proof cites three mutually-isomorphic
+Source: Lymm's eye-messages wiki (github.com/Lymm37/eye-messages/wiki), page
+`Proof-that-the-eyes-cannot-be-a-dihedral-GAK-cipher` (content current to
+2026-01-16). The proof cites three mutually-isomorphic
 instances of the "main isomorph" it labels **msg1/msg2/msg3** (these are the
 wiki's own labels for three stacked instances, NOT corpus messages 1/2/3):
 

@@ -61,7 +61,7 @@ community's whole Goal 2 had **no forward thread**. This is half the community p
 
 ### T6 — Schreier-composition-closure held-out gate for the eyes *(M · keep, raised)*
 - **Serves:** GAK-attack rigor + the certification sub-problem (absorbs G4).
-- A codex review proposed a stricter held-out alternative: instead of the coverage-weighted
+- A stricter held-out alternative: instead of the coverage-weighted
   held-out score, require recovered contexts to **compose under Schreier-vector composition** (the
   "correct" group-algebra check). Add as a variant gate in
   `src/attack/gak_attack/eyes.rs::run_gak_attack_eyes` (chain-link infra in `chaining_graph.rs`);
@@ -96,7 +96,7 @@ community's whole Goal 2 had **no forward thread**. This is half the community p
 
 ---
 
-## Near-free contributions (cheap, directly contributable — *promoted onto the priority ladder per codex review*)
+## Near-free contributions (cheap, directly contributable — *promoted onto the priority ladder*)
 
 - **Publish the AGL exclusion.** The wiki holds AGL only **"tentatively"** ruled out; our
   `src/attack/agl_gak.rs` excludes it **exhaustively** (0/6724, 0/3362). Package it + a write-up

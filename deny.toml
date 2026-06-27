@@ -1,5 +1,5 @@
 # cargo-deny configuration. Run `cargo deny check` (or `make deny`).
-# Right-sized from the /workspace monorepo's policy for a single crate.
+# Tuned for a single crate.
 
 [advisories]
 version = 2

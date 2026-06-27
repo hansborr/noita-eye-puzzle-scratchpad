@@ -2,8 +2,8 @@
 # Rust file-size ratchet. Fails when a tracked *.rs file exceeds its line budget:
 #   - the default MAX_RS_LINES (600) for any file, or
 #   - a per-file pin in scripts/file-size-allowlist.txt for the existing oversized
-#     modules the refactor campaign is shrinking (docs/refactor/06,07a,07b).
-# Pins ratchet DOWN only (see docs/refactor/09-file-size-ratchet.md):
+#     modules being shrunk (each pin names how it will shrink).
+# Pins ratchet DOWN only:
 #   over the pin -> fail (no growth); far under the pin -> fail (lower it);
 #   under MAX_RS_LINES -> fail (delete the now-redundant pin).
 set -euo pipefail
@@ -80,7 +80,7 @@ for p in "${!cap[@]}"; do
 done
 
 if (( violations > 0 || stale > 0 )); then
-    printf 'file-size: %d over/under-budget, %d stale pin(s). See docs/refactor/09-file-size-ratchet.md\n' \
+    printf 'file-size: %d over/under-budget, %d stale pin(s). See scripts/file-size-allowlist.txt\n' \
         "$violations" "$stale" >&2
     exit 1
 fi

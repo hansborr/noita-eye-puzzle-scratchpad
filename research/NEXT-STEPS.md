@@ -1,8 +1,8 @@
 # NEXT-STEPS — work plan (index) · revised 2026-06-26
 
 A prioritized, parallelizable backlog for the Noita eye-puzzle workbench, **re-weighted
-after a full read of the community wiki** (`/home/node/persist/eye-messages.wiki`,
-"Lymm's wiki" — the most up-to-date community work). This file is the index: the
+after a full read of the community wiki** (Lymm's eye-messages wiki at
+`github.com/Lymm37/eye-messages/wiki` — the most up-to-date community work). This file is the index: the
 strategic snapshot, the priority ladder, and the parallelization map. The full thread
 briefs live in three companion docs, each readable on its own:
 
@@ -64,7 +64,7 @@ Full briefs in the linked docs; one line each here.
 3. **T1** (correctness, S) — fix the held-out gate bug shared by `keystream.rs` + `solve/`;
    it hardens the matched-null/held-out helper the **eyes** Gate-1 also relies on.
    → `threads-proving-ground.md`.
-4. **G1b** (proving-ground, M — *codex's biggest-underweight catch*) — hidden-state attack on the
+4. **G1b** (proving-ground, M — *biggest-underweight catch*) — hidden-state attack on the
    **known-answer** sample `two` (+ codec layer): the closest *verifiable* miniature of the eyes'
    blocker. Run before eyes-scale T6/T7, in parallel with G2. → `threads-proving-ground.md`.
 5. **G2** (disproof, M) — forward isomorph-falsification: push `perfect_isomorphism.rs`
@@ -100,7 +100,7 @@ Independent streams (different subsystems → run concurrently, ideally separate
 - **`gak_attack/`** is shared by G1, T7, G5 and (indirectly) G4/T6 — don't run two
   `gak_attack/`-editing threads in parallel without coordinating; serialize T6/T7.
 - **`main.rs`** is the shared chokepoint for any new CLI subcommand (G1, T3/T4/T5, T8).
-  Do **R1 (Brief 08, CLI registry)** first, or have one integrator own the subcommand stubs.
+  Do **R1 (CLI registry)** first, or have one integrator own the subcommand stubs.
 - **T1 vs the sample attacks** — land T1's shared null helper before any sample attack that
   reuses the gate, so they build on the corrected version.
 
@@ -108,32 +108,31 @@ Independent streams (different subsystems → run concurrently, ideally separate
 
 ## Supporting / internal (low community priority)
 
-These serve no direct community goal; schedule in gaps. (Refactor briefs in `docs/refactor/`.)
+These serve no direct community goal; schedule in gaps.
 
 - **T2 — Finnish quadgram scorer** (new-tool, M). Generalize `quadgram.rs` (English-only)
   to a language-parameterized model; add a larger public-domain Finnish corpus to
   `research/data/lang/` (record provenance); thread `--language en|fi` through the search
   entry points. Calibrate held-out (mirror `language.rs:584`). **Only matters as the
   enabler for T8** — defer until a mapping-independent result motivates a language objective.
-- **R1 — Brief 08: CLI registry + args dedup** (refactor, M). `main.rs` is ~2107 lines with
+- **R1 — CLI registry + args dedup** (refactor, M). `main.rs` is ~2107 lines with
   ~20 uniform `run_*` dispatchers; collapse into a registry. Schedule early — every new
-  subcommand (G1, T3/T4/T5, T8) edits `main.rs`. Spec: `docs/refactor/08-*.md` (not started).
+  subcommand (G1, T3/T4/T5, T8) edits `main.rs`. (Not started.)
 - **R2 — Split `ciphers/mod.rs`** (~3673 lines) one-file-per-family (refactor, L). Pure
   maintainability; biggest god-file. Low urgency.
-- **R3 — Finish Brief 06**: extract colocated `print_*_report` renderers from `experiments/*`
+- **R3 — extract colocated `print_*_report` renderers** from `experiments/*`
   (`conditional_structure.rs`, `periodicity.rs`, …) (refactor, L). Low urgency.
 
 ---
 
 ## Sources
-- Wiki review (this revision): the 55-page community wiki at
-  `/home/node/persist/eye-messages.wiki`, read against the two community goals + the
-  isomorph leak. Condensed in `frontier.md`.
+- Wiki review (this revision): the 55-page community wiki
+  (Lymm's eye-messages wiki, `github.com/Lymm37/eye-messages/wiki`), read against the two
+  community goals + the isomorph leak. Condensed in `frontier.md`.
 - Eyes/GAK state → `research/gak-threads/{README,PROGRESS}.md`, `src/attack/gak_attack/`,
   `src/analysis/{isomorph,perfect_isomorphism,chaining_graph,transitivity}.rs`,
   `src/attack/agl_gak.rs`.
 - Sample-puzzle state → `research/data/practice-puzzles/{KEYSTREAM,RAGBABY}-RESULTS.md`,
   `research/gak-threads/G1-RESULTS.md` (G1 output, pending).
-- Refactor briefs → `docs/refactor/` (all complete except 08).
 - Memory: `noita-eye-puzzle-state`, `noita-eye-wiki-gak-convergence`,
   `practice-puzzle-keystream-state`, `gak-cipher-example-sample`.

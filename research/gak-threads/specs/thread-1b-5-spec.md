@@ -26,20 +26,20 @@ are specced together to build the primitive once.
 
 Content current to 2026-01-16. Preserve every "tentative" label.
 
-- `eye-messages.wiki/Proof-that-the-eyes-cannot-be-a-dihedral-GAK-cipher.md`
+- `github.com/Lymm37/eye-messages/wiki/Proof-that-the-eyes-cannot-be-a-dihedral-GAK-cipher`
   — the dihedral exclusion (Thread 1B verdict).
-- `eye-messages.wiki/Proof-that-GAK-is-transitive.md`
+- `github.com/Lymm37/eye-messages/wiki/Proof-that-GAK-is-transitive`
   — the **right**-coset action that justifies "cycle lengths divide element
   order" (NOT the semidirect-product left-action proof; see
   `notes/thread-1b-dihedral-verification.md` Step 1).
-- `eye-messages.wiki/Graph-Chaining.md`, `Alphabet-Chaining.md`,
-  `Chaining-Conflicts.md`, `Chaining-Conflict-Rates.md` — chaining-graph + conflict
+- `github.com/Lymm37/eye-messages/wiki/Graph-Chaining`, `github.com/Lymm37/eye-messages/wiki/Alphabet-Chaining`,
+  `github.com/Lymm37/eye-messages/wiki/Chaining-Conflicts`, `github.com/Lymm37/eye-messages/wiki/Chaining-Conflict-Rates` — chaining-graph + conflict
   definitions (Thread 5).
-- `eye-messages.wiki/The-Transitivity-Restriction-(6-Groups-for-83).md` — the
+- `github.com/Lymm37/eye-messages/wiki/The-Transitivity-Restriction-(6-Groups-for-83)` — the
   six-group count + transitivity premise (encoded as a test; Thread 1A is the
   proof note).
-- `eye-messages.wiki/Dihedral-Group.md`, `Cyclic-Group.md`,
-  `Group-Autokey-(GAK).md`, `Hidden-State.md`.
+- `github.com/Lymm37/eye-messages/wiki/Dihedral-Group`, `github.com/Lymm37/eye-messages/wiki/Cyclic-Group`,
+  `github.com/Lymm37/eye-messages/wiki/Group-Autokey-(GAK)`, `github.com/Lymm37/eye-messages/wiki/Hidden-State`.
 
 **Honesty caveats to carry verbatim into report text** (from
 `notes/thread-1b-dihedral-verification.md`):
@@ -97,13 +97,13 @@ No `thread-1b-5-empirical.md` exists yet; this spec's §1 is the empirical oracl
 ## 2. Module layout (a)
 
 Two new files; `src/chaining.rs` (Experiment-7B additive, cyclic-only) stays
-**UNTOUCHED** (`notes/api-analysis.md` §`chaining.rs`).
+**UNTOUCHED**.
 
 ### `src/chaining_graph.rs` (Thread 5 — primitive + catalogue + coverage)
 
 Owns the shared chain-link primitive, the conflict catalogue, the
 connected-component coverage, and the union-find graph utility (none exists in the
-crate — `notes/api-analysis.md:185-191`). Public entry `run_chaining_graph`.
+crate). Public entry `run_chaining_graph`.
 
 ### `src/transitivity.rs` (Thread 1B verdict + 6-group encoding)
 
@@ -113,8 +113,7 @@ commutativity conflict → `D₁₆₆` excluded) and a test encoding the six gr
 orders / hidden-subgroup sizes (Part A consequence). Public entry
 `run_transitivity`.
 
-Wire both into the gate via the four-file pattern
-(`notes/api-infra.md:15-31`): `src/lib.rs` (`pub mod chaining_graph;` /
+Wire both into the gate via the four-file pattern: `src/lib.rs` (`pub mod chaining_graph;` /
 `pub mod transitivity;`, keep the block at lib.rs:62-88 **alphabetical** —
 `chaining_graph` after `chaining`/`cipher_attack`? note alpha order:
 `chaining` < `chaining_graph` < `cipher_attack`; `transitivity` after
@@ -224,7 +223,7 @@ pub struct ChainingConflict {
 
 /// Tabulated conflict evidence — the quantitative form of the wiki's qualitative
 /// "we see chaining conflicts indicating non-commutativity"
-/// (`Chaining-Conflicts.md`).
+/// (`github.com/Lymm37/eye-messages/wiki/Chaining-Conflicts`).
 #[derive(Clone, Debug, PartialEq)]
 pub struct ConflictCatalogue {
     /// Every distinct `(a, b, start)` conflict found.
@@ -242,8 +241,9 @@ pub struct ConflictCatalogue {
 
 ```rust
 /// Connected-component coverage of the chain-link graph over the 83 symbols —
-/// the empirical basis for the *transitivity* premise (`Proof-that-GAK-is-
-/// transitive.md`, `The-Transitivity-Restriction-(6-Groups-for-83).md`).
+/// the empirical basis for the *transitivity* premise
+/// (`github.com/Lymm37/eye-messages/wiki/Proof-that-GAK-is-transitive`,
+/// `github.com/Lymm37/eye-messages/wiki/The-Transitivity-Restriction-(6-Groups-for-83)`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CoverageReport {
     /// Number of distinct symbols touched by at least one chain link.
@@ -256,8 +256,8 @@ pub struct CoverageReport {
     pub alphabet_size: usize,
 }
 
-/// Minimal union-find over `0..alphabet_size` (no such utility exists in-crate;
-/// `notes/api-analysis.md:185-191`). Used to compute `CoverageReport`.
+/// Minimal union-find over `0..alphabet_size` (no such utility exists in-crate).
+/// Used to compute `CoverageReport`.
 #[derive(Clone, Debug)]
 pub struct UnionFind { /* parent + rank vecs, private */ }
 
@@ -371,7 +371,7 @@ pub fn run_transitivity(
 
 ## 4. Exact reuse points (c) — file:line, verified against the tree
 
-- **Corpus / stream entry** (`notes/api-analysis.md:15-36`, `api-infra.md:58-64`):
+- **Corpus / stream entry:**
   `orders::corpus_grids()` then
   `orders::read_corpus_message_values(&grids, order)` with
   `order = orders::accepted_honeycomb_order()`. Alphabet size
@@ -381,8 +381,8 @@ pub fn run_transitivity(
   (`src/isomorph.rs:38`; struct at `:31`). Compute the equality signature at each
   candidate offset per message and equate signatures by `==` (`SignatureGroup`
   fields at `isomorph.rs:93-95`). **Do not** rely on `detect_isomorphs`
-  (`isomorph.rs:212`) for cross-message alignment — it is within-sequence only
-  (`api-analysis.md:112-115`); use it only to find the repeated signature
+  (`isomorph.rs:212`) for cross-message alignment — it is within-sequence only;
+  use it only to find the repeated signature
   *within* a message, then do cross-message bookkeeping yourself.
 - **Within-message shuffle null (b)** → `null::fisher_yates`
   (`src/null.rs:111`) applied per message over `message_values.to_vec()`, exactly
@@ -405,8 +405,8 @@ pub fn run_transitivity(
   *signature* (above), not by same-offset runs, so the spec does **not** require
   promoting perseus internals; reconstruct the isomorph-window alignment from
   `PatternSignature` matches. Cite perseus only as the report/null template.
-- **New union-find** → none exists (`api-analysis.md:185-191`: "no union-find, no
-  connected-components, no graph traversal, no petgraph"). Add `UnionFind`
+- **New union-find** → none exists (no union-find, no
+  connected-components, no graph traversal, no petgraph in-crate). Add `UnionFind`
   (§3.3) inside `chaining_graph.rs`; keep it private-fielded, public methods.
 - **Report/null/positive-control template** → `pyry_conditions.rs` (predicate
   harness: `DEFAULT_SEED` at `:29`, `impl Default` at `:61`, `run_pyry_conditions`
@@ -423,8 +423,8 @@ pub fn run_transitivity(
 
 ### Matched null (mandatory)
 
-Reuse the within-message multiset shuffle (`isomorph_null`'s shape,
-`api-analysis.md:119-132`): per trial, `let mut shuffled = message_values.to_vec();
+Reuse the within-message multiset shuffle (`isomorph_null`'s shape): per trial,
+`let mut shuffled = message_values.to_vec();
 for v in &mut shuffled { fisher_yates(v, &mut rng)?; }`, then **re-run the entire
 chain-link → conflict + coverage pipeline** on the shuffled streams and record:
 
@@ -438,7 +438,7 @@ conflicts are evidence *for* non-commutativity (upper tail — real ≥ shuffle)
 coverage is evidence *for* transitivity (upper tail — real ≥ shuffle). Real
 structure must exceed the shuffle null. Frame the dihedral *negative* (D₁₆₆
 excluded) as the **expected** structural outcome, reported as exceedance, not as
-a bare verdict (`cipher_attack.rs` module-doc discipline, `api-infra.md:76-78`).
+a bare verdict (`cipher_attack.rs` module-doc discipline).
 
 ### Positive control (mandatory — must fire on known signal)
 
@@ -457,8 +457,7 @@ Generate a **synthetic non-commutative GAK fixture** with known isomorphs
 3. Run the *same* `chain_links_for_pair` → catalogue → coverage pipeline. Require:
    at least one conflict recovered, coverage = the planted symbol set, with a
    margin over the shuffle null gated by a `POSITIVE_CONTROL_MIN_MARGIN`-style
-   constant. Failure ⇒ `PositiveControlFailed` (methodology suspect, not data —
-   `api-infra.md:84-85`).
+   constant. Failure ⇒ `PositiveControlFailed` (methodology suspect, not data).
 
 Keep the fixture mapping-independent: it manufactures *symbols and their equality
 structure*, never a symbol→meaning table.
@@ -491,7 +490,7 @@ group set only. Cite the exact wiki page (§0) in the printed text and keep
 
 ---
 
-## 6. Lint compliance (e) — `-D warnings`, from `api-infra.md:162-186`
+## 6. Lint compliance (e) — `-D warnings`
 
 - `missing_docs`: `///` on **every** `pub` item incl. struct fields + enum
   variants (all the types in §3).
@@ -521,7 +520,7 @@ group set only. Cite the exact wiki page (§0) in the printed text and keep
 - `unsafe` forbidden crate-wide; `--locked` everywhere (no command re-resolves
   `Cargo.lock`).
 
-### Test checklist (`#[cfg(test)] mod tests`, `api-infra.md:188-201`)
+### Test checklist (`#[cfg(test)] mod tests`)
 
 - **Determinism:** `run_chaining_graph(cfg) == run_chaining_graph(cfg)` and
   same for `run_transitivity` at a fixed seed.

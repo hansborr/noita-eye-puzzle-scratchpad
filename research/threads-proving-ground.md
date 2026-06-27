@@ -45,7 +45,7 @@ confirmed for the letter puzzles. Context: `research/data/practice-puzzles/{KEYS
   **first known-answer positive control for the GCTAK recovery gate, and it passes** — validating
   the cyclic/GCTAK path on a real external sample, **not** the *hidden-state* machinery. It did
   **not** attempt the English/codec decode (`one` is external, believed decryptable to English via
-  brief-04a's codec; no in-repo cleartext). **`two` (12 symbols; repo-verified out-degree-8
+  a codec (base-5 grouping); no in-repo cleartext). **`two` (12 symbols; repo-verified out-degree-8
   many-valued readout; *hypothesized* hidden-state GAK) → honest GCTAK negative** (not a
   hidden-state-attack positive): recovery dies at the seeding stage — the readout is many-valued
   (out-degree 8 on all 12 symbols = the hidden-state signature), so 0 functional seed columns
@@ -69,17 +69,17 @@ confirmed for the letter puzzles. Context: `research/data/practice-puzzles/{KEYS
 - **Honesty / scope:** G1's scope was the keystream-**structure** layer (the GAK recovery step),
   **not** the full English decode. Per the authoritative maintainer note (2026-06-25), neither
   sample is "messageless": `one` is *external* and *hypothesized decryptable to English* via a
-  decrypt→**codec** (base-5 grouping)→mapping pipeline (the `docs/refactor` brief-04 / codec
-  brief-04a track), and `two` has **maintainer-held English cleartext**. G1 validated the
+  decrypt→**codec** (base-5 grouping)→mapping pipeline, and `two` has **maintainer-held English
+  cleartext**. G1 validated the
   cipher/keystream layer in isolation. Never present a score on the wrong structure as a recovery;
   the positive control must actually fire (it did, on `one`).
-- **G1b — `two` hidden-state attack + codec (PROMOTED to a first-class ladder thread per codex
-  review — the single biggest underweight):** `two` is a **known-answer hidden-state GAK**
+- **G1b — `two` hidden-state attack + codec (PROMOTED to a first-class ladder thread —
+  the single biggest underweight):** `two` is a **known-answer hidden-state GAK**
   (maintainer holds the cleartext, not in-repo) that our GCTAK solver **cannot yet crack** — the
   single best *verifiable* proving-ground analog of the eyes (a hidden-state GAK with a *known*
   solution). Push a hidden-state-capable GAK attack + codec layer at `two`: it directly exercises
   the "deltas-under-hidden-state" method the eyes need, on a case where success is checkable
-  against withheld ground truth. Coordinate with brief-04/04a (the codec/mapping track). On the
+  against withheld ground truth. Coordinate with the codec/mapping track. On the
   ladder it runs **before** the eyes-scale T6/T7, in parallel with G2.
 - **Dependencies:** none (code landed). **Conflicts with:** other `gak_attack/`-editing threads.
 

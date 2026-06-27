@@ -61,8 +61,7 @@ The cleartext path is therefore **SPECULATIVE, gated, and never primary**.
 ## Record protocol
 
 - Each Step-3 run writes ONE record file, named from a **stable label derived from
-  the run config/seed** (no wall-clock timestamp — the harness cannot call the
-  clock and records must be reproducible).
+  the run config/seed** (no wall-clock timestamp — records must be reproducible).
 - Every record captures: what was attempted; how much aligned-isomorph structure
   the eyes actually have and how much was recovered; the held-out verdict and the
   matched-null p-value; the Thread-3 consistency verdict; and the explicit
@@ -75,9 +74,9 @@ The cleartext path is therefore **SPECULATIVE, gated, and never primary**.
 
 ## Files
 
-- `eyes-*.md` — one machine-written record per Step-3 run (committed by the
-  orchestrator; this code never commits).
-- `solve-*.md` — one machine-written record per solve-pipeline run (brief 04),
+- `eyes-*.md` — one machine-written record per Step-3 run (this code never commits;
+  records are committed separately for human review).
+- `solve-*.md` — one machine-written record per solve-pipeline run,
   named from a stable run label + seed (no wall-clock). Same protocol binds:
   the verbatim claim ceiling, the HYPOTHESIS-not-decode label, all three
   independent gates (cipher round-trip, held-out mapping score, matched null),

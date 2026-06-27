@@ -27,11 +27,11 @@ This thread supplies both numbers, and in doing so builds the chain-link / chain
 graph primitive that Thread 1 (dihedral proof) and Thread 4 (GAK attack) both need.
 Doing it once, here, avoids three half-built versions.
 
-Wiki sources to read first:
-- `/home/node/persist/eye-messages.wiki/Graph-Chaining.md`,
-  `Alphabet-Chaining.md`, `Chaining-Conflicts.md`, `Chaining-Conflict-Rates.md`
-- `/home/node/persist/eye-messages.wiki/The-Transitivity-Restriction-(6-Groups-for-83).md`
-- `/home/node/persist/eye-messages.wiki/Hidden-State.md`, `Groups.md`
+Wiki sources to read first (Lymm's eye-messages wiki, github.com/Lymm37/eye-messages/wiki):
+- pages `Graph-Chaining`,
+  `Alphabet-Chaining`, `Chaining-Conflicts`, `Chaining-Conflict-Rates`
+- page `The-Transitivity-Restriction-(6-Groups-for-83)`
+- pages `Hidden-State`, `Groups`
 
 ## Concepts (precise definitions to implement)
 

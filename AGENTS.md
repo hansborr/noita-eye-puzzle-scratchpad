@@ -36,8 +36,8 @@ make run ARGS=demo
   small, justify additions by use, and let `cargo-deny`/`cargo-machete` gate
   supply-chain and unused-dependency risk. The in-crate `SplitMix64` PRNG stays
   for reproducible null models, not because crates.io is unavailable.
-- **Never present unverified numbers as findings.** `corpus.rs` is now the real,
-  Experiment-0-verified corpus — the engine base-7 decode is cross-checked
+- **Never present unverified numbers as findings.** `src/data/corpus.rs` is now the
+  real, Experiment-0-verified corpus — the engine base-7 decode is cross-checked
   byte-for-byte against the ngraham20 transcription for all nine messages — so
   statistics computed from it are meaningful. The discipline still holds for
   anything *unverified or model-conditional*: label guessed/assumed choices as

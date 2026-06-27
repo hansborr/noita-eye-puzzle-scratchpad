@@ -1,7 +1,7 @@
 # Community frontier — what the #silmä-cryptography effort needs
 
 *Read-first reference. Condensed from a full read of the community wiki
-(`/home/node/persist/eye-messages.wiki`, "Lymm's wiki") against the question: where can a
+(Lymm's eye-messages wiki, github.com/Lymm37/eye-messages/wiki) against the question: where can a
 computational workbench actually be useful? Cited by the thread docs.*
 
 The Noita eye puzzle has two community tracks: **#silmä-novel** (in-game hints / novel

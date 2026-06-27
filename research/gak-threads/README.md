@@ -1,8 +1,7 @@
 # GAK Threads — handoff index
 
-Status as of **2026-06-24**. Source of the new material: the community wiki at
-`/home/node/persist/eye-messages.wiki` (a clone of
-`github.com/Lymm37/eye-messages.wiki`, content current to **2026-01-16**).
+Status as of **2026-06-24**. Source of the new material: Lymm's eye-messages
+wiki (github.com/Lymm37/eye-messages/wiki), content current to **2026-01-16**.
 
 This folder is a set of **self-contained briefs for handing individual threads to
 other agents**. Each `thread-N-*.md` can be picked up cold: it states the claim,
@@ -69,8 +68,8 @@ this.
   unsolved; no primary developer source confirms recoverable plaintext.* A thread
   that tightens or breaks a wiki claim should say exactly how strongly its
   construction supports the result, no more.
-- **Cite the wiki page you are testing** (paths under
-  `/home/node/persist/eye-messages.wiki/`). Several wiki claims are explicitly
+- **Cite the wiki page you are testing** (pages under
+  github.com/Lymm37/eye-messages/wiki). Several wiki claims are explicitly
   "tentative" — preserve that uncertainty in what you build.
 
 ---

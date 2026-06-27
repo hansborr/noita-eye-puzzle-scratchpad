@@ -1,5 +1,8 @@
 # noita-eye-puzzle
 
+Noita is a Finnish roguelite video game, and the eye glyphs are an in-game
+puzzle: sequences of eye symbols hidden in its world.
+
 A Rust workbench for **trustworthy** analysis of the **Noita eye-glyph puzzle** —
 the sequences of eye symbols hidden in the game that are widely suspected to
 encode something and that the community has not conclusively cracked.
@@ -34,7 +37,7 @@ Nothing in this repo prints anything stronger. See [Results](#results).
 
 ## The data is real (Experiment 0)
 
-`src/corpus.rs` holds the nine real eye messages with provenance. A test
+`src/data/corpus.rs` holds the nine real eye messages with provenance. A test
 independently re-derives the engine base-7 decode from Xkeeper0's `[u32, u32]`
 integer pairs and asserts it equals the ngraham20 transcription **byte-for-byte
 for all nine messages**. Vendored raw inputs live in
@@ -56,28 +59,62 @@ Two glyph layers are kept strictly distinct: the **storage/engine** layer (base-
 over 64-bit integers, symbols −1..5, `5` = delimiter) and the **reading** layer
 (base-5 trigrams of orientations 0–4 → values 0–124, of which 83 are used).
 
+Source is grouped by role under `src/`. Modules are re-exported flat from the
+crate root (see `src/lib.rs`), so a path like `src/analysis/orders.rs` is the
+module `orders`.
+
 ```
 src/
-  glyph.rs        Orientation 0–4 + delimiter; StorageSymbol −1..5; generic Glyph/Alphabet
-  trigram.rs      base-5 reading layer (trigram values 0–124)
-  generator.rs    engine storage-layer base-7 decode (cross-checks the corpus)
-  corpus.rs       the nine verified eye messages + provenance
-  analysis.rs     frequencies, Shannon entropy, index of coincidence, n-grams, chi-square tails
-  orders.rs       grid reconstruction; honeycomb walk + standard36 family; per-order stats
-  null.rs         standard36 reading-order null (SplitMix64, Wilson intervals)
-  dof_null.rs     calibrated adaptive null for traversal/grouping/statistic researcher DoF
-  pipeline_null.rs  Exp 2 — base-7 generation-pipeline artifact null + negative control
-  isomorph.rs     first-occurrence pattern-signature isomorph detector
-  isomorph_null.rs  Exp 7A — within-message shuffle null for isomorph structure
-  perseus.rs      Exp 7C — Perseus shared-region recurrence null
-  periodicity.rs  Exp 5A — IoC-by-period / autocorrelation / Kasiski vs a random null band
-  chaining.rs     Exp 7B — alphabet-chaining success/fail signatures
-  grouping.rs     Exp 8 — base-N grouping comparison + independent state-count estimate
-  controls.rs     Exp 11 — positive controls on monoalphabetic + polyalphabetic ciphers
-  language.rs     Exp 5B-1 — English/Finnish n-gram language scorer (calibrated)
-  ciphers.rs      Exp 12 — candidate cipher primitives (+ inverses, round-trip tested)
-  cipher_attack.rs  Exp 12 — attack/language-scoring/null harness with a positive control
-  main.rs         thin CLI (`noita-eye`)
+  core/         the glyph alphabet, reading layer, and external-ciphertext front door
+    glyph.rs        Orientation 0–4 + delimiter; StorageSymbol −1..5; generic Glyph/Alphabet
+    trigram.rs      base-5 reading layer (trigram values 0–124)
+    ingest.rs       pure parse + thin I/O wrapper for arbitrary glyph/cipher sequences
+  data/         the verified corpus and the engine decoder
+    corpus.rs       the nine verified eye messages + provenance
+    generator.rs    engine storage-layer base-7 decode (cross-checks the corpus)
+  analysis/     encoding-agnostic statistics and structural analyses
+    analysis.rs     frequencies, Shannon entropy, index of coincidence, n-grams, chi-square tails
+    orders.rs       grid reconstruction; honeycomb walk + standard36 family; per-order stats
+    isomorph.rs     first-occurrence pattern-signature isomorph detector
+    chaining.rs     Exp 7B — alphabet-chaining success/fail signatures
+    chaining_graph.rs  graph-chaining conflict/coverage audit over aligned occurrences
+    first_trigram.rs   first-trigram "message start" index/checksum/last-char verdicts
+    grouping.rs     Exp 8 — base-N grouping comparison + independent state-count estimate
+    honeycomb.rs    fixed-order 2D honeycomb-lattice structure test
+    perfect_isomorphism.rs  Thread 3 perfect-isomorphism / allomorph-consistency scan
+  nulls/        matched-null distributions and DoF-calibrated null drivers
+    null.rs         standard36 reading-order null (SplitMix64, Wilson intervals)
+    dof_null.rs     calibrated adaptive null for traversal/grouping/statistic researcher DoF
+    pipeline_null.rs   Exp 2 — base-7 generation-pipeline artifact null + negative control
+    isomorph_null.rs   Exp 7A — within-message shuffle null for isomorph structure
+    perseus.rs      Exp 7C — Perseus shared-region recurrence null
+    tree_residual.rs   tree-residual cross-tail n-gram null after the Exp 7C mask
+    zero_adjacency_null.rs  Exp 7D — zero-adjacency forbidden-successor null
+    heldout.rs      shared held-out-fold helpers for the survival gates
+  ciphers/      candidate-cipher primitives (+ inverses, round-trip tested)
+    mod.rs          Exp 12 — Caesar/Vigenère/wheel/Chaocipher/S₈₃ deck/AGL primitives
+  attack/       cipher attacks, language models, and the solve pipelines
+    agl_gak.rs      Thread 2 AGL(1,83)-GAK structural stress test
+    cipher_attack.rs   Exp 12 — attack/language-scoring/null harness with a positive control
+    codec.rs        codec transduction layer feeding the solve search
+    keystream.rs    polyalphabetic keystream cracker (Vigenère/Beaufort/autokey)
+    ragbaby.rs      general (non-keyword) Ragbaby keyed-alphabet cracker
+    profile.rs      ciphertext structural profile for the practice letter puzzles
+    quadgram.rs     large-corpus A–Z quadgram English model for candidate scoring
+    language.rs     Exp 5B-1 — English/Finnish n-gram language scorer (calibrated)
+    gak_attack/     Thread 4 synthetic GAK generator + decisive GCTAK solver gate
+    solve/          unified search-and-score solve pipeline (round-trip/held-out/null gates)
+  experiments/  the structural-battery experiment drivers
+    conditional_structure.rs  first-order transition / successor-graph shuffle null
+    controls.rs     Exp 11 — positive controls on monoalphabetic + polyalphabetic ciphers
+    modular_diff.rs    modular finite-difference family fingerprint
+    orientation_homogeneity.rs  cross-message orientation-frequency homogeneity null
+    periodicity.rs  Exp 5A — IoC-by-period / autocorrelation / Kasiski vs a random null band
+    pyry_conditions.rs  Pyry's nine-condition structural falsification harness
+    transitivity.rs    Thread 1B transitivity / conditional D166 audit
+  report/       CLI report rendering and domain error formatting
+    mod.rs
+  main.rs       thin CLI (`noita-eye`)
 ```
 
 ## CLI
@@ -108,7 +145,26 @@ cargo run -- honeycomb     [--seed <u64>] [--trials <n>]    # 2D honeycomb-latti
 cargo run -- treeresidual  [--seed <u64>] [--trials <n>]    # tree-residual cross-tail n-gram null
 cargo run -- homogeneity   [--seed <u64>]                   # cross-message orientation homogeneity
 cargo run -- pyry          [--seed <u64>] [--draws <n>]     # Pyry's nine-condition falsification matrix
+# GAK / deck-cipher threads (synthetic generators + the real-eyes gate; nothing decodes):
+cargo run -- agl-gak       [--seed <u64>] [--null-trials <n>] [--fit] [--quadratic-residues]
+                                                            # Thread 2 AGL(1,83)-GAK structural stress test
+cargo run -- gak-attack    [--seed <u64>] [--seeds-per-kind <n>] ...  # Thread 4 synthetic GCTAK decisive gate (synthetic-only)
+cargo run -- gak-attack-eyes [--seed <u64>] [--trials <n>]  # Thread 4 real-eyes step (held-out + Thread-3 gated; expected NO survivor; decode BLOCKED)
+cargo run -- perfectiso    [--seed <u64>] [--trials <n>] [--min-window <n>] [--max-window <n>]
+                                                            # Thread 3 perfect-isomorphism / allomorph-consistency scan
+# Solve pipeline + practice letter-puzzle crackers (HYPOTHESES, never decodes; HONEST-NEGATIVE expected):
+cargo run -- solve         <ciphertext> [--family <f>] [--mapping-search] [--codec-search] [--seed <u64>]
+                                                            # search + score solve hypotheses (round-trip / held-out / matched-null gated)
+cargo run -- keystream     [--puzzle <three|four|five|seven>] [--family <f>] [--seed <u64>]
+                                                            # polyalphabetic keystream cracker (Vigenere/Beaufort/autokey)
+cargo run -- ragbaby       [--puzzle <three|four|five|seven>] [--control] [--seed <u64>]
+                                                            # general (non-keyword) Ragbaby keyed-alphabet cracker (+ planted-recovery control)
+cargo run -- profile       [--puzzle <three|four|five|seven>] [--input-file <path>]
+                                                            # ciphertext structural profile for a practice letter-puzzle
 ```
+
+Run `cargo run -- --help` (or `cargo run -- <subcommand> --help`) for the full
+subcommand set and every flag.
 
 ## Results
 
@@ -281,9 +337,20 @@ make setup    # install the git pre-commit hook
   **current stable toolchain** (MSRV Rust 1.96.0); **`--locked`** everywhere.
 - Supply chain gated by `cargo-deny` + `cargo machete`; CI runs the full gate.
 
-See `AGENTS.md` for the full working agreement and `HANDOFF.md` for the
-experiment-by-experiment record.
+See `AGENTS.md` for the full working agreement, `ARCHITECTURE.md` for the
+as-built design, and `CHANGELOG.md` for the experiment-by-experiment history.
 
 ## License
 
-Dual-licensed under MIT or Apache-2.0.
+Licensed under either of
+
+- MIT license ([LICENSE-MIT](LICENSE-MIT))
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
+
+at your option.
+
+### Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
+dual licensed as above, without any additional terms or conditions.

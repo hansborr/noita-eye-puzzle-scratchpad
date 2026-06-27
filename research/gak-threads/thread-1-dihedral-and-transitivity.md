@@ -24,11 +24,11 @@ These are exactly the kind of load-bearing claims our house style says to
 "spot-read for correctness yourself." If either is wrong, the whole reduction
 moves. If both are right, we can build on them with confidence.
 
-Wiki sources to read first:
-- `/home/node/persist/eye-messages.wiki/The-Transitivity-Restriction-(6-Groups-for-83).md`
-- `/home/node/persist/eye-messages.wiki/Proof-that-the-eyes-cannot-be-a-dihedral-GAK-cipher.md`
-- `/home/node/persist/eye-messages.wiki/Dihedral-Group.md`, `Cyclic-Group.md`,
-  `Group-Autokey-(GAK).md`, `Chaining-Conflicts.md`
+Wiki sources to read first — Lymm's eye-messages wiki
+(github.com/Lymm37/eye-messages/wiki):
+- page `The-Transitivity-Restriction-(6-Groups-for-83)`
+- page `Proof-that-the-eyes-cannot-be-a-dihedral-GAK-cipher`
+- pages `Dihedral-Group`, `Cyclic-Group`, `Group-Autokey-(GAK)`, `Chaining-Conflicts`
 
 ## Part A — the transitivity restriction (verification, mostly on paper + a citation)
 

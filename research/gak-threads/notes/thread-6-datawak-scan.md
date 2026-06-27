@@ -12,7 +12,7 @@ primary developer source confirms recoverable plaintext.
 
 ## What I extracted
 
-- Archive: `/home/node/persist/Noita/data/data.wak` (42,467,033 bytes).
+- Archive: `data.wak` (42,467,033 bytes).
 - No pre-existing unpacker was found under `ghidra-tools` or elsewhere, so I wrote
   a small Python unpacker (scratchpad `wak/unwak.py`).
 - **`.wak` format, reverse-engineered and verified from the header:**

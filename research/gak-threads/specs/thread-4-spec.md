@@ -64,12 +64,12 @@ prints may be stronger. In particular:
   Entry path: `orders::corpus_grids()` → `orders::accepted_honeycomb_order()` →
   `orders::read_corpus_message_values(&grids, order)` (per-message streams,
   boundaries kept; never concatenate across messages; never re-select a reading
-  order). See `notes/api-analysis.md`.
+  order).
 - **Do not modify** `src/chaining.rs` (Experiment-7B, cyclic-only, additive). It is
   reusable as the additive baseline + calibration mindset only.
 - Module/CLI/report wiring, lint rules, null+positive-control scaffold, and the
-  exact-round-trip cipher-key test template: follow `notes/api-infra.md` verbatim
-  (four-file touch: `src/<module>.rs`, `lib.rs`, `report.rs`, `main.rs`; new keys go
+  exact-round-trip cipher-key test template: follow the standard module-wiring
+  pattern (four-file touch: `src/<module>.rs`, `lib.rs`, `report.rs`, `main.rs`; new keys go
   in `ciphers.rs`). `unsafe` forbidden; no `unwrap`/`panic`/`indexing_slicing` in
   lib/CLI; every `pub` item documented; `--locked`; reuse `null.rs` PRNG/p-value
   helpers.
@@ -164,8 +164,8 @@ pub struct GakKey {
   the key (this is the whole point: without the key the hidden state blocks
   brute-forcing — `Explanation-of-Progress.md`).
 
-**Ground-truth fixtures + exact round-trip (mandatory, the `notes/api-infra.md`
-template, `ciphers.rs:1224`).** In `#[cfg(test)]`:
+**Ground-truth fixtures + exact round-trip (mandatory, the standard cipher-key
+test template, `ciphers.rs:1224`).** In `#[cfg(test)]`:
 - small alphabet and `EYE_READING_ALPHABET_SIZE`, random plaintexts via
   `SplitMix64`, `assert_eq!(gak_decrypt(gak_encrypt(p)), p)`;
 - **GCTAK special case:** with `H` trivial (`coset_readout` bijective), assert the
@@ -344,7 +344,7 @@ unconstrained fit is almost certainly a coincidence. Do not report it as a decod
   `SplitMix64`, `fisher_yates`, `shuffled_permutation`, `stateless_splitmix`,
   `mix_seed`, `random_index_below`, `add_one_p_value`; reuse only),
   `analysis.rs` (chi-square / IoC), `orders.rs`+`corpus.rs` (verified streams).
-- Wiring: `notes/api-infra.md` four-file pattern (module + `lib.rs` + `report.rs` +
+- Wiring: the standard four-file pattern (module + `lib.rs` + `report.rs` +
   `main.rs`), with a `gak-attack` CLI subcommand and a report whose `Interpretation:`
   paragraph states the claim ceiling, cites the GAK wiki pages, and preserves the
   "tentative" label on the small-support prior.

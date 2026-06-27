@@ -29,12 +29,13 @@ message-starts + shared-sections pattern is achievable in AGL more freely than t
 wiki thinks — then the puzzle may be **brute-forceable**, and that reopens the
 most tractable path to a solution.
 
-Wiki sources to read first:
-- `/home/node/persist/eye-messages.wiki/Affine-General-Linear-Group-(AGL).md`
-- `/home/node/persist/eye-messages.wiki/Message-Starts.md`,
-  `Shared-Sections.md`, `The-Transitivity-Restriction-(6-Groups-for-83).md`
-- `/home/node/persist/eye-messages.wiki/Group-Autokey-(GAK).md`,
-  `Hidden-State.md`, `Isomorphic-Cipher-Hierarchy.md`
+Wiki sources to read first (Lymm's eye-messages wiki,
+github.com/Lymm37/eye-messages/wiki):
+- page `Affine-General-Linear-Group-(AGL)`
+- pages `Message-Starts`, `Shared-Sections`,
+  `The-Transitivity-Restriction-(6-Groups-for-83)`
+- pages `Group-Autokey-(GAK)`, `Hidden-State`,
+  `Isomorphic-Cipher-Hierarchy`
 
 ## Background: what an AGL GAK cipher is, concretely
 

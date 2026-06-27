@@ -31,7 +31,7 @@ the eyes are imperfectly isomorphic — XGAK's upper edge is `≤`, not `=`.
 
 ## Wiki pages this module encodes (cite exactly; preserve "tentative")
 
-| Page (under `/home/node/persist/eye-messages.wiki/`, content to 2026-01-16) | What it gates |
+| Page (Lymm's eye-messages wiki, github.com/Lymm37/eye-messages/wiki, content to 2026-01-16) | What it gates |
 | --- | --- |
 | `Perfect-Isomorphism.md` | Definition: same plaintext ⇒ isomorphic outputs for all initial states. The honesty anchor ("not provable without plaintext"). |
 | `Allomorphs.md` | Boundary-vs-internal distinction; the three concrete regression checks 3A/3B/3C; "the difference could occur anywhere between the last visible repeat and this point" (boundary *bounds*, not *locates*). |
@@ -49,9 +49,8 @@ Message map (`reading-streams.md`, `corpus.rs`): wiki "messages 1,2,3" = corpus
 
 ## (a) Module: `src/perfect_isomorphism.rs`
 
-New engine, mirroring `pyry_conditions.rs` / `cipher_attack.rs` shape
-(`notes/api-infra.md` §"Engine module shape"). It owns six capabilities the task
-enumerates:
+New engine, mirroring `pyry_conditions.rs` / `cipher_attack.rs` shape. It owns
+six capabilities the task enumerates:
 
 1. **Isomorph catalog with significance** — enumerate cross-message gap-pattern
    matches and attach a matched-null significance score.
@@ -394,20 +393,20 @@ classifier internals, shuffle loop, regression-string builders) is private
 | Need | Reuse | Reference |
 | --- | --- | --- |
 | Verified corpus grids | `orders::corpus_grids()` | `perseus.rs:324`, `pyry_conditions.rs:397-401` |
-| Per-message streams (boundaries kept) | `orders::read_corpus_message_values(&grids, order)` | `perseus.rs` body; `notes/api-analysis.md` §orders |
+| Per-message streams (boundaries kept) | `orders::read_corpus_message_values(&grids, order)` | `perseus.rs` body |
 | Accepted order (never re-select) | `orders::accepted_honeycomb_order()` | `pyry_conditions.rs:397` |
 | Alphabet size 83 | `orders::READING_LAYER_ALPHABET_SIZE` | `pyry_conditions.rs:33` |
-| Gap-pattern (equality) encoding — **the load-bearing primitive** | `isomorph::PatternSignature::from_window::<TrigramValue>` | `isomorph.rs:38`; flagged in `api-analysis.md` §(a) |
+| Gap-pattern (equality) encoding — **the load-bearing primitive** | `isomorph::PatternSignature::from_window::<TrigramValue>` | `isomorph.rs:38` |
 | Render gap pattern to compare with wiki strings | `PatternSignature::render` / `values` | `isomorph.rs:76`, `isomorph.rs:86` |
 | Repeat-count strength of a window | `PatternSignature::has_repeated_symbol` (+ count distinct repeated ordinals) | `isomorph.rs:63` |
 | Within-sequence informative-signature catalog (per message, to seed cross-message bookkeeping) | `isomorph::detect_isomorphs::<TrigramValue>(seq, window, min_period, max_period)` and `SignatureGroup`/`strongest_signatures` | `isomorph.rs:212`, `isomorph.rs:174` |
-| Within-message shuffle null mechanism (copy the shape) | `null::fisher_yates` over `message_values.to_vec()`; `null::SplitMix64::new(seed)` | `isomorph_null.rs:8`, `isomorph_null.rs:301`; `api-analysis.md` §isomorph_null/(b) |
+| Within-message shuffle null mechanism (copy the shape) | `null::fisher_yates` over `message_values.to_vec()`; `null::SplitMix64::new(seed)` | `isomorph_null.rs:8`, `isomorph_null.rs:301` |
 | Per-trial/family derived seeds | `null::mix_seed(seed, tag)` (`stateless_splitmix(seed ^ tag)`) | `null.rs:91` |
 | Add-one empirical p | `null::add_one_p_value(count, trials)` | `null.rs:80` |
-| Significance helpers if Wilson/Bonferroni wanted | `null::wilson_95`, `null::analytic_headline_bounds` | `api-analysis.md` §null |
+| Significance helpers if Wilson/Bonferroni wanted | `null::wilson_95`, `null::analytic_headline_bounds` | `null.rs` |
 | Same-offset cross-message agreement runs — the alignment substrate | `perseus`'s `same_offset_common_runs` / `collect_pair_runs` (**private**) | `perseus.rs:466`, `perseus.rs:509` |
 | Leading-family / counterpart / global-prefix anchors | `perseus::SharedPartition.leading_start`, `GlobalSharedPrefix`, `is_counterpart_pair` (**private fn**) | `perseus.rs:208`, `perseus.rs:180`, `perseus.rs:574` |
-| Chi-square / IoC baselines (only if a numeric baseline is wanted) | `analysis::chi_square_*`, `analysis::index_of_coincidence` (take `Glyph`, not `TrigramValue`) | `analysis.rs:141-213`, `analysis.rs:76`; caveat `api-analysis.md` §analysis |
+| Chi-square / IoC baselines (only if a numeric baseline is wanted) | `analysis::chi_square_*`, `analysis::index_of_coincidence` (take `Glyph`, not `TrigramValue`) | `analysis.rs:141-213`, `analysis.rs:76` |
 
 **Promotion request (resolve before coding).** Perseus's same-offset run
 reconstruction (`same_offset_common_runs`, `collect_pair_runs`,
@@ -417,8 +416,7 @@ substrate but is **private** to `perseus.rs`. Two options, pick one and record i
 1. **Promote** to `pub(crate)` in `perseus.rs` and call from
    `perfect_isomorphism.rs`. Minimal change, single source of truth for "where do
    two messages share the same symbol at the same offset", but edits `perseus.rs`
-   (out of scope for the *analysis* run, in scope for this *new module* per
-   `api-infra.md`).
+   (out of scope for the *analysis* run, in scope for this *new module*).
 2. **Reimplement** the same-offset walk locally over `message_values` (the walk
    is short — `perseus.rs:513-524`), keeping `perseus.rs` untouched, at the cost
    of a second copy to keep in sync.
@@ -465,8 +463,8 @@ are complementary, not redundant.
 - **Tail:** `robust_internal_violations` is expected to be **low**. Frame it as
   an upper-tail exceedance: add-one one-sided p = (shuffles with internal-candidate
   count ≥ observed + 1)/(trials + 1), with an `InternalViolationNullBand`
-  (mean/median/q975/max). Report as a tail, **not a verdict** (`api-infra.md`
-  §Null). Because perfect isomorphism predicts *zero* robust internal violations,
+  (mean/median/q975/max). Report as a tail, **not a verdict**. Because perfect
+  isomorphism predicts *zero* robust internal violations,
   the headline negative ("none survive") is the *expected* outcome and supports
   GAK-family viability; the null calibrates how surprising the *observed* count is.
 
@@ -480,7 +478,7 @@ are complementary, not redundant.
 - **Margin gate:** the planted/real `A.B.CB.AC` significance must clear the null
   band with a margin (reuse `cipher_attack`'s `POSITIVE_CONTROL_MIN_MARGIN`
   idiom, `cipher_attack.rs:1255`). Failure ⇒ `PositiveControlFailed` error —
-  methodology suspect, not a finding (`api-infra.md` §Positive control).
+  methodology suspect, not a finding.
 - **Negative companion:** a uniform-random within-message stream must yield
   `strong == false` for that signature and zero robust internal violations on
   average (the null band itself doubles as this negative control, per
@@ -536,7 +534,7 @@ NOT source these verbatim strings from that bounded scan or 3A/3C can never repr
 
 ## (e) CLI subcommand + report wiring
 
-Four files (`api-infra.md` §"Files to touch"), no `Cargo.toml`/CI edits.
+Four files, no `Cargo.toml`/CI edits.
 
 **`src/lib.rs`** — insert alphabetically between `periodicity` (`:81`) and
 `perseus` (`:82`):
@@ -616,7 +614,7 @@ pub mod perfect_isomorphism;
 
 ---
 
-## (f) Lint compliance (`-D warnings` in CI; `api-infra.md` §Lint)
+## (f) Lint compliance (`-D warnings` in CI)
 
 - `missing_docs`: every `pub` item — including each struct field and enum
   variant above — has a `///`.

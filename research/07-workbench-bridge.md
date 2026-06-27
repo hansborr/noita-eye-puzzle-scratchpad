@@ -19,7 +19,7 @@ map straight onto the research's main warnings:
 
 | Existing crate rule (`AGENTS.md`)                         | Research finding it anticipates                                              |
 | -------------------------------------------------------- | --------------------------------------------------------------------------- |
-| "Never present placeholder-derived numbers as findings." | The whole corpus rests on order-selected stats with no family-wise correction. |
+| "Never present unverified numbers as findings."          | The whole corpus rests on order-selected stats with no family-wise correction. |
 | "Transcription is the risk… cross-check real data."      | Experiment 0: four independent transcriptions must be diffed before trusting any. |
 | `Glyph` is an opaque `u16`, not a closed enum yet.        | The rendered 0–4 + delimiter-5 inventory is **confirmed** → add a closed `Orientation` type, but keep `Glyph`/`Alphabet` generic (see below). |
 
@@ -29,8 +29,8 @@ map straight onto the research's main warnings:
   alphabet model are directly reusable.
 - `src/analysis.rs` — `frequencies`, `shannon_entropy`, index of coincidence,
   n-grams. These are the primitives Experiments 3, 4, 5, 6 need.
-- `src/corpus.rs` — **placeholder data only.** This is the single biggest gap and
-  the highest-priority target (Experiment 0).
+- `src/corpus.rs` — the **verified Experiment-0 corpus** (since implemented),
+  cross-checked byte-for-byte against the four transcriptions.
 - `src/main.rs` — thin CLI; grows into subcommands as modules land.
 
 ## What the research does (and does not) settle for the crate
@@ -65,23 +65,24 @@ Priorities mirror §"What would actually move the needle" in
 
 ### Tier 1 — prerequisites and the decisive tests
 
-1. **`corpus::ingest` (Experiment 0)** — replace placeholder data. Fetch the four
-   transcriptions, normalize each to (a) raw 0–4 string with delimiter removed and
-   (b) per-message base-5 trigram sequence, and add a **cross-validation test**
-   that fails on any byte-level disagreement. Record each message's in-game source
-   alongside the data (the crate already insists on this). Until this passes, every
-   number the crate prints is meaningless — keep saying so.
+1. **`corpus::ingest` (Experiment 0)** — *since implemented.* Fetches the four
+   transcriptions, normalizes each to (a) raw 0–4 string with delimiter removed and
+   (b) per-message base-5 trigram sequence, with a **cross-validation test**
+   that fails on any byte-level disagreement. Each message's in-game source is
+   recorded alongside the data (the crate insists on this). Now that this passes,
+   the numbers the crate prints are meaningful.
    - Inputs are in `data/code-testable.json` and `data/sources.json` here, plus:
      `ngraham20/NoitaCryptographyResearch` (`eye/eyes.json`),
      `Doctor-Ned/NoitaEyeGlyphResearch` (`data.csv`),
      `ToboterXP/EyeGlyphs` (`noitaGlyphs.txt`),
      Xkeeper0 PHP transcoder gist.
 
-2. **`analysis::null` + `reading_order` (Experiment 1)** — the decisive test.
-   Implement the 36 standard reading orders (and optionally Toboter's ~86k space),
-   then a **null-distribution harness**: generate many random grids of identical
-   dimensions and measure how often *some* order yields a contiguous range. This is
-   the family-wise correction the community's `(83/125)^1036` omits.
+2. **`analysis::null` + `reading_order` (Experiment 1)** — the decisive test, *since
+   implemented.* It implements the 36 standard reading orders (and optionally
+   Toboter's ~86k space), then a **null-distribution harness**: generate many random
+   grids of identical dimensions and measure how often *some* order yields a
+   contiguous range. This is the family-wise correction the community's
+   `(83/125)^1036` omits.
    - **Reproducibility note:** vetted crates are allowed now, but keep null-run
      randomness on the tiny in-crate deterministic PRNG unless there is a measured
      reason to change it. Seed it from a CLI flag so null runs are reproducible;
@@ -119,7 +120,7 @@ Priorities mirror §"What would actually move the needle" in
    the genuinely missing contribution; the detection itself exists upstream).
 9. **Experiment 8** — base-N / grouping reinterpretation; estimate internal state
    count *independently* (don't assume 83).
-10. **Experiment 11** — add the **solved** ciphers as positive-control fixtures
+10. **Experiment 11** — the **solved** ciphers as positive-control fixtures
     **matched to each tool**: monoalphabetic ciphers (e.g. Common Glyphs →
     "SEEK THE END") for the frequency/substitution path; *generated*
     polyalphabetic/autokey fixtures with known keys for the isomorph/chaining path.
@@ -143,11 +144,12 @@ Priorities mirror §"What would actually move the needle" in
    reading-layer type; keep storage vs reading layers distinct, and keep
    `Glyph`/`Alphabet` generic. Update `AGENTS.md` to note the *rendered* orientation
    alphabet is settled (5 orientations + delimiter) while the full type model is not.
-2. Land `corpus::ingest` + the four-way cross-validation test (Experiment 0).
-   Delete the placeholder sample once real data parses.
-3. Land the reading-order + null-distribution harness (Experiment 1) behind a
-   `noita-eye nulltest` subcommand. This is the result most likely to confirm or
-   deflate the community's headline claim.
+2. `corpus::ingest` + the four-way cross-validation test (Experiment 0) — since
+   implemented; the sample was replaced with the real, verified corpus once it
+   parsed.
+3. The reading-order + null-distribution harness (Experiment 1) behind a
+   `noita-eye nulltest` subcommand — since implemented. This is the result most
+   likely to confirm or deflate the community's headline claim.
 
 ## Honest framing to carry into the code
 

@@ -27,14 +27,15 @@ the observed isomorphs are, and where and how they break. That is a real,
 mapping-independent measurement that bears directly on family selection, and it is
 exactly the kind of null-backed structural work this repo is built for.
 
-Wiki sources to read first:
-- `/home/node/persist/eye-messages.wiki/Perfect-Isomorphism.md`
-- `/home/node/persist/eye-messages.wiki/Allomorphs.md` (worked examples to
+Wiki sources to read first (Lymm's eye-messages wiki,
+github.com/Lymm37/eye-messages/wiki — page slugs below):
+- `Perfect-Isomorphism`
+- `Allomorphs` (worked examples to
   reproduce — messages 1–2 shared section, messages 7/8/9 with the `*` extra
   repeat, and the single-deletion "corruption theory" bound)
-- `/home/node/persist/eye-messages.wiki/Isomorphs-(Gap-Patterns).md`,
-  `Isomorphic-Cipher-Hierarchy.md`, `The-Caboose.md`,
-  `The-Funny‐looking-Obstacle.md`, `The-Stutter-Section.md`
+- `Isomorphs-(Gap-Patterns)`,
+  `Isomorphic-Cipher-Hierarchy`, `The-Caboose`,
+  `The-Funny‐looking-Obstacle`, `The-Stutter-Section`
 
 ## The distinction to measure
 

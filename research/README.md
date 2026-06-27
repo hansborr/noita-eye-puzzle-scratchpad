@@ -73,7 +73,8 @@ adversarially. Result: **5 supported, 8 mixed, 1 unverifiable** (full reasoning 
 ## Where to start (code)
 
 1. **Experiment 0** — cross-validate the four independent transcriptions before
-   trusting any of them (this also fixes the crate's placeholder `corpus.rs`).
+   trusting any of them (now implemented: the crate's `corpus.rs` is the verified
+   Experiment-0 corpus).
 2. **Experiment 1** — reading-order multiple-comparisons audit with a null
    distribution. Most likely to confirm *or* deflate the consensus.
 3. **Experiment 11** — run the tooling against Noita's *solved* ciphers as a
