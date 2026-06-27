@@ -10,7 +10,7 @@
 # <path>                                   <max-lines>  # reason
 src/attack/gak_attack/tests.rs             1702  # extracted GCTAK gate tests (synthetic fixtures); split by stage only if it grows
 src/attack/gak_attack/eyes.rs              2316  # real-eye held-out attack; shrinks when the report/record/held-out/speculative layers split out
-src/attack/gak_attack/solver.rs            1993  # cohesive multi-stage GCTAK/deck solver; splits into gctak/deck/sweep
+src/attack/gak_attack/solver/mod.rs        797   # residual: cohesive indivisible GCTAK solve core (permutation-recovery + chain-link path tightly coupled); deck substrate already split into deck_fixture/deck_attack/deck_sweep siblings
 src/ciphers/mod.rs                         2675  # candidate-cipher zoo; shrinks further when the key types and group/modular math extract to siblings
 src/ciphers/tests.rs                       992   # extracted candidate-cipher unit tests (exact round-trip controls)
 src/attack/solve/tests.rs                  2040  # extracted solve-pipeline tests (unit + 8 include_str! corpus pipelines); split into tests_unit/tests_pipeline if it grows
