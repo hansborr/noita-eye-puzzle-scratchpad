@@ -13,4 +13,3 @@ src/attack/gak_attack/eyes/heldout.rs      826   # indivisible held-out scoring 
 src/attack/gak_attack/solver/mod.rs        797   # residual: cohesive indivisible GCTAK solve core (permutation-recovery + chain-link path tightly coupled); deck substrate already split into deck_fixture/deck_attack/deck_sweep siblings
 src/ciphers/tests.rs                       992   # extracted candidate-cipher unit tests (exact round-trip controls)
 src/attack/solve/tests.rs                  2040  # extracted solve-pipeline tests (unit + 8 include_str! corpus pipelines); split into tests_unit/tests_pipeline if it grows
-src/main.rs                                2118  # CLI dispatch + clap arg structs; shrinks when split into a bin-local cli/ module tree
