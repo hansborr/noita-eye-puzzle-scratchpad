@@ -18,4 +18,3 @@ src/analysis/perfect_isomorphism.rs        2056  # Thread-3 perfect-isomorphism 
 src/attack/cipher_attack.rs                1722  # Experiment-12 attack/null scorer; shrinks when report/search/controls split out
 src/nulls/null.rs                          1664  # shared matched-null harness core (other null drivers depend on it); render + tests extraction pending
 src/main.rs                                2118  # CLI dispatch + clap arg structs; shrinks when split into a bin-local cli/ module tree
-src/attack/ragbaby.rs                      1744  # general Ragbaby keyed-alphabet cracker; shrinks when cipher/search/record + tests split out
