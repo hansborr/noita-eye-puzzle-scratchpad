@@ -136,7 +136,7 @@ cargo run -- grouping                                       # Exp 8 grouping + s
 cargo run -- cipherattack  [--seed <u64>] [--samples <n>] [--null-trials <n>] [--max-vigenere-period <n>]
 cargo run -- controls monoalphabetic [--seed <u64>]         # Exp 11 positive control
 cargo run -- controls isomorph       [--seed <u64>]         # (alias: polyalphabetic)
-# 2026-06-24 structural battery (engine-fixed sequence, fixed honeycomb order, no decode):
+# 2026-06-24 structural battery (engine-fixed sequence, fixed honeycomb order):
 cargo run -- zeroadjnull   [--seed <u64>]                   # zero-adjacency forbidden-successor null
 cargo run -- moddiff                                        # modular-difference family fingerprint
 cargo run -- conditional   [--seed <u64>] [--seeds <n>] [--trials-per-seed <n>]  # first-order transition / successor graph
@@ -145,14 +145,14 @@ cargo run -- honeycomb     [--seed <u64>] [--trials <n>]    # 2D honeycomb-latti
 cargo run -- treeresidual  [--seed <u64>] [--trials <n>]    # tree-residual cross-tail n-gram null
 cargo run -- homogeneity   [--seed <u64>]                   # cross-message orientation homogeneity
 cargo run -- pyry          [--seed <u64>] [--draws <n>]     # Pyry's nine-condition falsification matrix
-# GAK / deck-cipher threads (synthetic generators + the real-eyes gate; nothing decodes):
+# GAK / deck-cipher threads (synthetic generators + the real-eyes gate):
 cargo run -- agl-gak       [--seed <u64>] [--null-trials <n>] [--fit] [--quadratic-residues]
                                                             # Thread 2 AGL(1,83)-GAK structural stress test
 cargo run -- gak-attack    [--seed <u64>] [--seeds-per-kind <n>] ...  # Thread 4 synthetic GCTAK decisive gate (synthetic-only)
-cargo run -- gak-attack-eyes [--seed <u64>] [--trials <n>]  # Thread 4 real-eyes step (held-out + Thread-3 gated; expected NO survivor; decode BLOCKED)
+cargo run -- gak-attack-eyes [--seed <u64>] [--trials <n>]  # Thread 4 real-eyes step (held-out + Thread-3 gated)
 cargo run -- perfectiso    [--seed <u64>] [--trials <n>] [--min-window <n>] [--max-window <n>]
                                                             # Thread 3 perfect-isomorphism / allomorph-consistency scan
-# Solve pipeline + practice letter-puzzle crackers (HYPOTHESES, never decodes; HONEST-NEGATIVE expected):
+# Solve pipeline + practice letter-puzzle crackers:
 cargo run -- solve         <ciphertext> [--family <f>] [--mapping-search] [--codec-search] [--seed <u64>]
                                                             # search + score solve hypotheses (round-trip / held-out / matched-null gated)
 cargo run -- keystream     [--puzzle <three|four|five|seven>] [--family <f>] [--seed <u64>]
@@ -165,6 +165,22 @@ cargo run -- profile       [--puzzle <three|four|five|seven>] [--input-file <pat
 
 Run `cargo run -- --help` (or `cargo run -- <subcommand> --help`) for the full
 subcommand set and every flag.
+
+## Reusable pieces
+
+Beyond the eye-puzzle result, the workbench is built to be reused on other
+sequence-analysis questions:
+
+- **A matched-null + DoF-calibrated null harness** (`crate::null`, the `dofnull`
+  driver) for asking "is this structure real or just noise?" of any symbol
+  stream, with the look-elsewhere correction built in.
+- **Cipher crackers with controls** — `solve` (search-and-score over cipher
+  families), `keystream` (Vigenère/Beaufort/autokey), and `ragbaby` each ship a
+  matched null, a held-out fold, and a positive control, so a negative is
+  trustworthy. Point them at your own ciphertext through the `ingest` front door,
+  which parses arbitrary glyph/cipher sequences.
+- **The verified corpus + engine decoder** (`data/corpus.rs`, `data/generator.rs`)
+  as a clean, provenance-checked source for the nine messages.
 
 ## Results
 
