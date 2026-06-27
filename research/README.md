@@ -68,6 +68,7 @@ adversarially. Result: **5 supported, 8 mixed, 1 unverifiable** (full reasoning 
 | [07-workbench-bridge.md](07-workbench-bridge.md) | How to implement the experiments in the existing Rust crate: module-by-module build order and the first three commits. |
 | [gak-threads/](gak-threads/README.md) | **2026-06-24 next-work package.** Six self-contained, hand-off-ready threads from the community wiki's Group-Autokey (GAK) framework, which independently converges with our workbench. Start at `gak-threads/README.md`. |
 | [findings/agl-exclusion.md](findings/agl-exclusion.md) | **Wiki-postable result.** Exhaustive exclusion of the AGL(1,83)-GAK families (`C83:C82`, `C83:C41`): the fixed-point lemma + complete enumeration (0/6724 and 0/3362 fix ≥2 points) strengthen the wiki's *tentative* exclusion to a rigorous one. |
+| [attack-methodology.md](attack-methodology.md) | **Process lessons for building trustworthy cipher attacks** (matched nulls vs the search's DoF, gate-exercising positive controls, fold-vs-fold held-out scoring, the SA sum objective, reduced-base indexing, power calibration). Transfers to any new attack even when the cipher math does not. |
 | [data/](data/) | Raw structured outputs: `facts.json` (126), `verdicts.json` (14), `code-testable.json` (47), `sources.json` (57) — for downstream tooling to ingest. |
 
 ## Where to start (code)
