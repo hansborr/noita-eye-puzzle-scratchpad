@@ -1,10 +1,10 @@
 # GAK Threads — handoff index
 
-Status as of **2026-06-24**. Source of the new material: Lymm's eye-messages
-wiki (github.com/Lymm37/eye-messages/wiki), content current to **2026-01-16**.
+Status as of 2026-06-24. Source of the new material: Lymm's eye-messages
+wiki (github.com/Lymm37/eye-messages/wiki), content current to 2026-01-16.
 
-This folder is a set of **self-contained briefs for handing individual threads to
-other agents**. Each `thread-N-*.md` can be picked up cold: it states the claim,
+This folder is a set of self-contained briefs for handing individual threads to
+other agents. Each `thread-N-*.md` can be picked up cold: it states the claim,
 the method, which existing modules to reuse or extend, the success/failure
 criteria, and the honesty caveats. Read this index first, then your assigned
 thread.
@@ -16,13 +16,13 @@ thread.
 Two independent lines of work have arrived at the same answer.
 
 - **Our workbench** (the 2026-06-24 structural battery + Pyry's-conditions
-  capstone) concluded: the eyes look like a **non-commutative, self-modifying,
-  plaintext-driven permutation** cipher; of the families we encoded, only
+  capstone) concluded: the eyes look like a non-commutative, self-modifying,
+  plaintext-driven permutation cipher; of the families we encoded, only
   autokey/Alberti survive all nine of Pyry's conditions.
 - **The wiki** has built that intuition into a rigorous group-theory framework
-  and lands in the same place: the eyes are most likely a **Group Autokey (GAK)**
-  cipher whose state group is the **symmetric group `S₈₃`** (or its alternating
-  subgroup `A₈₃`), most plausibly realized as a **"deck cipher"** — an 83-card
+  and lands in the same place: the eyes are most likely a Group Autokey (GAK)
+  cipher whose state group is the symmetric group `S₈₃` (or its alternating
+  subgroup `A₈₃`), most plausibly realized as a "deck cipher" — an 83-card
   deck where each plaintext letter triggers a specific shuffle and the top card is
   emitted as ciphertext.
 
@@ -35,12 +35,12 @@ constants were *produced*, which the binary does not reveal.
 
 ## The reframe (important — it changes our standing conclusion)
 
-Our memory has long said decode is **blocked on the unknown 83-symbol→meaning
-mapping, recoverable only via an external in-game/developer anchor**. The wiki's
-framing shows that claim is **too strong**. Their stated open problem is a **GAK
-attack** — there is no known way to "take deltas" in a GAK cipher with hidden
+Our memory has long said decode is blocked on the unknown 83-symbol→meaning
+mapping, recoverable only via an external in-game/developer anchor. The wiki's
+framing shows that claim is too strong. Their stated open problem is a GAK
+attack — there is no known way to "take deltas" in a GAK cipher with hidden
 states. A *working* GAK attack would recover the plaintext→permutation mapping
-**from the isomorph structure alone**, with no in-game anchor. So decode is
+from the isomorph structure alone, with no in-game anchor. So decode is
 blocked on *the attacks tried so far*, not in principle. Thread 4 chases exactly
 this.
 
@@ -109,8 +109,8 @@ Threads 1, 2, 3, 5 are independent and can run concurrently.
 ## On game data & Ghidra (answering the standing note)
 
 We have the game files and a Ghidra project for `noita.exe`, and they remain
-available. The honest assessment: **they are not the bottleneck for any of
-Threads 1–5.** Those are structural/algorithmic questions about the cipher
+available. The honest assessment: they are not the bottleneck for any of
+Threads 1–5. Those are structural/algorithmic questions about the cipher
 mechanism, answerable from the ciphertext alone. The binary-confirmation work
 already established that the message content is hardcoded `u32` constants
 (`FUN_0061ed60`) and that the *storage layer has no symbol→meaning table* — so the
@@ -118,7 +118,7 @@ binary cannot hand us the decode. See Thread 6 for the one residual, low-priorit
 lead (the untraced `data.wak` Lua that consumes the decoded integers) and why we
 expect it to stay a dead end.
 
-The one place game data legitimately re-enters: **post-hoc verification**. If
+The one place game data legitimately re-enters: post-hoc verification. If
 Thread 4 ever yields a candidate plaintext, in-game lore and the relationships
 between the nine messages become a corroboration resource — an *output* check, not
 an *input*.
@@ -140,7 +140,7 @@ an *input*.
   generalization to an arbitrary finite *group*; and the hidden-state extension
   where ciphertext symbols correspond to cosets of a hidden subgroup. Hierarchy:
   `CTAK < GCTAK < GAK < XGAK ≤ Perfectly Isomorphic`.
-- **Transitivity restriction** — because 83 is prime, only **6** transitive
+- **Transitivity restriction** — because 83 is prime, only 6 transitive
   permutation groups act on 83 points, so a GAK cipher with 83 ciphertext symbols
   must use one of them (Thread 1).
 - **Deck cipher** — the `S₈₃`/`A₈₃` case of GAK: state is an 83-card permutation,

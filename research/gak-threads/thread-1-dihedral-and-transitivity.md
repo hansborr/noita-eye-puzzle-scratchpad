@@ -45,7 +45,7 @@ record the proof sketch so the repo doesn't take it on faith:
 - The non-solvable transitive groups of prime degree are 2-transitive. For degree
   83 the only ones are `A₈₃` and `S₈₃` (83 is not a Mathieu degree, and `83` is
   not of the form `(qᵈ−1)/(q−1)`, so there are no exceptional affine-almost-simple
-  2-transitive groups here). → exactly **6** groups.
+  2-transitive groups here). → exactly 6 groups.
 
 **Deliverable for Part A:**
 - A short proof note committed under `research/gak-threads/` (or appended to the
@@ -75,16 +75,16 @@ The argument:
 - In `D₁₆₆ = C₈₃ ⋊ C₂`, non-identity elements have order 83 (rotations) or 2
   (reflections). With hidden subgroup `C₂`, a group element's induced permutation
   on the 83 ciphertext symbols can only have cycle lengths dividing its order — so
-  **only 1-, 2-, or 83-cycles** are possible.
-- Therefore **any observed chain longer than 2** forces its context element to
+  only 1-, 2-, or 83-cycles are possible.
+- Therefore any observed chain longer than 2 forces its context element to
   have order 83, i.e. to live in the abelian `C₈₃` subgroup — and all such
-  elements **commute**.
+  elements commute.
 - Define contexts `a = msg1→msg2` and `b = msg1→msg3`. The triple yields a
   length-3 chain under `a` (`L → - → _`) and a length-3 chain under `b`
   (`3 → - → 5`), forcing both `a` and `b` to be order 83 ⇒ they commute.
-- But the same letters exhibit a **commutativity conflict**: starting from `3`,
+- But the same letters exhibit a commutativity conflict: starting from `3`,
   `a` then `b` reaches one symbol while `b` then `a` reaches a different one
-  (`3 →a Q →b )` versus `3 →b - →a _`). So `a` and `b` do **not** commute.
+  (`3 →a Q →b )` versus `3 →b - →a _`). So `a` and `b` do not commute.
 - Contradiction ⇒ the state group cannot be `D₁₆₆`.
 
 **What to build:** a module (suggested `src/transitivity.rs` or extend
@@ -99,8 +99,8 @@ The argument:
    (`a∘b ≠ b∘a` from a shared start symbol). The conjunction is the contradiction.
 3. Reports the result as a structural verdict, not a decode.
 
-**Strengthen beyond the single example.** The wiki notes this is "the most
-convenient" conflict, not the only one. Have the tool **search the full corpus**
+Strengthen beyond the single example. The wiki notes this is "the most
+convenient" conflict, not the only one. Have the tool search the full corpus
 for *all* (context-pair, start-symbol) cases that simultaneously (a) force order
 83 via a >2 chain and (b) exhibit a commutativity conflict. Count them. One clean
 case already refutes `D₁₆₆`; a dozen independent ones make the refutation robust
@@ -120,13 +120,13 @@ hatch).
 
 ## Pitfalls & honesty notes
 
-- The proof assumes the cited isomorphs come from the **same plaintext**. Make
+- The proof assumes the cited isomorphs come from the same plaintext. Make
   that assumption explicit and, where possible, lean on the strongest (most
   internal repeats, multi-message, positionally-aligned) isomorphs so a single
   coincidental gap pattern can't be load-bearing. Cross-reference Thread 3's
   perfect-isomorphism scan for which isomorphs are safe to treat as repeated
   plaintext.
-- Do **not** extend an isomorph past its allomorphic boundary when building chains
+- Do not extend an isomorph past its allomorphic boundary when building chains
   — a chain link that crosses into differing plaintext is invalid. Bound chains by
   the isomorph extents Thread 3 produces (or reconstruct conservatively here).
 - This thread is pure structure: no language scoring, no symbol→meaning mapping, no

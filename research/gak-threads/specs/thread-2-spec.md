@@ -4,21 +4,21 @@
 the blueprint a future implementer follows so the change lands inside the
 existing gate (`make verify` / `make check`) with no surprises.
 
-**Honesty ceiling (must appear verbatim in the report's `Interpretation:`
-paragraph).** The strongest defensible claim about the eyes is: *deterministic,
+Honesty ceiling (must appear verbatim in the report's `Interpretation:`
+paragraph). The strongest defensible claim about the eyes is: *deterministic,
 engine-generated, strikingly structured data of unknown meaning; unsolved; no
 primary developer source confirms recoverable plaintext.* Nothing this module
 prints — Part A feasibility, Part B fit-or-no-fit — may be stated more strongly.
-A structural AGL fit (Part B success) is a **hypothesis to kill with held-out
-isomorphs, not a decode.**
+A structural AGL fit (Part B success) is a hypothesis to kill with held-out
+isomorphs, not a decode.
 
-**Mapping independence.** Every predicate uses only ciphertext-symbol *equality*
+Mapping independence. Every predicate uses only ciphertext-symbol *equality*
 and group/coset structure. Where a plaintext-letter→group-element assignment
 appears, it is an existence witness for the feasibility question or a free
 unknown in the bounded search — never a claimed symbol→meaning mapping. Any such
 choice is labelled *assumed/guessed* in the report.
 
-**Provenance of the model.** The AGL(1,83)-GAK conceptual model and the exact
+Provenance of the model. The AGL(1,83)-GAK conceptual model and the exact
 resync condition this spec encodes were derived and exhaustively brute-verified
 in `research/gak-threads/notes/thread-2-agl-verification.md` (Part 1 model;
 Part 2a/2b condition + 0-violation enumeration). This spec ports that result; it
@@ -34,7 +34,7 @@ and `corpus.rs`.
 | --- | --- |
 | AGL(1,83) group, `ax+b`, order `φ(n)(n-1)`, semidirect `C_n ⋊ (C_n)ˣ` | `Affine-General-Linear-Group-(AGL).md` |
 | Six transitive groups for 83; hidden-subgroup sizes `{1,2,41,82,82!/2,82!}`; `C₈₃:C₄₁`, `C₈₃:C₈₂` candidates | `The-Transitivity-Restriction-(6-Groups-for-83).md` |
-| GAK definition; output `c` constant on **right** cosets `Hg` under **left-mult** update `g_{i+1}=p(aᵢ)∘gᵢ` (lines 19, 26–34); the **right-mult / left-coset** equivalence (line 34) | `Group-Autokey-(GAK).md` |
+| GAK definition; output `c` constant on right cosets `Hg` under left-mult update `g_{i+1}=p(aᵢ)∘gᵢ` (lines 19, 26–34); the right-mult / left-coset equivalence (line 34) | `Group-Autokey-(GAK).md` |
 | Hidden subgroup must be non-normal; point stabilizer in AGL is non-normal | `Hidden-State.md` |
 | "First trigram different… values all over the place… resync the state" tentative exclusion | `Message-Starts.md` |
 | "Shared sections… longest ~24 chars in East1/West1/East2… almost certainly shared plaintext" | `Shared-Sections.md` |
@@ -42,11 +42,11 @@ and `corpus.rs`.
 | GAK perfect isomorphism (Part B held-out check) | `Proof-that-GAK-has-perfect-isomorphism.md`, `Perfect-Isomorphism.md` |
 | The rigorous-kill analogue (element orders / chaining), referenced as the cleaner path | `Proof-that-the-eyes-cannot-be-a-dihedral-GAK-cipher.md` |
 
-**The claim under test is tentative in the wiki.** `Message-Starts.md` /
+The claim under test is tentative in the wiki. `Message-Starts.md` /
 `Isomorphic-Cipher-Hierarchy.md` exclude AGL only by "not generally able …
 unless … finetuned to … resync." The note's verdict (Part 2c/2d) is that this is
-a *sound-but-overstated necessary condition*, **not a proof**. The module must
-report the AGL exclusion as **unsettled by message-starts** unless the
+a *sound-but-overstated necessary condition*, not a proof. The module must
+report the AGL exclusion as unsettled by message-starts unless the
 9-message simultaneous test (Part A) produces an inconsistency; it must not
 upgrade "tentative" to "excluded" on a single pair.
 
@@ -54,9 +54,9 @@ upgrade "tentative" to "excluded" on a single pair.
 
 ## 1. The verified model the cipher encodes (frozen — do not re-derive)
 
-From `notes/thread-2-agl-verification.md` Part 1, the **self-consistent** model
-whose output is the moved reference point is the **right-multiplication /
-left-coset** variant (this is the GAK wiki line-34 equivalence, *not* its main
+From `notes/thread-2-agl-verification.md` Part 1, the self-consistent model
+whose output is the moved reference point is the right-multiplication /
+left-coset variant (this is the GAK wiki line-34 equivalence, *not* its main
 left-mult definition — mixing the two is the exact mis-model the thread warns
 about):
 
@@ -95,13 +95,13 @@ coset frame:    c is constant on LEFT cosets gH;  c(g)=c(g') ⟺ g⁻¹g' ∈ H
 > rule (§2.3, §7) covers ONLY `*` and `+`; subtraction/negation **must** use
 > `sub_mod`/`neg_mod`.
 
-For **`C₈₃:C₄₁`**: restrict the multiplier `a` to the order-41 multiplicative
+For `C₈₃:C₄₁`: restrict the multiplier `a` to the order-41 multiplicative
 subgroup of `Z₈₃*` (the quadratic residues). Then `|G|=3403`, `|H|=41`,
-`|C|=3403/41 = 83`. Both variants still emit **83** ciphertext symbols
+`|C|=3403/41 = 83`. Both variants still emit 83 ciphertext symbols
 (`= |G|/|H|`), matching the eye alphabet.
 
-**The exact resync condition (frozen from Part 2a; brute-verified 0 violations,
-`agl_resync2.py`).** For two messages with post-first-letter states `g₁ᴹ, g₁ᴺ`,
+The exact resync condition (frozen from Part 2a; brute-verified 0 violations,
+`agl_resync2.py`). For two messages with post-first-letter states `g₁ᴹ, g₁ᴺ`,
 let `D := (g₁ᴹ)⁻¹·g₁ᴺ` be the discrepancy and `K_t` the shared running key:
 
 - differing first symbol ⟺ `c(g₁ᴹ) ≠ c(g₁ᴺ)` ⟺ `D ∉ H`;
@@ -109,14 +109,14 @@ let `D := (g₁ᴹ)⁻¹·g₁ᴺ` be the discrepancy and `K_t` the shared runni
   point `z_t := K_t.x₀`, i.e. `D.z_t = z_t`.
 
 `D=(d_a,d_b)` is affine: its fixed-point set is `{ d_b/(1−d_a) }` if `d_a≠1`,
-**empty** if `d_a=1, d_b≠0` (pure translation), all of `Z₈₃` only if `D=id`
+empty if `d_a=1, d_b≠0` (pure translation), all of `Z₈₃` only if `D=id`
 (excluded). Hence a shared run of length `L` after a differing start is
-achievable **iff (i)** `D` is not a pure translation (`d_a≠1`, so a unique fixed
-point `y*=d_b/(1−d_a)` exists) **and (ii)** the shared key pins the reference at
+achievable iff (i) `D` is not a pure translation (`d_a≠1`, so a unique fixed
+point `y*=d_b/(1−d_a)` exists) and (ii) the shared key pins the reference at
 `y*` for the whole run (`K_t.x₀ = y*` for all `t=1…L`): the first shared letter
 resyncs `x₀→y*`, every later shared letter lies in `H`. The simultaneous
-9-message form is: **all nine post-first-letter states lie in one common left
-coset of a single point-stabilizer `Stab(y*)`.** This is the genuine,
+9-message form is: all nine post-first-letter states lie in one common left
+coset of a single point-stabilizer `Stab(y*)`. This is the genuine,
 falsifiable constraint Part A tests.
 
 > **Fixed-point computation — exact panic-free recipe (load-bearing).** `1 − d_a`
@@ -143,7 +143,7 @@ falsifiable constraint Part A tests.
 ## 2. Deliverable (a): `AglGakKey` primitive in `src/ciphers.rs`
 
 Mirror `DeckCipherKey` (`ciphers.rs:384`) in shape, validation discipline, and
-the exact-round-trip test contract. Add to the **existing** `ciphers.rs`; reuse
+the exact-round-trip test contract. Add to the existing `ciphers.rs`; reuse
 `CipherError`, `validate_alphabet_size`, the `Glyph` type, `Direction`, and the
 `EYE_READING_ALPHABET_SIZE = 83` constant already there.
 
@@ -203,11 +203,11 @@ Constructors (each documented with `# Errors`; no panics, no
     element (`gcd(a,n)=1` i.e. `a≠0`; `a` in the chosen subgroup else
     `NonUnitMultiplier` / membership failure; `b < n`);
   - **reversibility guard (GAK wiki line 36):** the `letter_elements` must lie
-    in **distinct left cosets of `H`** (so no two letters collide and no letter
+    in distinct left cosets of `H` (so no two letters collide and no letter
     sits in the identity coset if doubles are to be avoided). Reuse the coset
     label `coset_of(g) = (a⁻¹·(x₀·? ))` — concretely `c(g)=g.x₀`; for injective
-    *decryption* what's required is that the **per-step output is invertible to
-    the letter**: enforce that the map `letter ↦ c((current)·p(letter))` is a
+    *decryption* what's required is that the per-step output is invertible to
+    the letter: enforce that the map `letter ↦ c((current)·p(letter))` is a
     bijection onto its image for the identity context, which (by GAK perfect
     reversibility) is equivalent to `p(letter)` landing in distinct cosets of
     `H`. Validate distinct-coset directly; return `DuplicatePermutationSymbol`
@@ -234,32 +234,32 @@ fn neg_mod(t: usize, n: usize) -> usize;                                        
 fn quadratic_residues_mod(n: usize) -> Vec<usize>;                               // the 41-subgroup for n=83
 ```
 
-**Modular-arithmetic recipe (binding for ALL of §2–§4; the repo forbids panics
-and a debug build panics on `usize` overflow/underflow).** Reduce every operand
+Modular-arithmetic recipe (binding for all of §2–§4; the repo forbids panics
+and a debug build panics on `usize` overflow/underflow). Reduce every operand
 `mod n` first (so it is in `0..n`), then:
 
 - **`*` and `+`:** `(a * b) % n`, `(a + b) % n` — safe in `usize` for these `n`
   (`a*b < n² ≤ 82·82`; `a+b < 2n`), as before.
-- **`−` and unary negation:** **never** write `a − b` or `1 − d_a` in `usize`.
+- **`−` and unary negation:** never write `a − b` or `1 − d_a` in `usize`.
   Use `sub_mod(a, b, n) = (a + n − (b % n)) % n` and
   `neg_mod(t, n) = (n − (t % n)) % n`. With operands already reduced, `a + n − b
   ≥ 0`, so no underflow; `% n` then gives the correct residue. (Writing `a − b`
   panics in debug when `b > a` and wraps to a wrong residue in release — `% n`
   cannot repair it.)
 
-Critical-path uses that **must** go through these helpers:
+Critical-path uses that must go through these helpers:
 
 - `agl_inverse(g=(a,b), n)`: `a⁻¹ = mul_inverse_mod(a, n)?`; the translation part
-  is `neg_mod((a⁻¹ * b) % n, n)` — i.e. `−a⁻¹·b mod n`, **not** `n − a⁻¹·b` and
-  **not** a bare `−`. Return `None` iff `mul_inverse_mod` returns `None`.
+  is `neg_mod((a⁻¹ * b) % n, n)` — i.e. `−a⁻¹·b mod n`, not `n − a⁻¹·b` and
+  not a bare `−`. Return `None` iff `mul_inverse_mod` returns `None`.
 - the fixed point `d_b/(1−d_a)`: denominator is `sub_mod(1, d_a, n)`; see the
   panic-free recipe under §1 (guard `denom == 0` ⇒ `d_a==1` ⇒ no fixed point,
-  **before** any inverse/division).
+  before any inverse/division).
 
-`mul_inverse_mod` via Fermat: `Some(pow_mod(a % n, n − 2, n))` when `n ≥ 2` **and**
+`mul_inverse_mod` via Fermat: `Some(pow_mod(a % n, n − 2, n))` when `n ≥ 2` and
 `a % n != 0`; `None` otherwise (so the `n − 2` exponent never underflows and the
 result is only ever used as a genuine inverse). Implement `pow_mod` by
-square-and-multiply with the accumulator reduced `% n` after **every** multiply
+square-and-multiply with the accumulator reduced `% n` after every multiply
 (each factor `< n`, so each product `< n²`, no overflow); `pow_mod(_, 0, n) = 1 %
 n`. This avoids extended-Euclid edge cases and never panics. No `indexing_slicing`
 (use `.get`).
@@ -305,11 +305,11 @@ cosets), so the observed CT symbol pins the letter. Build a per-step lookup
 In `#[cfg(test)] mod tests`, add `agl_gak_round_trips_random_plaintexts()`
 mirroring `deck_cipher_round_trips_random_plaintexts`:
 
-- small **prime** keys: `AglGakKey::identity(7, Full)`, `identity(7,
+- small prime keys: `AglGakKey::identity(7, Full)`, `identity(7,
   QuadraticResidues)`, and a `new(...)` with a hand-built injective letter map;
 - eye keys: `AglGakKey::identity(EYE_READING_ALPHABET_SIZE, Full)` and `(…,
   QuadraticResidues)`;
-- random plaintexts over **`0..min(alphabet_size, |C|)`** via the existing
+- random plaintexts over `0..min(alphabet_size, |C|)` via the existing
   `random_plaintext(seed, len, k)` helper (letters index into
   `letter_elements`, so the bound is the letter-alphabet size, not `n`);
 - `assert_eq!(agl_gak_decrypt(&agl_gak_encrypt(p)?, key)?, p)`.
@@ -319,7 +319,7 @@ trusts it.
 
 ---
 
-## 3. Deliverable (d): null + positive controls (BEFORE the eyes)
+## 3. Deliverable (d): null + positive controls (before the eyes)
 
 ### 3.1 Hand-checked tiny synthetic AGL example (the pitfall guard)
 
@@ -330,28 +330,28 @@ A `#[cfg(test)]` test `agl_gak_matches_hand_computed_n5()` over `n=5`,
   `(1,2)`, letter 2 → `(2,0)` (a decimation). Hand-compute, e.g. plaintext
   `[0,0]`: `g₁=(1,0)·(1,1)=(1,1)`, `c₁=g₁.0=1`; `g₂=(1,1)·(1,1)=(1,2)`, `c₂=2`.
   Plaintext `[2,0]`: `g₁=(2,0)`, `c₁=0`; `g₂=(2,0)·(1,1)=(2,2)`, `c₂=2`.
-- `assert_eq!` the full emitted CT vector against the **literal hand-computed
-  values written into the test** (not recomputed by the code under test). This
+- `assert_eq!` the full emitted CT vector against the literal hand-computed
+  values written into the test (not recomputed by the code under test). This
   is the moved-reference-point convention check the thread demands "before
   trusting it on the eyes."
-- A second tiny test asserts the **wrong** convention (left-mult update with
+- A second tiny test asserts the wrong convention (left-mult update with
   `g.x₀` output) would give a *different* vector for at least one input — a
   guard that the convention is the verified one, not the mis-model.
 
 ### 3.2 Positive control for the feasibility harness (must fire on known signal)
 
 The harness's job is to detect *whether a differing-first-then-shared run is AGL-
-realizable*. Plant a **known-realizable** witness and a **known-impossible** one:
+realizable*. Plant a known-realizable witness and a known-impossible one:
 
 - **Known-realizable (control fires "feasible"):** synthesize, with a chosen key
   and per-message initial states obeying the common-stabilizer-coset condition,
-  three ciphertexts with **distinct first symbols** then an identical length-≥6
+  three ciphertexts with distinct first symbols then an identical length-≥6
   shared run (the note already built a length-7 triple-shared witness with first
-  symbols `5,51,14`, `agl_multi.py`). The harness must classify this **feasible**
+  symbols `5,51,14`, `agl_multi.py`). The harness must classify this feasible
   and recover the witnessing `y*` / common coset.
-- **Known-impossible (control fires "infeasible"):** force a **pure-translation
-  discrepancy** (`d_a=1, d_b≠0`) between two messages. By Part 2a this admits
-  **no** shared section. The harness must classify it **infeasible**. (Note 2b:
+- **Known-impossible (control fires "infeasible"):** force a pure-translation
+  discrepancy (`d_a=1, d_b≠0`) between two messages. By Part 2a this admits
+  no shared section. The harness must classify it infeasible. (Note 2b:
   0 agreements across all 82 such `D` × 6806 contexts.)
 
 A control that misclassifies either ⇒ `PositiveControlFailed` error variant
@@ -359,7 +359,7 @@ A control that misclassifies either ⇒ `PositiveControlFailed` error variant
 
 ### 3.3 Matched null (structural-negative framing)
 
-The decisive Part-A question is **exhaustive enumeration, not statistics** — the
+The decisive Part-A question is exhaustive enumeration, not statistics — the
 state space is 6806 / 3403, so the common-stabilizer-coset feasibility for the
 real 9 starts is *settled*, not sampled. The null therefore serves a *calibration*
 role: it answers "is `feasible` cheap?" — i.e. does the 9-message constraint pass
@@ -368,12 +368,12 @@ for *random* first-symbol vectors too, making a pass uninformative?
 - **Null model:** draw random 9-tuples of distinct first symbols (uniform over
   the `83`-symbol alphabet, via `null::SplitMix64` + `random_index_below`,
   per-trial seed from `null::mix_seed(seed, trial)`), and run the same
-  common-stabilizer-coset feasibility test. Report the **fraction of random
-  start-vectors that pass**. Per note 2c the *pairwise* pass rate is ≈98.78%, so
+  common-stabilizer-coset feasibility test. Report the fraction of random
+  start-vectors that pass. Per note 2c the *pairwise* pass rate is ≈98.78%, so
   a *9-message* pass is expected to be common unless the eyes' starts are special;
   the null quantifies exactly how special (if at all). Frame and report this as a
-  tail/exceedance, **not** a verdict (`cipher_attack.rs` module-doc lines 14–18).
-- Aggregate within-message / within-start-vector only; **no** cross-message
+  tail/exceedance, not a verdict (`cipher_attack.rs` module-doc lines 14–18).
+- Aggregate within-message / within-start-vector only; no cross-message
   bigrams/lags. The shared-run *lengths* come from `perseus.rs` anchors (real
   data), held fixed across null draws.
 
@@ -381,7 +381,7 @@ for *random* first-symbol vectors too, making a pass uninformative?
 
 ## 4. Deliverable (b): feasibility / enumeration logic — where it lives
 
-New analysis module **`src/agl_gak.rs`** (alphabetically between `analysis` and
+New analysis module `src/agl_gak.rs` (alphabetically between `analysis` and
 `chaining` in `lib.rs`; one `pub mod agl_gak;` line). It owns `Config`, `Report`,
 `Error`, the `run_agl_gak` entry point, the null, the positive control, and
 tests — exactly the engine module shape of `pyry_conditions.rs` /
@@ -440,9 +440,9 @@ pub fn run_agl_gak(config: AglGakConfig) -> Result<AglGakReport, AglGakError>;
    &message_values)?` (it is `pub(crate)`; either call it from within the crate
    or, if `agl_gak.rs` is a sibling module, it already has crate visibility).
    From the returned `SharedPartition` take:
-   - the **first symbol** of each message (`message_values[m][0]`) — the
+   - the first symbol of each message (`message_values[m][0]`) — the
      differing message-starts (`Shared-Sections.md`/`Message-Starts.md`);
-   - the **shared-run lengths/offsets** for the East1/West1/East2 family (the
+   - the shared-run lengths/offsets for the East1/West1/East2 family (the
      `selected_pair_runs` whose `role` is leading-family; longest ≈24 per
      `Shared-Sections.md`). These are the `L` values the resync condition must
      satisfy. Hold the *lengths*, not any symbol→meaning content.
@@ -458,16 +458,16 @@ pub fn run_agl_gak(config: AglGakConfig) -> Result<AglGakReport, AglGakError>;
      compute the discrepancy class and test condition (i) (`D` not a pure
      translation) + (ii) (`K_t.x₀ = y*` realizable for `t=1…L`). Compute
      `D = (g₁ᴹ)⁻¹·g₁ᴺ` via `agl_inverse` + `agl_compose` and any fixed point via
-     the §1 panic-free recipe; **never** open-code `−` / `1 − d_a` here (use
+     the §1 panic-free recipe; never open-code `−` / `1 − d_a` here (use
      `sub_mod`/`neg_mod`). Condition (i) is the comparison `d_a != 1` (no
      arithmetic); the `d_a == 1` case is "pure translation ⇒ fails (i)". Because the key
      map is free, (ii) is always satisfiable once (i) holds and the first symbols
-     are realizable from a common `Stab(y*)` coset (note 2c). So the **decisive**
-     test is: **is there a single `y*` whose stabilizer coset realizes all nine
-     first symbols simultaneously** with non-pure-translation pairwise
+     are realizable from a common `Stab(y*)` coset (note 2c). So the decisive
+     test is: is there a single `y*` whose stabilizer coset realizes all nine
+     first symbols simultaneously with non-pure-translation pairwise
      discrepancies? Enumerate `y*`; for each, check all nine first symbols are in
      the 82 (or 40) realizable values of that coset (note 2c: one coset realizes
-     82 of 83 first symbols) **and** pairwise discrepancies are not pure
+     82 of 83 first symbols) and pairwise discrepancies are not pure
      translations. Record pass/fail and the witnessing `y*`(s).
    - This is `O(83 · 9)` per subgroup after the cosets are precomputed —
      trivially exhaustive.
@@ -483,7 +483,7 @@ pub fn run_agl_gak(config: AglGakConfig) -> Result<AglGakReport, AglGakError>;
 
 Goal (thread Part B): attempt an actual AGL-GAK that *reproduces the real
 ciphertext*, using the isomorph structure as simultaneous constraints. Reuse
-**`isomorph.rs`**:
+`isomorph.rs`:
 
 - `isomorph::detect_isomorphs(&message_values_concat_or_per_message, window,
   min_period, max_period)` (or `PatternSignature::from_window`) to extract
@@ -493,12 +493,12 @@ ciphertext*, using the isomorph structure as simultaneous constraints. Reuse
 - Unknowns: per-letter group elements `p(·)` (bounded — at most 83 elements,
   each in `|C|=83` cosets) and per-message initial states (in one common
   `Stab(y*)` coset from Part A). Propagate the isomorph equalities as
-  coset/element constraints; **fail fast** on contradiction.
-- A **failed exhaustive** Part B is itself a result: it upgrades the tentative
+  coset/element constraints; fail fast on contradiction.
+- A failed exhaustive Part B is itself a result: it upgrades the tentative
   exclusion toward a real one ("no AGL(1,83)-GAK reproduces the pattern"). A
-  **success** is a *candidate structural hypothesis only* — §6.
+  success is a *candidate structural hypothesis only* — §6.
 - Report holds: `fit_attempted: bool`, `fit_found: bool`, and if found, the
-  number of held-out isomorphs it must still survive (do **not** print recovered
+  number of held-out isomorphs it must still survive (do not print recovered
   plaintext; there is no plaintext claim).
 
 ### 4.4 `AglGakReport` fields (documented)
@@ -535,10 +535,10 @@ gate discovers everything through them. No `Cargo.toml`/`Makefile`/CI edits.
    `#[must_use] pub fn format_agl_gak_error(error: &agl_gak::AglGakError) ->
    String` (match every variant, no panic) and `pub fn
    print_agl_gak_report(report: &agl_gak::AglGakReport)` (println! only;
-   private `fn print_*` sub-sections). The report **must** end with an
+   private `fn print_*` sub-sections). The report must end with an
    `Interpretation:` paragraph carrying the honesty ceiling (§6) and a
    `Multiplicity note:` if both subgroups / several `y*` tails are reported, and
-   it **must cite** `Affine-General-Linear-Group-(AGL).md`,
+   it must cite `Affine-General-Linear-Group-(AGL).md`,
    `The-Transitivity-Restriction-(6-Groups-for-83).md`, `Message-Starts.md`,
    `Shared-Sections.md`, and `Isomorphic-Cipher-Hierarchy.md`, preserving the
    word "tentative" for the wiki's AGL exclusion.
@@ -590,7 +590,7 @@ fn run_agl_gak(config: agl_gak::AglGakConfig) -> ExitCode {
 // in main(): Command::AglGak(args) => run_agl_gak(args.into()),
 ```
 
-(Cover **both** `C₈₃:C₈₂` and `C₈₃:C₄₁` either by two CLI runs with/without
+(Cover both `C₈₃:C₈₂` and `C₈₃:C₄₁` either by two CLI runs with/without
 `--quadratic-residues`, or by having `run_agl_gak` loop over both subgroups and
 the report carry both — pick the loop so a single invocation tests the whole
 candidate pair, matching the thread's "carry all nine / both groups" requirement.)
@@ -599,22 +599,22 @@ candidate pair, matching the thread's "carry all nine / both groups" requirement
 
 ## 6. Deliverable (g): success / failure criteria + honesty caveat
 
-**Part A — confirms the wiki (the note's expected outcome by message-starts is
-that it does NOT cleanly confirm; see 2c).** If the 9-message common-`y*`
-condition is **violated** (no single stabilizer coset realizes all nine first
-symbols with non-pure-translation discrepancies), AGL is **rigorously excluded by
-message-starts** and the candidate set collapses to `{A₈₃, S₈₃}`. Deliverable:
+Part A — confirms the wiki (the note's expected outcome by message-starts is
+that it does not cleanly confirm; see 2c). If the 9-message common-`y*`
+condition is violated (no single stabilizer coset realizes all nine first
+symbols with non-pure-translation discrepancies), AGL is rigorously excluded by
+message-starts and the candidate set collapses to `{A₈₃, S₈₃}`. Deliverable:
 the precise violated condition + the obstructing message pair + a positive
 control showing the test fires on the planted feasible/infeasible witnesses.
 
-**Part A — breaks the wiki (the note judges this the likely message-starts
-outcome).** If the condition is **satisfied** (some `y*` realizes all nine
+Part A — breaks the wiki (the note judges this the likely message-starts
+outcome). If the condition is satisfied (some `y*` realizes all nine
 starts — plausible, since one coset realizes 82/83 symbols, note 2c), then the
-message-starts argument does **not** exclude AGL. Report it as **"AGL not
-excluded by message-starts; remains a brute-forceable candidate"**, escalate, and
-explicitly defer the *rigorous* kill to the **element-order / chaining** route
+message-starts argument does not exclude AGL. Report it as "AGL not
+excluded by message-starts; remains a brute-forceable candidate", escalate, and
+explicitly defer the *rigorous* kill to the element-order / chaining route
 (note 2d; `Proof-that-the-eyes-cannot-be-a-dihedral-GAK-cipher.md`) which is
-Thread 1 / Thread 5 territory — do **not** claim a kill the message-starts test
+Thread 1 / Thread 5 territory — do not claim a kill the message-starts test
 cannot deliver.
 
 **Part B — failed exhaustive search:** strengthens the exclusion ("no AGL(1,83)-
@@ -622,16 +622,16 @@ GAK reproduces the message-start + shared-section pattern under the isomorph
 constraints"). Report as a bounded-search negative, not a proof, unless the
 search is provably exhaustive over the stated space.
 
-**Part B — a fit is found:** report it as a **candidate structural hypothesis,
-explicitly NOT a decode.** It must be killed/kept by **held-out isomorphs** (the
+**Part B — a fit is found:** report it as a candidate structural hypothesis,
+explicitly not a decode. It must be killed/kept by held-out isomorphs (the
 isomorphs not used to constrain the fit) and later by Thread 3's perfect-
-isomorphism scan (`Proof-that-GAK-has-perfect-isomorphism.md`). Print **no
-plaintext** and assert **no symbol→meaning mapping**. The required closing
+isomorphism scan (`Proof-that-GAK-has-perfect-isomorphism.md`). Print no
+plaintext and assert no symbol→meaning mapping. The required closing
 sentence: *the eyes remain deterministic, engine-generated, strikingly structured
 data of unknown meaning; unsolved; no primary developer source confirms
 recoverable plaintext.*
 
-**Honesty caveat (mandatory in the report).** A structural AGL fit with no
+Honesty caveat (mandatory in the report). A structural AGL fit with no
 language constraint can be a coincidence (thread Pitfalls). The two-message
 demonstration neither confirms nor refutes the exclusion — the constraint is
 simultaneous across all nine messages, so the report must carry all nine.
@@ -646,9 +646,9 @@ simultaneous across all nine messages, so the report must carry all nine.
 - No `unwrap`/`expect`/`panic`/`indexing_slicing`/`string_slice`/`integer_arithmetic`
   overflow in lib/CLI: index via `.get(i)` + `let Some(x) = … else { return
   Err(CipherError::InternalInvariant{ context }) }`. **Modular arithmetic:** `% n`
-  after each `*`/`+` keeps those in range, **but subtraction/negation must use
+  after each `*`/`+` keeps those in range, but subtraction/negation must use
   `sub_mod`/`neg_mod` (§1, §2.3) — a bare `a − b` / `1 − d_a` in `usize` panics in
-  debug (the gate runs debug tests) and yields a wrong residue in release.** Guard
+  debug (the gate runs debug tests) and yields a wrong residue in release. Guard
   `mul_inverse_mod` so the Fermat exponent `n − 2` (needs `n ≥ 2`) and the
   divide-by-`(1−d_a)` never hit zero (`denom == 0` ⇒ `d_a == 1` ⇒ no fixed point;
   return before dividing). Relaxed only inside `#[cfg(test)]`.
@@ -701,7 +701,7 @@ simultaneous across all nine messages, so the report must carry all nine.
 
 ---
 
-## 10. What this module must NOT do
+## 10. What this module must not do
 
 - Must not print recovered plaintext or assert any symbol→meaning mapping
   (mapping-independent rule).

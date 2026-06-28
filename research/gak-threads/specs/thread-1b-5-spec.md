@@ -1,19 +1,19 @@
 # Implementation spec — Threads 1B + 5 (chaining graph + dihedral verdict)
 
 **Status:** brief for a later implementation wave. Lands code under `-D warnings`
-with `make verify` green. Do **not** modify anything under `src/` while reading
+with `make verify` green. Do not modify anything under `src/` while reading
 this; the spec *describes* the modules to write.
 
-**Scope discipline (non-negotiable, from AGENTS.md + the threads).** Pure
-structure: only ciphertext symbol **equality** and group structure. No
+Scope discipline (non-negotiable, from AGENTS.md + the threads). Pure
+structure: only ciphertext symbol equality and group structure. No
 symbol→meaning mapping, no language scoring, no reading-order re-selection. Every
 structural negative carries a matched null; every positive control fires on known
 signal. The strongest defensible claim printed anywhere is: *deterministic,
 engine-generated, strikingly structured data of unknown meaning; unsolved; no
 primary developer source confirms recoverable plaintext.* The dihedral verdict
-constrains the candidate **group set** only — it says nothing about plaintext.
+constrains the candidate group set only — it says nothing about plaintext.
 
-These two threads share the **chain-link primitive** (an observed `symbol →
+These two threads share the chain-link primitive (an observed `symbol →
 symbol` pair under a fixed context). Thread 5 (`thread-5-chaining-graph.md`)
 builds the full graph (conflict catalogue + coverage); Thread 1B
 (`thread-1-dihedral-and-transitivity.md` Part B) is the dihedral-exclusion
@@ -29,8 +29,8 @@ Content current to 2026-01-16. Preserve every "tentative" label.
 - `github.com/Lymm37/eye-messages/wiki/Proof-that-the-eyes-cannot-be-a-dihedral-GAK-cipher`
   — the dihedral exclusion (Thread 1B verdict).
 - `github.com/Lymm37/eye-messages/wiki/Proof-that-GAK-is-transitive`
-  — the **right**-coset action that justifies "cycle lengths divide element
-  order" (NOT the semidirect-product left-action proof; see
+  — the right-coset action that justifies "cycle lengths divide element
+  order" (not the semidirect-product left-action proof; see
   `notes/thread-1b-dihedral-verification.md` Step 1).
 - `github.com/Lymm37/eye-messages/wiki/Graph-Chaining`, `github.com/Lymm37/eye-messages/wiki/Alphabet-Chaining`,
   `github.com/Lymm37/eye-messages/wiki/Chaining-Conflicts`, `github.com/Lymm37/eye-messages/wiki/Chaining-Conflict-Rates` — chaining-graph + conflict
@@ -41,17 +41,17 @@ Content current to 2026-01-16. Preserve every "tentative" label.
 - `github.com/Lymm37/eye-messages/wiki/Dihedral-Group`, `github.com/Lymm37/eye-messages/wiki/Cyclic-Group`,
   `github.com/Lymm37/eye-messages/wiki/Group-Autokey-(GAK)`, `github.com/Lymm37/eye-messages/wiki/Hidden-State`.
 
-**Honesty caveats to carry verbatim into report text** (from
+Honesty caveats to carry verbatim into report text (from
 `notes/thread-1b-dihedral-verification.md`):
-- The dihedral exclusion holds **conditional on** the cited 11-wide alignment
+- The dihedral exclusion holds conditional on the cited 11-wide alignment
   being a single same-plaintext isomorph under one global cipher (assumptions
   A1–A5).
-- HOLE 1 (wiki-acknowledged): a single "strategic typo" at col6 or col9 of the
+- hole 1 (wiki-acknowledged): a single "strategic typo" at col6 or col9 of the
   cited triple dissolves *that triple's* contradiction; the within-triple second
   conflict reuses col6/col9 and does not remove it.
-- HOLE 2 (not wiki-flagged): the commutativity-conflict half lives **only** in the
+- hole 2 (not wiki-flagged): the commutativity-conflict half lives only in the
   over-extended col9; on the high-confidence repeated 9-core the order-83 forcing
-  fires but **no conflict appears**. Robust refutation needs a
+  fires but no conflict appears. Robust refutation needs a
   forcing-plus-conflict witnessed *inside repeated-core columns* of some isomorph
   family — the empirical search this module performs.
 
@@ -63,11 +63,11 @@ From `notes/reading-streams.md` (reproduced byte-for-byte) and
 `notes/thread-1b-dihedral-verification.md`:
 
 - Corpus totals (already pinned elsewhere; re-assert in the eye-pin test):
-  **1036** trigrams, **83** distinct symbols (contiguous `0..=82`), 0
+  1036 trigrams, 83 distinct symbols (contiguous `0..=82`), 0
   adjacent-equal. Order = `accepted_honeycomb_order()` (stable name
   `standard36-u012-d012`).
 - The wiki "main isomorph" gap signature is `[0,0,0,0,0,3,0,7,4,0,9]` (window
-  length 11). It occurs as **four** instances under the accepted order:
+  length 11). It occurs as four instances under the accepted order:
   - `west1 @ 40` → `OLPJ3P-O3QL` (wiki msg1)
   - `west1 @ 70` → `dN1D-15d-)N` (wiki msg3)
   - `east2 @ 45` → `` &-`=Q`_&Q?- `` (wiki msg2)
@@ -88,7 +88,7 @@ locate ≥1 instance of the cited gap signature, reconstruct contexts `a`,`b`,
 confirm (i) a length-`>2` chain under each (order-83 forcing) and (ii) the
 commutativity conflict, and report `DihedralExcluded` — while explicitly
 flagging via the report that the conflict half depends on the col9 over-extension
-(HOLE 2) and that a repeated-core-only conflict is the robustness target.
+(hole 2) and that a repeated-core-only conflict is the robustness target.
 
 No `thread-1b-5-empirical.md` exists yet; this spec's §1 is the empirical oracle.
 
@@ -97,7 +97,7 @@ No `thread-1b-5-empirical.md` exists yet; this spec's §1 is the empirical oracl
 ## 2. Module layout (a)
 
 Two new files; `src/chaining.rs` (Experiment-7B additive, cyclic-only) stays
-**UNTOUCHED**.
+untouched.
 
 ### `src/chaining_graph.rs` (Thread 5 — primitive + catalogue + coverage)
 
@@ -114,7 +114,7 @@ orders / hidden-subgroup sizes (Part A consequence). Public entry
 `run_transitivity`.
 
 Wire both into the gate via the four-file pattern: `src/lib.rs` (`pub mod chaining_graph;` /
-`pub mod transitivity;`, keep the block at lib.rs:62-88 **alphabetical** —
+`pub mod transitivity;`, keep the block at lib.rs:62-88 alphabetical —
 `chaining_graph` after `chaining`/`cipher_attack`? note alpha order:
 `chaining` < `chaining_graph` < `cipher_attack`; `transitivity` after
 `tree_residual` before `trigram`); `src/report.rs`; `src/main.rs`. No
@@ -380,7 +380,7 @@ pub fn run_transitivity(
 - **Cross-message isomorph alignment (a)** → `isomorph::PatternSignature::from_window`
   (`src/isomorph.rs:38`; struct at `:31`). Compute the equality signature at each
   candidate offset per message and equate signatures by `==` (`SignatureGroup`
-  fields at `isomorph.rs:93-95`). **Do not** rely on `detect_isomorphs`
+  fields at `isomorph.rs:93-95`). Do not rely on `detect_isomorphs`
   (`isomorph.rs:212`) for cross-message alignment — it is within-sequence only;
   use it only to find the repeated signature
   *within* a message, then do cross-message bookkeeping yourself.
@@ -398,11 +398,11 @@ pub fn run_transitivity(
   do not reimplement privately. It is the shared `(count+1)/(trials+1)`
   convention used by the Monte-Carlo null modules.
 - **Alignment anchors** (`perseus.rs`) — reusable *concepts* for cross-message
-  start alignment but currently **private**: `same_offset_common_runs`
+  start alignment but currently private: `same_offset_common_runs`
   (`perseus.rs:466`), `leading_start` (`perseus.rs:208`/`:408`),
   `is_counterpart_pair` (`perseus.rs:574`), `MIN_SHARED_RUN_LEN` (`perseus.rs:28`,
   public), `SharedSpan` (`perseus.rs:148`). The wiki triple is located by the gap
-  *signature* (above), not by same-offset runs, so the spec does **not** require
+  *signature* (above), not by same-offset runs, so the spec does not require
   promoting perseus internals; reconstruct the isomorph-window alignment from
   `PatternSignature` matches. Cite perseus only as the report/null template.
 - **New union-find** → none exists (no union-find, no
@@ -425,27 +425,27 @@ pub fn run_transitivity(
 
 Reuse the within-message multiset shuffle (`isomorph_null`'s shape): per trial,
 `let mut shuffled = message_values.to_vec();
-for v in &mut shuffled { fisher_yates(v, &mut rng)?; }`, then **re-run the entire
-chain-link → conflict + coverage pipeline** on the shuffled streams and record:
+for v in &mut shuffled { fisher_yates(v, &mut rng)?; }`, then re-run the entire
+chain-link → conflict + coverage pipeline on the shuffled streams and record:
 
 - conflict counts (total / independent), and
 - coverage (`symbols_touched`, `largest_component`, `component_count`).
 
 Report each real statistic against the shuffle distribution as a percentile band
 (`ConflictCoverageNull` with `mean/q025/median/q975/max`, mirroring
-`IsomorphNullBand`) plus an **add-one** empirical exceedance p. Direction:
+`IsomorphNullBand`) plus an add-one empirical exceedance p. Direction:
 conflicts are evidence *for* non-commutativity (upper tail — real ≥ shuffle);
 coverage is evidence *for* transitivity (upper tail — real ≥ shuffle). Real
 structure must exceed the shuffle null. Frame the dihedral *negative* (D₁₆₆
-excluded) as the **expected** structural outcome, reported as exceedance, not as
+excluded) as the expected structural outcome, reported as exceedance, not as
 a bare verdict (`cipher_attack.rs` module-doc discipline).
 
 ### Positive control (mandatory — must fire on known signal)
 
-Generate a **synthetic non-commutative GAK fixture** with known isomorphs
+Generate a synthetic non-commutative GAK fixture with known isomorphs
 (`thread-5-chaining-graph.md` step 4):
 
-1. Build two **non-commuting** permutations `A`, `B` of `0..83` from
+1. Build two non-commuting permutations `A`, `B` of `0..83` from
    `null::shuffled_permutation(83, seed)` (`null.rs:127`; pattern at
    `ciphers.rs:1258`). Assert non-commutativity in-test (`A∘B ≠ B∘A` at some
    symbol) — re-draw via `stateless_splitmix`-derived seeds until it holds (it
@@ -484,7 +484,7 @@ Two subcommands, mirroring `run_pyry` / `print_pyry_conditions_report`
 Each report ends with an `Interpretation:` paragraph at the defensible-claim
 ceiling (`report.rs:580/921/992/1380` are the model) and a `Multiplicity note:`
 where several tails are tested (`report.rs:909`). The transitivity report must
-print the HOLE-1/HOLE-2 caveats from §0 and state that the verdict constrains the
+print the hole-1/hole-2 caveats from §0 and state that the verdict constrains the
 group set only. Cite the exact wiki page (§0) in the printed text and keep
 "tentative" wording.
 
@@ -492,7 +492,7 @@ group set only. Cite the exact wiki page (§0) in the printed text and keep
 
 ## 6. Lint compliance (e) — `-D warnings`
 
-- `missing_docs`: `///` on **every** `pub` item incl. struct fields + enum
+- `missing_docs`: `///` on every `pub` item incl. struct fields + enum
   variants (all the types in §3).
 - No `unwrap`/`expect`/`panic`/`indexing_slicing`/`string_slice` in lib/CLI:
   index via `.get(i)` + `let Some(x) = … else { return Err(...) }`; slice via
@@ -532,7 +532,7 @@ group set only. Cite the exact wiki page (§0) in the printed text and keep
 - **Verdict pin:** `run_transitivity` returns `DihedralExcluded`; ≥1
   `ExclusionWitness`; assert at least one witness reproduces the
   `3 →a Q →b )` vs `3 →b - →a _` conflict; assert `core_only_witnesses` count is
-  reported (expected to be 0 for the cited triple per HOLE 2 — pin it so a future
+  reported (expected to be 0 for the cited triple per hole 2 — pin it so a future
   data change surfaces).
 - **Positive control fires:** synthetic non-commutative GAK fixture yields ≥1
   conflict + planted coverage with margin over null
@@ -554,8 +554,8 @@ shuffle null; the positive control fires.
 
 **Thread 5 surprise (valuable):** conflicts few/fragile, or coverage fragmented
 (>1 large component). Either weakens a premise of the 6-group reduction — write it
-up; it feeds Threads 1 and 2. Coverage is evidence *for* transitivity, **not
-proof** of it; state it at that strength (`thread-5-chaining-graph.md:106-108`).
+up; it feeds Threads 1 and 2. Coverage is evidence *for* transitivity, not
+proof of it; state it at that strength (`thread-5-chaining-graph.md:106-108`).
 
 **Thread 1B success (expected):** ≥1 (ideally several) genuine
 order-83-forcing-plus-conflict cases reproduce the contradiction →
@@ -567,23 +567,23 @@ conflict depends on an unaligned/over-extended isomorph, or the >2-chain forcing
 is an allomorph artifact → `IsomorphNotLocated` / `ForcingWithoutConflict`;
 weakens the dihedral exclusion → write it up.
 
-**Honesty caveats the reports MUST print (verbatim intent, §0):**
-- The exclusion is **conditional on** assumptions A1–A5 (same plaintext, perfect
+**Honesty caveats the reports must print (verbatim intent, §0):**
+- The exclusion is conditional on assumptions A1–A5 (same plaintext, perfect
   isomorphism, no allomorph crossing, right-coset chaining action, single global
   configuration).
-- HOLE 1: single-typo escape hatch at col6/col9 on the cited triple; the
+- hole 1: single-typo escape hatch at col6/col9 on the cited triple; the
   within-triple second conflict shares those columns and does not remove it.
-- HOLE 2: on the cited triple the commutativity conflict exists **only** via the
-  over-extended col9; the repeated 9-core shows order-83 forcing but **no
-  conflict**. Robust refutation requires a forcing-plus-conflict inside
+- hole 2: on the cited triple the commutativity conflict exists only via the
+  over-extended col9; the repeated 9-core shows order-83 forcing but no
+  conflict. Robust refutation requires a forcing-plus-conflict inside
   repeated-core columns — which is exactly what the corpus-wide search counts and
   what `core_only_witnesses` reports.
 - Claim ceiling everywhere: this constrains the candidate group set; it says
-  **nothing** about recoverable plaintext. The eyes remain deterministic,
+  nothing about recoverable plaintext. The eyes remain deterministic,
   engine-generated, strikingly structured data of unknown meaning; unsolved; no
   primary developer source confirms recoverable plaintext.
 
-**Part A consequence encoded as a test** (`transitivity.rs`, from
+Part A consequence encoded as a test (`transitivity.rs`, from
 `thread-1a-transitivity-proof.md` §5): a `#[test]` asserting the six candidate
 group orders `{83, 166, 3403 (=83·41), 6806 (=83·82), "83!/2", "83!"}` and the
 six hidden-subgroup sizes `{1, 2, 41, 82, "82!/2", "82!"}` — the large two as

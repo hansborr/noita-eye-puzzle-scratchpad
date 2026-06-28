@@ -10,14 +10,14 @@ expecting a breakthrough.
 
 ## What the binary already settled (2026-06-24 first-party Ghidra)
 
-- The nine eye messages are **hardcoded `(low, high)` `u32` constants** assembled in
-  `FUN_0061ed60`. The world seed only randomizes **placement** (`FUN_0061fe80`),
-  not content. 150 pairs match the decompiled immediates **byte-for-byte**, which
+- The nine eye messages are hardcoded `(low, high)` `u32` constants assembled in
+  `FUN_0061ed60`. The world seed only randomizes placement (`FUN_0061fe80`),
+  not content. 150 pairs match the decompiled immediates byte-for-byte, which
   also re-validates the transcription in `corpus.rs`.
-- The storage path has **no symbol→meaning table**. The base-7 decode and any
+- The storage path has no symbol→meaning table. The base-7 decode and any
   meaning layer are *downstream* of where the constants live — they are not in the
   emit path we traced.
-- Consequence already banked: the cross-seed-content question is **resolved**
+- Consequence already banked: the cross-seed-content question is resolved
   (content is seed-invariant by construction), and the absence of a decode table in
   the binary is a *fact about the storage layer*, not a reverse-engineering gap.
 
@@ -26,18 +26,18 @@ write-up.
 
 ## Why we don't expect more (the honest part)
 
-The messages are **display constants**. They are not decrypted at runtime — the
+The messages are display constants. They are not decrypted at runtime — the
 game renders the eyes from the stored integers; it never needs the plaintext, so
-the plaintext (and any cipher key) **need not exist anywhere in the shipped game**.
+the plaintext (and any cipher key) need not exist anywhere in the shipped game.
 Petri could have encoded the messages once, offline, with pen-and-paper or a
 throwaway script, and shipped only the resulting constants. If that is what
-happened — and the binary evidence is consistent with it — then **no amount of
-datamining recovers the key**, because the key was never shipped. This is exactly
+happened — and the binary evidence is consistent with it — then no amount of
+datamining recovers the key, because the key was never shipped. This is exactly
 why the cipher-structure threads (1–5) attack the ciphertext directly instead.
 
 ## The one residual lead (and why it's probably nothing)
 
-The only untraced path is the **`data.wak` Lua** that consumes the decoded
+The only untraced path is the `data.wak` Lua that consumes the decoded
 integers further downstream. A diligent agent could:
 
 1. Unpack `data.wak` and grep the Lua for anything that ingests the eye-message
@@ -55,7 +55,7 @@ Time-box it; do not let it expand.
 Post-hoc corroboration for Thread 4. *If* the GAK attack ever yields a candidate
 plaintext, then in-game lore, the relationships among the nine messages, and known
 Noita puzzle conventions become a way to sanity-check the recovered text. That is an
-**output** check on a hypothesis, not an input to the decode — and it only matters
+output check on a hypothesis, not an input to the decode — and it only matters
 once Thread 4 produces something to check.
 
 ## Success / failure criteria

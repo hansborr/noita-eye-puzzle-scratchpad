@@ -5,9 +5,9 @@
 **Game-data/Ghidra helps:** No.
 
 **One-line:** Build the explicit chaining graph over the eye isomorphs and turn two
-qualitative wiki assertions into measured numbers: (a) how much **non-commutativity
-evidence** (chaining conflicts) there actually is, and (b) how much of the 83-symbol
-alphabet the isomorph chaining graph **covers** — the empirical basis for assuming
+qualitative wiki assertions into measured numbers: (a) how much non-commutativity
+evidence (chaining conflicts) there actually is, and (b) how much of the 83-symbol
+alphabet the isomorph chaining graph covers — the empirical basis for assuming
 the group action is *transitive*, which is what licenses the entire 6-group
 restriction.
 
@@ -35,15 +35,15 @@ Wiki sources to read first (Lymm's eye-messages wiki, github.com/Lymm37/eye-mess
 
 ## Concepts (precise definitions to implement)
 
-- A **context** between two aligned isomorph occurrences is the transformation from
+- A context between two aligned isomorph occurrences is the transformation from
   one to the other — the cumulative product of the plaintext letters between them
   (same message) or the state change needed to align them (different messages). We
-  never know the context's group element, but we observe its **action**: it maps
+  never know the context's group element, but we observe its action: it maps
   some ciphertext symbols to others.
-- A **chain link** is an observed `symbol → symbol` pair under a fixed context: at a
+- A chain link is an observed `symbol → symbol` pair under a fixed context: at a
   position where two aligned occurrences both have a symbol, the pair `(x, y)` says
   "context maps `x ↦ y`."
-- A **chaining conflict** is a witnessed non-commutativity: two contexts `a`, `b`
+- A chaining conflict is a witnessed non-commutativity: two contexts `a`, `b`
   and a start symbol `s` with `a` then `b` reaching a different symbol than `b` then
   `a`. (This is exactly the device Thread 1's dihedral proof uses.)
 

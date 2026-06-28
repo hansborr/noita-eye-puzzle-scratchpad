@@ -1,12 +1,12 @@
 # Thread 4 — GAK attack prototype (the prize)
 
-**Priority:** Medium to staff, but **highest reward**. **Effort:** High — a
+**Priority:** Medium to staff, but highest reward. **Effort:** High — a
 time-boxed research spike, not a checklist. **Mapping-independent:** Yes in the
 strongest sense — a working attack *produces* the symbol→permutation mapping
 rather than needing it as input. **Game-data/Ghidra helps:** Only post-hoc (to
 corroborate a recovered plaintext).
 
-**One-line:** The community's stated open problem is a **GAK attack** — there is no
+**One-line:** The community's stated open problem is a GAK attack — there is no
 known way to "take deltas" in a GAK cipher with hidden states. Building even a
 partial one is the single path that could break our long-standing "decode is
 blocked on the unknown mapping" conclusion *by pure cryptanalysis*.
@@ -16,8 +16,8 @@ blocked on the unknown mapping" conclusion *by pure cryptanalysis*.
 Classical chaining attacks recover the alphabet relationships in CTAK/Vigenère by
 taking *additive* deltas between aligned positions. The repo already does this for
 the cyclic case (`src/chaining.rs`, additive shifts only). GAK breaks it: the
-"delta" between two cipher states is now a **group element** (a permutation), not a
-scalar, and **hidden state** means you can't read the current state off the output.
+"delta" between two cipher states is now a group element (a permutation), not a
+scalar, and hidden state means you can't read the current state off the output.
 The wiki:
 
 > We currently do not have any known algorithm for finding the PT → group element
@@ -26,7 +26,7 @@ The wiki:
 > be much appreciated.
 
 If such an attack existed, it would recover the plaintext→permutation mapping from
-the **isomorph structure alone** — no in-game anchor, no developer statement. That
+the isomorph structure alone — no in-game anchor, no developer statement. That
 directly contradicts our standing memory claim that the mapping is recoverable only
 from an external source. It is the reason that claim is *too strong*: the mapping
 is unrecovered by the attacks tried so far, not unrecoverable in principle.
@@ -42,7 +42,7 @@ github.com/Lymm37/eye-messages/wiki):
 ## Approach — validate on synthetic ground truth first, always
 
 Never debug an attack on the eyes (no ground truth). The whole spike runs on
-**synthetic GAK/deck ciphers we generate**, where we know the plaintext, the
+synthetic GAK/deck ciphers we generate, where we know the plaintext, the
 per-letter permutations, and the initial state, so every intermediate claim is
 checkable. Only at the very end do you point the matured attack at the eyes.
 
@@ -50,29 +50,29 @@ checkable. Only at the very end do you point the matured attack at the eyes.
 
 The existing `ciphers.rs` `DeckCipherKey` is a *fixed-schedule* Solitaire-style
 simplification — not general GAK. Extend it (or add `GakKey`) so each plaintext
-letter maps to an **arbitrary** permutation of `S_n` (or `A_n`), state updates
+letter maps to an arbitrary permutation of `S_n` (or `A_n`), state updates
 cumulatively, output is the top card / chosen coset. Make `n` a parameter so you
 can work at `n = 5, 8, 12, …` before `83`. Generate ciphertexts from plaintext
-containing **repeated words/phrases** (so the output has strong isomorphs, like the
+containing repeated words/phrases (so the output has strong isomorphs, like the
 eyes).
 
 ### Step 1 — reproduce the known-solvable baselines (calibration)
 
-- Solve **GCTAK** puzzles end-to-end (the wiki says this is already doable with
+- Solve GCTAK puzzles end-to-end (the wiki says this is already doable with
   extended chaining). This is your positive control: if your harness can't solve
   GCTAK, it isn't ready for GAK.
-- Partially solve **small `S_n` GAK with few hidden states** given many isomorphs —
+- Partially solve small `S_n` GAK with few hidden states given many isomorphs —
   reproduce the wiki's "partially solve simple GAK examples" claim, then push it.
 
 ### Step 2 — the actual attack ideas (try several; this is research)
 
 - **Generalized chaining graph.** Build the chain graph (Thread 5 produces this for
   the eyes; build the synthetic analogue here) where edges are symbol→symbol under
-  a context, and contexts compose as **permutations**, not scalars. Recover
+  a context, and contexts compose as permutations, not scalars. Recover
   contexts by constraint propagation: aligned isomorphs give equations
   `context · π(word) = context'`; solve for the unknown elements.
 - **Exploit the small-support prior.** Thread 3 / the wiki's allomorph analysis
-  give an **upper bound of ~4 swaps per plaintext letter** of decoherence — i.e.
+  give an upper bound of ~4 swaps per plaintext letter of decoherence — i.e.
   the per-letter permutations are *near-identity* (small-support), not arbitrary
   shuffles. That collapses the search from `S₈₃` (`83!`) to permutations expressible
   as ≤k transpositions, which is tractable. Make this prior a first-class
@@ -91,12 +91,12 @@ the relationships among the nine messages.
 
 ## Go / no-go milestones (to keep the spike bounded)
 
-1. General `S_n` GAK generator + synthetic isomorph-rich corpora — **week-1 gate**;
+1. General `S_n` GAK generator + synthetic isomorph-rich corpora — week-1 gate;
    if this is shaky, stop.
-2. GCTAK solved end-to-end (positive control) — **decisive gate**; no GCTAK solve,
+2. GCTAK solved end-to-end (positive control) — decisive gate; no GCTAK solve,
    no GAK attempt.
 3. Small `S_n` (n ≤ 8) GAK *partially* recovered with the small-support prior —
-   **the real result**; reaching this reliably is already novel and is what the
+   the real result; reaching this reliably is already novel and is what the
    wiki asks for. Write it up even if `S₈₃` never falls.
 4. (Stretch) scale toward `S₈₃` on the eyes. Treat anything here as a hypothesis to
    be killed, not a solution.

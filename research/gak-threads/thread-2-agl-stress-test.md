@@ -6,7 +6,7 @@ sub-task searches a *small* space rather than needing the mapping as input.
 **Game-data/Ghidra helps:** No.
 
 **One-line:** The wiki rules out the two affine groups `C₈₃:C₄₁` and `C₈₃:C₈₂`
-only **tentatively**. They are the one remaining candidate small enough to
+only tentatively. They are the one remaining candidate small enough to
 brute-force (41 or 82 hidden states, vs. `83!` for the deck case). Make the
 ruling-out rigorous — or break it, which would be a big deal.
 
@@ -14,7 +14,7 @@ ruling-out rigorous — or break it, which would be a big deal.
 
 After Thread 1, the candidate set is `{C₈₃:C₄₁, C₈₃:C₈₂, A₈₃, S₈₃}`. The two
 affine (AGL) options are qualitatively different from the symmetric ones: they
-have only **41 or 82 hidden states**, which the wiki itself notes is "the only
+have only 41 or 82 hidden states, which the wiki itself notes is "the only
 remaining candidate that could reasonably be brute-forced." The wiki excludes
 them with a soft argument:
 
@@ -26,7 +26,7 @@ them with a soft argument:
 weakest link in the reduction to `S₈₃`/`A₈₃`. If the AGL cases are genuinely
 excluded, we want a real argument. If they are *not* — if the eyes' specific
 message-starts + shared-sections pattern is achievable in AGL more freely than the
-wiki thinks — then the puzzle may be **brute-forceable**, and that reopens the
+wiki thinks — then the puzzle may be brute-forceable, and that reopens the
 most tractable path to a solution.
 
 Wiki sources to read first (Lymm's eye-messages wiki,
@@ -41,16 +41,16 @@ github.com/Lymm37/eye-messages/wiki):
 
 `AGL(1,83)` acts on `Z₈₃` by `x ↦ a·x + b` (`a ∈ Z₈₃*`, `b ∈ Z₈₃`). As a GAK
 state group of order `83·82`:
-- The **hidden subgroup** is a point stabilizer (the maps fixing a chosen point),
-  of order 82; its cosets ↔ the 83 points, and the **ciphertext symbol** is the
+- The hidden subgroup is a point stabilizer (the maps fixing a chosen point),
+  of order 82; its cosets ↔ the 83 points, and the ciphertext symbol is the
   image of a fixed reference point under the current state element.
 - `C₈₃:C₄₁` is the index-2 subgroup using only the multiplicative subgroup of
   order 41; hidden subgroup size 41.
-- Each **plaintext letter** maps to a fixed group element; the state updates
+- Each plaintext letter maps to a fixed group element; the state updates
   cumulatively (`state ← state · π(letter)`); the output at each step is the
   current ciphertext symbol (the moved reference point).
 
-The key behavioural question is about **message starts**: in the eyes, messages
+The key behavioural question is about message starts: in the eyes, messages
 begin with *different* first ciphertext symbols and then snap into long shared
 sections (identical ciphertext) that, under the GAK reading, correspond to the
 same plaintext. The wiki claims AGL can only do this if the per-message initial
@@ -93,9 +93,9 @@ Because the hidden-state count is tiny, a guided search for an AGL GAK that
   (repeated plaintext ⇒ repeated element products). Use the isomorphs as
   simultaneous equations / constraints and propagate.
 - This still involves the unknown plaintext alphabet, but over a bounded space.
-  Even a **failed exhaustive** search is a result: it converts the tentative
+  Even a failed exhaustive search is a result: it converts the tentative
   exclusion into a real one ("no `AGL(1,83)` GAK reproduces the message-start +
-  shared-section pattern"). A **success** would be a candidate structural solution
+  shared-section pattern"). A success would be a candidate structural solution
   — verify hard before believing it (a fit with no language constraint can be a
   coincidence; cross-check against held-out isomorphs).
 
@@ -113,7 +113,7 @@ Because the hidden-state count is tiny, a guided search for an AGL GAK that
 
 ## Pitfalls & honesty notes
 
-- Get the GAK output function right: the ciphertext is the **coset**, i.e. the
+- Get the GAK output function right: the ciphertext is the coset, i.e. the
   moved reference point, not the raw group element. Mis-modelling this is the easy
   way to get a wrong feasibility answer. Validate the cipher on a tiny synthetic
   AGL example with hand-checked output before trusting it on the eyes.

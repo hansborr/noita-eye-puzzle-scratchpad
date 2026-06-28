@@ -1,28 +1,28 @@
 # Thread 3 — Perfect-isomorphism scan: implementation spec (gated Rust)
 
-**Status of this document.** Implementation spec only. It defines a new
+Status of this document. Implementation spec only. It defines a new
 library module, its public API, the null + controls + wiki regression checks, the
 CLI/report wiring, and the lint/honesty gates. No statistics are computed here;
 no number below is a finding. The Python scratch catalog and the conceptual
 verification are prior work (`research/gak-threads/notes/thread-3-perfectiso-verification.md`,
 `research/gak-threads/notes/reading-streams.md`). There is no
 `notes/thread-3-empirical.md` in the tree at spec time; the empirical numbers it
-would contain are produced **by** this module, not assumed by it.
+would contain are produced by this module, not assumed by it.
 
-**Mapping-independent (non-negotiable).** Everything operates on ciphertext
+Mapping-independent (non-negotiable). Everything operates on ciphertext
 symbol *equality* and group/positional structure only. No symbol→meaning mapping
 is invented or assumed. Values are `crate::trigram::TrigramValue` (`0..=82`,
 `READING_LAYER_ALPHABET_SIZE = 83`); the only operations are `==`, gap-pattern
 (first-occurrence) encoding, and positional alignment.
 
-**Honesty ceiling (printed verbatim by the report).** The eyes remain
+Honesty ceiling (printed verbatim by the report). The eyes remain
 *deterministic, engine-generated, strikingly structured data of unknown meaning;
 unsolved; no primary developer source confirms recoverable plaintext.* This
-module measures **evidence for or against perfect isomorphism**, which bears on
-**family selection** only. Perfect isomorphism is **not provable without the
-plaintext** (`Perfect-Isomorphism.md`; `Isomorphs-(Gap-Patterns).md`). A
-"supported" outcome keeps the GAK family in the running; it does **not** mean
-"the eyes are GAK." A clean internal violation **disfavours / falsifies** the
+module measures evidence for or against perfect isomorphism, which bears on
+family selection only. Perfect isomorphism is not provable without the
+plaintext (`Perfect-Isomorphism.md`; `Isomorphs-(Gap-Patterns).md`). A
+"supported" outcome keeps the GAK family in the running; it does not mean
+"the eyes are GAK." A clean internal violation disfavours / falsifies the
 proven-perfect-iso family (CTAK..XGAK) by contrapositive on the containment
 proof (`Proof-that-GAK-has-perfect-isomorphism.md`), but does not by itself prove
 the eyes are imperfectly isomorphic — XGAK's upper edge is `≤`, not `=`.
@@ -366,7 +366,7 @@ Body order (mirrors `pyry_conditions.rs:397-401`, `perseus.rs:322-329`):
 `message_values = orders::read_corpus_message_values(&grids, order)?` →
 build catalog → significance → extend+localize+classify → null → safe extents →
 run regression checks (error on mismatch) → run positive control (error on
-miss) → assemble report. **Never re-select a reading order.**
+miss) → assemble report. Never re-select a reading order.
 
 ---
 
@@ -396,7 +396,7 @@ classifier internals, shuffle loop, regression-string builders) is private
 | Per-message streams (boundaries kept) | `orders::read_corpus_message_values(&grids, order)` | `perseus.rs` body |
 | Accepted order (never re-select) | `orders::accepted_honeycomb_order()` | `pyry_conditions.rs:397` |
 | Alphabet size 83 | `orders::READING_LAYER_ALPHABET_SIZE` | `pyry_conditions.rs:33` |
-| Gap-pattern (equality) encoding — **the load-bearing primitive** | `isomorph::PatternSignature::from_window::<TrigramValue>` | `isomorph.rs:38` |
+| Gap-pattern (equality) encoding — the load-bearing primitive | `isomorph::PatternSignature::from_window::<TrigramValue>` | `isomorph.rs:38` |
 | Render gap pattern to compare with wiki strings | `PatternSignature::render` / `values` | `isomorph.rs:76`, `isomorph.rs:86` |
 | Repeat-count strength of a window | `PatternSignature::has_repeated_symbol` (+ count distinct repeated ordinals) | `isomorph.rs:63` |
 | Within-sequence informative-signature catalog (per message, to seed cross-message bookkeeping) | `isomorph::detect_isomorphs::<TrigramValue>(seq, window, min_period, max_period)` and `SignatureGroup`/`strongest_signatures` | `isomorph.rs:212`, `isomorph.rs:174` |
@@ -404,14 +404,14 @@ classifier internals, shuffle loop, regression-string builders) is private
 | Per-trial/family derived seeds | `null::mix_seed(seed, tag)` (`stateless_splitmix(seed ^ tag)`) | `null.rs:91` |
 | Add-one empirical p | `null::add_one_p_value(count, trials)` | `null.rs:80` |
 | Significance helpers if Wilson/Bonferroni wanted | `null::wilson_95`, `null::analytic_headline_bounds` | `null.rs` |
-| Same-offset cross-message agreement runs — the alignment substrate | `perseus`'s `same_offset_common_runs` / `collect_pair_runs` (**private**) | `perseus.rs:466`, `perseus.rs:509` |
-| Leading-family / counterpart / global-prefix anchors | `perseus::SharedPartition.leading_start`, `GlobalSharedPrefix`, `is_counterpart_pair` (**private fn**) | `perseus.rs:208`, `perseus.rs:180`, `perseus.rs:574` |
+| Same-offset cross-message agreement runs — the alignment substrate | `perseus`'s `same_offset_common_runs` / `collect_pair_runs` (private) | `perseus.rs:466`, `perseus.rs:509` |
+| Leading-family / counterpart / global-prefix anchors | `perseus::SharedPartition.leading_start`, `GlobalSharedPrefix`, `is_counterpart_pair` (private fn) | `perseus.rs:208`, `perseus.rs:180`, `perseus.rs:574` |
 | Chi-square / IoC baselines (only if a numeric baseline is wanted) | `analysis::chi_square_*`, `analysis::index_of_coincidence` (take `Glyph`, not `TrigramValue`) | `analysis.rs:141-213`, `analysis.rs:76` |
 
-**Promotion request (resolve before coding).** Perseus's same-offset run
+Promotion request (resolve before coding). Perseus's same-offset run
 reconstruction (`same_offset_common_runs`, `collect_pair_runs`,
 `is_counterpart_pair`, `global_shared_prefix`) is exactly Thread 3's alignment
-substrate but is **private** to `perseus.rs`. Two options, pick one and record it:
+substrate but is private to `perseus.rs`. Two options, pick one and record it:
 
 1. **Promote** to `pub(crate)` in `perseus.rs` and call from
    `perfect_isomorphism.rs`. Minimal change, single source of truth for "where do
@@ -421,13 +421,13 @@ substrate but is **private** to `perseus.rs`. Two options, pick one and record i
    is short — `perseus.rs:513-524`), keeping `perseus.rs` untouched, at the cost
    of a second copy to keep in sync.
 
-The spec **recommends option 1** (`pub(crate) fn same_offset_common_runs` +
+The spec recommends option 1 (`pub(crate) fn same_offset_common_runs` +
 `pub(crate) fn is_counterpart_pair`), because Thread 5 (chaining graph) and
 Thread 1B will want the same anchors and a single definition prevents drift.
 Note this is a same-offset alignment; cross-message isomorphs that recur at
 *different* offsets (the main isomorph sits at west1@40/@70, east2@45 —
 `reading-streams.md`) are found by `PatternSignature::from_window` bookkeeping,
-**not** by the same-offset run finder. Use the run finder for shared-section
+not by the same-offset run finder. Use the run finder for shared-section
 anchoring and the signature primitive for offset-free isomorph matching; the two
 are complementary, not redundant.
 
@@ -438,14 +438,14 @@ are complementary, not redundant.
 ### Matched internal-violation null (mandatory, matched)
 
 - **Statistic:** count of *internal-violation candidates* — breaks classified
-  `InternalCandidate` — produced by the **same** catalog → extend → localize →
-  classify pipeline. A break is an `InternalCandidate` iff ALL of: (i) two-sided
-  continuing agreement, each flank ≥ `MIN_TWO_SIDED_FLANK`; (ii) a SHORT desync
+  `InternalCandidate` — produced by the same catalog → extend → localize →
+  classify pipeline. A break is an `InternalCandidate` iff all of: (i) two-sided
+  continuing agreement, each flank ≥ `MIN_TWO_SIDED_FLANK`; (ii) a short desync
   island, `island_cols ≤ MAX_ISLAND_COLS`; (iii) a substantial re-synced isomorphic
   far run, `far_run ≥ POST_MIN`, carrying a shared cross-island back-reference
-  identical in both occurrences; AND (iv) it is not inside a named benign desync
+  identical in both occurrences; and (iv) it is not inside a named benign desync
   region. Guards (ii)+(iii) are the empirical's regression-hardened discriminator
-  (§2-3): without the `far_run ≥ POST_MIN` guard, late re-convergence on DIFFERENT
+  (§2-3): without the `far_run ≥ POST_MIN` guard, late re-convergence on different
   plaintext across the island fakes a violation (over-extension trap #2, wiki "3A")
   and manufactures spurious candidates. Distinct events are deduplicated by break
   column (overlapping seeds pinning one desync count once), matching the empirical
@@ -460,10 +460,10 @@ are complementary, not redundant.
   `let mut shuffled = message_values.to_vec(); for v in &mut shuffled { fisher_yates(v, &mut rng)?; }`
   then rerun catalog+classify on `shuffled` (cross-message; the run finder and
   signature matcher both operate on the shuffled streams).
-- **Tail:** `robust_internal_violations` is expected to be **low**. Frame it as
+- **Tail:** `robust_internal_violations` is expected to be low. Frame it as
   an upper-tail exceedance: add-one one-sided p = (shuffles with internal-candidate
   count ≥ observed + 1)/(trials + 1), with an `InternalViolationNullBand`
-  (mean/median/q975/max). Report as a tail, **not a verdict**. Because perfect
+  (mean/median/q975/max). Report as a tail, not a verdict. Because perfect
   isomorphism predicts *zero* robust internal violations,
   the headline negative ("none survive") is the *expected* outcome and supports
   GAK-family viability; the null calibrates how surprising the *observed* count is.
@@ -471,9 +471,9 @@ are complementary, not redundant.
 ### Positive control (mandatory, must fire on known signal)
 
 - **Plant the `A.B.CB.AC` main isomorph** (`Isomorphs-(Gap-Patterns).md:9-26`):
-  it occurs 6× across messages 1–3. The detector MUST fire on it — catalog it,
+  it occurs 6× across messages 1–3. The detector must fire on it — catalog it,
   attach significance with `strong == true`, and (per the wiki's own logic)
-  classify its trailing divergences as **Boundary**, never internal. This is the
+  classify its trailing divergences as Boundary, never internal. This is the
   `MainIsomorphPositiveControl` regression check *and* the positive control.
 - **Margin gate:** the planted/real `A.B.CB.AC` significance must clear the null
   band with a margin (reuse `cipher_attack`'s `POSITIVE_CONTROL_MIN_MARGIN`
@@ -489,44 +489,44 @@ are complementary, not redundant.
 Each is a `WikiRegressionResult`; a mismatch is `RegressionCheckFailed`
 (validates the wiki's data handling and our `isomorph.rs` simultaneously).
 
-**Regression strings are computed over fixed cited spans, NOT the catalog scan
-range.** Each check encodes a gap pattern via `PatternSignature::from_window` over
+Regression strings are computed over fixed cited spans, not the catalog scan
+range. Each check encodes a gap pattern via `PatternSignature::from_window` over
 the wiki's cited (offset, length) span directly — e.g. 3A's 24-column window at
 offset 1 — which deliberately exceeds `DEFAULT_MAX_WINDOW` (= 11). The `[min_window,
 max_window]` range governs only the cross-message strong-isomorph catalog scan; do
-NOT source these verbatim strings from that bounded scan or 3A/3C can never reproduce.
+not source these verbatim strings from that bounded scan or 3A/3C can never reproduce.
 
 - **3A — `Messages12SharedAllomorph`** (`Allomorphs.md:4-10`,
   `notes/thread-3-perfectiso-verification.md` §3A). Catalog's aligned gap-pattern
-  strings for the East1/West1 shared section must equal **verbatim**:
+  strings for the East1/West1 shared section must equal verbatim:
   - msg 1 (top): `A..BC.D....AB.......DC...`
   - msg 2 (bottom): `A..BC.D....AB.......DC..D`
-  Classifier must label the **sole differing (last)** position **Boundary**, not
+  Classifier must label the sole differing (last) position Boundary, not
   internal. Assert both strings + the `Boundary` label.
 - **3B — `Messages789ExtraRepeat`** (`Allomorphs.md:12-31`, verification §3B).
-  **Assert only the load-bearing claims, NOT the `*`-annotated rows verbatim.** The
+  Assert only the load-bearing claims, not the `*`-annotated rows verbatim. The
   empirical found that the wiki's `*`-annotated rows use wiki-specific `*` relabeling
-  and **do not match a plain gap string character-for-character**; only the two
+  and do not match a plain gap string character-for-character; only the two
   load-bearing facts reproduce, so those are what the check pins:
-  - the strong tail isomorph `.AB......B.A` is **identical across all of 7/8/9**
+  - the strong tail isomorph `.AB......B.A` is identical across all of 7/8/9
     (anchored @35); and
   - msg 7 carries an extra `O…O` repeat (anchor-relative positions 10, 16, 26) that
     8/9 lack — the allomorphic feature.
   The classifier must (i) confirm the shared `.AB......B.A` tail isomorph across
-  7/8/9, (ii) flag msg 7's `O…O` repeat as the allomorphic feature, (iii) **not**
+  7/8/9, (ii) flag msg 7's `O…O` repeat as the allomorphic feature, (iii) not
   promote anything to internal (it is allomorphic *before* the strong tail —
-  `StutterSection` benign). Do NOT gate on verbatim equality of the `*`-annotated
+  `StutterSection` benign). Do not gate on verbatim equality of the `*`-annotated
   rows; pinning those would fail the regression check on a relabeling artefact, not
   a real data error.
 - **3C — `CorruptionTheoryBound`** (`Allomorphs.md:31-37`, verification §3C).
-  **STATUS: HYPOTHESIS** — `hypothesis_label` must carry "conditional on
+  Status: Hypothesis — `hypothesis_label` must carry "conditional on
   single-deletion assumption; bounds where a difference must be, does not locate
-  it." Reproduce **verbatim** the exclusion row:
+  it." Reproduce verbatim the exclusion row:
   - `+++++xxxxx?????x++++++++++++`
   Output framed as *bounds* (`?` range), never "the difference is at position k".
   Dropping the conditional label or emitting a pinpoint is a regression failure.
 - **Main-isomorph control — `MainIsomorphPositiveControl`** (above). The wiki's
-  quoted ~3×10⁻²⁰ figure is **the wiki's estimate, not recomputed**; the report
+  quoted ~3×10⁻²⁰ figure is the wiki's estimate, not recomputed; the report
   must recompute significance under the matched null and may *compare to* the
   wiki figure, never *quote it as a finding* (`verification` §cross-cutting note).
 
@@ -536,7 +536,7 @@ NOT source these verbatim strings from that bounded scan or 3A/3C can never repr
 
 Four files, no `Cargo.toml`/CI edits.
 
-**`src/lib.rs`** — insert alphabetically between `periodicity` (`:81`) and
+`src/lib.rs` — insert alphabetically between `periodicity` (`:81`) and
 `perseus` (`:82`):
 ```rust
 pub mod perfect_isomorphism;
@@ -607,9 +607,9 @@ pub mod perfect_isomorphism;
     empirical p;
   - safe-extent table (the export);
   - regression-check pass/fail rows, with 3C carrying its hypothesis label;
-  - a **`Multiplicity note:`** (multiple isomorphs × windows are tested — cite the
+  - a `Multiplicity note:` (multiple isomorphs × windows are tested — cite the
     `print_honeycomb_interpretation` idiom `report.rs:909`);
-  - a final **`Interpretation:`** paragraph stating the ceiling (see (g)), citing
+  - a final `Interpretation:` paragraph stating the ceiling (see (g)), citing
     `Perfect-Isomorphism.md` + `Allomorphs.md` and preserving "tentative".
 
 ---
@@ -652,9 +652,9 @@ pub mod perfect_isomorphism;
   `reading-streams.md` (`east1=99 … east5=114`); 83 distinct global symbols
   (`pyry_conditions.rs:1430` idiom).
 - **All four wiki regression checks reproduce**, else the run errors. 3A, 3C and
-  the `A.B.CB.AC` control reproduce **verbatim** (character-for-character); 3B
-  reproduces its two **load-bearing claims** (shared `.AB......B.A` tail + msg7's
-  extra `O…O` repeat), NOT the wiki's `*`-relabeled rows verbatim (empirical §5).
+  the `A.B.CB.AC` control reproduce verbatim (character-for-character); 3B
+  reproduces its two load-bearing claims (shared `.AB......B.A` tail + msg7's
+  extra `O…O` repeat), not the wiki's `*`-relabeled rows verbatim (empirical §5).
   3C carries its hypothesis label.
 - **Positive control fires:** `A.B.CB.AC` is catalogued `strong == true` with a
   margin over the null; classified `Boundary` at its trailing divergence
@@ -667,21 +667,21 @@ pub mod perfect_isomorphism;
 - **Supports perfect isomorphism (GAK family stays viable):**
   `robust_internal_violations == 0` after the three benign-desync gates, or the
   observed count is within the chance-collision null (`empirical_p` not in the
-  upper tail). Report the *strongest defensible statement of support* — **without
-  claiming proof** (plaintext unknown). The Funny-looking Obstacle, Caboose, and
+  upper tail). Report the *strongest defensible statement of support* — without
+  claiming proof (plaintext unknown). The Funny-looking Obstacle, Caboose, and
   Stutter breaks must all land as `Boundary`/`BenignDesync`, matching the wiki.
 - **Against perfect isomorphism (high-value, redirects the field):** ≥1
-  `InternalCandidate` survives the three gates **and** exceeds the null
-  (`empirical_p <= SIGNIFICANCE_ALPHA`). Then GAK is **disfavoured**; the frontier
+  `InternalCandidate` survives the three gates and exceeds the null
+  (`empirical_p <= SIGNIFICANCE_ALPHA`). Then GAK is disfavoured; the frontier
   moves to XGAK / imperfectly-isomorphic ciphers — for which the wiki states there
-  are **no good candidates** (`Isomorphic-Cipher-Hierarchy.md`), so this becomes
+  are no good candidates (`Isomorphic-Cipher-Hierarchy.md`), so this becomes
   an explicit ask back to the community. Each surviving candidate is documented
   *individually* with its two-sided flank lengths and why no benign explanation
   applies.
 
 ### Honesty caveats (must appear in the report's `Interpretation:`)
 
-- **Not a decode.** This is mapping-independent; it yields **no** symbol→meaning
+- **Not a decode.** This is mapping-independent; it yields no symbol→meaning
   mapping. "Perfect isomorphism supported" ≠ "the eyes are GAK" — it only keeps
   GAK in the running (thread §Pitfalls; verification §Honesty anchor).
 - **Not provable.** Perfect isomorphism cannot be proven without the plaintext
@@ -703,7 +703,7 @@ pub mod perfect_isomorphism;
 ### Downstream contract (Threads 1B / 5)
 
 `PerfectIsomorphismReport.safe_extents: Vec<SafeIsomorphExtent>` is the
-**safe-isomorph list** Threads 1B and 5 consume: each `SafeSpan` is conservative
+safe-isomorph list Threads 1B and 5 consume: each `SafeSpan` is conservative
 to the bounding break, so chaining/transitivity built on these spans never
 crosses differing plaintext (thread §Pitfalls "Feeds Thread 1 and Thread 4").
 Consumers must treat `safe_end` as exclusive and must not extend past a

@@ -5,7 +5,7 @@
 **Game-data/Ghidra helps:** No (content is hardcoded; there is no runtime plaintext
 to recover).
 
-**One-line:** The entire GAK program assumes the eyes are **perfectly isomorphic**
+**One-line:** The entire GAK program assumes the eyes are perfectly isomorphic
 (same plaintext ⇒ identical gap pattern, always). The wiki admits it cannot prove
 this without the plaintext. We can measure the *evidence for or against* it — and a
 clean negative would redirect the whole search away from GAK toward XGAK /
@@ -14,8 +14,8 @@ imperfectly-isomorphic ciphers, which the community has *no* candidates for.
 ## Why this matters
 
 The cipher hierarchy is `CTAK < GCTAK < GAK < XGAK ≤ Perfectly Isomorphic`. GAK
-sits inside the **perfectly isomorphic** region. If the eyes are only *imperfectly*
-isomorphic, **GAK is the wrong family** and the deck-cipher hypothesis is moot.
+sits inside the perfectly isomorphic region. If the eyes are only *imperfectly*
+isomorphic, GAK is the wrong family and the deck-cipher hypothesis is moot.
 The wiki is candid about this:
 
 > We can't prove that the isomorphs in the eyes are perfectly consistent without
@@ -44,14 +44,14 @@ causes:
 
 - **(allomorph at a boundary)** the shared plaintext *ended* — the break sits at a
   plausible word/phrase boundary, with differing plaintext after it. This is fully
-  consistent with **perfect** isomorphism. Expected, benign.
+  consistent with perfect isomorphism. Expected, benign.
 - **(internal violation)** the same plaintext continues, but a gap pattern that
   *should* recur is broken by one or two symbols *inside* an otherwise-continuing
-  isomorph. This would be a **perfect-isomorphism violation** — evidence the cipher
+  isomorph. This would be a perfect-isomorphism violation — evidence the cipher
   is only imperfectly isomorphic, i.e. *not* GAK.
 
-The headline question: **after accounting for boundary allomorphs, are there any
-robust internal violations?**
+The headline question: after accounting for boundary allomorphs, are there any
+robust internal violations?
 
 ## Method
 
@@ -101,7 +101,7 @@ robust internal violations?**
 - **Against perfect isomorphism (high value, redirects the field):** one or more
   internal violations are robust to boundary/typo explanations and exceed the null.
   → GAK is *disfavoured*; the search should move to XGAK or imperfectly-isomorphic
-  ciphers — for which, per the wiki, there are currently **no good candidates**, so
+  ciphers — for which, per the wiki, there are currently no good candidates, so
   this becomes the new frontier and an explicit ask back to the community.
 
 ## Pitfalls & honesty notes
