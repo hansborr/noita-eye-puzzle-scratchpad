@@ -35,7 +35,7 @@ solver." The remaining code work is transcription-robustness certification +
   n-gram score on the wrong structure is not a recovery. Label model-conditional
   and assumed choices as such. See `AGENTS.md` → Golden rules.
 - **Every new negative needs a matched null and a positive control that fires** on
-  known signal — otherwise it is not a finding. Re-use `src/nulls/` helpers.
+  known signal — otherwise it is not a finding. Reuse `src/nulls/` helpers.
 - **Any candidate cleartext (English or Finnish) → log it** as a hypothesis under
   `research/gak-threads/candidates/` per that folder's README. Never a decode.
 - **`src/main.rs` is the CLI chokepoint.** Any task adding a subcommand edits it;
