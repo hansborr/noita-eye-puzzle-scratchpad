@@ -34,7 +34,7 @@ impl Report for GakAttackReport {
         );
         report::appendln!(
             &mut out,
-            "TENTATIVE small-support radius (<=k transpositions): {} (0 = unconstrained gate regime)",
+            "tentative small-support radius (<=k transpositions): {} (0 = unconstrained gate regime)",
             self.config.small_support_radius
         );
         report::appendln!(
@@ -61,15 +61,15 @@ fn append_gak_attack_marginalization(out: &mut String, attack_report: &GakAttack
     let marg = &attack_report.marginalization;
     report::appendln!(
         out,
-        "UNIT 2b hidden-state marginalization (idea 3) + TENTATIVE small-support prior (idea 2)"
+        "Unit 2b hidden-state marginalization (idea 3) + tentative small-support prior (idea 2)"
     );
     report::appendln!(
         out,
-        "  idea 3 overcomes the unit-2a obstruction: instead of collapsing each phrase column to its single-valued core (the 2a baseline), a BOUNDED BEAM / belief-propagation over the hidden-state branches admits the multi-valued branches that GENERALIZE to a HELD-OUT chain-link fold (a TRAIN/HELD-OUT split of the same column's occurrences). The recovered object is the per-letter visible-coset edge MARGINAL over hidden states (multi-valued from allowed) -- a PARTIAL visible-coset action recovery, NOT a recovered key, NOT the plaintext->group-element mapping. SYNTHETIC-ONLY."
+        "  idea 3 overcomes the unit-2a obstruction: instead of collapsing each phrase column to its single-valued core (the 2a baseline), a bounded beam / belief-propagation over the hidden-state branches admits the multi-valued branches that generalize to a held-out chain-link fold (a train/held-out split of the same column's occurrences). The recovered object is the per-letter visible-coset edge marginal over hidden states (multi-valued from allowed) -- a partial visible-coset action recovery, not a recovered key, not the plaintext->group-element mapping. Synthetic-only."
     );
     report::appendln!(
         out,
-        "  beam width bound: {} (DISCLOSED, no silent truncation; dropped beams are reported per n)",
+        "  beam width bound: {} (disclosed, no silent truncation; dropped beams are reported per n)",
         marg.beam_width
     );
     report::appendln!(
@@ -79,7 +79,7 @@ fn append_gak_attack_marginalization(out: &mut String, attack_report: &GakAttack
     );
     report::appendln!(
         out,
-        "  decimals tagged (mean) are PER-SEED MEAN fractions; the recov/edges columns are AGGREGATE totals over all seeds (the aggregate ratio differs slightly from the per-seed mean)."
+        "  decimals tagged (mean) are per-seed mean fractions; the recov/edges columns are aggregate totals over all seeds (the aggregate ratio differs slightly from the per-seed mean)."
     );
     report::appendln!(
         out,
@@ -119,7 +119,7 @@ fn append_gak_attack_marginalization(out: &mut String, attack_report: &GakAttack
     }
     report::appendln!(
         out,
-        "  MEASURED result: idea-3 marginalization recovers SEVERAL-FOLD more true per-letter coset edges than the 2a single-valued core at every n (the multi-valued branches the core discards are most of the action), and beats the matched null. It is STRONGEST at the smallest n and BREAKS as the hidden-state count |H| = (n-1)! grows (the train fold samples a shrinking share of the hidden states), degrading toward -- never below -- the 2a baseline. \"Helps on small n, breaks as n grows\" is the expected, reportable outcome, not a thread failure. (This wording holds on the default-seed sweep; non-default --seed runs are not gate-guaranteed -- see the table above.)"
+        "  Measured result: idea-3 marginalization recovers several-fold more true per-letter coset edges than the 2a single-valued core at every n (the multi-valued branches the core discards are most of the action), and beats the matched null. It is strongest at the smallest n and breaks as the hidden-state count |H| = (n-1)! grows (the train fold samples a shrinking share of the hidden states), degrading toward -- never below -- the 2a baseline. \"Helps on small n, breaks as n grows\" is the expected, reportable outcome, not a thread failure. (This wording holds on the default-seed sweep; non-default --seed runs are not gate-guaranteed -- see the table above.)"
     );
     append_gak_attack_small_support(out, &marg.small_support_validation);
 }
@@ -127,11 +127,11 @@ fn append_gak_attack_marginalization(out: &mut String, attack_report: &GakAttack
 fn append_gak_attack_small_support(out: &mut String, validation: &SmallSupportValidation) {
     report::appendln!(
         out,
-        "  TENTATIVE small-support prior validation (idea 2; the prior is a heuristic to validate, NOT a hard constraint, labelled everywhere)"
+        "  Tentative small-support prior validation (idea 2; the prior is a heuristic to validate, not a hard constraint, labelled everywhere)"
     );
     report::appendln!(
         out,
-        "    method: generate fixtures WITH small-support truth and WITHOUT (unconstrained S_n), run idea-3 with the prior OFF and ON in each (n={}, {} seeds), and measure edge-recall + edge-precision.",
+        "    method: generate fixtures with small-support truth and without (unconstrained S_n), run idea-3 with the prior off and on in each (n={}, {} seeds), and measure edge-recall + edge-precision.",
         validation.state_size,
         validation.seeds
     );
@@ -155,12 +155,12 @@ fn append_gak_attack_small_support(out: &mut String, validation: &SmallSupportVa
     );
     report::appendln!(
         out,
-        "    prior FAILS GRACEFULLY (the robust, structural guarantee): {} -- its confidence floor only ever DROPS genuine low-support edges (recall ON <= OFF in both conditions) and never invents any, so precision is held or improved and a WRONG small-support assumption is never rewarded.",
+        "    prior fails gracefully (the robust, structural guarantee): {} -- its confidence floor only ever drops genuine low-support edges (recall on <= off in both conditions) and never invents any, so precision is held or improved and a wrong small-support assumption is never rewarded.",
         report::yes_no(validation.prior_fails_gracefully())
     );
     report::appendln!(
         out,
-        "    prior is SELECTIVELY discriminative (weak, TENTATIVE signal): {} -- in the deck realization the near-identity structure of the per-letter permutations only WEAKLY survives into the visible-coset marginal (hidden-state cycling spreads the marked card), so the prior helps small-support truth only marginally more than unconstrained truth. This thin margin is reported as TENTATIVE; the graceful-failure property is the load-bearing result.",
+        "    prior is selectively discriminative (weak, tentative signal): {} -- in the deck realization the near-identity structure of the per-letter permutations only weakly survives into the visible-coset marginal (hidden-state cycling spreads the marked card), so the prior helps small-support truth only marginally more than unconstrained truth. This thin margin is reported as tentative; the graceful-failure property is the load-bearing result.",
         report::yes_no(validation.prior_is_discriminative())
     );
 }
@@ -169,16 +169,16 @@ fn append_gak_attack_deck(out: &mut String, attack_report: &GakAttackReport) {
     let deck = &attack_report.deck;
     report::appendln!(
         out,
-        "REAL-GAK deck attack (non-trivial hidden subgroup H = Stab(top) = S_(n-1), |H| = (n-1)! > 1)"
+        "Real-GAK deck attack (non-trivial hidden subgroup H = Stab(top) = S_(n-1), |H| = (n-1)! > 1)"
     );
     report::appendln!(
         out,
-        "  this is the community's stated open problem. What this unit recovers is PARTIAL visible-coset action recovery (a fraction of per-letter visible-coset transitions; NOT a recovered key, NOT the plaintext->group-element mapping), plus a MEASURED bound on how far that gets. SYNTHETIC-ONLY (we hold ground truth)."
+        "  this is the community's stated open problem. What this unit recovers is partial visible-coset action recovery (a fraction of per-letter visible-coset transitions; not a recovered key, not the plaintext->group-element mapping), plus a measured bound on how far that gets. Synthetic-only (we hold ground truth)."
     );
     report::appendln!(out, "  per-letter draw regime: {}", deck.regime.label());
     report::appendln!(
         out,
-        "  measured obstruction: under non-trivial H the visible transition depends on the FULL hidden state, so most of a letter's visible-coset action is multi-valued across hidden states. The recoverable part (single-valued core) is bounded by this multi-valuedness -- which MOTIVATES idea 3 (hidden-state marginalization)."
+        "  measured obstruction: under non-trivial H the visible transition depends on the full hidden state, so most of a letter's visible-coset action is multi-valued across hidden states. The recoverable part (single-valued core) is bounded by this multi-valuedness -- which motivates idea 3 (hidden-state marginalization)."
     );
     report::appendln!(
         out,
@@ -218,11 +218,11 @@ fn append_gak_attack_deck(out: &mut String, attack_report: &GakAttackReport) {
     }
     report::appendln!(
         out,
-        "  multivalued-frac: the MEASURED hidden-state obstruction (fraction of visible cosets that map multi-valued under a fixed letter). Larger => less recoverable here; this is the headline honest result of the unit and the motivation for idea 3."
+        "  multivalued-frac: the measured hidden-state obstruction (fraction of visible cosets that map multi-valued under a fixed letter). Larger => less recoverable here; this is the headline honest result of the unit and the motivation for idea 3."
     );
     report::appendln!(
         out,
-        "  fixed-context TRUE-conflict aborts (a FEATURE, not a bug): occurrence-pair alignments where two arrows out of / into one symbol under ONE fixed alignment proved a bad isomorph alignment and were dropped, protecting honesty. (Cross-hidden-state multi-valuedness is NOT a conflict -- it is the measured obstruction above.)"
+        "  fixed-context true-conflict aborts (a feature, not a bug): occurrence-pair alignments where two arrows out of / into one symbol under one fixed alignment proved a bad isomorph alignment and were dropped, protecting honesty. (Cross-hidden-state multi-valuedness is not a conflict -- it is the measured obstruction above.)"
     );
     report::appendln!(
         out,
@@ -232,22 +232,22 @@ fn append_gak_attack_deck(out: &mut String, attack_report: &GakAttackReport) {
     );
     report::appendln!(
         out,
-        "  measured negative is the deliverable: partial visible-coset action recovery stays SMALL and roughly FLAT across n (it does NOT climb with n), bounded by the hidden-state obstruction; this is the expected, reportable outcome, not a thread failure. The matched null is destroyed at small n and only begins to match real at larger n / some seeds. (This wording holds on the default-seed sweep; non-default --seed runs are not gate-guaranteed -- see the table above.)"
+        "  measured negative is the deliverable: partial visible-coset action recovery stays small and roughly flat across n (it does not climb with n), bounded by the hidden-state obstruction; this is the expected, reportable outcome, not a thread failure. The matched null is destroyed at small n and only begins to match real at larger n / some seeds. (This wording holds on the default-seed sweep; non-default --seed runs are not gate-guaranteed -- see the table above.)"
     );
     report::appendln!(
         out,
-        "  the per-seed p-value is conservative (high per-fixture variance) and is non-significant on its own -- say so; the aggregate contrast is the AGGREGATE recovered-letter count real vs null."
+        "  the per-seed p-value is conservative (high per-fixture variance) and is non-significant on its own -- say so; the aggregate contrast is the aggregate recovered-letter count real vs null."
     );
     report::appendln!(
         out,
-        "  TENTATIVE small-support prior + hidden-state marginalization are the NEXT unit: this unit only generates both regimes and leaves documented hooks (the overlap-threshold merge and the single-valued-core light merge), it does NOT apply those priors."
+        "  Tentative small-support prior + hidden-state marginalization are the next unit: this unit only generates both regimes and leaves documented hooks (the overlap-threshold merge and the single-valued-core light merge), it does not apply those priors."
     );
 }
 
 fn append_gak_attack_rates(out: &mut String, attack_report: &GakAttackReport) {
     report::appendln!(
         out,
-        "rate-beats-null gate (the gate is the RATE vs null, NOT a single seed)"
+        "rate-beats-null gate (the gate is the rate vs null, not a single seed)"
     );
     report::appendln!(
         out,
@@ -278,7 +278,7 @@ fn append_gak_attack_rates(out: &mut String, attack_report: &GakAttackReport) {
     }
     report::appendln!(
         out,
-        "  rate-vs-null gate passed (real rate clears floor AND strictly exceeds matched-null rate): {}",
+        "  rate-vs-null gate passed (real rate clears floor and strictly exceeds matched-null rate): {}",
         report::yes_no(attack_report.rate_gate_passed)
     );
     report::appendln!(
@@ -342,7 +342,7 @@ fn append_gak_attack_outcomes(out: &mut String, attack_report: &GakAttackReport)
 fn append_gak_attack_exemplars(out: &mut String, attack_report: &GakAttackReport) {
     report::appendln!(
         out,
-        "retry-selected exemplars (ILLUSTRATIONS ONLY, NOT pass evidence; the gate passes on the RATE above)"
+        "retry-selected exemplars (illustrations only, not pass evidence; the gate passes on the rate above)"
     );
     for exemplar in &attack_report.exemplars {
         let outcome = exemplar.outcome;
@@ -368,29 +368,29 @@ fn append_gak_attack_interpretation(out: &mut String, attack_report: &GakAttackR
     if attack_report.rate_gate_passed {
         report::appendln!(
             out,
-            "Interpretation: on these SYNTHETIC-ONLY GCTAK fixtures (we hold the ground-truth key), the extended-chaining solver recovers per-letter permutations at a real rate that clears the documented floor and strictly beats its matched within-message shuffle null. This validates the methodology as a positive control; it is NOT a decode."
+            "Interpretation: on these synthetic-only GCTAK fixtures (we hold the ground-truth key), the extended-chaining solver recovers per-letter permutations at a real rate that clears the documented floor and strictly beats its matched within-message shuffle null. This validates the methodology as a positive control; it is not a decode."
         );
     } else {
         report::appendln!(
             out,
-            "Interpretation: the rate-beats-null gate did not pass for every group kind on these SYNTHETIC-ONLY fixtures. A negative or partial result is the expected, reportable outcome of the broader GAK thread, not a failure of it."
+            "Interpretation: the rate-beats-null gate did not pass for every group kind on these synthetic-only fixtures. A negative or partial result is the expected, reportable outcome of the broader GAK thread, not a failure of it."
         );
     }
     report::appendln!(
         out,
-        "REAL-GAK deck interpretation: on the non-trivial-H deck stabilizer (real GAK, |H|>1) the attack achieves PARTIAL visible-coset action recovery (a fraction of per-letter visible-coset transitions; NOT a recovered key, NOT the plaintext->group-element mapping). That fraction stays SMALL and roughly FLAT across n -- bounded by the MEASURED hidden-state obstruction (the multi-valuedness of the visible-coset action across hidden states), which is the part not recoverable without idea 3. The matched null is destroyed at small n and only begins to match real at larger n / some seeds. This measured obstruction is the contribution the wiki asks for and motivates idea 3; it is computed on SYNTHETIC ground truth and says nothing about the eyes. (The FLAT/destroyed-null wording holds on the default-seed sweep; non-default --seed runs are not gate-guaranteed -- see the table above.)"
+        "Real-GAK deck interpretation: on the non-trivial-H deck stabilizer (real GAK, |H|>1) the attack achieves partial visible-coset action recovery (a fraction of per-letter visible-coset transitions; not a recovered key, not the plaintext->group-element mapping). That fraction stays small and roughly flat across n -- bounded by the measured hidden-state obstruction (the multi-valuedness of the visible-coset action across hidden states), which is the part not recoverable without idea 3. The matched null is destroyed at small n and only begins to match real at larger n / some seeds. This measured obstruction is the contribution the wiki asks for and motivates idea 3; it is computed on synthetic ground truth and says nothing about the eyes. (The flat/destroyed-null wording holds on the default-seed sweep; non-default --seed runs are not gate-guaranteed -- see the table above.)"
     );
     report::appendln!(
         out,
-        "UNIT 2b idea-3 interpretation: hidden-state marginalization (a bounded beam over hidden-state branches, scored by held-out chain links) recovers MARKEDLY more of the per-letter visible-coset action than the 2a single-valued-core baseline on SYNTHETIC small-n deck GAK -- but only PARTIAL visible-coset action recovery (an edge marginal over hidden states), NEVER a recovered key and NEVER the plaintext->group-element mapping. It breaks as |H| = (n-1)! grows; a marginal/negative result at larger n is the expected outcome. The TENTATIVE small-support prior is validated (fails gracefully; only weakly discriminative in this realization) and is OFF in the headline sweep so no result silently depends on it. The beam width and dropped-beam counts are disclosed (no silent truncation). (The MARKEDLY-more wording holds on the default-seed sweep; non-default --seed runs are not gate-guaranteed -- see the table above.)"
+        "Unit 2b idea-3 interpretation: hidden-state marginalization (a bounded beam over hidden-state branches, scored by held-out chain links) recovers markedly more of the per-letter visible-coset action than the 2a single-valued-core baseline on synthetic small-n deck GAK -- but only partial visible-coset action recovery (an edge marginal over hidden states), never a recovered key and never the plaintext->group-element mapping. It breaks as |H| = (n-1)! grows; a marginal/negative result at larger n is the expected outcome. The tentative small-support prior is validated (fails gracefully; only weakly discriminative in this realization) and is off in the headline sweep so no result silently depends on it. The beam width and dropped-beam counts are disclosed (no silent truncation). (The markedly-more wording holds on the default-seed sweep; non-default --seed runs are not gate-guaranteed -- see the table above.)"
     );
     report::appendln!(
         out,
-        "Synthetic-only disclaimer: this unit NEVER touches the eye corpus; it generates and solves its own GCTAK ciphertexts whose key it holds. No claim here transfers to the eyes."
+        "Synthetic-only disclaimer: this unit never touches the eye corpus; it generates and solves its own GCTAK ciphertexts whose key it holds. No claim here transfers to the eyes."
     );
     report::appendln!(
         out,
-        "TENTATIVE small-support prior: the <=k-swaps / small-support search heuristic is a TENTATIVE prior to validate, not a hard constraint; the GCTAK gate runs unconstrained (radius 0) and does not depend on it."
+        "Tentative small-support prior: the <=k-swaps / small-support search heuristic is a tentative prior to validate, not a hard constraint; the GCTAK gate runs unconstrained (radius 0) and does not depend on it."
     );
     report::appendln!(
         out,

@@ -81,15 +81,15 @@ impl Report for EyesAttackReport {
         let mut out = String::new();
         report::appendln!(
             &mut out,
-            "Thread 4 EYES Step 3 (the ONLY unit that touches the real eye corpus)"
+            "Thread 4 eyes Step 3 (the only unit that touches the real eye corpus)"
         );
         report::appendln!(
             &mut out,
-            "Expected outcome: NO surviving candidate. The standing conclusion is the eye decode remains BLOCKED on the unknown symbol->meaning mapping; a clean honest negative is a SUCCESS, not a failure."
+            "Expected outcome: no surviving candidate. The standing conclusion is the eye decode remains blocked on the unknown symbol->meaning mapping; a clean honest negative is a success, not a failure."
         );
         report::appendln!(
             &mut out,
-            "What is recovered: STRUCTURE (visible-coset / chain-link constraints), NOT cleartext. A full structural recovery still yields abstract plaintext-letter INDICES, not readable text, because symbol->letter mapping needs an external ANCHOR (the standing blocker). Any candidate is a HYPOTHESIS, never a decode."
+            "What is recovered: structure (visible-coset / chain-link constraints), not cleartext. A full structural recovery still yields abstract plaintext-letter indices, not readable text, because symbol->letter mapping needs an external anchor (the standing blocker). Any candidate is a hypothesis, never a decode."
         );
         report::appendln!(
             &mut out,
@@ -115,15 +115,15 @@ fn append_eyes_gate1(out: &mut String, eyes_report: &EyesAttackReport) {
     // Gate 1: held-out isomorphs (embargoed-consensus coverage-weighted score).
     report::appendln!(
         out,
-        "GATE 1 -- held-out isomorphs vs matched within-message shuffle null"
+        "Gate 1 -- held-out isomorphs vs matched within-message shuffle null"
     );
     report::appendln!(
         out,
-        "  statistic: EMBARGOED-CONSENSUS coverage-weighted excess correctness. The recovered model is a LIBRARY of context-colored partial permutations (one per TRAIN isomorph occurrence pair), NOT a collapsed global symbol map. A held-out edge scores only when >=2 train contexts from DISTINCT signature groups -- with NO physical span overlap/adjacency with the held-out context -- AGREE on it; that embargo kills the nested/overlapping-window leak a within-message shuffle mimics, so only genuinely TRANSFERABLE structure scores. score = (A-1)*hits - A*misses (ambiguous unpenalized), A=83, with a per-message COVERAGE CLAMP that zeroes any message with < 4 confident decisions (an explicit part of the statistic, applied identically to real and null). Gate-1 chaining is ENFORCED to stay within the Thread-3 safe isomorph extents. A shuffle has no transferable structure detected by this gate, so it scores ~0."
+        "  statistic: embargoed-consensus coverage-weighted excess correctness. The recovered model is a library of context-colored partial permutations (one per train isomorph occurrence pair), not a collapsed global symbol map. A held-out edge scores only when >=2 train contexts from distinct signature groups -- with no physical span overlap/adjacency with the held-out context -- agree on it; that embargo kills the nested/overlapping-window leak a within-message shuffle mimics, so only genuinely transferable structure scores. score = (A-1)*hits - A*misses (ambiguous unpenalized), A=83, with a per-message coverage clamp that zeroes any message with < 4 confident decisions (an explicit part of the statistic, applied identically to real and null). Gate-1 chaining is enforced to stay within the Thread-3 safe isomorph extents. A shuffle has no transferable structure detected by this gate, so it scores ~0."
     );
     report::appendln!(
         out,
-        "  held-out POSITIVE CONTROL on a synthetic isomorph-rich eye-shaped fixture: real score {} vs worst-case null score {} (on {} scoreable edges) -> fired={} (the predictor must fire on KNOWN signal AND clear its OWN population's material-effect bar, or the gate is not trusted)",
+        "  held-out positive control on a synthetic isomorph-rich eye-shaped fixture: real score {} vs worst-case null score {} (on {} scoreable edges) -> fired={} (the predictor must fire on known signal and clear its own population's material-effect bar, or the gate is not trusted)",
         eyes_report.held_out_positive_control.real_score,
         eyes_report.held_out_positive_control.null_score,
         eyes_report.held_out_positive_control.scoreable_edges,
@@ -147,7 +147,7 @@ fn append_eyes_gate1(out: &mut String, eyes_report: &EyesAttackReport) {
     );
     report::appendln!(
         out,
-        "  material-effect bar (p-value is NECESSARY, NOT sufficient), POPULATION-RELATIVE and FAIR to the eyes: the real-vs-null excess must reach {:.0}% of the eyes' OWN max achievable score = scoreable_edges*(A-1) = {}*{} = {:.0}, so threshold = {:.1} (BELOW the eyes' max, so genuine signal COULD clear it); met={} (the detector is validated: the positive control clears its own population's bar by the identical rule)",
+        "  material-effect bar (p-value is necessary, not sufficient), population-relative and fair to the eyes: the real-vs-null excess must reach {:.0}% of the eyes' own max achievable score = scoreable_edges*(A-1) = {}*{} = {:.0}, so threshold = {:.1} (below the eyes' max, so genuine signal could clear it); met={} (the detector is validated: the positive control clears its own population's bar by the identical rule)",
         EYES_MATERIAL_EFFECT_FRACTION * 100.0,
         eyes_report.scoreable_edges,
         EYE_READING_ALPHABET_SIZE - 1,
@@ -157,7 +157,7 @@ fn append_eyes_gate1(out: &mut String, eyes_report: &EyesAttackReport) {
     );
     report::appendln!(
         out,
-        "  GATE 1 VERDICT (held-out beats matched null AND clears the calibrated material-effect bar): {}",
+        "  Gate 1 verdict (held-out beats matched null and clears the calibrated material-effect bar): {}",
         report::yes_no(eyes_report.held_out_beats_null)
     );
     report::appendln!(out, "  per-message (boundaries kept; never concatenated):");
@@ -197,16 +197,16 @@ fn append_eyes_gates_2_3_verdict(out: &mut String, eyes_report: &EyesAttackRepor
     // Gate 2: Thread-3 consistency.
     report::appendln!(
         out,
-        "GATE 2 -- Thread-3 perfect-isomorphism consistency (Thread-3 API REUSED, never re-derived)"
+        "Gate 2 -- Thread-3 perfect-isomorphism consistency (Thread-3 API reused, never re-derived)"
     );
     report::appendln!(
         out,
-        "  robust internal violations: {} (must be 0 -- a non-zero count is a manufactured TRUE conflict that would disqualify the model)",
+        "  robust internal violations: {} (must be 0 -- a non-zero count is a manufactured true conflict that would disqualify the model)",
         eyes_report.three_consistency.robust_internal_violations
     );
     report::appendln!(
         out,
-        "  safe isomorph extents exported: {} (Gate-1 chaining is ENFORCED to stay within these per-message safe spans: an occurrence window is admitted only inside a Thread-3 safe span, so chaining never over-extends past them)",
+        "  safe isomorph extents exported: {} (Gate-1 chaining is enforced to stay within these per-message safe spans: an occurrence window is admitted only inside a Thread-3 safe span, so chaining never over-extends past them)",
         eyes_report.three_consistency.safe_extents
     );
     report::appendln!(
@@ -216,7 +216,7 @@ fn append_eyes_gates_2_3_verdict(out: &mut String, eyes_report: &EyesAttackRepor
     );
     report::appendln!(
         out,
-        "  GATE 2 VERDICT (model consistent with Thread 3): {}",
+        "  Gate 2 verdict (model consistent with Thread 3): {}",
         report::yes_no(eyes_report.three_consistency.consistent)
     );
     report::appendln!(out);
@@ -224,19 +224,19 @@ fn append_eyes_gates_2_3_verdict(out: &mut String, eyes_report: &EyesAttackRepor
     // Gate 3: speculative cleartext.
     report::appendln!(
         out,
-        "GATE 3 -- SPECULATIVE cleartext plausibility (LAST, Finnish-weighted, NEVER primary)"
+        "Gate 3 -- speculative cleartext plausibility (last, Finnish-weighted, never primary)"
     );
     match &eyes_report.speculative_cleartext {
         None => {
             report::appendln!(
                 out,
-                "  NOT RUN. Gate 1 and/or Gate 2 did not pass (the expected case), so the SPECULATIVE cleartext path is correctly NOT executed and NO candidate cleartext is reported."
+                "  Not run. Gate 1 and/or Gate 2 did not pass (the expected case), so the speculative cleartext path is correctly not executed and no candidate cleartext is reported."
             );
         }
         Some(cleartext) => {
             report::appendln!(
                 out,
-                "  RAN (both structural gates passed). The symbol->letter mapping is a HYPOTHESIS, never recovered; this is NEVER primary evidence. Implied plaintext logged VERBATIM to the candidate record for human review (Finnish weighted highly -- Noita is Finnish)."
+                "  Ran (both structural gates passed). The symbol->letter mapping is a hypothesis, never recovered; this is never primary evidence. Implied plaintext logged verbatim to the candidate record for human review (Finnish weighted highly -- Noita is Finnish)."
             );
             report::appendln!(
                 out,
@@ -255,23 +255,23 @@ fn append_eyes_gates_2_3_verdict(out: &mut String, eyes_report: &EyesAttackRepor
     // The verdict + interpretation (honesty lock).
     report::appendln!(
         out,
-        "THE VERDICT: candidate survived BOTH structural gates: {}",
+        "The verdict: candidate survived both structural gates: {}",
         report::yes_no(eyes_report.candidate_survived)
     );
     if eyes_report.candidate_survived {
         report::appendln!(
             out,
-            "Interpretation: a candidate survived the held-out + Thread-3 checks. It is logged as a HYPOTHESIS for human review, NOT a decode. The claim ceiling still binds: this is NOT a recovered eye plaintext. FLAGGED LOUDLY for human review."
+            "Interpretation: a candidate survived the held-out + Thread-3 checks. It is logged as a hypothesis for human review, not a decode. The claim ceiling still binds: this is not a recovered eye plaintext. Flagged loudly for human review."
         );
     } else {
         report::appendln!(
             out,
-            "Interpretation: no candidate surfaced. This is the EXPECTED, reportable outcome -- with a near-S_83 group and very little eye text, recovered structure does not predict held-out isomorphs above the matched null (no transferable structure DETECTED BY THIS GATE). The eye decode REMAINS BLOCKED on the unknown symbol->meaning mapping. This is a HYPOTHESIS-free honest negative, NOT a decode."
+            "Interpretation: no candidate surfaced. This is the expected, reportable outcome -- with a near-S_83 group and very little eye text, recovered structure does not predict held-out isomorphs above the matched null (no transferable structure detected by this gate). The eye decode remains blocked on the unknown symbol->meaning mapping. This is a hypothesis-free honest negative, not a decode."
         );
     }
     report::appendln!(
         out,
-        "Candidate-logging protocol: every eyes run writes a dated, clock-free record under research/gak-threads/candidates/ capturing the attempt, the recovered-structure amount, the held-out verdict + matched-null p-value, the Thread-3 verdict, and the explicit HYPOTHESIS-not-decode label; any candidate cleartext (English OR Finnish) is logged VERBATIM for human review. This run's record: {}",
+        "Candidate-logging protocol: every eyes run writes a dated, clock-free record under research/gak-threads/candidates/ capturing the attempt, the recovered-structure amount, the held-out verdict + matched-null p-value, the Thread-3 verdict, and the explicit hypothesis-not-decode label; any candidate cleartext (English or Finnish) is logged verbatim for human review. This run's record: {}",
         eyes_report.record_path.display()
     );
 }

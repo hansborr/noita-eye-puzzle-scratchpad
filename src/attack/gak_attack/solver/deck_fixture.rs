@@ -50,7 +50,7 @@ impl DeckLetterRegime {
     pub const fn label(self) -> &'static str {
         match self {
             Self::Unconstrained => "unconstrained S_n",
-            Self::SmallSupport { .. } => "TENTATIVE small-support",
+            Self::SmallSupport { .. } => "tentative small-support",
         }
     }
 }

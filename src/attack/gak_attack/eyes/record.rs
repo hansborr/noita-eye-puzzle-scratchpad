@@ -86,16 +86,16 @@ pub(crate) fn render_eyes_candidate_record(
 ) -> Result<String, std::fmt::Error> {
     let mut out = String::new();
     let verdict = if inputs.candidate_survived {
-        "CANDIDATE SURVIVED BOTH STRUCTURAL GATES — logged as a HYPOTHESIS, NOT a decode"
+        "candidate survived both structural gates — logged as a hypothesis, not a decode"
     } else {
-        "NO candidate surfaced — decode remains blocked"
+        "no candidate surfaced — decode remains blocked"
     };
     // Header + verdict.
     writeln!(out, "# Eyes Step-3 GAK-attack candidate record")?;
     writeln!(out)?;
     writeln!(
         out,
-        "Stable label (NO wall-clock): seed=0x{:016x} trials={} beam={}",
+        "Stable label (no wall-clock): seed=0x{:016x} trials={} beam={}",
         inputs.config.seed, inputs.config.trials, inputs.config.beam_width
     )?;
     writeln!(out)?;
@@ -105,15 +105,15 @@ pub(crate) fn render_eyes_candidate_record(
     writeln!(out)?;
     writeln!(
         out,
-        "This record is a HYPOTHESIS, NOT a decode. The standing conclusion is the eye"
+        "This record is a hypothesis, not a decode. The standing conclusion is the eye"
     )?;
     writeln!(
         out,
-        "decode remains BLOCKED on the unknown symbol->meaning mapping, and it is"
+        "decode remains blocked on the unknown symbol->meaning mapping, and it is"
     )?;
     writeln!(
         out,
-        "preserved by this run unless a candidate survived BOTH structural gates below."
+        "preserved by this run unless a candidate survived both structural gates below."
     )?;
     writeln!(out)?;
 
@@ -122,7 +122,7 @@ pub(crate) fn render_eyes_candidate_record(
     writeln!(out)?;
     writeln!(
         out,
-        "Pointed the matured chain-link / hidden-state attack at the REAL eye corpus"
+        "Pointed the matured chain-link / hidden-state attack at the real eye corpus"
     )?;
     writeln!(
         out,
@@ -140,11 +140,11 @@ pub(crate) fn render_eyes_candidate_record(
     )?;
     writeln!(
         out,
-        "The attack recovers STRUCTURE (visible-coset / chain-link constraints), NOT"
+        "The attack recovers structure (visible-coset / chain-link constraints), not"
     )?;
     writeln!(
         out,
-        "cleartext: a full structural recovery still yields abstract letter INDICES,"
+        "cleartext: a full structural recovery still yields abstract letter indices,"
     )?;
     writeln!(
         out,
@@ -168,23 +168,23 @@ fn render_eyes_gate1(out: &mut String, inputs: &EyesRecordInputs<'_>) -> std::fm
     writeln!(out)?;
     writeln!(
         out,
-        "Statistic: EMBARGOED-CONSENSUS coverage-weighted excess correctness. The"
+        "Statistic: embargoed-consensus coverage-weighted excess correctness. The"
     )?;
     writeln!(
         out,
-        "recovered model is a LIBRARY of context-colored partial permutations (one per"
+        "recovered model is a library of context-colored partial permutations (one per"
     )?;
     writeln!(
         out,
-        "TRAIN isomorph occurrence pair), NOT a collapsed global symbol map. A held-out"
+        "train isomorph occurrence pair), not a collapsed global symbol map. A held-out"
     )?;
     writeln!(
         out,
-        "edge scores only when >=2 train contexts from DISTINCT signature groups, with NO",
+        "edge scores only when >=2 train contexts from distinct signature groups, with no",
     )?;
     writeln!(
         out,
-        "physical span overlap/adjacency with the held-out context, AGREE on it (the"
+        "physical span overlap/adjacency with the held-out context, agree on it (the"
     )?;
     writeln!(
         out,
@@ -196,7 +196,7 @@ fn render_eyes_gate1(out: &mut String, inputs: &EyesRecordInputs<'_>) -> std::fm
     )?;
     writeln!(
         out,
-        "COVERAGE CLAMP zeroes any message with < 4 confident decisions (hits+misses) —"
+        "coverage clamp zeroes any message with < 4 confident decisions (hits+misses) —"
     )?;
     writeln!(
         out,
@@ -208,7 +208,7 @@ fn render_eyes_gate1(out: &mut String, inputs: &EyesRecordInputs<'_>) -> std::fm
     )?;
     writeln!(
         out,
-        "structure transferable across DISTINCT signature groups scores; a within-message"
+        "structure transferable across distinct signature groups scores; a within-message"
     )?;
     writeln!(
         out,
@@ -216,7 +216,7 @@ fn render_eyes_gate1(out: &mut String, inputs: &EyesRecordInputs<'_>) -> std::fm
     )?;
     writeln!(
         out,
-        "ENFORCED to stay WITHIN the Thread-3 safe isomorph extents: an occurrence"
+        "enforced to stay within the Thread-3 safe isomorph extents: an occurrence"
     )?;
     writeln!(
         out,
@@ -237,7 +237,7 @@ fn render_eyes_gate1(out: &mut String, inputs: &EyesRecordInputs<'_>) -> std::fm
 fn render_eyes_gate1_scores(out: &mut String, inputs: &EyesRecordInputs<'_>) -> std::fmt::Result {
     writeln!(
         out,
-        "Held-out positive control on a SYNTHETIC isomorph-rich eye-shaped fixture:"
+        "Held-out positive control on a synthetic isomorph-rich eye-shaped fixture:"
     )?;
     writeln!(
         out,
@@ -249,7 +249,7 @@ fn render_eyes_gate1_scores(out: &mut String, inputs: &EyesRecordInputs<'_>) -> 
     )?;
     writeln!(
         out,
-        "  (the predictor must fire on KNOWN signal AND clear its OWN population's"
+        "  (the predictor must fire on known signal and clear its own population's"
     )?;
     writeln!(
         out,
@@ -274,11 +274,11 @@ fn render_eyes_gate1_scores(out: &mut String, inputs: &EyesRecordInputs<'_>) -> 
     let fraction = EYES_MATERIAL_EFFECT_FRACTION;
     writeln!(
         out,
-        "Material-effect bar (p-value alone is NECESSARY, NOT sufficient), POPULATION-RELATIVE"
+        "Material-effect bar (p-value alone is necessary, not sufficient), population-relative"
     )?;
     writeln!(
         out,
-        "and FAIR to the eyes: the real-vs-null excess must reach {fraction:.2} of the eyes' OWN max",
+        "and fair to the eyes: the real-vs-null excess must reach {fraction:.2} of the eyes' own max",
     )?;
     writeln!(
         out,
@@ -287,7 +287,7 @@ fn render_eyes_gate1_scores(out: &mut String, inputs: &EyesRecordInputs<'_>) -> 
     )?;
     writeln!(
         out,
-        "COULD clear this bar with real signal (the bar is BELOW their max achievable); their"
+        "could clear this bar with real signal (the bar is below their max achievable); their"
     )?;
     let real_excess = inputs.real_score as f64 - inputs.null_mean_score;
     writeln!(
@@ -301,7 +301,7 @@ fn render_eyes_gate1_scores(out: &mut String, inputs: &EyesRecordInputs<'_>) -> 
     writeln!(out, "population's bar by the identical rule.")?;
     writeln!(
         out,
-        "GATE 1 VERDICT (held-out beats matched null AND clears the material-effect bar): {}.",
+        "Gate 1 verdict (held-out beats matched null and clears the material-effect bar): {}.",
         inputs.held_out_beats_null
     )?;
     writeln!(out)?;
@@ -342,10 +342,10 @@ fn render_eyes_gates_2_3_conclusion(
         "robust internal violations: {} (must be 0 — a non-zero count is a manufactured",
         inputs.three_consistency.robust_internal_violations
     )?;
-    writeln!(out, "TRUE conflict and would disqualify the model).")?;
+    writeln!(out, "true conflict and would disqualify the model).")?;
     writeln!(
         out,
-        "safe isomorph extents exported: {} (Gate-1 chaining is ENFORCED to stay within",
+        "safe isomorph extents exported: {} (Gate-1 chaining is enforced to stay within",
         inputs.three_consistency.safe_extents
     )?;
     writeln!(
@@ -363,7 +363,7 @@ fn render_eyes_gates_2_3_conclusion(
     )?;
     writeln!(
         out,
-        "GATE 2 VERDICT (model consistent with Thread 3): {}.",
+        "Gate 2 verdict (model consistent with Thread 3): {}.",
         inputs.three_consistency.consistent
     )?;
     writeln!(out)?;
@@ -378,29 +378,29 @@ fn render_eyes_gate3_conclusion(
     // Gate 3: speculative cleartext.
     writeln!(
         out,
-        "## Gate 3 — SPECULATIVE cleartext plausibility (Finnish-weighted)"
+        "## Gate 3 — speculative cleartext plausibility (Finnish-weighted)"
     )?;
     writeln!(out)?;
     match inputs.speculative_cleartext {
         None => {
             writeln!(
                 out,
-                "NOT RUN. Gate 1 and/or Gate 2 did not pass (the expected case), so the"
+                "Not run. Gate 1 and/or Gate 2 did not pass (the expected case), so the"
             )?;
             writeln!(
                 out,
-                "speculative cleartext path is correctly NOT executed and NO candidate"
+                "speculative cleartext path is correctly not executed and no candidate"
             )?;
             writeln!(out, "cleartext is reported. The decode remains blocked.")?;
         }
         Some(s) => {
             writeln!(
                 out,
-                "RAN (both structural gates passed). The symbol->letter mapping below is a",
+                "Ran (both structural gates passed). The symbol->letter mapping below is a",
             )?;
             writeln!(
                 out,
-                "HYPOTHESIS, never recovered; this is NEVER primary evidence. Logged VERBATIM",
+                "hypothesis, never recovered; this is never primary evidence. Logged verbatim",
             )?;
             writeln!(
                 out,
@@ -418,7 +418,7 @@ fn render_eyes_gate3_conclusion(
                 s.english_score, s.english_null_mean, s.beats_english_null
             )?;
             writeln!(out)?;
-            writeln!(out, "Implied plaintext (HYPOTHESIS, verbatim):")?;
+            writeln!(out, "Implied plaintext (hypothesis, verbatim):")?;
             writeln!(out, "```")?;
             writeln!(out, "{}", s.implied_plaintext)?;
             writeln!(out, "```")?;
@@ -430,21 +430,21 @@ fn render_eyes_gate3_conclusion(
     if inputs.candidate_survived {
         writeln!(
             out,
-            "A candidate survived both structural gates. It is logged here as a HYPOTHESIS",
+            "A candidate survived both structural gates. It is logged here as a hypothesis",
         )?;
         writeln!(
             out,
-            "for human review, NOT a decode. The standing claim is softened to \"a candidate",
+            "for human review, not a decode. The standing claim is softened to \"a candidate",
         )?;
         writeln!(
             out,
-            "structure passed the held-out + Thread-3 checks\" — it is NOT a recovered"
+            "structure passed the held-out + Thread-3 checks\" — it is not a recovered"
         )?;
         writeln!(out, "plaintext and the claim ceiling still binds.")?;
     } else {
         writeln!(
             out,
-            "No candidate surfaced. The eye decode REMAINS BLOCKED on the unknown"
+            "No candidate surfaced. The eye decode remains blocked on the unknown"
         )?;
         writeln!(
             out,

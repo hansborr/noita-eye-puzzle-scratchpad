@@ -60,8 +60,8 @@ impl SmallSupportPrior {
     #[must_use]
     pub const fn label(self) -> &'static str {
         match self {
-            Self::Off => "OFF (support-rank + width-cap candidates, held-out-strict select)",
-            Self::On { .. } => "ON (TENTATIVE small-support confidence floor)",
+            Self::Off => "off (support-rank + width-cap candidates, held-out-strict select)",
+            Self::On { .. } => "on (tentative small-support confidence floor)",
         }
     }
 

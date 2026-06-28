@@ -10,7 +10,7 @@
 // tests/golden/:
 //
 //   cargo build --release --locked
-//   out=/tmp/noita-eye-golden-recapture
+//   OUT=/tmp/noita-eye-golden-recapture
 //   BIN=target/release/noita-eye
 //   EYES_DIR=/tmp/noita-eye-golden-master-gak-eyes-candidates
 //   rm -rf "$OUT" "$EYES_DIR" && mkdir -p "$OUT" "$EYES_DIR"

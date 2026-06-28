@@ -57,7 +57,7 @@ never primary.
 - **If any candidate cleartext emerges — in English or Finnish (Noita is a Finnish
   game; weight Finnish highly) — it must be written here verbatim with its scores
   and caveats for human review, even if low-confidence / failing.**
-- The expected record is a "NO candidate surfaced — decode remains blocked" entry.
+- The expected record is a "no candidate surfaced — decode remains blocked" entry.
   Write that honestly.
 
 ## Files
@@ -69,7 +69,7 @@ never primary.
   the hypothesis-not-decode label, all three independent gates (cipher
   round-trip, held-out mapping score, matched null),
   Finnish and English scores, and any candidate cleartext verbatim for human
-  review. The expected record on the eyes is "NO surviving candidate."
+  review. The expected record on the eyes is "no surviving candidate."
   - **Codec records (brief 04a).** When a codec/transduction stage runs (the
     `--codec` / `--codec-search` paths that widen a small cipher alphabet so a
     symbol→letter mapping can host the language), the record additionally carries
@@ -78,7 +78,7 @@ never primary.
     not a decode) alongside the existing gates, so all four structural
     verdicts (cipher round-trip, codec round-trip, held-out, matched null) are
     shown. The eyes' codec is `identity` (83 ≥ 29; no widening), and their
-    expected record is unchanged ("NO surviving candidate").
+    expected record is unchanged ("no surviving candidate").
   - **Practice-corpus records.** `solve-one`/`solve-two`/`solve-six` are codec
     hypothesis records for the external practice puzzles
     (`research/data/practice-puzzles/`): `one` is an honest negative (no in-budget

@@ -35,11 +35,11 @@ fn gak_attack_subcommand_reports_synthetic_gate_and_honesty_caveats() {
     // The gate is the rate vs the matched null, not a single seed.
     assert_contains(
         &stdout,
-        "rate-beats-null gate (the gate is the RATE vs null, NOT a single seed)",
+        "rate-beats-null gate (the gate is the rate vs null, not a single seed)",
     );
     assert_contains(
         &stdout,
-        "rate-vs-null gate passed (real rate clears floor AND strictly exceeds matched-null rate):",
+        "rate-vs-null gate passed (real rate clears floor and strictly exceeds matched-null rate):",
     );
     assert_contains(
         &stdout,
@@ -55,7 +55,7 @@ fn gak_attack_subcommand_reports_synthetic_gate_and_honesty_caveats() {
     // Exemplars are illustrations, not pass evidence.
     assert_contains(
         &stdout,
-        "retry-selected exemplars (ILLUSTRATIONS ONLY, NOT pass evidence; the gate passes on the RATE above)",
+        "retry-selected exemplars (illustrations only, not pass evidence; the gate passes on the rate above)",
     );
     assert_contains(
         &stdout,
@@ -65,13 +65,13 @@ fn gak_attack_subcommand_reports_synthetic_gate_and_honesty_caveats() {
     // Synthetic-only disclaimer: the eyes are not touched here.
     assert_contains(
         &stdout,
-        "Synthetic-only disclaimer: this unit NEVER touches the eye corpus;",
+        "Synthetic-only disclaimer: this unit never touches the eye corpus;",
     );
 
     // The small-support prior is labelled tentative and not a hard constraint.
     assert_contains(
         &stdout,
-        "TENTATIVE small-support prior: the <=k-swaps / small-support search heuristic is a TENTATIVE prior to validate, not a hard constraint;",
+        "Tentative small-support prior: the <=k-swaps / small-support search heuristic is a tentative prior to validate, not a hard constraint;",
     );
 
     // A negative/partial result is the expected, reportable outcome.
@@ -85,13 +85,13 @@ fn gak_attack_subcommand_reports_synthetic_gate_and_honesty_caveats() {
     // The deck attack is real GAK (|H| > 1) and is the community's open problem.
     assert_contains(
         &stdout,
-        "REAL-GAK deck attack (non-trivial hidden subgroup H = Stab(top) = S_(n-1), |H| = (n-1)! > 1)",
+        "Real-GAK deck attack (non-trivial hidden subgroup H = Stab(top) = S_(n-1), |H| = (n-1)! > 1)",
     );
     // P0a: what is recovered is partial visible-coset action recovery, not a key
-    // and not the plaintext->group-element mapping (the claim ceiling).
+    // and not the plaintext->group-element mapping (the recovery-honesty bound).
     assert_contains(
         &stdout,
-        "What this unit recovers is PARTIAL visible-coset action recovery (a fraction of per-letter visible-coset transitions; NOT a recovered key, NOT the plaintext->group-element mapping)",
+        "What this unit recovers is partial visible-coset action recovery (a fraction of per-letter visible-coset transitions; not a recovered key, not the plaintext->group-element mapping)",
     );
 
     // P1a: the headline deliverable is the measured hidden-state obstruction (the
@@ -102,25 +102,25 @@ fn gak_attack_subcommand_reports_synthetic_gate_and_honesty_caveats() {
     );
     assert_contains(
         &stdout,
-        "multivalued-frac: the MEASURED hidden-state obstruction (fraction of visible cosets that map multi-valued under a fixed letter).",
+        "multivalued-frac: the measured hidden-state obstruction (fraction of visible cosets that map multi-valued under a fixed letter).",
     );
 
     // P1a: fixed-context true-conflict aborts are surfaced as a feature; the
     // cross-hidden-state multi-valuedness is explicitly not called a conflict.
     assert_contains(
         &stdout,
-        "fixed-context TRUE-conflict aborts (a FEATURE, not a bug):",
+        "fixed-context true-conflict aborts (a feature, not a bug):",
     );
     assert_contains(
         &stdout,
-        "Cross-hidden-state multi-valuedness is NOT a conflict",
+        "Cross-hidden-state multi-valuedness is not a conflict",
     );
 
     // P1c: the recovered fraction is small and roughly flat (does not climb with
     // n); the null only begins to match real at larger n / some seeds.
     assert_contains(
         &stdout,
-        "partial visible-coset action recovery stays SMALL and roughly FLAT across n (it does NOT climb with n)",
+        "partial visible-coset action recovery stays small and roughly flat across n (it does not climb with n)",
     );
     // P2b: the per-seed p-value is conservative / non-significant on its own.
     assert_contains(
@@ -132,7 +132,7 @@ fn gak_attack_subcommand_reports_synthetic_gate_and_honesty_caveats() {
     // present only as documented hooks here (not applied).
     assert_contains(
         &stdout,
-        "TENTATIVE small-support prior + hidden-state marginalization are the NEXT unit: this unit only generates both regimes and leaves documented hooks",
+        "Tentative small-support prior + hidden-state marginalization are the next unit: this unit only generates both regimes and leaves documented hooks",
     );
 
     // P0a: the deck recovery is partial visible-coset action recovery on synthetic
@@ -140,18 +140,18 @@ fn gak_attack_subcommand_reports_synthetic_gate_and_honesty_caveats() {
     // mapping, and says nothing about the eyes.
     assert_contains(
         &stdout,
-        "PARTIAL visible-coset action recovery (a fraction of per-letter visible-coset transitions; NOT a recovered key, NOT the plaintext->group-element mapping)",
+        "partial visible-coset action recovery (a fraction of per-letter visible-coset transitions; not a recovered key, not the plaintext->group-element mapping)",
     );
     assert_contains(
         &stdout,
-        "computed on SYNTHETIC ground truth and says nothing about the eyes.",
+        "computed on synthetic ground truth and says nothing about the eyes.",
     );
 }
 
 #[test]
 fn gak_attack_subcommand_reports_unit_2b_marginalization_honesty_surface() {
     // The unit-2b (idea 3 + idea 2) honesty surface: the bundled report carries the
-    // hidden-state marginalization result with its claim ceiling, the beam-width
+    // hidden-state marginalization result with what recovery may claim, the beam-width
     // disclosure, the partial-not-a-key labelling, the measured "helps on small n /
     // breaks as n grows" outcome, and the tentative small-support prior validation.
     // All asserted strings are gate-verdict-independent constants.
@@ -160,33 +160,33 @@ fn gak_attack_subcommand_reports_unit_2b_marginalization_honesty_surface() {
     // Unit-2b headline: idea 3 (marginalization) + idea 2 (small-support prior).
     assert_contains(
         &stdout,
-        "UNIT 2b hidden-state marginalization (idea 3) + TENTATIVE small-support prior (idea 2)",
+        "Unit 2b hidden-state marginalization (idea 3) + tentative small-support prior (idea 2)",
     );
 
     // The recovered object is the per-letter coset marginal, a partial visible-coset
     // action recovery, not a key and not the plaintext->group-element mapping.
     assert_contains(
         &stdout,
-        "The recovered object is the per-letter visible-coset edge MARGINAL over hidden states (multi-valued from allowed) -- a PARTIAL visible-coset action recovery, NOT a recovered key, NOT the plaintext->group-element mapping. SYNTHETIC-ONLY.",
+        "The recovered object is the per-letter visible-coset edge marginal over hidden states (multi-valued from allowed) -- a partial visible-coset action recovery, not a recovered key, not the plaintext->group-element mapping. Synthetic-only.",
     );
 
     // The beam width bound is disclosed (no silent truncation); dropped beams reported.
     assert_contains(
         &stdout,
-        "beam width bound: 8 (DISCLOSED, no silent truncation; dropped beams are reported per n)",
+        "beam width bound: 8 (disclosed, no silent truncation; dropped beams are reported per n)",
     );
 
     // The headline sweep runs the prior off so no result silently depends on it.
     assert_contains(
         &stdout,
-        "small-support prior (idea 2) for the headline sweep: OFF (support-rank + width-cap candidates, held-out-strict select)",
+        "small-support prior (idea 2) for the headline sweep: off (support-rank + width-cap candidates, held-out-strict select)",
     );
 
     // The measured result: idea-3 beats the 2a single-valued core, and breaks as |H|
     // grows -- "helps on small n, breaks as n grows" is the expected outcome.
     assert_contains(
         &stdout,
-        "idea-3 marginalization recovers SEVERAL-FOLD more true per-letter coset edges than the 2a single-valued core at every n",
+        "idea-3 marginalization recovers several-fold more true per-letter coset edges than the 2a single-valued core at every n",
     );
     assert_contains(
         &stdout,
@@ -197,22 +197,22 @@ fn gak_attack_subcommand_reports_unit_2b_marginalization_honesty_surface() {
     // graceful-failure property is the load-bearing result.
     assert_contains(
         &stdout,
-        "TENTATIVE small-support prior validation (idea 2; the prior is a heuristic to validate, NOT a hard constraint, labelled everywhere)",
+        "Tentative small-support prior validation (idea 2; the prior is a heuristic to validate, not a hard constraint, labelled everywhere)",
     );
     assert_contains(
         &stdout,
-        "prior FAILS GRACEFULLY (the robust, structural guarantee):",
+        "prior fails gracefully (the robust, structural guarantee):",
     );
     assert_contains(
         &stdout,
-        "prior is SELECTIVELY discriminative (weak, TENTATIVE signal):",
+        "prior is selectively discriminative (weak, tentative signal):",
     );
 
-    // The unit-2b interpretation holds the claim ceiling: partial recovery, never a
+    // The unit-2b interpretation holds the recovery-honesty bound: partial recovery, never a
     // key, breaks as |H| grows, prior off in the headline, beam width disclosed.
     assert_contains(
         &stdout,
-        "but only PARTIAL visible-coset action recovery (an edge marginal over hidden states), NEVER a recovered key and NEVER the plaintext->group-element mapping.",
+        "but only partial visible-coset action recovery (an edge marginal over hidden states), never a recovered key and never the plaintext->group-element mapping.",
     );
     assert_contains(
         &stdout,
@@ -248,21 +248,21 @@ fn gak_attack_eyes_subcommand_locks_the_eyes_honesty_surface() {
     // Headline: the only unit that touches the real eyes.
     assert_contains(
         &stdout,
-        "Thread 4 EYES Step 3 (the ONLY unit that touches the real eye corpus)",
+        "Thread 4 eyes Step 3 (the only unit that touches the real eye corpus)",
     );
 
     // The expected outcome is no surviving candidate; the decode remains blocked.
     assert_contains(
         &stdout,
-        "Expected outcome: NO surviving candidate. The standing conclusion is the eye decode remains BLOCKED on the unknown symbol->meaning mapping; a clean honest negative is a SUCCESS, not a failure.",
+        "Expected outcome: no surviving candidate. The standing conclusion is the eye decode remains blocked on the unknown symbol->meaning mapping; a clean honest negative is a success, not a failure.",
     );
 
     // What is recovered is structure, not cleartext; any candidate is a hypothesis.
     assert_contains(
         &stdout,
-        "What is recovered: STRUCTURE (visible-coset / chain-link constraints), NOT cleartext.",
+        "What is recovered: structure (visible-coset / chain-link constraints), not cleartext.",
     );
-    assert_contains(&stdout, "Any candidate is a HYPOTHESIS, never a decode.");
+    assert_contains(&stdout, "Any candidate is a hypothesis, never a decode.");
 
     // The exact entry path (per-message, boundaries kept, never re-ordered).
     assert_contains(
@@ -274,39 +274,39 @@ fn gak_attack_eyes_subcommand_locks_the_eyes_honesty_surface() {
     // positive control that must fire on known signal.
     assert_contains(
         &stdout,
-        "GATE 1 -- held-out isomorphs vs matched within-message shuffle null",
+        "Gate 1 -- held-out isomorphs vs matched within-message shuffle null",
     );
     assert_contains(
         &stdout,
-        "held-out POSITIVE CONTROL on a synthetic isomorph-rich eye-shaped fixture:",
+        "held-out positive control on a synthetic isomorph-rich eye-shaped fixture:",
     );
     // The population-relative, fair material-effect bar (p-value necessary, not
     // sufficient) — calibrated to the eyes' own max achievable score so the negative
     // rests on a detector the eyes could in principle have passed (F1).
     assert_contains(
         &stdout,
-        "material-effect bar (p-value is NECESSARY, NOT sufficient), POPULATION-RELATIVE and FAIR to the eyes:",
+        "material-effect bar (p-value is necessary, not sufficient), population-relative and fair to the eyes:",
     );
     assert_contains(
         &stdout,
-        "BELOW the eyes' max, so genuine signal COULD clear it",
+        "below the eyes' max, so genuine signal could clear it",
     );
     assert_contains(
         &stdout,
-        "GATE 1 VERDICT (held-out beats matched null AND clears the calibrated material-effect bar):",
+        "Gate 1 verdict (held-out beats matched null and clears the calibrated material-effect bar):",
     );
 
     // Gate 2: Thread-3 perfect-isomorphism consistency, reused (never re-derived).
     assert_contains(
         &stdout,
-        "GATE 2 -- Thread-3 perfect-isomorphism consistency (Thread-3 API REUSED, never re-derived)",
+        "Gate 2 -- Thread-3 perfect-isomorphism consistency (Thread-3 API reused, never re-derived)",
     );
-    assert_contains(&stdout, "GATE 2 VERDICT (model consistent with Thread 3):");
+    assert_contains(&stdout, "Gate 2 verdict (model consistent with Thread 3):");
 
     // Gate 3: speculative, last, Finnish-weighted, never primary.
     assert_contains(
         &stdout,
-        "GATE 3 -- SPECULATIVE cleartext plausibility (LAST, Finnish-weighted, NEVER primary)",
+        "Gate 3 -- speculative cleartext plausibility (last, Finnish-weighted, never primary)",
     );
 
     // The candidate-logging protocol (standing user directive).
@@ -316,7 +316,7 @@ fn gak_attack_eyes_subcommand_locks_the_eyes_honesty_surface() {
     );
     assert_contains(
         &stdout,
-        "any candidate cleartext (English OR Finnish) is logged VERBATIM for human review.",
+        "any candidate cleartext (English or Finnish) is logged verbatim for human review.",
     );
 
     // The record file was actually written, under its exact deterministic name

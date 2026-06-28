@@ -203,7 +203,7 @@ impl fmt::Display for GakAttackError {
             Self::Language(error) => {
                 write!(
                     f,
-                    "language model for the SPECULATIVE cleartext gate could not be built: {error}"
+                    "language model for the speculative cleartext gate could not be built: {error}"
                 )
             }
             Self::CandidateRecordWrite { path } => {

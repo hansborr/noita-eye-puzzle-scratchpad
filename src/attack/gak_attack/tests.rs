@@ -1594,14 +1594,14 @@ fn eyes_candidate_record_is_written_with_honesty_strings() {
         "candidate record must be written"
     );
     let body = std::fs::read_to_string(&report.record_path).unwrap();
-    assert!(body.contains("HYPOTHESIS, NOT a decode"));
+    assert!(body.contains("hypothesis, not a decode"));
     assert!(body.contains("Gate 1 — held-out isomorphs vs matched within-message null"));
     assert!(body.contains("Gate 2 — Thread-3 perfect-isomorphism consistency"));
-    assert!(body.contains("Gate 3 — SPECULATIVE cleartext plausibility"));
+    assert!(body.contains("Gate 3 — speculative cleartext plausibility"));
     // Expected case: no candidate, decode remains blocked.
     if !report.candidate_survived {
-        assert!(body.contains("NO candidate surfaced — decode remains blocked"));
-        assert!(body.contains("decode REMAINS BLOCKED"));
+        assert!(body.contains("no candidate surfaced — decode remains blocked"));
+        assert!(body.contains("decode remains blocked"));
     }
 }
 
@@ -1660,8 +1660,8 @@ fn eyes_record_logs_cleartext_verbatim_when_speculative_gate_runs() {
     assert!(body.contains("Finnish bigram score"));
     assert!(body.contains("English bigram score"));
     // Even a surviving candidate is a hypothesis, never a decode.
-    assert!(body.contains("HYPOTHESIS"));
-    assert!(body.contains("NOT a recovered"));
+    assert!(body.contains("hypothesis"));
+    assert!(body.contains("not a recovered"));
 }
 
 #[test]
