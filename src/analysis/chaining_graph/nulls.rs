@@ -10,8 +10,8 @@ use std::collections::BTreeSet;
 use crate::analysis::orders;
 use crate::core::trigram::TrigramValue;
 use crate::nulls::null::{
-    SplitMix64, add_one_p_value, fisher_yates, median_usize, scaled_quantile_index,
-    shuffled_permutation, stateless_splitmix,
+    NullSampler, SplitMix64, WithinMessageShuffle, add_one_p_value, median_usize,
+    scaled_quantile_index, shuffled_permutation, stateless_splitmix,
 };
 
 use super::{
@@ -26,25 +26,17 @@ pub(super) fn run_shuffle_null(
     message_values: &[Vec<SymbolValue>],
     real: &GraphComputation,
 ) -> Result<ConflictCoverageNull, ChainingGraphError> {
+    let within_message_shuffle = WithinMessageShuffle {
+        messages: message_values,
+    };
     let mut rng = SplitMix64::new(config.seed);
     let mut samples = NullSamples::default();
     for _trial in 0..config.trials {
-        let shuffled = shuffled_messages(message_values, &mut rng)?;
+        let shuffled = within_message_shuffle.sample(&mut rng)?;
         let graph = compute_graph(&shuffled, config.window_len, config.core_len)?;
         samples.push(&graph.catalogue, &graph.coverage);
     }
     Ok(samples.into_null(real, config.trials))
-}
-
-fn shuffled_messages(
-    message_values: &[Vec<SymbolValue>],
-    rng: &mut SplitMix64,
-) -> Result<Vec<Vec<SymbolValue>>, ChainingGraphError> {
-    let mut shuffled = message_values.to_vec();
-    for values in &mut shuffled {
-        fisher_yates(values, rng)?;
-    }
-    Ok(shuffled)
 }
 
 #[derive(Default)]
@@ -249,10 +241,13 @@ pub(super) fn positive_control_null_max(
     window_len: usize,
     core_len: usize,
 ) -> Result<usize, ChainingGraphError> {
+    let within_message_shuffle = WithinMessageShuffle {
+        messages: &fixture.streams,
+    };
     let mut rng = SplitMix64::new(stateless_splitmix(seed ^ 0x7063_6e75_6c6c_0001));
     let mut max_conflicts = 0usize;
     for _trial in 0..POSITIVE_CONTROL_NULL_TRIALS {
-        let shuffled = shuffled_messages(&fixture.streams, &mut rng)?;
+        let shuffled = within_message_shuffle.sample(&mut rng)?;
         let graph = compute_graph(&shuffled, window_len, core_len)?;
         max_conflicts = max_conflicts.max(graph.catalogue.total);
     }
