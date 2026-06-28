@@ -33,8 +33,7 @@ use std::fmt;
 
 use crate::analysis::chaining_graph::ChainingGraphError;
 use crate::analysis::orders::{
-    self, GridError, READING_LAYER_ALPHABET_SIZE, ReadingLayerFlatnessStats,
-    read_corpus_message_values,
+    CorpusContext, GridError, READING_LAYER_ALPHABET_SIZE, ReadingLayerFlatnessStats,
 };
 
 mod math;
@@ -358,9 +357,11 @@ pub fn run_leak_ceiling(config: LeakCeilingConfig) -> Result<LeakCeilingReport, 
     if config.isomorph_window_len == 0 {
         return Err(LeakCeilingError::ZeroIsomorphWindow);
     }
-    let grids = orders::corpus_grids()?;
-    let order = orders::accepted_honeycomb_order();
-    let message_values = read_corpus_message_values(&grids, order)?;
+    let CorpusContext {
+        keys,
+        message_values,
+        ..
+    } = CorpusContext::load()?;
 
     let total_trigrams: usize = message_values.iter().map(Vec::len).sum();
     let distinct_symbols = message_values
@@ -368,9 +369,9 @@ pub fn run_leak_ceiling(config: LeakCeilingConfig) -> Result<LeakCeilingReport, 
         .flat_map(|values| values.iter().map(|value| value.get()))
         .collect::<BTreeSet<u8>>()
         .len();
-    let message_lengths: Vec<(&'static str, usize)> = grids
+    let message_lengths: Vec<(&'static str, usize)> = keys
         .iter()
-        .map(crate::analysis::orders::GlyphGrid::message_key)
+        .copied()
         .zip(message_values.iter().map(Vec::len))
         .collect();
 
