@@ -138,15 +138,15 @@ pub fn render_solve_candidate_record(inputs: &SolveRecordInputs<'_>) -> Result<S
     let mut out = String::new();
     let verdict = match inputs.top {
         Some(top) if top.survived => {
-            "CANDIDATE SURVIVED ALL THREE GATES — logged as a HYPOTHESIS, NOT a decode"
+            "candidate survived all three gates — logged as a hypothesis, not a decode"
         }
-        _ => "NO surviving candidate — decode remains blocked",
+        _ => "no surviving candidate — decode remains blocked",
     };
     writeln!(out, "# Solve candidate record: {}", inputs.label)?;
     writeln!(out)?;
     writeln!(
         out,
-        "Stable label (NO wall-clock): label={} seed=0x{:016x} cipher-alphabet={} symbols={}",
+        "Stable label (no wall-clock): label={} seed=0x{:016x} cipher-alphabet={} symbols={}",
         inputs.label, inputs.seed, inputs.cipher_alphabet_size, inputs.total_symbols
     )?;
     writeln!(out)?;
@@ -160,7 +160,7 @@ pub fn render_solve_candidate_record(inputs: &SolveRecordInputs<'_>) -> Result<S
     writeln!(out)?;
     writeln!(
         out,
-        "This record is a HYPOTHESIS, NOT a decode. solve SEARCHES and SCORES; a high"
+        "This record is a hypothesis, not a decode. solve searches and scores; a high"
     )?;
     writeln!(
         out,
@@ -190,12 +190,12 @@ fn render_solve_gates(out: &mut String, inputs: &SolveRecordInputs<'_>) -> fmt::
     )?;
     writeln!(
         out,
-        "- Gate 1 cipher round-trip (necessary, NOT sufficient): {}",
+        "- Gate 1 cipher round-trip (necessary, not sufficient): {}",
         top.crypto_round_trip_ok
     )?;
     writeln!(
         out,
-        "- Gate 1b codec round-trip (codec/cipher consistency, NOT a decode): {}",
+        "- Gate 1b codec round-trip (codec/cipher consistency, not a decode): {}",
         top.codec_round_trip_ok
     )?;
     writeln!(
@@ -229,7 +229,7 @@ fn render_solve_gates(out: &mut String, inputs: &SolveRecordInputs<'_>) -> fmt::
     writeln!(out)?;
     writeln!(
         out,
-        "## Candidate cleartext (verbatim; a HYPOTHESIS, not a decode)"
+        "## Candidate cleartext (verbatim; a hypothesis, not a decode)"
     )?;
     writeln!(out)?;
     writeln!(out, "{}", top.rendered_text)?;

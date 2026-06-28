@@ -413,7 +413,7 @@ fn record_writer_emits_hypothesis_label() {
     let _removed = std::fs::remove_dir_all(&dir);
     let path = write_keystream_record(&dir, "unit", 0x1234, &candidate).unwrap();
     let body = std::fs::read_to_string(&path).unwrap();
-    assert!(body.contains("HYPOTHESIS, NOT a decode"));
+    assert!(body.contains("hypothesis, not a decode"));
     assert!(body.contains("vigenere"));
     let _cleanup = std::fs::remove_dir_all(&dir);
 }
@@ -496,29 +496,29 @@ fn render_record_full_body_is_byte_stable() {
     };
     let expected_survivor = r"# Keystream candidate record: unit
 
-Stable label (NO wall-clock): label=unit seed=0x0000000000001234 family=vigenere key-len=3
+Stable label (no wall-clock): label=unit seed=0x0000000000001234 family=vigenere key-len=3
 
 ## Verdict
 
-**CANDIDATE SURVIVED ALL GATES (round-trip + matched-null + random-key-null + held-out) — logged as a HYPOTHESIS, NOT a decode.**
+**candidate survived all gates (round-trip + matched-null + random-key-null + held-out) — logged as a hypothesis, not a decode.**
 
 ## Gates (never collapsed)
 
-Survival requires BOTH nulls plus round-trip and held-out. The MATCHED null (the same annealed search rerun on Fisher-Yates shuffled ciphertext, holding the unigram multiset fixed and destroying higher-order structure) polices SEARCH OVERFITTING. The RANDOM-KEY null (random keys on the un-shuffled ciphertext) polices the ciphertext-autokey KEY-INDEPENDENCE leak, which the matched null cannot see. Neither alone is sufficient.
+Survival requires both nulls plus round-trip and held-out. The matched null (the same annealed search rerun on Fisher-Yates shuffled ciphertext, holding the unigram multiset fixed and destroying higher-order structure) polices search overfitting. The random-key null (random keys on the un-shuffled ciphertext) polices the ciphertext-autokey key-independence leak, which the matched null cannot see. Neither alone is sufficient.
 
 - round_trip_ok: true
 - best_score: -10.000000
 - matched_mean: -12.000000  matched_std: 0.200000  matched_z: 10.0000
-- beats_matched_null [SURVIVAL GATE: overfitting] (z >= 6 AND margin >= 1): true
+- beats_matched_null [survival gate: overfitting] (z >= 6 and margin >= 1): true
 - null_mean: -14.000000  null_std: 0.200000  z: 20.0000
-- beats_null [SURVIVAL GATE: key-independence leak] (z >= 6 AND margin >= 1): true
+- beats_null [survival gate: key-independence leak] (z >= 6 and margin >= 1): true
 - heldout_score: -11.000000  matched_heldout_mean: -12.500000  heldout_ok (> matched_heldout_mean): true
 
 ## Recovered key (letter indices)
 
 [1, 2, 3]
 
-## Decrypt (HYPOTHESIS, NOT a decode)
+## Decrypt (hypothesis, not a decode)
 
 ABC
 ";
@@ -549,29 +549,29 @@ ABC
     };
     let expected_non_survivor = r"# Keystream candidate record: probe
 
-Stable label (NO wall-clock): label=probe seed=0x000000000000feed family=beaufort key-len=4
+Stable label (no wall-clock): label=probe seed=0x000000000000feed family=beaufort key-len=4
 
 ## Verdict
 
-**NO surviving candidate — decode remains blocked.**
+**no surviving candidate — decode remains blocked.**
 
 ## Gates (never collapsed)
 
-Survival requires BOTH nulls plus round-trip and held-out. The MATCHED null (the same annealed search rerun on Fisher-Yates shuffled ciphertext, holding the unigram multiset fixed and destroying higher-order structure) polices SEARCH OVERFITTING. The RANDOM-KEY null (random keys on the un-shuffled ciphertext) polices the ciphertext-autokey KEY-INDEPENDENCE leak, which the matched null cannot see. Neither alone is sufficient.
+Survival requires both nulls plus round-trip and held-out. The matched null (the same annealed search rerun on Fisher-Yates shuffled ciphertext, holding the unigram multiset fixed and destroying higher-order structure) polices search overfitting. The random-key null (random keys on the un-shuffled ciphertext) polices the ciphertext-autokey key-independence leak, which the matched null cannot see. Neither alone is sufficient.
 
 - round_trip_ok: true
 - best_score: -13.250000
 - matched_mean: -13.000000  matched_std: 0.300000  matched_z: -0.8333
-- beats_matched_null [SURVIVAL GATE: overfitting] (z >= 6 AND margin >= 1): false
+- beats_matched_null [survival gate: overfitting] (z >= 6 and margin >= 1): false
 - null_mean: -13.500000  null_std: 0.400000  z: 0.6250
-- beats_null [SURVIVAL GATE: key-independence leak] (z >= 6 AND margin >= 1): false
+- beats_null [survival gate: key-independence leak] (z >= 6 and margin >= 1): false
 - heldout_score: -14.000000  matched_heldout_mean: -13.750000  heldout_ok (> matched_heldout_mean): false
 
 ## Recovered key (letter indices)
 
 [5, 6, 7, 8]
 
-## Decrypt (HYPOTHESIS, NOT a decode)
+## Decrypt (hypothesis, not a decode)
 
 ZYXW
 ";

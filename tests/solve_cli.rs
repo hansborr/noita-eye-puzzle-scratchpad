@@ -30,7 +30,7 @@ fn solve_subcommand_reports_labelled_hypothesis_for_caesar_plant() {
         "AOLXBPJRIYVDUMVEQBTWZVCLYAOLSHGFKVN",
     ]);
 
-    assert_contains(&stdout, "Solve candidates: HYPOTHESIS, not decode");
+    assert_contains(&stdout, "Solve candidates: hypothesis, not decode");
     assert_contains(&stdout, "cipher: Caesar");
     assert_contains(&stdout, "beats_null: true");
     assert_contains(
@@ -112,7 +112,7 @@ fn solve_subcommand_mapping_search_runs_and_logs() {
 
     assert!(run.success, "stderr:\n{}", run.stderr);
     assert_eq!(run.stderr, "");
-    assert_contains(&run.stdout, "Solve candidates: HYPOTHESIS, not decode");
+    assert_contains(&run.stdout, "Solve candidates: hypothesis, not decode");
     assert_contains(&run.stdout, "record: ");
     assert_contains(&run.stdout, "solve-cli-search-smoke-seed-");
 

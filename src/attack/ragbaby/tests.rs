@@ -393,7 +393,7 @@ fn record_writer_emits_hypothesis_label() {
     let _removed = std::fs::remove_dir_all(&dir);
     let path = write_ragbaby_record(&dir, "unit", 0x1234, &candidate).unwrap();
     let body = std::fs::read_to_string(&path).unwrap();
-    assert!(body.contains("HYPOTHESIS, NOT a decode"));
+    assert!(body.contains("hypothesis, not a decode"));
     assert!(body.contains("base=26"));
     let _cleanup = std::fs::remove_dir_all(&dir);
 }
@@ -467,7 +467,7 @@ fn frozen_bits_anti_drift_baseline() {
 fn render_record_full_body_is_byte_stable() {
     // Full-body pin: the entire record body (the invariant decrypt block now in
     // `attack::crack`, plus the bespoke ragbaby lines incl. the inline
-    // `[DIAGNOSTIC]` beats_null) must stay byte-identical for survivor + non-survivor.
+    // `[diagnostic]` beats_null) must stay byte-identical for survivor + non-survivor.
     let survivor = RagbabyCandidate {
         base: 26,
         numbering: Numbering::Std,
@@ -491,28 +491,28 @@ fn render_record_full_body_is_byte_stable() {
     };
     let expected_survivor = r"# Ragbaby candidate record: unit
 
-Stable label (NO wall-clock): label=unit seed=0x0000000000001234 base=26 numbering=std sign=+1
+Stable label (no wall-clock): label=unit seed=0x0000000000001234 base=26 numbering=std sign=+1
 
 ## Verdict
 
-**CANDIDATE SURVIVED ALL GATES (round-trip + matched-null + held-out) — logged as a HYPOTHESIS, NOT a decode.**
+**candidate survived all gates (round-trip + matched-null + held-out) — logged as a hypothesis, not a decode.**
 
 ## Gates (never collapsed)
 
-Survival requires the MATCHED null (the same annealed keyed-alphabet search rerun on a Fisher-Yates shuffle of the ciphertext LETTER stream, holding the key-number sequence N_i fixed) plus round-trip and held-out. The matched null shares the search's degrees of freedom, so it polices SEARCH OVERFITTING. The random-keyed-alphabet null is reported as a DIAGNOSTIC only (Ragbaby has no key-independence leak for it to police).
+Survival requires the matched null (the same annealed keyed-alphabet search rerun on a Fisher-Yates shuffle of the ciphertext letter stream, holding the key-number sequence N_i fixed) plus round-trip and held-out. The matched null shares the search's degrees of freedom, so it polices search overfitting. The random-keyed-alphabet null is reported as a diagnostic only (Ragbaby has no key-independence leak for it to police).
 
 - round_trip_ok: true
 - best_score (mean): -10.000000
 - matched_mean: -12.000000  matched_std: 0.200000  matched_z: 10.0000
-- beats_matched_null [SURVIVAL GATE: overfitting] (z >= 6 AND margin >= 1): true
-- null_mean: -14.000000  null_std: 0.200000  z: 20.0000  beats_null [DIAGNOSTIC]: true
+- beats_matched_null [survival gate: overfitting] (z >= 6 and margin >= 1): true
+- null_mean: -14.000000  null_std: 0.200000  z: 20.0000  beats_null [diagnostic]: true
 - heldout_score: -11.000000  matched_heldout_mean: -13.000000  heldout_ok (>): true
 
 ## Recovered keyed alphabet (real letter indices)
 
 [0, 1, 2]
 
-## Decrypt (HYPOTHESIS, NOT a decode)
+## Decrypt (hypothesis, not a decode)
 
 ABC
 ";
@@ -544,28 +544,28 @@ ABC
     };
     let expected_non_survivor = r"# Ragbaby candidate record: probe
 
-Stable label (NO wall-clock): label=probe seed=0x000000000000feed base=25 numbering=perword sign=-1
+Stable label (no wall-clock): label=probe seed=0x000000000000feed base=25 numbering=perword sign=-1
 
 ## Verdict
 
-**NO surviving candidate — decode remains blocked.**
+**no surviving candidate — decode remains blocked.**
 
 ## Gates (never collapsed)
 
-Survival requires the MATCHED null (the same annealed keyed-alphabet search rerun on a Fisher-Yates shuffle of the ciphertext LETTER stream, holding the key-number sequence N_i fixed) plus round-trip and held-out. The matched null shares the search's degrees of freedom, so it polices SEARCH OVERFITTING. The random-keyed-alphabet null is reported as a DIAGNOSTIC only (Ragbaby has no key-independence leak for it to police).
+Survival requires the matched null (the same annealed keyed-alphabet search rerun on a Fisher-Yates shuffle of the ciphertext letter stream, holding the key-number sequence N_i fixed) plus round-trip and held-out. The matched null shares the search's degrees of freedom, so it polices search overfitting. The random-keyed-alphabet null is reported as a diagnostic only (Ragbaby has no key-independence leak for it to police).
 
 - round_trip_ok: true
 - best_score (mean): -13.250000
 - matched_mean: -13.000000  matched_std: 0.300000  matched_z: -0.8333
-- beats_matched_null [SURVIVAL GATE: overfitting] (z >= 6 AND margin >= 1): false
-- null_mean: -13.500000  null_std: 0.400000  z: 0.6250  beats_null [DIAGNOSTIC]: false
+- beats_matched_null [survival gate: overfitting] (z >= 6 and margin >= 1): false
+- null_mean: -13.500000  null_std: 0.400000  z: 0.6250  beats_null [diagnostic]: false
 - heldout_score: -14.000000  matched_heldout_mean: -13.750000  heldout_ok (>): false
 
 ## Recovered keyed alphabet (real letter indices)
 
 [3, 4, 5]
 
-## Decrypt (HYPOTHESIS, NOT a decode)
+## Decrypt (hypothesis, not a decode)
 
 ZYX
 ";

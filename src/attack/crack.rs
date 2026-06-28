@@ -141,14 +141,14 @@ pub(crate) fn slugify(label: &str) -> String {
         .collect()
 }
 
-/// Writes the invariant `## Decrypt (HYPOTHESIS, NOT a decode)` block: the heading,
+/// Writes the invariant `## Decrypt (hypothesis, not a decode)` block: the heading,
 /// a blank line, and the rendered `plaintext` line.
 ///
 /// # Errors
 /// Returns [`fmt::Error`] if writing to `out` fails (it cannot for a `String`).
 pub(crate) fn write_decrypt_block(out: &mut String, plaintext: &str) -> fmt::Result {
     use std::fmt::Write as _;
-    writeln!(out, "## Decrypt (HYPOTHESIS, NOT a decode)")?;
+    writeln!(out, "## Decrypt (hypothesis, not a decode)")?;
     writeln!(out)?;
     writeln!(out, "{plaintext}")?;
     Ok(())

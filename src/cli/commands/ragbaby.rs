@@ -128,7 +128,7 @@ fn run_ragbaby_control(
     };
     let points = ragbaby::control_sweep(quadgram::ENGLISH_CORPUS_LARGE, &control, model);
     println!(
-        "CONTROL numbering={} sign={} restarts={} iters={} basin={} t0={} t1={}",
+        "control numbering={} sign={} restarts={} iters={} basin={} t0={} t1={}",
         numbering.name(),
         sign.label(),
         cfg.restarts,
@@ -156,9 +156,9 @@ fn run_ragbaby_control(
 }
 
 fn print_ragbaby_table(candidates: &[ragbaby::RagbabyCandidate]) {
-    println!("Ragbaby candidates: HYPOTHESIS, not decode");
+    println!("Ragbaby candidates: hypothesis, not decode");
     println!(
-        "survives requires the matched-null (search-overfitting) gate AND round-trip AND held-out"
+        "survives requires the matched-null (search-overfitting) gate and round-trip and held-out"
     );
     println!(
         "{:>4} {:>11} {:>5} {:>10} {:>12} {:>10} {:>10} {:>8}",
@@ -228,7 +228,7 @@ fn emit_ragbaby_verdict(
         .collect();
     if survivors.is_empty() {
         println!(
-            "HONEST-NEGATIVE: no (base, numbering, sign) keyed-alphabet candidate cleared the round-trip + matched-null (z>={:.0} AND margin>={:.0} nat) + held-out gates. A clean honest negative is a SUCCESS, not an error.",
+            "honest-negative: no (base, numbering, sign) keyed-alphabet candidate cleared the round-trip + matched-null (z>={:.0} and margin>={:.0} nat) + held-out gates. A clean honest negative is a success, not an error.",
             ragbaby::Z_THRESHOLD,
             ragbaby::MIN_NAT_MARGIN,
         );
@@ -236,7 +236,7 @@ fn emit_ragbaby_verdict(
     }
     for candidate in survivors {
         println!(
-            "HYPOTHESIS (not a confirmed decode; cleared the matched-null gate): base={} numbering={} sign={} matched_z={:.2}",
+            "hypothesis (not a confirmed decode; cleared the matched-null gate): base={} numbering={} sign={} matched_z={:.2}",
             candidate.base,
             candidate.numbering.name(),
             candidate.sign.label(),

@@ -293,7 +293,7 @@ fn render_record(
     writeln!(out)?;
     writeln!(
         out,
-        "Stable label (NO wall-clock): label={label} seed=0x{seed:016x} base={} numbering={} sign={}",
+        "Stable label (no wall-clock): label={label} seed=0x{seed:016x} base={} numbering={} sign={}",
         candidate.base,
         candidate.numbering.name(),
         candidate.sign.label()
@@ -302,9 +302,9 @@ fn render_record(
     writeln!(out, "## Verdict")?;
     writeln!(out)?;
     let verdict = if candidate.survives {
-        "CANDIDATE SURVIVED ALL GATES (round-trip + matched-null + held-out) — logged as a HYPOTHESIS, NOT a decode"
+        "candidate survived all gates (round-trip + matched-null + held-out) — logged as a hypothesis, not a decode"
     } else {
-        "NO surviving candidate — decode remains blocked"
+        "no surviving candidate — decode remains blocked"
     };
     writeln!(out, "**{verdict}.**")?;
     writeln!(out)?;
@@ -312,11 +312,11 @@ fn render_record(
     writeln!(out)?;
     writeln!(
         out,
-        "Survival requires the MATCHED null (the same annealed keyed-alphabet search \
-         rerun on a Fisher-Yates shuffle of the ciphertext LETTER stream, holding the \
+        "Survival requires the matched null (the same annealed keyed-alphabet search \
+         rerun on a Fisher-Yates shuffle of the ciphertext letter stream, holding the \
          key-number sequence N_i fixed) plus round-trip and held-out. The matched \
-         null shares the search's degrees of freedom, so it polices SEARCH \
-         OVERFITTING. The random-keyed-alphabet null is reported as a DIAGNOSTIC only \
+         null shares the search's degrees of freedom, so it polices search \
+         overfitting. The random-keyed-alphabet null is reported as a diagnostic only \
          (Ragbaby has no key-independence leak for it to police)."
     )?;
     writeln!(out)?;
@@ -329,12 +329,12 @@ fn render_record(
     )?;
     writeln!(
         out,
-        "- beats_matched_null [SURVIVAL GATE: overfitting] (z >= {Z_THRESHOLD} AND margin >= {MIN_NAT_MARGIN}): {}",
+        "- beats_matched_null [survival gate: overfitting] (z >= {Z_THRESHOLD} and margin >= {MIN_NAT_MARGIN}): {}",
         candidate.beats_matched_null
     )?;
     writeln!(
         out,
-        "- null_mean: {:.6}  null_std: {:.6}  z: {:.4}  beats_null [DIAGNOSTIC]: {}",
+        "- null_mean: {:.6}  null_std: {:.6}  z: {:.4}  beats_null [diagnostic]: {}",
         candidate.null_mean, candidate.null_std, candidate.z, candidate.beats_null
     )?;
     writeln!(

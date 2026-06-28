@@ -297,7 +297,7 @@ fn solve_mappings(
 }
 
 fn print_solve_report(candidates: &[solve::Candidate]) {
-    println!("Solve candidates: HYPOTHESIS, not decode");
+    println!("Solve candidates: hypothesis, not decode");
     println!("candidates: {}", candidates.len());
     let Some(top) = candidates.first() else {
         println!("no candidate survived the cipher-layer round-trip gate");

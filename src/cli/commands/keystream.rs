@@ -105,9 +105,9 @@ fn keystream_ciphertext(args: &KeystreamArgs) -> Result<Vec<u8>, ExitCode> {
 }
 
 fn print_keystream_table(candidates: &[keystream::KeystreamCandidate]) {
-    println!("Keystream candidates: HYPOTHESIS, not decode");
+    println!("Keystream candidates: hypothesis, not decode");
     println!(
-        "survives requires BOTH nulls: matched_z (search-overfitting gate) AND null_z (ct-autokey key-independence-leak gate)"
+        "survives requires both nulls: matched_z (search-overfitting gate) and null_z (ct-autokey key-independence-leak gate)"
     );
     println!(
         "{:11} {:>3} {:>10} {:>12} {:>10} {:>8} {:>10} {:>8}",
@@ -184,7 +184,7 @@ fn emit_keystream_verdict(
         .collect();
     if survivors.is_empty() {
         println!(
-            "HONEST-NEGATIVE: no (family, key length) candidate cleared the round-trip + matched-null + random-key-null (each z>={:.0} AND margin>={:.0} nat) + held-out gates. A clean honest negative is a SUCCESS, not an error.",
+            "honest-negative: no (family, key length) candidate cleared the round-trip + matched-null + random-key-null (each z>={:.0} and margin>={:.0} nat) + held-out gates. A clean honest negative is a success, not an error.",
             keystream::Z_THRESHOLD,
             keystream::MIN_NAT_MARGIN,
         );
@@ -192,7 +192,7 @@ fn emit_keystream_verdict(
     }
     for candidate in survivors {
         println!(
-            "HYPOTHESIS (not a confirmed decode; cleared BOTH null gates): family={} key-len={} matched_z={:.2} null_z={:.2}",
+            "hypothesis (not a confirmed decode; cleared both null gates): family={} key-len={} matched_z={:.2} null_z={:.2}",
             candidate.family.name(),
             candidate.key_len,
             candidate.matched_z,

@@ -403,7 +403,7 @@ fn render_record(
     writeln!(out)?;
     writeln!(
         out,
-        "Stable label (NO wall-clock): label={label} seed=0x{seed:016x} family={} key-len={}",
+        "Stable label (no wall-clock): label={label} seed=0x{seed:016x} family={} key-len={}",
         candidate.family.name(),
         candidate.key_len
     )?;
@@ -411,9 +411,9 @@ fn render_record(
     writeln!(out, "## Verdict")?;
     writeln!(out)?;
     let verdict = if candidate.survives {
-        "CANDIDATE SURVIVED ALL GATES (round-trip + matched-null + random-key-null + held-out) — logged as a HYPOTHESIS, NOT a decode"
+        "candidate survived all gates (round-trip + matched-null + random-key-null + held-out) — logged as a hypothesis, not a decode"
     } else {
-        "NO surviving candidate — decode remains blocked"
+        "no surviving candidate — decode remains blocked"
     };
     writeln!(out, "**{verdict}.**")?;
     writeln!(out)?;
@@ -421,11 +421,11 @@ fn render_record(
     writeln!(out)?;
     writeln!(
         out,
-        "Survival requires BOTH nulls plus round-trip and held-out. The MATCHED \
+        "Survival requires both nulls plus round-trip and held-out. The matched \
          null (the same annealed search rerun on Fisher-Yates shuffled ciphertext, \
          holding the unigram multiset fixed and destroying higher-order structure) \
-         polices SEARCH OVERFITTING. The RANDOM-KEY null (random keys on the \
-         un-shuffled ciphertext) polices the ciphertext-autokey KEY-INDEPENDENCE \
+         polices search overfitting. The random-key null (random keys on the \
+         un-shuffled ciphertext) polices the ciphertext-autokey key-independence \
          leak, which the matched null cannot see. Neither alone is sufficient."
     )?;
     writeln!(out)?;
@@ -438,7 +438,7 @@ fn render_record(
     )?;
     writeln!(
         out,
-        "- beats_matched_null [SURVIVAL GATE: overfitting] (z >= {Z_THRESHOLD} AND margin >= {MIN_NAT_MARGIN}): {}",
+        "- beats_matched_null [survival gate: overfitting] (z >= {Z_THRESHOLD} and margin >= {MIN_NAT_MARGIN}): {}",
         candidate.beats_matched_null
     )?;
     writeln!(
@@ -448,7 +448,7 @@ fn render_record(
     )?;
     writeln!(
         out,
-        "- beats_null [SURVIVAL GATE: key-independence leak] (z >= {Z_THRESHOLD} AND margin >= {MIN_NAT_MARGIN}): {}",
+        "- beats_null [survival gate: key-independence leak] (z >= {Z_THRESHOLD} and margin >= {MIN_NAT_MARGIN}): {}",
         candidate.beats_null
     )?;
     writeln!(
