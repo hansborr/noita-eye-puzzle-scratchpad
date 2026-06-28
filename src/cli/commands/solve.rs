@@ -91,7 +91,7 @@ pub(crate) fn run_solve(args: &SolveArgs) -> ExitCode {
     // included). This is load-bearing claim discipline, not just stdout.
     //
     // The provenance string is the exact, clock-free command that reproduces this
-    // record (defect D2): every run-affecting flag is printed explicitly so the
+    // record: every run-affecting flag is printed explicitly so the
     // command is default-drift-proof.
     let provenance = solve_provenance_command(args);
     match solve::log_solve_run(
@@ -121,7 +121,7 @@ pub(crate) fn run_solve(args: &SolveArgs) -> ExitCode {
 }
 
 /// Builds the canonical, clock-free command embedded in the solve record's
-/// Provenance section (defect D2): the copy-pasteable invocation that reproduces
+/// Provenance section: the copy-pasteable invocation that reproduces
 /// the record byte-for-byte. Every run-affecting flag is printed EXPLICITLY (no
 /// reliance on compiled-in defaults) so the command stays reproducible even if a
 /// default later drifts. Only the codec/mapping mode actually in effect is

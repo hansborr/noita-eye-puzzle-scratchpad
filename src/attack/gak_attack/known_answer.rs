@@ -14,7 +14,7 @@
 //!   plaintext "letters" are the `+1` and `-1` generators, and the keystream is the
 //!   sequence of `±1` steps. The solver should recover both generators and the
 //!   exact step partition. (`one` is external and *believed decryptable to
-//!   English* via a decrypt -> codec -> mapping pipeline — brief 04a — with no
+//!   English* via a decrypt -> codec -> mapping pipeline, with no
 //!   in-repo cleartext. G1's deliverable is the recovered C5 *structure* layer
 //!   only; it does **not** attempt the English/codec decode.)
 //! - **`two`** — a 12-symbol GAK *with hidden state* (the visible readout is

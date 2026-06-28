@@ -1,7 +1,7 @@
 use super::*;
 
 // ---------------------------------------------------------------------------
-// Step 9 — candidate auto-logging (mirrors gak_attack::eyes' private writer).
+// Candidate auto-logging (mirrors gak_attack::eyes' private writer).
 // ---------------------------------------------------------------------------
 
 /// The verbatim claim ceiling reproduced in every solve candidate record. It is

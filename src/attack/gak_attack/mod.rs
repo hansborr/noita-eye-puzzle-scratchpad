@@ -76,7 +76,7 @@ mod error;
 mod eyes;
 mod render;
 // `generator`/`solver`/`marginalization` are `pub(crate)` so the solve pipeline
-// (brief 04) can import their internals; this widens no external (`pub`) surface —
+// can import their internals; this widens no external (`pub`) surface —
 // the public path stays `crate::attack::gak_attack::*` via the `pub use` block below.
 pub(crate) mod generator;
 #[cfg(test)]
@@ -171,8 +171,8 @@ impl Default for GakAttackConfig {
 /// matched null.
 ///
 /// One outcome is one independent draw — these are the honest backbone the gate's
-/// recovery RATE is computed from. No retry selection happens here (review
-/// finding F1); the retry-selected exemplar is a separate, explicitly-labelled
+/// recovery RATE is computed from. No retry selection happens here; the
+/// retry-selected exemplar is a separate, explicitly-labelled
 /// field on the report.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct GctakGateOutcome {
@@ -194,7 +194,7 @@ pub struct GctakGateOutcome {
     /// Number of distinct plaintext letters the solver clustered.
     pub letters_recovered: usize,
     /// Number of held-truth per-letter permutations recovered exactly by the real
-    /// pipeline (review finding F5).
+    /// pipeline.
     pub real_permutations_recovered: usize,
     /// Total held-truth per-letter permutations (the denominator for the recovery
     /// fraction).
@@ -202,8 +202,7 @@ pub struct GctakGateOutcome {
     /// Number of held-truth per-letter permutations the matched-null pipeline
     /// recovered (must stay low; the structure is destroyed).
     pub null_permutations_recovered: usize,
-    /// Number of chain-link adjacency constraints the real pipeline checked
-    /// (review finding F2).
+    /// Number of chain-link adjacency constraints the real pipeline checked.
     pub chain_link_checks: usize,
     /// Number of those chain-link constraints satisfied by the recovered
     /// permutations. Equals `chain_link_checks` on a fully recovered real fixture.
@@ -218,7 +217,7 @@ pub struct GctakGateOutcome {
 
 /// Recovery-RATE summary for one group kind across independent seeds.
 ///
-/// This is the gate's headline evidence (review finding F1): the real recovery
+/// This is the gate's headline evidence: the real recovery
 /// rate (a fraction of independent seeds) versus the matched-null recovery rate
 /// (which must be ~0). No retry selection enters these counts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -265,7 +264,7 @@ fn fraction(numerator: usize, denominator: usize) -> f64 {
 /// (see [`RecoveryRate`]). This is a single deterministically-chosen seed whose
 /// fixture the solver recovered exactly, kept only to show a concrete worked
 /// example with its full per-fixture outcome and the number of seeds skipped to
-/// reach it (review finding F1). No report field implies every seed recovers.
+/// reach it. No report field implies every seed recovers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RetrySelectedExemplar {
     /// The per-fixture outcome of the chosen exemplar seed.
@@ -295,10 +294,10 @@ pub struct GakAttackReport {
     /// Per-seed gate outcomes across the independent seed × group-kind matrix
     /// (the honest backbone; no retry selection).
     pub outcomes: Vec<GctakGateOutcome>,
-    /// Recovery-RATE summary per group kind (the gate's headline, F1).
+    /// Recovery-RATE summary per group kind (the gate's headline).
     pub rates: Vec<RecoveryRate>,
     /// One retry-selected illustrative exemplar per group kind (NOT pass
-    /// evidence; explicitly labelled, F1).
+    /// evidence; explicitly labelled).
     pub exemplars: Vec<RetrySelectedExemplar>,
     /// Documented minimum real recovery rate the gate required.
     pub min_real_recovery_rate: f64,
@@ -329,7 +328,7 @@ pub struct GakAttackReport {
 /// `config.seeds_per_kind` **independent** seeds, generates a GCTAK fixture with
 /// held-back ground truth for each, runs the extended-chaining solver, and runs
 /// the matched within-message shuffle null over the same pipeline. The gate's PASS
-/// condition is the **recovery RATE versus the matched null** (review finding F1):
+/// condition is the **recovery RATE versus the matched null**:
 /// across the independent seeds, the real recovery rate must clear
 /// [`MIN_REAL_RECOVERY_RATE`] *and* strictly exceed the matched-null rate (which
 /// is ~0). It is **not** conditioned on a retry-selected lucky seed; a separate,
@@ -396,7 +395,7 @@ pub fn run_gak_attack(config: GakAttackConfig) -> Result<GakAttackReport, GakAtt
         rate_gate_passed = rate_gate_passed && kind_passed;
         rates.push(rate);
 
-        // Illustrative-only retry-selected exemplar (NOT pass evidence, F1).
+        // Illustrative-only retry-selected exemplar (NOT pass evidence).
         let exemplar = retry_selected_exemplar(group_kind, config)?;
         exemplars.push(exemplar);
     }
@@ -456,8 +455,8 @@ pub fn run_gak_attack(config: GakAttackConfig) -> Result<GakAttackReport, GakAtt
 /// display; the gate's PASS condition is the recovery RATE, not this exemplar.
 const MAX_FIXTURE_ATTEMPTS: usize = 16;
 
-/// Picks a single **illustrative, retry-selected exemplar** fixture (review
-/// finding F1): the first deterministic seed (from a kind-specific base) whose
+/// Picks a single **illustrative, retry-selected exemplar** fixture: the first
+/// deterministic seed (from a kind-specific base) whose
 /// GCTAK fixture the solver recovers exactly while the matched shuffle null does
 /// not.
 ///

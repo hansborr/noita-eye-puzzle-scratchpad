@@ -1,7 +1,7 @@
 //! Hidden-state marginalization (idea 3) and the TENTATIVE small-support prior.
 //!
 //! The beam-search column recovery (`beam_recover_column`, `split_column_evidence`)
-//! and the marginalization sweep that brief 04 reuses live here; they build on the
+//! and the marginalization sweep live here; they build on the
 //! deck attack's `CosetEdge`/`mean_f64`/`generate_deck_fixture` primitives from the
 //! `solver` sibling.
 

@@ -88,7 +88,7 @@ impl Default for TransparentSet {
 
 /// One transparent (pass-through) char and the position it occupied in the
 /// original input, recorded **separately from the cipher-symbol stream** so the
-/// pipeline (brief 04) can reinsert it into `rendered_text` at its position.
+/// pipeline can reinsert it into `rendered_text` at its position.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TransparentMark {
     /// The verbatim char (e.g. `' '`, `'.'`, `'\n'`).
@@ -147,7 +147,7 @@ pub struct ParsedSequence {
     /// the language scorer operate on. Transparent symbols are **not** here.
     pub glyphs: Vec<Glyph>,
     /// Transparent (pass-through) chars with their original positions, kept
-    /// apart from `glyphs` so the pipeline (brief 04) can reinsert them into
+    /// apart from `glyphs` so the pipeline can reinsert them into
     /// `rendered_text` at their positions. Empty for the two eye layers.
     pub transparent: Vec<TransparentMark>,
 }

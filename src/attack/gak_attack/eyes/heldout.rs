@@ -22,7 +22,7 @@ use super::super::*;
 /// held-out context, AGREE on it. The authoritative null significance is the full
 /// trial tail in [`eyes_matched_null_tail`].
 ///
-/// `safe_spans_by_message` (F2) supplies, in the SAME order as `keys`, the Thread-3
+/// `safe_spans_by_message` supplies, in the SAME order as `keys`, the Thread-3
 /// safe spans each message's Gate-1 chaining is restricted to. A message without
 /// safe spans yields no admitted windows (and therefore no scored edges).
 pub(super) fn eyes_per_message_held_out(
@@ -92,7 +92,7 @@ fn spans_touch(a: (usize, usize), b: (usize, usize)) -> bool {
 }
 
 /// Restricts Gate-1 chaining to the Thread-3 SAFE ISOMORPH EXTENTS for one message
-/// (F2 — ENFORCED, not just claimed). Thread 3 exports conservative per-message safe
+/// (ENFORCED, not just claimed). Thread 3 exports conservative per-message safe
 /// spans where a cross-message aligned isomorph extends without over-reaching; Gate 1
 /// admits an isomorph occurrence window only when its `[start, end)` lies ENTIRELY
 /// within one of those safe spans for this message, so chaining never over-extends
@@ -273,7 +273,7 @@ impl HeldOutScore {
 
     /// SCOREABLE held-out edges = `hits + misses + ambiguous`: every held-out edge
     /// that entered the embargoed-consensus predictor for this population. Used to
-    /// size the population-relative material-effect bar in F1: the MAX achievable
+    /// size the population-relative material-effect bar: the MAX achievable
     /// coverage-weighted score on a population is `scoreable * (A-1)` (every edge a
     /// HIT), so the bar can be a fraction of THAT, fair to whatever population is
     /// under test (the eyes, or the much larger synthetic positive control).
@@ -294,7 +294,7 @@ impl HeldOutScore {
 /// Maximum coverage-weighted score achievable on a population with `scoreable_edges`
 /// scoreable held-out edges: every edge a confident HIT, worth `A-1` each. This is
 /// the population's own ceiling, so a fraction of it is a FAIR material-effect bar
-/// for that population (F1) — unlike an absolute bar pinned to one population's size.
+/// for that population — unlike an absolute bar pinned to one population's size.
 pub(crate) fn max_achievable_score(scoreable_edges: usize) -> f64 {
     let alphabet_minus_one = EYE_READING_ALPHABET_SIZE.saturating_sub(1);
     let max_edges =
@@ -432,7 +432,7 @@ fn predict_by_embargoed_consensus(compatible: &[&EyeContextAction], from: u8) ->
 /// recovered model's `from -> {to}` image sets; HELD-OUT group chain links are the
 /// validation set.
 ///
-/// `safe_filter` (F2) restricts which isomorph occurrence windows are admitted: a
+/// `safe_filter` restricts which isomorph occurrence windows are admitted: a
 /// window is only used when [`SafeWindowFilter::admits`] accepts its `[start, end)`,
 /// so on the real eyes chaining stays WITHIN Thread-3's safe isomorph extents and
 /// never over-extends. The synthetic positive control passes the unrestricted filter.
@@ -452,7 +452,7 @@ pub(crate) fn eyes_message_evidence(
         }
         let mut by_signature: BTreeMap<PatternSignature, Vec<usize>> = BTreeMap::new();
         for (start, window) in values.windows(window_len).enumerate() {
-            // F2: admit a window only when it lies within a Thread-3 safe extent (the
+            // Admit a window only when it lies within a Thread-3 safe extent (the
             // real eyes); the synthetic control's unrestricted filter admits every
             // window. Applied BEFORE signature grouping so chaining never sees an
             // over-extended occurrence.
@@ -593,7 +593,7 @@ impl<'a> AggregateSafeFilter<'a> {
 /// Returns the aggregate [`HeldOutScore`] (hits / misses / ambiguous), from which the
 /// scalar coverage-weighted score is recomputed per message so the real eyes and each
 /// matched-null shuffle are scored identically. Surfacing the aggregate counts also
-/// gives the population's SCOREABLE-edge total, which sizes the F1 material-effect bar
+/// gives the population's SCOREABLE-edge total, which sizes the material-effect bar
 /// (a fraction of the population's own max achievable score).
 fn eyes_aggregate_held_out(
     message_values: &[Vec<TrigramValue>],
@@ -682,7 +682,7 @@ pub(super) fn eyes_matched_null_tail(
 /// held-out anchors uniquely identify them. The same per-message held-out pipeline
 /// must give a real coverage-weighted score that strictly beats the worst-case
 /// (max) matched within-message shuffle null over the control trials AND clears the
-/// control's OWN population-relative material-effect bar (F1: a fraction of the
+/// control's OWN population-relative material-effect bar (a fraction of the
 /// control's max achievable score). If it does not fire, the held-out gate is not
 /// trustworthy. The fixture is scored UNRESTRICTED (it is not a corpus message and
 /// has no Thread-3 safe extent), so the detector is validated on its full known
@@ -718,7 +718,7 @@ pub(crate) fn eyes_held_out_positive_control(
             null_score = trial_score;
         }
     }
-    // FIRE (F1-validated): the real signal's coverage-weighted score strictly beats
+    // FIRE: the real signal's coverage-weighted score strictly beats
     // the WORST-CASE null over the control trials AND its real-vs-null excess clears
     // the control's OWN population-relative material-effect bar — the SAME fair gate
     // the eyes are judged against, so the bar is proven achievable by genuine signal.

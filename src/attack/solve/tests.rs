@@ -61,7 +61,7 @@ fn mapping_rejects_symbols_outside_table() {
     ));
 }
 
-// Step 10(b) — letter-puzzle validation over the checked-in practice corpus.
+// Letter-puzzle validation over the checked-in practice corpus.
 //
 // HONEST OUTCOME (claim discipline): the pipeline runs end-to-end, all three
 // gates fire, and the top candidate is LOGGED as a labelled HYPOTHESIS. But
@@ -141,7 +141,7 @@ fn letter_puzzles_run_end_to_end_and_log_as_hypotheses() {
     let _cleanup = std::fs::remove_dir_all(&dir);
 }
 
-// Step 10(c) — THE EYES HONEST NEGATIVE (the single most important test).
+// THE EYES HONEST NEGATIVE (the single most important test).
 // Load the embedded 83-symbol reading-layer eye corpus via corpus/orders (NOT
 // /tmp), run the mapping search, and confirm it surfaces NO surviving
 // candidate: the decode REMAINS BLOCKED on the unknown symbol->meaning
@@ -216,7 +216,7 @@ fn eyes_search_surfaces_no_surviving_candidate() {
 }
 
 // ===================================================================
-// Step 9 (Phase-2b capstone) — corpus codec/grouping samples one/two/six.
+// Corpus codec/grouping samples one/two/six.
 //
 // Each runs the CHECKED-IN corpus file (NEVER /tmp) end-to-end through
 // CodecStrategy::Search + MappingStrategy::Search and auto-logs the best
@@ -602,7 +602,7 @@ fn identity_codec_passes_symbols_through() {
     assert_eq!(AnyCodec::Identity.transduce(&input).unwrap(), input);
 }
 
-// Step 4 — synthetic plant-through-codec positive control (fixed codec).
+// Synthetic plant-through-codec positive control (fixed codec).
 // Plant: English (language indices 0..28) -> expand each letter into TWO base-6
 // digits (MSB) -> a base-6 digit stream -> Caesar(base 6, shift 2) -> ciphertext.
 // solve with the matching FixedGrouping{2,6,Msb,2} + the known grouped-value ->
@@ -686,7 +686,7 @@ fn fixed_grouping_plant_recovers_planted_english() {
     assert_eq!(top.rendered_text, expected);
 }
 
-// Step 5 — the codec SEARCH enumerates grouping codecs, prunes the ones that
+// The codec SEARCH enumerates grouping codecs, prunes the ones that
 // cannot host the language (or explode past the ceiling), and on the survivors
 // runs the established per-codec evaluation. Here it must DISCOVER the planted
 // base-6 pair grouping (and its MSB order) and rank the correct codec + cipher
@@ -760,7 +760,7 @@ fn codec_search_recovers_planted_fixed_grouping() {
     }));
 }
 
-// Step 5 — bounded + logged: an out-of-budget codec is surfaced in the skip
+// Bounded + logged: an out-of-budget codec is surfaced in the skip
 // trace with its reason, not silently dropped. base 5, max_group_len 4 yields
 // both prune reasons: group_len 1/2 (5, 25 < 29) -> SanityTooSmall; group_len 4
 // (5^4 = 625 > 256 ceiling) -> CeilingTooWide; only group_len 3 (125) survives.
@@ -929,7 +929,7 @@ fn codec_search_is_deterministic_for_fixed_seed() {
     assert_eq!(first, second);
 }
 
-// Step 6 (brief 04a Phase-2a) — the ENUMERATION-LEVEL matched null stays FLAT
+// The ENUMERATION-LEVEL matched null stays FLAT
 // under codec search WITH codec SELECTION in play. The base-6 plant's ciphertext
 // is shuffled into noise, then a codec search that yields TWO surviving codecs
 // (FixedGrouping{2,6} in BOTH Msb and Lsb order, each 6^2 = 36 >= 29) + a mapping
@@ -1010,7 +1010,7 @@ fn codec_search_matched_null_stays_flat_on_shuffled_noise() {
     assert!(!candidate_survives(top));
 }
 
-// Step 6 (brief 04a Phase-2a) — the enumeration-level null is SELECTION-COMPLETE
+// The enumeration-level null is SELECTION-COMPLETE
 // over codecs: maxing the on-noise score over ALL surviving codecs per shuffle is
 // >= every single codec's on-noise null (same shuffles, same seeds, no max). The
 // winning candidate carries exactly THAT enumeration-level null — the assertion
@@ -1096,7 +1096,7 @@ fn enumeration_null_is_selection_complete_over_codecs() {
     assert_eq!(again.first().unwrap().null_mean.to_bits(), full.to_bits());
 }
 
-// Step 6 — held-out fold ABOVE the shuffled baseline on the synthetic plant:
+// Held-out fold ABOVE the shuffled baseline on the synthetic plant:
 // the codec-searched candidate's held-out mapping score sits above its matched
 // null, i.e. the mapping generalizes to unseen positions rather than overfitting
 // the in-sample fold. (Uses the known grouped-value->letter mapping so the
@@ -1146,7 +1146,7 @@ fn codec_search_heldout_above_null_on_plant() {
     assert!(candidate_survives(top));
 }
 
-// Step 7 — the DELTA search path recovers the +/-1-`C5`-shaped plant. The
+// The DELTA search path recovers the +/-1-`C5`-shaped plant. The
 // planted English rides a walk on C5 (base 5) under a Caesar shift; only the
 // `Delta{base 5}` codec over the base-5 trigram grouping both hosts the language
 // (5^3 = 125 >= 29) AND fits the stream. The direct (non-delta) trigram grouping
@@ -1233,7 +1233,7 @@ fn delta_search_recovers_delta_c5_plant() {
     assert_eq!(outcome, again);
 }
 
-// Step 8 — the synthetic plant-through-codec positive control (the real proof).
+// The synthetic plant-through-codec positive control (the real proof).
 // A known English plaintext is pushed through the INVERSE of a
 // FixedGrouping{3,5,Msb,3} codec (each letter -> three base-5 digits) then a
 // known Caesar cipher; solve + codec SEARCH must recover the (cipher key + codec
@@ -1427,7 +1427,7 @@ fn fixed_mapping_transposition_plant_recovers_top_candidate() {
     assert!(top.beats_null);
 }
 
-// Step 6 — the hill-climb (+ held-out gate) surfaces a planted small-alphabet
+// The hill-climb (+ held-out gate) surfaces a planted small-alphabet
 // substitution as a surviving candidate: it beats the matched null by a
 // comfortable margin and its held-out fold generalizes above that null. (Exact
 // recovery is left to the stronger annealed search; a bare hill-climb can stall
@@ -1460,7 +1460,7 @@ fn hillclimb_surfaces_planted_small_alphabet_substitution() {
     assert!(candidate_survives(top));
 }
 
-// Step 7 + step 10(a) — the annealed full search recovers a planted 26-letter
+// The annealed full search recovers a planted 26-letter
 // substitution as the top, round-trip-consistent, held-out-validated,
 // beats-null candidate. NOTE: the bigram objective's optimum is NOT exactly
 // the true plaintext (a different permutation can score higher than genuine
@@ -1563,7 +1563,7 @@ fn searched_matched_null_stays_flat_on_shuffled_ciphertext() {
     assert!(!candidate_survives(top));
 }
 
-// Step 9 — the record renderer is a pure string builder (no filesystem) and
+// The record renderer is a pure string builder (no filesystem) and
 // carries the claim ceiling, the HYPOTHESIS label, all three gate verdicts,
 // and BOTH language scores.
 #[test]
@@ -1918,7 +1918,7 @@ fn plant_base5_trigram_repeated_english(
     (ciphertext, key, plaintext_indices)
 }
 
-// Step 8 review follow-up -- the JOINT codec-search x mapping-search positive
+// The JOINT codec-search x mapping-search positive
 // control (closes the one coverage gap). Every other POSITIVE codec-search test
 // FIXES the mapping (`MappingStrategy::Fixed` with the known grouped-value->letter
 // table) and searches only the codec + cipher key; the joint composition where

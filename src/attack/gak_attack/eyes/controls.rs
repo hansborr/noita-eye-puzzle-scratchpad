@@ -2,14 +2,14 @@
 //!
 //! Consults Thread 3's scan (REUSED, never re-derived) for the consistency verdict
 //! AND the per-message safe isomorph extents Gate-1 chaining is ENFORCED to stay
-//! within (F2). The verdict is only trusted when Thread 3's own POSITIVE CONTROL
+//! within. The verdict is only trusted when Thread 3's own POSITIVE CONTROL
 //! fired, so this is the eyes' consistency-control layer.
 
 use super::super::{GakAttackError, ThreeConsistency, perfect_isomorphism};
 use super::EYES_THREE_CONSISTENCY_TRIALS;
 
 /// The Thread-3 consultation: the consistency verdict PLUS the per-message safe
-/// isomorph spans Gate-1 chaining is ENFORCED to stay within (F2).
+/// isomorph spans Gate-1 chaining is ENFORCED to stay within.
 pub(super) struct ThreeConsultation {
     /// The Gate-2 consistency verdict consumed by the report.
     pub(super) verdict: ThreeConsistency,
@@ -25,7 +25,7 @@ pub(super) struct ThreeConsultation {
 ///
 /// Reads the Thread-3 report's `robust_internal_violations` (must be `0` — a
 /// non-zero count is a manufactured TRUE conflict), `safe_extents` (the conservative
-/// per-message spans Gate-1 chaining is RESTRICTED to — F2), and
+/// per-message spans Gate-1 chaining is RESTRICTED to), and
 /// `positive_control_fired` (the scan is trustworthy). The candidate model is
 /// CONSISTENT only if there are zero robust internal violations and the positive
 /// control fired. The per-message safe spans are projected from the cross-message
@@ -61,7 +61,7 @@ pub(super) fn eyes_three_consultation(
 }
 
 /// Projects the cross-message Thread-3 safe extents onto PER-MESSAGE half-open spans,
-/// in the SAME order as `keys` (F2 enforcement input).
+/// in the SAME order as `keys`.
 ///
 /// Each [`perfect_isomorphism::SafeIsomorphExtent`] is a SAFE cross-message aligned
 /// isomorph: its `pair = (left_key, right_key)` carries a `left_span` in the left

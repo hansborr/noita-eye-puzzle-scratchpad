@@ -152,15 +152,15 @@ pub struct EyeMessageHeldOut {
 /// (the Thread-3 API is REUSED, never re-derived). A candidate may only be named
 /// if Thread 3 reports zero robust internal violations (no manufactured TRUE
 /// conflicts) and supplies the safe isomorph extents Gate-1 chaining is ENFORCED to
-/// stay within (F2 — see `eyes_three_consultation`).
+/// stay within (see `eyes_three_consultation`).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ThreeConsistency {
     /// Thread-3 robust strong-bar internal-violation count (must be `0` for a
     /// consistent model: a non-zero count is a manufactured TRUE conflict).
     pub robust_internal_violations: usize,
     /// Number of conservative safe isomorph extents Thread 3 exported. Gate-1
-    /// chaining is ENFORCED to stay within the per-message spans these project to
-    /// (F2); an occurrence window is admitted only inside a safe span.
+    /// chaining is ENFORCED to stay within the per-message spans these project to;
+    /// an occurrence window is admitted only inside a safe span.
     pub safe_extents: usize,
     /// Whether Thread 3's own positive control fired (the scan is trustworthy).
     pub positive_control_fired: bool,
@@ -187,12 +187,12 @@ pub struct HeldOutPositiveControl {
     pub null_score: i64,
     /// SCOREABLE held-out edges on the synthetic fixture (`hits + misses +
     /// ambiguous`). Used to size the control's OWN population material-effect bar so
-    /// F1's validation ("the detector still clears its own bar") is checked on the
+    /// The validation ("the detector still clears its own bar") is checked on the
     /// control's population, not the eyes'.
     pub scoreable_edges: usize,
     /// Whether the predictor fired: the real signal strictly beats the worst-case
     /// matched null AND its real-vs-null excess clears the control's OWN
-    /// population-relative material-effect bar (F1) — so the detector is validated on
+    /// population-relative material-effect bar — so the detector is validated on
     /// the same fair gate the eyes are judged against.
     pub fired: bool,
 }
@@ -232,7 +232,7 @@ struct Gate1Evaluation {
     real_held_out_ambiguous_total: usize,
     real_score: i64,
     /// SCOREABLE held-out edges on the real eyes (`hits + misses + ambiguous`) — the
-    /// population whose own max-achievable score sizes the F1 bar.
+    /// population whose own max-achievable score sizes the bar.
     scoreable_edges: usize,
     /// The eyes' MAX achievable coverage-weighted score (`scoreable_edges * (A-1)`):
     /// the bar is a fraction of THIS, so genuine eye signal could clear it.
@@ -248,14 +248,14 @@ struct Gate1Evaluation {
 /// Runs the eyes Gate-1 held-out evaluation: the embargoed-consensus coverage-
 /// weighted score on the real per-message streams vs the matched within-message
 /// shuffle null, plus the POPULATION-RELATIVE material-effect bar (statistical
-/// significance is NECESSARY but NOT SUFFICIENT — F1: the real-vs-null excess must
+/// significance is NECESSARY but NOT SUFFICIENT: the real-vs-null excess must
 /// reach [`EYES_MATERIAL_EFFECT_FRACTION`] of the eyes' OWN max achievable score
 /// `scoreable_edges * (A-1)`, a bar that scales to whatever population is under test
 /// so a genuine eye signal COULD clear it, rather than an absolute value pinned to
 /// the much larger synthetic positive control's population).
 ///
 /// Gate-1 chaining is restricted to the Thread-3 safe extents via
-/// `safe_spans_by_message` (F2), applied identically to the real eyes and the matched
+/// `safe_spans_by_message`, applied identically to the real eyes and the matched
 /// null so the null stays symmetric.
 ///
 /// # Errors
@@ -281,7 +281,7 @@ fn eyes_gate1_evaluation(
         eyes_matched_null_tail(message_values, config, safe_spans_by_message, real_score)?;
     let matched_null_p_value = add_one_p_value(null_at_least_real, config.trials);
 
-    // F1: a POPULATION-RELATIVE bar. The eyes' own scoreable held-out edges fix their
+    // A POPULATION-RELATIVE bar. The eyes' own scoreable held-out edges fix their
     // max achievable score `scoreable_edges * (A-1)`; the bar is a fraction of THAT,
     // so a genuine eye signal capturing >= EYES_MATERIAL_EFFECT_FRACTION of the signal
     // achievable on ITS OWN population clears it. This is fair (the bar is below the
@@ -358,8 +358,8 @@ pub fn run_gak_attack_eyes(config: EyesAttackConfig) -> Result<EyesAttackReport,
     let distinct_symbols = distinct_symbols.len();
 
     // GATE 1 PRELUDE: the held-out POSITIVE CONTROL must fire on KNOWN signal — now
-    // including clearing the control's OWN population-relative material-effect bar
-    // (F1), so the bar is proven achievable by genuine signal before the eyes face it.
+    // including clearing the control's OWN population-relative material-effect bar,
+    // so the bar is proven achievable by genuine signal before the eyes face it.
     let held_out_positive_control = eyes_held_out_positive_control(&config)?;
     if !held_out_positive_control.fired {
         return Err(GakAttackError::HeldOutPositiveControlFailed {
@@ -370,14 +370,14 @@ pub fn run_gak_attack_eyes(config: EyesAttackConfig) -> Result<EyesAttackReport,
 
     // THREAD-3 CONSULTATION (REUSE the Thread-3 API), run ONCE up front: it yields
     // both the Gate-2 consistency verdict AND the per-message safe isomorph spans
-    // Gate-1 chaining is ENFORCED to stay within (F2). Run before Gate 1 so Gate 1 can
+    // Gate-1 chaining is ENFORCED to stay within. Run before Gate 1 so Gate 1 can
     // restrict chaining to those extents.
     let three = eyes_three_consultation(&keys)?;
     let three_consistency = three.verdict;
     let safe_spans_by_message = three.safe_spans_by_message;
 
     // GATE 1: per-message held-out isomorph recovery vs a MATCHED within-message
-    // shuffle null, CHAINING RESTRICTED to the Thread-3 safe extents (F2), plus the
+    // shuffle null, CHAINING RESTRICTED to the Thread-3 safe extents, plus the
     // population-relative material-effect bar (the leak-proof embargoed-consensus
     // statistic). Boundaries are kept.
     let gate1 = eyes_gate1_evaluation(&keys, &message_values, &config, &safe_spans_by_message)?;
@@ -500,8 +500,8 @@ fn finalize_eyes_run(inputs: EyesRunFinalize) -> Result<EyesAttackReport, GakAtt
 /// to count as "beats null"; it is the same `0.05` convention used elsewhere.
 const EYES_SIGNIFICANCE_ALPHA: f64 = 0.05;
 
-/// POPULATION-RELATIVE MATERIAL-EFFECT fraction (effect size, not just p-value;
-/// F1): the real-vs-null-mean held-out excess must reach this FRACTION of
+/// POPULATION-RELATIVE MATERIAL-EFFECT fraction (effect size, not just p-value):
+/// the real-vs-null-mean held-out excess must reach this FRACTION of
 /// the population's OWN max achievable score (`scoreable_edges * (A-1)`) for a
 /// candidate to pass Gate 1. Anchoring the bar to the SAME population under test (not
 /// to the much larger synthetic positive control's population) makes it FAIR: a

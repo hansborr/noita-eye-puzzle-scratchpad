@@ -33,18 +33,18 @@ pub struct EyesAttackReport {
     /// statistic, summed over messages).
     pub real_score: i64,
     /// SCOREABLE held-out edges on the real eyes (`hits + misses + ambiguous`) — the
-    /// population whose own max-achievable score sizes the F1 material-effect bar.
+    /// population whose own max-achievable score sizes the material-effect bar.
     pub scoreable_edges: usize,
     /// The eyes' MAX achievable coverage-weighted score (`scoreable_edges * (A-1)`,
     /// i.e. every scoreable edge a confident HIT). The material-effect bar is a
-    /// fraction of THIS, so a genuine eye signal COULD clear the bar (F1: fair gate).
+    /// fraction of THIS, so a genuine eye signal COULD clear the bar.
     pub max_achievable_score: f64,
     /// The mean matched within-message shuffle-null coverage-weighted score.
     pub null_mean_score: f64,
     /// The POPULATION-RELATIVE MATERIAL-EFFECT threshold the real excess had to clear
     /// (`EYES_MATERIAL_EFFECT_FRACTION` of the eyes' own [`Self::max_achievable_score`])
     /// — the effect-size bar that makes p-value significance necessary but not
-    /// sufficient, fair to the population under test (F1).
+    /// sufficient, fair to the population under test.
     pub material_effect_threshold: f64,
     /// Whether the real-vs-null-mean excess cleared the population-relative
     /// material-effect bar. Expected `false` for the eyes (their real-vs-null

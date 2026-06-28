@@ -157,7 +157,7 @@ pub(crate) fn run_stats(args: &StatsArgs) -> ExitCode {
         // `stats 555`, `stats ""`), which `print_report` renders as a clean
         // 0-glyph report (entropy/IoC 0.0000, no frequencies, exit 0). The
         // library's `parse_sequence` still signals `Empty` for the solve
-        // pipeline (brief 04); `stats` keeps the old report only for the rendered
+        // pipeline; `stats` keeps the old report only for the rendered
         // layer (the honeycomb / cipher-alphabet paths are new, so their `Empty`
         // surfaces as an error).
         Err(CliSequenceError::Ingest(ingest::IngestError::Empty)) if rendered_layer => {

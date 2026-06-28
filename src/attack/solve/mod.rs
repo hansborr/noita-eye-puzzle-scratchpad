@@ -92,7 +92,7 @@ fn solve_fixed_codecs(
     // Alphabet-size sanity (`codec::output_alphabet_hosts_language`) is intentionally
     // NOT enforced on this Fixed path: these codecs are user-declared and scored
     // as-is (round-tripped + scored only, no search). Enforcement as a pruning
-    // filter is a Phase-2 codec-search concern (brief 04a step 5, under
+    // filter is a Phase-2 codec-search concern (under
     // `CodecStrategy::Search`), where each enumerated codec is pruned by that
     // predicate and every skip is logged.
     for codec in codecs {
@@ -110,7 +110,7 @@ fn solve_fixed_codecs(
     Ok(candidates)
 }
 
-/// The [`CodecStrategy::Search`] path (brief 04a step 5; Phase-2a selection-complete
+/// The [`CodecStrategy::Search`] path (Phase-2a selection-complete
 /// null): enumerate codec parameters, prune each by alphabet-size sanity + the
 /// [`MAX_SEARCH_OUTPUT_ALPHABET`] ceiling + transduce feasibility (logging every
 /// skip), then run the mapping strategy on each surviving codec's transduced stream.
@@ -134,7 +134,7 @@ fn run_codec_search(
     let mut candidates = Vec::new();
     for family in &req.space.families {
         for language in req.space.language.languages() {
-            // Enumeration-level matched null (brief 04a Phase-2a fix): the
+            // Enumeration-level matched null: the
             // SELECTION-COMPLETE bar. The real run reports the MAX in-sample score
             // over ALL surviving codecs, so a per-codec null — which maxes over
             // ciphers within ONE codec only — is OPTIMISTIC once >1 codec survives

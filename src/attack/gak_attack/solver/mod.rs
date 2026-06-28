@@ -32,7 +32,7 @@ pub use deck_sweep::*;
 /// reveal the key, the letter values, or the permutations). The same sizes are
 /// passed to the matched null, keeping the comparison fair.
 ///
-/// ## Why `initial_readout` is not a key leak (review finding F4)
+/// ## Why `initial_readout` is not a key leak
 ///
 /// `initial_readout = c(g_0)` is the ciphertext symbol the stream conceptually
 /// starts from (the readout of the key's initial state). It is **not** part of the
@@ -52,7 +52,7 @@ pub(crate) fn evaluate_fixture(
 ) -> Result<GctakGateOutcome, GakAttackError> {
     let ciphertext_values = glyphs_to_values(&fixture.ciphertext)?;
     let truth = canonical_letters(&glyphs_to_indices(&fixture.plaintext));
-    // Held ground-truth per-letter ciphertext-alphabet permutations (F5).
+    // Held ground-truth per-letter ciphertext-alphabet permutations.
     let truth_permutations = truth_letter_permutations(&fixture.key)?;
 
     // The state entering the first letter is the readout of the initial state.
@@ -60,7 +60,7 @@ pub(crate) fn evaluate_fixture(
     // `0` (`c(identity) = identity^{-1}[0] = 0`), so the first ciphertext symbol is
     // a genuine transition from this known entry point. This value is constant 0
     // here, is not key material, and is fed identically to the null below (see the
-    // function doc for why it is not a leak — F4).
+    // function doc for why it is not a leak).
     let initial_readout = initial_state_readout(&fixture.key)?;
     let phrase_len = config.phrase_len;
     let group_order = fixture.group_kind.order();
@@ -110,7 +110,7 @@ pub(crate) struct GctakSolution {
     pub(crate) canonical_letters: Vec<usize>,
     /// The recovered per-letter ciphertext-alphabet permutations `tau_a`, each as
     /// a `prev -> next` edge map. Held so the gate can score them directly against
-    /// the held ground-truth permutations (review finding F5), not just compare
+    /// the held ground-truth permutations, not just compare
     /// the plaintext partition.
     pub(crate) recovered_permutations: Vec<EdgeMap>,
     /// Number of distinct chain-link source symbols the solver touched.
@@ -120,7 +120,7 @@ pub(crate) struct GctakSolution {
     /// recovered permutations, and how many were satisfied. The chain links are a
     /// **HARD verification gate** here: a satisfied count below the checked count
     /// means the recovered permutations contradict the shared chain-link
-    /// primitive (review finding F2). On a fully recovered real fixture every
+    /// primitive. On a fully recovered real fixture every
     /// checked constraint is satisfied.
     chain_link_checks: usize,
     /// Number of chain-link adjacency constraints satisfied by the recovered
@@ -154,7 +154,7 @@ impl GctakSolution {
 /// **not** key material — only a single ciphertext symbol derived from the readout
 /// and initial state (a constant `0` for the gate's identity-state fixtures) — and
 /// the matched null is solved with the same value, so it cannot explain why the
-/// real stream beats its null (review finding F4).
+/// real stream beats its null.
 ///
 /// The pipeline:
 /// 1. **Isomorph-align** repeated phrases by [`PatternSignature::from_window`] on
@@ -210,8 +210,8 @@ pub(crate) fn solve_gctak(
     // Step 2 (chaining_graph, LOAD-BEARING): build the SOUND same-phrase chain
     // links — restricted to the spacing-filtered aligned phrase occurrences — with
     // the SHARED [`chain_links_for_pair`] primitive. These become a HARD
-    // verification gate below (F2); the chain graph becomes the central substrate
-    // of the *attack* in Step 2 of the thread spec.
+    // verification gate below; the chain graph is the central substrate of the
+    // *attack*.
     let verify_links = phrase_chain_links(&walk, phrase_len);
 
     // Step 3: recover per-letter permutations (the Cayley-graph placement): build
@@ -243,7 +243,7 @@ pub(crate) fn solve_gctak(
     }
 }
 
-/// HARD chain-link verification gate (review finding F2).
+/// HARD chain-link verification gate.
 ///
 /// The [`chain_links_for_pair`] output for a context is the column-wise action of
 /// a fixed group element mapping one isomorph occurrence to another. Because both
@@ -300,7 +300,7 @@ pub(crate) fn verify_against_chain_links(
 /// Counts the distinct ciphertext symbols **touched by the broad chain-link
 /// graph** — the chaining-graph coverage notion (mirrors
 /// [`crate::analysis::chaining_graph`]'s touched-symbol coverage). This makes the broad
-/// [`collect_chain_links`] output load-bearing for the reported coverage (F2)
+/// [`collect_chain_links`] output load-bearing for the reported coverage
 /// rather than discarded.
 fn chain_link_symbol_coverage(links: &[ChainLink]) -> usize {
     let mut touched = BTreeSet::new();
@@ -412,7 +412,7 @@ fn seed_clusters_by_phrase_alignment(
 /// are **spacing-filtered** (kept at least `window_len` apart) to drop coincidental
 /// short matches inside the mixing runs. Returns `None` when no phrase repeats.
 /// This is the single shared alignment used both to seed clusters and to build the
-/// sound same-phrase chain links the recovery is verified against (F2).
+/// sound same-phrase chain links the recovery is verified against.
 fn aligned_phrase_starts(walk: &[SymbolValue], phrase_len: usize) -> Option<(usize, Vec<usize>)> {
     let window_len = phrase_len.max(2);
     if walk.len() < window_len {
@@ -447,7 +447,7 @@ fn aligned_phrase_starts(walk: &[SymbolValue], phrase_len: usize) -> Option<(usi
 }
 
 /// Builds the **sound, same-phrase** chain links the recovery is verified against
-/// (review finding F2), using the shared [`chain_links_for_pair`] primitive.
+/// using the shared [`chain_links_for_pair`] primitive.
 ///
 /// Unlike [`collect_chain_links`] (which emits the broad equality-pattern graph
 /// for coverage/reuse, including coincidental short-window matches), this restricts

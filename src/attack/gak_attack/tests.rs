@@ -96,7 +96,7 @@ fn gctak_solver_recovers_dihedral_non_commutative_at_high_rate() {
     // fixtures; completing every per-letter permutation from a finite stream is
     // the hard part the broader thread studies, so a minority are below the
     // solver's current capability. The gate passes on this RATE beating the
-    // null (F1), not on any single retry-selected seed.
+    // null, not on any single retry-selected seed.
     assert!(
         recovered * 10 >= trials * 8,
         "dihedral GCTAK recovery rate too low: {recovered}/{trials}"
@@ -204,7 +204,7 @@ fn chain_links_match_shared_chaining_graph_primitive() {
 
 #[test]
 fn run_gak_attack_passes_on_rate_beats_null_not_a_lucky_seed() {
-    // F1: the gate PASSES on the recovery RATE beating the matched null across
+    // The gate PASSES on the recovery RATE beating the matched null across
     // INDEPENDENT seeds — not on a single retry-selected fixture.
     let report = run_gak_attack(GakAttackConfig::default()).unwrap();
     assert_eq!(report.hidden_subgroup, HiddenSubgroupKind::Trivial);
@@ -253,7 +253,7 @@ fn run_gak_attack_passes_on_rate_beats_null_not_a_lucky_seed() {
 
 #[test]
 fn retry_selected_exemplar_is_labelled_not_the_pass_evidence() {
-    // F1: the bounded-retry exemplar remains ONLY as an illustrative worked
+    // The bounded-retry exemplar remains ONLY as an illustrative worked
     // example. It exposes attempts_used and a fully-recovered outcome, but the
     // gate's PASS is `rate_gate_passed`, computed without it.
     let report = run_gak_attack(GakAttackConfig::default()).unwrap();
@@ -361,7 +361,7 @@ fn round_trip_holds_for_generated_gate_fixtures() {
 #[test]
 fn chain_links_are_load_bearing_corruption_breaks_recovery() {
     use crate::nulls::null::{SplitMix64, fisher_yates};
-    // F2: prove the chain links genuinely gate recovery — corrupting the
+    // Prove the chain links genuinely gate recovery — corrupting the
     // chain-link output must break the verification, so they are not tokenistic.
     let config = GakAttackConfig::default();
     let fixture = generate_fixture(cyclic(6), config, 11).unwrap();
@@ -431,7 +431,7 @@ fn chain_links_are_load_bearing_corruption_breaks_recovery() {
 
 #[test]
 fn per_letter_permutation_recovery_fraction_is_full_on_real_and_low_on_null() {
-    // F5: the recovered per-letter permutations are scored DIRECTLY against the
+    // The recovered per-letter permutations are scored DIRECTLY against the
     // held truth tau_a (the spec's preferred metric), not only the partition.
     let config = GakAttackConfig::default();
     let fixture = generate_fixture(dihedral(4), config, 5).unwrap();
@@ -462,7 +462,7 @@ fn per_letter_permutation_recovery_fraction_is_full_on_real_and_low_on_null() {
 
 #[test]
 fn radius_zero_gate_fixtures_are_faithful_and_bijective() {
-    // F3: at the gate's radius 0 the realized subgroup is always faithful to the
+    // At the gate's radius 0 the realized subgroup is always faithful to the
     // declared base group, the readout is bijective (trivial H verified from the
     // key), and |C| equals the declared order. This pins the default gate
     // behavior as UNCHANGED.
@@ -485,7 +485,7 @@ fn radius_zero_gate_fixtures_are_faithful_and_bijective() {
 
 #[test]
 fn perturbed_cyclic3_reports_realized_not_declared_structure() {
-    // F3 counterexample to LOCK: cyclic order 3, one PT letter, radius 1, seed 0
+    // Counterexample to LOCK: cyclic order 3, one PT letter, radius 1, seed 0
     // — the perturbation can leave the cyclic group, so the realized subgroup is
     // smaller than the declared order 3 and |C| < 3. The fixture must report the
     // ACTUAL realized structure (never claim order 3 it does not realize) while
@@ -527,7 +527,7 @@ fn perturbed_cyclic3_reports_realized_not_declared_structure() {
 
 #[test]
 fn dihedral_gate_fixtures_realize_a_non_commutative_subgroup() {
-    // F6: the dihedral label alone is not enough — assert the GENERATED letters
+    // The dihedral label alone is not enough — assert the GENERATED letters
     // actually realize a non-commuting pair (so `choose_generators` did not pick
     // an abelian subset). Needs ≥2 letters to witness a non-commuting pair.
     let config = GakAttackConfig {
@@ -1413,7 +1413,7 @@ fn eyes_held_out_positive_control_fires_on_synthetic_signal() {
     );
     assert!(control.real_score > control.null_score);
     assert!(control.real_score > 0);
-    // F1: the control fires on the SAME fair gate the eyes face — its real-vs-null
+    // The control fires on the SAME fair gate the eyes face — its real-vs-null
     // excess clears its OWN population-relative material-effect bar. This is what
     // makes the bar both achievable (the eyes COULD pass) AND validated.
     assert!(
@@ -1432,7 +1432,7 @@ fn eyes_held_out_positive_control_fires_on_synthetic_signal() {
 
 #[test]
 fn eyes_material_effect_bar_is_fair_below_the_eyes_max_achievable() {
-    // F1 HONESTY: the material-effect bar must be ACHIEVABLE on the eyes
+    // HONESTY: the material-effect bar must be ACHIEVABLE on the eyes
     // population — strictly below their MAX achievable score (every scoreable edge
     // a HIT) — so a genuine eye signal COULD clear it. The "no candidate" negative
     // must rest on a detector the eyes could in principle have passed, not on an
@@ -1471,7 +1471,7 @@ fn eyes_material_effect_bar_is_fair_below_the_eyes_max_achievable() {
 
 #[test]
 fn eyes_no_candidate_verdict_is_stable_across_null_seeds() {
-    // F6: the "no candidate / decode blocked" verdict is PINNED across multiple
+    // The "no candidate / decode blocked" verdict is PINNED across multiple
     // matched-null seeds. The eyes score 0 regardless of the null shuffle seed, so
     // the negative cannot be an artifact of one lucky/unlucky null draw.
     for seed in [0x1111_2222u64, 0xdead_beef] {
@@ -1506,7 +1506,7 @@ fn eyes_no_candidate_verdict_is_stable_across_null_seeds() {
 
 #[test]
 fn eyes_run_rejects_zero_trials() {
-    // F4: zero matched-null trials would define the p-value over an empty sample.
+    // Zero matched-null trials would define the p-value over an empty sample.
     // The run rejects it up front (the same discipline as the other modules'
     // ZeroTrials guards), never silently producing a degenerate null.
     let config = super::EyesAttackConfig {
@@ -1677,7 +1677,7 @@ fn eyes_message_evidence_splits_disjoint_train_and_held_out_contexts() {
     let message_values = orders::read_corpus_message_values(&grids, order).unwrap();
     let first = message_values.first().expect("at least one message");
     // Unrestricted here: this test only asserts the train/held-out split is
-    // well-formed and within the alphabet, independent of the F2 safe-extent
+    // well-formed and within the alphabet, independent of the safe-extent
     // restriction (which is exercised by the corpus-scale run tests).
     let evidence = eyes_message_evidence(first, SafeWindowFilter::unrestricted());
     // The fold counts are derived and the coverage is within the 83-symbol layer.

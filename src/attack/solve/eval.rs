@@ -321,7 +321,7 @@ mod tests {
     use super::*;
     use crate::attack::codec::{DigitOrder, GroupingCodec};
 
-    // Part 1 — transparent-space reinsertion (brief 04a step 9). A
+    // Part 1 — transparent-space reinsertion. A
     // `TransparentMark.position` is in the ORIGINAL char coordinate; the cipher
     // stream excludes those chars and a grouping codec compresses it, so each mark
     // is mapped original-position -> cipher index -> rendered index (snapped to the

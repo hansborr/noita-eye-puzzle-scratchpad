@@ -141,7 +141,7 @@ pub(super) fn delta_transduce(
 }
 
 // ---------------------------------------------------------------------------
-// Step 3 — codec round-trip + alphabet-size sanity gates.
+// Codec round-trip + alphabet-size sanity gates.
 // ---------------------------------------------------------------------------
 
 /// The default language alphabet size (29: 26 Latin letters plus the Finnish
@@ -185,9 +185,9 @@ pub fn codec_round_trip_ok(codec: &AnyCodec, symbols: &[Glyph]) -> bool {
 /// [`DEFAULT_LANGUAGE_ALPHABET_SIZE`].
 ///
 /// # Phase boundary (not an oversight that this has no live call site yet)
-/// This predicate is the **Phase 1** deliverable — predicate + unit tests only
-/// (brief 04a step 3). Its **enforcement as a pruning filter** is wired in
-/// **Phase 2** under [`CodecStrategy::Search`](super::CodecStrategy::Search) (brief 04a step 5): each enumerated
+/// This predicate is the **Phase 1** deliverable — predicate + unit tests only.
+/// Its **enforcement as a pruning filter** is wired in
+/// **Phase 2** under [`CodecStrategy::Search`](super::CodecStrategy::Search): each enumerated
 /// codec is pruned by this predicate and any skip is `log()`-ed (no silent
 /// truncation). The [`CodecStrategy::Fixed`](super::CodecStrategy::Fixed) path intentionally does **not** reject
 /// on this predicate — `Fixed` codecs are user-declared and round-tripped + scored

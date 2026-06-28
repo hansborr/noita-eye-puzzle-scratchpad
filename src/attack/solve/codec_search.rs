@@ -144,8 +144,8 @@ pub(super) fn stamp_enumeration_beats_null(mut candidate: Candidate, null_mean: 
     candidate
 }
 
-/// Enumeration-level matched null for [`CodecStrategy::Search`] (brief 04a Phase-2a
-/// fix): the SELECTION-COMPLETE bar that pays for codec selection.
+/// Enumeration-level matched null for [`CodecStrategy::Search`]: the
+/// SELECTION-COMPLETE bar that pays for codec selection.
 ///
 /// The real run reports the MAX in-sample score over all surviving codecs (the caller
 /// sorts and the top candidate wins), so a per-codec null — which maxes over ciphers

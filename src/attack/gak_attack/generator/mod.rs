@@ -100,7 +100,7 @@ impl HiddenSubgroupKind {
 /// subgroup the chosen letters actually generate (and hence the realized
 /// ciphertext-coset alphabet `|C|`) may be **smaller** than the declared order.
 /// Reporting this realized structure keeps a perturbed fixture from claiming a
-/// structure its key lacks (review finding F3).
+/// structure its key lacks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RealizedStructure {
     /// Declared base group order `|G|` (before any small-support perturbation).
@@ -226,7 +226,7 @@ pub fn generate_fixture(
     }
     let ciphertext = gak_encrypt(&plaintext, &key)?;
 
-    // F3: derive the structure the constructed key ACTUALLY realizes (do not
+    // Derive the structure the constructed key ACTUALLY realizes (do not
     // declare it). Under the TENTATIVE small-support knob the perturbed letters
     // may generate a smaller subgroup than the declared base order; report the
     // realized size honestly and verify (rather than assume) that the readout
@@ -303,7 +303,7 @@ fn realized_structure(
 /// letter `a` induces a fixed permutation `tau_a` of the ciphertext alphabet with
 /// `c(p(a) ∘ g) = tau_a(c(g))` for every reachable state `g`. This enumerates the
 /// reachable states and reads `tau_a` off directly from the key, giving the
-/// ground truth the recovered permutations are scored against (review finding F5).
+/// ground truth the recovered permutations are scored against.
 /// Each `tau_a` is returned as a `prev -> next` [`EdgeMap`] so it compares against
 /// a recovered permutation by structural equality.
 ///
@@ -350,7 +350,7 @@ pub(crate) fn truth_letter_permutations(key: &GakKey) -> Result<Vec<EdgeMap>, Ga
 /// letters that the edge-map representation already absorbs — a `tau_a` is the
 /// same fixed bijection however the generator numbered letter `a`). This is the
 /// spec's preferred success metric (per-letter permutation recovery), surfaced in
-/// the report and asserted in tests (review finding F5).
+/// the report and asserted in tests.
 pub(crate) fn permutation_recovery_fraction(
     truth: &[EdgeMap],
     recovered: &[EdgeMap],

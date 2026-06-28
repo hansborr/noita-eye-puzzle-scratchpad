@@ -182,7 +182,7 @@ pub struct HypothesisSpace {
 pub struct SolveRequest<'a> {
     /// Ciphertext glyph stream.
     pub ciphertext: &'a [Glyph],
-    /// Transparent (pass-through) marks recorded at ingest (brief 03), reinserted
+    /// Transparent (pass-through) marks recorded at ingest, reinserted
     /// into each candidate's [`rendered_text`](Candidate::rendered_text) at
     /// position-faithful, codec-aware spots. The cipher/codec/mapping and the
     /// bigram scorer never see these (they are not in `ciphertext`); they are
@@ -265,8 +265,8 @@ pub enum SolveError {
     EmptyMappingSet,
     /// The fixed codec set was empty.
     EmptyCodecSet,
-    /// Retained for API stability. The codec search is implemented (brief 04a
-    /// Phase 2, [`CodecStrategy::Search`]); this variant is no longer returned.
+    /// Retained for API stability. The codec search is implemented
+    /// ([`CodecStrategy::Search`]); this variant is no longer returned.
     CodecSearchUnavailable,
     /// A mapped symbol was outside the mapping table.
     MappingSymbolOutsideTable {

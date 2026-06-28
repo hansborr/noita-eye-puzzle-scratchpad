@@ -81,8 +81,8 @@ pub(super) fn left_regular_permutation(
 /// For a **non-commutative** group with `count >= 2` the draw is rejected and
 /// re-rolled (deterministically, bounded) until the chosen elements include at
 /// least one non-commuting pair, so the generated dihedral fixture genuinely
-/// realizes a non-commutative subgroup rather than accidentally an abelian subset
-/// (review finding F6). For commutative groups (or `count < 2`) the first draw is
+/// realizes a non-commutative subgroup rather than accidentally an abelian subset.
+/// For commutative groups (or `count < 2`) the first draw is
 /// kept. If no non-commuting draw is found within the bound, the last draw is
 /// returned (the caller's higher-level checks still hold); in practice a
 /// non-commuting pair is found almost immediately for `D_{2k}`.
