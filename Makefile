@@ -27,7 +27,7 @@ filesize:
 
 ## test: run tests, failing on any compiler warning
 test:
-	RUSTFLAGS="-D warnings" cargo test --locked
+	RUSTFLAGS="-D warnings" cargo test --all-features --locked
 
 ## doc-check: build docs, failing on any rustdoc warning
 doc-check:
@@ -47,7 +47,7 @@ spell:
 
 ## shellcheck: lint shell scripts (the git hook + any scripts/*.sh)
 shellcheck:
-	shellcheck -x .githooks/* $(wildcard scripts/*.sh)
+	bash -c 'shopt -s nullglob globstar; shellcheck -x .githooks/* scripts/**/*.sh'
 
 ## build: optimized release build
 build:
