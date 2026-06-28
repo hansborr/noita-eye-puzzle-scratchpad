@@ -1,4 +1,4 @@
-//! Hidden-state marginalization (idea 3) and the TENTATIVE small-support prior.
+//! Hidden-state marginalization (idea 3) and the tentative small-support prior.
 //!
 //! The beam-search column recovery (`beam_recover_column`, `split_column_evidence`)
 //! and the marginalization sweep live here; they build on the
@@ -8,28 +8,28 @@
 use super::*;
 
 // =====================================================================
-// UNIT 2b — HIDDEN-STATE MARGINALIZATION (idea 3) + SMALL-SUPPORT PRIOR (idea 2).
+// unit 2b — hidden-state marginalization (idea 3) + small-support prior (idea 2).
 //
 // Unit 2a measured the obstruction: under non-trivial H the per-letter visible-
 // coset action is ~multi-valued across hidden states, and the 2a baseline recovers
-// only each column's SINGLE-VALUED CORE (the `from` cosets that map exactly one way
-// across every observed hidden state). Everything multi-valued is DISCARDED there.
+// only each column's single-valued core (the `from` cosets that map exactly one way
+// across every observed hidden state). Everything multi-valued is discarded there.
 //
-// The key empirical fact this unit exploits (validated on the generator): within ONE
-// aligned phrase column every observed `(from -> to)` edge is PRODUCED BY THE SAME
-// plaintext letter — it is just a different BRANCH of that letter's action under a
+// The key empirical fact this unit exploits (validated on the generator): within one
+// aligned phrase column every observed `(from -> to)` edge is produced by the same
+// plaintext letter — it is just a different branch of that letter's action under a
 // different hidden state. So the multi-valuedness is normal hidden-state variation,
-// and the recoverable object is the per-letter UNION of coset edges (the marginal
-// over hidden states), NOT a single permutation (impossible for |H|>1).
+// and the recoverable object is the per-letter union of coset edges (the marginal
+// over hidden states), not a single permutation (impossible for |H|>1).
 //
-// Idea 3 recovers that marginal HONESTLY — without peeking at ground truth — by a
-// bounded BEAM / belief-propagation over the hidden-state branches, scored by
-// HELD-OUT chain links (a TRAIN/HELD-OUT split of the same column's occurrences):
-// a beam admits the train branches that GENERALIZE to held-out branches and prunes
-// the rest. The small-support prior (idea 2) plugs in as a SOFT pruning penalty.
+// Idea 3 recovers that marginal honestly — without peeking at ground truth — by a
+// bounded beam / belief-propagation over the hidden-state branches, scored by
+// held-out chain links (a train/held-out split of the same column's occurrences):
+// a beam admits the train branches that generalize to held-out branches and prunes
+// the rest. The small-support prior (idea 2) plugs in as a soft pruning penalty.
 //
-// The MEASURED deliverable: idea-3 edge-recovery fraction vs the 2a single-valued
-// core vs the matched null, swept over n — does marginalization recover MORE, and
+// The measured deliverable: idea-3 edge-recovery fraction vs the 2a single-valued
+// core vs the matched null, swept over n — does marginalization recover more, and
 // where does it break as the hidden-state count `(n-1)!` grows? An honest
 // "helps on small n, breaks by n=X" is the expected, reportable outcome.
 // =====================================================================
@@ -48,7 +48,7 @@ pub(crate) use beam::{
 };
 
 /// One idea-3 marginalization outcome on one independent seed, with its matched null
-/// and the 2a baseline, all at EDGE granularity over the same truth denominator.
+/// and the 2a baseline, all at edge granularity over the same truth denominator.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MarginalizationOutcome {
     /// Deck size `n` (`|C| = n`).
@@ -57,12 +57,12 @@ pub struct MarginalizationOutcome {
     pub hidden_subgroup_order: u128,
     /// Seed used to build the fixture.
     pub seed: u64,
-    /// TRUE per-letter coset edges recovered by idea-3 marginalization (real stream).
+    /// True per-letter coset edges recovered by idea-3 marginalization (real stream).
     pub idea3_true_edges: usize,
-    /// TRUE per-letter coset edges recovered by the 2a single-valued-core baseline
+    /// True per-letter coset edges recovered by the 2a single-valued-core baseline
     /// (real stream) — the thing idea 3 must beat to justify existing.
     pub baseline_true_edges: usize,
-    /// TRUE per-letter coset edges the idea-3 pipeline recovered on the matched
+    /// True per-letter coset edges the idea-3 pipeline recovered on the matched
     /// within-message shuffle null (must stay ~0).
     pub null_true_edges: usize,
     /// Total truth edges (the denominator, shared by all three).
@@ -96,7 +96,7 @@ impl MarginalizationOutcome {
 }
 
 /// Evaluates idea-3 marginalization on one deck fixture and its matched within-
-/// message shuffle null over the IDENTICAL pipeline (matched-null symmetry: the same
+/// message shuffle null over the identical pipeline (matched-null symmetry: the same
 /// `run_marginalization_attack`, same phrase length, same beam width, same prior,
 /// same population — only the structure differs).
 pub(crate) fn evaluate_marginalization_fixture(
@@ -116,8 +116,8 @@ pub(crate) fn evaluate_marginalization_fixture(
     let (idea3_true_edges, _) = marginal_edge_recovery(&truth, &real.recovered_columns);
     let (baseline_true_edges, _) = baseline_edge_recovery(&truth, &real.baseline_columns);
 
-    // Matched null: the SAME marginalization pipeline over a within-message
-    // Fisher-Yates shuffle of the SAME ciphertext, scored against the SAME truth.
+    // Matched null: the same marginalization pipeline over a within-message
+    // Fisher-Yates shuffle of the same ciphertext, scored against the same truth.
     let mut rng = SplitMix64::new(mix_seed(seed, 0x6d61_7267_6e75_6c6c));
     let mut shuffled = ciphertext_values.clone();
     fisher_yates(&mut shuffled, &mut rng)?;
@@ -149,11 +149,11 @@ pub struct MarginalizationPoint {
     pub hidden_subgroup_order: u128,
     /// Independent seeds aggregated at this `n`.
     pub seeds: usize,
-    /// TRUE per-letter coset edges recovered by idea-3 marginalization, summed.
+    /// True per-letter coset edges recovered by idea-3 marginalization, summed.
     pub idea3_true_total: usize,
-    /// TRUE per-letter coset edges recovered by the 2a baseline, summed.
+    /// True per-letter coset edges recovered by the 2a baseline, summed.
     pub baseline_true_total: usize,
-    /// TRUE per-letter coset edges recovered by the matched null, summed (~0).
+    /// True per-letter coset edges recovered by the matched null, summed (~0).
     pub null_true_total: usize,
     /// Total truth edges summed (the shared denominator).
     pub truth_edges_total: usize,
@@ -163,7 +163,7 @@ pub struct MarginalizationPoint {
     pub baseline_mean_fraction: f64,
     /// Mean matched-null edge-recovery fraction over the seeds.
     pub null_mean_fraction: f64,
-    /// Whether idea-3 recovered strictly MORE true edges than the 2a baseline here
+    /// Whether idea-3 recovered strictly more true edges than the 2a baseline here
     /// (the reason idea 3 exists — reported honestly per `n`).
     pub idea3_beats_baseline: bool,
     /// Whether idea-3 recovered strictly more true edges than the matched null here.
@@ -193,8 +193,8 @@ pub struct MarginalizationReport {
     pub outcomes: Vec<MarginalizationOutcome>,
     /// The measured per-`n` bound: idea-3 vs 2a baseline vs null, and where it breaks.
     pub points: Vec<MarginalizationPoint>,
-    /// Whether idea-3 recovered strictly MORE true edges than the 2a baseline on the
-    /// EASIEST (smallest) swept `n` — the go/no-go for this unit.
+    /// Whether idea-3 recovered strictly more true edges than the 2a baseline on the
+    /// easiest (smallest) swept `n` — the go/no-go for this unit.
     pub beats_baseline_on_easiest: bool,
     /// Whether idea-3 beat its matched null on the easiest swept `n`.
     pub beats_null_on_easiest: bool,
@@ -205,30 +205,30 @@ pub struct MarginalizationReport {
     pub small_support_validation: SmallSupportValidation,
 }
 
-/// The TENTATIVE small-support prior validation (idea 2).
+/// The tentative small-support prior validation (idea 2).
 ///
-/// Generated WITH and WITHOUT small-support truth, with the prior ON and OFF in
-/// each, this measures whether the prior (a) selectively HELPS recovery when the
-/// truth genuinely has small support and (b) FAILS GRACEFULLY / is detectably wrong
-/// when it does not. Both EDGE-RECALL (true edges recovered) and EDGE-PRECISION
+/// Generated with and without small-support truth, with the prior on and off in
+/// each, this measures whether the prior (a) selectively helps recovery when the
+/// truth genuinely has small support and (b) fails gracefully / is detectably wrong
+/// when it does not. Both edge-recall (true edges recovered) and edge-precision
 /// (true / admitted edges) are recorded so the graceful-failure property is
-/// measurable, not just asserted. All numbers are on SYNTHETIC ground truth; the
-/// prior is **TENTATIVE everywhere**.
+/// measurable, not just asserted. All numbers are on synthetic ground truth; the
+/// prior is **tentative everywhere**.
 ///
 /// ## What this realization measures (the honest finding)
 ///
 /// In the deck stabilizer realization the prior's confidence floor improves
-/// PRECISION at a RECALL cost in BOTH conditions, retaining slightly more recall on
+/// precision at a recall cost in both conditions, retaining slightly more recall on
 /// genuinely small-support truth than on unconstrained truth — i.e. the near-identity
-/// small-support structure of the per-letter PERMUTATIONS survives only WEAKLY into
-/// the visible-coset MARGINAL (the hidden-state cycling spreads the marked card), so
-/// the prior is at most **WEAKLY / TENTATIVELY discriminative** here (a thin
+/// small-support structure of the per-letter permutations survives only weakly into
+/// the visible-coset marginal (the hidden-state cycling spreads the marked card), so
+/// the prior is at most **weakly / tentatively discriminative** here (a thin
 /// retention margin, e.g. ~0.44 vs ~0.41). The load-bearing property is that it still
-/// FAILS GRACEFULLY (it only ever drops genuine low-support edges, never invents any).
+/// fails gracefully (it only ever drops genuine low-support edges, never invents any).
 /// The prior is designed to, and is measured on the bundled aggregate to, not lower
 /// precision; that is a fixture-conditional measurement, not a structural guarantee
 /// (a wrong small-support assumption is never rewarded).
-/// The weak discrimination is a measured, FLAGGED, TENTATIVE outcome — reported with
+/// The weak discrimination is a measured, flagged, tentative outcome — reported with
 /// its thin margin, never faked into a strong positive.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SmallSupportValidation {
@@ -236,21 +236,21 @@ pub struct SmallSupportValidation {
     pub state_size: usize,
     /// Independent seeds aggregated.
     pub seeds: usize,
-    /// Small-support truth, prior OFF: TRUE edges recovered (recall numerator).
+    /// Small-support truth, prior off: true edges recovered (recall numerator).
     pub small_truth_prior_off: usize,
-    /// Small-support truth, prior ON: TRUE edges recovered.
+    /// Small-support truth, prior on: true edges recovered.
     pub small_truth_prior_on: usize,
-    /// Small-support truth, prior OFF: TOTAL admitted edges (precision denominator).
+    /// Small-support truth, prior off: total admitted edges (precision denominator).
     pub small_admitted_off: usize,
-    /// Small-support truth, prior ON: TOTAL admitted edges (precision denominator).
+    /// Small-support truth, prior on: total admitted edges (precision denominator).
     pub small_admitted_on: usize,
-    /// Unconstrained (non-small-support) truth, prior OFF: TRUE edges recovered.
+    /// Unconstrained (non-small-support) truth, prior off: true edges recovered.
     pub broad_truth_prior_off: usize,
-    /// Unconstrained truth, prior ON: TRUE edges recovered.
+    /// Unconstrained truth, prior on: true edges recovered.
     pub broad_truth_prior_on: usize,
-    /// Unconstrained truth, prior OFF: TOTAL admitted edges.
+    /// Unconstrained truth, prior off: total admitted edges.
     pub broad_admitted_off: usize,
-    /// Unconstrained truth, prior ON: TOTAL admitted edges.
+    /// Unconstrained truth, prior on: total admitted edges.
     pub broad_admitted_on: usize,
     /// Total truth edges in the small-support condition (recall denominator).
     pub small_truth_total: usize,
@@ -283,14 +283,14 @@ impl SmallSupportValidation {
         }
     }
 
-    /// Whether the prior FAILS GRACEFULLY, as captured by this predicate: TRUE-edge
-    /// recall with the prior ON is `<=` recall with it OFF in BOTH the small-support
+    /// Whether the prior fails gracefully, as captured by this predicate: true-edge
+    /// recall with the prior on is `<=` recall with it off in both the small-support
     /// and unconstrained conditions. That is exactly what this checks — the confidence
-    /// floor can only DROP genuine low-support edges, never invent new true ones, and
+    /// floor can only drop genuine low-support edges, never invent new true ones, and
     /// in particular it does not boost recall on unconstrained (wrong-assumption)
     /// truth. The complementary precision-holds property (that dropping low-support
-    /// edges does not lower precision) is a SEPARATE measurement reported via
-    /// [`Self::small_precision`] / [`Self::broad_precision`]; it is NOT asserted by
+    /// edges does not lower precision) is a separate measurement reported via
+    /// [`Self::small_precision`] / [`Self::broad_precision`]; it is not asserted by
     /// this predicate.
     #[must_use]
     pub const fn prior_fails_gracefully(self) -> bool {
@@ -298,13 +298,13 @@ impl SmallSupportValidation {
             && self.broad_truth_prior_on <= self.broad_truth_prior_off
     }
 
-    /// Whether the prior is SELECTIVELY DISCRIMINATIVE — i.e. it helps small-support
-    /// truth MORE than unconstrained truth (the prior's recall-retention on small
+    /// Whether the prior is selectively discriminative — i.e. it helps small-support
+    /// truth more than unconstrained truth (the prior's recall-retention on small
     /// support strictly exceeds its recall-retention on broad). In the deck
-    /// realization this holds only WEAKLY / TENTATIVELY: the near-identity structure
+    /// realization this holds only weakly / tentatively: the near-identity structure
     /// survives just thinly into the visible-coset marginal (e.g. ~0.44 vs ~0.41
-    /// retention), so the margin is real but slim. Reporting it as a WEAK, TENTATIVE
-    /// signal is the measured, FLAGGED validation outcome — never inflated into a
+    /// retention), so the margin is real but slim. Reporting it as a weak, tentative
+    /// signal is the measured, flagged validation outcome — never inflated into a
     /// strong positive; the graceful-failure property is the load-bearing result.
     #[must_use]
     pub fn prior_is_discriminative(self) -> bool {
@@ -320,11 +320,11 @@ impl SmallSupportValidation {
 /// the near-identity small-support letters stay distinguishable.
 const SMALL_SUPPORT_VALIDATION_STATE_SIZE: usize = 6;
 
-/// TENTATIVE small-support transposition radius used to GENERATE the small-support
+/// Tentative small-support transposition radius used to generate the small-support
 /// fixtures (each letter is the base composed with `<= radius` transpositions).
 const SMALL_SUPPORT_VALIDATION_RADIUS: usize = 2;
 
-/// TENTATIVE minimum train-support floor the prior imposes when ON during the
+/// Tentative minimum train-support floor the prior imposes when on during the
 /// validation: a candidate edge must recur in at least this many train occurrences.
 const SMALL_SUPPORT_VALIDATION_MIN_SUPPORT: usize = 2;
 
@@ -333,14 +333,14 @@ const SMALL_SUPPORT_VALIDATION_MIN_SUPPORT: usize = 2;
 ///
 /// For each `n` in `state_sizes` it draws `config.seeds_per_kind` independent seeds,
 /// generates a deck fixture (held-back ground truth), runs idea-3 marginalization
-/// and its matched within-message shuffle null over the IDENTICAL pipeline, and
-/// aggregates the EDGE-recovery totals for idea-3, the 2a single-valued-core
+/// and its matched within-message shuffle null over the identical pipeline, and
+/// aggregates the edge-recovery totals for idea-3, the 2a single-valued-core
 /// baseline, and the null. It then runs the small-support validation (idea 2):
-/// fixtures WITH and WITHOUT small-support truth, prior ON and OFF.
+/// fixtures with and without small-support truth, prior on and off.
 ///
 /// The `prior` selects the small-support toggle for the headline sweep; `beam_width`
-/// is the disclosed bound. A low or DECREASING idea-3 fraction as `n` grows is the
-/// EXPECTED, REPORTABLE outcome (the marginalization breaks as the hidden-state count
+/// is the disclosed bound. A low or decreasing idea-3 fraction as `n` grows is the
+/// expected, reportable outcome (the marginalization breaks as the hidden-state count
 /// `(n-1)!` grows), not an error.
 ///
 /// # Errors
@@ -439,13 +439,13 @@ pub fn run_marginalization_sweep(
     })
 }
 
-/// Runs the TENTATIVE small-support prior validation (idea 2).
+/// Runs the tentative small-support prior validation (idea 2).
 ///
-/// Generates fixtures in TWO truth conditions — genuinely small-support
+/// Generates fixtures in two truth conditions — genuinely small-support
 /// ([`DeckLetterRegime::SmallSupport`]) and unconstrained `S_n`
 /// ([`DeckLetterRegime::Unconstrained`]) — and runs idea-3 marginalization with the
-/// prior OFF and ON in each. The validating directions: the prior should HELP (or at
-/// least not hurt) when the truth genuinely has small support, and FAIL GRACEFULLY
+/// prior off and on in each. The validating directions: the prior should help (or at
+/// least not hurt) when the truth genuinely has small support, and fail gracefully
 /// (not reward the wrong assumption) when the truth does not.
 ///
 /// # Errors

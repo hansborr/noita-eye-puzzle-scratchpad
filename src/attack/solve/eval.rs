@@ -10,7 +10,7 @@ use super::{
 pub(super) struct NullBaselines {
     /// Matched-null full-stream mean (the overfit bar).
     pub(super) full_mean: f64,
-    /// Matched-null HELD-OUT fold mean (the generalization bar).
+    /// Matched-null held-out fold mean (the generalization bar).
     pub(super) heldout_mean: f64,
 }
 
@@ -18,7 +18,7 @@ pub(super) struct NullBaselines {
 /// (shuffled) stream, taken at the mapping × cipher that maximizes the in-sample
 /// score. The enumeration null maxes this over codecs in turn, mirroring the real
 /// run's selection across (codec × mapping × cipher); the held-out score travels
-/// with the selected pair so the null exposes a HELD-OUT baseline, not just a
+/// with the selected pair so the null exposes a held-out baseline, not just a
 /// full-stream one (the apples-to-apples generalization bar).
 pub(super) fn best_codec_fixed_null_score(
     ciphertext: &[Glyph],
@@ -212,7 +212,7 @@ pub(super) fn render_indices(
 /// Reinserts transparent (pass-through) marks into a rendered candidate string at
 /// position-faithful, **codec-aware** spots.
 ///
-/// A [`TransparentMark::position`] is in the ORIGINAL char coordinate (cipher
+/// A [`TransparentMark::position`] is in the original char coordinate (cipher
 /// symbols + transparent chars interleaved). The cipher-glyph stream excludes the
 /// transparent chars, and a length-changing codec (e.g. [`AnyCodec::FixedGrouping`])
 /// compresses it further, so each mark is mapped in three hops:
@@ -223,13 +223,13 @@ pub(super) fn render_indices(
 ///    therefore `position - i`.
 /// 2. cipher-stream index → rendered-char index through the codec length transform
 ///    ([`rendered_index_for_cipher_index`]): `Identity` is 1:1; a grouping codec
-///    DIVIDES by `group_len`; a delta codec drops its seed (length −1) before its
+///    divides by `group_len`; a delta codec drops its seed (length −1) before its
 ///    inner codec.
-/// 3. a mark that falls MID-GROUP is **snapped to the nearest group boundary** —
+/// 3. a mark that falls mid-group is **snapped to the nearest group boundary** —
 ///    the exact intra-group offset is lost to grouping, so spaces are reinserted at
 ///    group-boundary granularity (documented honestly, never silently).
 ///
-/// BEHAVIOR-PRESERVING: with no marks (the eyes; any no-transparent input) this is a
+/// Behavior-preserving: with no marks (the eyes; any no-transparent input) this is a
 /// strict no-op and returns `rendered` unchanged byte-for-byte.
 pub(super) fn reinsert_transparent(
     rendered: &str,
@@ -271,7 +271,7 @@ pub(super) fn reinsert_transparent(
 /// codec's length transform (the snap-to-nearest-group-boundary rule for grouping).
 ///
 /// - [`AnyCodec::Identity`] is 1:1 (no length change).
-/// - [`AnyCodec::FixedGrouping`] divides by `group_len`, rounding to the NEAREST
+/// - [`AnyCodec::FixedGrouping`] divides by `group_len`, rounding to the nearest
 ///   group boundary (`round(cipher_index / group_len)`): a mark inside a group has
 ///   no exact rendered position, so it snaps to the closer boundary.
 /// - [`AnyCodec::Delta`] drops the seed symbol (length −1: a leading mark snaps to
@@ -293,13 +293,13 @@ fn rendered_index_for_cipher_index(codec: &AnyCodec, cipher_index: usize) -> usi
     }
 }
 
-// NOTE: this FIXED-mapping held-out helper scores ALTERNATING (odd) positions,
-// whereas the SEARCH path (`heldout_search_score`) uses CONTIGUOUS folds. The
-// difference is deliberate and behavior-preserving: the fixed path applies ONE
+// Note: this fixed-mapping held-out helper scores alternating (odd) positions,
+// whereas the search path (`heldout_search_score`) uses contiguous folds. The
+// difference is deliberate and behavior-preserving: the fixed path applies one
 // already-given mapping (no re-fit), so the held-out score is purely
 // informational and its alternating value is pinned byte-for-byte by the
 // `solve_caesar_s123_nt4` golden fixture — switching it to contiguous would
-// silently change that committed number. The search path instead RE-FITS a
+// silently change that committed number. The search path instead re-fits a
 // mapping on the train fold, so it needs contiguous folds to keep bigram
 // adjacency intact (an alternating split would shred the very structure the
 // re-fit must generalize).
@@ -322,7 +322,7 @@ mod tests {
     use crate::attack::codec::{DigitOrder, GroupingCodec};
 
     // Part 1 — transparent-space reinsertion. A
-    // `TransparentMark.position` is in the ORIGINAL char coordinate; the cipher
+    // `TransparentMark.position` is in the original char coordinate; the cipher
     // stream excludes those chars and a grouping codec compresses it, so each mark
     // is mapped original-position -> cipher index -> rendered index (snapped to the
     // nearest group boundary for grouping). With no marks it is a strict no-op.
@@ -358,7 +358,7 @@ mod tests {
         });
         assert_eq!(super::reinsert_transparent("XYZ", &marks, &pair), "X Y Z");
 
-        // Mid-group snap: a space at original position 3 ("ABC DEF") sits INSIDE the
+        // Mid-group snap: a space at original position 3 ("ABC DEF") sits inside the
         // second pair (cipher index 3, group boundaries at 0,2,4,6); it snaps to the
         // nearest boundary (rendered index 2) -> "XY Z". The exact intra-group offset
         // is intentionally lost to grouping (documented honestly).
@@ -368,7 +368,7 @@ mod tests {
         }];
         assert_eq!(super::reinsert_transparent("XYZ", &mid, &pair), "XY Z");
 
-        // BEHAVIOR-PRESERVING: no marks => byte-identical passthrough (the eyes).
+        // Behavior-preserving: no marks => byte-identical passthrough (the eyes).
         assert_eq!(
             super::reinsert_transparent("ABCDEF", &[], &AnyCodec::Identity),
             "ABCDEF"

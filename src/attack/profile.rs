@@ -1,7 +1,7 @@
 //! Ciphertext structural profile for the practice **letter** puzzles.
 //!
 //! This module hardens (makes reproducible in-engine) a set of *structural,
-//! NEGATIVE* findings about the practice puzzles `three`/`four`/`five`/`seven`:
+//! negative* findings about the practice puzzles `three`/`four`/`five`/`seven`:
 //! statistics that constrain the cipher *family* without claiming anything about
 //! the plaintext. It computes, over a raw puzzle string:
 //!
@@ -270,7 +270,7 @@ fn max_period_ioc_fullchar(raw: &str) -> (f64, usize) {
     let mut best_at = MIN_PERIOD;
     for period in MIN_PERIOD..=MAX_PERIOD {
         let mut columns: Vec<Vec<Glyph>> = vec![Vec::new(); period];
-        // The position counter advances over EVERY character (enumerate's index),
+        // The position counter advances over every character (enumerate's index),
         // but only letters are placed into a column — the full-character convention.
         for (position, ch) in raw
             .chars()
@@ -386,7 +386,7 @@ impl Profile {
     /// Renders the profile as a human-readable, newline-terminated report.
     ///
     /// The wording is deliberately disciplined: the statistics are structural,
-    /// NEGATIVE findings that constrain the cipher family, not the plaintext.
+    /// negative findings that constrain the cipher family, not the plaintext.
     #[must_use]
     pub fn render_report(&self) -> String {
         let mut lines: Vec<String> = Vec::new();

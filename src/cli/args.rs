@@ -40,9 +40,9 @@ pub(crate) enum Command {
     /// Thread 4 synthetic GAK-attack / GCTAK decisive gate (synthetic-only).
     #[command(name = "gak-attack")]
     GakAttack(GakAttackArgs),
-    /// Thread 4 EYES Step 3: point the matured attack at the REAL eye corpus.
-    /// Held-out + Thread-3 gated; expected outcome is NO surviving candidate; the
-    /// decode remains BLOCKED. Writes a mandatory candidate record.
+    /// Thread 4 eyes Step 3: point the matured attack at the real eye corpus.
+    /// Held-out + Thread-3 gated; expected outcome is no surviving candidate; the
+    /// decode remains blocked. Writes a mandatory candidate record.
     #[command(name = "gak-attack-eyes", alias = "gak-eyes")]
     GakAttackEyes(GakAttackEyesArgs),
     /// Monte-Carlo null over random grids plus standard36 orders.
@@ -97,21 +97,21 @@ pub(crate) enum Command {
     Pyry(PyryConditionsArgs),
     /// Experiment 11 positive controls.
     Controls(ControlsArgs),
-    /// Search and score solve hypotheses; candidates are HYPOTHESES, not decodes.
+    /// Search and score solve hypotheses; candidates are hypotheses, not decodes.
     Solve(SolveArgs),
     /// Crack a polyalphabetic keystream cipher (Vigenere/Beaufort/autokey) on a
-    /// practice letter-puzzle. HONEST-NEGATIVE is the expected outcome on the
-    /// non-periodic puzzles; any survivor is a HYPOTHESIS, never a decode.
+    /// practice letter-puzzle. Honest-negative is the expected outcome on the
+    /// non-periodic puzzles; any survivor is a hypothesis, never a decode.
     #[command(name = "keystream")]
     Keystream(KeystreamArgs),
     /// Crack a general (non-keyword) Ragbaby keyed-alphabet cipher on a practice
     /// letter-puzzle, or run the planted-recovery positive control (`--control`).
-    /// HONEST-NEGATIVE is the expected outcome on the puzzles; any survivor is a
-    /// HYPOTHESIS, never a decode.
+    /// Honest-negative is the expected outcome on the puzzles; any survivor is a
+    /// hypothesis, never a decode.
     #[command(name = "ragbaby")]
     Ragbaby(RagbabyArgs),
     /// Ciphertext structural profile (`IoC`, per-period flatness, absent letters,
     /// per-word columns, cross-boundary repeats) for a practice letter-puzzle.
-    /// These are structural NEGATIVE findings that constrain the cipher family.
+    /// These are structural negative findings that constrain the cipher family.
     Profile(ProfileArgs),
 }

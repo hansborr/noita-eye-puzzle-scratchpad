@@ -27,7 +27,7 @@ pub struct RagbabySearchConfig {
     pub t1: f64,
     /// Deterministic PRNG seed for the search and both nulls.
     pub seed: u64,
-    /// Random-keyed-alphabet null trials for the reported DIAGNOSTIC.
+    /// Random-keyed-alphabet null trials for the reported diagnostic.
     pub null_trials: usize,
     /// Matched-null trials (reruns of the full search on shuffled ciphertext) —
     /// the survival gate; `0` disables survival.
@@ -138,14 +138,14 @@ pub(super) struct RagbabySearch<'a> {
 }
 
 impl RagbabySearch<'_> {
-    /// Scores keyed alphabet `key` as the SUM of quadgram log-probs of its
+    /// Scores keyed alphabet `key` as the sum of quadgram log-probs of its
     /// decryption (the well-scaled SA objective), reusing `inv`/`out` buffers.
     fn score(&self, key: &[usize], inv: &mut [usize; 26], out: &mut Vec<usize>) -> f64 {
         decrypt_into(self.cipher, self.nums, key, self.sign, self.base, inv, out);
         self.model.score_indices_sum(out)
     }
 
-    /// Anneals from `key`, returning the best keyed alphabet and its SUM score.
+    /// Anneals from `key`, returning the best keyed alphabet and its sum score.
     fn anneal(
         &self,
         key: &mut Vec<usize>,
@@ -175,7 +175,7 @@ impl RagbabySearch<'_> {
     }
 
     /// Runs the multi-restart anneal with basin-hopping, returning the global best
-    /// keyed alphabet and its SUM score. Deterministic in the `rng` stream.
+    /// keyed alphabet and its sum score. Deterministic in the `rng` stream.
     fn run(&self, cfg: &RagbabySearchConfig, rng: &mut SplitMix64) -> (Vec<usize>, f64) {
         let mut inv = [0usize; 26];
         let mut out: Vec<usize> = Vec::with_capacity(self.cipher.len());

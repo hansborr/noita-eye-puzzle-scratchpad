@@ -56,10 +56,10 @@ pub trait Codec {
     /// passthrough sentinel. Resolve it against the cipher alphabet size with
     /// [`resolved_output_alphabet_size`].
     ///
-    /// # Do NOT use this for alphabet-size sanity / search pruning
+    /// # Do not use this for alphabet-size sanity / search pruning
     /// Because this bare method returns the `0` passthrough sentinel for
     /// [`AnyCodec::Identity`], the obvious pruning idiom
-    /// `codec.output_alphabet_size() >= N` would WRONGLY reject `Identity` over ANY
+    /// `codec.output_alphabet_size() >= N` would wrongly reject `Identity` over any
     /// cipher alphabet — including `Identity`-over-the-83-symbol-eyes, the one path
     /// that must always survive (`0 >= 29` is false). Always resolve the true
     /// mapping domain via
@@ -182,7 +182,7 @@ pub struct CodecSearch {
 pub const DEFAULT_CODEC_SEARCH_MAX_GROUP_LEN: usize = 3;
 
 /// The default codec-search configuration the CLI `--codec-search` flag selects:
-/// group lengths `1..=`[`DEFAULT_CODEC_SEARCH_MAX_GROUP_LEN`], BOTH digit orders,
+/// group lengths `1..=`[`DEFAULT_CODEC_SEARCH_MAX_GROUP_LEN`], both digit orders,
 /// and the delta codec enabled (the motivated `±1`-`C5` hint for puzzle `one`).
 /// `seed` threads the caller's deterministic seed through the enumeration.
 #[must_use]
@@ -286,14 +286,14 @@ pub struct SkippedCodec {
 /// `search.orders`, a non-overlapping (`stride == group_len`) [`GroupingCodec`] is
 /// emitted; `group_len == 1` reduces to [`AnyCodec::Identity`] and is
 /// order-agnostic, so only one copy is emitted for it. When `search.try_delta` is
-/// set, each of those is ALSO wrapped in a [`DeltaCodec`] over the same `base`.
+/// set, each of those is also wrapped in a [`DeltaCodec`] over the same `base`.
 ///
 /// The delta wrapping is the motivated search hint for the **+/-1-`C5`** structure
 /// observed in practice puzzle `one` (`research/data/practice-puzzles/one`): every
 /// one of that 5-symbol sample's transitions is +/-1 mod 5 — a walk on the
 /// pentagon `C5`. Differencing collapses the walk to its move stream, so a
-/// `Delta` codec is the natural first attempt. This is an OBSERVED ciphertext
-/// property and a search hint, NEVER a claim of triviality or "no message".
+/// `Delta` codec is the natural first attempt. This is an observed ciphertext
+/// property and a search hint, never a claim of triviality or "no message".
 ///
 /// The order is deterministic. Pruning (alphabet-size sanity, the
 /// [`MAX_SEARCH_OUTPUT_ALPHABET`] ceiling, transduce feasibility) and the
@@ -406,7 +406,7 @@ impl Codec for AnyCodec {
 
     fn output_alphabet_size(&self) -> usize {
         match self {
-            // Passthrough sentinel `0`: NOT a real alphabet size. Never compare it
+            // Passthrough sentinel `0`: not a real alphabet size. Never compare it
             // against a language/prune threshold (`0 >= N` wrongly rejects Identity,
             // including Identity-over-the-83-symbol-eyes). Resolve the true domain
             // with `resolved_output_alphabet_size` / `output_alphabet_hosts_language`.

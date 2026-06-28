@@ -180,7 +180,7 @@ pub fn codec_round_trip_ok(codec: &AnyCodec, symbols: &[Glyph]) -> bool {
 /// `true` iff
 /// `resolved_output_alphabet_size(codec, cipher_alphabet_size) >= language_alphabet_size`.
 /// This formalizes "5 < 26, 12 < 26 => you need a codec": [`AnyCodec::Identity`]
-/// over a 5- or 12-symbol cipher alphabet FAILS for 29-letter English, while
+/// over a 5- or 12-symbol cipher alphabet fails for 29-letter English, while
 /// `Identity` over the 83-symbol eyes passes. For the default language pass
 /// [`DEFAULT_LANGUAGE_ALPHABET_SIZE`].
 ///

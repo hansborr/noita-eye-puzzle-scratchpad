@@ -1,28 +1,28 @@
 //! The held-out attack core: the embargoed-consensus coverage-weighted scoring
 //! algorithm and its synthetic positive control.
 //!
-//! This is ONE indivisible scoring algorithm — the per-message held-out evaluation,
+//! This is one indivisible scoring algorithm — the per-message held-out evaluation,
 //! the embargoed-consensus predictor, the matched within-message shuffle-null tail,
 //! and the synthetic isomorph-rich positive control all share the private
 //! [`HeldOutScore`] / [`EyeMessageEvidence`] internals, so they are not split
-//! further. It recovers STRUCTURE, never cleartext.
+//! further. It recovers structure, never cleartext.
 
 use super::super::*;
 
-/// Builds the per-message held-out isomorph evaluation for the REAL eye streams.
+/// Builds the per-message held-out isomorph evaluation for the real eye streams.
 ///
 /// For each message (boundaries kept, never concatenated) this aligns the message's
 /// isomorph occurrences by [`PatternSignature`] over the Thread-3 window range,
-/// splits whole signature groups deterministically into TRAIN and HELD-OUT folds,
-/// builds context-colored partial actions from each occurrence pair with the SHARED
+/// splits whole signature groups deterministically into train and held-out folds,
+/// builds context-colored partial actions from each occurrence pair with the shared
 /// [`chain_links_for_pair`] primitive (load-bearing — never a second graph), and
-/// scores the held-out fold by the EMBARGOED-CONSENSUS statistic
+/// scores the held-out fold by the embargoed-consensus statistic
 /// ([`EyeMessageEvidence::held_out_score`]): a held-out edge scores only when `>= 2`
-/// train contexts from DISTINCT signature groups, physically embargoed from the
-/// held-out context, AGREE on it. The authoritative null significance is the full
+/// train contexts from distinct signature groups, physically embargoed from the
+/// held-out context, agree on it. The authoritative null significance is the full
 /// trial tail in [`eyes_matched_null_tail`].
 ///
-/// `safe_spans_by_message` supplies, in the SAME order as `keys`, the Thread-3
+/// `safe_spans_by_message` supplies, in the same order as `keys`, the Thread-3
 /// safe spans each message's Gate-1 chaining is restricted to. A message without
 /// safe spans yields no admitted windows (and therefore no scored edges).
 pub(super) fn eyes_per_message_held_out(
@@ -38,8 +38,8 @@ pub(super) fn eyes_per_message_held_out(
                 SafeWindowFilter::restrict(spans.as_slice())
             });
         let evidence = eyes_message_evidence(values, safe_filter);
-        // Real held-out scoring: the recovered TRAIN context-action LIBRARY predicts
-        // the held-out fold via the EMBARGOED-CONSENSUS coverage-weighted statistic
+        // Real held-out scoring: the recovered train context-action library predicts
+        // the held-out fold via the embargoed-consensus coverage-weighted statistic
         // (only genuinely transferable cross-group structure scores).
         let real_score = evidence.held_out_score();
         rows.push(EyeMessageHeldOut {
@@ -91,18 +91,18 @@ fn spans_touch(a: (usize, usize), b: (usize, usize)) -> bool {
     a_start <= b_end.saturating_add(1) && b_start <= a_end.saturating_add(1)
 }
 
-/// Restricts Gate-1 chaining to the Thread-3 SAFE ISOMORPH EXTENTS for one message
-/// (ENFORCED, not just claimed). Thread 3 exports conservative per-message safe
+/// Restricts Gate-1 chaining to the Thread-3 safe isomorph extents for one message
+/// (enforced, not just claimed). Thread 3 exports conservative per-message safe
 /// spans where a cross-message aligned isomorph extends without over-reaching; Gate 1
-/// admits an isomorph occurrence window only when its `[start, end)` lies ENTIRELY
+/// admits an isomorph occurrence window only when its `[start, end)` lies entirely
 /// within one of those safe spans for this message, so chaining never over-extends
 /// past a Thread-3 break.
 ///
-/// `spans == None` means NO restriction: used ONLY for the synthetic positive control
+/// `spans == None` means no restriction: used only for the synthetic positive control
 /// fixture, which is not a corpus message and has no Thread-3 extent (so the detector
 /// is validated on its full known signal). For the real eyes, `spans` is always the
 /// (possibly empty) Thread-3 safe-span list for that message — an empty list means
-/// Thread 3 found no safe extent there, so NO window in that message is admitted.
+/// Thread 3 found no safe extent there, so no window in that message is admitted.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct SafeWindowFilter<'a> {
     /// `Some(spans)` restricts to those half-open safe spans; `None` admits all.
@@ -130,9 +130,9 @@ impl<'a> SafeWindowFilter<'a> {
     }
 }
 
-/// One CONTEXT-COLORED partial action: the injective `from -> to` map of ONE aligned
+/// One context-colored partial action: the injective `from -> to` map of one aligned
 /// isomorph occurrence pair (`Graph-Chaining.md`: GAK chaining is a Schreier coset
-/// graph of context-colored partial permutations, NOT one global symbol map). TRUE
+/// graph of context-colored partial permutations, not one global symbol map). True
 /// conflicts (two arrows out of / into one symbol under this one context) are
 /// rejected at construction, so a context action is always a partial bijection.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -145,11 +145,11 @@ pub(crate) struct EyeContextAction {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct EyeMessageEvidence {
-    /// TRAIN-fold context actions (one per train isomorph occurrence pair). The
-    /// recovered "model" is this LIBRARY of context-colored partial permutations,
-    /// NOT a collapsed global map — the wiki-faithful object.
+    /// Train-fold context actions (one per train isomorph occurrence pair). The
+    /// recovered "model" is this library of context-colored partial permutations,
+    /// not a collapsed global map — the wiki-faithful object.
     pub(crate) train_contexts: Vec<EyeContextAction>,
-    /// HELD-OUT-fold context actions (from DISJOINT signature groups). Validation
+    /// Held-out-fold context actions (from disjoint signature groups). Validation
     /// only; never contributes a train context.
     pub(crate) held_out_contexts: Vec<EyeContextAction>,
     /// Distinct isomorph signature groups (≥2 occurrences).
@@ -158,14 +158,14 @@ pub(crate) struct EyeMessageEvidence {
     pub(crate) aligned_pairs: usize,
     /// Distinct reading-layer symbols touched by any chain link (coverage).
     pub(crate) symbols_touched: usize,
-    /// Fixed-context TRUE-conflict aborts (bad isomorph alignments).
+    /// Fixed-context true-conflict aborts (bad isomorph alignments).
     true_conflict_aborts: usize,
 }
 
-/// Anchor links a held-out context exposes (non-scored) to IDENTIFY a matching train
+/// Anchor links a held-out context exposes (non-scored) to identify a matching train
 /// action class. The remaining links are scored. `Chaining-Conflicts.md`: near
 /// `S_n/S_{n-1}` edge overlap is unsafe, so identification requires the anchor to
-/// agree on enough links with a UNIQUE compatible train context.
+/// agree on enough links with a unique compatible train context.
 const HELD_OUT_ANCHOR_LINKS: usize = 3;
 
 /// Minimum exact shared anchor edges a train context must match to be a candidate
@@ -173,13 +173,13 @@ const HELD_OUT_ANCHOR_LINKS: usize = 3;
 /// (`Chaining-Conflicts.md`: edge overlap does not prove context equality).
 const MIN_ANCHOR_AGREEMENT: usize = 2;
 
-/// Minimum number of held-out SCORED links (predicted decisions) required before the
+/// Minimum number of held-out scored links (predicted decisions) required before the
 /// coverage-weighted score is meaningful; below this the model committed too little
 /// to distinguish from chance and the message contributes nothing.
 const MIN_HELD_OUT_COVERAGE: usize = 4;
 
 impl EyeContextAction {
-    /// Inserts one observed `from -> to` edge, returning `false` (a TRUE conflict) if
+    /// Inserts one observed `from -> to` edge, returning `false` (a true conflict) if
     /// it violates the partial-bijection law (two arrows out of / into one symbol).
     fn insert(&mut self, from: u8, to: u8) -> bool {
         match self.forward.get(&from) {
@@ -203,7 +203,7 @@ impl EyeContextAction {
             .count()
     }
 
-    /// Whether this action CONTRADICTS `other` on any shared source (a `from` both
+    /// Whether this action contradicts `other` on any shared source (a `from` both
     /// map, to different `to`s) — the chaining incompatibility test.
     fn contradicts(&self, other: &Self) -> bool {
         self.forward.iter().any(|(from, to)| {
@@ -215,18 +215,18 @@ impl EyeContextAction {
     }
 }
 
-/// EMBARGOED-CONSENSUS coverage-weighted held-out score for one message.
+/// Embargoed-consensus coverage-weighted held-out score for one message.
 ///
-/// For each HELD-OUT context, an anchor subset of its links (the first
-/// [`HELD_OUT_ANCHOR_LINKS`]) selects the EMBARGOED compatible TRAIN contexts (a
-/// DIFFERENT signature group, NO physical span overlap/adjacency, agreeing on at
+/// For each held-out context, an anchor subset of its links (the first
+/// [`HELD_OUT_ANCHOR_LINKS`]) selects the embargoed compatible train contexts (a
+/// different signature group, no physical span overlap/adjacency, agreeing on at
 /// least [`MIN_ANCHOR_AGREEMENT`] anchor edges, never contradicting). A non-anchor
 /// held-out edge scores only when at least [`MIN_INDEPENDENT_PROOFS`] of those train
-/// contexts FROM DISTINCT SIGNATURE GROUPS AGREE on its image: a correct image is a
-/// HIT, a wrong agreed image a MISS, and anything else (no consensus, too few
-/// independent groups, disagreement) is AMBIGUOUS (no prediction). The score is the
+/// contexts from distinct signature groups agree on its image: a correct image is a
+/// hit, a wrong agreed image a miss, and anything else (no consensus, too few
+/// independent groups, disagreement) is ambiguous (no prediction). The score is the
 /// coverage-weighted excess correctness `(A-1)*hits - A*misses (ambiguous
-/// unpenalized)` with `A = 83`, so only genuinely TRANSFERABLE cross-group structure
+/// unpenalized)` with `A = 83`, so only genuinely transferable cross-group structure
 /// scores — exactly what a within-message shuffle (no transferable structure detected
 /// by this gate) cannot produce.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -242,17 +242,17 @@ struct HeldOutScore {
 impl HeldOutScore {
     /// The coverage-weighted excess-correctness scalar, `A = 83`.
     ///
-    /// `score = (A-1)*hits - A*misses`. A HIT is a CONFIDENT, CORRECT, UNIQUELY
+    /// `score = (A-1)*hits - A*misses`. A hit is a confident, correct, uniquely
     /// identified held-out prediction, worth `A-1` because under random guessing the
-    /// chance of hitting the right one of `A` symbols is only `1/A`; a MISS is a
-    /// CONFIDENT WRONG prediction, penalized slightly harder (`A`) so a model that
-    /// commits noisily nets negative. AMBIGUOUS links (no unique identification — "I
-    /// don't know") are NOT penalized: ambiguity is the honest near-`S_83` outcome,
+    /// chance of hitting the right one of `A` symbols is only `1/A`; a miss is a
+    /// confident wrong prediction, penalized slightly harder (`A`) so a model that
+    /// commits noisily nets negative. Ambiguous links (no unique identification — "I
+    /// don't know") are not penalized: ambiguity is the honest near-`S_83` outcome,
     /// not a false claim, and a within-message shuffle produces mostly ambiguity. So
     /// genuine reusable context structure (many confident correct, few wrong) scores
     /// high; a shuffle (few confident, mostly ambiguous) scores near zero.
     ///
-    /// COVERAGE CLAMP (an explicit extra gate, applied per message BEFORE the
+    /// Coverage clamp (an explicit extra gate, applied per message before the
     /// `(A-1)*hits - A*misses` statistic): below [`MIN_HELD_OUT_COVERAGE`]
     /// confident decisions (`hits + misses`) the message committed too little to be
     /// meaningful, so its coverage-weighted score is clamped to `0`. This clamp is
@@ -271,11 +271,11 @@ impl HeldOutScore {
         (alphabet.saturating_sub(1)).saturating_mul(hits) - alphabet.saturating_mul(misses)
     }
 
-    /// SCOREABLE held-out edges = `hits + misses + ambiguous`: every held-out edge
+    /// Scoreable held-out edges = `hits + misses + ambiguous`: every held-out edge
     /// that entered the embargoed-consensus predictor for this population. Used to
-    /// size the population-relative material-effect bar: the MAX achievable
+    /// size the population-relative material-effect bar: the max achievable
     /// coverage-weighted score on a population is `scoreable * (A-1)` (every edge a
-    /// HIT), so the bar can be a fraction of THAT, fair to whatever population is
+    /// hit), so the bar can be a fraction of that, fair to whatever population is
     /// under test (the eyes, or the much larger synthetic positive control).
     fn scoreable_edges(self) -> usize {
         self.hits
@@ -292,8 +292,8 @@ impl HeldOutScore {
 }
 
 /// Maximum coverage-weighted score achievable on a population with `scoreable_edges`
-/// scoreable held-out edges: every edge a confident HIT, worth `A-1` each. This is
-/// the population's own ceiling, so a fraction of it is a FAIR material-effect bar
+/// scoreable held-out edges: every edge a confident hit, worth `A-1` each. This is
+/// the population's own ceiling, so a fraction of it is a fair material-effect bar
 /// for that population — unlike an absolute bar pinned to one population's size.
 pub(crate) fn max_achievable_score(scoreable_edges: usize) -> f64 {
     let alphabet_minus_one = EYE_READING_ALPHABET_SIZE.saturating_sub(1);
@@ -305,7 +305,7 @@ pub(crate) fn max_achievable_score(scoreable_edges: usize) -> f64 {
 }
 
 impl EyeMessageEvidence {
-    /// Scores the held-out fold against the recovered TRAIN context-action library
+    /// Scores the held-out fold against the recovered train context-action library
     /// using anchor identification + coverage-weighted excess correctness.
     fn held_out_score(&self) -> HeldOutScore {
         let mut score = HeldOutScore::default();
@@ -315,22 +315,22 @@ impl EyeMessageEvidence {
         score
     }
 
-    /// Scores a held-out context with the EMBARGOED-CONSENSUS predictor.
+    /// Scores a held-out context with the embargoed-consensus predictor.
     ///
-    /// A held-out context's anchor links identify the compatible TRAIN contexts, but —
-    /// crucially — only TRAIN contexts that are PROVENANCE-EMBARGOED from the held-out
-    /// one: from a DIFFERENT signature group AND with no physically overlapping or
+    /// A held-out context's anchor links identify the compatible train contexts, but —
+    /// crucially — only train contexts that are provenance-embargoed from the held-out
+    /// one: from a different signature group and with no physically overlapping or
     /// adjacent occurrence span ([`ContextProvenance::touches`]). This is the leak fix:
     /// the false positive came from nested/overlapping windows (the same isomorph at
     /// length 8 vs 9, or a directly-adjacent occurrence) trivially reproducing the
     /// held-out edges — exactly the local low-entropy agreement a within-message
     /// shuffle also manufactures. Embargoing physically-overlapping and same-group
-    /// train contexts forces the prediction to come from a DISTINCT, NON-ADJACENT part
-    /// of the corpus, so only genuinely TRANSFERABLE structure can score. A non-anchor
+    /// train contexts forces the prediction to come from a distinct, non-adjacent part
+    /// of the corpus, so only genuinely transferable structure can score. A non-anchor
     /// held-out edge scores only when at least [`MIN_INDEPENDENT_PROOFS`] embargoed
-    /// train contexts (from DISTINCT signature groups) cover its source and ALL agree
+    /// train contexts (from distinct signature groups) cover its source and all agree
     /// on the image. The `pi^k` positive control (a real recurring action) passes; the
-    /// near-`S_83` eyes (no transferable structure DETECTED BY THIS GATE) do not.
+    /// near-`S_83` eyes (no transferable structure detected by this gate) do not.
     fn score_one_held_out_context(&self, held: &EyeContextAction, score: &mut HeldOutScore) {
         // Anchor = the first HELD_OUT_ANCHOR_LINKS edges (deterministic, by source).
         let mut anchor = EyeContextAction::default();
@@ -346,7 +346,7 @@ impl EyeMessageEvidence {
             return;
         }
 
-        // Compatible train contexts, EMBARGOED: a different signature group AND no
+        // Compatible train contexts, embargoed: a different signature group and no
         // physical span overlap/adjacency with the held-out context, agreeing on
         // >= MIN_ANCHOR_AGREEMENT anchor edges and never contradicting the anchor.
         let compatible: Vec<&EyeContextAction> = self
@@ -376,7 +376,7 @@ impl EyeMessageEvidence {
     }
 }
 
-/// Minimum number of DISTINCT-signature-group embargoed train contexts that must
+/// Minimum number of distinct-signature-group embargoed train contexts that must
 /// cover a held-out source and agree on its image before it scores. Two independent
 /// contexts agreeing is strong evidence of transferable structure; a single one could
 /// be coincidence.
@@ -385,18 +385,18 @@ const MIN_INDEPENDENT_PROOFS: usize = 2;
 /// A held-out-source prediction outcome.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Prediction {
-    /// At least [`MIN_INDEPENDENT_PROOFS`] embargoed train contexts from DISTINCT
+    /// At least [`MIN_INDEPENDENT_PROOFS`] embargoed train contexts from distinct
     /// signature groups agree on this image.
     Confident(u8),
     /// No confident prediction (too few independent contexts, or they disagree).
     None,
 }
 
-/// Predicts a held-out source from the EMBARGOED compatible train contexts: returns
+/// Predicts a held-out source from the embargoed compatible train contexts: returns
 /// [`Prediction::Confident`] only when at least [`MIN_INDEPENDENT_PROOFS`] contexts
-/// from DISTINCT signature groups cover the source and ALL agree on the image (any
+/// from distinct signature groups cover the source and all agree on the image (any
 /// disagreement among the embargoed contexts ⇒ [`Prediction::None`]). Requiring the
-/// agreement across DISTINCT signature groups (not just distinct contexts) is what
+/// agreement across distinct signature groups (not just distinct contexts) is what
 /// makes the prediction reflect transferable structure rather than the recurrence of a
 /// single local isomorph.
 fn predict_by_embargoed_consensus(compatible: &[&EyeContextAction], from: u8) -> Prediction {
@@ -417,24 +417,24 @@ fn predict_by_embargoed_consensus(compatible: &[&EyeContextAction], from: u8) ->
     }
 }
 
-/// Distills the TRAIN/HELD-OUT chain-link evidence from one eye message.
+/// Distills the train/held-out chain-link evidence from one eye message.
 ///
 /// Isomorph occurrences are found by grouping every window (over the Thread-3
 /// window range) by its [`PatternSignature`]; each signature group with ≥2
 /// repeat-bearing occurrences is an isomorph (one distinct context family). The
-/// SIGNATURE GROUPS are split deterministically (by a stable hash of the rendered
-/// signature) into TRAIN and HELD-OUT — so train and held-out are DISJOINT
-/// contexts, the strict out-of-sample regime. Within a TRAIN group, ordered
+/// signature groups are split deterministically (by a stable hash of the rendered
+/// signature) into train and held-out — so train and held-out are disjoint
+/// contexts, the strict out-of-sample regime. Within a train group, ordered
 /// occurrence pairs become fixed contexts whose chain links come straight from
 /// [`chain_links_for_pair`]; a non-functional fixed-context action (two arrows out
-/// of / into one symbol under ONE alignment) is a TRUE conflict — a bad isomorph
+/// of / into one symbol under one alignment) is a true conflict — a bad isomorph
 /// alignment — dropped and counted, never a discovery. Train edges feed the
-/// recovered model's `from -> {to}` image sets; HELD-OUT group chain links are the
+/// recovered model's `from -> {to}` image sets; held-out group chain links are the
 /// validation set.
 ///
 /// `safe_filter` restricts which isomorph occurrence windows are admitted: a
 /// window is only used when [`SafeWindowFilter::admits`] accepts its `[start, end)`,
-/// so on the real eyes chaining stays WITHIN Thread-3's safe isomorph extents and
+/// so on the real eyes chaining stays within Thread-3's safe isomorph extents and
 /// never over-extends. The synthetic positive control passes the unrestricted filter.
 /// The restriction is positional, so the matched within-message shuffle null (which
 /// preserves positions) sees the identical admissibility — the null stays symmetric.
@@ -454,7 +454,7 @@ pub(crate) fn eyes_message_evidence(
         for (start, window) in values.windows(window_len).enumerate() {
             // Admit a window only when it lies within a Thread-3 safe extent (the
             // real eyes); the synthetic control's unrestricted filter admits every
-            // window. Applied BEFORE signature grouping so chaining never sees an
+            // window. Applied before signature grouping so chaining never sees an
             // over-extended occurrence.
             if !safe_filter.admits((start, start.saturating_add(window_len))) {
                 continue;
@@ -472,8 +472,8 @@ pub(crate) fn eyes_message_evidence(
                 continue;
             }
             evidence.isomorph_groups = evidence.isomorph_groups.saturating_add(1);
-            // WHOLE-GROUP fold assignment (strict, out-of-sample): the entire
-            // signature group is TRAIN or HELD-OUT, so train and held-out are
+            // Whole-group fold assignment (strict, out-of-sample): the entire
+            // signature group is train or held-out, so train and held-out are
             // disjoint context families. The split is a stable hash of the rendered
             // signature (reproducible, no clock, balanced across the corpus).
             let signature_id = signature_fold_hash(signature, window_len);
@@ -504,9 +504,9 @@ pub(crate) fn eyes_message_evidence(
                     let Ok(links) = chain_links_for_pair(context, &upper, &lower) else {
                         continue;
                     };
-                    // Build ONE context-colored partial action from this occurrence
-                    // pair (Graph-Chaining.md). A fixed-context TRUE conflict (two
-                    // arrows out of / into one symbol under ONE alignment) is a bad
+                    // Build one context-colored partial action from this occurrence
+                    // pair (Graph-Chaining.md). A fixed-context true conflict (two
+                    // arrows out of / into one symbol under one alignment) is a bad
                     // isomorph alignment (Chaining-Conflicts.md): dropped, counted,
                     // never a discovery.
                     let mut action = EyeContextAction {
@@ -546,8 +546,8 @@ pub(crate) fn eyes_message_evidence(
 }
 
 /// A stable, clock-free fold hash for a signature group (the rendered equality
-/// pattern + window length). Used to assign WHOLE isomorph groups to the TRAIN or
-/// HELD-OUT fold reproducibly and roughly evenly.
+/// pattern + window length). Used to assign whole isomorph groups to the train or
+/// held-out fold reproducibly and roughly evenly.
 fn signature_fold_hash(signature: &PatternSignature, window_len: usize) -> u64 {
     let mut hash: u64 = 0x9e37_79b9_7f4a_7c15 ^ window_len as u64;
     for &value in signature.values() {
@@ -588,12 +588,12 @@ impl<'a> AggregateSafeFilter<'a> {
 }
 
 /// Scores the aggregate held-out outcome across all messages for one (possibly
-/// shuffled) corpus, using the IDENTICAL per-message pipeline and safe-span filter.
+/// shuffled) corpus, using the identical per-message pipeline and safe-span filter.
 ///
 /// Returns the aggregate [`HeldOutScore`] (hits / misses / ambiguous), from which the
 /// scalar coverage-weighted score is recomputed per message so the real eyes and each
 /// matched-null shuffle are scored identically. Surfacing the aggregate counts also
-/// gives the population's SCOREABLE-edge total, which sizes the material-effect bar
+/// gives the population's scoreable-edge total, which sizes the material-effect bar
 /// (a fraction of the population's own max achievable score).
 fn eyes_aggregate_held_out(
     message_values: &[Vec<TrigramValue>],
@@ -607,13 +607,13 @@ fn eyes_aggregate_held_out(
     aggregate
 }
 
-/// Scores the aggregate REAL coverage-weighted held-out score across all messages for
-/// one (possibly shuffled) corpus, using the IDENTICAL per-message pipeline.
+/// Scores the aggregate real coverage-weighted held-out score across all messages for
+/// one (possibly shuffled) corpus, using the identical per-message pipeline.
 ///
-/// The score rewards CONFIDENT, CORRECT, UNIQUE held-out predictions and penalizes
+/// The score rewards confident, correct, unique held-out predictions and penalizes
 /// ambiguity — a corpus with genuine reusable context structure scores high; a
 /// within-message shuffle (no reusable context classes) scores near zero / negative.
-/// The coverage clamp is applied PER MESSAGE (so it stays symmetric across real and
+/// The coverage clamp is applied per message (so it stays symmetric across real and
 /// null), hence the per-message recomputation rather than clamping the aggregate.
 pub(crate) fn eyes_aggregate_score(
     message_values: &[Vec<TrigramValue>],
@@ -631,11 +631,11 @@ pub(crate) fn eyes_aggregate_score(
 ///
 /// Each trial shuffles every message's symbol multiset in place (`fisher_yates`
 /// over a clone — multiset and length conserved, only arrangement varies, exactly
-/// the `isomorph_null` discipline) and re-runs the IDENTICAL aggregate held-out
+/// the `isomorph_null` discipline) and re-runs the identical aggregate held-out
 /// pipeline. Returns `(null_at_least_real, null_mean_score)`: how many trials had
 /// aggregate coverage-weighted score at least the real aggregate (the matched-null
 /// upper tail), and the mean null score. A high count / comparable mean means the
-/// real eyes do NOT beat the null — the expected outcome.
+/// real eyes do not beat the null — the expected outcome.
 ///
 /// # Errors
 /// Returns [`GakAttackError`] if a shuffle draw bound does not fit the PRNG.
@@ -658,7 +658,7 @@ pub(super) fn eyes_matched_null_tail(
         for values in &mut shuffled {
             fisher_yates(values, &mut rng)?;
         }
-        // The shuffle preserves positions, so the SAME Thread-3 safe spans apply —
+        // The shuffle preserves positions, so the same Thread-3 safe spans apply —
         // the null is scored under the identical safe-extent restriction (symmetric).
         let null_score = eyes_aggregate_score(
             &shuffled,
@@ -674,17 +674,17 @@ pub(super) fn eyes_matched_null_tail(
     Ok((null_at_least_real, null_mean))
 }
 
-/// Runs the held-out POSITIVE CONTROL on a SYNTHETIC isomorph-rich eye-shaped
-/// fixture: the predictor must fire on KNOWN signal.
+/// Runs the held-out positive control on a synthetic isomorph-rich eye-shaped
+/// fixture: the predictor must fire on known signal.
 ///
-/// The fixture (see [`synthetic_isomorph_rich_eye_message`]) carries a FIXED global
+/// The fixture (see [`synthetic_isomorph_rich_eye_message`]) carries a fixed global
 /// action `pi` recurring across isomorph groups, so train context classes recur and
 /// held-out anchors uniquely identify them. The same per-message held-out pipeline
 /// must give a real coverage-weighted score that strictly beats the worst-case
-/// (max) matched within-message shuffle null over the control trials AND clears the
-/// control's OWN population-relative material-effect bar (a fraction of the
+/// (max) matched within-message shuffle null over the control trials and clears the
+/// control's own population-relative material-effect bar (a fraction of the
 /// control's max achievable score). If it does not fire, the held-out gate is not
-/// trustworthy. The fixture is scored UNRESTRICTED (it is not a corpus message and
+/// trustworthy. The fixture is scored unrestricted (it is not a corpus message and
 /// has no Thread-3 safe extent), so the detector is validated on its full known
 /// signal.
 ///
@@ -718,9 +718,9 @@ pub(crate) fn eyes_held_out_positive_control(
             null_score = trial_score;
         }
     }
-    // FIRE: the real signal's coverage-weighted score strictly beats
-    // the WORST-CASE null over the control trials AND its real-vs-null excess clears
-    // the control's OWN population-relative material-effect bar — the SAME fair gate
+    // Fire: the real signal's coverage-weighted score strictly beats
+    // the worst-case null over the control trials and its real-vs-null excess clears
+    // the control's own population-relative material-effect bar — the same fair gate
     // the eyes are judged against, so the bar is proven achievable by genuine signal.
     let control_excess =
         f64::from(i32::try_from(real_score.saturating_sub(null_score)).unwrap_or(i32::MAX));
@@ -738,16 +738,16 @@ pub(crate) fn eyes_held_out_positive_control(
 /// so the control is fast; the control is a fire/no-fire check, not a headline).
 const POSITIVE_CONTROL_NULL_TRIALS: usize = 64;
 
-/// Builds a synthetic isomorph-rich, GLOBALLY-CONSISTENT eye-shaped message for the
+/// Builds a synthetic isomorph-rich, globally-consistent eye-shaped message for the
 /// held-out positive control.
 ///
 /// The fixture stacks several blocks that are copies of one random base block, each
-/// advanced by the SAME fixed alphabet bijection `pi` (block `k` is `pi^k(base)`).
+/// advanced by the same fixed alphabet bijection `pi` (block `k` is `pi^k(base)`).
 /// Aligned occurrences of the same equality pattern across blocks are therefore
-/// related by a FIXED, GLOBALLY CONSISTENT, SINGLE-VALUED chain-link action
+/// related by a fixed, globally consistent, single-valued chain-link action
 /// (`from -> to = pi^d` for block gap `d`) — exactly the transferable structure the
-/// strict held-out test detects: a `from -> to` recovered from a TRAIN signature
-/// group predicts DISJOINT HELD-OUT groups, and a within-message shuffle destroys it
+/// strict held-out test detects: a `from -> to` recovered from a train signature
+/// group predicts disjoint held-out groups, and a within-message shuffle destroys it
 /// (the matched null cannot reproduce a consistent `pi`). All values stay inside the
 /// reading-layer range.
 ///
@@ -758,10 +758,10 @@ pub(crate) fn synthetic_isomorph_rich_eye_message(
 ) -> Result<Vec<TrigramValue>, GakAttackError> {
     let alphabet = EYE_READING_ALPHABET_SIZE;
     let mut rng = SplitMix64::new(mix_seed(seed, 0x6579_6573_6669_7874));
-    // The fixed alphabet bijection pi: the GLOBAL, consistent chain-link action.
-    // pi is NEAR-IDENTITY (a small, fixed number of transpositions over the FIRST
-    // few alphabet symbols) so that pi^d acts on a SMALL, STABLE support: the same
-    // compact action recurs IDENTICALLY across many well-separated blocks and yields
+    // The fixed alphabet bijection pi: the global, consistent chain-link action.
+    // pi is near-identity (a small, fixed number of transpositions over the first
+    // few alphabet symbols) so that pi^d acts on a small, stable support: the same
+    // compact action recurs identically across many well-separated blocks and yields
     // robust cross-group consensus (the embargoed predictor needs >= 2 distinct
     // non-overlapping signature groups to agree). A full random pi would scramble the
     // whole alphabet after a few steps and make cross-group consensus seed-fragile.
@@ -774,7 +774,7 @@ pub(crate) fn synthetic_isomorph_rich_eye_message(
         pi.swap(i, j);
     }
 
-    // A random base block over the SMALL support region plus internal repeats so its
+    // A random base block over the small support region plus internal repeats so its
     // windows are repeat-bearing isomorphs that pi acts on non-trivially.
     let support = 12usize;
     let block_len = 18usize;
@@ -794,8 +794,8 @@ pub(crate) fn synthetic_isomorph_rich_eye_message(
         *slot = a;
     }
 
-    // Stack MANY blocks block_k = pi^k(base) so the same pi^d action recurs across a
-    // dozen+ well-separated, DISTINCT signature groups (robust cross-group consensus).
+    // Stack many blocks block_k = pi^k(base) so the same pi^d action recurs across a
+    // dozen+ well-separated, distinct signature groups (robust cross-group consensus).
     // A short random spacer separates blocks so the boundary does not forge a spurious
     // long isomorph.
     let blocks = 16usize;

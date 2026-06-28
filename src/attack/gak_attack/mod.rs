@@ -7,7 +7,7 @@
 //! is ours to hold. The single unit that *does* run against the verified eye
 //! corpus is Unit 2c ([`run_gak_attack_eyes`], Step 3 of
 //! `research/gak-threads/specs/thread-4-spec.md`): it measures the standing
-//! **BLOCKED** conclusion against matched within-message nulls and asserts no
+//! **blocked** conclusion against matched within-message nulls and asserts no
 //! decode.
 //!
 //! On the *synthetic* ciphers this module generates we hold the ground truth, so
@@ -40,11 +40,11 @@
 //! - A negative or partial result is the **expected, reportable** outcome of the
 //!   later GAK steps — not a failure of the thread.
 //!
-//! ## The small-support prior is TENTATIVE
+//! ## The small-support prior is tentative
 //!
 //! The generator exposes a `small_support_radius` knob that draws each per-letter
 //! permutation as a base permutation composed with `≤k` random transpositions
-//! (`Deck-Cipher.md`'s shared-sections evidence). This is a **TENTATIVE search
+//! (`Deck-Cipher.md`'s shared-sections evidence). This is a **tentative search
 //! heuristic to validate, not a hard constraint**, and the GCTAK gate does not
 //! depend on it (it runs in the unconstrained regime by default).
 
@@ -166,7 +166,7 @@ impl Default for GakAttackConfig {
 /// matched null.
 ///
 /// One outcome is one independent draw — these are the honest backbone the gate's
-/// recovery RATE is computed from. No retry selection happens here; the
+/// recovery rate is computed from. No retry selection happens here; the
 /// retry-selected exemplar is a separate, explicitly-labelled
 /// field on the report.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -210,7 +210,7 @@ pub struct GctakGateOutcome {
     pub null_recovered_exactly: bool,
 }
 
-/// Recovery-RATE summary for one group kind across independent seeds.
+/// Recovery-rate summary for one group kind across independent seeds.
 ///
 /// This is the gate's headline evidence: the real recovery
 /// rate (a fraction of independent seeds) versus the matched-null recovery rate
@@ -255,7 +255,7 @@ fn fraction(numerator: usize, denominator: usize) -> f64 {
 
 /// An **illustrative, retry-selected exemplar** fixture for one group kind.
 ///
-/// This is NOT the gate's pass evidence — the gate passes on the recovery RATE
+/// This is not the gate's pass evidence — the gate passes on the recovery rate
 /// (see [`RecoveryRate`]). This is a single deterministically-chosen seed whose
 /// fixture the solver recovered exactly, kept only to show a concrete worked
 /// example with its full per-fixture outcome and the number of seeds skipped to
@@ -275,7 +275,7 @@ pub struct RetrySelectedExemplar {
 /// permutation from a finite random stream is not guaranteed for every seed (it
 /// is the hard part the broader GAK thread studies). The commutative cyclic case
 /// recovers on essentially every seed; the non-commutative dihedral case recovers
-/// on a large majority. This threshold is the floor BOTH must clear, and the real
+/// on a large majority. This threshold is the floor both must clear, and the real
 /// rate must additionally strictly exceed the matched-null rate (which is ~0).
 pub const MIN_REAL_RECOVERY_RATE: f64 = 0.8;
 
@@ -289,30 +289,30 @@ pub struct GakAttackReport {
     /// Per-seed gate outcomes across the independent seed × group-kind matrix
     /// (the honest backbone; no retry selection).
     pub outcomes: Vec<GctakGateOutcome>,
-    /// Recovery-RATE summary per group kind (the gate's headline).
+    /// Recovery-rate summary per group kind (the gate's headline).
     pub rates: Vec<RecoveryRate>,
-    /// One retry-selected illustrative exemplar per group kind (NOT pass
+    /// One retry-selected illustrative exemplar per group kind (not pass
     /// evidence; explicitly labelled).
     pub exemplars: Vec<RetrySelectedExemplar>,
     /// Documented minimum real recovery rate the gate required.
     pub min_real_recovery_rate: f64,
     /// Whether every group kind cleared [`MIN_REAL_RECOVERY_RATE`] on the real
-    /// stream AND strictly exceeded its matched-null rate. This is the gate's
-    /// PASS condition (rate-beats-null, not a single lucky seed).
+    /// stream and strictly exceeded its matched-null rate. This is the gate's
+    /// pass condition (rate-beats-null, not a single lucky seed).
     pub rate_gate_passed: bool,
     /// Whether the shuffle null failed to recover on every independent seed (the
     /// expected, required contrast; the null rate is ~0).
     pub all_null_failed: bool,
     /// The **real-GAK** (non-trivial hidden subgroup) deck-attack partial-recovery
     /// result: the unit-2a contribution. Carries the per-`n` tractability bound
-    /// (recovered-coset-action fraction real vs null, TRUE-conflict aborts) for
+    /// (recovered-coset-action fraction real vs null, true-conflict aborts) for
     /// the deck stabilizer `H = S_{n-1}`. A low/zero fraction as `n` grows is the
     /// expected, reportable outcome — a measured tractability bound, not a failure.
     pub deck: DeckAttackReport,
     /// The **unit-2b** hidden-state marginalization (idea 3) + small-support prior
     /// (idea 2) result: the per-`n` measured comparison of idea-3 edge-recovery vs
     /// the 2a single-valued-core baseline vs the matched null, the disclosed beam
-    /// width / dropped-beam totals, and the TENTATIVE small-support validation. A
+    /// width / dropped-beam totals, and the tentative small-support validation. A
     /// "helps on small n, breaks by n=X" shape is the expected, reportable outcome.
     pub marginalization: MarginalizationReport,
 }
@@ -322,8 +322,8 @@ pub struct GakAttackReport {
 /// For each group kind (commutative cyclic and non-commutative dihedral) it draws
 /// `config.seeds_per_kind` **independent** seeds, generates a GCTAK fixture with
 /// held-back ground truth for each, runs the extended-chaining solver, and runs
-/// the matched within-message shuffle null over the same pipeline. The gate's PASS
-/// condition is the **recovery RATE versus the matched null**:
+/// the matched within-message shuffle null over the same pipeline. The gate's pass
+/// condition is the **recovery rate versus the matched null**:
 /// across the independent seeds, the real recovery rate must clear
 /// [`MIN_REAL_RECOVERY_RATE`] *and* strictly exceed the matched-null rate (which
 /// is ~0). It is **not** conditioned on a retry-selected lucky seed; a separate,
@@ -350,7 +350,7 @@ pub fn run_gak_attack(config: GakAttackConfig) -> Result<GakAttackReport, GakAtt
     for kind_index in 0..2 {
         let group_kind = group_kind_for(config, kind_index);
 
-        // The honest backbone: evaluate every INDEPENDENT seed once (no retry).
+        // The honest backbone: evaluate every independent seed once (no retry).
         let mut real_recovered = 0usize;
         let mut null_recovered = 0usize;
         for seed_index in 0..config.seeds_per_kind {
@@ -383,22 +383,22 @@ pub fn run_gak_attack(config: GakAttackConfig) -> Result<GakAttackReport, GakAtt
             real_recovered,
             null_recovered,
         };
-        // PASS per kind: real rate clears the documented floor AND strictly beats
+        // Pass per kind: real rate clears the documented floor and strictly beats
         // the matched-null rate (~0). This is rate-beats-null, not a lucky seed.
         let kind_passed = rate.real_fraction() >= MIN_REAL_RECOVERY_RATE
             && rate.real_fraction() > rate.null_fraction();
         rate_gate_passed = rate_gate_passed && kind_passed;
         rates.push(rate);
 
-        // Illustrative-only retry-selected exemplar (NOT pass evidence).
+        // Illustrative-only retry-selected exemplar (not pass evidence).
         let exemplar = retry_selected_exemplar(group_kind, config)?;
         exemplars.push(exemplar);
     }
 
-    // Unit 2a: the REAL-GAK (non-trivial-H) deck attack, swept over deck sizes to
+    // Unit 2a: the real-GAK (non-trivial-H) deck attack, swept over deck sizes to
     // measure the tractability bound. This is the actual contribution; its partial
-    // or negative recovery is the expected, reportable outcome and does NOT gate
-    // the GCTAK positive control above. The deck sweep uses a FIXED, robust seed
+    // or negative recovery is the expected, reportable outcome and does not gate
+    // the GCTAK positive control above. The deck sweep uses a fixed, robust seed
     // count ([`DECK_SWEEP_SEEDS`]) independent of the small GCTAK-gate
     // `seeds_per_kind`, so the reported tractability bound is stable rather than a
     // 2-3-seed snapshot (per-fixture recovery variance is high).
@@ -412,12 +412,12 @@ pub fn run_gak_attack(config: GakAttackConfig) -> Result<GakAttackReport, GakAtt
         &DEFAULT_DECK_STATE_SIZES,
     )?;
 
-    // Unit 2b: hidden-state marginalization (idea 3) + the TENTATIVE small-support
+    // Unit 2b: hidden-state marginalization (idea 3) + the tentative small-support
     // prior (idea 2), swept over the same deck sizes with the same robust seed count.
-    // The headline sweep runs the prior OFF (support-rank + width-cap candidates,
+    // The headline sweep runs the prior off (support-rank + width-cap candidates,
     // held-out-strict selection); the
     // small-support prior is validated separately inside the report. A "helps on
-    // small n, breaks by n=X" shape is the expected, reportable outcome and does NOT
+    // small n, breaks by n=X" shape is the expected, reportable outcome and does not
     // gate the GCTAK positive control above.
     let marginalization = run_marginalization_sweep(
         deck_config,
@@ -446,8 +446,8 @@ pub fn run_gak_attack(config: GakAttackConfig) -> Result<GakAttackReport, GakAtt
 /// Exact GCTAK recovery from isomorphs is the wiki's *fully solvable* baseline,
 /// but completing every per-letter permutation from a finite stream is not
 /// guaranteed for every random fixture (it is the hard part the broader GAK
-/// thread studies). The retry is used ONLY to pick a concrete worked example to
-/// display; the gate's PASS condition is the recovery RATE, not this exemplar.
+/// thread studies). The retry is used only to pick a concrete worked example to
+/// display; the gate's pass condition is the recovery rate, not this exemplar.
 const MAX_FIXTURE_ATTEMPTS: usize = 16;
 
 /// Picks a single **illustrative, retry-selected exemplar** fixture: the first
@@ -526,7 +526,7 @@ fn validate_config(config: GakAttackConfig) -> Result<(), GakAttackError> {
     if config.phrase_repeats == 0 || config.phrase_len == 0 {
         return Err(GakAttackError::EmptyTemplate);
     }
-    // The decisive GCTAK gate runs UNCONSTRAINED (radius 0); the TENTATIVE
+    // The decisive GCTAK gate runs unconstrained (radius 0); the tentative
     // small-support prior is only exercised by the deck / marginalization sweeps. A
     // nonzero radius here would either crash the gate (not injective on cosets) or
     // silently change its declared assumptions, so reject it rather than honor it.

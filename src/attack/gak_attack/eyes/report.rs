@@ -1,7 +1,7 @@
 //! The eyes Step-3 report type and its rendered CLI output.
 //!
 //! Holds [`EyesAttackReport`] (the standing "decode blocked" conclusion, measured
-//! honestly) and its [`Report`] rendering. The HYPOTHESIS-not-decode framing is
+//! honestly) and its [`Report`] rendering. The hypothesis-not-decode framing is
 //! rendered verbatim here; nothing printed may be stronger than the conclusion the
 //! structural gates support.
 
@@ -29,19 +29,19 @@ pub struct EyesAttackReport {
     pub real_held_out_misses_total: usize,
     /// Aggregate real held-out ambiguous links (no unique confident prediction).
     pub real_held_out_ambiguous_total: usize,
-    /// The aggregate real coverage-weighted excess-correctness SCORE (the gate
+    /// The aggregate real coverage-weighted excess-correctness score (the gate
     /// statistic, summed over messages).
     pub real_score: i64,
-    /// SCOREABLE held-out edges on the real eyes (`hits + misses + ambiguous`) — the
+    /// Scoreable held-out edges on the real eyes (`hits + misses + ambiguous`) — the
     /// population whose own max-achievable score sizes the material-effect bar.
     pub scoreable_edges: usize,
-    /// The eyes' MAX achievable coverage-weighted score (`scoreable_edges * (A-1)`,
-    /// i.e. every scoreable edge a confident HIT). The material-effect bar is a
-    /// fraction of THIS, so a genuine eye signal COULD clear the bar.
+    /// The eyes' max achievable coverage-weighted score (`scoreable_edges * (A-1)`,
+    /// i.e. every scoreable edge a confident hit). The material-effect bar is a
+    /// fraction of this, so a genuine eye signal could clear the bar.
     pub max_achievable_score: f64,
     /// The mean matched within-message shuffle-null coverage-weighted score.
     pub null_mean_score: f64,
-    /// The POPULATION-RELATIVE MATERIAL-EFFECT threshold the real excess had to clear
+    /// The population-relative material-effect threshold the real excess had to clear
     /// (`EYES_MATERIAL_EFFECT_FRACTION` of the eyes' own [`Self::max_achievable_score`])
     /// — the effect-size bar that makes p-value significance necessary but not
     /// sufficient, fair to the population under test.
@@ -57,19 +57,19 @@ pub struct EyesAttackReport {
     pub null_at_least_real: usize,
     /// Add-one matched-null p-value for the coverage-weighted score.
     pub matched_null_p_value: f64,
-    /// Whether the real aggregate coverage-weighted score STRICTLY beats the matched
+    /// Whether the real aggregate coverage-weighted score strictly beats the matched
     /// within-message shuffle null (kill gate 1). Expected `false` for the eyes.
     pub held_out_beats_null: bool,
     /// The held-out positive control on the synthetic isomorph-rich eye-shaped
-    /// fixture (the predictor must fire on KNOWN signal).
+    /// fixture (the predictor must fire on known signal).
     pub held_out_positive_control: HeldOutPositiveControl,
     /// The Thread-3 perfect-isomorphism consistency verdict (kill gate 2).
     pub three_consistency: ThreeConsistency,
-    /// THE VERDICT: did ANY candidate survive BOTH structural gates? Expected NO.
-    /// A `true` here would be flagged loudly and logged as a HYPOTHESIS, never a
+    /// The verdict: did any candidate survive both structural gates? Expected no.
+    /// A `true` here would be flagged loudly and logged as a hypothesis, never a
     /// decode.
     pub candidate_survived: bool,
-    /// The SPECULATIVE cleartext-plausibility result, present ONLY if both
+    /// The speculative cleartext-plausibility result, present only if both
     /// structural gates passed; `None` is the expected case (gate 3 not run).
     pub speculative_cleartext: Option<SpeculativeCleartext>,
     /// Absolute path of the candidate record this run wrote.
@@ -112,7 +112,7 @@ impl Report for EyesAttackReport {
 }
 
 fn append_eyes_gate1(out: &mut String, eyes_report: &EyesAttackReport) {
-    // GATE 1: held-out isomorphs (embargoed-consensus coverage-weighted score).
+    // Gate 1: held-out isomorphs (embargoed-consensus coverage-weighted score).
     report::appendln!(
         out,
         "GATE 1 -- held-out isomorphs vs matched within-message shuffle null"
@@ -194,7 +194,7 @@ fn append_eyes_gate1(out: &mut String, eyes_report: &EyesAttackReport) {
 }
 
 fn append_eyes_gates_2_3_verdict(out: &mut String, eyes_report: &EyesAttackReport) {
-    // GATE 2: Thread-3 consistency.
+    // Gate 2: Thread-3 consistency.
     report::appendln!(
         out,
         "GATE 2 -- Thread-3 perfect-isomorphism consistency (Thread-3 API REUSED, never re-derived)"
@@ -221,7 +221,7 @@ fn append_eyes_gates_2_3_verdict(out: &mut String, eyes_report: &EyesAttackRepor
     );
     report::appendln!(out);
 
-    // GATE 3: speculative cleartext.
+    // Gate 3: speculative cleartext.
     report::appendln!(
         out,
         "GATE 3 -- SPECULATIVE cleartext plausibility (LAST, Finnish-weighted, NEVER primary)"

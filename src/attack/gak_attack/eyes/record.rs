@@ -3,12 +3,12 @@
 //!
 //! Writes (and renders) the candidate record under the configured directory,
 //! capturing the attempt, the recovered-structure amount, the held-out + Thread-3
-//! verdicts, and the explicit HYPOTHESIS-not-decode label. Any candidate cleartext
-//! is logged VERBATIM for human review.
+//! verdicts, and the explicit hypothesis-not-decode label. Any candidate cleartext
+//! is logged verbatim for human review.
 
 use super::super::*;
 
-/// Derives a STABLE candidate-record filename from the run config/seed (NO clock).
+/// Derives a stable candidate-record filename from the run config/seed (no clock).
 ///
 /// The record must be reproducible, so the label is derived only from the seed,
 /// trial count, and beam width — never a wall-clock timestamp.
@@ -46,14 +46,14 @@ pub(crate) struct EyesRecordInputs<'a> {
 }
 
 /// Writes the mandatory candidate record for the eyes Step-3 run (filename is a
-/// STABLE config/seed label, NO clock; re-running the same config overwrites the
+/// stable config/seed label, no clock; re-running the same config overwrites the
 /// prior record).
 ///
 /// The record captures what was attempted, how much structure was recovered, the
 /// held-out verdict + matched-null p-value, the Thread-3 consistency verdict, and
-/// the explicit HYPOTHESIS-not-decode label. If any candidate
-/// cleartext emerged (the speculative gate ran) it is logged VERBATIM in English
-/// AND Finnish with its scores and caveats. The expected record is a "NO candidate
+/// the explicit hypothesis-not-decode label. If any candidate
+/// cleartext emerged (the speculative gate ran) it is logged verbatim in English
+/// and Finnish with its scores and caveats. The expected record is a "no candidate
 /// surfaced — decode remains blocked" entry.
 ///
 /// # Errors

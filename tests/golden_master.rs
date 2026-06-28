@@ -2,7 +2,7 @@
 
 // Golden-master regeneration guard:
 //
-// A fixture change in a future refactor PR is a BEHAVIOR CHANGE. Review it
+// A fixture change in a future refactor PR is a behavior change. Review it
 // line-by-line and justify it in that PR; never blindly regenerate snapshots
 // just to make this test pass.
 //
@@ -10,7 +10,7 @@
 // tests/golden/:
 //
 //   cargo build --release --locked
-//   OUT=/tmp/noita-eye-golden-recapture
+//   out=/tmp/noita-eye-golden-recapture
 //   BIN=target/release/noita-eye
 //   EYES_DIR=/tmp/noita-eye-golden-master-gak-eyes-candidates
 //   rm -rf "$OUT" "$EYES_DIR" && mkdir -p "$OUT" "$EYES_DIR"

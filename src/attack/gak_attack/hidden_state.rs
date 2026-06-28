@@ -17,7 +17,7 @@
 //!    bijective `= num_letters`). With a repeated-phrase plaintext recovery **fires**
 //!    and a within-instance Fisher-Yates shuffle null never matches-or-exceeds it
 //!    (**0/8**); the signature guards against the main trivial-recovery degeneracies.
-//! 2. **The substrate is the lever, on ground truth.** The SAME cipher with a
+//! 2. **The substrate is the lever, on ground truth.** The same cipher with a
 //!    *realistic* (i.i.d., non-repeated-phrase) plaintext recovers ~2.9x fewer true
 //!    edges — the recoverable lever is a dominant repeated phrase.
 //! 3. **`two` itself: an honest negative.** The attack *runs* on `two` (no seeding
@@ -99,7 +99,7 @@ fn rank_of(deck: &[usize]) -> usize {
 fn apply_letter(class: usize, deck: &[usize], letter: &HiddenLetter) -> (usize, Vec<usize>) {
     let next_class = (class + letter.shift) % CLASS_MOD;
     // new_deck[i] = perm[deck[i]]; the new rank (position of card 0) depends on the
-    // WHOLE old deck, not just the old rank — that is the hidden state.
+    // whole old deck, not just the old rank — that is the hidden state.
     let next_deck: Vec<usize> = deck
         .iter()
         .map(|&card| *letter.deck_perm.get(card).expect("perm covers all cards"))
@@ -449,7 +449,7 @@ fn synthetic_reproduces_two_hidden_state_signature() {
     assert_eq!(distinct.len(), SYNTH_LETTERS, "keystream uses all letters");
 }
 
-/// THE binding positive control. On the repeated-phrase synthetic the recovery FIRES
+/// The binding positive control. On the repeated-phrase synthetic the recovery fires
 /// (true per-letter coset edges, every trial), and a within-instance Fisher-Yates
 /// shuffle null never matches-or-exceeds it (**0/8**) — a destroy-all-structure
 /// noise-floor control that *supports* (not proves) recovery == cipher structure.
@@ -480,7 +480,7 @@ fn positive_control_hidden_state_recovery_fires_and_null_fails() {
         let null_recovered = recover_marginals(&shuffled, SYNTH_PHRASE_LEN);
         let (null_true, _) = score_marginal_edges(&fixture.truth_edges, &null_recovered);
         null_total += null_true;
-        // The null DOES recover a few stray true edges; what must never happen is the
+        // The null does recover a few stray true edges; what must never happen is the
         // null matching-or-exceeding the real recovery.
         if null_true >= real_true {
             null_matched_real += 1;
@@ -506,7 +506,7 @@ fn positive_control_hidden_state_recovery_fires_and_null_fails() {
     );
 }
 
-/// The substrate is the lever, on ground truth. The SAME cipher recovers several
+/// The substrate is the lever, on ground truth. The same cipher recovers several
 /// times more true coset edges from a repeated-phrase plaintext than from a realistic
 /// (i.i.d.) one: the recoverable signal is the dominant repeated phrase (one isomorph
 /// signature = one letter per column); without it (realistic text — and `two`) the
@@ -540,7 +540,7 @@ fn repeated_phrase_substrate_drives_recovery_realistic_text_degrades_it() {
     );
 }
 
-/// `two` — the honest negative. The attack RUNS on `two` (no seeding death, unlike
+/// `two` — the honest negative. The attack runs on `two` (no seeding death, unlike
 /// `solve_gctak`): an isomorph pattern aligns and the beam emits a few column
 /// marginals. But they cover only a sliver — 76–83% of the 697 transitions are
 /// undecidable by any recovered marginal, so there is no whole-stream keystream to
@@ -564,7 +564,7 @@ fn two_hidden_state_attack_honest_negative() {
 
     for phrase_len in [4usize, 6, 8] {
         // The attack genuinely runs: an isomorph pattern aligns (real text repeats
-        // equality patterns) — it does NOT die at seeding the way solve_gctak does.
+        // equality patterns) — it does not die at seeding the way solve_gctak does.
         let occurrences =
             aligned_phrase_occurrences(&vals, phrase_len.max(2)).map_or(0, |starts| starts.len());
         assert!(

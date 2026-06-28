@@ -102,7 +102,7 @@ fn demand_and_ceiling_are_consistent() {
 
 #[test]
 fn two_calibration_lands_in_band() {
-    // Sanity check (NOT a falsifiable positive control): the single-point,
+    // Sanity check (not a falsifiable positive control): the single-point,
     // one-free-parameter (G) fit pins the arithmetic; only G=2 lands in band.
     let report = run_leak_ceiling(LeakCeilingConfig::default()).unwrap();
     let calibration = &report.calibration;

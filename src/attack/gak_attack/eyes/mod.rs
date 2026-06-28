@@ -1,46 +1,46 @@
-//! Unit 2c — EYES STEP 3: the only unit that touches the real eye corpus.
+//! Unit 2c — eyes step 3: the only unit that touches the real eye corpus.
 //!
 //! Points the matured attack at the verified embedded eye corpus and measures the
-//! standing **BLOCKED** conclusion against matched within-message nulls, asserting
-//! no decode. The eyes honesty caveats (mapping-is-HYPOTHESIS) live with this code.
+//! standing **blocked** conclusion against matched within-message nulls, asserting
+//! no decode. The eyes honesty caveats (mapping-is-hypothesis) live with this code.
 
 use super::*;
 
 // =====================================================================
-// UNIT 2c — EYES STEP 3: point the matured attack at the REAL eye corpus.
+// unit 2c — eyes step 3: point the matured attack at the real eye corpus.
 //
-// ## What is recovered vs what is NOT (the honest reality, encoded)
+// ## What is recovered vs what is not (the honest reality, encoded)
 //
-// The attack recovers STRUCTURE (visible-coset actions / chain-link constraints),
-// NOT cleartext. Even a full recovery of the eye group structure yields abstract
-// plaintext-letter INDICES, not readable text, because mapping symbols→letters
-// needs an external ANCHOR (exactly the standing blocker). So a "candidate
-// cleartext" can ONLY arise by ADDITIONALLY hypothesizing a symbol→letter mapping.
-// The cleartext path is therefore SPECULATIVE, gated, Finnish-weighted, and never
+// The attack recovers structure (visible-coset actions / chain-link constraints),
+// not cleartext. Even a full recovery of the eye group structure yields abstract
+// plaintext-letter indices, not readable text, because mapping symbols→letters
+// needs an external anchor (exactly the standing blocker). So a "candidate
+// cleartext" can only arise by additionally hypothesizing a symbol→letter mapping.
+// The cleartext path is therefore speculative, gated, Finnish-weighted, and never
 // primary.
 //
-// ## Entry path (EXACT — never deviate)
+// ## Entry path (exact — never deviate)
 //
 //   orders::corpus_grids() → orders::accepted_honeycomb_order()
 //   → orders::read_corpus_message_values(&grids, order)
 //
-// PER-MESSAGE streams, message boundaries KEPT; NEVER concatenate across messages;
-// NEVER re-select a reading order. (notes/reading-streams.md)
+// Per-message streams, message boundaries kept; never concatenate across messages;
+// never re-select a reading order. (notes/reading-streams.md)
 //
-// ## The kill gates (in spec order; every candidate is a HYPOTHESIS until ALL pass)
+// ## The kill gates (in spec order; every candidate is a hypothesis until all pass)
 //
-// 1. HELD-OUT isomorphs. Recover on a SUBSET of each message's isomorph chain links
-//    (the TRAIN fold), and require the recovered structure to PREDICT the HELD-OUT
-//    fold it was not trained on, beating a MATCHED within-message shuffle null
+// 1. Held-out isomorphs. Recover on a subset of each message's isomorph chain links
+//    (the train fold), and require the recovered structure to predict the held-out
+//    fold it was not trained on, beating a matched within-message shuffle null
 //    (`fisher_yates` + `add_one_p_value`, identical pipeline/population). An
 //    unconstrained fit that cannot predict held-out structure is coincidence.
-// 2. THREAD-3 perfect-iso consistency. The implied model must be consistent with
-//    `perfect_isomorphism`'s scan: no manufactured TRUE conflicts
-//    (`robust_internal_violations == 0`), chaining ONLY within the safe isomorph
+// 2. Thread-3 perfect-iso consistency. The implied model must be consistent with
+//    `perfect_isomorphism`'s scan: no manufactured true conflicts
+//    (`robust_internal_violations == 0`), chaining only within the safe isomorph
 //    extents (never over-extending). Reuse the Thread-3 API; never re-derive.
-// 3. (LAST, SPECULATIVE) cleartext plausibility — ONLY if (1) AND (2) pass. Score an
-//    implied plaintext under the Finnish AND English models behind a matched null;
-//    the symbol→letter mapping is a HYPOTHESIS, never recovered, never primary.
+// 3. (last, speculative) cleartext plausibility — only if (1) and (2) pass. Score an
+//    implied plaintext under the Finnish and English models behind a matched null;
+//    the symbol→letter mapping is a hypothesis, never recovered, never primary.
 // =====================================================================
 
 /// Reading-layer alphabet size of the eye reading layer (`|C|` upper bound), used
@@ -62,8 +62,8 @@ pub const EYES_DEFAULT_SEED: u64 = 0x6579_6573_5f73_7470;
 /// Default matched within-message shuffle-null trial count for the eyes Step-3 gate.
 pub const EYES_DEFAULT_TRIALS: usize = 2_000;
 
-/// Default beam-width LABEL recorded in the eyes candidate-record filename/header;
-/// it does NOT affect the eyes held-out scoring (the eyes run performs no per-column
+/// Default beam-width label recorded in the eyes candidate-record filename/header;
+/// it does not affect the eyes held-out scoring (the eyes run performs no per-column
 /// marginalization).
 pub const EYES_DEFAULT_BEAM_WIDTH: usize = DEFAULT_BEAM_WIDTH;
 
@@ -74,12 +74,12 @@ pub const EYES_DEFAULT_CANDIDATES_DIR: &str = "research/gak-threads/candidates";
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EyesAttackConfig {
     /// Deterministic seed for the matched within-message shuffle null and the
-    /// derived candidate-record label (NO wall-clock is ever read).
+    /// derived candidate-record label (no wall-clock is ever read).
     pub seed: u64,
     /// Matched within-message shuffle-null trials.
     pub trials: usize,
     /// Disclosed beam-width label recorded in the candidate-record filename/header;
-    /// does NOT affect the eyes held-out scoring (the eyes run performs no per-column
+    /// does not affect the eyes held-out scoring (the eyes run performs no per-column
     /// marginalization).
     pub beam_width: usize,
     /// Directory under which the mandatory candidate record is written.
@@ -97,13 +97,13 @@ impl Default for EyesAttackConfig {
     }
 }
 
-/// The held-out isomorph evaluation for ONE eye message, real vs matched null.
+/// The held-out isomorph evaluation for one eye message, real vs matched null.
 ///
 /// Mirrors the synthetic idea-3 held-out machinery but over the real eye isomorphs:
-/// the per-message isomorph occurrences are split into a TRAIN fold (the candidate
-/// chain links) and a HELD-OUT fold (the validation chain links); the recovered
+/// the per-message isomorph occurrences are split into a train fold (the candidate
+/// chain links) and a held-out fold (the validation chain links); the recovered
 /// structure (the admitted train edges) must predict the held-out fold. Real and
-/// the matched within-message multiset shuffle run the IDENTICAL pipeline.
+/// the matched within-message multiset shuffle run the identical pipeline.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct EyeMessageHeldOut {
     /// Message key (e.g. `east1`).
@@ -116,10 +116,10 @@ pub struct EyeMessageHeldOut {
     pub aligned_pairs: usize,
     /// Distinct reading-layer symbols touched by any chain link (coverage).
     pub symbols_touched: usize,
-    /// Fixed-context TRUE-conflict aborts (bad isomorph alignments) on the real
+    /// Fixed-context true-conflict aborts (bad isomorph alignments) on the real
     /// stream — surfaced as a feature (`Chaining-Conflicts.md`).
     pub true_conflict_aborts: usize,
-    /// Held-out chain links the uniquely-identified TRAIN context predicted
+    /// Held-out chain links the uniquely-identified train context predicted
     /// correctly (real stream).
     pub real_held_out_hits: usize,
     /// Held-out chain links predicted incorrectly (real stream).
@@ -134,30 +134,30 @@ pub struct EyeMessageHeldOut {
 /// The Thread-3 perfect-isomorphism consistency verdict consulted at Step 3.
 ///
 /// This is read straight from [`perfect_isomorphism::run_perfect_isomorphism`]
-/// (the Thread-3 API is REUSED, never re-derived). A candidate may only be named
-/// if Thread 3 reports zero robust internal violations (no manufactured TRUE
-/// conflicts) and supplies the safe isomorph extents Gate-1 chaining is ENFORCED to
+/// (the Thread-3 API is reused, never re-derived). A candidate may only be named
+/// if Thread 3 reports zero robust internal violations (no manufactured true
+/// conflicts) and supplies the safe isomorph extents Gate-1 chaining is enforced to
 /// stay within (see `eyes_three_consultation`).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ThreeConsistency {
     /// Thread-3 robust strong-bar internal-violation count (must be `0` for a
-    /// consistent model: a non-zero count is a manufactured TRUE conflict).
+    /// consistent model: a non-zero count is a manufactured true conflict).
     pub robust_internal_violations: usize,
     /// Number of conservative safe isomorph extents Thread 3 exported. Gate-1
-    /// chaining is ENFORCED to stay within the per-message spans these project to;
+    /// chaining is enforced to stay within the per-message spans these project to;
     /// an occurrence window is admitted only inside a safe span.
     pub safe_extents: usize,
     /// Whether Thread 3's own positive control fired (the scan is trustworthy).
     pub positive_control_fired: bool,
-    /// Whether the candidate model is CONSISTENT with Thread 3: zero robust
-    /// internal violations AND the positive control fired.
+    /// Whether the candidate model is consistent with Thread 3: zero robust
+    /// internal violations and the positive control fired.
     pub consistent: bool,
 }
 
-/// The held-out positive control on a SYNTHETIC isomorph-rich eye-shaped fixture.
+/// The held-out positive control on a synthetic isomorph-rich eye-shaped fixture.
 ///
-/// The held-out predictor must fire on KNOWN signal: a synthetic message built so a
-/// FIXED global action recurs across isomorph groups must yield a real
+/// The held-out predictor must fire on known signal: a synthetic message built so a
+/// fixed global action recurs across isomorph groups must yield a real
 /// coverage-weighted score that strictly beats its matched within-message shuffle
 /// null (the shuffle destroys the reusable context classes). If it does not, the
 /// held-out gate is not trustworthy and the run aborts
@@ -170,29 +170,29 @@ pub struct HeldOutPositiveControl {
     /// Worst-case (max) matched-null coverage-weighted score over the control
     /// shuffles (the value the real signal must strictly beat).
     pub null_score: i64,
-    /// SCOREABLE held-out edges on the synthetic fixture (`hits + misses +
-    /// ambiguous`). Used to size the control's OWN population material-effect bar so
+    /// Scoreable held-out edges on the synthetic fixture (`hits + misses +
+    /// ambiguous`). Used to size the control's own population material-effect bar so
     /// the validation ("the detector still clears its own bar") is checked on the
     /// control's population, not the eyes'.
     pub scoreable_edges: usize,
     /// Whether the predictor fired: the real signal strictly beats the worst-case
-    /// matched null AND its real-vs-null excess clears the control's OWN
+    /// matched null and its real-vs-null excess clears the control's own
     /// population-relative material-effect bar — so the detector is validated on
     /// the same fair gate the eyes are judged against.
     pub fired: bool,
 }
 
-/// The SPECULATIVE cleartext-plausibility result (kill gate 3).
+/// The speculative cleartext-plausibility result (kill gate 3).
 ///
-/// Present ONLY when a candidate survived BOTH structural gates (the expected case
-/// is `None`). The symbol→letter mapping is a HYPOTHESIS, never recovered; this is
+/// Present only when a candidate survived both structural gates (the expected case
+/// is `None`). The symbol→letter mapping is a hypothesis, never recovered; this is
 /// never primary evidence. Both Finnish and English are scored behind a matched
 /// null, with Finnish weighted highly (Noita is a Finnish game). The implied
-/// plaintext is logged VERBATIM to the candidate record for human review.
+/// plaintext is logged verbatim to the candidate record for human review.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SpeculativeCleartext {
-    /// The implied plaintext under the HYPOTHESIZED symbol→letter mapping (logged
-    /// verbatim — a HYPOTHESIS, never a decode).
+    /// The implied plaintext under the hypothesized symbol→letter mapping (logged
+    /// verbatim — a hypothesis, never a decode).
     pub implied_plaintext: String,
     /// Finnish bigram mean log-likelihood of the implied plaintext.
     pub finnish_score: f64,
@@ -216,11 +216,11 @@ struct Gate1Evaluation {
     real_held_out_misses_total: usize,
     real_held_out_ambiguous_total: usize,
     real_score: i64,
-    /// SCOREABLE held-out edges on the real eyes (`hits + misses + ambiguous`) — the
+    /// Scoreable held-out edges on the real eyes (`hits + misses + ambiguous`) — the
     /// population whose own max-achievable score sizes the bar.
     scoreable_edges: usize,
-    /// The eyes' MAX achievable coverage-weighted score (`scoreable_edges * (A-1)`):
-    /// the bar is a fraction of THIS, so genuine eye signal could clear it.
+    /// The eyes' max achievable coverage-weighted score (`scoreable_edges * (A-1)`):
+    /// the bar is a fraction of this, so genuine eye signal could clear it.
     max_achievable_score: f64,
     null_at_least_real: usize,
     null_mean_score: f64,
@@ -232,11 +232,11 @@ struct Gate1Evaluation {
 
 /// Runs the eyes Gate-1 held-out evaluation: the embargoed-consensus coverage-
 /// weighted score on the real per-message streams vs the matched within-message
-/// shuffle null, plus the POPULATION-RELATIVE material-effect bar (statistical
-/// significance is NECESSARY but NOT SUFFICIENT: the real-vs-null excess must
-/// reach [`EYES_MATERIAL_EFFECT_FRACTION`] of the eyes' OWN max achievable score
+/// shuffle null, plus the population-relative material-effect bar (statistical
+/// significance is necessary but not sufficient: the real-vs-null excess must
+/// reach [`EYES_MATERIAL_EFFECT_FRACTION`] of the eyes' own max achievable score
 /// `scoreable_edges * (A-1)`, a bar that scales to whatever population is under test
-/// so a genuine eye signal COULD clear it, rather than an absolute value pinned to
+/// so a genuine eye signal could clear it, rather than an absolute value pinned to
 /// the much larger synthetic positive control's population).
 ///
 /// Gate-1 chaining is restricted to the Thread-3 safe extents via
@@ -266,10 +266,10 @@ fn eyes_gate1_evaluation(
         eyes_matched_null_tail(message_values, config, safe_spans_by_message, real_score)?;
     let matched_null_p_value = add_one_p_value(null_at_least_real, config.trials);
 
-    // A POPULATION-RELATIVE bar. The eyes' own scoreable held-out edges fix their
-    // max achievable score `scoreable_edges * (A-1)`; the bar is a fraction of THAT,
+    // A population-relative bar. The eyes' own scoreable held-out edges fix their
+    // max achievable score `scoreable_edges * (A-1)`; the bar is a fraction of that,
     // so a genuine eye signal capturing >= EYES_MATERIAL_EFFECT_FRACTION of the signal
-    // achievable on ITS OWN population clears it. This is fair (the bar is below the
+    // achievable on its own population clears it. This is fair (the bar is below the
     // eyes' max) and validated (the positive control clears its own population's bar).
     let scoreable_edges = real_held_out_hits_total
         .saturating_add(real_held_out_misses_total)
@@ -303,13 +303,13 @@ fn eyes_gate1_evaluation(
 /// Runs the eyes Step-3 attack on the verified eye corpus and writes the mandatory
 /// candidate record.
 ///
-/// The standing conclusion is the eye decode is BLOCKED on the unknown
+/// The standing conclusion is the eye decode is blocked on the unknown
 /// symbol→meaning mapping. This run measures honestly whether that holds: it points
 /// the matured chain-link attack at the real per-message eye streams, evaluates the
 /// held-out isomorph gate against a matched within-message shuffle null, consults
-/// Thread 3's perfect-isomorphism consistency, and ONLY if BOTH structural gates
-/// pass runs the SPECULATIVE Finnish/English cleartext scoring. The expected
-/// outcome is NO surviving candidate; the candidate record is written either way.
+/// Thread 3's perfect-isomorphism consistency, and only if both structural gates
+/// pass runs the speculative Finnish/English cleartext scoring. The expected
+/// outcome is no surviving candidate; the candidate record is written either way.
 ///
 /// # Errors
 /// Returns [`GakAttackError`] when the corpus cannot be read, when Thread 3's scan
@@ -317,7 +317,7 @@ fn eyes_gate1_evaluation(
 /// signal, when a language model cannot be built, or when the candidate record
 /// cannot be written.
 pub fn run_gak_attack_eyes(config: EyesAttackConfig) -> Result<EyesAttackReport, GakAttackError> {
-    // ZERO-TRIALS GUARD: the held-out gate's significance is the matched
+    // Zero-trials guard: the held-out gate's significance is the matched
     // within-message shuffle null, so it must have at least one draw — zero trials
     // would define the p-value and null mean over an empty sample (same discipline
     // as the other modules' ZeroTrials rejection). Reject up front, never a finding.
@@ -325,7 +325,7 @@ pub fn run_gak_attack_eyes(config: EyesAttackConfig) -> Result<EyesAttackReport,
         return Err(GakAttackError::EyesZeroTrials);
     }
 
-    // ENTRY PATH (exact): per-message streams, boundaries kept, accepted order.
+    // Entry path (exact): per-message streams, boundaries kept, accepted order.
     let grids = orders::corpus_grids()?;
     let keys: Vec<&'static str> = grids
         .iter()
@@ -342,8 +342,8 @@ pub fn run_gak_attack_eyes(config: EyesAttackConfig) -> Result<EyesAttackReport,
         .collect();
     let distinct_symbols = distinct_symbols.len();
 
-    // GATE 1 PRELUDE: the held-out POSITIVE CONTROL must fire on KNOWN signal — now
-    // including clearing the control's OWN population-relative material-effect bar,
+    // Gate 1 prelude: the held-out positive control must fire on known signal — now
+    // including clearing the control's own population-relative material-effect bar,
     // so the bar is proven achievable by genuine signal before the eyes face it.
     let held_out_positive_control = eyes_held_out_positive_control(&config)?;
     if !held_out_positive_control.fired {
@@ -353,21 +353,21 @@ pub fn run_gak_attack_eyes(config: EyesAttackConfig) -> Result<EyesAttackReport,
         });
     }
 
-    // THREAD-3 CONSULTATION (REUSE the Thread-3 API), run ONCE up front: it yields
-    // both the Gate-2 consistency verdict AND the per-message safe isomorph spans
-    // Gate-1 chaining is ENFORCED to stay within. Run before Gate 1 so Gate 1 can
+    // Thread-3 consultation (reuse the Thread-3 API), run once up front: it yields
+    // both the Gate-2 consistency verdict and the per-message safe isomorph spans
+    // Gate-1 chaining is enforced to stay within. Run before Gate 1 so Gate 1 can
     // restrict chaining to those extents.
     let three = eyes_three_consultation(&keys)?;
     let three_consistency = three.verdict;
     let safe_spans_by_message = three.safe_spans_by_message;
 
-    // GATE 1: per-message held-out isomorph recovery vs a MATCHED within-message
-    // shuffle null, CHAINING RESTRICTED to the Thread-3 safe extents, plus the
+    // Gate 1: per-message held-out isomorph recovery vs a matched within-message
+    // shuffle null, chaining restricted to the Thread-3 safe extents, plus the
     // population-relative material-effect bar (the leak-proof embargoed-consensus
     // statistic). Boundaries are kept.
     let gate1 = eyes_gate1_evaluation(&keys, &message_values, &config, &safe_spans_by_message)?;
 
-    // GATE 3 + VERDICT + record/report assembly (factored out to keep this entry
+    // Gate 3 + verdict + record/report assembly (factored out to keep this entry
     // point thin; the speculative Gate 3 stays gated behind both structural gates).
     finalize_eyes_run(EyesRunFinalize {
         config,
@@ -394,12 +394,12 @@ struct EyesRunFinalize {
     held_out_positive_control: HeldOutPositiveControl,
 }
 
-/// Runs the SPECULATIVE Gate 3 (only if both structural gates passed), determines the
+/// Runs the speculative Gate 3 (only if both structural gates passed), determines the
 /// final verdict, writes the mandatory candidate record, and builds the report.
 ///
-/// The verdict is unchanged: a candidate survives ONLY if Gate 1 (held-out beats the
-/// matched null AND clears the population-relative material-effect bar) AND Gate 2
-/// (Thread-3 consistency) both pass. The expected outcome is NO surviving candidate.
+/// The verdict is unchanged: a candidate survives only if Gate 1 (held-out beats the
+/// matched null and clears the population-relative material-effect bar) and Gate 2
+/// (Thread-3 consistency) both pass. The expected outcome is no surviving candidate.
 ///
 /// # Errors
 /// Returns [`GakAttackError`] if the language models cannot be built (Gate 3 only) or
@@ -485,14 +485,14 @@ fn finalize_eyes_run(inputs: EyesRunFinalize) -> Result<EyesAttackReport, GakAtt
 /// to count as "beats null"; it is the same `0.05` convention used elsewhere.
 const EYES_SIGNIFICANCE_ALPHA: f64 = 0.05;
 
-/// POPULATION-RELATIVE MATERIAL-EFFECT fraction (effect size, not just p-value):
-/// the real-vs-null-mean held-out excess must reach this FRACTION of
-/// the population's OWN max achievable score (`scoreable_edges * (A-1)`) for a
-/// candidate to pass Gate 1. Anchoring the bar to the SAME population under test (not
-/// to the much larger synthetic positive control's population) makes it FAIR: a
+/// Population-relative material-effect fraction (effect size, not just p-value):
+/// the real-vs-null-mean held-out excess must reach this fraction of
+/// the population's own max achievable score (`scoreable_edges * (A-1)`) for a
+/// candidate to pass Gate 1. Anchoring the bar to the same population under test (not
+/// to the much larger synthetic positive control's population) makes it fair: a
 /// genuine eye signal that captures >= 25% of the signal achievable on its own
 /// held-out edges clears it, while a thin isomorph-richness leak (excess ~0) fails.
-/// The detector is still VALIDATED because the positive control must clear ITS OWN
+/// The detector is still validated because the positive control must clear its own
 /// population's bar by the same rule. Set to one quarter of the achievable signal —
 /// generous to a real recovery, fatal to a thin leak.
 pub const EYES_MATERIAL_EFFECT_FRACTION: f64 = 0.25;
@@ -517,7 +517,7 @@ pub(crate) use heldout::{
     AggregateSafeFilter, eyes_aggregate_score, eyes_held_out_positive_control, max_achievable_score,
 };
 pub(crate) use record::EyesRecordInputs;
-// Re-exported SOLELY so the gak test suite can reach the held-out scoring entry
+// Re-exported solely so the gak test suite can reach the held-out scoring entry
 // points and the record renderer through `crate::attack::gak_attack::*`; nothing
 // outside the test target consumes these paths.
 #[cfg(test)]

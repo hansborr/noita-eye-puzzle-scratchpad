@@ -285,7 +285,7 @@ pub struct GakKeyOptions {
     /// state-independent, i.e. equivalent to `p` fixing the reference value)
     /// this guarantees no adjacent-equal ciphertext symbols. For an arbitrary
     /// `CosetTable` readout the check is performed only against the initial
-    /// state, so it forbids initial-state doubles but does NOT guarantee the
+    /// state, so it forbids initial-state doubles but does not guarantee the
     /// absence of adjacent-equal symbols from later reachable states.
     pub avoid_doubles: bool,
     /// Subgroup-parity constraint the plaintext-letter permutations must obey.
@@ -314,7 +314,7 @@ impl Default for GakKeyOptions {
 /// `S_n` / `A_n` / `D_{2n}` / `AGL(1,p)` and the candidate 83-symbol groups all
 /// fit this one type by choosing the per-letter permutations and the
 /// [`CosetReadout`]. The small-support / `≤k`-swaps (`≤k`-transpositions) prior
-/// used by the generator drivers is a **TENTATIVE** search heuristic, not a
+/// used by the generator drivers is a **tentative** search heuristic, not a
 /// property of this key, and is not encoded here.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GakKey {
@@ -382,10 +382,10 @@ impl GakKey {
             *slot = true;
         }
 
-        // The identity-state injectivity check above is PROVEN sufficient for
+        // The identity-state injectivity check above is proven sufficient for
         // the TopCard deck readout (its readout is itself the right-coset
         // projection, so per-state injectivity follows from the identity case).
-        // It is NOT sufficient for an arbitrary supplied coset table, so those
+        // It is not sufficient for an arbitrary supplied coset table, so those
         // require full reachable-state enumeration; see
         // `validate_coset_table_invertible`.
         if matches!(coset_readout, CosetReadout::CosetTable { .. }) {

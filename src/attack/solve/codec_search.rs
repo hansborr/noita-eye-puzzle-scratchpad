@@ -19,7 +19,7 @@ use super::{
 /// mapping search) and the structured skip trace.
 ///
 /// The real run and the enumeration-level null share this exact survivor set so the
-/// null reruns the IDENTICAL enumeration. The prunes are content-independent: sanity
+/// null reruns the identical enumeration. The prunes are content-independent: sanity
 /// and ceiling depend only on the codec parameters, and (since every cipher family
 /// is length-preserving and Fisher-Yates preserves both length and alphabet) a
 /// shuffled ciphertext transduces iff the original does — so the survivor set is the
@@ -32,7 +32,7 @@ pub(super) fn surviving_codecs(
     let mut survivors = Vec::new();
     let mut skipped = Vec::new();
     // The binding fixed-mapping domain (smallest declared mapping table). `None`
-    // for a mapping SEARCH, whose tables are sized to each codec's resolved output
+    // for a mapping search, whose tables are sized to each codec's resolved output
     // and therefore impose no domain prune. This is content-independent (it depends
     // only on the declared mappings), so the survivor set is identical on every
     // null shuffle — preserving the shared-enumeration invariant the null relies on.
@@ -44,9 +44,9 @@ pub(super) fn surviving_codecs(
         .into_iter()
         .enumerate()
     {
-        // Prune (a) — alphabet-size sanity. CRITICAL (D2 landmine): resolve the true
+        // Prune (a) — alphabet-size sanity. Critical (D2 landmine): resolve the true
         // mapping domain via `output_alphabet_hosts_language` /
-        // `resolved_output_alphabet_size`; NEVER the bare `Codec::output_alphabet_size`
+        // `resolved_output_alphabet_size`; never the bare `Codec::output_alphabet_size`
         // trait method, which returns the 0 passthrough sentinel for `Identity` and
         // would wrongly prune it (see codec.rs).
         if !output_alphabet_hosts_language(
@@ -91,7 +91,7 @@ pub(super) fn surviving_codecs(
         }
         // Prune (d) — fixed-mapping domain (defense-in-depth). A `CodecStrategy::Search`
         // can be paired with an explicit `MappingStrategy::Fixed` whose table is sized
-        // to the BARE cipher alphabet; a widening codec then emits symbols past that
+        // to the bare cipher alphabet; a widening codec then emits symbols past that
         // table. Skip-with-log (mirroring the prunes above) instead of letting
         // `Mapping::apply` hard-error with `MappingSymbolOutsideTable`. Only a fixed
         // mapping imposes this domain — a mapping search sizes its tables to `resolved`,
@@ -145,19 +145,19 @@ pub(super) fn stamp_enumeration_beats_null(mut candidate: Candidate, null_mean: 
 }
 
 /// Enumeration-level matched null for [`CodecStrategy::Search`]: the
-/// SELECTION-COMPLETE bar that pays for codec selection.
+/// selection-complete bar that pays for codec selection.
 ///
-/// The real run reports the MAX in-sample score over all surviving codecs (the caller
+/// The real run reports the max in-sample score over all surviving codecs (the caller
 /// sorts and the top candidate wins), so a per-codec null — which maxes over ciphers
-/// within ONE codec only — is OPTIMISTIC once more than one codec survives. This
-/// reruns the IDENTICAL surviving-codec enumeration on each of `null_trials`
-/// Fisher-Yates shuffles and takes the MAX score over every (surviving codec ×
+/// within one codec only — is optimistic once more than one codec survives. This
+/// reruns the identical surviving-codec enumeration on each of `null_trials`
+/// Fisher-Yates shuffles and takes the max score over every (surviving codec ×
 /// mapping × cipher) per shuffle, then averages those maxima.
 ///
-/// Determinism mirrors the per-codec null EXACTLY — the same per-family shuffle seed
+/// Determinism mirrors the per-codec null exactly — the same per-family shuffle seed
 /// (`family_seed_tag ^ 0x6e75_6c6c`, the null tag, distinct from the real run's
 /// seeds) and the same codec-index-derived mapping-search seeds — so this is a pure
-/// RE-AGGREGATION of the same per-`(trial, codec)` scores: max-over-codecs-per-shuffle
+/// re-aggregation of the same per-`(trial, codec)` scores: max-over-codecs-per-shuffle
 /// instead of mean-within-each-codec. With exactly one surviving codec (and one fixed
 /// mapping) it therefore equals the old per-codec null byte-for-byte.
 pub(super) fn enumeration_null_mean(
@@ -177,7 +177,7 @@ pub(super) fn enumeration_null_mean(
     for trial in 0..req.space.null_trials {
         let mut shuffled = req.ciphertext.to_vec();
         fisher_yates(&mut shuffled, &mut rng)?;
-        // MAX over all surviving codecs for this shuffle — the codec selection the
+        // Max over all surviving codecs for this shuffle — the codec selection the
         // real run performs (top-of-N-codecs wins). The held-out fold score travels
         // with the selected (max-in-sample) codec so the null exposes a held-out
         // baseline, not just the full-stream one.

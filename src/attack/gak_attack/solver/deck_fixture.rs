@@ -1,11 +1,11 @@
 use super::*;
 
 // =====================================================================
-// UNIT 2a — REAL GAK on the deck stabilizer (non-trivial hidden subgroup).
+// unit 2a — real GAK on the deck stabilizer (non-trivial hidden subgroup).
 //
 // Everything above is the trivial-H GCTAK gate (the proof-of-life positive
 // control). Below is the actual contribution the wiki asks for: a constraint-
-// propagation attack on REAL GAK (`H = Stab(top) = S_{n-1}`, `|H| = (n-1)! > 1`)
+// propagation attack on real GAK (`H = Stab(top) = S_{n-1}`, `|H| = (n-1)! > 1`)
 // realized by `GakKey::deck`. It is **synthetic-only** (we hold ground truth, so
 // recovering the key is legitimate) and reports a measured tractability bound:
 // where partial recovery breaks as `n` / `|H|` grows. A low/zero recovered
@@ -15,19 +15,19 @@ use super::*;
 //
 // State `g ∈ S_n`, update `g ← π_a ∘ g`, visible symbol `s = c(g) = g^{-1}[top]`.
 // The next visible symbol is `s' = (π_a ∘ g)^{-1}[top] = g^{-1}[π_a^{-1}[top]]`,
-// which depends on `g^{-1}` evaluated at `π_a^{-1}[top]` — i.e. on the WHOLE
+// which depends on `g^{-1}` evaluated at `π_a^{-1}[top]` — i.e. on the whole
 // hidden permutation, not just on `s`. So a single visible symbol can transition
-// to MANY next-symbols under the same letter across different hidden states
+// to many next-symbols under the same letter across different hidden states
 // (`Chaining-Conflicts.md`: cycles of unequal length are normal; edge overlap
-// does not prove context equality). Only WITHIN one fixed context (one aligned
+// does not prove context equality). Only within one fixed context (one aligned
 // isomorph occurrence pair) is the action a partial permutation, and two arrows
-// out of (or into) one symbol there is a TRUE conflict that proves a bad isomorph
+// out of (or into) one symbol there is a true conflict that proves a bad isomorph
 // assumption (not a discovery) and aborts that branch.
 // =====================================================================
 
 /// How the per-letter `p(a)` permutations are drawn for a real-GAK deck fixture.
 ///
-/// Both regimes are generated so the NEXT unit can validate the TENTATIVE
+/// Both regimes are generated so the next unit can validate the tentative
 /// small-support prior (idea 2): when `small_support_radius > 0` the draws are
 /// near-identity (a base permutation composed with `≤k` transpositions), the
 /// regime in which `Deck-Cipher.md`'s shared-sections evidence would hold; when
@@ -36,8 +36,8 @@ use super::*;
 pub enum DeckLetterRegime {
     /// Unconstrained `S_n`: each `p(a)` is a uniform random permutation.
     Unconstrained,
-    /// TENTATIVE small-support: each `p(a)` is a base permutation composed with
-    /// `≤radius` random transpositions (near-identity). NOT a hard constraint.
+    /// Tentative small-support: each `p(a)` is a base permutation composed with
+    /// `≤radius` random transpositions (near-identity). Not a hard constraint.
     SmallSupport {
         /// Maximum number of transpositions from the shared base (`≤k`).
         radius: usize,
@@ -130,7 +130,7 @@ pub fn generate_deck_fixture(
 
     let mut rng = SplitMix64::new(seed);
 
-    // Draw `num_pt_letters` DISTINCT, non-identity permutations of `0..n`. Under
+    // Draw `num_pt_letters` distinct, non-identity permutations of `0..n`. Under
     // SmallSupport they share a base and differ by ≤radius transpositions.
     let letters = draw_deck_letters(state_size, regime, config.num_pt_letters, &mut rng)?;
 
@@ -217,11 +217,11 @@ fn draw_deck_letters(
 // B. Deck visible-coset action-recovery attack (idea 1).
 //
 // The attack reads per-letter visible-coset transitions where contexts compose as
-// PERMUTATIONS, not scalars. The recovery's equations come FROM the shared
+// permutations, not scalars. The recovery's equations come from the shared
 // `chaining_graph` chain links (load-bearing — `phrase_column_evidence` sources its
-// prev->next edges straight out of `chain_links_for_pair`). It then LIGHT-MERGES the
+// prev->next edges straight out of `chain_links_for_pair`). It then light-merges the
 // single-valued cores under a group-dependent overlap threshold — a deliberately
-// conservative merge, NOT full Schreier-graph constraint propagation (the
+// conservative merge, not full Schreier-graph constraint propagation (the
 // multi-valued part is left to idea 3's hidden-state marginalization, and is
 // measured here as the obstruction).
 // ---------------------------------------------------------------------
@@ -241,12 +241,12 @@ pub(crate) struct CosetEdge {
 }
 
 /// The per-context action distilled from the chain links of one aligned isomorph
-/// occurrence pair: a partial map on the visible coset alphabet, plus its TRUE-
+/// occurrence pair: a partial map on the visible coset alphabet, plus its true-
 /// conflict flag.
 ///
-/// A context's action MUST be a partial permutation (single-valued forward AND
+/// A context's action must be a partial permutation (single-valued forward and
 /// backward). Two distinct arrows out of one symbol, or into one symbol, is a
-/// **TRUE conflict** (`Chaining-Conflicts.md`): it proves a bad isomorph
+/// **true conflict** (`Chaining-Conflicts.md`): it proves a bad isomorph
 /// assumption, so the branch is aborted rather than counted as a discovery.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct ContextAction {
@@ -254,7 +254,7 @@ pub(crate) struct ContextAction {
     forward: BTreeMap<u8, u8>,
     /// The distinct directed edges (for the group-dependent overlap threshold).
     edges: BTreeSet<CosetEdge>,
-    /// `true` once a TRUE conflict (non-functional forward or backward) is seen.
+    /// `true` once a true conflict (non-functional forward or backward) is seen.
     pub(crate) true_conflict: bool,
 }
 
@@ -265,14 +265,14 @@ impl ContextAction {
         let _added = self.edges.insert(edge);
         match self.forward.get(&edge.from) {
             Some(existing) if *existing != edge.to => {
-                // Two arrows OUT of `from` under one fixed context => TRUE conflict.
+                // Two arrows out of `from` under one fixed context => true conflict.
                 self.true_conflict = true;
                 return;
             }
             Some(_) => return,
             None => {}
         }
-        // Backward check: two arrows INTO `to` under one fixed context.
+        // Backward check: two arrows into `to` under one fixed context.
         if self
             .forward
             .iter()
@@ -286,13 +286,13 @@ impl ContextAction {
 }
 
 /// The chain-link substrate of the deck attack: per-context coset actions plus
-/// the global per-letter edge evidence, all derived from the SHARED
+/// the global per-letter edge evidence, all derived from the shared
 /// [`chain_links_for_pair`] primitive.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct ChainSubstrate {
     /// One [`ContextAction`] per aligned isomorph occurrence pair (one context).
     pub(crate) contexts: Vec<ContextAction>,
-    /// Number of TRUE-conflict aborts encountered while building contexts.
+    /// Number of true-conflict aborts encountered while building contexts.
     pub(crate) true_conflict_aborts: usize,
     /// Number of distinct visible coset symbols touched by any chain link
     /// (chain-link coverage).
@@ -300,26 +300,26 @@ pub(crate) struct ChainSubstrate {
 }
 
 /// Builds the chain-link substrate for the deck attack (coverage + fixed-context
-/// conflict detection — NOT the recovery substrate).
+/// conflict detection — not the recovery substrate).
 ///
-/// LOAD-BEARING reuse: occurrences are grouped by their length-`core_len` PREFIX
-/// [`PatternSignature`] (the isomorph CORE), and each ordered occurrence pair within
-/// a core group becomes ONE fixed context whose coset edges are EXACTLY the
+/// Load-bearing reuse: occurrences are grouped by their length-`core_len` prefix
+/// [`PatternSignature`] (the isomorph core), and each ordered occurrence pair within
+/// a core group becomes one fixed context whose coset edges are exactly the
 /// [`chain_links_for_pair`] output over the full `window_len` window (core +
 /// extension). This is genuine reuse of the shared primitive, not a second graph.
 ///
-/// **Why a core prefix.** Grouping by the FULL window makes every pair a partial
+/// **Why a core prefix.** Grouping by the full window makes every pair a partial
 /// bijection by construction (same full-window signature ⇒ identical equality
-/// pattern ⇒ no conflict), so a fixed-context TRUE conflict could never fire.
-/// Grouping by the core prefix lets two windows that share the core but DIVERGE in
+/// pattern ⇒ no conflict), so a fixed-context true conflict could never fire.
+/// Grouping by the core prefix lets two windows that share the core but diverge in
 /// the over-extension tail be aligned — and a divergent tail can produce two arrows
 /// out of / into one symbol under that single fixed alignment, which is exactly a
 /// genuine **bad isomorph alignment** (over-extension past the true core), the only
-/// thing that can produce a real TRUE conflict. The production caller passes
+/// thing that can produce a real true conflict. The production caller passes
 /// `core_len == window_len` (full-window grouping, no extension), so the shipped
 /// numbers are unchanged; a smaller `core_len` is what exercises the conflict guard.
 ///
-/// A fixed context whose action carries a TRUE conflict is dropped (its branch
+/// A fixed context whose action carries a true conflict is dropped (its branch
 /// aborts) and counted in [`ChainSubstrate::true_conflict_aborts`].
 pub(crate) fn build_chain_substrate(
     ciphertext: &[SymbolValue],
@@ -374,10 +374,10 @@ pub(crate) fn build_chain_substrate(
                 let Ok(links) = chain_links_for_pair(context, &upper, &lower) else {
                     continue;
                 };
-                // ONE fixed context = ONE aligned occurrence pair. Within this single
-                // alignment two arrows out of / into one symbol can ONLY come from a
+                // One fixed context = one aligned occurrence pair. Within this single
+                // alignment two arrows out of / into one symbol can only come from a
                 // bad isomorph alignment (an over-extended tail), never from normal
-                // hidden-state variation — so a TRUE conflict here is a genuine abort.
+                // hidden-state variation — so a true conflict here is a genuine abort.
                 let mut action = ContextAction::default();
                 for link in &links {
                     let _ins = touched.insert(link.from.get());
@@ -388,7 +388,7 @@ pub(crate) fn build_chain_substrate(
                     });
                 }
                 if action.true_conflict {
-                    // Fixed-context TRUE-conflict abort: bad isomorph alignment.
+                    // Fixed-context true-conflict abort: bad isomorph alignment.
                     substrate.true_conflict_aborts =
                         substrate.true_conflict_aborts.saturating_add(1);
                     continue;

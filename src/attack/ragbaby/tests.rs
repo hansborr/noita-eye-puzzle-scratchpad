@@ -11,7 +11,7 @@ use crate::nulls::null::SplitMix64;
 const WORKED_KEY: &str = "CRYPTOABDEFGHIJKLMNQSUVWXZ";
 
 // ~270 letters of plain English prose (real prose, not a slice of the corpus),
-// used where recovery is NOT required (random-text null, determinism).
+// used where recovery is not required (random-text null, determinism).
 const PLAINTEXT: &str = "the quick brown fox jumps over the lazy dog while the morning sun \
     rises slowly above the quiet little village near the river where children often play \
     together after school and the old baker prepares fresh bread for everyone who passes by \
@@ -163,9 +163,9 @@ fn planted_recovery_recovers_reduced_bases() {
 
 #[test]
 fn planted_decode_survives_full_gate() {
-    // The positive control for the GATE itself (not just the optimizer): a
+    // The positive control for the gate itself (not just the optimizer): a
     // planted Ragbaby decode, recovered and run through the full survival gate,
-    // MUST survive. Regression test for the held-out miscalibration — comparing
+    // must survive. Regression test for the held-out miscalibration — comparing
     // the odd-fold to the full-stream `matched_mean` (instead of the matched
     // null's odd-fold) falsely failed even a perfectly recovered decode.
     let model = QuadgramModel::english().unwrap();
@@ -260,7 +260,7 @@ fn matched_null_rejects_overfitting_on_random_text() {
 #[test]
 fn control_sweep_returns_well_formed_grid() {
     // Fast plumbing smoke: the sweep yields one point per (length, base) with
-    // matching fields and accuracies in [0, 1]. Recovery is NOT asserted here
+    // matching fields and accuracies in [0, 1]. Recovery is not asserted here
     // (a real recovery needs the heavier budget exercised by the ignored test
     // below); a tiny budget keeps `make verify` fast.
     let model = QuadgramModel::english().unwrap();
@@ -400,7 +400,7 @@ fn record_writer_emits_hypothesis_label() {
 
 #[test]
 fn frozen_bits_anti_drift_baseline() {
-    // Anti-drift PIN (Report 03 consolidation): a uniform RNG-stream shift in the
+    // Anti-drift pin (Report 03 consolidation): a uniform RNG-stream shift in the
     // shared `attack::crack` matched-null loop is invisible to the determinism and
     // planted/honest-negative tests but would change these frozen f64 bits. The
     // whole-struct assert_eq is bit-exact here (every frozen float is finite and
@@ -465,7 +465,7 @@ fn frozen_bits_anti_drift_baseline() {
 
 #[test]
 fn render_record_full_body_is_byte_stable() {
-    // Full-body PIN: the entire record body (the invariant decrypt block now in
+    // Full-body pin: the entire record body (the invariant decrypt block now in
     // `attack::crack`, plus the bespoke ragbaby lines incl. the inline
     // `[DIAGNOSTIC]` beats_null) must stay byte-identical for survivor + non-survivor.
     let survivor = RagbabyCandidate {

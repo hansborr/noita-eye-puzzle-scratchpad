@@ -14,43 +14,43 @@ use super::super::*;
 /// column while propagating across the column's hidden-state branches. Bounding the
 /// width is the point (`Explanation-of-Progress.md`: full hidden-state enumeration
 /// is infeasible "even with only two hidden states per letter"); the bound and the
-/// number of dropped beams are REPORTED, never silently truncated.
+/// number of dropped beams are reported, never silently truncated.
 pub const DEFAULT_BEAM_WIDTH: usize = 8;
 
-/// Fraction of a column's aligned occurrences placed in the HELD-OUT validation
-/// fold (the rest are the TRAIN fold). A deterministic stride keeps the split
+/// Fraction of a column's aligned occurrences placed in the held-out validation
+/// fold (the rest are the train fold). A deterministic stride keeps the split
 /// reproducible. The held-out fold is the constraint source idea 3 scores beams by;
-/// it is NEVER used to build candidate edges.
+/// it is never used to build candidate edges.
 pub(crate) const HELD_OUT_STRIDE: usize = 2;
 
-/// Whether the TENTATIVE small-support prior (idea 2) is applied to the idea-3 beam.
+/// Whether the tentative small-support prior (idea 2) is applied to the idea-3 beam.
 ///
-/// The prior is **TENTATIVE everywhere** (`Deck-Cipher.md`'s shared-sections
+/// The prior is **tentative everywhere** (`Deck-Cipher.md`'s shared-sections
 /// evidence is a heuristic, not a hard constraint). The signal it exploits: when the
 /// per-letter permutations are near-identity from a shared base
 /// ([`DeckLetterRegime::SmallSupport`]), each letter's visible-coset action is more
-/// COMPACT, so its genuine edges recur across occurrences and carry HIGHER
+/// compact, so its genuine edges recur across occurrences and carry higher
 /// train-support, while spurious low-support edges are noise. So when [`Self::On`]
-/// the beam admits only candidate edges whose TRAIN support meets a minimum count
+/// the beam admits only candidate edges whose train support meets a minimum count
 /// — a soft confidence floor that should improve precision on small-support truth
-/// and, on unconstrained truth where genuine edges are NOT compact, FAIL GRACEFULLY
+/// and, on unconstrained truth where genuine edges are not compact, fail gracefully
 /// (it cannot reward a wrong assumption; at worst it drops genuine low-support
 /// edges, never inventing any). Reported with its toggle state so no result silently
 /// depends on it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SmallSupportPrior {
-    /// The prior is OFF: every train edge is a candidate. Branches are still admitted
-    /// in TRAIN-SUPPORT-rank order under the [`DEFAULT_BEAM_WIDTH`] cap, and a branch is
-    /// kept only when it STRICTLY improves held-out generalization (the smaller-set
-    /// tie-break) — so "held-out generalization" is the SELECTION rule among
+    /// The prior is off: every train edge is a candidate. Branches are still admitted
+    /// in train-support-rank order under the [`DEFAULT_BEAM_WIDTH`] cap, and a branch is
+    /// kept only when it strictly improves held-out generalization (the smaller-set
+    /// tie-break) — so "held-out generalization" is the selection rule among
     /// support-ranked, width-capped candidates, not a free search over all subsets.
     Off,
-    /// The prior is ON (TENTATIVE): only train edges with support `>= min_support`
+    /// The prior is on (tentative): only train edges with support `>= min_support`
     /// are candidate branches (a soft confidence floor), biasing recovery toward the
     /// compact, recurrent action a near-identity small-support letter produces.
     On {
-        /// Minimum TRAIN-fold occurrence support a candidate edge must have to be
-        /// admissible when the prior is ON. TENTATIVE.
+        /// Minimum train-fold occurrence support a candidate edge must have to be
+        /// admissible when the prior is on. Tentative.
         min_support: usize,
     },
 }
@@ -71,8 +71,8 @@ impl SmallSupportPrior {
         matches!(self, Self::On { .. })
     }
 
-    /// The minimum TRAIN support an edge needs to be a candidate branch under this
-    /// prior: `1` when OFF (every train edge is admissible), `min_support` when ON.
+    /// The minimum train support an edge needs to be a candidate branch under this
+    /// prior: `1` when off (every train edge is admissible), `min_support` when on.
     #[must_use]
     const fn min_candidate_support(self) -> usize {
         match self {
@@ -90,11 +90,11 @@ impl SmallSupportPrior {
 
 /// One candidate per-letter coset-edge hypothesis carried by the idea-3 beam.
 ///
-/// A beam item is a growing SET of admitted `from -> to` coset edges (the per-letter
+/// A beam item is a growing set of admitted `from -> to` coset edges (the per-letter
 /// marginal over hidden states being reconstructed) together with the held-out
 /// validation tallies that score it. Unlike the 2a single-valued core, a beam item
 /// is allowed to admit several `to` images of one `from` (different hidden-state
-/// branches of the SAME letter) — that is the marginalization. It stays a valid
+/// branches of the same letter) — that is the marginalization. It stays a valid
 /// hypothesis as long as held-out branches keep landing inside it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct BeamItem {
@@ -114,12 +114,12 @@ impl BeamItem {
     /// score — a beam that admits genuine same-letter branches predicts held-out
     /// branches that an unrelated edge set would miss.
     ///
-    /// This is pure held-out RECALL (`hits / (hits + misses)`), with NO precision /
+    /// This is pure held-out recall (`hits / (hits + misses)`), with no precision /
     /// false-positive term: admitting a further branch can only keep or raise the hit
-    /// count, so the score is monotonically NON-DECREASING in the admitted-set size and
+    /// count, so the score is monotonically non-decreasing in the admitted-set size and
     /// never penalizes over-admission on its own. The discrimination against padding is
     /// supplied by the smaller-admitted-set tie-break in [`beam_recover_column`] (a
-    /// branch is selected only when it STRICTLY improves this recall), NOT by this score
+    /// branch is selected only when it strictly improves this recall), not by this score
     /// — do not read a precision property into it.
     fn generalization(&self) -> f64 {
         let total = self.held_out_hits.saturating_add(self.held_out_misses);
@@ -127,28 +127,28 @@ impl BeamItem {
     }
 }
 
-/// The held-back evidence for one phrase column under a TRAIN / HELD-OUT split.
+/// The held-back evidence for one phrase column under a train / held-out split.
 ///
 /// The aligned phrase column is one plaintext letter across all occurrences. We
-/// split its occurrences deterministically into a TRAIN fold (the candidate edges)
-/// and a HELD-OUT fold (the validation branches). Both folds are sourced from the
-/// SHARED [`chain_links_for_pair`] primitive (load-bearing). The TRAIN edges carry a
-/// support count (how many TRAIN occurrences witnessed them) so the beam can
+/// split its occurrences deterministically into a train fold (the candidate edges)
+/// and a held-out fold (the validation branches). Both folds are sourced from the
+/// shared [`chain_links_for_pair`] primitive (load-bearing). The train edges carry a
+/// support count (how many train occurrences witnessed them) so the beam can
 /// propagate the strongest branches first.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct SplitColumnEvidence {
-    /// TRAIN-fold edges with their occurrence-support counts.
+    /// Train-fold edges with their occurrence-support counts.
     pub(crate) train_support: BTreeMap<CosetEdge, usize>,
-    /// HELD-OUT-fold branches (the validation set), in occurrence order.
+    /// Held-out-fold branches (the validation set), in occurrence order.
     pub(crate) held_out: Vec<CosetEdge>,
 }
 
-/// Builds per-column TRAIN/HELD-OUT evidence for the idea-3 marginalization.
+/// Builds per-column train/held-out evidence for the idea-3 marginalization.
 ///
-/// Mirrors [`phrase_column_evidence`] (same aligned phrase, same SHARED
+/// Mirrors [`phrase_column_evidence`] (same aligned phrase, same shared
 /// [`chain_links_for_pair`] source — load-bearing) but partitions each column's
-/// occurrences into a TRAIN fold (every occurrence index NOT on the held-out stride)
-/// and a HELD-OUT fold (every `HELD_OUT_STRIDE`-th occurrence). The held-out fold is
+/// occurrences into a train fold (every occurrence index not on the held-out stride)
+/// and a held-out fold (every `HELD_OUT_STRIDE`-th occurrence). The held-out fold is
 /// reserved purely for scoring beams — it never contributes a candidate edge, so the
 /// validation is genuinely out-of-sample.
 pub(crate) fn split_column_evidence(
@@ -212,12 +212,12 @@ pub(crate) fn split_column_evidence(
 
 /// Runs the idea-3 bounded beam over one column's hidden-state branches.
 ///
-/// The beam reconstructs the per-letter coset-edge marginal by admitting TRAIN
-/// branches in DESCENDING support order (most-witnessed hidden-state branch first),
-/// scoring each support-ranked prefix against the HELD-OUT fold, and selecting the
+/// The beam reconstructs the per-letter coset-edge marginal by admitting train
+/// branches in descending support order (most-witnessed hidden-state branch first),
+/// scoring each support-ranked prefix against the held-out fold, and selecting the
 /// best-generalizing prefix. The width bound makes only the first `beam_width`
-/// support-ranked prefixes ELIGIBLE: `best` is chosen strictly from those, and the
-/// deeper, lower-support prefixes are genuinely DROPPED (never built, never
+/// support-ranked prefixes eligible: `best` is chosen strictly from those, and the
+/// deeper, lower-support prefixes are genuinely dropped (never built, never
 /// selectable). This is a belief propagation over hidden-state branches — each
 /// admitted edge is one branch of the letter's action, the held-out fold is the
 /// posterior evidence, and the width caps the admitted-set size so we never chase the
@@ -225,12 +225,12 @@ pub(crate) fn split_column_evidence(
 /// `Explanation-of-Progress.md`).
 ///
 /// Returns `(best_item, beams_dropped)` where `best_item` is the highest-scoring beam
-/// AMONG THE IN-WIDTH CANDIDATES (its `admitted` set is the recovered per-letter
+/// among the in-width candidates (its `admitted` set is the recovered per-letter
 /// marginal for this column) and `beams_dropped` is how many support-ranked candidate
 /// prefixes fell outside the width bound and so were ineligible for selection
-/// (surfaced — no silent truncation). The TENTATIVE small-support `prior` plugs in as
-/// the candidate-pruning floor: when ON it removes train branches whose support is
-/// below [`SmallSupportPrior::min_candidate_support`] BEFORE the beam runs, biasing
+/// (surfaced — no silent truncation). The tentative small-support `prior` plugs in as
+/// the candidate-pruning floor: when on it removes train branches whose support is
+/// below [`SmallSupportPrior::min_candidate_support`] before the beam runs, biasing
 /// recovery toward the compact, recurrent action a near-identity letter produces.
 pub(crate) fn beam_recover_column(
     column: &SplitColumnEvidence,
@@ -238,9 +238,9 @@ pub(crate) fn beam_recover_column(
     prior: SmallSupportPrior,
 ) -> (BeamItem, usize) {
     let min_support = prior.min_candidate_support();
-    // Candidate branches ordered by TRAIN support (descending), then by edge for a
+    // Candidate branches ordered by train support (descending), then by edge for a
     // deterministic tiebreak. The most-supported branches are the hidden states the
-    // train fold sampled most often — the safest to admit first. The TENTATIVE
+    // train fold sampled most often — the safest to admit first. The tentative
     // small-support prior prunes low-support branches up front (idea-2 hook).
     let mut ranked: Vec<(CosetEdge, usize)> = column
         .train_support
@@ -250,11 +250,11 @@ pub(crate) fn beam_recover_column(
         .collect();
     ranked.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
 
-    // Build the prefix-`k` candidate beams in SUPPORT-RANK order: prefix k admits the
+    // Build the prefix-`k` candidate beams in support-rank order: prefix k admits the
     // top-k most-supported train branches. There are `ranked.len() + 1` candidate
     // prefixes in principle (k = 0..=len), but the width bound makes only the first
-    // `beam_width` of them (the highest-support, smallest-admitted prefixes) ELIGIBLE
-    // for selection. The deeper, lower-support prefixes are genuinely DROPPED — never
+    // `beam_width` of them (the highest-support, smallest-admitted prefixes) eligible
+    // for selection. The deeper, lower-support prefixes are genuinely dropped — never
     // built, never selectable — which is what `beams_dropped` reports. The bound is
     // load-bearing: it caps admitted-set growth so we never chase the long tail of
     // rare hidden-state branches (and never enumerate the 2^len subsets). At larger
@@ -280,16 +280,16 @@ pub(crate) fn beam_recover_column(
         });
     }
 
-    // Rank the ELIGIBLE beams: maximize held-out generalization, then prefer the
-    // SMALLER admitted set at equal generalization. `generalization()` is pure held-out
+    // Rank the eligible beams: maximize held-out generalization, then prefer the
+    // smaller admitted set at equal generalization. `generalization()` is pure held-out
     // recall and is monotonically non-decreasing as the prefix grows (admitting a
     // further branch can only keep or raise the hit count); preferring the larger set on
     // a tie would therefore admit every train branch the moment held-out recall
     // saturates — including support-rank padding that the held-out fold never validated.
-    // Preferring the SMALLER set means a branch is admitted ONLY when it STRICTLY
+    // Preferring the smaller set means a branch is admitted only when it strictly
     // improves held-out generalization, making "admits the branches that generalize and
     // prunes the rest" literally true (no out-of-sample-blind padding). `best` is chosen
-    // ONLY from the in-width candidates, so the dropped beams are truly ineligible.
+    // only from the in-width candidates, so the dropped beams are truly ineligible.
     beams.sort_by(|a, b| {
         b.generalization()
             .partial_cmp(&a.generalization())
@@ -322,12 +322,12 @@ fn score_held_out(admitted: &BTreeSet<CosetEdge>, held_out: &[CosetEdge]) -> (us
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct MarginalizationSolution {
     /// The recovered per-letter (per-column) coset-edge marginals: each is the
-    /// best beam's admitted edge set — a PARTIAL visible-coset action recovery that
-    /// ADMITS multi-valued `from` cosets (the hidden-state marginal), NOT a recovered
-    /// key and NOT the plaintext->group-element mapping. This is what idea 3 recovers
+    /// best beam's admitted edge set — a partial visible-coset action recovery that
+    /// admits multi-valued `from` cosets (the hidden-state marginal), not a recovered
+    /// key and not the plaintext->group-element mapping. This is what idea 3 recovers
     /// beyond the 2a single-valued core.
     pub(crate) recovered_columns: Vec<BTreeSet<CosetEdge>>,
-    /// The 2a single-valued-core baseline edge sets on the SAME columns (for the
+    /// The 2a single-valued-core baseline edge sets on the same columns (for the
     /// like-for-like "does marginalization recover more" comparison).
     pub(super) baseline_columns: Vec<BTreeMap<u8, u8>>,
     /// Total beams pruned by the width bound across all columns (no silent
@@ -341,18 +341,18 @@ pub(crate) struct MarginalizationSolution {
 
 /// Runs the idea-3 hidden-state marginalization attack on a ciphertext stream.
 ///
-/// For each aligned phrase column (one plaintext letter) it builds the TRAIN /
-/// HELD-OUT split ([`split_column_evidence`], sourced from the SHARED
+/// For each aligned phrase column (one plaintext letter) it builds the train /
+/// held-out split ([`split_column_evidence`], sourced from the shared
 /// [`chain_links_for_pair`] primitive — load-bearing), then runs the bounded beam
 /// ([`beam_recover_column`]) to admit the train hidden-state branches that
 /// generalize to the held-out fold. It returns the recovered per-column marginals,
 /// the 2a single-valued-core baseline on the same columns, and the disclosed beam
 /// width + dropped-beam count.
 ///
-/// Under non-trivial `H` the recovered object is the per-letter coset-edge MARGINAL
-/// over hidden states (multi-valued `from` allowed), NOT a permutation — that is the
-/// whole point of marginalizing the hidden state. It is a PARTIAL visible-coset
-/// action recovery on SYNTHETIC ground truth, never a recovered key.
+/// Under non-trivial `H` the recovered object is the per-letter coset-edge marginal
+/// over hidden states (multi-valued `from` allowed), not a permutation — that is the
+/// whole point of marginalizing the hidden state. It is a partial visible-coset
+/// action recovery on synthetic ground truth, never a recovered key.
 pub(crate) fn run_marginalization_attack(
     ciphertext: &[SymbolValue],
     phrase_len: usize,
@@ -360,8 +360,8 @@ pub(crate) fn run_marginalization_attack(
     prior: SmallSupportPrior,
 ) -> MarginalizationSolution {
     let split = split_column_evidence(ciphertext, phrase_len);
-    // The 2a baseline single-valued cores on the SAME columns: a `from` that maps
-    // exactly one way across ALL (train+held-out) branches. This is the like-for-like
+    // The 2a baseline single-valued cores on the same columns: a `from` that maps
+    // exactly one way across all (train+held-out) branches. This is the like-for-like
     // baseline the marginalization is compared against.
     let baseline_columns: Vec<BTreeMap<u8, u8>> = split
         .iter()
@@ -389,7 +389,7 @@ pub(crate) fn run_marginalization_attack(
 }
 
 /// The 2a single-valued core of one split column: the `from` cosets that map to
-/// exactly one `to` across ALL of the column's branches (train + held-out combined),
+/// exactly one `to` across all of the column's branches (train + held-out combined),
 /// matching [`ColumnEvidence::single_valued_core`] but over the split evidence. This
 /// is the baseline the idea-3 marginal is compared against on identical columns.
 pub(crate) fn single_valued_core_of_split(column: &SplitColumnEvidence) -> BTreeMap<u8, u8> {
@@ -412,14 +412,14 @@ pub(crate) fn single_valued_core_of_split(column: &SplitColumnEvidence) -> BTree
 }
 
 /// Scores a set of recovered per-column coset-edge marginals against the held truth,
-/// returning the count of TRUE edges recovered and the total truth edges.
+/// returning the count of true edges recovered and the total truth edges.
 ///
 /// For each recovered column we attribute it to the best-matching letter (the letter
 /// whose truth edge set contains the most of the column's recovered edges) and count
-/// only the recovered edges that are GENUINELY in that letter's truth. Each letter is
+/// only the recovered edges that are genuinely in that letter's truth. Each letter is
 /// claimed by at most one column (one-to-one), so a column cannot double-count a
 /// letter's edges. This is the idea-3 analogue of [`coset_recovery_fraction`] but at
-/// EDGE granularity (the marginal admits multi-valued `from`, so we score edges, not
+/// edge granularity (the marginal admits multi-valued `from`, so we score edges, not
 /// whole-letter permutations). Returns `(true_edges_recovered, truth_edges_total)`.
 pub(super) fn marginal_edge_recovery(
     truth: &[BTreeSet<CosetEdge>],
@@ -462,13 +462,13 @@ pub(super) fn marginal_edge_recovery(
     (recovered_true, truth_total)
 }
 
-/// Scores the 2a single-valued-core baseline columns against truth at EDGE
+/// Scores the 2a single-valued-core baseline columns against truth at edge
 /// granularity, for the like-for-like comparison with [`marginal_edge_recovery`].
 ///
 /// Each baseline core is a `from -> to` map (single-valued by construction); we
 /// attribute each core to its best-matching letter (one-to-one) and count its edges
 /// that are genuinely in that letter's truth. Returns `(true_edges, truth_total)`
-/// over the SAME truth denominator as the marginal so the two fractions are
+/// over the same truth denominator as the marginal so the two fractions are
 /// directly comparable (the answer to "does marginalization recover MORE").
 pub(super) fn baseline_edge_recovery(
     truth: &[BTreeSet<CosetEdge>],

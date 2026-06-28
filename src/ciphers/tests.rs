@@ -665,7 +665,7 @@ fn gak_avoid_doubles_rejects_letter_in_identity_coset() {
 
 #[test]
 fn gak_rejects_letters_sharing_a_coset() {
-    // Two DISTINCT plaintext letters whose TopCard image (the position of
+    // Two distinct plaintext letters whose TopCard image (the position of
     // card 0) coincides collide on the same coset from the identity state,
     // so construction must fail (no panic). Both place card 0 at index 2 but
     // differ elsewhere, so this is a genuine coset collision, not equality.
@@ -797,7 +797,7 @@ fn gak_rejects_non_invertible_coset_table() {
     // P0 regression. n=3, CosetTable{ref 0, coset_of [0,1,1]}, letters
     // id=[0,1,2] and q=[2,0,1]. From the identity state the two letters land
     // in distinct cosets (0 and 1), so the cheap identity-only check passes;
-    // but plaintexts [1,0] and [1,1] both encrypt to [1,1], so the key is NOT
+    // but plaintexts [1,0] and [1,1] both encrypt to [1,1], so the key is not
     // invertible. The reachable-state validator must reject it: from state
     // [2,0,1] both letters project to coset 1.
     let n = 3usize;

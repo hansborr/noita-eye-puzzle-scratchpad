@@ -4,7 +4,7 @@ use super::*;
 // Candidate auto-logging (mirrors gak_attack::eyes' private writer).
 // ---------------------------------------------------------------------------
 
-/// The top candidate's record fields, scored under BOTH language models.
+/// The top candidate's record fields, scored under both language models.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[allow(
     clippy::struct_excessive_bools,
@@ -29,7 +29,7 @@ pub struct SolveRecordCandidate<'a> {
     pub heldout_mapping_score: f64,
     /// Matched-null full-stream mean (the overfit bar).
     pub null_mean: f64,
-    /// Matched-null HELD-OUT fold mean (the generalization bar).
+    /// Matched-null held-out fold mean (the generalization bar).
     pub null_heldout_mean: f64,
     /// Matched-null overfit-guard verdict.
     pub beats_null: bool,
@@ -96,10 +96,10 @@ fn solve_record_filename(label: &str, seed: u64) -> String {
     format!("solve-{slug}-seed-{seed:016x}.md")
 }
 
-/// Writes the mandatory solve candidate record (filename is a STABLE label/seed,
+/// Writes the mandatory solve candidate record (filename is a stable label/seed,
 /// no clock; re-running the same config overwrites the prior record).
 ///
-/// Returns the path written. The record carries the HYPOTHESIS-not-decode label,
+/// Returns the path written. The record carries the hypothesis-not-decode label,
 /// all three gate verdicts, both language scores, and any candidate cleartext
 /// verbatim for human review.
 ///
@@ -238,7 +238,7 @@ fn render_solve_gates(out: &mut String, inputs: &SolveRecordInputs<'_>) -> fmt::
 
 /// Builds a [`SolveRecordInputs`] from a solve run and writes its record.
 ///
-/// Scores the top candidate's rendered text under BOTH language models (Finnish
+/// Scores the top candidate's rendered text under both language models (Finnish
 /// first), derives the survivor counts via [`candidate_survives`], and delegates
 /// to [`write_solve_candidate_record`]. This is the auto-logging entry the CLI
 /// and validation tests call.

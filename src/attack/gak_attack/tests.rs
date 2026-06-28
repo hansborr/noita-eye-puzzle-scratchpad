@@ -42,9 +42,9 @@ fn ciphertext_is_isomorph_rich_on_repeated_phrases() {
     let config = GakAttackConfig::default();
     let fixture = generate_fixture(cyclic(6), config, 7).unwrap();
     let values = glyphs_to_values(&fixture.ciphertext).unwrap();
-    // GCTAK ciphertext is the ABSOLUTE group state, so a repeated plaintext
-    // phrase does NOT repeat as identical ciphertext values. The isomorph
-    // signal lives in the EQUALITY PATTERN, which recurs with the phrase
+    // GCTAK ciphertext is the absolute group state, so a repeated plaintext
+    // phrase does not repeat as identical ciphertext values. The isomorph
+    // signal lives in the equality pattern, which recurs with the phrase
     // period. Assert at least one informative equality pattern repeats.
     let mut signature_counts: std::collections::BTreeMap<PatternSignature, usize> =
         std::collections::BTreeMap::new();
@@ -62,7 +62,7 @@ fn ciphertext_is_isomorph_rich_on_repeated_phrases() {
 }
 
 /// Solves one fixture and reports whether the real stream recovered exactly
-/// AND its chain-link verification passed (the gate's full recovery criterion).
+/// and its chain-link verification passed (the gate's full recovery criterion).
 fn recovers_exactly(group: GroupKind, config: GakAttackConfig, seed: u64) -> bool {
     let fixture = generate_fixture(group, config, seed).unwrap();
     let outcome = super::evaluate_fixture(&fixture, config, seed).unwrap();
@@ -95,7 +95,7 @@ fn gctak_solver_recovers_dihedral_non_commutative_at_high_rate() {
     // The non-commutative state group recovers on the large majority of
     // fixtures; completing every per-letter permutation from a finite stream is
     // the hard part the broader thread studies, so a minority are below the
-    // solver's current capability. The gate passes on this RATE beating the
+    // solver's current capability. The gate passes on this rate beating the
     // null, not on any single retry-selected seed.
     assert!(
         recovered * 10 >= trials * 8,
@@ -161,7 +161,7 @@ fn chain_links_match_shared_chaining_graph_primitive() {
         "expected chain links from repeated phrases"
     );
 
-    // Find a pair of equal-EQUALITY-PATTERN windows (the GCTAK isomorph signal;
+    // Find a pair of equal-equality-pattern windows (the GCTAK isomorph signal;
     // ciphertext is not value-identical) and rebuild its links directly with the
     // shared chaining_graph primitive.
     let mut direct = None;
@@ -204,8 +204,8 @@ fn chain_links_match_shared_chaining_graph_primitive() {
 
 #[test]
 fn run_gak_attack_passes_on_rate_beats_null_not_a_lucky_seed() {
-    // The gate PASSES on the recovery RATE beating the matched null across
-    // INDEPENDENT seeds — not on a single retry-selected fixture.
+    // The gate passes on the recovery rate beating the matched null across
+    // independent seeds — not on a single retry-selected fixture.
     let report = run_gak_attack(GakAttackConfig::default()).unwrap();
     assert_eq!(report.hidden_subgroup, HiddenSubgroupKind::Trivial);
 
@@ -243,7 +243,7 @@ fn run_gak_attack_passes_on_rate_beats_null_not_a_lucky_seed() {
         "cyclic (commutative) rate must be present"
     );
 
-    // The null failed on every INDEPENDENT seed (the required contrast).
+    // The null failed on every independent seed (the required contrast).
     assert!(report.all_null_failed, "shuffle null must fail everywhere");
 
     // The independent backbone has both kinds × seeds_per_kind seeds; no retry
@@ -253,9 +253,9 @@ fn run_gak_attack_passes_on_rate_beats_null_not_a_lucky_seed() {
 
 #[test]
 fn retry_selected_exemplar_is_labelled_not_the_pass_evidence() {
-    // The bounded-retry exemplar remains ONLY as an illustrative worked
+    // The bounded-retry exemplar remains only as an illustrative worked
     // example. It exposes attempts_used and a fully-recovered outcome, but the
-    // gate's PASS is `rate_gate_passed`, computed without it.
+    // gate's pass is `rate_gate_passed`, computed without it.
     let report = run_gak_attack(GakAttackConfig::default()).unwrap();
     assert_eq!(report.exemplars.len(), 2);
     for exemplar in &report.exemplars {
@@ -322,7 +322,7 @@ fn run_gak_attack_rejects_too_few_letters_as_config_error() {
 
 #[test]
 fn small_support_knob_perturbs_a_permutation() {
-    // The TENTATIVE small-support knob composes a base permutation with `radius`
+    // The tentative small-support knob composes a base permutation with `radius`
     // random transpositions and must yield a valid permutation that differs from
     // the base (for a positive radius on a non-degenerate base). It is exercised
     // at the permutation level here; the GCTAK gate itself runs at radius 0 (the
@@ -384,9 +384,9 @@ fn chain_links_are_load_bearing_corruption_breaks_recovery() {
         "real fixture must satisfy every chain-link constraint"
     );
 
-    // Rebuild the recovered perms and the SOUND same-phrase chain links the
+    // Rebuild the recovered perms and the sound same-phrase chain links the
     // solver actually verifies against (built on the augmented walk exactly as
-    // `solve_gctak` does), then CORRUPT the links by bumping each image symbol.
+    // `solve_gctak` does), then corrupt the links by bumping each image symbol.
     // Verification must then fail, proving recovery consumes the chain-link
     // `from`/`to` fields.
     let solution = solve_gctak(&values, initial, config.phrase_len, order);
@@ -404,7 +404,7 @@ fn chain_links_are_load_bearing_corruption_breaks_recovery() {
     assert_eq!(base_consistent, base_checks, "genuine links must verify");
 
     // Corrupt by randomly permuting the image (`to`) values across all links.
-    // This breaks the column correspondence the links encode (it is NOT a
+    // This breaks the column correspondence the links encode (it is not a
     // group relabelling — in particular not a translation, which a cyclic
     // `tau_a` would absorb), so the same-letter adjacency premise fails and the
     // recovered permutations can no longer explain the links.
@@ -431,7 +431,7 @@ fn chain_links_are_load_bearing_corruption_breaks_recovery() {
 
 #[test]
 fn per_letter_permutation_recovery_fraction_is_full_on_real_and_low_on_null() {
-    // The recovered per-letter permutations are scored DIRECTLY against the
+    // The recovered per-letter permutations are scored directly against the
     // held truth tau_a (the spec's preferred metric), not only the partition.
     let config = GakAttackConfig::default();
     let fixture = generate_fixture(dihedral(4), config, 5).unwrap();
@@ -465,7 +465,7 @@ fn radius_zero_gate_fixtures_are_faithful_and_bijective() {
     // At the gate's radius 0 the realized subgroup is always faithful to the
     // declared base group, the readout is bijective (trivial H verified from the
     // key), and |C| equals the declared order. This pins the default gate
-    // behavior as UNCHANGED.
+    // behavior as unchanged.
     let config = GakAttackConfig::default();
     for group in [cyclic(6), dihedral(4)] {
         for seed in 0u64..6 {
@@ -485,11 +485,11 @@ fn radius_zero_gate_fixtures_are_faithful_and_bijective() {
 
 #[test]
 fn perturbed_cyclic3_reports_realized_not_declared_structure() {
-    // Counterexample to LOCK: cyclic order 3, one PT letter, radius 1, seed 0
+    // Counterexample to lock: cyclic order 3, one PT letter, radius 1, seed 0
     // — the perturbation can leave the cyclic group, so the realized subgroup is
     // smaller than the declared order 3 and |C| < 3. The fixture must report the
-    // ACTUAL realized structure (never claim order 3 it does not realize) while
-    // keeping the trivial-H readout TRUE (verified from the key).
+    // actual realized structure (never claim order 3 it does not realize) while
+    // keeping the trivial-H readout true (verified from the key).
     let config = GakAttackConfig {
         cyclic_order: 3,
         num_pt_letters: 1,
@@ -509,13 +509,13 @@ fn perturbed_cyclic3_reports_realized_not_declared_structure() {
     );
     // Specifically size 2 (a single transposition generates an order-2 group).
     assert_eq!(realized.realized_subgroup_order, 2);
-    // |C| equals the realized subgroup size, NOT the declared order 3.
+    // |C| equals the realized subgroup size, not the declared order 3.
     assert_eq!(realized.realized_coset_alphabet_size, 2);
     assert!(
         !realized.faithful_to_declared,
         "fixture must NOT claim faithfulness to the declared base group"
     );
-    // Trivial H must remain TRUE, verified from the actual key.
+    // Trivial H must remain true, verified from the actual key.
     assert!(
         realized.readout_bijective,
         "readout must stay bijective on reachable states (trivial H verified)"
@@ -527,7 +527,7 @@ fn perturbed_cyclic3_reports_realized_not_declared_structure() {
 
 #[test]
 fn dihedral_gate_fixtures_realize_a_non_commutative_subgroup() {
-    // The dihedral label alone is not enough — assert the GENERATED letters
+    // The dihedral label alone is not enough — assert the generated letters
     // actually realize a non-commuting pair (so `choose_generators` did not pick
     // an abelian subset). Needs ≥2 letters to witness a non-commuting pair.
     let config = GakAttackConfig {
@@ -565,7 +565,7 @@ fn realized_non_commuting_pair(letters: &[Vec<usize>]) -> bool {
 }
 
 // =================================================================
-// UNIT 2a — real-GAK deck-stabilizer (non-trivial H) attack tests.
+// unit 2a — real-GAK deck-stabilizer (non-trivial H) attack tests.
 // =================================================================
 
 use super::{
@@ -584,8 +584,8 @@ fn deck_config(seeds_per_kind: usize) -> GakAttackConfig {
 
 #[test]
 fn deck_fixture_round_trips_and_is_genuinely_non_trivial_h() {
-    // Round-trip (Step-0 control) AND prove |H| > 1: two plaintexts sharing a
-    // prefix but differing later map through DISTINCT hidden states, so the
+    // Round-trip (Step-0 control) and prove |H| > 1: two plaintexts sharing a
+    // prefix but differing later map through distinct hidden states, so the
     // hidden state genuinely matters (the deck is not a bijective-readout
     // GCTAK in disguise).
     let config = deck_config(3);
@@ -605,8 +605,8 @@ fn deck_fixture_round_trips_and_is_genuinely_non_trivial_h() {
     }
 
     // Hidden-state-matters witness: encrypt two plaintexts with a shared prefix
-    // but different suffixes; the SAME ciphertext coset can be reached under
-    // different hidden states, so a single coset does NOT determine the next.
+    // but different suffixes; the same ciphertext coset can be reached under
+    // different hidden states, so a single coset does not determine the next.
     let fixture = generate_deck_fixture(5, DeckLetterRegime::Unconstrained, config, 11).unwrap();
     // Build two short plaintexts: [0,1,0] and [0,2,0] (shared prefix 0, then
     // differ). If the readout were a fixed coset permutation (trivial H), the
@@ -627,8 +627,8 @@ fn deck_fixture_round_trips_and_is_genuinely_non_trivial_h() {
 
 #[test]
 fn deck_attack_recovers_nonzero_fraction_and_beats_null_on_easiest() {
-    // The KEY go/no-go for this unit: on the easiest small-`n` deck fixture the
-    // attack recovers a NON-ZERO coset-action fraction AND beats its matched
+    // The key go/no-go for this unit: on the easiest small-`n` deck fixture the
+    // attack recovers a non-zero coset-action fraction and beats its matched
     // within-message shuffle null.
     let config = deck_config(super::DECK_SWEEP_SEEDS);
     let report =
@@ -666,12 +666,12 @@ fn deck_attack_recovers_nonzero_fraction_and_beats_null_on_easiest() {
 
 #[test]
 fn deck_attack_measures_a_tractability_bound_that_breaks_as_n_grows() {
-    // The deliverable: a measured bound. Recovery is SMALL and roughly FLAT
-    // across `n` — it does NOT climb with `n` (it is bounded by the hidden-state
-    // obstruction, not improving as `|H|` grows). We assert that SHAPE honestly:
+    // The deliverable: a measured bound. Recovery is small and roughly flat
+    // across `n` — it does not climb with `n` (it is bounded by the hidden-state
+    // obstruction, not improving as `|H|` grows). We assert that shape honestly:
     // small-`n` real strictly beats null with null at zero, and the real-vs-null
-    // margin at the largest `n` is NO LARGER than at the smallest `n` (recovery
-    // does not improve with `n`). We do NOT assert monotone degradation, which
+    // margin at the largest `n` is no larger than at the smallest `n` (recovery
+    // does not improve with `n`). We do not assert monotone degradation, which
     // the data (e.g. a rebound at n=7) does not show.
     let config = deck_config(super::DECK_SWEEP_SEEDS);
     let report = run_deck_attack_sweep(
@@ -706,8 +706,8 @@ fn deck_attack_measures_a_tractability_bound_that_breaks_as_n_grows() {
 #[test]
 fn deck_attack_matched_null_symmetry_identical_pipeline_and_population() {
     // Matched-null discipline (the historical #1 bug): real and null run the
-    // IDENTICAL pipeline over the IDENTICAL population (a within-message
-    // shuffle of the SAME ciphertext), scored against the SAME truth. Here we
+    // identical pipeline over the identical population (a within-message
+    // shuffle of the same ciphertext), scored against the same truth. Here we
     // prove symmetry directly: shuffling the ciphertext back to itself (an
     // identity permutation via a no-op) reproduces the real recovery exactly.
     let config = deck_config(3);
@@ -738,20 +738,20 @@ fn deck_attack_matched_null_symmetry_identical_pipeline_and_population() {
 
 #[test]
 fn deck_attack_true_conflict_aborts_on_a_bad_isomorph_assumption() {
-    // TRUE-conflict detection: a deliberately bad isomorph assumption (two
-    // distinct arrows OUT of one symbol under one fixed context) must be
-    // flagged as a TRUE conflict and dropped, never a false "recovery".
+    // True-conflict detection: a deliberately bad isomorph assumption (two
+    // distinct arrows out of one symbol under one fixed context) must be
+    // flagged as a true conflict and dropped, never a false "recovery".
     let mut action = ContextAction::default();
     action.insert(CosetEdge { from: 1, to: 2 });
     assert!(!action.true_conflict, "single edge is fine");
-    // A second arrow OUT of 1 to a different target => TRUE conflict.
+    // A second arrow out of 1 to a different target => true conflict.
     action.insert(CosetEdge { from: 1, to: 3 });
     assert!(
         action.true_conflict,
         "two arrows out of one symbol under one context must be a TRUE conflict"
     );
 
-    // Backward TRUE conflict: two arrows INTO one symbol.
+    // Backward true conflict: two arrows into one symbol.
     let mut into = ContextAction::default();
     into.insert(CosetEdge { from: 1, to: 9 });
     into.insert(CosetEdge { from: 2, to: 9 });
@@ -760,13 +760,13 @@ fn deck_attack_true_conflict_aborts_on_a_bad_isomorph_assumption() {
         "two arrows into one symbol under one context must be a TRUE conflict"
     );
 
-    // POSITIVE: a deliberately BAD isomorph alignment MUST make the substrate's
-    // fixed-context TRUE-conflict abort actually FIRE (not just an upper bound).
+    // Positive: a deliberately bad isomorph alignment must make the substrate's
+    // fixed-context true-conflict abort actually fire (not just an upper bound).
     //
-    // Two windows share the length-2 isomorph CORE [x, x] (signature [0,0]) but
-    // DIVERGE in the over-extension tail. Aligning them column-wise (one fixed
-    // context) yields two arrows OUT of symbol `3`:  3->5 (col 2) and 3->6
-    // (col 4).  Under ONE alignment that is impossible for a real isomorph — it
+    // Two windows share the length-2 isomorph core [x, x] (signature [0,0]) but
+    // diverge in the over-extension tail. Aligning them column-wise (one fixed
+    // context) yields two arrows out of symbol `3`:  3->5 (col 2) and 3->6
+    // (col 4).  Under one alignment that is impossible for a real isomorph — it
     // is exactly the over-extension-past-the-core bad alignment the guard exists
     // to catch.  Window A = [7,7,3,9,3], Window B = [7,7,5,9,6], a `2` filler in
     // between so the only [x,x]-prefix collisions are these two windows and they
@@ -781,15 +781,15 @@ fn deck_attack_true_conflict_aborts_on_a_bad_isomorph_assumption() {
         .map(|v| crate::core::trigram::TrigramValue::new(v).unwrap())
         .collect();
     // Full-window grouping (core_len == window_len) is a partial bijection by
-    // construction, so it can NEVER fire — proving the guard was previously
+    // construction, so it can never fire — proving the guard was previously
     // unreachable in production.
     let full = build_chain_substrate(&values, 5, 5);
     assert_eq!(
         full.true_conflict_aborts, 0,
         "full-window grouping is a partial bijection by construction; no conflict can fire"
     );
-    // Core-prefix grouping (core_len 2) aligns the divergent tails and MUST fire
-    // the fixed-context TRUE-conflict abort exactly once.
+    // Core-prefix grouping (core_len 2) aligns the divergent tails and must fire
+    // the fixed-context true-conflict abort exactly once.
     let bad = build_chain_substrate(&values, 5, 2);
     assert_eq!(
         bad.true_conflict_aborts, 1,
@@ -806,7 +806,7 @@ fn deck_attack_true_conflict_aborts_on_a_bad_isomorph_assumption() {
 fn deck_chain_links_are_load_bearing_corruption_breaks_recovery() {
     // The chain links are genuinely load-bearing (option a): the recovered
     // single-valued cores are built from the per-column edges that
-    // `phrase_column_evidence` reads STRAIGHT OUT OF `chain_links_for_pair`
+    // `phrase_column_evidence` reads straight out of `chain_links_for_pair`
     // (each occurrence window aligned against itself shifted by one). So
     // corrupting those edges must break recovery (the attack cannot ignore
     // them). Per-fixture recovery variance is high (only a minority of seeds
@@ -859,8 +859,8 @@ fn deck_attack_is_deterministic_for_fixed_seed() {
 
 #[test]
 fn deck_generator_supports_both_letter_regimes() {
-    // Both the unconstrained and TENTATIVE small-support regimes generate valid,
-    // round-tripping deck fixtures (so the NEXT unit can validate the prior).
+    // Both the unconstrained and tentative small-support regimes generate valid,
+    // round-tripping deck fixtures (so the next unit can validate the prior).
     let config = deck_config(2);
     for regime in [
         DeckLetterRegime::Unconstrained,
@@ -874,7 +874,7 @@ fn deck_generator_supports_both_letter_regimes() {
 }
 
 // =================================================================
-// UNIT 2b — hidden-state marginalization (idea 3) + small-support (idea 2).
+// unit 2b — hidden-state marginalization (idea 3) + small-support (idea 2).
 // =================================================================
 
 use super::{
@@ -884,7 +884,7 @@ use super::{
 };
 
 /// Runs the idea-3 sweep with the default robust seed count over the default deck
-/// sizes, prior OFF — the headline configuration the report bundles.
+/// sizes, prior off — the headline configuration the report bundles.
 fn marginalization_report() -> MarginalizationReport {
     let config = deck_config(super::DECK_SWEEP_SEEDS);
     run_marginalization_sweep(
@@ -899,10 +899,10 @@ fn marginalization_report() -> MarginalizationReport {
 
 #[test]
 fn beam_admits_nothing_when_held_out_fold_cannot_validate_it() {
-    // Guard: a column whose HELD-OUT fold is EMPTY is NON-VALIDATED. With held-out
+    // Guard: a column whose held-out fold is empty is non-validated. With held-out
     // recall constant at 0.0 across every prefix (no held-out branch can be a hit),
-    // the held-out-strict smaller-set tie-break selects the EMPTY admitted set, so
-    // the beam admits NO edge the held-out fold never had a chance to confirm. This
+    // the held-out-strict smaller-set tie-break selects the empty admitted set, so
+    // the beam admits no edge the held-out fold never had a chance to confirm. This
     // is what keeps the "admits the branches that generalize and prunes the rest"
     // attribution literally true and excludes train-only/saturated columns from the
     // held-out-validated marginal.
@@ -927,8 +927,8 @@ fn beam_admits_nothing_when_held_out_fold_cannot_validate_it() {
 
 #[test]
 fn idea3_recovers_nonzero_fraction_and_beats_null_on_easiest() {
-    // Idea 3 recovers a NON-ZERO per-letter coset-action (edge) fraction on the
-    // easiest small-n deck fixture AND beats its matched within-message shuffle
+    // Idea 3 recovers a non-zero per-letter coset-action (edge) fraction on the
+    // easiest small-n deck fixture and beats its matched within-message shuffle
     // null there. This is the go/no-go for the unit.
     let report = marginalization_report();
     let easiest = report.points.first().expect("at least one sweep point");
@@ -956,9 +956,9 @@ fn idea3_recovers_nonzero_fraction_and_beats_null_on_easiest() {
 
 #[test]
 fn idea3_marginalization_recovers_more_than_the_2a_single_valued_core() {
-    // The REASON idea 3 exists: marginalizing the hidden state (admitting the
+    // The reason idea 3 exists: marginalizing the hidden state (admitting the
     // multi-valued `from` branches the 2a baseline discards) recovers strictly
-    // MORE true per-letter coset edges than the 2a single-valued core — at EVERY
+    // more true per-letter coset edges than the 2a single-valued core — at every
     // swept n, not just the easiest. This is measured on identical columns over
     // the identical truth denominator (a like-for-like comparison).
     let report = marginalization_report();
@@ -981,14 +981,14 @@ fn idea3_marginalization_recovers_more_than_the_2a_single_valued_core() {
             "n={} idea3_beats_baseline must be set",
             point.state_size
         );
-        // The margin is SEVERAL-FOLD at EVERY swept n, not just the easiest: on the
-        // deterministic table idea-3 recovers AT LEAST 2x the 2a single-valued core
+        // The margin is several-fold at every swept n, not just the easiest: on the
+        // deterministic table idea-3 recovers at least 2x the 2a single-valued core
         // across the whole sweep (the measured ratios run ~5.6x / 3.7x / 4.8x / 2.7x
         // from easiest to hardest n under the held-out-strict smaller-set tie-break;
         // the >=2x floor is the honest universal multiple that holds even at the
         // hardest swept n, where the marginalization is most eroded). This matches
         // the report's "SEVERAL-FOLD at every n" wording and catches a quiet
-        // regression at ANY n, not only the easiest one.
+        // regression at any n, not only the easiest one.
         assert!(
             point.idea3_true_total >= point.baseline_true_total.saturating_mul(2),
             "idea-3 ({}) should recover at least 2x the 2a core ({}) at n={}",
@@ -997,7 +997,7 @@ fn idea3_marginalization_recovers_more_than_the_2a_single_valued_core() {
             point.state_size
         );
     }
-    // On the EASIEST fixture the margin is even larger (~5.6x measured): keep the
+    // On the easiest fixture the margin is even larger (~5.6x measured): keep the
     // strict >= 3x lock there, the regime where the multi-valued part the 2a core
     // discards is most of the action.
     let easiest = report.points.first().unwrap();
@@ -1012,10 +1012,10 @@ fn idea3_marginalization_recovers_more_than_the_2a_single_valued_core() {
 #[test]
 fn idea3_recovery_breaks_as_hidden_state_count_grows() {
     // The measured tractability bound (the deliverable): idea-3 recovery is
-    // STRONGEST at the smallest n and DOES NOT improve as |H| = (n-1)! grows. We
-    // assert the breaking SHAPE honestly: the easiest-n mean fraction strictly
+    // strongest at the smallest n and does not improve as |H| = (n-1)! grows. We
+    // assert the breaking shape honestly: the easiest-n mean fraction strictly
     // exceeds the largest-n mean fraction (recovery degrades), while |H| grows
-    // factorially. We do NOT claim strict monotonic degradation at every step.
+    // factorially. We do not claim strict monotonic degradation at every step.
     let report = marginalization_report();
     assert_eq!(report.points.len(), 4);
     let small = report.points.first().unwrap();
@@ -1036,9 +1036,9 @@ fn idea3_recovery_breaks_as_hidden_state_count_grows() {
 #[test]
 fn idea3_matched_null_symmetry_identical_pipeline_and_population() {
     // Matched-null discipline (the historical #1 bug): real and null run the
-    // IDENTICAL marginalization pipeline (same phrase_len, beam_width, prior) over
-    // the IDENTICAL population (a within-message shuffle of the SAME ciphertext),
-    // scored against the SAME truth. Determinism gives identical scores on the
+    // identical marginalization pipeline (same phrase_len, beam_width, prior) over
+    // the identical population (a within-message shuffle of the same ciphertext),
+    // scored against the same truth. Determinism gives identical scores on the
     // identical population; the real shuffle null must score no higher than real.
     let config = deck_config(3);
     let fixture = generate_deck_fixture(5, DeckLetterRegime::Unconstrained, config, 3).unwrap();
@@ -1075,7 +1075,7 @@ fn idea3_matched_null_symmetry_identical_pipeline_and_population() {
 
 #[test]
 fn idea3_beam_width_bound_is_respected_and_reported() {
-    // The beam-width bound is ENFORCED and the dropped-beam count is SURFACED (no
+    // The beam-width bound is enforced and the dropped-beam count is surfaced (no
     // silent truncation): only the first `beam_width` support-ranked prefixes are
     // eligible for selection, so a recovered column admits at most `beam_width - 1`
     // branches (the largest eligible prefix), and the surplus deeper prefixes are
@@ -1102,8 +1102,8 @@ fn idea3_beam_width_bound_is_respected_and_reported() {
 
 #[test]
 fn idea3_beam_width_genuinely_caps_admitted_set_size() {
-    // The width bound is LOAD-BEARING, not cosmetic: because `best` is selected
-    // ONLY from the first `beam_width` support-ranked prefixes (k = 0..beam_width,
+    // The width bound is load-bearing, not cosmetic: because `best` is selected
+    // only from the first `beam_width` support-ranked prefixes (k = 0..beam_width,
     // admitting at most `beam_width - 1` branches), no recovered column may ever
     // admit `beam_width` or more edges. A regression that selected a deeper
     // (dropped) prefix would admit more and fail here, so this test pins that the
@@ -1147,10 +1147,10 @@ fn idea3_beam_width_genuinely_caps_admitted_set_size() {
 
 #[test]
 fn idea3_small_support_prior_validates_idea2() {
-    // Idea-2 validation (TENTATIVE everywhere). The robust, structurally
-    // guaranteed property: the prior FAILS GRACEFULLY — its confidence floor only
-    // ever DROPS genuine low-support edges (recall ON <= recall OFF in BOTH
-    // conditions) and never invents any, so PRECISION is held or improved and a
+    // Idea-2 validation (tentative everywhere). The robust, structurally
+    // guaranteed property: the prior fails gracefully — its confidence floor only
+    // ever drops genuine low-support edges (recall on <= recall off in both
+    // conditions) and never invents any, so precision is held or improved and a
     // wrong small-support assumption is never rewarded.
     let report = marginalization_report();
     let v = report.small_support_validation;
@@ -1162,13 +1162,13 @@ fn idea3_small_support_prior_validates_idea2() {
         v.broad_truth_prior_on,
         v.broad_truth_prior_off
     );
-    // Precision is OBSERVED to hold-or-improve under the floor in both conditions
-    // on THIS bundled 24-seed aggregate fixture. This is NOT a structural invariant:
+    // Precision is observed to hold-or-improve under the floor in both conditions
+    // on this bundled 24-seed aggregate fixture. This is not a structural invariant:
     // on single fixtures the relation can flip, because the precision numerator is a
     // greedy one-to-one best-letter attribution (`marginal_edge_recovery`) while the
-    // denominator is a flat admitted-edge sum, so dropping low-support TRUE edges can
+    // denominator is a flat admitted-edge sum, so dropping low-support true edges can
     // lower the numerator faster than the denominator. The asserts below pass on the
-    // shipped aggregate and are deliberately NOT promoted to a per-seed loop.
+    // shipped aggregate and are deliberately not promoted to a per-seed loop.
     assert!(
         v.small_precision(true) >= v.small_precision(false),
         "prior holds-or-improves precision on the bundled 24-seed aggregate (small-support truth): on={:.3} off={:.3}",
@@ -1181,10 +1181,10 @@ fn idea3_small_support_prior_validates_idea2() {
         v.broad_precision(true),
         v.broad_precision(false)
     );
-    // The WEAK, honestly-labelled selective signal: the prior retains slightly
-    // MORE recall (proportionally) on small-support truth than on unconstrained
+    // The weak, honestly-labelled selective signal: the prior retains slightly
+    // more recall (proportionally) on small-support truth than on unconstrained
     // truth — it helps when true at least as much as when false. This is a thin,
-    // TENTATIVE margin, reported as such; the graceful-failure property above is
+    // tentative margin, reported as such; the graceful-failure property above is
     // the load-bearing guarantee.
     assert!(
         v.prior_is_discriminative()
@@ -1197,8 +1197,8 @@ fn idea3_small_support_prior_validates_idea2() {
 
 #[test]
 fn idea3_small_support_prior_off_in_default_run_so_results_do_not_silently_depend_on_it() {
-    // No idea-3 result silently depends on the TENTATIVE prior: the bundled
-    // headline sweep runs the prior OFF, and the prior's effect lives only in the
+    // No idea-3 result silently depends on the tentative prior: the bundled
+    // headline sweep runs the prior off, and the prior's effect lives only in the
     // explicitly-labelled validation field.
     let report = run_gak_attack(GakAttackConfig::default()).unwrap();
     assert_eq!(
@@ -1270,14 +1270,14 @@ fn idea3_is_deterministic_for_fixed_seed() {
 
 #[test]
 fn idea3_held_out_validation_is_load_bearing_not_a_ground_truth_peek() {
-    // The beam is scored ONLY by held-out chain-link generalization (no truth
-    // peek): on a stream with NO repeated-phrase structure the held-out fold is
+    // The beam is scored only by held-out chain-link generalization (no truth
+    // peek): on a stream with no repeated-phrase structure the held-out fold is
     // empty / unaligned, so the beam recovers ~nothing — exactly the matched-null
     // behaviour. Here we directly check the small-support validation runs without
-    // ever consulting ground truth in the recovery (truth is only used to SCORE).
+    // ever consulting ground truth in the recovery (truth is only used to score).
     let config = deck_config(4);
     let v = run_small_support_validation(config, DEFAULT_BEAM_WIDTH).unwrap();
-    // Sanity: the validation actually recovered SOMETHING in both conditions
+    // Sanity: the validation actually recovered something in both conditions
     // (so the held-out-driven beam is doing real work, not trivially empty).
     assert!(v.small_truth_prior_off > 0 && v.broad_truth_prior_off > 0);
     assert!(v.small_truth_total > 0 && v.broad_truth_total > 0);
@@ -1286,7 +1286,7 @@ fn idea3_held_out_validation_is_load_bearing_not_a_ground_truth_peek() {
 #[test]
 fn run_gak_attack_surfaces_the_idea3_marginalization_result() {
     // The bundled report carries the idea-3 (unit-2b) marginalization result,
-    // swept over the default deck sizes, beating the 2a baseline AND the matched
+    // swept over the default deck sizes, beating the 2a baseline and the matched
     // null on the easiest fixture, with the small-support validation attached.
     let report = run_gak_attack(GakAttackConfig::default()).unwrap();
     let m = &report.marginalization;
@@ -1340,13 +1340,13 @@ fn run_gak_attack_surfaces_the_deck_partial_recovery_bound() {
 }
 
 // =================================================================
-// UNIT 2c — EYES STEP 3 tests (the ONLY unit touching the real eyes).
+// unit 2c — eyes step 3 tests (the only unit touching the real eyes).
 //
-// These pin the entry path / corpus pins, the held-out POSITIVE CONTROL
+// These pin the entry path / corpus pins, the held-out positive control
 // firing on synthetic signal, the matched-null discipline, the Thread-3
 // consultation, the candidate-record write + honesty strings, and — crucially
-// — they DO NOT assert a decode / a recovered eye plaintext. The real-eye
-// outcome is reported HONESTLY (whatever it is); only the honesty surface and
+// — they do not assert a decode / a recovered eye plaintext. The real-eye
+// outcome is reported honestly (whatever it is); only the honesty surface and
 // the structural-gate machinery are asserted, never a "passes" verdict.
 // =================================================================
 
@@ -1362,10 +1362,10 @@ use crate::analysis::orders;
 fn eyes_test_config(dir: &std::path::Path) -> EyesAttackConfig {
     EyesAttackConfig {
         seed: 0x1234_5678,
-        // trials only set the in-test matched-null sample size (NOT a production
+        // trials only set the in-test matched-null sample size (not a production
         // default); coarser p-value resolution is fine here because the eyes score 0
         // (no tail to resolve). The genuine null calibration is exercised by the
-        // positive-control test, which must KEEP enough trials to fire.
+        // positive-control test, which must keep enough trials to fire.
         trials: 8,
         beam_width: super::EYES_DEFAULT_BEAM_WIDTH,
         candidates_dir: dir.to_path_buf(),
@@ -1401,7 +1401,7 @@ fn eyes_run_uses_verified_entry_path_and_pins_corpus() {
 
 #[test]
 fn eyes_held_out_positive_control_fires_on_synthetic_signal() {
-    // POSITIVE CONTROL: the held-out predictor must fire on a SYNTHETIC
+    // Positive control: the held-out predictor must fire on a synthetic
     // isomorph-rich eye-shaped fixture (known signal). This is the proof the
     // held-out gate can detect real structure when it exists.
     let config = eyes_test_config(&scratch_dir("posctrl"));
@@ -1413,9 +1413,9 @@ fn eyes_held_out_positive_control_fires_on_synthetic_signal() {
     );
     assert!(control.real_score > control.null_score);
     assert!(control.real_score > 0);
-    // The control fires on the SAME fair gate the eyes face — its real-vs-null
-    // excess clears its OWN population-relative material-effect bar. This is what
-    // makes the bar both achievable (the eyes COULD pass) AND validated.
+    // The control fires on the same fair gate the eyes face — its real-vs-null
+    // excess clears its own population-relative material-effect bar. This is what
+    // makes the bar both achievable (the eyes could pass) and validated.
     assert!(
         control.scoreable_edges > 0,
         "control must have scoreable edges"
@@ -1432,9 +1432,9 @@ fn eyes_held_out_positive_control_fires_on_synthetic_signal() {
 
 #[test]
 fn eyes_material_effect_bar_is_fair_below_the_eyes_max_achievable() {
-    // HONESTY: the material-effect bar must be ACHIEVABLE on the eyes
-    // population — strictly below their MAX achievable score (every scoreable edge
-    // a HIT) — so a genuine eye signal COULD clear it. The "no candidate" negative
+    // Honesty: the material-effect bar must be achievable on the eyes
+    // population — strictly below their max achievable score (every scoreable edge
+    // a hit) — so a genuine eye signal could clear it. The "no candidate" negative
     // must rest on a detector the eyes could in principle have passed, not on an
     // absolute bar pinned to the much larger synthetic control's population.
     let report = run_gak_attack_eyes(eyes_test_config(&scratch_dir("fairbar"))).unwrap();
@@ -1460,7 +1460,7 @@ fn eyes_material_effect_bar_is_fair_below_the_eyes_max_achievable() {
         report.material_effect_threshold > 0.0,
         "the bar must be a real positive effect-size threshold, not vacuous"
     );
-    // The eyes still fail it HONESTLY (score 0, no candidate) — the verdict stands.
+    // The eyes still fail it honestly (score 0, no candidate) — the verdict stands.
     assert_eq!(report.real_score, 0, "the eyes genuinely score 0");
     assert!(
         !report.material_effect_met,
@@ -1471,16 +1471,16 @@ fn eyes_material_effect_bar_is_fair_below_the_eyes_max_achievable() {
 
 #[test]
 fn eyes_no_candidate_verdict_is_stable_across_null_seeds() {
-    // The "no candidate / decode blocked" verdict is PINNED across multiple
+    // The "no candidate / decode blocked" verdict is pinned across multiple
     // matched-null seeds. The eyes score 0 regardless of the null shuffle seed, so
     // the negative cannot be an artifact of one lucky/unlucky null draw.
     for seed in [0x1111_2222u64, 0xdead_beef] {
         let config = super::EyesAttackConfig {
             seed,
-            // trials only set the in-test matched-null sample size (NOT a production
+            // trials only set the in-test matched-null sample size (not a production
             // default); coarser p-value resolution is fine because the eyes score 0
             // (no tail to resolve). The genuine null calibration is exercised by the
-            // positive-control test, which must KEEP enough trials to fire.
+            // positive-control test, which must keep enough trials to fire.
             trials: 8,
             beam_width: super::EYES_DEFAULT_BEAM_WIDTH,
             candidates_dir: scratch_dir(&format!("seed-{seed:x}")),
@@ -1528,8 +1528,8 @@ fn eyes_run_rejects_zero_trials() {
 fn synthetic_isomorph_rich_fixture_scores_above_a_shuffle() {
     // The synthetic fixture genuinely carries held-out-predictable structure:
     // its coverage-weighted score strictly exceeds a within-message shuffle of
-    // the SAME multiset (the matched-null contrast on known signal). This is the
-    // strict statistic that the within-message shuffle CANNOT game.
+    // the same multiset (the matched-null contrast on known signal). This is the
+    // strict statistic that the within-message shuffle cannot game.
     let fixture = synthetic_isomorph_rich_eye_message(0x1234_5678).unwrap();
     let real = eyes_aggregate_score(
         std::slice::from_ref(&fixture),
@@ -1554,9 +1554,9 @@ fn synthetic_isomorph_rich_fixture_scores_above_a_shuffle() {
 
 #[test]
 fn eyes_real_outcome_is_reported_honestly_not_hardcoded_as_passing() {
-    // CRITICAL HONESTY TEST: we do NOT assert the real eyes pass. We assert the
-    // report is well-formed and that IF no candidate survived (the expected
-    // case) then the cleartext gate was NOT run and the decode is blocked. We
+    // Critical honesty test: we do not assert the real eyes pass. We assert the
+    // report is well-formed and that if no candidate survived (the expected
+    // case) then the cleartext gate was not run and the decode is blocked. We
     // never assert a recovered eye plaintext.
     let report = run_gak_attack_eyes(eyes_test_config(&scratch_dir("honest"))).unwrap();
     // The matched-null p-value is a proper probability.
@@ -1567,7 +1567,7 @@ fn eyes_real_outcome_is_reported_honestly_not_hardcoded_as_passing() {
     assert!(report.three_consistency.positive_control_fired);
     assert_eq!(report.three_consistency.robust_internal_violations, 0);
     assert!(report.three_consistency.safe_extents > 0);
-    // Honesty invariant: the SPECULATIVE cleartext gate runs IFF a candidate
+    // Honesty invariant: the speculative cleartext gate runs IFF a candidate
     // survived both structural gates. No decode is asserted either way.
     assert_eq!(
         report.speculative_cleartext.is_some(),
@@ -1585,7 +1585,7 @@ fn eyes_real_outcome_is_reported_honestly_not_hardcoded_as_passing() {
 #[test]
 fn eyes_candidate_record_is_written_with_honesty_strings() {
     // The mandatory candidate record is written and contains the
-    // HYPOTHESIS-not-decode label, the held-out verdict, the Thread-3 verdict, and
+    // hypothesis-not-decode label, the held-out verdict, the Thread-3 verdict, and
     // the candidate-logging protocol framing.
     let dir = scratch_dir("record");
     let report = run_gak_attack_eyes(eyes_test_config(&dir)).unwrap();
@@ -1607,10 +1607,10 @@ fn eyes_candidate_record_is_written_with_honesty_strings() {
 
 #[test]
 fn eyes_record_logs_cleartext_verbatim_when_speculative_gate_runs() {
-    // If the SPECULATIVE gate runs, its implied plaintext is logged VERBATIM
-    // with Finnish AND English scores. We exercise the renderer directly with a
+    // If the speculative gate runs, its implied plaintext is logged verbatim
+    // with Finnish and English scores. We exercise the renderer directly with a
     // synthesized "survived" input so the verbatim-logging path is covered even
-    // though the real eyes are expected NOT to surface a candidate.
+    // though the real eyes are expected not to surface a candidate.
     let speculative = super::SpeculativeCleartext {
         implied_plaintext: "TESTHYPOTHESISPLAINTEXT".to_owned(),
         finnish_score: -3.21,
@@ -1659,14 +1659,14 @@ fn eyes_record_logs_cleartext_verbatim_when_speculative_gate_runs() {
     assert!(body.contains("TESTHYPOTHESISPLAINTEXT"));
     assert!(body.contains("Finnish bigram score"));
     assert!(body.contains("English bigram score"));
-    // Even a surviving candidate is a HYPOTHESIS, never a decode.
+    // Even a surviving candidate is a hypothesis, never a decode.
     assert!(body.contains("HYPOTHESIS"));
     assert!(body.contains("NOT a recovered"));
 }
 
 #[test]
 fn eyes_message_evidence_splits_disjoint_train_and_held_out_contexts() {
-    // The TRAIN and HELD-OUT context families are disjoint (whole signature
+    // The train and held-out context families are disjoint (whole signature
     // groups are assigned to one fold), so the held-out validation is genuinely
     // out-of-sample. Assert the evidence is well-formed and within the alphabet.
     let grids = orders::corpus_grids().unwrap();

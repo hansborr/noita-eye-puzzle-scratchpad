@@ -95,7 +95,7 @@ impl HiddenSubgroupKind {
 /// enumerating reachable states — never merely declared.
 ///
 /// The declared `group_kind.order()` is the *base* group order. When the
-/// TENTATIVE small-support knob (`small_support_radius > 0`) perturbs a letter
+/// tentative small-support knob (`small_support_radius > 0`) perturbs a letter
 /// permutation it can leave the base group's regular representation, so the
 /// subgroup the chosen letters actually generate (and hence the realized
 /// ciphertext-coset alphabet `|C|`) may be **smaller** than the declared order.
@@ -118,7 +118,7 @@ pub struct RealizedStructure {
     /// Whether the realized subgroup is faithful to the declared base group
     /// (`realized_subgroup_order == declared_group_order`). Always `true` for the
     /// `small_support_radius == 0` gate regime; can be `false` only under the
-    /// TENTATIVE perturbation knob.
+    /// tentative perturbation knob.
     pub faithful_to_declared: bool,
 }
 
@@ -138,7 +138,7 @@ pub struct SyntheticFixture {
     /// The hidden-subgroup kind this fixture realizes.
     pub hidden_subgroup_kind: HiddenSubgroupKind,
     /// The structure the constructed key **actually** realizes (derived from the
-    /// key, not declared). See [`RealizedStructure`]; under the TENTATIVE
+    /// key, not declared). See [`RealizedStructure`]; under the tentative
     /// small-support knob this can differ from `group_kind.order()`.
     pub realized: RealizedStructure,
 }
@@ -156,7 +156,7 @@ pub struct SyntheticFixture {
 /// bijective (`|C| = |G|`), i.e. GCTAK.
 ///
 /// `config.num_pt_letters` distinct non-identity group elements become the
-/// plaintext letters' permutations. `config.small_support_radius` (TENTATIVE)
+/// plaintext letters' permutations. `config.small_support_radius` (tentative)
 /// composes each letter permutation with `≤k` random transpositions; `0` is the
 /// unconstrained regime the gate uses. The plaintext is a repeated-phrase
 /// template so the ciphertext is isomorph-rich.
@@ -195,7 +195,7 @@ pub fn generate_fixture(
     )?;
 
     // Realize each generator as its left-regular permutation, then optionally
-    // perturb by ≤k transpositions (TENTATIVE small-support knob). The perturbed
+    // perturb by ≤k transpositions (tentative small-support knob). The perturbed
     // permutation is still a valid S_n element; GCTAK only needs a bijective
     // readout, which the CosetTable identity projection provides regardless.
     let mut plaintext_letters = Vec::with_capacity(config.num_pt_letters);
@@ -226,8 +226,8 @@ pub fn generate_fixture(
     }
     let ciphertext = gak_encrypt(&plaintext, &key)?;
 
-    // Derive the structure the constructed key ACTUALLY realizes (do not
-    // declare it). Under the TENTATIVE small-support knob the perturbed letters
+    // Derive the structure the constructed key actually realizes (do not
+    // declare it). Under the tentative small-support knob the perturbed letters
     // may generate a smaller subgroup than the declared base order; report the
     // realized size honestly and verify (rather than assume) that the readout
     // stays bijective on reachable states (trivial hidden subgroup).
@@ -409,7 +409,7 @@ pub(crate) fn readout_of_state(key: &GakKey, state: &[usize]) -> Result<usize, G
 
 /// Composes `permutation` with `radius` random transpositions in place.
 ///
-/// **TENTATIVE small-support heuristic** (`Deck-Cipher.md`): the result is still a
+/// **tentative small-support heuristic** (`Deck-Cipher.md`): the result is still a
 /// valid `S_n` permutation. The GCTAK gate runs with `radius == 0`.
 pub(crate) fn apply_small_support(
     permutation: &mut [usize],

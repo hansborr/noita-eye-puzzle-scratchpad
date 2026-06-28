@@ -49,8 +49,8 @@
 //! search rerun on a Fisher-Yates shuffle of the ciphertext *letter* stream with
 //! the key-number sequence `N_i` held fixed), it clears the z-score floor
 //! ([`Z_THRESHOLD`]) and the absolute nat floor ([`MIN_NAT_MARGIN`]) on the
-//! quadgram **mean** scale, AND `encrypt(decrypt) == ciphertext` (a round-trip
-//! sanity gate), AND a held-out odd-index fold reads above the matched-null mean.
+//! quadgram **mean** scale, and `encrypt(decrypt) == ciphertext` (a round-trip
+//! sanity gate), and a held-out odd-index fold reads above the matched-null mean.
 //! The matched null shares the search's degrees of freedom, so it measures exactly
 //! what the keyed-alphabet search extracts from noise. A random-keyed-alphabet null
 //! is reported as a diagnostic only — Ragbaby has no key-independence leak for it to
@@ -107,10 +107,10 @@ pub const DEFAULT_T1: f64 = 0.3;
 /// Default deterministic seed for the search and both nulls.
 pub const DEFAULT_SEED: u64 = 0x7261_6762_6162_7900;
 
-/// Default random-keyed-alphabet null-trial count (the reported DIAGNOSTIC).
+/// Default random-keyed-alphabet null-trial count (the reported diagnostic).
 pub const DEFAULT_NULL_TRIALS: usize = 64;
 
-/// Default matched-null trial count: reruns of the FULL search on a shuffled
+/// Default matched-null trial count: reruns of the full search on a shuffled
 /// ciphertext letter stream. Each trial is a full multi-restart anneal, so this is
 /// the dominant cost knob — kept modest.
 pub const DEFAULT_MATCHED_NULL_TRIALS: usize = 6;
@@ -223,8 +223,8 @@ fn summarize_control(length: usize, base: usize, accs: &[f64]) -> ControlPoint {
 
 /// Runs the planted-recovery control sweep: for each `(length, base)`, plant a
 /// random-keyed-alphabet Ragbaby of an English excerpt of `corpus`, run the
-/// optimizer, and report the recovery rate and accuracy. This is the POSITIVE
-/// CONTROL that makes a negative on the real puzzles trustworthy. Deterministic in
+/// optimizer, and report the recovery rate and accuracy. This is the positive
+/// control that makes a negative on the real puzzles trustworthy. Deterministic in
 /// `control.search.seed`.
 #[must_use]
 pub fn control_sweep(
@@ -351,7 +351,7 @@ fn render_record(
     Ok(out)
 }
 
-/// Writes a candidate record (a labelled HYPOTHESIS, never a decode) to `dir`,
+/// Writes a candidate record (a labelled hypothesis, never a decode) to `dir`,
 /// creating the directory if needed. The filename is stable (label + base +
 /// numbering + sign + seed; no wall clock), so re-running overwrites the prior
 /// record. Returns the path written.

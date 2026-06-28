@@ -87,7 +87,7 @@ fn solve_subcommand_stdout_matches_golden_fixture() {
 fn solve_subcommand_mapping_search_runs_and_logs() {
     // Phase-2 mapping search over the CLI (deterministic: fixed seed, SplitMix64).
     // A smoke check (not byte-exact) keeps it robust to float formatting while
-    // proving the searched path runs end-to-end and auto-logs a HYPOTHESIS.
+    // proving the searched path runs end-to-end and auto-logs a hypothesis.
     let dir = temp_candidates_dir("search");
     let dir_str = dir.to_str().expect("temp dir path is valid UTF-8");
     let run = run_noita_eye_raw(&[

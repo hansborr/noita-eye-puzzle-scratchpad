@@ -60,7 +60,7 @@ pub enum GakAttackError {
     },
     /// A nonzero `small_support_radius` was requested for the GCTAK gate. The gate
     /// runs **unconstrained** (radius `0`) by construction so that the report's
-    /// declared GCTAK assumptions stay true; the TENTATIVE small-support prior is
+    /// declared GCTAK assumptions stay true; the tentative small-support prior is
     /// exercised only by the deck / marginalization validation sweeps (via
     /// [`crate::attack::gak_attack::DeckLetterRegime::SmallSupport`] and
     /// [`crate::attack::gak_attack::SmallSupportPrior`]), never by the
@@ -99,7 +99,7 @@ pub enum GakAttackError {
     PerfectIsomorphism(PerfectIsomorphismError),
     /// The held-out positive control did not fire on the synthetic isomorph-rich
     /// eye-shaped fixture (Step 3). The held-out predictor must beat its matched
-    /// null on KNOWN signal or the held-out gate is not trustworthy; this is a
+    /// null on known signal or the held-out gate is not trustworthy; this is a
     /// methodology failure, never an eye finding.
     HeldOutPositiveControlFailed {
         /// Coverage-weighted held-out score the predictor achieved on the synthetic
@@ -109,7 +109,7 @@ pub enum GakAttackError {
         /// lower).
         null_score: i64,
     },
-    /// A language model used by the SPECULATIVE cleartext gate could not be built
+    /// A language model used by the speculative cleartext gate could not be built
     /// (Step 3). The cleartext path is speculative and never primary, so this is
     /// surfaced rather than silently skipped.
     Language(language::LanguageError),

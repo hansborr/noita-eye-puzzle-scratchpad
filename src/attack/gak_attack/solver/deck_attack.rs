@@ -9,62 +9,62 @@ use super::{
 pub(crate) struct DeckAttackSolution {
     /// The merged single-valued-core actions: each is a partial map on the visible
     /// coset alphabet, light-merged across phrase columns. These are the recovered
-    /// PARTIAL visible-coset action maps scored against ground truth — a fraction of
-    /// per-letter visible-coset transitions, NOT a recovered key and NOT the
+    /// partial visible-coset action maps scored against ground truth — a fraction of
+    /// per-letter visible-coset transitions, not a recovered key and not the
     /// plaintext->group-element mapping.
     pub(crate) recovered_actions: Vec<BTreeMap<u8, u8>>,
-    /// Number of fixed-context TRUE-conflict aborts (bad isomorph alignments
+    /// Number of fixed-context true-conflict aborts (bad isomorph alignments
     /// witnessed by [`build_chain_substrate`]). Surfaced — a feature.
     pub(crate) true_conflict_aborts: usize,
     /// Distinct visible coset symbols touched (chain-link coverage).
     pub(crate) symbols_touched: usize,
-    /// Number of fixed-context occurrence-pair contexts that survived (no TRUE
+    /// Number of fixed-context occurrence-pair contexts that survived (no true
     /// conflict) in the chain substrate — the coverage/conflict-detection counter.
     pub(crate) surviving_contexts: usize,
-    /// The MEASURED hidden-state obstruction: how much of the per-letter
-    /// visible-coset action is multi-valued across hidden states (the part NOT
+    /// The measured hidden-state obstruction: how much of the per-letter
+    /// visible-coset action is multi-valued across hidden states (the part not
     /// recoverable without idea 3). This is a headline honest result of this unit.
     pub(crate) obstruction: HiddenStateObstruction,
 }
 
 /// Runs the deck visible-coset action-recovery attack (idea 1, this unit).
 ///
-/// **What this recovers.** Only PARTIAL VISIBLE-COSET ACTION MAPS —
-/// a fraction of the per-letter `from -> to` visible-coset transitions — NOT a
-/// recovered key and NOT the plaintext->group-element mapping. Under non-trivial
-/// `H` the visible transition depends on the FULL hidden state, so most of a
-/// letter's action is multi-valued across hidden states and is NOT recoverable here
+/// **What this recovers.** Only partial visible-coset action maps —
+/// a fraction of the per-letter `from -> to` visible-coset transitions — not a
+/// recovered key and not the plaintext->group-element mapping. Under non-trivial
+/// `H` the visible transition depends on the full hidden state, so most of a
+/// letter's action is multi-valued across hidden states and is not recoverable here
 /// (it is measured as [`HiddenStateObstruction`] instead). That bound is the point.
 ///
 /// **Pipeline.**
 /// 1. **Chain-link substrate (coverage + conflict detection).**
 ///    [`build_chain_substrate`] groups occurrence pairs by full-window
 ///    [`PatternSignature`] and turns each into one fixed-context partial permutation
-///    via the SHARED [`chain_links_for_pair`] primitive. A genuine fixed-context
-///    TRUE conflict there (two arrows out of / into one symbol under ONE alignment)
+///    via the shared [`chain_links_for_pair`] primitive. A genuine fixed-context
+///    true conflict there (two arrows out of / into one symbol under one alignment)
 ///    proves a bad isomorph alignment and aborts that branch. This substrate is
-///    REUSED for coverage (`symbols_touched`) and conflict detection — it is NOT the
+///    reused for coverage (`symbols_touched`) and conflict detection — it is not the
 ///    recovery substrate.
 /// 2. **Per-column recovery (the recovery substrate).** [`phrase_column_evidence`]
 ///    accumulates each phrase column's one-step visible-coset transitions — sourced
-///    from the SAME [`chain_links_for_pair`] primitive (load-bearing: corrupting the
+///    from the same [`chain_links_for_pair`] primitive (load-bearing: corrupting the
 ///    links changes these edges and breaks recovery). Cross-hidden-state
-///    multi-valuedness is EXPECTED here, so it is measured, not aborted; only each
+///    multi-valuedness is expected here, so it is measured, not aborted; only each
 ///    column's single-valued core feeds recovery.
 /// 3. **Light merge over consistent columns.** [`merge_context_actions`] merges
 ///    single-valued cores only when their shared support meets the group-dependent
 ///    [`merge_overlap_threshold`] and they never contradict — a deliberately
-///    conservative light merge, NOT full Schreier-graph constraint propagation.
+///    conservative light merge, not full Schreier-graph constraint propagation.
 ///    Unequal cycles never block a merge (the hidden state shortens some).
 ///
-/// ## Hooks for the NEXT unit (idea 2 + idea 3)
+/// ## Hooks for the next unit (idea 2 + idea 3)
 ///
 /// - **Small-support prior (idea 2):** [`merge_overlap_threshold`] is where the
-///   TENTATIVE near-identity prior becomes a SOFT penalty — biasing merges toward
-///   actions expressible as `≤k` transpositions. It is NOT applied here (this unit
+///   tentative near-identity prior becomes a soft penalty — biasing merges toward
+///   actions expressible as `≤k` transpositions. It is not applied here (this unit
 ///   measures the unconstrained bound); the hook is the single function to extend.
 /// - **Hidden-state marginalization (idea 3):** the [`HiddenStateObstruction`] this
-///   unit MEASURES is exactly what idea 3 must overcome. [`merge_context_actions`]
+///   unit measures is exactly what idea 3 must overcome. [`merge_context_actions`]
 ///   is where a belief-propagation / beam search over the hidden-state posterior
 ///   replaces the greedy single-valued-core merge, so the multi-valued part becomes
 ///   recoverable. The greedy merge is intentionally the simplest correct light merge
@@ -74,13 +74,13 @@ pub(crate) fn run_deck_attack(
     state_size: usize,
     phrase_len: usize,
 ) -> DeckAttackSolution {
-    // (1) Chain-link substrate: REUSED for coverage + fixed-context conflict
-    // detection (NOT the recovery substrate). The phrase-length window (not a short
+    // (1) Chain-link substrate: reused for coverage + fixed-context conflict
+    // detection (not the recovery substrate). The phrase-length window (not a short
     // window) is essential: the visible coset alphabet is tiny (|C| = n), so a short
     // window collides on nearly every position; the long phrase window is what makes
     // the equality-pattern signature discriminating. This gives the genuine
-    // fixed-context TRUE-conflict aborts and the chain-link coverage. Production
-    // groups by the FULL window (core_len == window_len), so the shipped numbers are
+    // fixed-context true-conflict aborts and the chain-link coverage. Production
+    // groups by the full window (core_len == window_len), so the shipped numbers are
     // unchanged; the conflict guard fires only on a deliberately bad alignment (a
     // shorter core), exercised directly in the tests.
     let substrate = build_chain_substrate(ciphertext, phrase_len, phrase_len);
@@ -88,11 +88,11 @@ pub(crate) fn run_deck_attack(
     let true_conflict_aborts = substrate.true_conflict_aborts;
 
     // (2) Per-column recovery (the recovery substrate). Within the aligned phrase,
-    // column `c` is ALWAYS the same plaintext letter across all occurrences, so its
-    // one-step (prev -> next) visible-coset edges — sourced FROM the SAME
+    // column `c` is always the same plaintext letter across all occurrences, so its
+    // one-step (prev -> next) visible-coset edges — sourced from the same
     // chain_links_for_pair primitive (load-bearing) — are that one letter's coset
     // action observed across many hidden states. Under non-trivial H a single coset
-    // legitimately maps several ways across hidden states, so we MEASURE that
+    // legitimately maps several ways across hidden states, so we measure that
     // multi-valuedness as the obstruction and recover only the single-valued core.
     let (columns, obstruction) = phrase_column_evidence(ciphertext, phrase_len);
     let cores: Vec<BTreeMap<u8, u8>> = columns
@@ -102,7 +102,7 @@ pub(crate) fn run_deck_attack(
         .collect();
 
     // (3) Light merge of the consistent single-valued cores (group-dependent overlap
-    // threshold). This is a conservative light merge, NOT full constraint
+    // threshold). This is a conservative light merge, not full constraint
     // propagation.
     let recovered_actions = merge_context_actions(&cores, state_size);
 
@@ -116,16 +116,16 @@ pub(crate) fn run_deck_attack(
 }
 
 /// The visible-coset transition evidence at one phrase column, accumulated across
-/// every aligned occurrence (i.e. across many hidden states for the SAME plaintext
+/// every aligned occurrence (i.e. across many hidden states for the same plaintext
 /// letter).
 ///
 /// Crucially, for non-trivial `H` the visible transition is
-/// `c_i = g_{i-1}^{-1}[ p(a)^{-1}[top] ]` — it depends on the FULL hidden state
+/// `c_i = g_{i-1}^{-1}[ p(a)^{-1}[top] ]` — it depends on the full hidden state
 /// `g_{i-1}`, not just the previous visible coset. So when one column is gathered
 /// across occurrences with different hidden states, a single `from` coset
-/// LEGITIMATELY maps to several `to` cosets. That multi-valuedness is **normal
-/// hidden-state variation, NOT a conflict** in the chaining sense, so this struct
-/// records the full per-`from` image SET rather than forcing a partial permutation.
+/// legitimately maps to several `to` cosets. That multi-valuedness is **normal
+/// hidden-state variation, not a conflict** in the chaining sense, so this struct
+/// records the full per-`from` image set rather than forcing a partial permutation.
 /// The recoverable part of the column is its single-valued core; the rest is the
 /// measured hidden-state obstruction (the motivation for idea 3).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -141,7 +141,7 @@ impl ColumnEvidence {
     }
 
     /// The single-valued core: the `from -> to` map restricted to `from` cosets that
-    /// map to EXACTLY ONE `to` across all hidden states. This is the only part of a
+    /// map to exactly one `to` across all hidden states. This is the only part of a
     /// column legitimately recoverable without hidden-state handling.
     fn single_valued_core(&self) -> BTreeMap<u8, u8> {
         let mut core = BTreeMap::new();
@@ -166,7 +166,7 @@ impl ColumnEvidence {
 }
 
 /// The measured per-column hidden-state obstruction for the deck attack: how much
-/// of the visible-coset action is multi-valued (and therefore NOT recoverable
+/// of the visible-coset action is multi-valued (and therefore not recoverable
 /// without idea 3's hidden-state handling).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct HiddenStateObstruction {
@@ -189,22 +189,22 @@ impl HiddenStateObstruction {
 /// Accumulates per-phrase-column visible-coset evidence across aligned occurrences.
 ///
 /// The aligned repeated phrase is found once (spacing-filtered occurrences); each
-/// interior column `c` of the phrase is the SAME plaintext letter across every
+/// interior column `c` of the phrase is the same plaintext letter across every
 /// occurrence (`Alphabet-Chaining.md`: a repeated phrase recurs as a repeated
 /// equality pattern). So the adjacent `(prev -> next)` visible-coset edge at that
 /// column, gathered over all occurrences, is that one letter's coset action seen
 /// across many hidden states.
 ///
-/// LOAD-BEARING chain-link reuse: the prev->next edges are NOT read off the raw
+/// Load-bearing chain-link reuse: the prev->next edges are not read off the raw
 /// stream — they are the [`chain_links_for_pair`] output of each occurrence window
 /// aligned against itself shifted by one (column `c-1` is the "upper" occurrence,
 /// column `c` is the "lower" occurrence of the same one-step isomorph). So the
-/// recovery's equations come straight from the SHARED chain-link primitive;
+/// recovery's equations come straight from the shared chain-link primitive;
 /// corrupting the links changes these edges and breaks recovery.
 ///
-/// We do NOT force a partial permutation per column: under non-trivial `H` a single
+/// We do not force a partial permutation per column: under non-trivial `H` a single
 /// `from` coset legitimately maps to several `to` cosets across hidden states (see
-/// [`ColumnEvidence`]), so each column keeps its full image SET. The single-valued
+/// [`ColumnEvidence`]), so each column keeps its full image set. The single-valued
 /// core feeds recovery; the multi-valuedness is measured as the obstruction.
 fn phrase_column_evidence(
     ciphertext: &[SymbolValue],
@@ -218,7 +218,7 @@ fn phrase_column_evidence(
     let mut columns: Vec<ColumnEvidence> = vec![ColumnEvidence::default(); window_len];
     let mut context_index: u32 = 0;
     for &start in &filtered {
-        // Source the prev->next edges from the SHARED chain-link primitive: align
+        // Source the prev->next edges from the shared chain-link primitive: align
         // this occurrence window (cols 0..len-1) against the same window shifted by
         // one (cols 1..len). Each emitted ChainLink (from=col c-1, to=col c) is the
         // one-step visible-coset transition — exactly the per-column edge we need,
@@ -303,11 +303,11 @@ pub(crate) fn aligned_phrase_occurrences(
 /// Edge overlap does **not** prove context equality: in the worst case
 /// `S_n`/`S_{n-1}` requires *all* edges identical before two contexts may be
 /// merged. We require the shared support to be at least `state_size - 1` edges
-/// (one short of the full visible alphabet) AND fully consistent. This is the
+/// (one short of the full visible alphabet) and fully consistent. This is the
 /// deliberately conservative deck threshold; a single shared edge can never
-/// trigger a merge. This function is the documented SOFT-PRIOR hook for the next
-/// unit: the TENTATIVE small-support penalty lowers/weights the threshold for
-/// near-identity actions, but is NOT applied in this unit.
+/// trigger a merge. This function is the documented soft-prior hook for the next
+/// unit: the tentative small-support penalty lowers/weights the threshold for
+/// near-identity actions, but is not applied in this unit.
 #[must_use]
 fn merge_overlap_threshold(state_size: usize) -> usize {
     state_size.saturating_sub(1)
@@ -320,7 +320,7 @@ fn merge_overlap_threshold(state_size: usize) -> usize {
 /// [`merge_overlap_threshold`], (b) they agree on every shared `from`, and (c)
 /// their union stays a partial permutation (no two `from`s share a `to`). Cycles
 /// of unequal length never block a merge (the hidden state shortens some). This is
-/// a deliberately conservative LIGHT MERGE of single-valued cores, **not** full
+/// a deliberately conservative light merge of single-valued cores, **not** full
 /// Schreier-graph constraint propagation; idea-3 hidden-state marginalization
 /// replaces it next unit so the multi-valued part becomes recoverable too.
 fn merge_context_actions(cores: &[BTreeMap<u8, u8>], state_size: usize) -> Vec<BTreeMap<u8, u8>> {
@@ -384,7 +384,7 @@ fn actions_mergeable(left: &BTreeMap<u8, u8>, right: &BTreeMap<u8, u8>, threshol
             shared = shared.saturating_add(1);
         }
     }
-    // Group-dependent overlap threshold: a single shared edge is NEVER enough.
+    // Group-dependent overlap threshold: a single shared edge is never enough.
     if shared < threshold {
         return false;
     }
@@ -407,9 +407,9 @@ fn actions_mergeable(left: &BTreeMap<u8, u8>, right: &BTreeMap<u8, u8>, threshol
 
 /// The ground-truth per-letter visible-coset edge sets for a deck fixture.
 ///
-/// For non-trivial `H` a letter does NOT induce a fixed coset permutation, so the
+/// For non-trivial `H` a letter does not induce a fixed coset permutation, so the
 /// truth is the full set of `(s, s')` coset transitions letter `a` produces across
-/// all reachable hidden states encountered while encrypting THIS plaintext. We
+/// all reachable hidden states encountered while encrypting this plaintext. We
 /// score a recovered action against a letter by how many of its edges agree with
 /// (i.e. are contained in) that letter's truth edge set without contradicting it
 /// (no `s -> s'` in the recovered action that the letter never produces).
@@ -450,8 +450,8 @@ pub(crate) fn truth_coset_edges(
 /// Scores a deck attack's recovered coset actions against the held truth.
 ///
 /// Returns `(matched, total)` where `total` is the number of plaintext letters and
-/// `matched` is how many letters have a recovered action that is a CORRECT,
-/// NON-EMPTY partial coset action for that letter: every edge of the recovered
+/// `matched` is how many letters have a recovered action that is a correct,
+/// non-empty partial coset action for that letter: every edge of the recovered
 /// action is one the letter genuinely produces (contained in
 /// [`truth_coset_edges`]) and no recovered edge contradicts the letter's true map.
 /// Matching is one-to-one (each recovered action claims at most one letter, each

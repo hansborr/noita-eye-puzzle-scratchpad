@@ -87,7 +87,7 @@ pub(crate) fn run_solve(args: &SolveArgs) -> ExitCode {
     print_solve_report(&candidates);
 
     // Auto-log: persist all three gates and both language scores as a labelled
-    // HYPOTHESIS (the eyes honest-negative record included) to disk, not just
+    // hypothesis (the eyes honest-negative record included) to disk, not just
     // stdout.
     //
     // The provenance string is the exact, clock-free command that reproduces this
@@ -122,10 +122,10 @@ pub(crate) fn run_solve(args: &SolveArgs) -> ExitCode {
 
 /// Builds the canonical, clock-free command embedded in the solve record's
 /// Provenance section: the copy-pasteable invocation that reproduces
-/// the record byte-for-byte. Every run-affecting flag is printed EXPLICITLY (no
+/// the record byte-for-byte. Every run-affecting flag is printed explicitly (no
 /// reliance on compiled-in defaults) so the command stays reproducible even if a
 /// default later drifts. Only the codec/mapping mode actually in effect is
-/// emitted (`--codec-search` OR `--mapping-search` OR a non-identity `--codec`);
+/// emitted (`--codec-search` or `--mapping-search` or a non-identity `--codec`);
 /// the eyes/default path emits none of them.
 fn solve_provenance_command(args: &SolveArgs) -> String {
     let mut parts: Vec<String> = vec!["solve".to_owned()];
@@ -183,9 +183,9 @@ fn solve_mapping_strategy(
     cipher_alphabet_size: usize,
     language_alphabet_size: usize,
 ) -> solve::MappingStrategy {
-    // `--codec-search` enables a WIDENING codec search: a grouping codec lifts the
+    // `--codec-search` enables a widening codec search: a grouping codec lifts the
     // bare cipher alphabet to base^group_len, which the default `Fixed` mapping
-    // (sized to the bare alphabet) cannot host. A codec search therefore REQUIRES a
+    // (sized to the bare alphabet) cannot host. A codec search therefore requires a
     // mapping search over the widened alphabet, so auto-enable it (with a one-line
     // note) when the user asked for `--codec-search` but not `--mapping-search`.
     // The no-flag default is unchanged: neither set => `Fixed`.

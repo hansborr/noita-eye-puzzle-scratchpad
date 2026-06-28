@@ -123,8 +123,8 @@ fn fixed_grouping_empty_input_is_empty_output() {
 
 // The +/-1-C5 hint (practice puzzle `one`, research/data/practice-puzzles/one):
 // every transition of that 5-symbol sample is +/-1 mod 5 — a walk on the
-// pentagon C5. Differencing collapses it to the MOVE stream over {+1,-1} = {1,4}
-// mod 5; re-integrating from the seed reproduces the walk. This is an OBSERVED
+// pentagon C5. Differencing collapses it to the move stream over {+1,-1} = {1,4}
+// mod 5; re-integrating from the seed reproduces the walk. This is an observed
 // ciphertext property and a search hint (Delta is the natural first codec),
 // never a claim of "no message".
 #[test]

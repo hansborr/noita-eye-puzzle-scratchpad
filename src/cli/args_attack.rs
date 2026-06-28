@@ -77,7 +77,7 @@ pub(crate) struct SolveArgs {
     /// and run the mapping strategy on each transduced stream, flipping the codec
     /// stage from Fixed to Search (parallel to --mapping-search). Widens a small
     /// cipher alphabet (5/6/12 symbols) enough to host 26-29-letter language.
-    /// IMPLIES --mapping-search: a widened (`base^group_len`) alphabet has no fixed
+    /// Implies --mapping-search: a widened (`base^group_len`) alphabet has no fixed
     /// mapping, so this auto-enables the mapping search over the codec's output.
     #[arg(long = "codec-search")]
     pub(crate) codec_search: bool,
@@ -96,7 +96,7 @@ pub(crate) struct SolveArgs {
     #[arg(long = "anneal-temp", default_value_t = 0.0)]
     pub(crate) anneal_temp: f64,
     /// Directory for the machine-written candidate record (a labelled
-    /// HYPOTHESIS, never a decode). Auto-logged after every run.
+    /// hypothesis, never a decode). Auto-logged after every run.
     #[arg(long = "candidates-dir", default_value = DEFAULT_CANDIDATES_DIR)]
     pub(crate) candidates_dir: std::path::PathBuf,
     /// Stable label for the candidate-record filename (no wall clock).
@@ -160,14 +160,14 @@ pub(crate) struct KeystreamArgs {
     /// Deterministic seed for the search and the matched null.
     #[arg(long, default_value_t = keystream::DEFAULT_SEED)]
     pub(crate) seed: u64,
-    /// Number of random-key null trials for the reported DIAGNOSTIC (not the gate).
+    /// Number of random-key null trials for the reported diagnostic (not the gate).
     #[arg(long = "null-trials", default_value_t = keystream::DEFAULT_NULL_TRIALS)]
     pub(crate) null_trials: usize,
     /// Number of matched-null trials (reruns of the search on shuffled
     /// ciphertext) — the survival gate. 0 disables survival.
     #[arg(long = "matched-null-trials", default_value_t = keystream::DEFAULT_MATCHED_NULL_TRIALS)]
     pub(crate) matched_null_trials: usize,
-    /// Directory for any surviving candidate's record (a labelled HYPOTHESIS).
+    /// Directory for any surviving candidate's record (a labelled hypothesis).
     #[arg(long = "candidates-dir", default_value = DEFAULT_CANDIDATES_DIR)]
     pub(crate) candidates_dir: std::path::PathBuf,
     /// Stable label for candidate-record filenames (defaults to the puzzle name).
@@ -268,7 +268,7 @@ pub(crate) struct RagbabyArgs {
     /// survival gate. 0 disables survival.
     #[arg(long = "matched-null-trials", default_value_t = ragbaby::DEFAULT_MATCHED_NULL_TRIALS)]
     pub(crate) matched_null_trials: usize,
-    /// Random-keyed-alphabet null trials for the reported DIAGNOSTIC.
+    /// Random-keyed-alphabet null trials for the reported diagnostic.
     #[arg(long = "null-trials", default_value_t = ragbaby::DEFAULT_NULL_TRIALS)]
     pub(crate) null_trials: usize,
     /// Deterministic seed for the search and both nulls.
@@ -284,7 +284,7 @@ pub(crate) struct RagbabyArgs {
     /// Planted-recovery trials per `(length, base)` cell in `--control`.
     #[arg(long = "control-trials", default_value_t = ragbaby::DEFAULT_CONTROL_TRIALS)]
     pub(crate) control_trials: usize,
-    /// Directory for any surviving candidate's record (a labelled HYPOTHESIS).
+    /// Directory for any surviving candidate's record (a labelled hypothesis).
     #[arg(long = "candidates-dir", default_value = DEFAULT_CANDIDATES_DIR)]
     pub(crate) candidates_dir: std::path::PathBuf,
     /// Stable label for candidate-record filenames (defaults to the puzzle name).
@@ -400,7 +400,7 @@ pub(crate) struct GakAttackArgs {
     /// Length in letters of each repeated phrase.
     #[arg(long = "phrase-len", default_value_t = gak_attack::DEFAULT_PHRASE_LEN)]
     phrase_len: usize,
-    /// TENTATIVE small-support radius (`<=k` transpositions). REJECTED for the
+    /// Tentative small-support radius (`<=k` transpositions). Rejected for the
     /// decisive GCTAK gate, which runs unconstrained (radius `0`) by construction;
     /// any nonzero value errors out. The small-support prior is exercised only by
     /// the deck / marginalization validation sweeps. `0` is the unconstrained gate
@@ -434,7 +434,7 @@ pub(crate) struct GakAttackEyesArgs {
     #[arg(long = "trials", default_value_t = gak_attack::EYES_DEFAULT_TRIALS)]
     trials: usize,
     /// Disclosed beam-width label recorded in the candidate-record filename/header;
-    /// does NOT affect the eyes held-out scoring (the eyes run performs no per-column
+    /// does not affect the eyes held-out scoring (the eyes run performs no per-column
     /// marginalization).
     #[arg(long = "beam-width", default_value_t = gak_attack::EYES_DEFAULT_BEAM_WIDTH)]
     beam_width: usize,

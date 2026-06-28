@@ -28,7 +28,7 @@
 //! mode, plus a round-trip sanity check and a held-out fold.
 //!
 //! 1. **Matched null** (the gate this module's bug fix adds, mirroring the
-//!    defence [`crate::attack::solve`] uses): rerun the IDENTICAL annealed search (same
+//!    defence [`crate::attack::solve`] uses): rerun the identical annealed search (same
 //!    family, key length, restarts, iterations, temperature) on Fisher-Yates
 //!    **shuffled** copies of the ciphertext. The shuffle preserves the exact
 //!    letter multiset (unigram frequency held fixed) and destroys only
@@ -46,13 +46,13 @@
 //!    (`p_i = c_i - c_{i-L}` for `i >= L`): on a long plaintext that decrypt is
 //!    English *regardless of the key*, so a random key reads as English too and
 //!    `best_score` cannot clear it. The matched null shuffles the ciphertext,
-//!    which DESTROYS that leak, so it would (wrongly) promote ct-autokey on its
+//!    which destroys that leak, so it would (wrongly) promote ct-autokey on its
 //!    own — only the random-key null keeps that honest.
 //!
 //! A candidate survives only when, against the matched null it clears the z-score
 //! floor ([`Z_THRESHOLD`]) and the absolute nat floor ([`MIN_NAT_MARGIN`],
 //! guarding tiny-`std` degeneracy) ([`beats_matched_null`]), against the
-//! random-key null it clears the same pair ([`beats_null`]), AND a held-out fold
+//! random-key null it clears the same pair ([`beats_null`]), and a held-out fold
 //! reads above the matched-null mean. Neither null alone is sufficient: the
 //! matched null catches search overfitting, the random-key null catches the
 //! key-independence leak.
@@ -119,7 +119,7 @@ pub const DEFAULT_NULL_TRIALS: usize = 64;
 
 /// Default matched-null trial count used by [`KeystreamSearchConfig::default`].
 ///
-/// Mirrors [`crate::attack::solve::DEFAULT_NULL_TRIALS`]: each trial reruns the FULL
+/// Mirrors [`crate::attack::solve::DEFAULT_NULL_TRIALS`]: each trial reruns the full
 /// annealed search on a shuffled copy of the ciphertext, so this is the dominant
 /// cost knob — keep it modest.
 pub const DEFAULT_MATCHED_NULL_TRIALS: usize = 16;
@@ -138,10 +138,10 @@ pub struct KeystreamSearchConfig {
     pub anneal_temp: f64,
     /// Deterministic PRNG seed for the entire search and both nulls.
     pub seed: u64,
-    /// Number of random-key null trials used for the reported DIAGNOSTIC
+    /// Number of random-key null trials used for the reported diagnostic
     /// (`null_mean`/`null_std`/`z`/`beats_null`), no longer the survival gate.
     pub null_trials: usize,
-    /// Number of matched-null trials: reruns of the FULL search on Fisher-Yates
+    /// Number of matched-null trials: reruns of the full search on Fisher-Yates
     /// shuffled ciphertext. This is the survival gate
     /// ([`KeystreamCandidate::beats_matched_null`]); `0` disables it (the
     /// candidate can never survive).
@@ -164,7 +164,7 @@ impl Default for KeystreamSearchConfig {
 
 /// One scored, gated keystream hypothesis for a single `(family, key length)`.
 ///
-/// A surviving candidate is a HYPOTHESIS, never a confirmed decode.
+/// A surviving candidate is a hypothesis, never a confirmed decode.
 #[derive(Clone, Debug, PartialEq)]
 #[allow(
     clippy::struct_excessive_bools,
@@ -179,12 +179,12 @@ pub struct KeystreamCandidate {
     pub key: Vec<u8>,
     /// Best (highest) quadgram mean-log score found over all restarts.
     pub best_score: f64,
-    /// Mean quadgram score of the random-key null (DIAGNOSTIC; not the gate).
+    /// Mean quadgram score of the random-key null (diagnostic; not the gate).
     pub null_mean: f64,
-    /// Standard deviation of the random-key null (DIAGNOSTIC).
+    /// Standard deviation of the random-key null (diagnostic).
     pub null_std: f64,
     /// `(best_score - null_mean) / null_std` (or `0` when `null_std == 0`);
-    /// the random-key-null z-score (DIAGNOSTIC).
+    /// the random-key-null z-score (diagnostic).
     pub z: f64,
     /// Mean best score of the matched null (the same search rerun on shuffled
     /// ciphertext). This is the honest "what the search extracts from noise"
@@ -213,7 +213,7 @@ pub struct KeystreamCandidate {
     /// cannot).
     pub beats_null: bool,
     /// Survival gate (matched null): whether the candidate clears [`Z_THRESHOLD`]
-    /// and [`MIN_NAT_MARGIN`] against the MATCHED null (and
+    /// and [`MIN_NAT_MARGIN`] against the matched null (and
     /// `matched_null_trials > 0`). Polices search overfitting at high key length.
     pub beats_matched_null: bool,
     /// Whether `heldout_score > matched_heldout_mean` (the held-out fold reads above
@@ -265,7 +265,7 @@ pub fn crack_with_model(
     let decrypt_indices: Vec<u8> = buffer.iter().map(|&v| v as u8).collect();
     let heldout_score = model.score_indices(&crate::nulls::heldout::odd_index_fold(&buffer));
 
-    // Random-key null: a DIAGNOSTIC only (too weak to gate — it never pays for
+    // Random-key null: a diagnostic only (too weak to gate — it never pays for
     // the search's optimization power, so it green-lights overfitting at high L).
     let (null_mean, null_std) = random_key_null(ciphertext, family, l, n, cfg, model, &mut buffer);
     let random = crate::attack::crack::NullComparison::new(best_score, null_mean, null_std);
@@ -277,31 +277,31 @@ pub fn crack_with_model(
 
     let round_trip_ok = encrypt(family, &decrypt_indices, &key, n) == ciphertext;
     // Random-key null gate: the defense against the [`KeystreamFamily::CiphertextAutokey`]
-    // KEY-INDEPENDENCE leak (`p_i = c_i - c_{i-L}` for `i >= L`). The matched null
-    // shuffles the ciphertext, which DESTROYS that leak, so it cannot police it —
+    // key-independence leak (`p_i = c_i - c_{i-L}` for `i >= L`). The matched null
+    // shuffles the ciphertext, which destroys that leak, so it cannot police it —
     // only the random-key null can (a random key reproduces the same key-independent
     // English tail, so `best_score` cannot clear it). For the keyed families a true
-    // recovery clears this comfortably. NO trial guard (`enabled = true`): when
+    // recovery clears this comfortably. No trial guard (`enabled = true`): when
     // `null_trials == 0` the null is `(0, 0)`, so `z == 0 < Z_THRESHOLD` and the gate
     // fails anyway — this asymmetry vs the matched-null gate is load-bearing.
     let beats_null = random.clears(true, Z_THRESHOLD, MIN_NAT_MARGIN);
-    // Matched-null gate: the defense against SEARCH OVERFITTING at high key length
+    // Matched-null gate: the defense against search overfitting at high key length
     // (the false-positive bug this gate fixes). The annealed search's optimization
     // power inflates `best_score` on short ciphertext; the matched null pays for
     // exactly that power on the shuffled (structureless) multiset, so overfitting
     // cannot clear it. `matched_null_trials == 0` never silently passes (trial guard).
     let beats_matched_null =
         matched.clears(cfg.matched_null_trials > 0, Z_THRESHOLD, MIN_NAT_MARGIN);
-    // Held-out fold judged against the matched null's HELD-OUT fold (apples-to-apples).
+    // Held-out fold judged against the matched null's held-out fold (apples-to-apples).
     // Comparing to the full-stream `matched_mean` instead falsely failed a true decode,
     // since a fold of English is not contiguous English and so scores below the full
     // stream while the null pays no such penalty.
     let heldout_ok = cfg.matched_null_trials > 0 && heldout_score > matched_heldout_mean;
-    // Survival requires clearing BOTH nulls: the matched null (overfitting) AND the
+    // Survival requires clearing both nulls: the matched null (overfitting) and the
     // random-key null (the ct-autokey key-independence leak). A true keyed recovery
     // clears both; overfitting fails the matched null; the ct-autokey leak fails the
     // random-key null. Each null polices a distinct failure mode, so neither alone
-    // is sufficient — the matched null is the NEW gate, not a replacement.
+    // is sufficient — the matched null is the new gate, not a replacement.
     let survives = round_trip_ok && beats_matched_null && beats_null && heldout_ok;
 
     KeystreamCandidate {
@@ -465,7 +465,7 @@ fn render_record(
     Ok(out)
 }
 
-/// Writes a candidate record (a labelled HYPOTHESIS, never a decode) to `dir`,
+/// Writes a candidate record (a labelled hypothesis, never a decode) to `dir`,
 /// creating the directory if needed. The filename is stable (label + family +
 /// key length + seed; no wall clock), so re-running overwrites the prior record.
 ///

@@ -213,7 +213,7 @@ pub struct StutterCandidate {
 
 /// One loose candidate break: any divergence that survives the word-boundary
 /// discount (internalness > 0), whether or not it is attributed to a named
-/// benign desync region. The negative is conditional on EVERY loose candidate
+/// benign desync region. The negative is conditional on every loose candidate
 /// being benign-attributed, so all are surfaced (not only the east4/west4 one).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct LooseCandidate {

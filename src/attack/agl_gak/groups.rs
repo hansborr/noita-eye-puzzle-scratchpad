@@ -106,7 +106,7 @@ fn simulated_varying_shared_run(
     multipliers: &[usize],
     rng: &mut SplitMix64,
 ) -> Result<bool, AglGakError> {
-    // Collect the agreed-prefix values BEFORE the break, then test whether that
+    // Collect the agreed-prefix values before the break, then test whether that
     // shared prefix (of length >= 2) varies. The empirical note
     // (thread-2-empirical.md:96) defines the sampled event as "varying shared
     // runs of length >= 2"; counting only a full-length-3 varying agreement

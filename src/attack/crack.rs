@@ -2,11 +2,11 @@
 //!
 //! Both cracker drivers ([`crate::attack::keystream`] and [`crate::attack::ragbaby`])
 //! run the same shape of pipeline — anneal a key, score it, then gate it against a
-//! random-key DIAGNOSTIC null and a Fisher-Yates **matched** null — and historically
+//! random-key diagnostic null and a Fisher-Yates **matched** null — and historically
 //! kept byte-identical copies of the supporting arithmetic. This module holds the
 //! invariant pieces (the population mean/std, the null-vs-best significance test,
 //! the matched-null trial loop, and the invariant candidate-record blocks) so the two
-//! sides share ONE implementation while each keeps its own config/candidate types,
+//! sides share one implementation while each keeps its own config/candidate types,
 //! bare `search`, per-trial seed math, survival rule, and bespoke record lines.
 //!
 //! The matched-null loop owns only the loop structure plus aggregation (via
@@ -43,7 +43,7 @@ pub(crate) fn mean_std(samples: &[f64]) -> (f64, f64) {
 /// A candidate's best score compared against one null distribution `(mean, std)`.
 ///
 /// Captures the shared null-vs-best arithmetic both crackers use for their
-/// random-key DIAGNOSTIC and matched-null gates. The field formulas are frozen
+/// random-key diagnostic and matched-null gates. The field formulas are frozen
 /// bit-for-bit (the crackers store [`Self::z`] and gate on [`Self::clears`]).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct NullComparison {
@@ -71,8 +71,8 @@ impl NullComparison {
         }
     }
 
-    /// Whether the comparison clears the gate: `enabled` AND z-score `>= z_threshold`
-    /// AND margin `>= min_margin`.
+    /// Whether the comparison clears the gate: `enabled` and z-score `>= z_threshold`
+    /// and margin `>= min_margin`.
     ///
     /// `enabled` is the per-gate guard (e.g. `matched_null_trials > 0`); pass `true`
     /// for a gate with no trial guard. The z/margin checks reproduce each cracker's
@@ -85,13 +85,13 @@ impl NullComparison {
 
 /// Runs the shared matched-null trial loop and aggregates the result.
 ///
-/// For each of `trials` trials this seeds a FRESH [`SplitMix64`] from
+/// For each of `trials` trials this seeds a fresh [`SplitMix64`] from
 /// `shuffle_seed(trial)`, Fisher-Yates shuffles a fresh copy of `stream` once, then
 /// calls `run_trial(&shuffled, trial)` to obtain that trial's `(full_score,
 /// heldout_score)` pair; the pairs are aggregated by
 /// [`matched_null_stats`]. `trials == 0` yields [`MatchedNullStats::ZERO`].
 ///
-/// The loop owns ONLY the shuffle + aggregation. All RNG-touching seed math and the
+/// The loop owns only the shuffle + aggregation. All RNG-touching seed math and the
 /// inner bare search live in the side-local closures: `shuffle_seed` derives the
 /// per-trial shuffle seed, and `run_trial` derives the per-trial search seed, runs
 /// the side's bare search, and scores the result. The loop's shuffle RNG never

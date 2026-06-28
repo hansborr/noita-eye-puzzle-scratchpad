@@ -118,11 +118,11 @@ fn planted_recovery_searchable_families() {
 #[test]
 fn planted_decode_survives_full_gate() {
     // Regression for the held-out gate miscalibration (T1): the gate must compare
-    // the candidate's odd-index held-out fold against the matched null's HELD-OUT
+    // the candidate's odd-index held-out fold against the matched null's held-out
     // fold (`matched_heldout_mean`), not the full-stream `matched_mean`. A fold of
     // English is not contiguous English, so it scores below the full stream; the
     // old fold-vs-full-stream comparison could falsely fail a perfectly recovered
-    // decode. A planted true decode MUST clear the corrected gate.
+    // decode. A planted true decode must clear the corrected gate.
     let model = QuadgramModel::english().unwrap();
     let plain = normalize_puzzle(PLAINTEXT);
     assert!(
@@ -173,15 +173,15 @@ fn planted_decode_survives_full_gate() {
 
 #[test]
 fn ciphertext_autokey_recovers_bulk_but_honestly_does_not_survive() {
-    // Ciphertext-autokey decryption is key-INDEPENDENT for i>=L
+    // Ciphertext-autokey decryption is key-independent for i>=L
     // (p_i = c_i - c_{i-L}, the classic ciphertext-autokey leak). On a long
     // plaintext the bulk decrypts correctly regardless of the primer guess —
-    // and for the same reason the RANDOM-KEY null also reads as English, so
+    // and for the same reason the random-key null also reads as English, so
     // best_score cannot clear MIN_NAT_MARGIN above it (beats_null == false).
-    // The MATCHED null does NOT police this: it shuffles the ciphertext, which
+    // The matched null does not police this: it shuffles the ciphertext, which
     // destroys the leak, so it would (wrongly) promote ct-autokey on its own —
     // which is exactly why survival keeps requiring the random-key null too.
-    // This PROVES the gate does not manufacture a survivor from a key-leaking
+    // This proves the gate does not manufacture a survivor from a key-leaking
     // cipher.
     let model = QuadgramModel::english().unwrap();
     let plain = normalize_puzzle(PLAINTEXT);
@@ -252,14 +252,14 @@ fn random_ciphertext_yields_no_survivor() {
 
 #[test]
 fn matched_null_rejects_overfitting_at_high_key_len() {
-    // REGRESSION for the false-positive bug. At a high key length the annealed
-    // search overfits short RANDOM ciphertext (many free key parameters),
+    // Regression for the false-positive bug. At a high key length the annealed
+    // search overfits short random ciphertext (many free key parameters),
     // reaching a best score whose z against the no-search random-key null
-    // clears the gate — so the OLD (random-key-only) survival verdict promoted
-    // PURE NOISE (beats_null == true below). The matched null reruns the SAME
+    // clears the gate — so the old (random-key-only) survival verdict promoted
+    // pure noise (beats_null == true below). The matched null reruns the same
     // search on shuffled copies of the same ciphertext, so it overfits just as
     // hard; the real result no longer clears it (beats_matched_null == false).
-    // This test FAILS under the old gate and PASSES under the matched-null fix.
+    // This test fails under the old gate and passes under the matched-null fix.
     let model = QuadgramModel::english().unwrap();
     let mut rng = SplitMix64::new(0x_0ddc_0ffe_e000_1234);
     let n = 26usize;
@@ -276,8 +276,8 @@ fn matched_null_rejects_overfitting_at_high_key_len() {
     let mut random_key_null_was_fooled = false;
     for key_len in [60usize, 80] {
         let candidate = crack_with_model(&cipher, KeystreamFamily::Vigenere, key_len, &cfg, &model);
-        // The matched null (the fix) is NOT fooled: the search's best on real
-        // random ciphertext is no higher than what the SAME search extracts
+        // The matched null (the fix) is not fooled: the search's best on real
+        // random ciphertext is no higher than what the same search extracts
         // from the shuffled multiset, so it cannot clear the matched gate.
         assert!(
             !candidate.beats_matched_null,
@@ -291,7 +291,7 @@ fn matched_null_rejects_overfitting_at_high_key_len() {
             candidate.matched_z,
             candidate.best_score - candidate.matched_mean
         );
-        // The random-key null (the OLD gate) IS fooled on its headline z: pure
+        // The random-key null (the old gate) is fooled on its headline z: pure
         // noise clears Z_THRESHOLD against it — the exact false positive the
         // matched null now catches.
         assert!(
@@ -420,7 +420,7 @@ fn record_writer_emits_hypothesis_label() {
 
 #[test]
 fn frozen_bits_anti_drift_baseline() {
-    // Anti-drift PIN (Report 03 consolidation): a uniform RNG-stream shift in the
+    // Anti-drift pin (Report 03 consolidation): a uniform RNG-stream shift in the
     // shared `attack::crack` matched-null loop is invisible to the determinism and
     // planted/honest-negative tests but would change these frozen f64 bits. The
     // whole-struct assert_eq is bit-exact here (every frozen float is finite and
@@ -471,7 +471,7 @@ fn frozen_bits_anti_drift_baseline() {
 
 #[test]
 fn render_record_full_body_is_byte_stable() {
-    // Full-body PIN: the entire record body (the invariant decrypt block now in
+    // Full-body pin: the entire record body (the invariant decrypt block now in
     // `attack::crack`, plus the bespoke keystream lines) must stay byte-identical
     // for a survivor and a non-survivor.
     let survivor = KeystreamCandidate {

@@ -149,7 +149,7 @@ pub(super) fn evaluate_cipher_search(
     }))
 }
 
-/// Held-out mapping gate for the searched case: search a mapping on a CONTIGUOUS
+/// Held-out mapping gate for the searched case: search a mapping on a contiguous
 /// train fold (the first half), then score it on the disjoint second-half fold.
 ///
 /// The split is contiguous, not alternating, so each fold keeps its bigram
@@ -179,7 +179,7 @@ fn heldout_search_score(
         .bigram_mean_log_likelihood)
 }
 
-/// Reruns the IDENTICAL search on `null_trials` Fisher-Yates-shuffled copies of the
+/// Reruns the identical search on `null_trials` Fisher-Yates-shuffled copies of the
 /// ciphertext and returns `(mean best-per-family in-sample score, mean held-out fold
 /// score)`.
 ///
@@ -187,7 +187,7 @@ fn heldout_search_score(
 /// 0x6e75_6c6c)`), so the searched null is calibrated identically. A search on
 /// shuffled symbols still fits noise, which is exactly why
 /// [`SEARCH_BEATS_NULL_MARGIN`] guards [`Candidate::beats_null`]; the held-out mean is
-/// the apples-to-apples baseline for the generalization gate (a CONTIGUOUS-fold
+/// the apples-to-apples baseline for the generalization gate (a contiguous-fold
 /// re-fit, mirroring the candidate's [`heldout_search_score`]).
 fn matched_null_search_mean(
     req: &SolveRequest<'_>,
@@ -222,7 +222,7 @@ fn matched_null_search_mean(
 
 /// Best `(in-sample score, held-out fold score)` over the cipher family on one
 /// (shuffled) stream, taken at the cipher that maximizes the in-sample score. The
-/// held-out score is the selected cipher's CONTIGUOUS-fold [`heldout_search_score`]
+/// held-out score is the selected cipher's contiguous-fold [`heldout_search_score`]
 /// (re-fit on the train half, scored on the held-out half) — recomputed once for the
 /// winner so the null's held-out baseline mirrors the real candidate's exactly.
 pub(super) fn best_family_search_score(

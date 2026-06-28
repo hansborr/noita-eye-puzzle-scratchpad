@@ -72,8 +72,8 @@ pub(crate) fn evaluate_fixture(
         permutation_recovery_fraction(&truth_permutations, &real.recovered_permutations);
 
     // Matched negative control: identical solver pipeline (same phrase_len,
-    // group_order, SAME initial_readout) over a within-message multiset shuffle of
-    // the SAME ciphertext (here one synthetic message).
+    // group_order, same initial_readout) over a within-message multiset shuffle of
+    // the same ciphertext (here one synthetic message).
     let mut rng = SplitMix64::new(mix_seed(seed, 0x73_6875_6666_6c65));
     let mut shuffled = ciphertext_values.clone();
     fisher_yates(&mut shuffled, &mut rng)?;
@@ -118,7 +118,7 @@ pub(crate) struct GctakSolution {
     /// How many chain-link adjacency constraints (from
     /// [`crate::analysis::chaining_graph::chain_links_for_pair`]) were checked against the
     /// recovered permutations, and how many were satisfied. The chain links are a
-    /// **HARD verification gate** here: a satisfied count below the checked count
+    /// **hard verification gate** here: a satisfied count below the checked count
     /// means the recovered permutations contradict the shared chain-link
     /// primitive. On a fully recovered real fixture every
     /// checked constraint is satisfied.
@@ -183,10 +183,10 @@ pub(crate) fn solve_gctak(
     phrase_len: usize,
     group_order: usize,
 ) -> GctakSolution {
-    // Coverage / chaining_graph reuse: build the BROAD chain-link graph from all
-    // equality-pattern matches with the SHARED [`chain_links_for_pair`] primitive
+    // Coverage / chaining_graph reuse: build the broad chain-link graph from all
+    // equality-pattern matches with the shared [`chain_links_for_pair`] primitive
     // (this is what the `chain_links_match_shared_chaining_graph_primitive` reuse
-    // test pins), and DERIVE the touched-symbol coverage FROM those links — so the
+    // test pins), and derive the touched-symbol coverage from those links — so the
     // broad chain-link primitive is load-bearing for the reported coverage, not a
     // discarded call.
     let broad_links = collect_chain_links(ciphertext);
@@ -207,9 +207,9 @@ pub(crate) fn solve_gctak(
     let mut clusters = SmallUnionFind::new(transition_count);
     seed_clusters_by_phrase_alignment(&walk, phrase_len, &mut clusters, transition_count);
 
-    // Step 2 (chaining_graph, LOAD-BEARING): build the SOUND same-phrase chain
+    // Step 2 (chaining_graph, load-bearing): build the sound same-phrase chain
     // links — restricted to the spacing-filtered aligned phrase occurrences — with
-    // the SHARED [`chain_links_for_pair`] primitive. These become a HARD
+    // the shared [`chain_links_for_pair`] primitive. These become a hard
     // verification gate below; the chain graph is the central substrate of the
     // *attack*.
     let verify_links = phrase_chain_links(&walk, phrase_len);
@@ -222,7 +222,7 @@ pub(crate) fn solve_gctak(
         recover_letter_permutations(&walk, &mut clusters, transition_count, group_order);
 
     // Step 2 gate: verify the recovered permutations against the sound chain links.
-    // Each chain-link context's adjacent columns witness the SAME plaintext letter
+    // Each chain-link context's adjacent columns witness the same plaintext letter
     // acting on both occurrences, so both adjacent edges must lie in one common
     // recovered permutation; this consumes the links' `from`/`to` fields, so
     // corrupting the chain-link output breaks recovery (proving load-bearing).
@@ -243,7 +243,7 @@ pub(crate) fn solve_gctak(
     }
 }
 
-/// HARD chain-link verification gate.
+/// Hard chain-link verification gate.
 ///
 /// The [`chain_links_for_pair`] output for a context is the column-wise action of
 /// a fixed group element mapping one isomorph occurrence to another. Because both
@@ -284,7 +284,7 @@ pub(crate) fn verify_against_chain_links(
             let upper_edge = (prev.from.get(), next.from.get());
             let lower_edge = (prev.to.get(), next.to.get());
             checked = checked.saturating_add(1);
-            // Both adjacent edges must be explained by ONE recovered permutation.
+            // Both adjacent edges must be explained by one recovered permutation.
             let covered = recovered.iter().any(|perm| {
                 perm.get(&upper_edge.0) == Some(&upper_edge.1)
                     && perm.get(&lower_edge.0) == Some(&lower_edge.1)

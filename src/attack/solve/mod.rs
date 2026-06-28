@@ -97,7 +97,7 @@ fn solve_fixed_codecs(
 ) -> Result<Vec<Candidate>, SolveError> {
     let mut candidates = Vec::new();
     // Alphabet-size sanity (`codec::output_alphabet_hosts_language`) is intentionally
-    // NOT enforced on this Fixed path: these codecs are user-declared and scored
+    // not enforced on this Fixed path: these codecs are user-declared and scored
     // as-is (round-tripped + scored only, no search). Enforcement as a pruning
     // filter is a Phase-2 codec-search concern (under
     // `CodecStrategy::Search`), where each enumerated codec is pruned by that
@@ -123,7 +123,7 @@ fn solve_fixed_codecs(
 /// skip), then run the mapping strategy on each surviving codec's transduced stream.
 ///
 /// The matched null is computed at the **enumeration level**, not per codec: the
-/// real run reports the MAX in-sample score over all surviving codecs (the caller
+/// real run reports the max in-sample score over all surviving codecs (the caller
 /// sorts and the top candidate wins), so the null must pay for that codec selection
 /// too — see [`enumeration_null_mean`]. Every emitted candidate carries that one
 /// null and is gated against it with the [`SEARCH_BEATS_NULL_MARGIN`] guard.
@@ -142,10 +142,10 @@ fn run_codec_search(
     for family in &req.space.families {
         for language in req.space.language.languages() {
             // Enumeration-level matched null: the
-            // SELECTION-COMPLETE bar. The real run reports the MAX in-sample score
-            // over ALL surviving codecs, so a per-codec null — which maxes over
-            // ciphers within ONE codec only — is OPTIMISTIC once >1 codec survives
-            // (it never pays for codec selection). This null reruns the IDENTICAL
+            // selection-complete bar. The real run reports the max in-sample score
+            // over all surviving codecs, so a per-codec null — which maxes over
+            // ciphers within one codec only — is optimistic once >1 codec survives
+            // (it never pays for codec selection). This null reruns the identical
             // surviving-codec enumeration on each shuffle and maxes over every
             // (surviving codec × mapping × cipher), so every Search candidate is gated
             // against the max-over-codecs-on-noise bar. With exactly one survivor it
@@ -288,13 +288,13 @@ fn validate_ciphertext_symbols(
 }
 
 /// Whether a [`Candidate`] clears all three independent gates and may therefore
-/// be reported as a surviving HYPOTHESIS (never a decode).
+/// be reported as a surviving hypothesis (never a decode).
 ///
 /// This is a *derived* reporting verdict for records and tests — the three gates
 /// stay separate on the [`Candidate`] and are never collapsed into a stored
 /// boolean. A surviving candidate must (1) pass the cipher-layer round-trip,
 /// (2) beat its matched-null full-stream mean (the overfit guard), and (3)
-/// generalize — its held-out fold must beat the matched null's HELD-OUT fold
+/// generalize — its held-out fold must beat the matched null's held-out fold
 /// (`null_heldout_mean`), apples-to-apples. Comparing the held-out fold to the
 /// full-stream `null_mean` instead (the old bug) falsely failed a true decode,
 /// since a fold of natural-language text scores below the contiguous full stream

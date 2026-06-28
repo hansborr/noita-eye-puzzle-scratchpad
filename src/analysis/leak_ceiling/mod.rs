@@ -255,7 +255,7 @@ pub struct CeilingEstimate {
     pub per_element_supply_richest: usize,
     /// Shortfall ratio for the richest signature (most generous to recovery).
     pub per_element_shortfall_ratio_richest: f64,
-    /// Mutual-information UPPER bound on leaked bits, `M·H_emp`.
+    /// Mutual-information upper bound on leaked bits, `M·H_emp`.
     pub mi_upper_bound_bits: f64,
     /// Needed key bits under an unconstrained `S_N` neighborhood, `M·log2(N!)`.
     pub key_bits_unconstrained: f64,

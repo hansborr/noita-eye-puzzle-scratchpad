@@ -49,11 +49,11 @@ fn eyes_are_a_hardened_negative() {
     assert!(*report.extended_windows.last().unwrap() <= report.shortest_message);
 
     // (b) The robust (non-benign) count is the family-falsifier statistic.
-    // Its BINDING calibration is the generative epsilon = 0 family (mean
-    // robust 0), NOT this within-message shuffle: the shuffle is
+    // Its binding calibration is the generative epsilon = 0 family (mean
+    // robust 0), not this within-message shuffle: the shuffle is
     // structure-destroying, so the observed-0 add-one p = 1.0 is only the
     // trivial count floor (0 is the minimum). For the same reason the loose
-    // candidates EXCEED the shuffle null (p small) — that is expected real
+    // candidates exceed the shuffle null (p small) — that is expected real
     // benign structure, not a violation.
     assert_eq!(
         report.robust_null.upper_tail_count,
@@ -70,7 +70,7 @@ fn eyes_are_a_hardened_negative() {
     assert!(candidate.benign_stutter);
     assert!(!candidate.promoted_to_violation);
 
-    // (c') EVERY loose candidate is surfaced (not only east4/west4) and the
+    // (c') every loose candidate is surfaced (not only east4/west4) and the
     // surfaced list matches the loose count; each is benign-attributed and
     // none promotes, which is what the conditional negative rests on.
     assert_eq!(

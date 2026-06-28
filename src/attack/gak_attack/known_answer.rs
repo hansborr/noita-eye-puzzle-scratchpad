@@ -98,7 +98,7 @@ fn distinct_perms(perms: &[Perm]) -> BTreeSet<Perm> {
 }
 
 // =====================================================================
-// `one` — cyclic GCTAK on C5: the positive control (must FIRE).
+// `one` — cyclic GCTAK on C5: the positive control (must fire).
 // =====================================================================
 
 /// `solve_gctak` recovers the full `C5` cyclic-GCTAK keystream of puzzle `one`:
@@ -127,7 +127,7 @@ fn one_recovers_c5_cyclic_gctak_keystream() {
     let truth_partition = canonical(&steps);
 
     let first = vals.first().expect("non-empty").get();
-    // A GENUINE C5 predecessor as the entry state, so the prepended transition is a
+    // A genuine C5 predecessor as the entry state, so the prepended transition is a
     // real +1 edge rather than a self-loop. This is the faithful analogue of the
     // gate's key-derived `initial_state_readout` (it only affects the dropped first
     // transition); choosing a self-loop entry instead injects a spurious fixed-point
@@ -149,7 +149,7 @@ fn one_recovers_c5_cyclic_gctak_keystream() {
             perms.contains(&minus),
             "phrase_len={phrase_len}: recovered set must contain the -1 generator"
         );
-        // ...and they are the ONLY distinct permutations recovered (a clean C5
+        // ...and they are the only distinct permutations recovered (a clean C5
         // recovery: the two cyclic-shift generators, nothing spurious).
         let distinct = distinct_perms(perms);
         assert_eq!(
@@ -209,14 +209,14 @@ fn one_matched_null_does_not_recover() {
 }
 
 // =====================================================================
-// `two` — REAL GAK with hidden state: an honest negative (recovery DIES).
+// `two` — real GAK with hidden state: an honest negative (recovery dies).
 // =====================================================================
 
 /// Replicates the solver's per-column seed clustering for a window length and
 /// returns `(aligned_occurrences, seed_columns, functional_columns,
 /// max_functional_partial)`.
 ///
-/// A seed column is FORWARD-FUNCTIONAL when, across all aligned occurrences of the
+/// A seed column is forward-functional when, across all aligned occurrences of the
 /// largest equality-pattern phrase, each `prev` symbol maps to a single `next`
 /// symbol. For a true GCTAK (bijective readout) every aligned column is one fixed
 /// letter, so columns are functional and complete to the group order. For a GAK
@@ -286,7 +286,7 @@ fn column_diag(walk: &[TrigramValue], window_len: usize) -> (usize, usize, usize
 }
 
 /// `two` is a real GAK with hidden state, so `solve_gctak` (a GCTAK solver) cannot
-/// recover it. This records the honest negative AND pins exactly where it dies: the
+/// recover it. This records the honest negative and pins exactly where it dies: the
 /// visible readout is many-valued (out-degree 8 on 12 symbols), so the per-column
 /// seed clusters are non-functional and are dropped before any per-letter
 /// permutation can be built — recovery returns zero complete permutations at every

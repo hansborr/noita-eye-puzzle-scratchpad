@@ -128,8 +128,8 @@ pub(super) fn random_key_null(
 /// For each of `cfg.matched_null_trials` trials this Fisher-Yates **shuffles** a
 /// copy of the ciphertext (preserving the exact letter multiset, so unigram
 /// frequency is held fixed and only higher-order structure is destroyed) and
-/// reruns the IDENTICAL annealed search (same `family`, `key_len`, `restarts`,
-/// `iterations`, `anneal_temp`) on it, recording the search's best score AND the
+/// reruns the identical annealed search (same `family`, `key_len`, `restarts`,
+/// `iterations`, `anneal_temp`) on it, recording the search's best score and the
 /// odd-index held-out fold score of that best decrypt. The full mean/std capture
 /// the search's own optimization power on structureless text (which the random-key
 /// null cannot, since it never optimizes); the held-out mean is the apples-to-apples
@@ -172,7 +172,7 @@ pub(super) fn matched_null(
                 ..*cfg
             };
             let (key, best) = search(shuffled, family, l, n, &trial_cfg, model);
-            // The held-out fold of THIS trial's best decrypt, computed with the same
+            // The held-out fold of this trial's best decrypt, computed with the same
             // odd-index fold the candidate uses (re-decrypt to recover the stream the
             // `best` score was taken on; `best` equals its full-stream score).
             decrypt_into(family, shuffled, &key, n, &mut buffer);

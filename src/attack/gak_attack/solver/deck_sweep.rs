@@ -16,24 +16,24 @@ pub struct DeckAttackOutcome {
     pub seed: u64,
     /// Number of ciphertext symbols.
     pub ciphertext_len: usize,
-    /// Letters whose coset action the REAL pipeline recovered correctly.
+    /// Letters whose coset action the real pipeline recovered correctly.
     pub real_recovered: usize,
     /// Letters whose coset action the matched-null pipeline recovered.
     pub null_recovered: usize,
     /// Total plaintext letters (the recovery-fraction denominator).
     pub letters_total: usize,
-    /// Fixed-context TRUE-conflict aborts on the real stream (surfaced — a feature).
+    /// Fixed-context true-conflict aborts on the real stream (surfaced — a feature).
     pub true_conflict_aborts: usize,
     /// Distinct visible coset symbols touched by the chain links (real stream).
     pub symbols_touched: usize,
-    /// Fixed-context occurrence-pair contexts that survived (no TRUE conflict) in
+    /// Fixed-context occurrence-pair contexts that survived (no true conflict) in
     /// the chain substrate (coverage/conflict counter, not the recovery substrate).
     pub surviving_contexts: usize,
     /// Distinct `from` cosets observed across phrase columns (real stream): the
     /// denominator of the measured hidden-state obstruction.
     pub obstruction_from_total: usize,
     /// `from` cosets that mapped multi-valued across hidden states (real stream):
-    /// the MEASURED hidden-state obstruction (the part NOT recoverable here).
+    /// the measured hidden-state obstruction (the part not recoverable here).
     pub obstruction_multi_valued: usize,
 }
 
@@ -51,7 +51,7 @@ impl DeckAttackOutcome {
     }
 
     /// Measured hidden-state obstruction: the fraction of visible cosets that map
-    /// MULTI-VALUED under a fixed letter (real stream). The larger this is, the less
+    /// multi-valued under a fixed letter (real stream). The larger this is, the less
     /// of the per-letter action is recoverable without idea 3.
     #[must_use]
     pub fn multi_valued_fraction(self) -> f64 {
@@ -60,7 +60,7 @@ impl DeckAttackOutcome {
 }
 
 /// Evaluates the deck attack on one fixture and its matched within-message
-/// shuffle null over the IDENTICAL pipeline (the matched-null symmetry the
+/// shuffle null over the identical pipeline (the matched-null symmetry the
 /// historical #1 bug here demands).
 pub(crate) fn evaluate_deck_fixture(
     fixture: &DeckFixture,
@@ -76,9 +76,9 @@ pub(crate) fn evaluate_deck_fixture(
     let real = run_deck_attack(&ciphertext_values, fixture.state_size, phrase_len);
     let (real_recovered, _) = coset_recovery_fraction(&truth, &real.recovered_actions);
 
-    // Matched null: the SAME `run_deck_attack` pipeline (same phrase_len, same
-    // state_size) over a within-message Fisher-Yates shuffle of the SAME ciphertext
-    // population, scored against the SAME truth. Real and null run the identical
+    // Matched null: the same `run_deck_attack` pipeline (same phrase_len, same
+    // state_size) over a within-message Fisher-Yates shuffle of the same ciphertext
+    // population, scored against the same truth. Real and null run the identical
     // pipeline over the identical population — only the structure differs.
     let mut rng = SplitMix64::new(mix_seed(seed, 0x6465_636b_6e75_6c6c));
     let mut shuffled = ciphertext_values.clone();
@@ -122,11 +122,11 @@ pub struct TractabilityPoint {
     pub null_recovered_total: usize,
     /// Total plaintext letters summed over the seeds (the denominator).
     pub letters_total: usize,
-    /// Total fixed-context TRUE-conflict aborts (real) summed over the seeds.
+    /// Total fixed-context true-conflict aborts (real) summed over the seeds.
     pub true_conflict_aborts: usize,
-    /// MEASURED hidden-state obstruction at this `n`: the fraction of visible cosets
-    /// that map MULTI-VALUED under a fixed letter, aggregated over the seeds. The
-    /// headline honest result: this is the part of the action NOT recoverable
+    /// Measured hidden-state obstruction at this `n`: the fraction of visible cosets
+    /// that map multi-valued under a fixed letter, aggregated over the seeds. The
+    /// headline honest result: this is the part of the action not recoverable
     /// without hidden-state marginalization (idea 3), and it bounds recovery.
     pub multi_valued_fraction: f64,
     /// Add-one Monte-Carlo p-value: how often a null seed's recovered fraction is
@@ -138,7 +138,7 @@ pub struct TractabilityPoint {
 }
 
 /// Result of the deck-GAK partial-recovery attack: per-seed outcomes and the
-/// measured tractability bound (per-`n` real-vs-null fractions, i.e. WHERE
+/// measured tractability bound (per-`n` real-vs-null fractions, i.e. where
 /// recovery breaks).
 #[derive(Clone, Debug, PartialEq)]
 pub struct DeckAttackReport {
@@ -148,7 +148,7 @@ pub struct DeckAttackReport {
     pub outcomes: Vec<DeckAttackOutcome>,
     /// The measured tractability bound: one [`TractabilityPoint`] per swept `n`.
     pub tractability: Vec<TractabilityPoint>,
-    /// Whether the attack beats its matched null on the EASIEST (smallest) swept
+    /// Whether the attack beats its matched null on the easiest (smallest) swept
     /// `n` — the go/no-go for this unit.
     pub beats_null_on_easiest: bool,
     /// The smallest swept deck size (the easiest fixture).
@@ -158,7 +158,7 @@ pub struct DeckAttackReport {
 /// Default deck sizes swept by [`run_deck_attack_sweep`].
 ///
 /// Starts at `n ≤ 5` (the easiest), then `6, 7, 8` — the spec's tractability
-/// sweep. Recovery is expected to be partial at the smallest `n` and to BREAK as
+/// sweep. Recovery is expected to be partial at the smallest `n` and to break as
 /// `n` / `|H| = (n-1)!` grows; that measured break is the deliverable.
 pub const DEFAULT_DECK_STATE_SIZES: [usize; 4] = [5, 6, 7, 8];
 
@@ -179,13 +179,13 @@ pub const DECK_SWEEP_SEEDS: usize = 24;
 /// propagation attack and its matched within-message shuffle null over the
 /// identical pipeline, and aggregates the recovered-coset-action fractions. The
 /// `regime` selects the per-letter draw (unconstrained `S_n` by default; the
-/// TENTATIVE small-support regime is generated too so the next unit can validate
+/// tentative small-support regime is generated too so the next unit can validate
 /// the prior).
 ///
 /// # Errors
 /// Returns [`GakAttackError`] when the configuration is invalid, when a fixture's
-/// key/stream is rejected, or when a symbol cannot be represented. NOTE: unlike
-/// the GCTAK gate, a low or zero recovered fraction is the EXPECTED, REPORTABLE
+/// key/stream is rejected, or when a symbol cannot be represented. Note: unlike
+/// the GCTAK gate, a low or zero recovered fraction is the expected, reportable
 /// outcome here, not an error.
 pub fn run_deck_attack_sweep(
     config: GakAttackConfig,
@@ -239,7 +239,7 @@ pub fn run_deck_attack_sweep(
         let real_mean = mean_f64(&real_fractions);
         let null_mean = mean_f64(&null_fractions);
         let matched_null_p_value = add_one_p_value(null_at_least_real, config.seeds_per_kind);
-        // The decisive per-`n` verdict is the AGGREGATE recovered-letter count
+        // The decisive per-`n` verdict is the aggregate recovered-letter count
         // (real vs matched null) over all seeds, not the per-seed mean (per-fixture
         // variance is high: only a minority of seeds recover any letter, so a
         // per-seed p-value is conservatively non-significant — itself reported).

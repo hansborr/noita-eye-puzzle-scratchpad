@@ -55,7 +55,7 @@ impl RagbabyProblem<'_> {
 /// One scored, gated keyed-alphabet hypothesis for a single
 /// `(base, numbering, sign)`.
 ///
-/// A surviving candidate is a HYPOTHESIS, never a confirmed decode.
+/// A surviving candidate is a hypothesis, never a confirmed decode.
 #[derive(Clone, Debug, PartialEq)]
 #[allow(
     clippy::struct_excessive_bools,
@@ -70,11 +70,11 @@ pub struct RagbabyCandidate {
     pub sign: Sign,
     /// Best keyed alphabet recovered (real-letter-index permutation).
     pub key: Vec<usize>,
-    /// Best quadgram MEAN-log score of the recovered plaintext (gate scale).
+    /// Best quadgram mean-log score of the recovered plaintext (gate scale).
     pub best_score: f64,
-    /// Mean quadgram score of the random-keyed-alphabet null (DIAGNOSTIC).
+    /// Mean quadgram score of the random-keyed-alphabet null (diagnostic).
     pub null_mean: f64,
-    /// Standard deviation of the random-keyed-alphabet null (DIAGNOSTIC).
+    /// Standard deviation of the random-keyed-alphabet null (diagnostic).
     pub null_std: f64,
     /// `(best_score - null_mean) / null_std` (or `0`); the diagnostic z-score.
     pub z: f64,
@@ -126,7 +126,7 @@ impl RagbabyCandidate {
 }
 
 /// Builds the random-keyed-alphabet null `(mean, std)`: scores decryptions of the
-/// real ciphertext under random keyed alphabets (no search). A DIAGNOSTIC only.
+/// real ciphertext under random keyed alphabets (no search). A diagnostic only.
 fn random_key_null(
     problem: &RagbabyProblem,
     keep: &[usize],
@@ -166,13 +166,13 @@ fn random_key_null(
 
 /// Builds the matched null `(mean, std)` — the honest survival bar. Each trial
 /// Fisher-Yates **shuffles** the ciphertext letter stream (holding `N_i` fixed, so
-/// the search's degrees of freedom are identical) and reruns the IDENTICAL anneal,
-/// recording the best decrypt's MEAN score. Returns `(0.0, 0.0)` when disabled.
+/// the search's degrees of freedom are identical) and reruns the identical anneal,
+/// recording the best decrypt's mean score. Returns `(0.0, 0.0)` when disabled.
 /// Held-out fold of a decrypt: the odd-indexed letters scored as a stream.
 ///
 /// This is only ever meaningful as a *relative* generalisation check — the
 /// candidate's held-out fold is compared against the **matched null's** held-out
-/// fold (apples-to-apples). Every-other-letter of English is NOT contiguous
+/// fold (apples-to-apples). Every-other-letter of English is not contiguous
 /// English, so its absolute quadgram score is low; comparing it to the full-stream
 /// mean (as an earlier version did) falsely fails even a perfect decode.
 fn heldout_fold_score(decrypt: &[usize], model: &QuadgramModel) -> f64 {
@@ -258,7 +258,7 @@ pub fn crack_with_model(
 
     let round_trip_ok =
         encrypt_indices(&decrypt, problem.nums, &key, ctx.sign, problem.base) == problem.cipher;
-    // DIAGNOSTIC only (Ragbaby has no key-independence leak): NO trial guard
+    // Diagnostic only (Ragbaby has no key-independence leak): no trial guard
     // (`enabled = true`), matching the pre-consolidation boolean exactly.
     let beats_null = random.clears(true, Z_THRESHOLD, MIN_NAT_MARGIN);
     let beats_matched_null =

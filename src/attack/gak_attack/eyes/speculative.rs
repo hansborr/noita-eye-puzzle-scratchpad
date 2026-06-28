@@ -1,9 +1,9 @@
-//! The SPECULATIVE / HYPOTHESIS cleartext layer (kill gate 3) — reached ONLY if both
+//! The speculative / hypothesis cleartext layer (kill gate 3) — reached only if both
 //! structural gates passed.
 //!
-//! The symbol->letter mapping here is a HYPOTHESIS, never recovered: an explicitly-
-//! arbitrary affine projection scored under the Finnish AND English models behind a
-//! matched null. This is NEVER primary evidence; the implied plaintext is logged
+//! The symbol->letter mapping here is a hypothesis, never recovered: an explicitly-
+//! arbitrary affine projection scored under the Finnish and English models behind a
+//! matched null. This is never primary evidence; the implied plaintext is logged
 //! verbatim for human review regardless of the verdict.
 
 use super::super::{
@@ -11,15 +11,15 @@ use super::super::{
     SpeculativeCleartext, SplitMix64, TrigramValue, language, mix_seed, random_index_below,
 };
 
-/// Runs the SPECULATIVE cleartext-plausibility gate (kill gate 3) — ONLY reached if
+/// Runs the speculative cleartext-plausibility gate (kill gate 3) — only reached if
 /// both structural gates passed (the expected case is that this is never run).
 ///
-/// The symbol→letter mapping here is a HYPOTHESIS, never recovered: the
+/// The symbol→letter mapping here is a hypothesis, never recovered: the
 /// reading-layer symbols are mapped onto the language alphabet by a fixed,
 /// explicitly-arbitrary affine projection `value*stride % alphabet_len`, the
-/// implied plaintext is scored under the Finnish AND English models (Finnish
+/// implied plaintext is scored under the Finnish and English models (Finnish
 /// weighted highly — Noita is a Finnish game), and the scores are compared
-/// against a matched null drawn from the SAME affine family (random coprime
+/// against a matched null drawn from the same affine family (random coprime
 /// stride + offset), so the single real stride sits at a well-defined percentile
 /// within one exchangeable family rather than against a different-shape draw.
 /// This is never primary evidence; the implied plaintext is logged verbatim for
@@ -35,8 +35,8 @@ pub(super) fn eyes_speculative_cleartext(
     let english = language::english_model()?;
     let alphabet_len = finnish.alphabet().len().max(1);
 
-    // HYPOTHESIZED (arbitrary) symbol→letter mapping: a fixed modular projection of
-    // the reading-layer value onto the language alphabet. This is NOT recovered and
+    // Hypothesized (arbitrary) symbol→letter mapping: a fixed modular projection of
+    // the reading-layer value onto the language alphabet. This is not recovered and
     // is labelled a hypothesis everywhere.
     let mapping = eyes_hypothesis_mapping(alphabet_len, config.seed);
     let indices: Vec<usize> = message_values
@@ -53,10 +53,10 @@ pub(super) fn eyes_speculative_cleartext(
         .score_indices(&indices)
         .map_or(f64::NEG_INFINITY, |s| s.bigram_mean_log_likelihood);
 
-    // Matched null: draw other mappings from the SAME affine family (random
+    // Matched null: draw other mappings from the same affine family (random
     // coprime stride + offset) and re-score. The implied plaintext only "beats"
     // the null if it exceeds the affine-family mean — and even then it is a
-    // HYPOTHESIS.
+    // hypothesis.
     let (finnish_null_mean, english_null_mean) =
         eyes_mapping_null(message_values, alphabet_len, config, &finnish, &english);
 
@@ -71,7 +71,7 @@ pub(super) fn eyes_speculative_cleartext(
     })
 }
 
-/// Builds the HYPOTHESIZED (arbitrary, never-recovered) symbol→letter mapping for
+/// Builds the hypothesized (arbitrary, never-recovered) symbol→letter mapping for
 /// the speculative gate: a fixed modular projection of each reading-layer value onto
 /// the language alphabet. Labelled a hypothesis everywhere it is used.
 fn eyes_hypothesis_mapping(alphabet_len: usize, seed: u64) -> Vec<usize> {
@@ -123,7 +123,7 @@ fn render_implied_plaintext(indices: &[usize], model: &LanguageModel) -> String 
 }
 
 /// Matched null for the speculative cleartext gate: mean Finnish/English bigram
-/// scores over mappings drawn from the SAME affine family as the real hypothesis
+/// scores over mappings drawn from the same affine family as the real hypothesis
 /// (see [`eyes_hypothesis_mapping`]). Each trial draws a random stride coprime to
 /// `alphabet_len` and a random offset and builds `full[value] = (value*a + b) %
 /// alphabet_len`, so the single real stride sits at a well-defined percentile of
@@ -145,7 +145,7 @@ fn eyes_mapping_null(
             config.seed,
             0x6d61_705f_6e75_6c6c ^ u64::try_from(trial).unwrap_or(u64::MAX),
         ));
-        // Draw this trial's mapping from the SAME affine family as the real
+        // Draw this trial's mapping from the same affine family as the real
         // hypothesis: a stride `a` coprime to `alphabet_len` and an offset `b`.
         let len = alphabet_len.max(1);
         let Some((a, b)) = draw_affine_stride_offset(len, &mut rng) else {
