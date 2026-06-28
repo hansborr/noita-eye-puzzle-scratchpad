@@ -33,8 +33,15 @@ use codec_search::{
 use eval::{NullBaselines, evaluate_cipher, evaluate_family};
 use search::{FamilyCipher, evaluate_cipher_search, solve_search};
 
-pub use record::*;
-pub use types::*;
+pub use record::{
+    SOLVE_CLAIM_CEILING, SolveRecordCandidate, SolveRecordInputs, SolveRunIdentity, log_solve_run,
+    render_solve_candidate_record, write_solve_candidate_record,
+};
+pub use types::{
+    AnnealSchedule, Candidate, CipherFamilySpec, DEFAULT_NULL_TRIALS, DEFAULT_SEED,
+    HypothesisSpace, Language, LanguageChoice, Mapping, MappingSearch, MappingStrategy,
+    SEARCH_BEATS_NULL_MARGIN, SolveError, SolveOutcome, SolveRequest,
+};
 
 /// Enumerates, scores, gates, and ranks solve candidates.
 ///
