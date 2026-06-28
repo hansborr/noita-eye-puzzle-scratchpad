@@ -16,7 +16,7 @@
 
 use std::fmt;
 
-use crate::analysis::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
+use crate::analysis::orders::{CorpusContext, GridError, ReadingOrder};
 use crate::core::trigram::TrigramValue;
 use crate::nulls::null::{NullTestError, WithinMessageShuffle, add_one_p_value, run_null_test};
 
@@ -357,13 +357,11 @@ pub struct PerseusReport {
 /// invalid.
 pub fn run_perseus(config: PerseusConfig) -> Result<PerseusReport, PerseusError> {
     validate_config(config)?;
-    let grids = orders::corpus_grids()?;
-    let keys = grids
-        .iter()
-        .map(crate::analysis::orders::GlyphGrid::message_key)
-        .collect::<Vec<_>>();
-    let order = orders::accepted_honeycomb_order();
-    let message_values = read_corpus_message_values(&grids, order)?;
+    let CorpusContext {
+        order,
+        keys,
+        message_values,
+    } = CorpusContext::load()?;
     report_from_message_values(config, order, &keys, &message_values)
 }
 

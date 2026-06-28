@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::mem::size_of;
 
-use crate::analysis::orders::{self, ReadingOrder, read_corpus_message_values};
+use crate::analysis::orders::{CorpusContext, ReadingOrder};
 use crate::core::trigram::TrigramValue;
 use crate::nulls::null::{
     NullSampler, RandomBoundError, SplitMix64, add_one_p_value, fisher_yates, usize_band,
@@ -24,13 +24,11 @@ pub fn run_tree_residual(
     config: TreeResidualConfig,
 ) -> Result<TreeResidualReport, TreeResidualError> {
     validate_config(config)?;
-    let grids = orders::corpus_grids()?;
-    let keys = grids
-        .iter()
-        .map(crate::analysis::orders::GlyphGrid::message_key)
-        .collect::<Vec<_>>();
-    let order = orders::accepted_honeycomb_order();
-    let message_values = read_corpus_message_values(&grids, order)?;
+    let CorpusContext {
+        order,
+        keys,
+        message_values,
+    } = CorpusContext::load()?;
     report_from_message_values(config, order, &keys, &message_values)
 }
 

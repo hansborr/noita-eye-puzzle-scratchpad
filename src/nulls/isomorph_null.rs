@@ -7,7 +7,7 @@
 use std::fmt;
 
 use crate::analysis::isomorph::{self, IsomorphError};
-use crate::analysis::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
+use crate::analysis::orders::{CorpusContext, GridError, ReadingOrder};
 use crate::core::trigram::TrigramValue;
 use crate::nulls::null::{
     NullColumnError, UsizeBand, WithinMessageShuffle, add_one_p_value, run_null_test_columns,
@@ -295,13 +295,11 @@ pub fn run_isomorph_null(
     config: IsomorphNullConfig,
 ) -> Result<IsomorphNullReport, IsomorphNullError> {
     validate_config(config)?;
-    let grids = orders::corpus_grids()?;
-    let order = orders::accepted_honeycomb_order();
-    let keys: Vec<&'static str> = grids
-        .iter()
-        .map(crate::analysis::orders::GlyphGrid::message_key)
-        .collect();
-    let message_values = read_corpus_message_values(&grids, order)?;
+    let CorpusContext {
+        order,
+        keys,
+        message_values,
+    } = CorpusContext::load()?;
     report_from_message_values(config, order, &keys, &message_values)
 }
 

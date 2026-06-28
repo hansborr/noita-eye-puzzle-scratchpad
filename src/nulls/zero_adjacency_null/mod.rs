@@ -15,7 +15,7 @@ use core::convert::Infallible;
 use std::collections::BTreeMap;
 use std::fmt;
 
-use crate::analysis::orders::{self, GridError, ReadingOrder, read_corpus_message_values};
+use crate::analysis::orders::{CorpusContext, GridError, ReadingOrder};
 use crate::core::trigram::TrigramValue;
 use crate::nulls::null::{
     NullTestError, SplitMix64, UsizeBand, WithinMessageShuffle, add_one_p_value, fisher_yates,
@@ -288,13 +288,11 @@ pub fn run_zero_adjacency_null(
     config: ZeroAdjacencyNullConfig,
 ) -> Result<ZeroAdjacencyNullReport, ZeroAdjacencyNullError> {
     validate_config(config)?;
-    let grids = orders::corpus_grids()?;
-    let keys: Vec<&'static str> = grids
-        .iter()
-        .map(crate::analysis::orders::GlyphGrid::message_key)
-        .collect();
-    let order = orders::accepted_honeycomb_order();
-    let message_values = read_corpus_message_values(&grids, order)?;
+    let CorpusContext {
+        order,
+        keys,
+        message_values,
+    } = CorpusContext::load()?;
     report_from_message_values(config, order, &keys, &message_values)
 }
 
