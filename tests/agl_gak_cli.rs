@@ -24,7 +24,7 @@ fn agl_gak_subcommand_reports_exclusion_and_honesty_caveats() {
         &stdout,
         "over-conceded / weaker than needed: the rigorous kill is the varying-shared-run mechanism",
     );
-    // Claim ceiling + scope caveat.
+    // Scope caveat.
     assert_contains(
         &stdout,
         "narrows the transitive GAK candidate set toward {A83, S83}",
@@ -33,5 +33,4 @@ fn agl_gak_subcommand_reports_exclusion_and_honesty_caveats() {
         &stdout,
         "Scope: this excludes the point-stabilizer AGL-GAK family",
     );
-    assert_contains(&stdout, "unknown meaning; unsolved");
 }

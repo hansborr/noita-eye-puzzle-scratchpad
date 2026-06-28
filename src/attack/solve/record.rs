@@ -4,10 +4,6 @@ use super::*;
 // Candidate auto-logging (mirrors gak_attack::eyes' private writer).
 // ---------------------------------------------------------------------------
 
-/// The verbatim claim ceiling reproduced in every solve candidate record. It is
-/// the same ceiling the eye records carry: no record may make a stronger claim.
-pub const SOLVE_CLAIM_CEILING: &str = "deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext.";
-
 /// The top candidate's record fields, scored under BOTH language models.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[allow(
@@ -103,9 +99,9 @@ fn solve_record_filename(label: &str, seed: u64) -> String {
 /// Writes the mandatory solve candidate record (filename is a STABLE label/seed,
 /// no clock; re-running the same config overwrites the prior record).
 ///
-/// Returns the path written. The record carries the verbatim claim ceiling, the
-/// HYPOTHESIS-not-decode label, all three gate verdicts, both language scores,
-/// and any candidate cleartext verbatim for human review.
+/// Returns the path written. The record carries the HYPOTHESIS-not-decode label,
+/// all three gate verdicts, both language scores, and any candidate cleartext
+/// verbatim for human review.
 ///
 /// # Errors
 /// Returns [`SolveError::CandidateRecordWrite`] if the directory cannot be
@@ -170,14 +166,6 @@ pub fn render_solve_candidate_record(inputs: &SolveRecordInputs<'_>) -> Result<S
         out,
         "score is not a decode. Round-trip-consistent candidates: {}; survivors of all three gates: {}.",
         inputs.candidates_evaluated, inputs.survivors
-    )?;
-    writeln!(out)?;
-    writeln!(out, "## Claim ceiling (absolute)")?;
-    writeln!(out)?;
-    writeln!(out, "{SOLVE_CLAIM_CEILING}")?;
-    writeln!(
-        out,
-        "Nothing in this record is stronger. A clean honest negative is a SUCCESS."
     )?;
     writeln!(out)?;
     render_solve_gates(&mut out, inputs)?;

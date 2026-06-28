@@ -29,7 +29,7 @@ pub(crate) struct DeckAttackSolution {
 
 /// Runs the deck visible-coset action-recovery attack (idea 1, this unit).
 ///
-/// **What this recovers (claim ceiling).** Only PARTIAL VISIBLE-COSET ACTION MAPS —
+/// **What this recovers.** Only PARTIAL VISIBLE-COSET ACTION MAPS —
 /// a fraction of the per-letter `from -> to` visible-coset transitions — NOT a
 /// recovered key and NOT the plaintext->group-element mapping. Under non-trivial
 /// `H` the visible transition depends on the FULL hidden state, so most of a

@@ -9,30 +9,15 @@ use super::*;
 // =====================================================================
 // UNIT 2c — EYES STEP 3: point the matured attack at the REAL eye corpus.
 //
-// This is the ONLY unit that touches the real eyes, and the highest honesty-risk
-// unit in the project. The CLAIM CEILING is absolute on every output:
-//
-//   The eyes are deterministic, engine-generated, strikingly structured data of
-//   unknown meaning; unsolved; no primary developer source confirms recoverable
-//   plaintext.
-//
-// Nothing this unit prints, writes, or returns may be stronger. The standing
-// conclusion — the eye decode is BLOCKED on the unknown symbol→meaning mapping —
-// does NOT change unless a candidate survives the held-out + Thread-3 gates below,
-// and even then it is a HYPOTHESIS, never a decode. The EXPECTED, fully reportable
-// outcome of this unit is NO surviving candidate: with a near-`S_83` group and very
-// little text (`Alphabet-Chaining.md`: "it might actually be unrealistic to expect
-// chaining to ever work for the eyes"), a clean honest negative is a SUCCESS here.
-//
 // ## What is recovered vs what is NOT (the honest reality, encoded)
 //
 // The attack recovers STRUCTURE (visible-coset actions / chain-link constraints),
 // NOT cleartext. Even a full recovery of the eye group structure yields abstract
 // plaintext-letter INDICES, not readable text, because mapping symbols→letters
 // needs an external ANCHOR (exactly the standing blocker). So a "candidate
-// cleartext" can ONLY arise by ADDITIONALLY hypothesizing a symbol→letter mapping,
-// which the claim ceiling forbids inventing as a finding. The cleartext path is
-// therefore SPECULATIVE, gated, Finnish-weighted, and never primary.
+// cleartext" can ONLY arise by ADDITIONALLY hypothesizing a symbol→letter mapping.
+// The cleartext path is therefore SPECULATIVE, gated, Finnish-weighted, and never
+// primary.
 //
 // ## Entry path (EXACT — never deviate)
 //

@@ -37,5 +37,4 @@ positive control
 
 Interpretation: broad conflict counts quantify window-11/shared-pivot gap-isomorph non-commutativity, including coincidental collisions; they are not same-plaintext evidence. Core-supported coverage is printed as a repeated-core guardrail, while same-plaintext support is not established by the broad graph. Coverage is evidence, not proof, for the transitivity premise.
 Wave-1 comparability note: this Rust audit is window-11 + shared-pivot only and is not directly comparable to wave-1's L=10..15 broad survey (17,124 conflicts, 79/83 coverage) nor its genuine tier (~1 conflict witness, ~28/83 coverage); the figures measure different search spaces.
-Claim ceiling: the eyes remain deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext.
 Multiplicity note: the report shows several descriptive tails from the same matched null; read them as an audit panel, not independent discoveries.

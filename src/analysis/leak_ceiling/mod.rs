@@ -25,8 +25,6 @@
 //! Honesty labels bind: supply is *measured*; demand/ceiling/coverage are
 //! *analytic, model-conditional*; the MI figure is an *upper bound*; the coupon
 //! demand is for the maximal `H = S₈₂` (`N = 83`) and scales down with larger `H`.
-//! Claim ceiling holds: the eyes remain deterministic, engine-generated,
-//! strikingly structured data of unknown meaning; unsolved.
 
 use std::collections::BTreeSet;
 use std::fmt;

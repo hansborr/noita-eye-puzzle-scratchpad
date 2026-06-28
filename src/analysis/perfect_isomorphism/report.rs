@@ -229,10 +229,6 @@ fn append_perfect_interpretation(out: &mut String, report: &PerfectIsomorphismRe
         "Multiplicity note: multiple isomorph signatures, occurrence pairs, and vetted windows are tested; pointwise rows are labels for structural triage, while the matched null calibrates the internal-violation count."
     );
     report::appendln!(out, "{}", perfect_interpretation(report));
-    report::appendln!(
-        out,
-        "Claim ceiling: the eyes remain deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext."
-    );
 }
 
 fn perfect_interpretation(report: &PerfectIsomorphismReport) -> String {

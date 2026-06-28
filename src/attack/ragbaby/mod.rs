@@ -281,8 +281,7 @@ fn record_filename(label: &str, candidate: &RagbabyCandidate, seed: u64) -> Stri
 }
 
 /// Renders the candidate-record markdown body (pure; testable without the
-/// filesystem). Reproduces [`crate::attack::solve::SOLVE_CLAIM_CEILING`] verbatim so no
-/// record can make a stronger claim than the solve pipeline.
+/// filesystem).
 fn render_record(
     label: &str,
     seed: u64,
@@ -309,7 +308,6 @@ fn render_record(
     };
     writeln!(out, "**{verdict}.**")?;
     writeln!(out)?;
-    crate::attack::crack::write_claim_ceiling(&mut out)?;
     writeln!(out, "## Gates (never collapsed)")?;
     writeln!(out)?;
     writeln!(

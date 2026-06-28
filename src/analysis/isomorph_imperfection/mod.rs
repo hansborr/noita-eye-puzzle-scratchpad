@@ -15,9 +15,6 @@
 //! structural constants so the two stay in lock-step; this module extends that
 //! scan with longer windows, a matched null for the loose-candidate class, an
 //! explicit word-boundary discount, and the imperfect-family fit comparison.
-//!
-//! The standing claim ceiling holds throughout: the eyes are deterministic,
-//! engine-generated, strikingly structured data of unknown meaning; unsolved.
 
 use std::error::Error;
 use std::fmt;

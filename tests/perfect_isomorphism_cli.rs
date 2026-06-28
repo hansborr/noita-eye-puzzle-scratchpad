@@ -24,5 +24,4 @@ fn perfectiso_subcommand_reports_headline_and_regressions() {
     assert_contains(&stdout, "3B messages 7/8/9");
     assert_contains(&stdout, "3C bound hypothesis");
     assert_contains(&stdout, "positive control: fired");
-    assert_contains(&stdout, "unknown meaning; unsolved");
 }

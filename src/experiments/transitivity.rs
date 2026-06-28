@@ -207,7 +207,7 @@ impl Report for TransitivityReport {
         );
         report::appendln!(
             &mut out,
-            "Interpretation: the verdict constrains the candidate group set only; it says nothing about recoverable plaintext. The eyes remain deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext."
+            "Interpretation: the verdict constrains the candidate group set only; it says nothing about recoverable plaintext."
         );
         report::appendln!(
             &mut out,

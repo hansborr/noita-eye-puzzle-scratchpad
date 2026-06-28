@@ -1585,8 +1585,8 @@ fn eyes_real_outcome_is_reported_honestly_not_hardcoded_as_passing() {
 #[test]
 fn eyes_candidate_record_is_written_with_honesty_strings() {
     // The mandatory candidate record is written and contains the
-    // HYPOTHESIS-not-decode label, the claim ceiling, the held-out verdict, the
-    // Thread-3 verdict, and the candidate-logging protocol framing.
+    // HYPOTHESIS-not-decode label, the held-out verdict, the Thread-3 verdict, and
+    // the candidate-logging protocol framing.
     let dir = scratch_dir("record");
     let report = run_gak_attack_eyes(eyes_test_config(&dir)).unwrap();
     assert!(
@@ -1595,9 +1595,6 @@ fn eyes_candidate_record_is_written_with_honesty_strings() {
     );
     let body = std::fs::read_to_string(&report.record_path).unwrap();
     assert!(body.contains("HYPOTHESIS, NOT a decode"));
-    assert!(body.contains(
-            "deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext"
-        ));
     assert!(body.contains("Gate 1 — held-out isomorphs vs matched within-message null"));
     assert!(body.contains("Gate 2 — Thread-3 perfect-isomorphism consistency"));
     assert!(body.contains("Gate 3 — SPECULATIVE cleartext plausibility"));

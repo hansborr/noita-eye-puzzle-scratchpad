@@ -1,7 +1,7 @@
 //! Rendering for the G3 leak-ceiling report.
 //!
 //! Extracted verbatim from the leaf module; the byte-exact stdout render — every
-//! honesty label, caveat, and the closing claim ceiling — is preserved unchanged.
+//! honesty label and caveat — is preserved unchanged.
 
 use crate::analysis::orders;
 use crate::report::{self, Report};
@@ -302,9 +302,5 @@ fn append_interpretation(out: &mut String, report: &LeakCeilingReport) {
     report::appendln!(
         out,
         "  This bounds RECOVERABILITY only; it makes NO claim that the eyes are or are not GAK. Assumptions: coupon demand for maximal H=S82 (scales down with larger H); MI figure is an UPPER bound; coverage model is analytic with one G1b-calibrated geometry constant."
-    );
-    report::appendln!(
-        out,
-        "  Claim ceiling: the eyes remain deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext."
     );
 }

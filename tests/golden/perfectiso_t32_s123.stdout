@@ -93,4 +93,3 @@ wiki regression checks
 
 Multiplicity note: multiple isomorph signatures, occurrence pairs, and vetted windows are tested; pointwise rows are labels for structural triage, while the matched null calibrates the internal-violation count.
 Interpretation: Perfect-Isomorphism.md and Allomorphs.md make this a family-selection check, not a decode. The observed 0 robust strong-bar internal violations SUPPORTS (does not prove) perfect isomorphism and keeps the GAK family viable; it does not imply "the eyes are GAK." A clean internal violation would disfavor the proven CTAK..XGAK family, but XGAK's upper edge is <=, not equality.
-Claim ceiling: the eyes remain deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext.

@@ -125,7 +125,6 @@ fn letter_puzzles_run_end_to_end_and_log_as_hypotheses() {
         )
         .unwrap();
         let record = std::fs::read_to_string(&path).unwrap();
-        assert!(record.contains(super::SOLVE_CLAIM_CEILING));
         assert!(record.contains("HYPOTHESIS, NOT a decode"));
 
         // Claim discipline: on a short single stream with a bigram model the
@@ -192,7 +191,7 @@ fn eyes_search_surfaces_no_surviving_candidate() {
         // assert a direction robustly, so it is documented, not pinned.
     }
 
-    // The honest negative is logged with the verbatim claim ceiling.
+    // The honest negative is logged with no surviving candidate.
     let dir = std::env::temp_dir().join(format!("noita-solve-eyes-{}", std::process::id()));
     let _removed = std::fs::remove_dir_all(&dir);
     let path = super::log_solve_run(
@@ -210,7 +209,6 @@ fn eyes_search_surfaces_no_surviving_candidate() {
     )
     .unwrap();
     let record = std::fs::read_to_string(&path).unwrap();
-    assert!(record.contains(super::SOLVE_CLAIM_CEILING));
     assert!(record.contains("NO surviving candidate"));
     let _cleanup = std::fs::remove_dir_all(&dir);
 }
@@ -333,7 +331,6 @@ fn corpus_one_runs_end_to_end_and_logs_hypothesis() {
     )
     .unwrap();
     let record = std::fs::read_to_string(&path).unwrap();
-    assert!(record.contains(super::SOLVE_CLAIM_CEILING));
     assert!(record.contains("NO surviving candidate"));
     // Defect 3 regression: the header reports the REAL ciphertext length (266),
     // not 0, even though there are no candidates to derive it from.
@@ -400,7 +397,6 @@ fn corpus_two_runs_end_to_end_and_logs_hypothesis() {
     )
     .unwrap();
     let record = std::fs::read_to_string(&path).unwrap();
-    assert!(record.contains(super::SOLVE_CLAIM_CEILING));
     assert!(record.contains("HYPOTHESIS"));
     assert!(record.contains("codec round-trip"));
     let _cleanup = std::fs::remove_dir_all(&dir);
@@ -512,7 +508,6 @@ fn corpus_six_grouping_reinserts_spaces_and_logs_hypothesis() {
     )
     .unwrap();
     let record = std::fs::read_to_string(&path).unwrap();
-    assert!(record.contains(super::SOLVE_CLAIM_CEILING));
     assert!(record.contains("HYPOTHESIS"));
     // The reinserted spaces appear in the logged cleartext too.
     assert!(record.contains(' '));
@@ -1564,8 +1559,8 @@ fn searched_matched_null_stays_flat_on_shuffled_ciphertext() {
 }
 
 // The record renderer is a pure string builder (no filesystem) and
-// carries the claim ceiling, the HYPOTHESIS label, all three gate verdicts,
-// and BOTH language scores.
+// carries the HYPOTHESIS label, all three gate verdicts, and BOTH language
+// scores.
 #[test]
 fn solve_record_renders_ceiling_label_gates_and_both_languages() {
     let top = super::SolveRecordCandidate {
@@ -1595,7 +1590,6 @@ fn solve_record_renders_ceiling_label_gates_and_both_languages() {
     };
     let body = super::render_solve_candidate_record(&inputs).unwrap();
 
-    assert!(body.contains(super::SOLVE_CLAIM_CEILING));
     assert!(body.contains("HYPOTHESIS, NOT a decode"));
     assert!(body.contains("## Provenance (reproducible)"));
     assert!(body.contains("make run ARGS='solve --label positive-control'"));
@@ -1627,7 +1621,6 @@ fn solve_record_reports_honest_negative_when_no_candidate() {
     let body = super::render_solve_candidate_record(&inputs).unwrap();
 
     assert!(body.contains("NO surviving candidate — decode remains blocked"));
-    assert!(body.contains(super::SOLVE_CLAIM_CEILING));
     assert!(body.contains("nothing to score"));
     assert!(body.contains("## Provenance (reproducible)"));
     assert!(body.contains(
@@ -1667,7 +1660,6 @@ fn log_solve_run_writes_seed_derived_record() {
             .starts_with("solve-small-alphabet-seed-")
     );
     let written = std::fs::read_to_string(&path).unwrap();
-    assert!(written.contains(super::SOLVE_CLAIM_CEILING));
     assert!(written.contains("Finnish bigram mean log-likelihood"));
     let _cleanup = std::fs::remove_dir_all(&dir);
 }

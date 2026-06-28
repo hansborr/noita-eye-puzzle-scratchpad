@@ -34,7 +34,7 @@ use eval::{NullBaselines, evaluate_cipher, evaluate_family};
 use search::{FamilyCipher, evaluate_cipher_search, solve_search};
 
 pub use record::{
-    SOLVE_CLAIM_CEILING, SolveRecordCandidate, SolveRecordInputs, SolveRunIdentity, log_solve_run,
+    SolveRecordCandidate, SolveRecordInputs, SolveRunIdentity, log_solve_run,
     render_solve_candidate_record, write_solve_candidate_record,
 };
 pub use types::{

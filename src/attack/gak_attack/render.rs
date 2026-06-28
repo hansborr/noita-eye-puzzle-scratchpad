@@ -390,10 +390,6 @@ fn append_gak_attack_interpretation(out: &mut String, attack_report: &GakAttackR
     );
     report::appendln!(
         out,
-        "Claim ceiling: the eyes remain deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext. This run says nothing about recoverable eye plaintext."
-    );
-    report::appendln!(
-        out,
         "TENTATIVE small-support prior: the <=k-swaps / small-support search heuristic is a TENTATIVE prior to validate, not a hard constraint; the GCTAK gate runs unconstrained (radius 0) and does not depend on it."
     );
     report::appendln!(

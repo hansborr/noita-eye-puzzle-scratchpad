@@ -160,7 +160,6 @@ fn report_is_deterministic_and_renders() {
     assert!(rendered.contains("G3 isomorph-leak information ceiling"));
     assert!(rendered.contains("Part D — single-point geometry calibration"));
     assert!(rendered.contains("IN-BAND"));
-    assert!(rendered.contains("Claim ceiling"));
 }
 
 #[test]

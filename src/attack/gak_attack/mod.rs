@@ -8,12 +8,7 @@
 //! corpus is Unit 2c ([`run_gak_attack_eyes`], Step 3 of
 //! `research/gak-threads/specs/thread-4-spec.md`): it measures the standing
 //! **BLOCKED** conclusion against matched within-message nulls and asserts no
-//! decode. The strongest defensible statement about the eyes is unchanged and
-//! stated here so nothing downstream can drift past it:
-//!
-//! > The eyes are deterministic, engine-generated, strikingly structured data of
-//! > unknown meaning; unsolved; no primary developer source confirms recoverable
-//! > plaintext.
+//! decode.
 //!
 //! On the *synthetic* ciphers this module generates we hold the ground truth, so
 //! "recovering the key" here is legitimate — a recovered key, not an assumed

@@ -388,7 +388,7 @@ fn crack_builds_model_and_renders_letters() {
 }
 
 #[test]
-fn record_writer_emits_claim_ceiling() {
+fn record_writer_emits_hypothesis_label() {
     let candidate = KeystreamCandidate {
         family: KeystreamFamily::Vigenere,
         key_len: 3,
@@ -413,7 +413,6 @@ fn record_writer_emits_claim_ceiling() {
     let _removed = std::fs::remove_dir_all(&dir);
     let path = write_keystream_record(&dir, "unit", 0x1234, &candidate).unwrap();
     let body = std::fs::read_to_string(&path).unwrap();
-    assert!(body.contains(crate::attack::solve::SOLVE_CLAIM_CEILING));
     assert!(body.contains("HYPOTHESIS, NOT a decode"));
     assert!(body.contains("vigenere"));
     let _cleanup = std::fs::remove_dir_all(&dir);
@@ -472,9 +471,9 @@ fn frozen_bits_anti_drift_baseline() {
 
 #[test]
 fn render_record_full_body_is_byte_stable() {
-    // Full-body PIN: the entire record body (invariant claim-ceiling/decrypt blocks
-    // now in `attack::crack`, plus the bespoke keystream lines) must stay
-    // byte-identical for a survivor and a non-survivor.
+    // Full-body PIN: the entire record body (the invariant decrypt block now in
+    // `attack::crack`, plus the bespoke keystream lines) must stay byte-identical
+    // for a survivor and a non-survivor.
     let survivor = KeystreamCandidate {
         family: KeystreamFamily::Vigenere,
         key_len: 3,
@@ -502,11 +501,6 @@ Stable label (NO wall-clock): label=unit seed=0x0000000000001234 family=vigenere
 ## Verdict
 
 **CANDIDATE SURVIVED ALL GATES (round-trip + matched-null + random-key-null + held-out) — logged as a HYPOTHESIS, NOT a decode.**
-
-## Claim ceiling (absolute)
-
-deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext.
-Nothing in this record is stronger. A clean honest negative is a SUCCESS.
 
 ## Gates (never collapsed)
 
@@ -560,11 +554,6 @@ Stable label (NO wall-clock): label=probe seed=0x000000000000feed family=beaufor
 ## Verdict
 
 **NO surviving candidate — decode remains blocked.**
-
-## Claim ceiling (absolute)
-
-deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext.
-Nothing in this record is stronger. A clean honest negative is a SUCCESS.
 
 ## Gates (never collapsed)
 

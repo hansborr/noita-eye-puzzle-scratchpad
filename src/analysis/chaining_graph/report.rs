@@ -193,10 +193,6 @@ fn append_chaining_graph_interpretation(out: &mut String) {
     );
     report::appendln!(
         out,
-        "Claim ceiling: the eyes remain deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext."
-    );
-    report::appendln!(
-        out,
         "Multiplicity note: the report shows several descriptive tails from the same matched null; read them as an audit panel, not independent discoveries."
     );
 }

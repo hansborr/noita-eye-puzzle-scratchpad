@@ -1,9 +1,9 @@
 //! The eyes Step-3 report type and its rendered CLI output.
 //!
 //! Holds [`EyesAttackReport`] (the standing "decode blocked" conclusion, measured
-//! honestly) and its [`Report`] rendering. The claim-ceiling and HYPOTHESIS-not-
-//! decode framing is rendered verbatim here; nothing printed may be stronger than
-//! the conclusion the structural gates support.
+//! honestly) and its [`Report`] rendering. The HYPOTHESIS-not-decode framing is
+//! rendered verbatim here; nothing printed may be stronger than the conclusion the
+//! structural gates support.
 
 use super::super::*;
 use crate::report::{self, Report};
@@ -82,10 +82,6 @@ impl Report for EyesAttackReport {
         report::appendln!(
             &mut out,
             "Thread 4 EYES Step 3 (the ONLY unit that touches the real eye corpus)"
-        );
-        report::appendln!(
-            &mut out,
-            "Claim ceiling: the eyes are deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext. Nothing here is stronger."
         );
         report::appendln!(
             &mut out,

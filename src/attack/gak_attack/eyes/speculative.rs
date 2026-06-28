@@ -4,8 +4,7 @@
 //! The symbol->letter mapping here is a HYPOTHESIS, never recovered: an explicitly-
 //! arbitrary affine projection scored under the Finnish AND English models behind a
 //! matched null. This is NEVER primary evidence; the implied plaintext is logged
-//! verbatim for human review regardless of the verdict. The claim ceiling forbids
-//! presenting any of this as a decode.
+//! verbatim for human review regardless of the verdict.
 
 use super::super::{
     EYE_READING_ALPHABET_SIZE, EyesAttackConfig, GakAttackError, LanguageModel,

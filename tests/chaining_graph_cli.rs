@@ -28,5 +28,4 @@ fn chaining_graph_subcommand_reports_conflicts_coverage_and_control() {
     assert_contains(&stdout, "Wave-1 comparability note");
     assert_contains(&stdout, "matched within-message multiset-shuffle null");
     assert_contains(&stdout, "synthetic non-commutative GAK stream fixture");
-    assert_contains(&stdout, "Claim ceiling");
 }

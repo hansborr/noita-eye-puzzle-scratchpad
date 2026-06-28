@@ -1,7 +1,7 @@
 //! CLI regression tests for the Thread 4 synthetic GAK-attack (GCTAK gate).
 //!
 //! This suite is the **honesty lock** for the `gak-attack` subcommand: it pins
-//! the report's claim ceiling, synthetic-only disclaimer, TENTATIVE
+//! the report's synthetic-only disclaimer, TENTATIVE
 //! small-support label, rate-vs-null gate wording, and the
 //! exemplar-is-not-pass-evidence label so an edit that quietly overclaims is
 //! caught by the gate. The asserted strings are gate-verdict-independent: they
@@ -66,12 +66,6 @@ fn gak_attack_subcommand_reports_synthetic_gate_and_honesty_caveats() {
     assert_contains(
         &stdout,
         "Synthetic-only disclaimer: this unit NEVER touches the eye corpus;",
-    );
-
-    // Claim ceiling holds verbatim-in-spirit.
-    assert_contains(
-        &stdout,
-        "deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext.",
     );
 
     // The small-support prior is labelled TENTATIVE and not a hard constraint.
@@ -229,7 +223,7 @@ fn gak_attack_subcommand_reports_unit_2b_marginalization_honesty_surface() {
 #[test]
 fn gak_attack_eyes_subcommand_locks_the_eyes_honesty_surface() {
     // The EYES Step-3 honesty lock: the ONLY unit that touches the real eyes, and
-    // the highest honesty-risk surface in the project. We pin the claim ceiling, the
+    // the highest honesty-risk surface in the project. We pin the
     // expected-no-candidate framing, the HYPOTHESIS-not-decode label, the held-out +
     // Thread-3 gate wording, and the candidate-logging protocol. We deliberately do
     // NOT assert a decode or a specific gate verdict (per the spec: pin the honesty
@@ -255,12 +249,6 @@ fn gak_attack_eyes_subcommand_locks_the_eyes_honesty_surface() {
     assert_contains(
         &stdout,
         "Thread 4 EYES Step 3 (the ONLY unit that touches the real eye corpus)",
-    );
-
-    // The claim ceiling, verbatim-in-spirit.
-    assert_contains(
-        &stdout,
-        "the eyes are deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext.",
     );
 
     // The expected outcome is NO surviving candidate; the decode remains BLOCKED.

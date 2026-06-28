@@ -141,27 +141,6 @@ pub(crate) fn slugify(label: &str) -> String {
         .collect()
 }
 
-/// Writes the invariant `## Claim ceiling (absolute)` block: the heading, the
-/// verbatim [`crate::attack::solve::SOLVE_CLAIM_CEILING`], the "Nothing in this
-/// record is stronger…" line, and a trailing blank line.
-///
-/// Shared so no cracker record can make a stronger claim than the solve pipeline.
-///
-/// # Errors
-/// Returns [`fmt::Error`] if writing to `out` fails (it cannot for a `String`).
-pub(crate) fn write_claim_ceiling(out: &mut String) -> fmt::Result {
-    use std::fmt::Write as _;
-    writeln!(out, "## Claim ceiling (absolute)")?;
-    writeln!(out)?;
-    writeln!(out, "{}", crate::attack::solve::SOLVE_CLAIM_CEILING)?;
-    writeln!(
-        out,
-        "Nothing in this record is stronger. A clean honest negative is a SUCCESS."
-    )?;
-    writeln!(out)?;
-    Ok(())
-}
-
 /// Writes the invariant `## Decrypt (HYPOTHESIS, NOT a decode)` block: the heading,
 /// a blank line, and the rendered `plaintext` line.
 ///

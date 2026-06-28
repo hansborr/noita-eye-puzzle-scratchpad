@@ -367,7 +367,7 @@ fn deterministic_for_fixed_seed() {
 }
 
 #[test]
-fn record_writer_emits_claim_ceiling() {
+fn record_writer_emits_hypothesis_label() {
     let candidate = RagbabyCandidate {
         base: 26,
         numbering: Numbering::Std,
@@ -393,7 +393,6 @@ fn record_writer_emits_claim_ceiling() {
     let _removed = std::fs::remove_dir_all(&dir);
     let path = write_ragbaby_record(&dir, "unit", 0x1234, &candidate).unwrap();
     let body = std::fs::read_to_string(&path).unwrap();
-    assert!(body.contains(crate::attack::solve::SOLVE_CLAIM_CEILING));
     assert!(body.contains("HYPOTHESIS, NOT a decode"));
     assert!(body.contains("base=26"));
     let _cleanup = std::fs::remove_dir_all(&dir);
@@ -466,8 +465,8 @@ fn frozen_bits_anti_drift_baseline() {
 
 #[test]
 fn render_record_full_body_is_byte_stable() {
-    // Full-body PIN: the entire record body (invariant claim-ceiling/decrypt blocks
-    // now in `attack::crack`, plus the bespoke ragbaby lines incl. the inline
+    // Full-body PIN: the entire record body (the invariant decrypt block now in
+    // `attack::crack`, plus the bespoke ragbaby lines incl. the inline
     // `[DIAGNOSTIC]` beats_null) must stay byte-identical for survivor + non-survivor.
     let survivor = RagbabyCandidate {
         base: 26,
@@ -497,11 +496,6 @@ Stable label (NO wall-clock): label=unit seed=0x0000000000001234 base=26 numberi
 ## Verdict
 
 **CANDIDATE SURVIVED ALL GATES (round-trip + matched-null + held-out) — logged as a HYPOTHESIS, NOT a decode.**
-
-## Claim ceiling (absolute)
-
-deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext.
-Nothing in this record is stronger. A clean honest negative is a SUCCESS.
 
 ## Gates (never collapsed)
 
@@ -555,11 +549,6 @@ Stable label (NO wall-clock): label=probe seed=0x000000000000feed base=25 number
 ## Verdict
 
 **NO surviving candidate — decode remains blocked.**
-
-## Claim ceiling (absolute)
-
-deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext.
-Nothing in this record is stronger. A clean honest negative is a SUCCESS.
 
 ## Gates (never collapsed)
 

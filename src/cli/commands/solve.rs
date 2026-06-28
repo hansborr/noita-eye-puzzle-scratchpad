@@ -86,9 +86,9 @@ pub(crate) fn run_solve(args: &SolveArgs) -> ExitCode {
     };
     print_solve_report(&candidates);
 
-    // Auto-log: persist the verbatim claim ceiling, all three gates, and both
-    // language scores as a labelled HYPOTHESIS (the eyes honest-negative record
-    // included). This is load-bearing claim discipline, not just stdout.
+    // Auto-log: persist all three gates and both language scores as a labelled
+    // HYPOTHESIS (the eyes honest-negative record included) to disk, not just
+    // stdout.
     //
     // The provenance string is the exact, clock-free command that reproduces this
     // record: every run-affecting flag is printed explicitly so the

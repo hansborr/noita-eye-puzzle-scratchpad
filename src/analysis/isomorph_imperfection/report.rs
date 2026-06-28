@@ -1,7 +1,7 @@
 //! Rendering for the isomorph-imperfection scan report.
 //!
 //! Extracted verbatim from the leaf module; the byte-exact stdout render
-//! (verdict language and claim ceiling included) is preserved unchanged.
+//! (verdict language included) is preserved unchanged.
 
 use crate::analysis::perfect_isomorphism::{MAX_ISLAND_COLS, POST_MIN, SIGNIFICANCE_ALPHA};
 use crate::report::{self, Report};
@@ -244,10 +244,6 @@ fn append_family_section(out: &mut String, report: &IsomorphImperfectionReport) 
 fn append_verdict_section(out: &mut String, report: &IsomorphImperfectionReport) {
     report::appendln!(out, "verdict");
     report::appendln!(out, "  {}", verdict_line(report));
-    report::appendln!(
-        out,
-        "  Claim ceiling: the eyes remain deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext."
-    );
 }
 
 fn verdict_line(report: &IsomorphImperfectionReport) -> String {

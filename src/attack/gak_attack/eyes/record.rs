@@ -3,8 +3,8 @@
 //!
 //! Writes (and renders) the candidate record under the configured directory,
 //! capturing the attempt, the recovered-structure amount, the held-out + Thread-3
-//! verdicts, and the explicit HYPOTHESIS-not-decode label and claim ceiling. Any
-//! candidate cleartext is logged VERBATIM for human review.
+//! verdicts, and the explicit HYPOTHESIS-not-decode label. Any candidate cleartext
+//! is logged VERBATIM for human review.
 
 use super::super::*;
 
@@ -51,7 +51,7 @@ pub(crate) struct EyesRecordInputs<'a> {
 ///
 /// The record captures what was attempted, how much structure was recovered, the
 /// held-out verdict + matched-null p-value, the Thread-3 consistency verdict, and
-/// the explicit HYPOTHESIS-not-decode label and claim ceiling. If any candidate
+/// the explicit HYPOTHESIS-not-decode label. If any candidate
 /// cleartext emerged (the speculative gate ran) it is logged VERBATIM in English
 /// AND Finnish with its scores and caveats. The expected record is a "NO candidate
 /// surfaced — decode remains blocked" entry.
@@ -90,7 +90,7 @@ pub(crate) fn render_eyes_candidate_record(
     } else {
         "NO candidate surfaced — decode remains blocked"
     };
-    // Header + claim ceiling (verbatim-in-spirit).
+    // Header + verdict.
     writeln!(out, "# Eyes Step-3 GAK-attack candidate record")?;
     writeln!(out)?;
     writeln!(
@@ -114,21 +114,6 @@ pub(crate) fn render_eyes_candidate_record(
     writeln!(
         out,
         "preserved by this run unless a candidate survived BOTH structural gates below."
-    )?;
-    writeln!(out)?;
-    writeln!(out, "## Claim ceiling (absolute)")?;
-    writeln!(out)?;
-    writeln!(
-        out,
-        "The eyes are deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext."
-    )?;
-    writeln!(
-        out,
-        "Nothing in this record is stronger. The EXPECTED outcome of this unit is NO"
-    )?;
-    writeln!(
-        out,
-        "surviving candidate; a clean honest negative is a SUCCESS, not a failure."
     )?;
     writeln!(out)?;
 

@@ -92,7 +92,6 @@ fn eyes_are_a_hardened_negative() {
 
     let rendered = report.render();
     assert!(rendered.contains("verdict"));
-    assert!(rendered.contains("Claim ceiling"));
     assert!(rendered.contains("epsilon"));
     assert!(rendered.contains("GAK not falsified"));
     assert!(rendered.contains("all loose candidates"));

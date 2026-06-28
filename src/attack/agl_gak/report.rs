@@ -167,7 +167,7 @@ fn append_agl_gak_interpretation(out: &mut String, report: &AglGakReport) {
     }
     report::appendln!(
         out,
-        "Claim ceiling: this excludes one candidate group family and narrows the transitive GAK candidate set toward {{A83, S83}}, with D166 conditional elsewhere. It says nothing about recoverable plaintext; the eyes remain deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext. Scope: this excludes the point-stabilizer AGL-GAK family (output = moved reference point, single shared running key); it does not speak to non-GAK affine constructions or a non-point-stabilizer hidden subgroup."
+        "this excludes one candidate group family and narrows the transitive GAK candidate set toward {{A83, S83}}, with D166 conditional elsewhere. It says nothing about recoverable plaintext. Scope: this excludes the point-stabilizer AGL-GAK family (output = moved reference point, single shared running key); it does not speak to non-GAK affine constructions or a non-point-stabilizer hidden subgroup."
     );
     report::appendln!(
         out,
