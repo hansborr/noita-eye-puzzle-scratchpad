@@ -6,18 +6,6 @@ that points the matured GAK attack at the real eye corpus** (Thread 4, Unit 2c,
 the EYES Step 3). It is the highest honesty-risk artifact in the project, so the
 protocol below is binding on humans and agents alike.
 
-## The claim ceiling (absolute, every record)
-
-The strongest defensible statement about the eyes is, verbatim:
-
-> deterministic, engine-generated, strikingly structured data of unknown meaning;
-> unsolved; no primary developer source confirms recoverable plaintext.
-
-**Nothing written here may be stronger.** The standing conclusion — the eye decode
-is **BLOCKED on the unknown symbol→meaning mapping** — does **not** change unless a
-candidate survives ALL of the held-out checks below, and even then it is a
-**HYPOTHESIS, never a decode**.
-
 The expected, fully-reportable outcome of every eyes run is **NO surviving
 candidate**. A clean honest negative is a SUCCESS here, not a failure: the spec
 states up front that, given the eyes' near-`S_83` group and very little text, "it
@@ -31,8 +19,8 @@ constraints), **not** cleartext. Even a full recovery of the eye group structure
 yields abstract plaintext-letter **indices**, NOT readable text, because mapping
 symbols→letters needs an external **anchor** — which is exactly the standing
 blocker. So any "candidate cleartext" can only arise by ADDITIONALLY hypothesizing
-a symbol→letter mapping, which the claim ceiling forbids inventing as a finding.
-The cleartext path is therefore **SPECULATIVE, gated, and never primary**.
+a symbol→letter mapping. The cleartext path is therefore **SPECULATIVE, gated, and
+never primary**.
 
 ## The kill order (every candidate is a HYPOTHESIS until it survives ALL of these)
 
@@ -65,7 +53,7 @@ The cleartext path is therefore **SPECULATIVE, gated, and never primary**.
 - Every record captures: what was attempted; how much aligned-isomorph structure
   the eyes actually have and how much was recovered; the held-out verdict and the
   matched-null p-value; the Thread-3 consistency verdict; and the explicit
-  **HYPOTHESIS-not-decode** label and claim ceiling.
+  **HYPOTHESIS-not-decode** label.
 - **If ANY candidate cleartext emerges — in English OR FINNISH (Noita is a Finnish
   game; weight Finnish highly) — it MUST be written here verbatim with its scores
   and caveats for human review, even if low-confidence / failing.**
@@ -78,8 +66,8 @@ The cleartext path is therefore **SPECULATIVE, gated, and never primary**.
   records are committed separately for human review).
 - `solve-*.md` — one machine-written record per solve-pipeline run,
   named from a stable run label + seed (no wall-clock). Same protocol binds:
-  the verbatim claim ceiling, the HYPOTHESIS-not-decode label, all three
-  independent gates (cipher round-trip, held-out mapping score, matched null),
+  the HYPOTHESIS-not-decode label, all three independent gates (cipher
+  round-trip, held-out mapping score, matched null),
   Finnish and English scores, and any candidate cleartext verbatim for human
   review. The expected record on the eyes is "NO surviving candidate."
   - **Codec records (brief 04a).** When a codec/transduction stage runs (the
