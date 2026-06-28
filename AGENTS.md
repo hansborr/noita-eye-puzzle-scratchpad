@@ -5,8 +5,8 @@ this file, so there is one source of truth.)
 
 ## What this is
 
-A Rust workbench for analyzing and attempting to decode the **Noita eye-glyph
-puzzle**. The aim is *trustworthy* cryptanalysis: primitives that constrain the
+A Rust workbench for analyzing and attempting to decode the Noita eye-glyph
+puzzle. The aim is *trustworthy* cryptanalysis: primitives that constrain the
 hypothesis space, not premature claims about what the glyphs mean.
 
 ## Commands
@@ -41,7 +41,7 @@ here.
 
 ## Design notes
 
-- A `Glyph` is an opaque `u16` index into an `Alphabet`, **not** a closed enum,
+- A `Glyph` is an opaque `u16` index into an `Alphabet`, not a closed enum,
   because the broader analysis alphabet still has multiple layers. The rendered
   orientation inventory is settled separately: digits `0`-`4` are the five
   displayed orientations, and `5` is a non-rendered row delimiter. Do not encode

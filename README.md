@@ -18,12 +18,12 @@ independently reviewed, and gate-green.
 
 ## The honest current state
 
-> The eye data is **deterministic, engine-generated, strikingly structured data
-> of unknown meaning**. Under the honeycomb reading order (`standard36-u012-d012`)
-> it shows **no recoverable simple-cipher signal**; the structural battery
-> **disfavors monoalphabetic and fixed-keystream additive ciphers** and **favors
-> a plaintext-dependent (self-modifying) permutation direction** — but **decodes
-> nothing**. The puzzle is **unsolved**: no primary developer source confirms it
+> The eye data is deterministic, engine-generated, strikingly structured data
+> of unknown meaning. Under the honeycomb reading order (`standard36-u012-d012`)
+> it shows no recoverable simple-cipher signal; the structural battery
+> disfavors monoalphabetic and fixed-keystream additive ciphers and favors
+> a plaintext-dependent (self-modifying) permutation direction — but decodes
+> nothing. The puzzle is unsolved: no primary developer source confirms it
 > encodes recoverable plaintext, and the 83-symbol→meaning mapping is not present
 > in the game's storage layer.
 
@@ -33,16 +33,16 @@ Nothing in this repo prints anything stronger than that.
 
 `src/data/corpus.rs` holds the nine eye messages with their provenance. A test
 re-derives the engine's base-7 decode from Xkeeper0's `[u32, u32]` integer pairs
-and checks it equals the ngraham20 transcription **byte-for-byte for all nine
-messages** — so the two independent community transcriptions agree. Transcription
+and checks it equals the ngraham20 transcription byte-for-byte for all nine
+messages — so the two independent community transcriptions agree. Transcription
 error is the single biggest risk in this kind of work, so the corpus is
 cross-checked rather than trusted. Raw inputs are vendored under
 `research/data/eye-messages/`.
 
 It's well established (and already documented by the community) that the messages
-are **hardcoded constants** — the world seed only randomizes *where* the eyes
+are hardcoded constants — the world seed only randomizes *where* the eyes
 appear, not what they say — and that the game's storage layer holds opaque
-integers with **no symbol→meaning table**. That second point shapes what this
+integers with no symbol→meaning table. That second point shapes what this
 workbench can and can't do: the mapping that would actually turn glyphs into
 letters isn't in the game files, so it can't be datamined or recovered by
 cryptanalysis alone. It would have to come from in-game lore or a developer
@@ -53,9 +53,9 @@ source.
 Two representations of the data are kept strictly distinct — conflating them is
 the classic way to manufacture a false signal:
 
-- the **storage / engine** layer — how the game stores the messages: base-7 over
+- the storage / engine layer — how the game stores the messages: base-7 over
   64-bit integers, symbols `−1..5` with `5` as a row delimiter;
-- the **reading** layer — base-5 trigrams of the rendered orientations `0..4`,
+- the reading layer — base-5 trigrams of the rendered orientations `0..4`,
   giving values `0..124`, of which 83 are actually used.
 
 ## Running it
@@ -74,8 +74,8 @@ the positive controls, and the cipher-attack/solve pipelines as subcommands.
 ## Results
 
 Every experiment pairs a measurement with a null model or a positive control. For
-the eyes the cipher and decryption results are uniformly **negative**; for the
-known-answer controls they're **positive** — the tools provably fire on real
+the eyes the cipher and decryption results are uniformly negative; for the
+known-answer controls they're positive — the tools provably fire on real
 signal, and the eyes don't light them up. The full experiment-by-experiment
 detail, with all the numbers, lives in `CHANGELOG.md` and under `research/`. The
 highlights:
@@ -100,7 +100,7 @@ highlights:
   English-vs-Finnish discrimination, and a planted-signal test are all recovered
   by the same harness — which is exactly what makes the eye negatives meaningful.
 
-**The one real blocker** is the unknown 83-symbol→meaning mapping. As noted
+The one real blocker is the unknown 83-symbol→meaning mapping. As noted
 above, it isn't in the game's storage layer, so it can't be datamined or
 recovered by cryptanalysis alone — it would need an in-game or developer source.
 Until then, decode attempts here are designed negatives, and this repo never
@@ -130,13 +130,13 @@ See `ARCHITECTURE.md` for the as-built design and the full module map.
 Beyond the eye puzzle, the workbench is built to be pointed at other
 sequence-analysis questions:
 
-- a **matched-null + DoF-calibrated null harness** for asking "is this structure
+- a matched-null + DoF-calibrated null harness for asking "is this structure
   real or just noise?" of any symbol stream, with the look-elsewhere correction
   built in;
-- **cipher crackers with controls** — `solve`, `keystream`, and `ragbaby` each
+- cipher crackers with controls — `solve`, `keystream`, and `ragbaby` each
   ship a matched null, a held-out fold, and a positive control, so a negative is
   trustworthy. Point them at your own ciphertext through the `ingest` front door;
-- the **verified corpus + engine decoder** as a clean, provenance-checked source
+- the verified corpus + engine decoder as a clean, provenance-checked source
   for the nine messages.
 
 ## Building and contributing

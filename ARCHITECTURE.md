@@ -1,8 +1,8 @@
 # Architecture
 
 This document describes the as-built architecture of `noita-eye-puzzle`: a Rust
-command-line workbench for analyzing — and attempting to decode — the **Noita
-eye-glyph puzzle**, a set of nine eye-symbol sequences hidden in the game.
+command-line workbench for analyzing — and attempting to decode — the Noita
+eye-glyph puzzle, a set of nine eye-symbol sequences hidden in the game.
 
 It is a map of what exists today, for a reader who wants to understand the
 codebase before changing it. For research status and the strongest defensible
@@ -13,11 +13,11 @@ claim, see `README.md`.
 Two representations of the data are kept strictly distinct, and conflating them
 is the classic way to manufacture a false signal:
 
-- The **storage / engine layer** is how the game stores the messages: base-7 over
+- The storage / engine layer is how the game stores the messages: base-7 over
   64-bit integers, with symbols in `-1..5` where `5` is a row delimiter. The
   decoder for this layer lives in `data/generator.rs`, which re-derives the
   messages and cross-checks `data/corpus.rs` byte-for-byte.
-- The **reading layer** is the honeycomb interpretation: base-5 trigrams of
+- The reading layer is the honeycomb interpretation: base-5 trigrams of
   rendered orientations `0..4`, giving values `0..124`, of which 83 are actually
   used. `core/trigram.rs` is this layer; `analysis/orders.rs` reconstructs the 2D
   glyph grids and reads them under documented order families.
@@ -31,10 +31,10 @@ external-ciphertext front door: a pure `parse_sequence` plus a thin
 
 Source lives in `src/`, grouped into role directories: `core/`, `data/`,
 `analysis/`, `nulls/`, `ciphers/`, `attack/`, `experiments/`, and `report/`. The
-grouping is **organizational, by role** — it is not a module-path hierarchy.
+grouping is organizational, by role — it is not a module-path hierarchy.
 
 Be precise about the module graph as it stands today: almost every leaf module is
-declared **flat at the crate root** and redirected into its role directory with a
+declared flat at the crate root and redirected into its role directory with a
 `#[path = "..."]` attribute in `src/lib.rs`. So `analysis/chaining.rs` is the
 module `crate::chaining`, not `crate::analysis::chaining` — the directory tells
 you the file's *role*; the crate path stays flat. For example:
@@ -54,7 +54,7 @@ with a real `mod.rs`): `ciphers/` is `crate::ciphers`, and `report/` is
 `crate::gak_attack` (with `solver`, `generator`, `marginalization`, `eyes`,
 `error` under it) and `crate::solve` (with `search`, `eval`, `record`, `types`,
 `codec_search`) — so paths like `crate::solve::search` are real. The thing that
-does **not** exist is an `analysis::` / `nulls::` / `experiments::` namespace
+does not exist is an `analysis::` / `nulls::` / `experiments::` namespace
 layer over the leaf modules.
 
 Roughly, the roles are:
@@ -123,7 +123,7 @@ held-out fold that must generalize fold-vs-fold.
   gates above, and `candidate_survives` requires all three. On the real eyes the
   pipeline runs end-to-end; it currently surfaces no surviving candidate, and each
   run logs a candidate record.
-- **`gak_attack` — the GCTAK go/no-go gate.** Generates **synthetic** Group-
+- **`gak_attack` — the GCTAK go/no-go gate.** Generates synthetic Group-
   Ciphertext-Autokey ciphertext whose key it holds and proves an extended-chaining
   solver recovers the key at a rate that clears a documented floor *and* beats a
   matched within-message shuffle null — a true positive control. The single unit
@@ -133,7 +133,7 @@ held-out fold that must generalize fold-vs-fold.
 - **`keystream` — polyalphabetic cracker for the practice letter-puzzles.** Four
   keystream families (Vigenère, Beaufort, plaintext-autokey, ciphertext-autokey)
   over letter indices, with an annealed multi-restart key search scored by the
-  quadgram model. Survival requires clearing **two** complementary nulls — a
+  quadgram model. Survival requires clearing two complementary nulls — a
   matched null (reruns the search on shuffled ciphertext, catching search
   overfit) and a random-key null (catching the ciphertext-autokey key-independence
   leak) — plus a held-out fold.
@@ -142,8 +142,8 @@ held-out fold that must generalize fold-vs-fold.
   matched null and a held-out fold, and ships a planted-recovery positive control
   that demonstrates the cracker works at a given length.
 
-The practice letter-puzzles that these last three pipelines attack are **external
-practice samples**, not the eyes; they exist to validate the tooling end-to-end on
+The practice letter-puzzles that these last three pipelines attack are external
+practice samples, not the eyes; they exist to validate the tooling end-to-end on
 material whose structure is known.
 
 ## The command-line interface
@@ -175,8 +175,8 @@ Where new work goes, and what discipline applies to it:
 ## Guardrails
 
 Correctness is enforced mechanically rather than by convention. The piece worth
-describing here, because it shapes the test layout, is the **golden-master
-harness**: `tests/golden_master.rs` runs the compiled binary across the
+describing here, because it shapes the test layout, is the golden-master
+harness: `tests/golden_master.rs` runs the compiled binary across the
 subcommand surface and asserts its stdout/stderr byte-for-byte against checked-in
 fixtures under `tests/golden/`. A fixture change is a behavior change to review
 line-by-line, never blindly regenerated; the regeneration recipe is recorded in
