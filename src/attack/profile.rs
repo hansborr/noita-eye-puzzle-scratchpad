@@ -392,7 +392,7 @@ impl Profile {
         let mut lines: Vec<String> = Vec::new();
         lines.push("Ciphertext structural profile (practice letter puzzle)".to_owned());
         lines.push(
-            "Structural / NEGATIVE findings: they constrain the cipher family, not the plaintext."
+            "Structural / negative findings: they constrain the cipher family, not the plaintext."
                 .to_owned(),
         );
         lines.push(format!("n_letters: {}", self.n_letters));

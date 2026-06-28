@@ -44,12 +44,12 @@ fn append_header(out: &mut String, report: &LeakCeilingReport) {
     );
     report::appendln!(
         out,
-        "labels: supply=MEASURED; demand/ceiling=ANALYTIC & model-conditional; MI figure=UPPER bound; coupon demand for maximal H=S82 (N=83 cosets) and scales DOWN with larger H"
+        "labels: supply=measured; demand/ceiling=analytic & model-conditional; MI figure=upper bound; coupon demand for maximal H=S82 (N=83 cosets) and scales down with larger H"
     );
 }
 
 fn append_supply(out: &mut String, supply: &EmpiricalSupply, isomorph_window_len: usize) {
-    report::appendln!(out, "Part A — empirical supply (MEASURED, read-only)");
+    report::appendln!(out, "Part A — empirical supply (measured, read-only)");
     report::appendln!(
         out,
         "  M (trigrams): {}   distinct symbols: {}/{}",
@@ -86,7 +86,7 @@ fn append_supply(out: &mut String, supply: &EmpiricalSupply, isomorph_window_len
     }
     report::appendln!(
         out,
-        "    caveat: this is the broad gap-isomorph graph (collision-prone); full 83/83 coverage is NOT same-plaintext genuine supply (see chaining_graph.rs)."
+        "    caveat: this is the broad gap-isomorph graph (collision-prone); full 83/83 coverage is not same-plaintext genuine supply (see chaining_graph.rs)."
     );
     report::appendln!(
         out,
@@ -137,7 +137,7 @@ fn append_chaining_line(out: &mut String, label: &str, supply: ChainingSupply) {
 }
 
 fn append_demand(out: &mut String, demand: &AnalyticDemand) {
-    report::appendln!(out, "Part B — demand (ANALYTIC, model-conditional)");
+    report::appendln!(out, "Part B — demand (analytic, model-conditional)");
     report::appendln!(
         out,
         "  edge-overlap certification degree t(N={}): sharp S_N regime t = N-1 = {}; low-transitivity (dihedral) t = {}",
@@ -171,12 +171,12 @@ fn append_ceiling(out: &mut String, ceiling: &CeilingEstimate) {
     );
     report::appendln!(
         out,
-        "    => cannot fully pin even ONE element's S83 coset-permutation (shortfall >> 1; cf. two's ratio {:.2} < 1)",
+        "    => cannot fully pin even one element's S83 coset-permutation (shortfall >> 1; cf. two's ratio {:.2} < 1)",
         coupon_full_pin(TWO_COSETS) / TWO_DOMINANT_OCCURRENCES as f64
     );
     report::appendln!(
         out,
-        "  MI UPPER bound on leaked bits (bounds the per-position keystream, NOT a GAK seed): M*H_emp = {:.0} bits",
+        "  MI upper bound on leaked bits (bounds the per-position keystream, not a GAK seed): M*H_emp = {:.0} bits",
         ceiling.mi_upper_bound_bits
     );
     report::appendln!(
@@ -194,7 +194,7 @@ fn append_ceiling(out: &mut String, ceiling: &CeilingEstimate) {
     );
     report::appendln!(
         out,
-        "    => the near-identity prior is what makes recovery even conceivable ({:.0}x -> {:.0}x), but it is still > 1: too little to PIN THE PER-POSITION KEYSTREAM (a model-free chaining recovery's object), not a GAK deck seed (~log2(83!)~414 bits, which 6002 bits over-determines). This treats all M positions as independent S_N draws (maximal H=S82); under a smaller hidden subgroup the leak could suffice.",
+        "    => the near-identity prior is what makes recovery even conceivable ({:.0}x -> {:.0}x), but it is still > 1: too little to pin the per-position keystream (a model-free chaining recovery's object), not a GAK deck seed (~log2(83!)~414 bits, which 6002 bits over-determines). This treats all M positions as independent S_N draws (maximal H=S82); under a smaller hidden subgroup the leak could suffice.",
         ceiling.underdetermination_unconstrained,
         ceiling.underdetermination_near_identity
     );
@@ -234,12 +234,12 @@ fn append_calibration(out: &mut String, calibration: &CalibrationControl) {
     );
     report::appendln!(
         out,
-        "    weakness (a) length-matched miss: fed two's L=4 occ=76 the model says 78.3% undecidable but G1b MEASURED L=4 is 83% (band's high edge); decodable 151.8 vs measured uniquely-covered 105 (~45% optimistic) -- only lands in band because [0.76,0.83] also spans the L=6 row.\n    weakness (b) regime mismatch: for two occ=76>N=12 the coverage factor (1-(1-1/N)^occ)=0.9987 is SATURATED (~1) and was never exercised; for the eyes occ<<N so that factor (0.10/0.27) is load-bearing -- eyes survive even at coverage=1 (~95% undecidable)."
+        "    weakness (a) length-matched miss: fed two's L=4 occ=76 the model says 78.3% undecidable but G1b measured L=4 is 83% (band's high edge); decodable 151.8 vs measured uniquely-covered 105 (~45% optimistic) -- only lands in band because [0.76,0.83] also spans the L=6 row.\n    weakness (b) regime mismatch: for two occ=76>N=12 the coverage factor (1-(1-1/N)^occ)=0.9987 is saturated (~1) and was never exercised; for the eyes occ<<N so that factor (0.10/0.27) is load-bearing -- eyes survive even at coverage=1 (~95% undecidable)."
     );
     let [g1, g2, g3] = calibration.eyes_undecidable_g_band;
     report::appendln!(
         out,
-        "  eyes undecidable robustness over geometry G in {{1,2,3}}: {} / {} / {} (THIS robustness, not the calibration, carries the conclusion)",
+        "  eyes undecidable robustness over geometry G in {{1,2,3}}: {} / {} / {} (this robustness, not the calibration, carries the conclusion)",
         report::format_percent(g1),
         report::format_percent(g2),
         report::format_percent(g3)
@@ -292,7 +292,7 @@ fn append_interpretation(out: &mut String, report: &LeakCeilingReport) {
     report::appendln!(out, "Interpretation");
     report::appendln!(
         out,
-        "  Wiki question \"is chaining recovery even possible for the eyes?\": the answer is a quantified NO at this trigram budget. The richest aligned isomorph signature ({} occurrences) falls {:.0}x short of the {:.0} aligned observations needed to pin even one S83 coset-permutation, and the coverage model (calibrated to reproduce G1b's two collapse) predicts ~{} of the {} transitions undecidable.",
+        "  Wiki question \"is chaining recovery even possible for the eyes?\": the answer is a quantified no at this trigram budget. The richest aligned isomorph signature ({} occurrences) falls {:.0}x short of the {:.0} aligned observations needed to pin even one S83 coset-permutation, and the coverage model (calibrated to reproduce G1b's two collapse) predicts ~{} of the {} transitions undecidable.",
         report.ceiling.per_element_supply_richest,
         report.ceiling.per_element_shortfall_ratio_richest,
         report.ceiling.per_element_demand,
@@ -301,6 +301,6 @@ fn append_interpretation(out: &mut String, report: &LeakCeilingReport) {
     );
     report::appendln!(
         out,
-        "  This bounds RECOVERABILITY only; it makes NO claim that the eyes are or are not GAK. Assumptions: coupon demand for maximal H=S82 (scales down with larger H); MI figure is an UPPER bound; coverage model is analytic with one G1b-calibrated geometry constant."
+        "  This bounds recoverability only; it makes no claim that the eyes are or are not GAK. Assumptions: coupon demand for maximal H=S82 (scales down with larger H); MI figure is an upper bound; coverage model is analytic with one G1b-calibrated geometry constant."
     );
 }

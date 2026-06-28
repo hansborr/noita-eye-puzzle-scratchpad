@@ -61,7 +61,7 @@ headline internal-violation null
   matched null count: mean 0.000, median 0.0, q97.5 0, max 0
   upper-tail add-one p: (32+1)/(32+1) = 1.000000
   loose-bar note: the vetted empirical loose candidate is east4@65/west4@67 in the Stutter Section; it is benign and within the chance-collision null, so it is not promoted to the strong headline
-  result: 0 robust internal violations -> SUPPORTS (does not prove) perfect isomorphism
+  result: 0 robust internal violations -> supports (does not prove) perfect isomorphism
 
 safe-isomorph extent export
   count: 16
@@ -92,4 +92,4 @@ wiki regression checks
   positive control: fired
 
 Multiplicity note: multiple isomorph signatures, occurrence pairs, and vetted windows are tested; pointwise rows are labels for structural triage, while the matched null calibrates the internal-violation count.
-Interpretation: Perfect-Isomorphism.md and Allomorphs.md make this a family-selection check, not a decode. The observed 0 robust strong-bar internal violations SUPPORTS (does not prove) perfect isomorphism and keeps the GAK family viable; it does not imply "the eyes are GAK." A clean internal violation would disfavor the proven CTAK..XGAK family, but XGAK's upper edge is <=, not equality.
+Interpretation: Perfect-Isomorphism.md and Allomorphs.md make this a family-selection check, not a decode. The observed 0 robust strong-bar internal violations supports (does not prove) perfect isomorphism and keeps the GAK family viable; it does not imply "the eyes are GAK." A clean internal violation would disfavor the proven CTAK..XGAK family, but XGAK's upper edge is <=, not equality.

@@ -10,7 +10,7 @@ fn transitivity_subcommand_reports_conditional_dihedral_caveats() {
 
     assert_contains(&stdout, "Thread 1B transitivity / D166 audit");
     assert_contains(&stdout, "verdict: D166 excluded conditionally");
-    assert_contains(&stdout, "confidence: MEDIUM / conditional");
+    assert_contains(&stdout, "confidence: medium / conditional");
     assert_contains(&stdout, "core-only witnesses: 0");
     assert_contains(&stdout, "canonical-orientation caveat");
     assert_contains(&stdout, "broad window-11/non-genuine catalogue");
@@ -27,6 +27,6 @@ fn transitivity_subcommand_reports_conditional_dihedral_caveats() {
         "from 19 ('3'): 9 (')') vs 63 ('_') core_only=false",
     );
     assert_contains(&stdout, "Assumptions A1-A5");
-    assert_contains(&stdout, "HOLE 1");
-    assert_contains(&stdout, "HOLE 2");
+    assert_contains(&stdout, "hole 1");
+    assert_contains(&stdout, "hole 2");
 }

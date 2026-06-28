@@ -61,48 +61,48 @@ const MAX_ABSENT_PERIOD_MATCHES: usize = 64;
 const MIN_PERIOD_MATCH_SEPARATION: usize = 800;
 const LONG_FIXTURE_LABEL: &str = "embedded English-like calibration plaintext";
 const LONG_FIXTURE_TEXT: &str = "\
-THE METHOD CHECKS THE KNOWN CIPHER BEFORE IT JUDGES THE UNKNOWN MESSAGE.
-A SIMPLE SUBSTITUTION CHANGES LETTER NAMES BUT IT DOES NOT CHANGE HOW OFTEN
-EACH LETTER OCCURS. THE SAME TOOL SHOULD NOTICE THAT THE CIPHER TEXT KEEPS
-THE SAME COINCIDENCE RATE AND THE SAME BAG OF COUNTS. WHEN THE SAMPLE IS LONG
-ENOUGH THE ENGLISH FREQUENCY SHAPE STANDS ABOVE A UNIFORM STREAM. THAT IS THE
-ONLY CLAIM OF THIS CONTROL. IT CALIBRATES THE MEASUREMENT PATH AND IT DOES NOT
-SAY THAT THE EYE GLYPHS CONTAIN A RECOVERABLE SENTENCE.";
+The method checks the known cipher before it judges the unknown message.
+A simple substitution changes letter names but it does not change how often
+each letter occurs. The same tool should notice that the cipher text keeps
+the same coincidence rate and the same bag of counts. When the sample is long
+enough the English frequency shape stands above a uniform stream. That is the
+only claim of this control. It calibrates the measurement path and it does not
+say that the eye glyphs contain a recoverable sentence.";
 const ISOMORPH_FIXTURE_LABEL: &str = "English prose with period-aligned repeated phrase";
 // The recurring phrase below starts only at normalized letter offsets that are
 // multiples of the 7-symbol Vigenere period. That planted Kasiski signal is
 // held constant across Vigenere/autokey/running-key fixtures, so the contrast
 // isolates key structure rather than plaintext content.
 const ISOMORPH_FIXTURE_TEXT: &str = "\
-THE METHOD CHECKS THE KNOWN CIPHER BEFORE IT JUDGES THE UNKNOWN MESSAGE.
-A SIMPLE SUBSTITUTION CHANGES LETTER NAMES BUT IT DOES NOT CHANGE HOW OFTEN
-EACH LETTER OCCURS. THE SAME TOOL SHOULD NOTICE THAT THE CIPHER TEXT KEEPS
-THE SAME COINCIDENCE RATE AND THE SAME BAG OF COUNTS. WHEN THE SAMPLE IS LONG
-ENOUGH THE ENGLISH FREQUENCY SHAPE STANDS ABOVE A UNIFORM STREAM. THAT IS THE
-ONLY CLAIM OF THIS CONTROL. IT CALIBRATES THE MEASUREMENT PATH AND IT DOES NOT
-SAY THAT THE EYE GLYPHS CONTAIN A RECOVERABLE SENTENCE.
+The method checks the known cipher before it judges the unknown message.
+A simple substitution changes letter names but it does not change how often
+each letter occurs. The same tool should notice that the cipher text keeps
+the same coincidence rate and the same bag of counts. When the sample is long
+enough the English frequency shape stands above a uniform stream. That is the
+only claim of this control. It calibrates the measurement path and it does not
+say that the eye glyphs contain a recoverable sentence.
 
-CAREFUL MEASUREMENT KEEPS THE RECORD HONEST. THE CLERK WRITES THE DATE AND
-CHECKS THE MARGIN BEFORE THE NEXT LINE BEGINS TODAY.
-CAREFUL MEASUREMENT KEEPS THE RECORD HONEST. A SECOND NOTE DESCRIBES THE
-SOURCE, THE COPY, AND THE REASON FOR KEEPING BOTH TODAY.
-CAREFUL MEASUREMENT KEEPS THE RECORD HONEST. NO SYMBOL IS TRUSTED UNTIL
-ANOTHER READER HAS COMPARED IT WITH THE RECORD NEARBY.
-CAREFUL MEASUREMENT KEEPS THE RECORD HONEST. THE TABLE BESIDE THE DESK HOLDS
-PENS, PAPER, AND A SMALL LAMP FOR EVENING WORK TODAY.
-CAREFUL MEASUREMENT KEEPS THE RECORD HONEST. THIS PARAGRAPH IS PLAIN ENGLISH
-PROSE WITH UNEVEN WORDS AND ORDINARY CADENCE AS WRITTEN.
-CAREFUL MEASUREMENT KEEPS THE RECORD HONEST. EVERY EXAMPLE IS MEANT TO BE
-USEFUL, MODEST, AND EASY TO AUDIT LATER NEARBY.
-CAREFUL MEASUREMENT KEEPS THE RECORD HONEST. THE SURROUNDING SENTENCES ARE NOT
-REPEATED, AND THEY CARRY THE PASSAGE FORWARD STEADILY.
-CAREFUL MEASUREMENT KEEPS THE RECORD HONEST. NOTHING IN THIS CONTROL CLAIMS
-ANYTHING ABOUT A HIDDEN MESSAGE IN THE GLYPHS THROUGHOUT.
-CAREFUL MEASUREMENT KEEPS THE RECORD HONEST.
+Careful measurement keeps the record honest. The clerk writes the date and
+checks the margin before the next line begins today.
+Careful measurement keeps the record honest. A second note describes the
+source, the copy, and the reason for keeping both today.
+Careful measurement keeps the record honest. No symbol is trusted until
+another reader has compared it with the record nearby.
+Careful measurement keeps the record honest. The table beside the desk holds
+pens, paper, and a small lamp for evening work today.
+Careful measurement keeps the record honest. This paragraph is plain English
+prose with uneven words and ordinary cadence as written.
+Careful measurement keeps the record honest. Every example is meant to be
+useful, modest, and easy to audit later nearby.
+Careful measurement keeps the record honest. The surrounding sentences are not
+repeated, and they carry the passage forward steadily.
+Careful measurement keeps the record honest. Nothing in this control claims
+anything about a hidden message in the glyphs throughout.
+Careful measurement keeps the record honest.
 
-THE FINAL SENTENCES CLOSE THE FIXTURE WITHOUT REPEATING THE CALIBRATION PHRASE
-AGAIN. THEY REMIND THE READER THAT THE CONTRAST IS BETWEEN A REPEATING KEY AND
-TWO APERIODIC KEYS, NOT BETWEEN SOLVED AND UNSOLVED GLYPH TEXT.";
+The final sentences close the fixture without repeating the calibration phrase
+again. They remind the reader that the contrast is between a repeating key and
+two aperiodic keys, not between solved and unsolved glyph text.";
 const DOCUMENTED_COMMON_GLYPHS: [(&str, &str); 2] = [
     ("Common Glyphs / seek the end", "SEEK THE END"),
     (

@@ -167,7 +167,7 @@ impl Report for TransitivityReport {
             "verdict: {}",
             format_dihedral_verdict(self.verdict)
         );
-        report::appendln!(&mut out, "confidence: MEDIUM / conditional");
+        report::appendln!(&mut out, "confidence: medium / conditional");
         report::appendln!(&mut out, "witnesses: {}", self.witnesses.len());
         report::appendln!(
             &mut out,
@@ -199,11 +199,11 @@ impl Report for TransitivityReport {
         );
         report::appendln!(
             &mut out,
-            "HOLE 1: a single strategic typo at col6 or col9 of the cited triple dissolves that triple's contradiction; the within-triple second conflict reuses col6/col9 and does not remove it."
+            "hole 1: a single strategic typo at col6 or col9 of the cited triple dissolves that triple's contradiction; the within-triple second conflict reuses col6/col9 and does not remove it."
         );
         report::appendln!(
             &mut out,
-            "HOLE 2: on the cited triple the commutativity conflict exists only via the over-extended col9; the repeated 9-core shows order-83 forcing but no conflict. Robust refutation requires a forcing-plus-conflict inside repeated-core columns, counted by core_only_witnesses."
+            "hole 2: on the cited triple the commutativity conflict exists only via the over-extended col9; the repeated 9-core shows order-83 forcing but no conflict. Robust refutation requires a forcing-plus-conflict inside repeated-core columns, counted by core_only_witnesses."
         );
         report::appendln!(
             &mut out,

@@ -299,7 +299,7 @@ fn append_experiment_4_flatness_report(
     appendln!(out);
     appendln!(
         out,
-        "Interpretation: the df-aware chi-square tail tests exact iid uniformity over the 83 buckets, not whether the stream is meaningful. Flat-ish per-symbol frequency still RULES MONOALPHABETIC OUT; it does NOT rule a real message IN, and structured-but-meaningless data can also be near-uniform. Do not present flatness as evidence of encoding."
+        "Interpretation: the df-aware chi-square tail tests exact iid uniformity over the 83 buckets, not whether the stream is meaningful. Flat-ish per-symbol frequency still rules monoalphabetic out; it does not rule a real message in, and structured-but-meaningless data can also be near-uniform. Do not present flatness as evidence of encoding."
     );
 }
 

@@ -111,4 +111,4 @@ standard36-u210-d120      1036   715     321   12.48     0..25 z21     5.8270/6.
 standard36-u210-d201      1036   712     324   12.48     0..28 z12     5.9037/6.3750   0.010603      0.880      0.927 inf(outside)      82          n/a
 standard36-u210-d210      1036   694     342   12.48     0..26 z25     5.7932/6.3750   0.011708      0.972      1.066 inf(outside)      82          n/a
 
-Interpretation: the df-aware chi-square tail tests exact iid uniformity over the 83 buckets, not whether the stream is meaningful. Flat-ish per-symbol frequency still RULES MONOALPHABETIC OUT; it does NOT rule a real message IN, and structured-but-meaningless data can also be near-uniform. Do not present flatness as evidence of encoding.
+Interpretation: the df-aware chi-square tail tests exact iid uniformity over the 83 buckets, not whether the stream is meaningful. Flat-ish per-symbol frequency still rules monoalphabetic out; it does not rule a real message in, and structured-but-meaningless data can also be near-uniform. Do not present flatness as evidence of encoding.

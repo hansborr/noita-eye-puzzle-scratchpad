@@ -16,7 +16,7 @@ fn perfectiso_subcommand_reports_headline_and_regressions() {
     assert_contains(&stdout, "robust strong-bar internal violations: 0");
     assert_contains(
         &stdout,
-        "0 robust internal violations -> SUPPORTS (does not prove) perfect isomorphism",
+        "0 robust internal violations -> supports (does not prove) perfect isomorphism",
     );
     assert_contains(&stdout, "safe-isomorph extent export");
     assert_contains(&stdout, "count: 16");

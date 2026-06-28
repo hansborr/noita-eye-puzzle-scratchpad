@@ -156,12 +156,12 @@ fn append_perfect_headline(out: &mut String, report: &PerfectIsomorphismReport) 
 
 fn perfect_headline_result(report: &PerfectIsomorphismReport) -> String {
     if report.robust_internal_violations == 0 {
-        return "0 robust internal violations -> SUPPORTS (does not prove) perfect isomorphism"
+        return "0 robust internal violations -> supports (does not prove) perfect isomorphism"
             .to_owned();
     }
     if report.empirical_p <= SIGNIFICANCE_ALPHA {
         format!(
-            "{} robust internal violations exceed the matched null (p = {}) -> DISFAVOURS the proven-perfect-isomorphism family",
+            "{} robust internal violations exceed the matched null (p = {}) -> disfavours the proven-perfect-isomorphism family",
             report.robust_internal_violations,
             report::format_probability(report.empirical_p)
         )
@@ -233,12 +233,12 @@ fn append_perfect_interpretation(out: &mut String, report: &PerfectIsomorphismRe
 
 fn perfect_interpretation(report: &PerfectIsomorphismReport) -> String {
     if report.robust_internal_violations == 0 {
-        return "Interpretation: Perfect-Isomorphism.md and Allomorphs.md make this a family-selection check, not a decode. The observed 0 robust strong-bar internal violations SUPPORTS (does not prove) perfect isomorphism and keeps the GAK family viable; it does not imply \"the eyes are GAK.\" A clean internal violation would disfavor the proven CTAK..XGAK family, but XGAK's upper edge is <=, not equality."
+        return "Interpretation: Perfect-Isomorphism.md and Allomorphs.md make this a family-selection check, not a decode. The observed 0 robust strong-bar internal violations supports (does not prove) perfect isomorphism and keeps the GAK family viable; it does not imply \"the eyes are GAK.\" A clean internal violation would disfavor the proven CTAK..XGAK family, but XGAK's upper edge is <=, not equality."
             .to_owned();
     }
     if report.empirical_p <= SIGNIFICANCE_ALPHA {
         format!(
-            "Interpretation: Perfect-Isomorphism.md and Allomorphs.md make this a family-selection check, not a decode. The observed {} robust strong-bar internal violations are in the matched upper tail (add-one p = {}), so they DISFAVOUR the proven CTAK..XGAK perfectly-isomorphic family unless individually explained by new benign evidence; this still does not prove the eyes are imperfectly isomorphic, because XGAK's upper edge is <=, not equality.",
+            "Interpretation: Perfect-Isomorphism.md and Allomorphs.md make this a family-selection check, not a decode. The observed {} robust strong-bar internal violations are in the matched upper tail (add-one p = {}), so they disfavour the proven CTAK..XGAK perfectly-isomorphic family unless individually explained by new benign evidence; this still does not prove the eyes are imperfectly isomorphic, because XGAK's upper edge is <=, not equality.",
             report.robust_internal_violations,
             report::format_probability(report.empirical_p)
         )

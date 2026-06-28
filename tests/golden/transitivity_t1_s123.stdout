@@ -5,7 +5,7 @@ delegated chaining-graph shuffle trials: 1
 wiki pages under test: Proof-that-the-eyes-cannot-be-a-dihedral-GAK-cipher.md, Proof-that-GAK-is-transitive.md, The-Transitivity-Restriction-(6-Groups-for-83).md
 canonical-orientation caveat: each unordered occurrence pair contributes one sorted-order directed context; reverse orientations are not expanded.
 verdict: D166 excluded conditionally
-confidence: MEDIUM / conditional
+confidence: medium / conditional
 witnesses: 1
 core-only witnesses: 0 repeated-core-only
 broad window-11/non-genuine catalogue: total=2614 distinct-column=1782 fragile=980
@@ -16,7 +16,7 @@ witness detail (first 12)
   c587 then c586 from 19 ('3'): 9 (')') vs 63 ('_') core_only=false
 
 Assumptions A1-A5: the exclusion is conditional on same plaintext, perfect isomorphism, no allomorph crossing, the right-coset chaining action, and one single global configuration.
-HOLE 1: a single strategic typo at col6 or col9 of the cited triple dissolves that triple's contradiction; the within-triple second conflict reuses col6/col9 and does not remove it.
-HOLE 2: on the cited triple the commutativity conflict exists only via the over-extended col9; the repeated 9-core shows order-83 forcing but no conflict. Robust refutation requires a forcing-plus-conflict inside repeated-core columns, counted by core_only_witnesses.
+hole 1: a single strategic typo at col6 or col9 of the cited triple dissolves that triple's contradiction; the within-triple second conflict reuses col6/col9 and does not remove it.
+hole 2: on the cited triple the commutativity conflict exists only via the over-extended col9; the repeated 9-core shows order-83 forcing but no conflict. Robust refutation requires a forcing-plus-conflict inside repeated-core columns, counted by core_only_witnesses.
 Interpretation: the verdict constrains the candidate group set only; it says nothing about recoverable plaintext.
 Multiplicity note: the conflict catalogue contains many ordered context-pair checks over the same corpus; the D166 exclusion is reported as conditional structural evidence, not as a settled decode.
