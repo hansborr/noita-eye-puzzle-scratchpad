@@ -68,3 +68,12 @@ impl From<ReadingTrigram> for TrigramValue {
         value.value()
     }
 }
+
+/// Splits a base-5 trigram value into its `[leading, middle, units]` digits.
+///
+/// This is the inverse of [`ReadingTrigram::value`]: each returned digit is in
+/// `0..=4` for any `value` in `0..=124` (`leading * 25 + middle * 5 + units`).
+#[must_use]
+pub const fn base5_digits(value: u8) -> [u8; 3] {
+    [value / 25, (value / 5) % 5, value % 5]
+}

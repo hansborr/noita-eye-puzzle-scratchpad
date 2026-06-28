@@ -31,6 +31,10 @@ use crate::analysis::orders::{
 use crate::data::corpus::{self, CorpusError};
 use crate::report::{self, Report};
 
+// Re-exported so the existing `first_trigram::base5_digits` path keeps working
+// while the single definition lives in `crate::core::trigram`.
+pub use crate::core::trigram::base5_digits;
+
 /// Storage-layer base-5 trigram alphabet size (`0..=124`).
 pub const STORAGE_MODULUS: u32 = 125;
 /// Reading-layer alphabet size (`0..=82`).
@@ -85,14 +89,6 @@ impl From<GridError> for FirstTrigramError {
     fn from(value: GridError) -> Self {
         Self::Grid(value)
     }
-}
-
-/// Splits a base-5 trigram value into `[leading, middle, units]` digits.
-///
-/// Each returned digit is in `0..=4` for any `value` in `0..=124`.
-#[must_use]
-pub const fn base5_digits(value: u8) -> [u8; 3] {
-    [value / 25, (value / 5) % 5, value % 5]
 }
 
 /// One message's first trigram in both representations.

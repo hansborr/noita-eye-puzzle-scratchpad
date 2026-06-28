@@ -14,7 +14,7 @@ use crate::analysis::isomorph;
 use crate::analysis::orders::{self, ReadingOrder};
 use crate::attack::language::{self, LanguageModel};
 use crate::core::glyph::{Glyph, Orientation};
-use crate::core::trigram::TrigramValue;
+use crate::core::trigram::{TrigramValue, base5_digits};
 use crate::data::generator::{self, ENGINE_MESSAGES};
 use crate::nulls::null::{SplitMix64, random_index_below};
 
@@ -93,25 +93,12 @@ pub(super) fn orientation_messages_from_values(
 }
 
 fn orientations_from_trigram_value(value: TrigramValue) -> [Orientation; 3] {
-    let raw = value.get();
-    let first = raw / 25;
-    let second = (raw % 25) / 5;
-    let third = raw % 5;
+    let [first, second, third] = base5_digits(value.get());
     [
-        orientation_from_base5_digit(first),
-        orientation_from_base5_digit(second),
-        orientation_from_base5_digit(third),
+        Orientation::from_base5_digit(first),
+        Orientation::from_base5_digit(second),
+        Orientation::from_base5_digit(third),
     ]
-}
-
-fn orientation_from_base5_digit(digit: u8) -> Orientation {
-    match digit {
-        0 => Orientation::Zero,
-        1 => Orientation::One,
-        2 => Orientation::Two,
-        3 => Orientation::Three,
-        _ => Orientation::Four,
-    }
 }
 
 fn group_orientation_messages(

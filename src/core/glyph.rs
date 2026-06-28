@@ -66,6 +66,22 @@ impl Orientation {
     pub const fn glyph(self) -> Glyph {
         Glyph(self as u16)
     }
+
+    /// Maps a base-5 digit to its orientation, saturating to the top digit.
+    ///
+    /// Digits `0..=4` map to the matching orientation; any larger value
+    /// saturates to [`Orientation::Four`]. Callers pass digits from
+    /// [`crate::core::trigram::base5_digits`], which are always in `0..=4`.
+    #[must_use]
+    pub const fn from_base5_digit(digit: u8) -> Self {
+        match digit {
+            0 => Self::Zero,
+            1 => Self::One,
+            2 => Self::Two,
+            3 => Self::Three,
+            _ => Self::Four,
+        }
+    }
 }
 
 /// A rendered corpus symbol: either an orientation or the non-rendered row

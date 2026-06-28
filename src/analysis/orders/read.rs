@@ -6,7 +6,7 @@
 
 use super::{Direction, GlyphGrid, GridError, LineMode, ReadingOrder, TrigramPermutation};
 use crate::core::glyph::Orientation;
-use crate::core::trigram::{ReadingTrigram, TrigramValue};
+use crate::core::trigram::{ReadingTrigram, TrigramValue, base5_digits};
 
 /// Reads all grids with one order and returns the combined trigram value stream.
 ///
@@ -290,23 +290,10 @@ fn value_from_orientations(orientations: [Orientation; 3]) -> TrigramValue {
 }
 
 fn orientations_from_value(value: TrigramValue) -> [Orientation; 3] {
-    let raw = value.get();
-    let first = raw / 25;
-    let second = (raw % 25) / 5;
-    let third = raw % 5;
+    let [first, second, third] = base5_digits(value.get());
     [
-        orientation_from_base5_digit(first),
-        orientation_from_base5_digit(second),
-        orientation_from_base5_digit(third),
+        Orientation::from_base5_digit(first),
+        Orientation::from_base5_digit(second),
+        Orientation::from_base5_digit(third),
     ]
-}
-
-fn orientation_from_base5_digit(digit: u8) -> Orientation {
-    match digit {
-        0 => Orientation::Zero,
-        1 => Orientation::One,
-        2 => Orientation::Two,
-        3 => Orientation::Three,
-        _ => Orientation::Four,
-    }
 }
