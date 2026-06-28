@@ -19,7 +19,7 @@ This note tabulates the nine first trigrams and tests those hypotheses.
 
 ## Two representations (do not conflate them)
 
-A "first trigram" has **two different numeric values**, and they disagree:
+A "first trigram" has two different numeric values, and they disagree:
 
 - **[A] Storage-order base-5 form** — the first three stored orientation digits
   grouped as a trigram, value `first*25 + second*5 + third`, range `0..=124`.
@@ -57,7 +57,7 @@ Per-position base-5 digit sets across the nine messages:
 
 ## Hypothesis verdicts
 
-**Numerical index (1-9, 0-8, or A-I): rejected.** Neither representation is a
+Numerical index (1-9, 0-8, or A-I): rejected. Neither representation is a
 permutation of a contiguous nine-value index.
 - [A] storage values span 26-81 and even contain duplicates (76 appears for
   west2 and west4; 31 for west3 and east5) — only 7 distinct values.
@@ -65,7 +65,7 @@ permutation of a contiguous nine-value index.
   sorting them does not recover message order, so they are not even a monotone
   relabeling of the message id.
 
-**Checksum / "last character moved to the front": rejected.** Computed against
+Checksum / "last character moved to the front": rejected. Computed against
 the full trigram sequences, none of the following holds for the nine messages,
 in either layer: `first == last`; `first == sum(body) mod M`;
 `first == sum(all) mod M`; `first == XOR(body)` (M = 125 for [A], 83 for [B]).
@@ -74,13 +74,13 @@ sum/XOR checksum of the body. (Note: a true "last char rotation" of the
 *plaintext* is not directly falsifiable without plaintext; its simplest
 ciphertext signature, `first == last`, is absent.)
 
-**Base-5 digit structure: one real regularity, the rest weak.** See below.
+Base-5 digit structure: one real regularity, the rest weak. See below.
 
 ## Robust observations (with n = 9 honesty)
 
 1. **Distinctness is a reading-layer property, not a base-5-form property.** The
    wiki's "the first trigram value in every message is different" is true for the
-   reading layer [B] (9 distinct values) but **false** for the raw base-5 storage
+   reading layer [B] (9 distinct values) but false for the raw base-5 storage
    form [A], where 76 and 31 each occur twice. So when discussing "the base 5
    values of the first trigrams," it matters which value you mean: the
    raw base-5 forms collide.
@@ -88,12 +88,12 @@ ciphertext signature, `first == last`, is absent.)
 2. **Every storage-order first trigram ends in base-5 digit 1** (equivalently,
    all nine [A] values are `≡ 1 (mod 5)`). This is the cleanest pattern, but read
    it carefully:
-   - It is **specific to the first trigram**. Over all 1036 storage trigrams the
+   - It is specific to the first trigram. Over all 1036 storage trigrams the
      units digit is not concentrated on 1 — histogram `[263, 254, 238, 163, 118]`
      for digits 0-4 (itself skewed, peaking at digit 0), so digit 1 is only
      ~24.5% corpus-wide, not ~100%.
    - A naive uniform-random null gives `P = (1/5)^9 ≈ 5e-7`, which *looks*
-     decisive — but the nine messages are **not independent**: they share large
+     decisive — but the nine messages are not independent: they share large
      sections right after the start. The constant units digit is exactly "the
      third rendered eye is identical (=1) across all messages," i.e. the leading
      edge of the documented [shared sections], not an independent numeric law.

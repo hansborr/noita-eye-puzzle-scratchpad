@@ -1,15 +1,15 @@
 # T1 — held-out survival-gate calibration fix (fold-vs-fold)
 
 **Date:** 2026-06-26. **Thread:** T1 (correctness; shared eyes Gate-1 hardening).
-**Status:** DONE — landed on `exploration`; `make verify` green.
+**Status:** done — landed on `exploration`; `make verify` green.
 
 ## The bug
 
-The survival gate's generalization check (Gate 2) compared a candidate's **held-out
-fold** score against the matched null's **full-stream** mean. A fold of natural-language
+The survival gate's generalization check (Gate 2) compared a candidate's held-out
+fold score against the matched null's full-stream mean. A fold of natural-language
 text is not itself contiguous text, so it scores *below* the full stream — a penalty the
-full-stream null never pays. Comparing the two is apples-to-oranges and can **falsely
-fail a true decode** on Gate 2.
+full-stream null never pays. Comparing the two is apples-to-oranges and can falsely
+fail a true decode on Gate 2.
 
 It was already fixed in `ragbaby.rs` (compare the candidate's odd-index fold against the
 matched null's odd-index fold). T1 centralizes that fix and applies it to the two
@@ -27,7 +27,7 @@ remaining sites:
   de-duplicating the three hand-rolled copies (ragbaby, keystream, solve-fixed).
 - `MatchedNullStats { full_mean, full_std, heldout_mean }` + `matched_null_stats(&[(f64,
   f64)])` — aggregates per-trial `(full_score, heldout_score)` pairs into the full-stream
-  mean/std (overfit bar) **and** the held-out fold mean (generalization baseline).
+  mean/std (overfit bar) and the held-out fold mean (generalization baseline).
 
 ### `ragbaby.rs` — de-dup
 `heldout_fold_score` and the `matched_null` aggregation now call the shared helper. The
@@ -42,8 +42,8 @@ gate is now `heldout_score > matched_heldout_mean`. The full-stream `matched_mea
 changes.
 
 ### `solve/` — fix across all three null paths
-Every null path now also returns the held-out fold mean, computed with the **same fold
-scheme as the candidate it gates** (the apples-to-apples requirement):
+Every null path now also returns the held-out fold mean, computed with the same fold
+scheme as the candidate it gates (the apples-to-apples requirement):
 - **Fixed-mapping** (`eval.rs`): alternating odd-index fold (`best_family_score` carries
   the held-out of the max-in-sample cipher; `matched_null_mean` averages it).
 - **Searched mapping** (`search.rs`): *contiguous* train/test fold (`best_family_search_score`
@@ -70,15 +70,15 @@ are unchanged.
 ## Finding — the eyes' honest-negative reason was mis-attributed
 
 Wiring the corrected gate through the eyes-search test surfaced a real (if small) result.
-Under the **old** bug the eyes' top searched candidate "failed" Gate 2 (its held-out fold
+Under the old bug the eyes' top searched candidate "failed" Gate 2 (its held-out fold
 sat below the full-stream null mean), which over-attributed the honest negative to a
-generalization failure. With the corrected **fold-vs-fold** comparison the eyes' top
+generalization failure. With the corrected fold-vs-fold comparison the eyes' top
 candidate's held-out fold actually sits *marginally above* the null's held-out fold
 (−3.0488 vs −3.0608 at the test's seed/config — a near-tie, within search noise), so
-**Gate 2 is not load-bearing** for the eyes.
+Gate 2 is not load-bearing for the eyes.
 
-The honest negative still holds — **the decode remains BLOCKED** — but now for the honest
-reason: the eyes fail **Gate 3** (the in-sample overfit bar, `beats_null = false`): the
+The honest negative still holds — the decode remains blocked — but now for the honest
+reason: the eyes fail Gate 3 (the in-sample overfit bar, `beats_null = false`): the
 re-fit mapping's in-sample score does not clear the matched null's in-sample mean. The
 `eyes_search_surfaces_no_surviving_candidate` test was updated to pin Gate 3 as the
 load-bearing reason and documents (rather than asserts, given the near-tie) the Gate-2
@@ -88,8 +88,8 @@ engine-generated, strikingly structured data of unknown meaning; unsolved.
 ## Audit — no prior negative flips
 
 - The keystream battery on practice puzzle `four` (L=1..12) still returns a clean
-  HONEST-NEGATIVE: the more-lenient (corrected) held-out gate produces no survivor because
-  survival still requires clearing the matched-null overfit bar AND the random-key
+  honest-negative: the more-lenient (corrected) held-out gate produces no survivor because
+  survival still requires clearing the matched-null overfit bar and the random-key
   key-independence bar, which the puzzles fail.
 - All solve corpus/e2e tests, golden masters, and the `solve_caesar_s123_nt4` byte-exact
   stdout fixture pass unchanged.

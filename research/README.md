@@ -3,8 +3,8 @@
 A skeptical research dossier on the Noita "Eye Messages" puzzle, produced by a
 multi-agent research workflow (8 parallel research angles → per-angle deep-dive
 and source-fetching → adversarial verification of load-bearing claims →
-synthesis). The explicit goal was **not to assume the community is correct**, and
-to surface everything that can be **tested with code**.
+synthesis). The explicit goal was not to assume the community is correct, and
+to surface everything that can be tested with code.
 
 This folder sits inside the existing `noita-eye-puzzle` Rust workbench (`../src`).
 See [07-workbench-bridge.md](07-workbench-bridge.md) for how the findings map onto
@@ -12,22 +12,22 @@ that code.
 
 ## How to read the confidence tags
 
-Every non-trivial claim carries one of: **[confirmed]** (primary evidence —
-game files/datamining, reproducible computation, dev statement), **[likely]**
-(strong but not primary), **[speculative]** (plausible community inference), or
-**[disputed]** (contradicted, unsourced, or order-/assumption-dependent).
+Every non-trivial claim carries one of: [confirmed] (primary evidence —
+game files/datamining, reproducible computation, dev statement), [likely]
+(strong but not primary), [speculative] (plausible community inference), or
+[disputed] (contradicted, unsourced, or order-/assumption-dependent).
 
 ## The single most important takeaway
 
 Most celebrated "cipher properties" (flat frequency, no doubled symbols, a clean
-0–82 value range, a distance-4 anomaly) are **conditional on a reading order that
-was itself chosen because it produced those clean results.** On the raw stored
+0–82 value range, a distance-4 anomaly) are conditional on a reading order that
+was itself chosen because it produced those clean results. On the raw stored
 order they largely vanish (17 adjacent-equal trigrams; values span 0–122 with
 gaps, not a clean 0–82). The community's headline improbability figure
 `(83/125)^1036` is a *per-order* probability. Correcting it is subtler than it
 looks: a Bonferroni correction over even ~86,000 *fixed* orders stays
 astronomically small under an independent-uniform null, so the dominant risk is
-not raw trial count but **researcher degrees of freedom** — the reading-order
+not raw trial count but researcher degrees of freedom — the reading-order
 family, digit mapping, grouping rule, and statistic were all chosen after seeing
 the data. Quantifying both corrections is the highest-value code experiment
 available.
@@ -35,24 +35,24 @@ available.
 ## Verification scorecard
 
 14 load-bearing "confirmed/likely" community claims were re-checked
-adversarially. Result: **5 supported, 8 mixed, 1 unverifiable** (full reasoning in
+adversarially. Result: 5 supported, 8 mixed, 1 unverifiable (full reasoning in
 [03-confirmed-vs-speculation.md](03-confirmed-vs-speculation.md), raw verdicts in
 [data/verdicts.json](data/verdicts.json)).
 
 **Supported [confirmed]:**
 - 9 messages total (5 East / 4 West), alternating placement, East-5 has no West counterpart.
 - Each glyph is one of 5 orientations (digits 0–4); digit 5 is a non-rendered row delimiter.
-- The eye generator is **engine code, not Lua/sprites** — it cannot be pulled from `data.wak`; glyphs are engine-rendered.
+- The eye generator is engine code, not Lua/sprites — it cannot be pulled from `data.wak`; glyphs are engine-rendered.
 - Spawn conditions: no-mods-ever-this-run flag + "Entered East/West" trigger + `background_cave_02.png`.
 - The puzzle is unsolved; flat trigram frequency rules out simple monoalphabetic substitution.
 
 **Notably debunked / downgraded:**
-- "**The developers confirmed it's solvable / meaningful**" — **[disputed]**. No primary
+- "**The developers confirmed it's solvable / meaningful**" — [disputed]. No primary
   source. Traces to an unsourced 2022 Hacker News intro line, echoed by AI-generated
   pages. The honest statement is "structured data of unknown meaning, unsolved."
-- The exact **direction-per-digit** mapping (1=up, 2=right, …) — **[unverifiable]** from
+- The exact direction-per-digit mapping (1=up, 2=right, …) — [unverifiable] from
   any text source; shown only as an image. Treat as convention, not fact.
-- The clean **0–82 range / distance-4 / no-doubles** properties — **[mixed]**;
+- The clean 0–82 range / distance-4 / no-doubles properties — [mixed];
   order-contingent (see takeaway above).
 
 ## Documents
@@ -85,8 +85,8 @@ adversarially. Result: **5 supported, 8 mixed, 1 unverifiable** (full reasoning 
 
 - Produced by ~35 LLM research agents over web sources (Noita Wiki, the primary
   Google Docs, GitHub analysis repos, Reddit, Hacker News, datamining write-ups).
-  It is a **map of the community's state of knowledge, fact-checked**, not new
+  It is a map of the community's state of knowledge, fact-checked, not new
   cryptanalysis. Source URLs are inline throughout and in `06-sources.md`.
 - The entire technical corpus rests on a handful of analysts and repos;
   independent reproduction is thin. The most valuable code contribution is adding
-  the **null distributions** the community has not.
+  the null distributions the community has not.
