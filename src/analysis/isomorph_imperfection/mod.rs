@@ -22,9 +22,7 @@
 use std::error::Error;
 use std::fmt;
 
-use crate::analysis::orders::{
-    self, GlyphGrid, GridError, ReadingOrder, read_corpus_message_values,
-};
+use crate::analysis::orders::{CorpusContext, GridError, ReadingOrder};
 use crate::nulls::null::{RandomBoundError, SplitMix64, UsizeBand, mix_seed};
 
 mod detector;
@@ -329,13 +327,11 @@ pub fn run_isomorph_imperfection(
     if config.null_trials == 0 || config.family_trials == 0 {
         return Err(IsomorphImperfectionError::ZeroTrials);
     }
-    let grids = orders::corpus_grids()?;
-    let keys = grids
-        .iter()
-        .map(GlyphGrid::message_key)
-        .collect::<Vec<&'static str>>();
-    let order = orders::accepted_honeycomb_order();
-    let message_values = read_corpus_message_values(&grids, order)?;
+    let CorpusContext {
+        order,
+        keys,
+        message_values,
+    } = CorpusContext::load()?;
     let messages = to_symbol_messages(&message_values);
     let key_refs = keys.clone();
 
