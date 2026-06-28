@@ -231,7 +231,7 @@ fn render_eyes_gate1(out: &mut String, inputs: &EyesRecordInputs<'_>) -> std::fm
     )?;
     writeln!(
         out,
-        "ENFORCED to stay WITHIN the Thread-3 safe isomorph extents (F2): an occurrence"
+        "ENFORCED to stay WITHIN the Thread-3 safe isomorph extents: an occurrence"
     )?;
     writeln!(
         out,
@@ -365,7 +365,7 @@ fn render_eyes_gates_2_3_conclusion(
     )?;
     writeln!(
         out,
-        "these per-message safe spans (F2) — an occurrence window is admitted only inside a"
+        "these per-message safe spans — an occurrence window is admitted only inside a"
     )?;
     writeln!(
         out,

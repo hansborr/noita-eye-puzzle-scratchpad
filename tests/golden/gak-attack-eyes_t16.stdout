@@ -6,7 +6,7 @@ entry path (exact): orders::corpus_grids() -> accepted_honeycomb_order() -> read
   reading order `standard36-u012-d012`; 1036 reading-layer symbols; 83 distinct (the 83-symbol reading layer); 9 messages
 
 GATE 1 -- held-out isomorphs vs matched within-message shuffle null
-  statistic: EMBARGOED-CONSENSUS coverage-weighted excess correctness. The recovered model is a LIBRARY of context-colored partial permutations (one per TRAIN isomorph occurrence pair), NOT a collapsed global symbol map. A held-out edge scores only when >=2 train contexts from DISTINCT signature groups -- with NO physical span overlap/adjacency with the held-out context -- AGREE on it; that embargo kills the nested/overlapping-window leak a within-message shuffle mimics, so only genuinely TRANSFERABLE structure scores. score = (A-1)*hits - A*misses (ambiguous unpenalized), A=83, with a per-message COVERAGE CLAMP that zeroes any message with < 4 confident decisions (an explicit part of the statistic, applied identically to real and null). Gate-1 chaining is ENFORCED to stay within the Thread-3 safe isomorph extents (F2). A shuffle has no transferable structure detected by this gate, so it scores ~0.
+  statistic: EMBARGOED-CONSENSUS coverage-weighted excess correctness. The recovered model is a LIBRARY of context-colored partial permutations (one per TRAIN isomorph occurrence pair), NOT a collapsed global symbol map. A held-out edge scores only when >=2 train contexts from DISTINCT signature groups -- with NO physical span overlap/adjacency with the held-out context -- AGREE on it; that embargo kills the nested/overlapping-window leak a within-message shuffle mimics, so only genuinely TRANSFERABLE structure scores. score = (A-1)*hits - A*misses (ambiguous unpenalized), A=83, with a per-message COVERAGE CLAMP that zeroes any message with < 4 confident decisions (an explicit part of the statistic, applied identically to real and null). Gate-1 chaining is ENFORCED to stay within the Thread-3 safe isomorph extents. A shuffle has no transferable structure detected by this gate, so it scores ~0.
   held-out POSITIVE CONTROL on a synthetic isomorph-rich eye-shaped fixture: real score 1103104 vs worst-case null score 0 (on 15360 scoreable edges) -> fired=yes (the predictor must fire on KNOWN signal AND clear its OWN population's material-effect bar, or the gate is not trusted)
   real eyes aggregate held-out: hits=0 misses=0 ambiguous=84; coverage-weighted score = 0
   matched within-message shuffle null: 16 trials, 16 >= real; null mean score 0.00; add-one p = 1.0000
@@ -26,7 +26,7 @@ GATE 1 -- held-out isomorphs vs matched within-message shuffle null
 
 GATE 2 -- Thread-3 perfect-isomorphism consistency (Thread-3 API REUSED, never re-derived)
   robust internal violations: 0 (must be 0 -- a non-zero count is a manufactured TRUE conflict that would disqualify the model)
-  safe isomorph extents exported: 16 (Gate-1 chaining is ENFORCED to stay within these per-message safe spans (F2): an occurrence window is admitted only inside a Thread-3 safe span, so chaining never over-extends past them)
+  safe isomorph extents exported: 16 (Gate-1 chaining is ENFORCED to stay within these per-message safe spans: an occurrence window is admitted only inside a Thread-3 safe span, so chaining never over-extends past them)
   Thread-3 positive control fired: yes
   GATE 2 VERDICT (model consistent with Thread 3): yes
 
