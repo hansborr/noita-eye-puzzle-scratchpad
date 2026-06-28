@@ -1,10 +1,10 @@
 # Thread 6 notes — `data.wak` Lua/data scan
 
-**Date:** 2026-06-24. **Verdict: lead CLOSED.**
+**Date:** 2026-06-24. Verdict: lead closed.
 **Outcome:** As predicted by `thread-6-binary-game-data.md`: the shipped game data
-contains **rendering/world-gen assets only**, **no symbol→meaning decode table**,
-and **no base-7/base-5 transform, no 83-entry table, and no eye-message integer
-data** of any kind. This *confirms* the dead end; it is not a failure.
+contains rendering/world-gen assets only, no symbol→meaning decode table,
+and no base-7/base-5 transform, no 83-entry table, and no eye-message integer
+data of any kind. This *confirms* the dead end; it is not a failure.
 
 Strongest defensible statement is unchanged: the eyes are deterministic,
 engine-generated, strikingly structured data of unknown meaning; unsolved; no
@@ -20,7 +20,7 @@ primary developer source confirms recoverable plaintext.
     `u32 data_start (0x0c2ca3)`, `u32 reserved(0)`.
   - Then `num_files` records: `u32 abs_offset`, `u32 length`, `u32 path_len`,
     `path_len` ASCII bytes (path includes the `data/` prefix).
-  - Integrity cross-checks that passed: the header table ends **exactly** at
+  - Integrity cross-checks that passed: the header table ends exactly at
     `data_start` (0x0c2ca3); offsets are contiguous and absolute
     (`data/credits.txt` @0xc2ca3 len 2739 → `data/debug_keys.txt` @0xc3757);
     all 14,745 files extracted with `bad=0` and correct byte lengths;
@@ -32,11 +32,11 @@ primary developer source confirms recoverable plaintext.
 
 1. **Eye-message digit content (the decisive test).** Searched the *raw* `data.wak`
    and the whole extracted tree for distinctive ≥30-char substrings of the verified
-   `corpus.rs` orientation-digit strings, including the all-message **shared prefix**
+   `corpus.rs` orientation-digit strings, including the all-message shared prefix
    (`...0132233040411302321143130330040240...`) and a message-0-unique run
    (`1135310221044000200104040144142033`).
-   **Result: zero hits** in raw and extracted. The message content is **not stored
-   in `data.wak`** as a data table. This is consistent with the prior first-party
+   Result: zero hits in raw and extracted. The message content is not stored
+   in `data.wak` as a data table. This is consistent with the prior first-party
    Ghidra finding that the nine messages are hardcoded `(low, high)` `u32` constants
    inside `noita.exe` (`FUN_0061ed60`) — not in shipped data files.
 
@@ -47,15 +47,15 @@ primary developer source confirms recoverable plaintext.
    No base-7/base-5 logic, no 83-entry table, no decode keyed by message values.
 
 3. **Glyph / rune / secret / message / orb terms.** All hits are ordinary gameplay:
-   spell **runestones** (`runestone_*`), decorative `runes.xml`, and biome "secret"
+   spell runestones (`runestone_*`), decorative `runes.xml`, and biome "secret"
    rooms (`alchemist_secret`, `temple_altar_secret`, `snowcave_secret_chamber`,
    etc.). None ingests eye-message integers or maps decoded values → letters/words.
 
 4. **Files/paths named `eye`.** Two distinct, unrelated systems:
    - **World-gen brush PNGs** `data/biome_impl/caves/eye.png` and `eye_0[1-5].png`
-     are tiny **9×5** material stamps used by `<CaveStructure>` in
+     are tiny 9×5 material stamps used by `<CaveStructure>` in
      `data/biome/hills.xml`, `hills2.xml`, `forest.xml` to carve cave shapes. These
-     are decoration in the EDR, **not** the message-glyph walls and carry no text.
+     are decoration in the EDR, not the message-glyph walls and carry no text.
    - **Gameplay eyes:** `evil_eye` item, `eyespot_*` trip-vision buildings, boss
      eyes (`boss_fish/eye.lua`, etc.), `eye_check.lua`/`eyespot_check.lua`. Read
      `eye_check.lua` and `eyespot_check.lua` in full — pure entity/component
@@ -68,7 +68,7 @@ primary developer source confirms recoverable plaintext.
 
 ## Why this is a confirmation, not a gap
 
-The messages are **display constants** rendered from integers stored in the
+The messages are display constants rendered from integers stored in the
 executable; the game never needs the plaintext at runtime, so neither the plaintext
 nor any cipher key need exist in the shipped game. The absence of a `data.wak`
 decode table is exactly what "display constants" predicts. Per Thread 6's prior:
@@ -76,7 +76,7 @@ treat this negative as *closing* the lead.
 
 ## Verdict
 
-**Lead CLOSED.** The `data.wak` Lua/data scan is done. No semantic
+Lead closed. The `data.wak` Lua/data scan is done. No semantic
 symbol→meaning table, no base-7/base-5 transform, no 83-entry table, and no
 eye-message integer content exist in the shipped game data. Do not reopen on a
 hunch. (Caveat preserved: this rules out a decode table *in `data.wak`*; it does
