@@ -16,11 +16,13 @@
 use crate::core::glyph::Orientation;
 use crate::data::corpus::{CorpusError, Message, messages};
 
+mod context;
 mod read;
 mod stats;
 #[cfg(test)]
 mod tests;
 
+pub use context::CorpusContext;
 pub use read::{
     read_corpus_message_orientations, read_corpus_message_values, read_corpus_values,
     read_grid_orientations, read_grid_values,
