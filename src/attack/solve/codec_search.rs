@@ -4,7 +4,7 @@
 )]
 use super::CodecStrategy;
 use super::eval::{best_codec_fixed_null_score, family_seed_tag, model_for};
-use super::search::{best_family_search_score, search_seed};
+use super::search::{FamilySearchSetup, best_family_search_score, search_seed};
 use super::{
     AnyCodec, Candidate, CipherFamilySpec, Codec, CodecSearch, CodecSkipReason,
     DEFAULT_LANGUAGE_ALPHABET_SIZE, Language, MAX_SEARCH_OUTPUT_ALPHABET, MappingSearch,
@@ -193,11 +193,13 @@ pub(super) fn enumeration_null_mean(
                     best_family_search_score(
                         &shuffled,
                         family,
-                        req.space.cipher_alphabet_size,
-                        model,
-                        &derived,
+                        FamilySearchSetup {
+                            cipher_alphabet_size: req.space.cipher_alphabet_size,
+                            model,
+                            search: &derived,
+                            codec,
+                        },
                         trial_seed,
-                        codec,
                     )?
                 }
             };

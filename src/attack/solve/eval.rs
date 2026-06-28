@@ -4,6 +4,16 @@ use super::{
     fisher_yates, mix_seed,
 };
 
+/// The matched-null baselines a candidate is gated against. The two are produced
+/// as a pair by the matched null and gated as a pair, so they travel together.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct NullBaselines {
+    /// Matched-null full-stream mean (the overfit bar).
+    pub(super) full_mean: f64,
+    /// Matched-null HELD-OUT fold mean (the generalization bar).
+    pub(super) heldout_mean: f64,
+}
+
 /// Best fixed-mapping `(in-sample score, held-out fold score)` for one codec on a
 /// (shuffled) stream, taken at the mapping × cipher that maximizes the in-sample
 /// score. The enumeration null maxes this over codecs in turn, mirroring the real
@@ -38,16 +48,14 @@ pub(super) fn evaluate_family(
         for language in req.space.language.languages() {
             let (null_mean, null_heldout_mean) =
                 matched_null_mean(req, family, mapping, *language, codec)?;
+            let nulls = NullBaselines {
+                full_mean: null_mean,
+                heldout_mean: null_heldout_mean,
+            };
             for cipher in &family.ciphers {
-                if let Some(candidate) = evaluate_cipher(
-                    req,
-                    cipher,
-                    mapping,
-                    *language,
-                    null_mean,
-                    null_heldout_mean,
-                    codec,
-                )? {
+                if let Some(candidate) =
+                    evaluate_cipher(req, cipher, mapping, *language, nulls, codec)?
+                {
                     candidates.push(candidate);
                 }
             }
@@ -56,20 +64,15 @@ pub(super) fn evaluate_family(
     Ok(candidates)
 }
 
-// The fixed-mapping evaluator threads both null baselines (full-stream mean for the
-// overfit gate, held-out fold mean for the generalization gate) plus the codec; the
-// params are the established pipeline shape, so a context struct would obscure them.
-#[allow(
-    clippy::too_many_arguments,
-    reason = "established fixed-mapping pipeline shape + the held-out null baseline (T1)"
-)]
+// The fixed-mapping evaluator threads both null baselines (bundled into
+// [`NullBaselines`]: full-stream mean for the overfit gate, held-out fold mean for
+// the generalization gate) plus the codec, on the established pipeline shape.
 pub(super) fn evaluate_cipher(
     req: &SolveRequest<'_>,
     cipher: &AnyCipher,
     mapping: &Mapping,
     language: Language,
-    null_mean: f64,
-    null_heldout_mean: f64,
+    nulls: NullBaselines,
     codec: &AnyCodec,
 ) -> Result<Option<Candidate>, SolveError> {
     let Some(decrypted_symbols) = decrypt_round_trip(cipher, req.ciphertext)? else {
@@ -89,9 +92,9 @@ pub(super) fn evaluate_cipher(
         rendered_text,
         score: scored.score,
         heldout_mapping_score: scored.heldout_mapping_score,
-        null_mean,
-        null_heldout_mean,
-        beats_null: scored.score > null_mean,
+        null_mean: nulls.full_mean,
+        null_heldout_mean: nulls.heldout_mean,
+        beats_null: scored.score > nulls.full_mean,
     }))
 }
 

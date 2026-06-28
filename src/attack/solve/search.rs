@@ -1,5 +1,6 @@
 use super::eval::{
-    decrypt_round_trip, family_seed_tag, model_for, reinsert_transparent, render_indices,
+    NullBaselines, decrypt_round_trip, family_seed_tag, model_for, reinsert_transparent,
+    render_indices,
 };
 use super::{
     AnnealSchedule, AnyCipher, AnyCodec, Candidate, CipherFamilySpec, Codec, Glyph, Language,
@@ -31,6 +32,36 @@ enum Proposal {
     Swap { a: usize, b: usize },
 }
 
+/// One keyed cipher to evaluate, located within its family. `cipher_index` is the
+/// cipher's position in `family.ciphers` and seeds the per-cipher mapping search,
+/// so the three always travel together.
+#[derive(Clone, Copy)]
+pub(super) struct FamilyCipher<'a> {
+    /// The cipher family being evaluated.
+    pub(super) family: &'a CipherFamilySpec,
+    /// The keyed cipher under evaluation.
+    pub(super) cipher: &'a AnyCipher,
+    /// `cipher`'s index in `family.ciphers` (seeds the per-cipher mapping search).
+    pub(super) cipher_index: usize,
+}
+
+/// The per-(family, language) mapping-search setup applied to a stream: the mapping
+/// domain size, the language model to score against, the search hyperparameters, and
+/// the codec transduction stage. These are invariant across the family enumeration
+/// and the matched-null trials — only the (shuffled) stream and the per-trial seed
+/// vary per call — so they are bundled into one setup value.
+#[derive(Clone, Copy)]
+pub(super) struct FamilySearchSetup<'a> {
+    /// Declared cipher alphabet size (resolved to the codec's output domain inside).
+    pub(super) cipher_alphabet_size: usize,
+    /// Language model the searched mapping is scored against.
+    pub(super) model: &'a LanguageModel,
+    /// Mapping-search hyperparameters (restarts / iterations / anneal / seed).
+    pub(super) search: &'a MappingSearch,
+    /// Codec transduction stage between decrypted cipher symbols and the mapping.
+    pub(super) codec: &'a AnyCodec,
+}
+
 pub(super) fn solve_search(
     req: &SolveRequest<'_>,
     search: &MappingSearch,
@@ -41,18 +72,19 @@ pub(super) fn solve_search(
         for language in req.space.language.languages() {
             let (null_mean, null_heldout_mean) =
                 matched_null_search_mean(req, family, *language, search, codec)?;
+            let nulls = NullBaselines {
+                full_mean: null_mean,
+                heldout_mean: null_heldout_mean,
+            };
             for (cipher_index, cipher) in family.ciphers.iter().enumerate() {
-                if let Some(candidate) = evaluate_cipher_search(
-                    req,
+                let target = FamilyCipher {
                     family,
                     cipher,
                     cipher_index,
-                    *language,
-                    null_mean,
-                    null_heldout_mean,
-                    search,
-                    codec,
-                )? {
+                };
+                if let Some(candidate) =
+                    evaluate_cipher_search(req, target, *language, nulls, search, codec)?
+                {
                     candidates.push(candidate);
                 }
             }
@@ -62,23 +94,21 @@ pub(super) fn solve_search(
 }
 
 // The codec stage threads an extra dimension through the established search
-// pipeline; the params are the existing pipeline shape plus `codec`, so bundling
-// them into a context struct would obscure rather than clarify.
-#[allow(
-    clippy::too_many_arguments,
-    reason = "Phase-1 codec wiring + the held-out null baseline (T1) on the existing search path"
-)]
+// pipeline; the cohesive groups are bundled into [`FamilyCipher`] (which cipher, in
+// which family, at which index) and [`NullBaselines`] (both matched-null gates).
 pub(super) fn evaluate_cipher_search(
     req: &SolveRequest<'_>,
-    family: &CipherFamilySpec,
-    cipher: &AnyCipher,
-    cipher_index: usize,
+    target: FamilyCipher<'_>,
     language: Language,
-    null_mean: f64,
-    null_heldout_mean: f64,
+    nulls: NullBaselines,
     search: &MappingSearch,
     codec: &AnyCodec,
 ) -> Result<Option<Candidate>, SolveError> {
+    let FamilyCipher {
+        family,
+        cipher,
+        cipher_index,
+    } = target;
     let Some(decrypted_symbols) = decrypt_round_trip(cipher, req.ciphertext)? else {
         return Ok(None);
     };
@@ -113,9 +143,9 @@ pub(super) fn evaluate_cipher_search(
         rendered_text,
         score: full.score,
         heldout_mapping_score,
-        null_mean,
-        null_heldout_mean,
-        beats_null: full.score >= null_mean + SEARCH_BEATS_NULL_MARGIN,
+        null_mean: nulls.full_mean,
+        null_heldout_mean: nulls.heldout_mean,
+        beats_null: full.score >= nulls.full_mean + SEARCH_BEATS_NULL_MARGIN,
     }))
 }
 
@@ -177,11 +207,13 @@ fn matched_null_search_mean(
         trials.push(best_family_search_score(
             &shuffled,
             family,
-            req.space.cipher_alphabet_size,
-            model,
-            search,
+            FamilySearchSetup {
+                cipher_alphabet_size: req.space.cipher_alphabet_size,
+                model,
+                search,
+                codec,
+            },
             trial_seed,
-            codec,
         )?);
     }
     let stats = crate::nulls::heldout::matched_null_stats(&trials);
@@ -193,19 +225,18 @@ fn matched_null_search_mean(
 /// held-out score is the selected cipher's CONTIGUOUS-fold [`heldout_search_score`]
 /// (re-fit on the train half, scored on the held-out half) — recomputed once for the
 /// winner so the null's held-out baseline mirrors the real candidate's exactly.
-#[allow(
-    clippy::too_many_arguments,
-    reason = "Phase-1 codec wiring adds one codec parameter to the existing search path"
-)]
 pub(super) fn best_family_search_score(
     ciphertext: &[Glyph],
     family: &CipherFamilySpec,
-    cipher_alphabet_size: usize,
-    model: &LanguageModel,
-    search: &MappingSearch,
+    setup: FamilySearchSetup<'_>,
     seed: u64,
-    codec: &AnyCodec,
 ) -> Result<(f64, f64), SolveError> {
+    let FamilySearchSetup {
+        cipher_alphabet_size,
+        model,
+        search,
+        codec,
+    } = setup;
     let mut best: Option<(f64, Vec<usize>, u64)> = None;
     let mapping_domain = resolved_output_alphabet_size(codec, cipher_alphabet_size);
     for (cipher_index, cipher) in family.ciphers.iter().enumerate() {

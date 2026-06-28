@@ -112,10 +112,12 @@ fn letter_puzzles_run_end_to_end_and_log_as_hypotheses() {
         // The candidate is logged as a labelled HYPOTHESIS for human review.
         let path = super::log_solve_run(
             &dir,
-            name,
-            super::DEFAULT_SEED,
-            26,
-            glyphs.len(),
+            super::SolveRunIdentity {
+                label: name,
+                seed: super::DEFAULT_SEED,
+                cipher_alphabet_size: 26,
+                total_symbols: glyphs.len(),
+            },
             "test: letter-puzzle log_solve_run",
             &candidates,
             &english,
@@ -195,10 +197,12 @@ fn eyes_search_surfaces_no_surviving_candidate() {
     let _removed = std::fs::remove_dir_all(&dir);
     let path = super::log_solve_run(
         &dir,
-        "eyes-reading-layer",
-        super::DEFAULT_SEED,
-        crate::ciphers::EYE_READING_ALPHABET_SIZE,
-        eyes.len(),
+        super::SolveRunIdentity {
+            label: "eyes-reading-layer",
+            seed: super::DEFAULT_SEED,
+            cipher_alphabet_size: crate::ciphers::EYE_READING_ALPHABET_SIZE,
+            total_symbols: eyes.len(),
+        },
         "test: eyes honest-negative log_solve_run",
         &candidates,
         &english,
@@ -316,10 +320,12 @@ fn corpus_one_runs_end_to_end_and_logs_hypothesis() {
     let _removed = std::fs::remove_dir_all(&dir);
     let path = super::log_solve_run(
         &dir,
-        "one",
-        super::DEFAULT_SEED,
-        5,
-        parsed.glyphs.len(),
+        super::SolveRunIdentity {
+            label: "one",
+            seed: super::DEFAULT_SEED,
+            cipher_alphabet_size: 5,
+            total_symbols: parsed.glyphs.len(),
+        },
         "test: corpus one log_solve_run",
         &outcome.candidates,
         &english,
@@ -381,10 +387,12 @@ fn corpus_two_runs_end_to_end_and_logs_hypothesis() {
     let _removed = std::fs::remove_dir_all(&dir);
     let path = super::log_solve_run(
         &dir,
-        "two",
-        super::DEFAULT_SEED,
-        12,
-        parsed.glyphs.len(),
+        super::SolveRunIdentity {
+            label: "two",
+            seed: super::DEFAULT_SEED,
+            cipher_alphabet_size: 12,
+            total_symbols: parsed.glyphs.len(),
+        },
         "test: corpus two log_solve_run",
         &outcome.candidates,
         &english,
@@ -491,10 +499,12 @@ fn corpus_six_grouping_reinserts_spaces_and_logs_hypothesis() {
     let _removed = std::fs::remove_dir_all(&dir);
     let path = super::log_solve_run(
         &dir,
-        "six",
-        super::DEFAULT_SEED,
-        6,
-        parsed.glyphs.len(),
+        super::SolveRunIdentity {
+            label: "six",
+            seed: super::DEFAULT_SEED,
+            cipher_alphabet_size: 6,
+            total_symbols: parsed.glyphs.len(),
+        },
         "test: corpus six log_solve_run",
         &outcome.candidates,
         &english,
@@ -1637,10 +1647,12 @@ fn log_solve_run_writes_seed_derived_record() {
     let _removed = std::fs::remove_dir_all(&dir);
     let path = super::log_solve_run(
         &dir,
-        "small-alphabet",
-        super::DEFAULT_SEED,
-        size,
-        ciphertext.len(),
+        super::SolveRunIdentity {
+            label: "small-alphabet",
+            seed: super::DEFAULT_SEED,
+            cipher_alphabet_size: size,
+            total_symbols: ciphertext.len(),
+        },
         "test: log_solve_run_writes_seed_derived_record",
         &candidates,
         &english,

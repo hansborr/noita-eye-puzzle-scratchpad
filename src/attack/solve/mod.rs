@@ -30,8 +30,8 @@ mod types;
 use codec_search::{
     codec_search_mapping, enumeration_null_mean, stamp_enumeration_beats_null, surviving_codecs,
 };
-use eval::{evaluate_cipher, evaluate_family};
-use search::{evaluate_cipher_search, solve_search};
+use eval::{NullBaselines, evaluate_cipher, evaluate_family};
+use search::{FamilyCipher, evaluate_cipher_search, solve_search};
 
 pub use record::*;
 pub use types::*;
@@ -145,20 +145,18 @@ fn run_codec_search(
             // equals the old per-codec null byte-for-byte (a pure re-aggregation).
             let (null_mean, null_heldout_mean) =
                 enumeration_null_mean(req, family, *language, search, &survivors)?;
+            let nulls = NullBaselines {
+                full_mean: null_mean,
+                heldout_mean: null_heldout_mean,
+            };
             for (index, codec) in &survivors {
                 match &req.space.mappings {
                     MappingStrategy::Fixed(mappings) => {
                         for mapping in mappings {
                             for cipher in &family.ciphers {
-                                if let Some(candidate) = evaluate_cipher(
-                                    req,
-                                    cipher,
-                                    mapping,
-                                    *language,
-                                    null_mean,
-                                    null_heldout_mean,
-                                    codec,
-                                )? {
+                                if let Some(candidate) =
+                                    evaluate_cipher(req, cipher, mapping, *language, nulls, codec)?
+                                {
                                     candidates
                                         .push(stamp_enumeration_beats_null(candidate, null_mean));
                                 }
@@ -171,16 +169,13 @@ fn run_codec_search(
                         // random streams; the null mirrors this exact derivation.
                         let derived = codec_search_mapping(mapping_search, search.seed, *index);
                         for (cipher_index, cipher) in family.ciphers.iter().enumerate() {
-                            if let Some(candidate) = evaluate_cipher_search(
-                                req,
+                            let target = FamilyCipher {
                                 family,
                                 cipher,
                                 cipher_index,
-                                *language,
-                                null_mean,
-                                null_heldout_mean,
-                                &derived,
-                                codec,
+                            };
+                            if let Some(candidate) = evaluate_cipher_search(
+                                req, target, *language, nulls, &derived, codec,
                             )? {
                                 candidates.push(stamp_enumeration_beats_null(candidate, null_mean));
                             }

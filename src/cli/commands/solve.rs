@@ -96,12 +96,14 @@ pub(crate) fn run_solve(args: &SolveArgs) -> ExitCode {
     let provenance = solve_provenance_command(args);
     match solve::log_solve_run(
         &args.candidates_dir,
-        &args.label,
-        args.seed,
-        cipher_alphabet_size,
-        // The ciphertext (cipher-symbol) count, so the record header reports the
-        // real length even on the zero-candidate honest negative.
-        parsed.glyphs.len(),
+        solve::SolveRunIdentity {
+            label: &args.label,
+            seed: args.seed,
+            cipher_alphabet_size,
+            // The ciphertext (cipher-symbol) count, so the record header reports the
+            // real length even on the zero-candidate honest negative.
+            total_symbols: parsed.glyphs.len(),
+        },
         &provenance,
         &candidates,
         &english,

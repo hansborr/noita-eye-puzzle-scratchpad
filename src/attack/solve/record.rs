@@ -69,6 +69,22 @@ pub struct SolveRecordInputs<'a> {
     pub top: Option<SolveRecordCandidate<'a>>,
 }
 
+/// The stable identity and shape of one solve run, reproduced verbatim in the
+/// record header. The seed is the only entropy (no wall clock), so these four
+/// cohesive fields fully determine the record's filename and header line.
+#[derive(Clone, Copy, Debug)]
+pub struct SolveRunIdentity<'a> {
+    /// Stable run/puzzle label (used in the seed-derived filename).
+    pub label: &'a str,
+    /// Deterministic run seed (the only filename entropy — no wall clock).
+    pub seed: u64,
+    /// Declared cipher alphabet size.
+    pub cipher_alphabet_size: usize,
+    /// Number of cipher symbols in the ciphertext (the D2 length, reported even on
+    /// the zero-candidate honest negative).
+    pub total_symbols: usize,
+}
+
 /// Builds the stable, clock-free record filename from the run label and seed.
 fn solve_record_filename(label: &str, seed: u64) -> String {
     let slug: String = label
@@ -252,25 +268,23 @@ fn render_solve_gates(out: &mut String, inputs: &SolveRecordInputs<'_>) -> fmt::
 /// # Errors
 /// Returns [`SolveError`] if a language score fails or the record cannot be
 /// written.
-// The args are the auto-log's cohesive inputs (record dir + run identity/shape +
-// provenance command + candidates + both language models); defect-3's
-// `total_symbols` count and defect-D2's `provenance` string push this to 9.
-// Bundling them into a context struct would obscure rather than clarify.
-#[allow(
-    clippy::too_many_arguments,
-    reason = "auto-log inputs: dir + run identity/shape (incl. defect-3 total_symbols + defect-D2 provenance) + candidates + both models"
-)]
+// The run identity/shape (label + seed + cipher-alphabet + defect-3 total_symbols)
+// is bundled into [`SolveRunIdentity`]; defect-D2's `provenance`, the candidates,
+// and both language models are the remaining heterogeneous inputs.
 pub fn log_solve_run(
     dir: &Path,
-    label: &str,
-    seed: u64,
-    cipher_alphabet_size: usize,
-    total_symbols: usize,
+    identity: SolveRunIdentity<'_>,
     provenance: &str,
     candidates: &[Candidate],
     english: &LanguageModel,
     finnish: &LanguageModel,
 ) -> Result<PathBuf, SolveError> {
+    let SolveRunIdentity {
+        label,
+        seed,
+        cipher_alphabet_size,
+        total_symbols,
+    } = identity;
     let survivors = candidates.iter().filter(|c| candidate_survives(c)).count();
     let top = match candidates.first() {
         Some(candidate) => Some(SolveRecordCandidate {
