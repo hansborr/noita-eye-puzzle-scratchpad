@@ -26,6 +26,9 @@
 pub mod agl_gak;
 pub mod cipher_attack;
 pub mod codec;
+/// Shared scaffolding (`mean_std`, the null-comparison gate, the matched-null loop,
+/// and the invariant candidate-record blocks) for the keystream and ragbaby crackers.
+mod crack;
 pub mod gak_attack;
 pub mod keystream;
 pub mod language;

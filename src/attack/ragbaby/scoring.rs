@@ -1,5 +1,5 @@
 use crate::attack::quadgram::{QuadgramError, QuadgramModel};
-use crate::nulls::null::{SplitMix64, fisher_yates, mix_seed};
+use crate::nulls::null::{SplitMix64, mix_seed};
 
 use super::cipher::{Numbering, Sign, decrypt_into, encrypt_indices, keep_for_base};
 use super::search::{RagbabySearch, RagbabySearchConfig, random_keyed_alphabet, search};
@@ -13,24 +13,6 @@ const NULL_SEED_TAG: u64 = 0x0072_6167_6e75_6c00;
 /// `SplitMix64` golden-ratio constant) so the matched null is decorrelated from
 /// both the search and the random-keyed-alphabet null streams.
 const MATCHED_NULL_SEED_TAG: u64 = 0x9e37_79b9_7f4a_7c15;
-
-/// Population mean and standard deviation (`(0.0, 0.0)` for an empty slice).
-fn mean_std(samples: &[f64]) -> (f64, f64) {
-    if samples.is_empty() {
-        return (0.0, 0.0);
-    }
-    let count = samples.len() as f64;
-    let mean = samples.iter().sum::<f64>() / count;
-    let variance = samples
-        .iter()
-        .map(|value| {
-            let delta = value - mean;
-            delta * delta
-        })
-        .sum::<f64>()
-        / count;
-    (mean, variance.sqrt())
-}
 
 /// Fraction of positions (over the shorter length) where `a` and `b` agree
 /// (`0.0` for empty input).
@@ -179,7 +161,7 @@ fn random_key_null(
         );
         scores.push(model.score_indices(&out));
     }
-    mean_std(&scores)
+    crate::attack::crack::mean_std(&scores)
 }
 
 /// Builds the matched null `(mean, std)` — the honest survival bar. Each trial
@@ -206,46 +188,39 @@ fn matched_null(
     cfg: &RagbabySearchConfig,
     model: &QuadgramModel,
 ) -> (f64, f64, f64) {
-    if cfg.matched_null_trials == 0 {
-        return (0.0, 0.0, 0.0);
-    }
-    // Per-trial (full-stream score, held-out odd-index fold score) pairs, aggregated
-    // by the shared [`crate::nulls::heldout::matched_null_stats`] (de-dups the full mean/std
-    // + held-out mean shared with keystream and solve).
-    let mut trials: Vec<(f64, f64)> = Vec::with_capacity(cfg.matched_null_trials);
-    for trial in 0..cfg.matched_null_trials {
-        let shuffle_seed = cfg.seed ^ MATCHED_NULL_SEED_TAG ^ problem.tag() ^ (trial as u64);
-        let mut shuffle_rng = SplitMix64::new(shuffle_seed);
-        let mut shuffled = problem.cipher.to_vec();
-        if fisher_yates(&mut shuffled, &mut shuffle_rng).is_err() {
-            // Unreachable for an in-bounds slice on a 64-bit target; skip the trial
-            // rather than panic (a dropped trial only shrinks the sample).
-            continue;
-        }
-        let search_seed = mix_seed(
-            cfg.seed,
-            MATCHED_NULL_SEED_TAG ^ problem.tag() ^ ((trial as u64) << 32),
-        );
-        let trial_cfg = RagbabySearchConfig {
-            seed: search_seed,
-            ..*cfg
-        };
-        let ctx = RagbabySearch {
-            cipher: &shuffled,
-            nums: problem.nums,
-            base: problem.base,
-            sign: problem.sign.value(),
-            keep,
-            model,
-        };
-        let (key, _sum) = search(&ctx, &trial_cfg);
-        let decrypt = ctx.decrypt(&key);
-        trials.push((
-            model.score_indices(&decrypt),
-            heldout_fold_score(&decrypt, model),
-        ));
-    }
-    let stats = crate::nulls::heldout::matched_null_stats(&trials);
+    // The shared loop owns only the shuffle + aggregation; the seed math and the bare
+    // search stay here (a fresh decrypt is allocated per trial — keystream instead
+    // reuses a scratch buffer). `matched_null_trials == 0` yields zeroed stats
+    // (== the old early-return `(0.0, 0.0, 0.0)`).
+    let stats = crate::attack::crack::matched_null_loop(
+        problem.cipher,
+        cfg.matched_null_trials,
+        |trial| cfg.seed ^ MATCHED_NULL_SEED_TAG ^ problem.tag() ^ (trial as u64),
+        |shuffled, trial| {
+            let search_seed = mix_seed(
+                cfg.seed,
+                MATCHED_NULL_SEED_TAG ^ problem.tag() ^ ((trial as u64) << 32),
+            );
+            let trial_cfg = RagbabySearchConfig {
+                seed: search_seed,
+                ..*cfg
+            };
+            let ctx = RagbabySearch {
+                cipher: shuffled,
+                nums: problem.nums,
+                base: problem.base,
+                sign: problem.sign.value(),
+                keep,
+                model,
+            };
+            let (key, _sum) = search(&ctx, &trial_cfg);
+            let decrypt = ctx.decrypt(&key);
+            (
+                model.score_indices(&decrypt),
+                heldout_fold_score(&decrypt, model),
+            )
+        },
+    );
     (stats.full_mean, stats.full_std, stats.heldout_mean)
 }
 
@@ -275,27 +250,19 @@ pub fn crack_with_model(
     let heldout_score = heldout_fold_score(&decrypt, model);
 
     let (null_mean, null_std) = random_key_null(problem, &keep, cfg, model);
-    let margin = best_score - null_mean;
-    let z = if null_std > 0.0 {
-        margin / null_std
-    } else {
-        0.0
-    };
+    let random = crate::attack::crack::NullComparison::new(best_score, null_mean, null_std);
 
     let (matched_mean, matched_std, matched_heldout_mean) =
         matched_null(problem, &keep, cfg, model);
-    let matched_margin = best_score - matched_mean;
-    let matched_z = if matched_std > 0.0 {
-        matched_margin / matched_std
-    } else {
-        0.0
-    };
+    let matched = crate::attack::crack::NullComparison::new(best_score, matched_mean, matched_std);
 
     let round_trip_ok =
         encrypt_indices(&decrypt, problem.nums, &key, ctx.sign, problem.base) == problem.cipher;
-    let beats_null = z >= Z_THRESHOLD && margin >= MIN_NAT_MARGIN;
+    // DIAGNOSTIC only (Ragbaby has no key-independence leak): NO trial guard
+    // (`enabled = true`), matching the pre-consolidation boolean exactly.
+    let beats_null = random.clears(true, Z_THRESHOLD, MIN_NAT_MARGIN);
     let beats_matched_null =
-        cfg.matched_null_trials > 0 && matched_z >= Z_THRESHOLD && matched_margin >= MIN_NAT_MARGIN;
+        matched.clears(cfg.matched_null_trials > 0, Z_THRESHOLD, MIN_NAT_MARGIN);
     // Generalisation gate: the candidate's held-out (odd-index) fold must read more
     // English than the matched null's held-out fold (apples-to-apples). Comparing to
     // the full-stream `matched_mean` instead would falsely fail a true decode, since
@@ -314,10 +281,10 @@ pub fn crack_with_model(
         best_score,
         null_mean,
         null_std,
-        z,
+        z: random.z,
         matched_mean,
         matched_std,
-        matched_z,
+        matched_z: matched.z,
         round_trip_ok,
         heldout_score,
         matched_heldout_mean,

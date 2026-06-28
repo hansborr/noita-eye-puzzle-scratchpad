@@ -269,25 +269,11 @@ pub fn control_sweep(
 // Candidate record writer (mirrors keystream::write_keystream_record)
 // ===========================================================================
 
-/// Slugifies a label into a filename-safe lowercase token.
-fn slugify(label: &str) -> String {
-    label
-        .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() {
-                ch.to_ascii_lowercase()
-            } else {
-                '-'
-            }
-        })
-        .collect()
-}
-
 /// Builds the stable, clock-free candidate-record filename.
 fn record_filename(label: &str, candidate: &RagbabyCandidate, seed: u64) -> String {
     format!(
         "ragbaby-{}-base{}-{}-{}-seed-{seed:016x}.md",
-        slugify(label),
+        crate::attack::crack::slugify(label),
         candidate.base,
         candidate.numbering.name(),
         candidate.sign.name()
@@ -323,14 +309,7 @@ fn render_record(
     };
     writeln!(out, "**{verdict}.**")?;
     writeln!(out)?;
-    writeln!(out, "## Claim ceiling (absolute)")?;
-    writeln!(out)?;
-    writeln!(out, "{}", crate::attack::solve::SOLVE_CLAIM_CEILING)?;
-    writeln!(
-        out,
-        "Nothing in this record is stronger. A clean honest negative is a SUCCESS."
-    )?;
-    writeln!(out)?;
+    crate::attack::crack::write_claim_ceiling(&mut out)?;
     writeln!(out, "## Gates (never collapsed)")?;
     writeln!(out)?;
     writeln!(
@@ -370,9 +349,7 @@ fn render_record(
     writeln!(out)?;
     writeln!(out, "{:?}", candidate.key)?;
     writeln!(out)?;
-    writeln!(out, "## Decrypt (HYPOTHESIS, NOT a decode)")?;
-    writeln!(out)?;
-    writeln!(out, "{}", candidate.render_plaintext())?;
+    crate::attack::crack::write_decrypt_block(&mut out, &candidate.render_plaintext())?;
     Ok(out)
 }
 

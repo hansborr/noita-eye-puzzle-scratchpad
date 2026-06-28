@@ -268,22 +268,12 @@ pub fn crack_with_model(
     // Random-key null: a DIAGNOSTIC only (too weak to gate — it never pays for
     // the search's optimization power, so it green-lights overfitting at high L).
     let (null_mean, null_std) = random_key_null(ciphertext, family, l, n, cfg, model, &mut buffer);
-    let margin = best_score - null_mean;
-    let z = if null_std > 0.0 {
-        margin / null_std
-    } else {
-        0.0
-    };
+    let random = crate::attack::crack::NullComparison::new(best_score, null_mean, null_std);
 
     // Matched null: the survival bar (same search rerun on shuffled ciphertext).
     let (matched_mean, matched_std, matched_heldout_mean) =
         matched_null(ciphertext, family, l, n, cfg, model);
-    let matched_margin = best_score - matched_mean;
-    let matched_z = if matched_std > 0.0 {
-        matched_margin / matched_std
-    } else {
-        0.0
-    };
+    let matched = crate::attack::crack::NullComparison::new(best_score, matched_mean, matched_std);
 
     let round_trip_ok = encrypt(family, &decrypt_indices, &key, n) == ciphertext;
     // Random-key null gate: the defense against the [`KeystreamFamily::CiphertextAutokey`]
@@ -291,15 +281,17 @@ pub fn crack_with_model(
     // shuffles the ciphertext, which DESTROYS that leak, so it cannot police it —
     // only the random-key null can (a random key reproduces the same key-independent
     // English tail, so `best_score` cannot clear it). For the keyed families a true
-    // recovery clears this comfortably.
-    let beats_null = z >= Z_THRESHOLD && margin >= MIN_NAT_MARGIN;
+    // recovery clears this comfortably. NO trial guard (`enabled = true`): when
+    // `null_trials == 0` the null is `(0, 0)`, so `z == 0 < Z_THRESHOLD` and the gate
+    // fails anyway — this asymmetry vs the matched-null gate is load-bearing.
+    let beats_null = random.clears(true, Z_THRESHOLD, MIN_NAT_MARGIN);
     // Matched-null gate: the defense against SEARCH OVERFITTING at high key length
     // (the false-positive bug this gate fixes). The annealed search's optimization
     // power inflates `best_score` on short ciphertext; the matched null pays for
     // exactly that power on the shuffled (structureless) multiset, so overfitting
-    // cannot clear it. `matched_null_trials == 0` never silently passes.
+    // cannot clear it. `matched_null_trials == 0` never silently passes (trial guard).
     let beats_matched_null =
-        cfg.matched_null_trials > 0 && matched_z >= Z_THRESHOLD && matched_margin >= MIN_NAT_MARGIN;
+        matched.clears(cfg.matched_null_trials > 0, Z_THRESHOLD, MIN_NAT_MARGIN);
     // Held-out fold judged against the matched null's HELD-OUT fold (apples-to-apples).
     // Comparing to the full-stream `matched_mean` instead falsely failed a true decode,
     // since a fold of English is not contiguous English and so scores below the full
@@ -319,10 +311,10 @@ pub fn crack_with_model(
         best_score,
         null_mean,
         null_std,
-        z,
+        z: random.z,
         matched_mean,
         matched_std,
-        matched_z,
+        matched_z: matched.z,
         round_trip_ok,
         heldout_score,
         matched_heldout_mean,
@@ -388,25 +380,11 @@ pub fn practice_puzzle_text(puzzle: PracticePuzzle) -> &'static str {
     }
 }
 
-/// Slugifies a label into a filename-safe lowercase token.
-fn slugify(label: &str) -> String {
-    label
-        .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() {
-                ch.to_ascii_lowercase()
-            } else {
-                '-'
-            }
-        })
-        .collect()
-}
-
 /// Builds the stable, clock-free candidate-record filename.
 fn record_filename(label: &str, candidate: &KeystreamCandidate, seed: u64) -> String {
     format!(
         "keystream-{}-{}-l{}-seed-{seed:016x}.md",
-        slugify(label),
+        crate::attack::crack::slugify(label),
         candidate.family.name(),
         candidate.key_len
     )
@@ -440,14 +418,7 @@ fn render_record(
     };
     writeln!(out, "**{verdict}.**")?;
     writeln!(out)?;
-    writeln!(out, "## Claim ceiling (absolute)")?;
-    writeln!(out)?;
-    writeln!(out, "{}", crate::attack::solve::SOLVE_CLAIM_CEILING)?;
-    writeln!(
-        out,
-        "Nothing in this record is stronger. A clean honest negative is a SUCCESS."
-    )?;
-    writeln!(out)?;
+    crate::attack::crack::write_claim_ceiling(&mut out)?;
     writeln!(out, "## Gates (never collapsed)")?;
     writeln!(out)?;
     writeln!(
@@ -492,9 +463,7 @@ fn render_record(
     writeln!(out)?;
     writeln!(out, "{:?}", candidate.key)?;
     writeln!(out)?;
-    writeln!(out, "## Decrypt (HYPOTHESIS, NOT a decode)")?;
-    writeln!(out)?;
-    writeln!(out, "{}", candidate.render_plaintext())?;
+    crate::attack::crack::write_decrypt_block(&mut out, &candidate.render_plaintext())?;
     Ok(out)
 }
 

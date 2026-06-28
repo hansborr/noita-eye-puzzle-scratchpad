@@ -398,3 +398,190 @@ fn record_writer_emits_claim_ceiling() {
     assert!(body.contains("base=26"));
     let _cleanup = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn frozen_bits_anti_drift_baseline() {
+    // Anti-drift PIN (Report 03 consolidation): a uniform RNG-stream shift in the
+    // shared `attack::crack` matched-null loop is invisible to the determinism and
+    // planted/honest-negative tests but would change these frozen f64 bits. The
+    // whole-struct assert_eq is bit-exact here (every frozen float is finite and
+    // non-zero, so PartialEq coincides with .to_bits() equality).
+    let model = QuadgramModel::english().unwrap();
+    let base = 26usize;
+    let text = "the quick brown fox jumps over the lazy dog";
+    let (plain_idx, nums) = prepare(text, Numbering::Std, base);
+    let keep = keep_for_base(base);
+    let mut rng = SplitMix64::new(0x_0BA5_E026);
+    let planted = random_keyed_alphabet(&keep, &mut rng);
+    let cipher = encrypt_indices(&plain_idx, &nums, &planted, Sign::Plus.value(), base);
+    let cfg = RagbabySearchConfig {
+        restarts: 3,
+        iterations: 800,
+        basin_hops: 1,
+        seed: 0x00C0_FFEE,
+        null_trials: 8,
+        matched_null_trials: 3,
+        ..RagbabySearchConfig::default()
+    };
+    let problem = RagbabyProblem {
+        cipher: &cipher,
+        nums: &nums,
+        base,
+        sign: Sign::Plus,
+        numbering: Numbering::Std,
+    };
+    let candidate = crack_with_model(&problem, &cfg, &model);
+    let expected = RagbabyCandidate {
+        base: 26,
+        numbering: Numbering::Std,
+        sign: Sign::Plus,
+        key: vec![
+            7, 0, 22, 25, 6, 21, 3, 18, 11, 2, 12, 4, 15, 9, 5, 17, 19, 13, 10, 23, 8, 16, 1, 24,
+            14, 20,
+        ],
+        best_score: f64::from_bits(0xc027_6c82_8280_0000),
+        null_mean: f64::from_bits(0xc02d_13a2_5be0_0000),
+        null_std: f64::from_bits(0x3fd3_9162_899d_7332),
+        z: f64::from_bits(0x4022_7d0d_ac4f_26c2),
+        matched_mean: f64::from_bits(0xc026_919c_9aaa_aaab),
+        matched_std: f64::from_bits(0x3fc3_98b0_59ba_5282),
+        matched_z: f64::from_bits(0xc006_5731_319f_2087),
+        round_trip_ok: true,
+        heldout_score: f64::from_bits(0xc02a_2559_036d_b6db),
+        matched_heldout_mean: f64::from_bits(0xc02b_4a01_8618_6187),
+        beats_null: true,
+        beats_matched_null: false,
+        heldout_ok: true,
+        survives: false,
+        decrypt: vec![
+            8, 18, 5, 4, 11, 2, 9, 12, 10, 5, 0, 20, 13, 4, 0, 17, 3, 4, 2, 0, 17, 19, 7, 18, 4,
+            21, 4, 8, 19, 7, 4, 2, 10, 16, 14,
+        ],
+    };
+    assert_eq!(
+        candidate, expected,
+        "ragbaby candidate drifted from the frozen baseline"
+    );
+}
+
+#[test]
+fn render_record_full_body_is_byte_stable() {
+    // Full-body PIN: the entire record body (invariant claim-ceiling/decrypt blocks
+    // now in `attack::crack`, plus the bespoke ragbaby lines incl. the inline
+    // `[DIAGNOSTIC]` beats_null) must stay byte-identical for survivor + non-survivor.
+    let survivor = RagbabyCandidate {
+        base: 26,
+        numbering: Numbering::Std,
+        sign: Sign::Plus,
+        key: vec![0, 1, 2],
+        best_score: -10.0,
+        null_mean: -14.0,
+        null_std: 0.2,
+        z: 20.0,
+        matched_mean: -12.0,
+        matched_std: 0.2,
+        matched_z: 10.0,
+        round_trip_ok: true,
+        heldout_score: -11.0,
+        matched_heldout_mean: -13.0,
+        beats_null: true,
+        beats_matched_null: true,
+        heldout_ok: true,
+        survives: true,
+        decrypt: vec![0, 1, 2],
+    };
+    let expected_survivor = r"# Ragbaby candidate record: unit
+
+Stable label (NO wall-clock): label=unit seed=0x0000000000001234 base=26 numbering=std sign=+1
+
+## Verdict
+
+**CANDIDATE SURVIVED ALL GATES (round-trip + matched-null + held-out) — logged as a HYPOTHESIS, NOT a decode.**
+
+## Claim ceiling (absolute)
+
+deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext.
+Nothing in this record is stronger. A clean honest negative is a SUCCESS.
+
+## Gates (never collapsed)
+
+Survival requires the MATCHED null (the same annealed keyed-alphabet search rerun on a Fisher-Yates shuffle of the ciphertext LETTER stream, holding the key-number sequence N_i fixed) plus round-trip and held-out. The matched null shares the search's degrees of freedom, so it polices SEARCH OVERFITTING. The random-keyed-alphabet null is reported as a DIAGNOSTIC only (Ragbaby has no key-independence leak for it to police).
+
+- round_trip_ok: true
+- best_score (mean): -10.000000
+- matched_mean: -12.000000  matched_std: 0.200000  matched_z: 10.0000
+- beats_matched_null [SURVIVAL GATE: overfitting] (z >= 6 AND margin >= 1): true
+- null_mean: -14.000000  null_std: 0.200000  z: 20.0000  beats_null [DIAGNOSTIC]: true
+- heldout_score: -11.000000  matched_heldout_mean: -13.000000  heldout_ok (>): true
+
+## Recovered keyed alphabet (real letter indices)
+
+[0, 1, 2]
+
+## Decrypt (HYPOTHESIS, NOT a decode)
+
+ABC
+";
+    assert_eq!(
+        super::render_record("unit", 0x1234, &survivor).unwrap(),
+        expected_survivor
+    );
+
+    let non_survivor = RagbabyCandidate {
+        base: 25,
+        numbering: Numbering::PerWord,
+        sign: Sign::Minus,
+        key: vec![3, 4, 5],
+        best_score: -13.25,
+        null_mean: -13.5,
+        null_std: 0.4,
+        z: 0.625,
+        matched_mean: -13.0,
+        matched_std: 0.3,
+        matched_z: -0.8333,
+        round_trip_ok: true,
+        heldout_score: -14.0,
+        matched_heldout_mean: -13.75,
+        beats_null: false,
+        beats_matched_null: false,
+        heldout_ok: false,
+        survives: false,
+        decrypt: vec![25, 24, 23],
+    };
+    let expected_non_survivor = r"# Ragbaby candidate record: probe
+
+Stable label (NO wall-clock): label=probe seed=0x000000000000feed base=25 numbering=perword sign=-1
+
+## Verdict
+
+**NO surviving candidate — decode remains blocked.**
+
+## Claim ceiling (absolute)
+
+deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext.
+Nothing in this record is stronger. A clean honest negative is a SUCCESS.
+
+## Gates (never collapsed)
+
+Survival requires the MATCHED null (the same annealed keyed-alphabet search rerun on a Fisher-Yates shuffle of the ciphertext LETTER stream, holding the key-number sequence N_i fixed) plus round-trip and held-out. The matched null shares the search's degrees of freedom, so it polices SEARCH OVERFITTING. The random-keyed-alphabet null is reported as a DIAGNOSTIC only (Ragbaby has no key-independence leak for it to police).
+
+- round_trip_ok: true
+- best_score (mean): -13.250000
+- matched_mean: -13.000000  matched_std: 0.300000  matched_z: -0.8333
+- beats_matched_null [SURVIVAL GATE: overfitting] (z >= 6 AND margin >= 1): false
+- null_mean: -13.500000  null_std: 0.400000  z: 0.6250  beats_null [DIAGNOSTIC]: false
+- heldout_score: -14.000000  matched_heldout_mean: -13.750000  heldout_ok (>): false
+
+## Recovered keyed alphabet (real letter indices)
+
+[3, 4, 5]
+
+## Decrypt (HYPOTHESIS, NOT a decode)
+
+ZYX
+";
+    assert_eq!(
+        super::render_record("probe", 0xfeed, &non_survivor).unwrap(),
+        expected_non_survivor
+    );
+}

@@ -1,5 +1,5 @@
 use crate::attack::quadgram::QuadgramModel;
-use crate::nulls::null::{SplitMix64, fisher_yates, mix_seed};
+use crate::nulls::null::{SplitMix64, mix_seed};
 
 use super::KeystreamSearchConfig;
 use super::cipher::{KeystreamFamily, decrypt_into};
@@ -119,7 +119,7 @@ pub(super) fn random_key_null(
         decrypt_into(family, ciphertext, &key, n, buffer);
         scores.push(model.score_indices(buffer));
     }
-    mean_std(&scores)
+    crate::attack::crack::mean_std(&scores)
 }
 
 /// Builds the matched null `(full_mean, full_std, heldout_mean)` for a `(family,
@@ -145,66 +145,43 @@ pub(super) fn matched_null(
     cfg: &KeystreamSearchConfig,
     model: &QuadgramModel,
 ) -> (f64, f64, f64) {
-    if cfg.matched_null_trials == 0 {
-        return (0.0, 0.0, 0.0);
-    }
-    // Per-trial (full-stream best score, held-out odd-index fold score) pairs,
-    // aggregated by the shared [`crate::nulls::heldout::matched_null_stats`].
-    let mut trials: Vec<(f64, f64)> = Vec::with_capacity(cfg.matched_null_trials);
+    // Scratch decrypt buffer reused across trials (captured by the per-trial closure;
+    // ragbaby allocates fresh — each side's allocation discipline is preserved).
     let mut buffer: Vec<usize> = Vec::with_capacity(ciphertext.len());
-    for trial in 0..cfg.matched_null_trials {
+    // The shared loop owns only the shuffle + aggregation; the seed math and the bare
+    // search stay here. `matched_null_trials == 0` yields zeroed stats (== the old
+    // early-return `(0.0, 0.0, 0.0)`).
+    let stats = crate::attack::crack::matched_null_loop(
+        ciphertext,
+        cfg.matched_null_trials,
         // Per-trial shuffle seed (golden-ratio tag + family + key length + trial),
         // so each trial draws a distinct, reproducible permutation.
-        let shuffle_seed =
-            cfg.seed ^ MATCHED_NULL_SEED_TAG ^ family_tag(family) ^ (l as u64) ^ (trial as u64);
-        let mut rng = SplitMix64::new(shuffle_seed);
-        let mut shuffled = ciphertext.to_vec();
-        if fisher_yates(&mut shuffled, &mut rng).is_err() {
-            // Unreachable for an in-bounds slice on a 64-bit target; skip the
-            // trial rather than panic (a dropped trial only shrinks the sample).
-            continue;
-        }
-        // Per-trial search seed on a stream decorrelated from the shuffle stream,
-        // distinct per trial so the matched null is not a single repeated search.
-        let search_seed = mix_seed(
-            cfg.seed,
-            MATCHED_NULL_SEED_TAG
-                ^ family_tag(family)
-                ^ ((l as u64) << 16)
-                ^ ((trial as u64) << 32),
-        );
-        let trial_cfg = KeystreamSearchConfig {
-            seed: search_seed,
-            ..*cfg
-        };
-        let (key, best) = search(&shuffled, family, l, n, &trial_cfg, model);
-        // The held-out fold of THIS trial's best decrypt, computed with the same
-        // odd-index fold the candidate uses (re-decrypt to recover the stream the
-        // `best` score was taken on; `best` equals its full-stream score).
-        decrypt_into(family, &shuffled, &key, n, &mut buffer);
-        let heldout_score = model.score_indices(&crate::nulls::heldout::odd_index_fold(&buffer));
-        trials.push((best, heldout_score));
-    }
-    let stats = crate::nulls::heldout::matched_null_stats(&trials);
+        |trial| cfg.seed ^ MATCHED_NULL_SEED_TAG ^ family_tag(family) ^ (l as u64) ^ (trial as u64),
+        |shuffled, trial| {
+            // Per-trial search seed on a stream decorrelated from the shuffle stream,
+            // distinct per trial so the matched null is not a single repeated search.
+            let search_seed = mix_seed(
+                cfg.seed,
+                MATCHED_NULL_SEED_TAG
+                    ^ family_tag(family)
+                    ^ ((l as u64) << 16)
+                    ^ ((trial as u64) << 32),
+            );
+            let trial_cfg = KeystreamSearchConfig {
+                seed: search_seed,
+                ..*cfg
+            };
+            let (key, best) = search(shuffled, family, l, n, &trial_cfg, model);
+            // The held-out fold of THIS trial's best decrypt, computed with the same
+            // odd-index fold the candidate uses (re-decrypt to recover the stream the
+            // `best` score was taken on; `best` equals its full-stream score).
+            decrypt_into(family, shuffled, &key, n, &mut buffer);
+            let heldout_score =
+                model.score_indices(&crate::nulls::heldout::odd_index_fold(&buffer));
+            (best, heldout_score)
+        },
+    );
     (stats.full_mean, stats.full_std, stats.heldout_mean)
-}
-
-/// Population mean and standard deviation (`(0.0, 0.0)` for an empty slice).
-fn mean_std(samples: &[f64]) -> (f64, f64) {
-    if samples.is_empty() {
-        return (0.0, 0.0);
-    }
-    let count = samples.len() as f64;
-    let mean = samples.iter().sum::<f64>() / count;
-    let variance = samples
-        .iter()
-        .map(|value| {
-            let delta = value - mean;
-            delta * delta
-        })
-        .sum::<f64>()
-        / count;
-    (mean, variance.sqrt())
 }
 
 /// A stable per-family tag, decorrelating the per-family null streams.

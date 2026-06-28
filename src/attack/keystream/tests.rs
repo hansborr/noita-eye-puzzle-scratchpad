@@ -418,3 +418,176 @@ fn record_writer_emits_claim_ceiling() {
     assert!(body.contains("vigenere"));
     let _cleanup = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn frozen_bits_anti_drift_baseline() {
+    // Anti-drift PIN (Report 03 consolidation): a uniform RNG-stream shift in the
+    // shared `attack::crack` matched-null loop is invisible to the determinism and
+    // planted/honest-negative tests but would change these frozen f64 bits. The
+    // whole-struct assert_eq is bit-exact here (every frozen float is finite and
+    // non-zero, so PartialEq coincides with .to_bits() equality).
+    let model = QuadgramModel::english().unwrap();
+    let plain = normalize_puzzle("the quick brown fox jumps over the lazy dog");
+    let n = 26usize;
+    let key = vec![3u8, 15, 8];
+    let cipher = encrypt(KeystreamFamily::Vigenere, &plain, &key, n);
+    let cfg = KeystreamSearchConfig {
+        alphabet_size: n,
+        restarts: 4,
+        iterations: 600,
+        anneal_temp: 1.0,
+        seed: 0x00C0_FFEE,
+        null_trials: 8,
+        matched_null_trials: 3,
+    };
+    let candidate = crack_with_model(&cipher, KeystreamFamily::Vigenere, key.len(), &cfg, &model);
+    let expected = KeystreamCandidate {
+        family: KeystreamFamily::Vigenere,
+        key_len: 3,
+        key: vec![20, 21, 1],
+        best_score: f64::from_bits(0xc02a_a1d1_5000_0000),
+        null_mean: f64::from_bits(0xc02c_c7ce_abe0_0000),
+        null_std: f64::from_bits(0x3fd4_d649_19db_972b),
+        z: f64::from_bits(0x400a_6511_1ac3_1436),
+        matched_mean: f64::from_bits(0xc02a_85e6_4300_0000),
+        matched_std: f64::from_bits(0x3fc6_070f_ce59_eb28),
+        matched_z: f64::from_bits(0xbfd4_4758_8c3f_55b6),
+        round_trip_ok: true,
+        heldout_score: f64::from_bits(0xc02d_760f_9924_9249),
+        matched_heldout_mean: f64::from_bits(0xc02b_e17a_e6db_6db7),
+        beats_null: false,
+        beats_matched_null: false,
+        heldout_ok: false,
+        survives: false,
+        decrypt: vec![
+            2, 1, 11, 25, 14, 15, 11, 4, 8, 0, 8, 3, 22, 25, 21, 6, 3, 1, 21, 9, 25, 23, 15, 11, 0,
+            13, 14, 13, 5, 7, 8, 18, 10, 23, 0,
+        ],
+    };
+    assert_eq!(
+        candidate, expected,
+        "keystream candidate drifted from the frozen baseline"
+    );
+}
+
+#[test]
+fn render_record_full_body_is_byte_stable() {
+    // Full-body PIN: the entire record body (invariant claim-ceiling/decrypt blocks
+    // now in `attack::crack`, plus the bespoke keystream lines) must stay
+    // byte-identical for a survivor and a non-survivor.
+    let survivor = KeystreamCandidate {
+        family: KeystreamFamily::Vigenere,
+        key_len: 3,
+        key: vec![1, 2, 3],
+        best_score: -10.0,
+        null_mean: -14.0,
+        null_std: 0.2,
+        z: 20.0,
+        matched_mean: -12.0,
+        matched_std: 0.2,
+        matched_z: 10.0,
+        round_trip_ok: true,
+        heldout_score: -11.0,
+        matched_heldout_mean: -12.5,
+        beats_null: true,
+        beats_matched_null: true,
+        heldout_ok: true,
+        survives: true,
+        decrypt: vec![0, 1, 2],
+    };
+    let expected_survivor = r"# Keystream candidate record: unit
+
+Stable label (NO wall-clock): label=unit seed=0x0000000000001234 family=vigenere key-len=3
+
+## Verdict
+
+**CANDIDATE SURVIVED ALL GATES (round-trip + matched-null + random-key-null + held-out) — logged as a HYPOTHESIS, NOT a decode.**
+
+## Claim ceiling (absolute)
+
+deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext.
+Nothing in this record is stronger. A clean honest negative is a SUCCESS.
+
+## Gates (never collapsed)
+
+Survival requires BOTH nulls plus round-trip and held-out. The MATCHED null (the same annealed search rerun on Fisher-Yates shuffled ciphertext, holding the unigram multiset fixed and destroying higher-order structure) polices SEARCH OVERFITTING. The RANDOM-KEY null (random keys on the un-shuffled ciphertext) polices the ciphertext-autokey KEY-INDEPENDENCE leak, which the matched null cannot see. Neither alone is sufficient.
+
+- round_trip_ok: true
+- best_score: -10.000000
+- matched_mean: -12.000000  matched_std: 0.200000  matched_z: 10.0000
+- beats_matched_null [SURVIVAL GATE: overfitting] (z >= 6 AND margin >= 1): true
+- null_mean: -14.000000  null_std: 0.200000  z: 20.0000
+- beats_null [SURVIVAL GATE: key-independence leak] (z >= 6 AND margin >= 1): true
+- heldout_score: -11.000000  matched_heldout_mean: -12.500000  heldout_ok (> matched_heldout_mean): true
+
+## Recovered key (letter indices)
+
+[1, 2, 3]
+
+## Decrypt (HYPOTHESIS, NOT a decode)
+
+ABC
+";
+    assert_eq!(
+        super::render_record("unit", 0x1234, &survivor).unwrap(),
+        expected_survivor
+    );
+
+    let non_survivor = KeystreamCandidate {
+        family: KeystreamFamily::Beaufort,
+        key_len: 4,
+        key: vec![5, 6, 7, 8],
+        best_score: -13.25,
+        null_mean: -13.5,
+        null_std: 0.4,
+        z: 0.625,
+        matched_mean: -13.0,
+        matched_std: 0.3,
+        matched_z: -0.8333,
+        round_trip_ok: true,
+        heldout_score: -14.0,
+        matched_heldout_mean: -13.75,
+        beats_null: false,
+        beats_matched_null: false,
+        heldout_ok: false,
+        survives: false,
+        decrypt: vec![25, 24, 23, 22],
+    };
+    let expected_non_survivor = r"# Keystream candidate record: probe
+
+Stable label (NO wall-clock): label=probe seed=0x000000000000feed family=beaufort key-len=4
+
+## Verdict
+
+**NO surviving candidate — decode remains blocked.**
+
+## Claim ceiling (absolute)
+
+deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms recoverable plaintext.
+Nothing in this record is stronger. A clean honest negative is a SUCCESS.
+
+## Gates (never collapsed)
+
+Survival requires BOTH nulls plus round-trip and held-out. The MATCHED null (the same annealed search rerun on Fisher-Yates shuffled ciphertext, holding the unigram multiset fixed and destroying higher-order structure) polices SEARCH OVERFITTING. The RANDOM-KEY null (random keys on the un-shuffled ciphertext) polices the ciphertext-autokey KEY-INDEPENDENCE leak, which the matched null cannot see. Neither alone is sufficient.
+
+- round_trip_ok: true
+- best_score: -13.250000
+- matched_mean: -13.000000  matched_std: 0.300000  matched_z: -0.8333
+- beats_matched_null [SURVIVAL GATE: overfitting] (z >= 6 AND margin >= 1): false
+- null_mean: -13.500000  null_std: 0.400000  z: 0.6250
+- beats_null [SURVIVAL GATE: key-independence leak] (z >= 6 AND margin >= 1): false
+- heldout_score: -14.000000  matched_heldout_mean: -13.750000  heldout_ok (> matched_heldout_mean): false
+
+## Recovered key (letter indices)
+
+[5, 6, 7, 8]
+
+## Decrypt (HYPOTHESIS, NOT a decode)
+
+ZYXW
+";
+    assert_eq!(
+        super::render_record("probe", 0xfeed, &non_survivor).unwrap(),
+        expected_non_survivor
+    );
+}
