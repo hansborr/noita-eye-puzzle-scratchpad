@@ -33,7 +33,7 @@ pub enum AglMultiplierSubgroup {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AglGakKey {
     pub(crate) alphabet_size: usize,
-    pub(crate) subgroup: AglMultiplierSubgroup,
+    subgroup: AglMultiplierSubgroup,
     pub(crate) reference_point: usize,
     pub(crate) initial_state: (usize, usize),
     pub(crate) letter_elements: Vec<(usize, usize)>,

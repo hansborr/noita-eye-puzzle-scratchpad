@@ -84,220 +84,162 @@ pub trait Cipher {
     fn name(&self) -> &'static str;
 }
 
-/// Trait implementation for the no-key identity cipher marker.
-impl Cipher for Identity {
-    type Key = ();
+/// Generates the [`Cipher`] impl for a zero-sized family marker by delegating to
+/// this module's canonical free transforms.
+///
+/// The free transforms take their arguments as `(sequence, key)`, whereas the
+/// [`Cipher`] trait methods take them as `(key, sequence)`; each generated method
+/// bridges that argument-order difference in one place. The `keyless` arm is for
+/// [`Identity`], whose free transforms take only the sequence and whose key type
+/// is `()`.
+macro_rules! impl_cipher {
+    ($marker:ty, key = $key:ty, name = $name:literal, encrypt = $encrypt:path, decrypt = $decrypt:path) => {
+        impl Cipher for $marker {
+            type Key = $key;
 
-    fn encrypt(&self, _key: &(), plaintext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
-        identity_encrypt(plaintext)
-    }
+            fn encrypt(
+                &self,
+                key: &Self::Key,
+                plaintext: &[Glyph],
+            ) -> Result<Vec<Glyph>, CipherError> {
+                $encrypt(plaintext, key)
+            }
 
-    fn decrypt(&self, _key: &(), ciphertext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
-        identity_decrypt(ciphertext)
-    }
+            fn decrypt(
+                &self,
+                key: &Self::Key,
+                ciphertext: &[Glyph],
+            ) -> Result<Vec<Glyph>, CipherError> {
+                $decrypt(ciphertext, key)
+            }
 
-    fn name(&self) -> &'static str {
-        "identity"
-    }
+            fn name(&self) -> &'static str {
+                $name
+            }
+        }
+    };
+    ($marker:ty, keyless, name = $name:literal, encrypt = $encrypt:path, decrypt = $decrypt:path) => {
+        impl Cipher for $marker {
+            type Key = ();
+
+            fn encrypt(&self, _key: &(), plaintext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
+                $encrypt(plaintext)
+            }
+
+            fn decrypt(&self, _key: &(), ciphertext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
+                $decrypt(ciphertext)
+            }
+
+            fn name(&self) -> &'static str {
+                $name
+            }
+        }
+    };
 }
+
+impl_cipher!(
+    Identity,
+    keyless,
+    name = "identity",
+    encrypt = identity_encrypt,
+    decrypt = identity_decrypt
+);
 
 /// Family marker for the route/columnar transposition cipher.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Transposition;
 
-impl Cipher for Transposition {
-    type Key = TranspositionKey;
-
-    fn encrypt(
-        &self,
-        key: &TranspositionKey,
-        plaintext: &[Glyph],
-    ) -> Result<Vec<Glyph>, CipherError> {
-        transposition_encrypt(plaintext, key)
-    }
-
-    fn decrypt(
-        &self,
-        key: &TranspositionKey,
-        ciphertext: &[Glyph],
-    ) -> Result<Vec<Glyph>, CipherError> {
-        transposition_decrypt(ciphertext, key)
-    }
-
-    fn name(&self) -> &'static str {
-        "transposition"
-    }
-}
+impl_cipher!(
+    Transposition,
+    key = TranspositionKey,
+    name = "transposition",
+    encrypt = transposition_encrypt,
+    decrypt = transposition_decrypt
+);
 
 /// Family marker for the Caesar additive shift cipher.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Caesar;
 
-impl Cipher for Caesar {
-    type Key = CaesarKey;
-
-    fn encrypt(&self, key: &CaesarKey, plaintext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
-        // Free functions take (sequence, key); trait methods take (key, sequence).
-        caesar_encrypt(plaintext, key)
-    }
-
-    fn decrypt(&self, key: &CaesarKey, ciphertext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
-        // Free functions take (sequence, key); trait methods take (key, sequence).
-        caesar_decrypt(ciphertext, key)
-    }
-
-    fn name(&self) -> &'static str {
-        "Caesar"
-    }
-}
+impl_cipher!(
+    Caesar,
+    key = CaesarKey,
+    name = "Caesar",
+    encrypt = caesar_encrypt,
+    decrypt = caesar_decrypt
+);
 
 /// Family marker for the periodic additive Vigenere cipher.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Vigenere;
 
-impl Cipher for Vigenere {
-    type Key = VigenereKey;
-
-    fn encrypt(&self, key: &VigenereKey, plaintext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
-        // Free functions take (sequence, key); trait methods take (key, sequence).
-        vigenere_encrypt(plaintext, key)
-    }
-
-    fn decrypt(&self, key: &VigenereKey, ciphertext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
-        // Free functions take (sequence, key); trait methods take (key, sequence).
-        vigenere_decrypt(ciphertext, key)
-    }
-
-    fn name(&self) -> &'static str {
-        "Vigenere"
-    }
-}
+impl_cipher!(
+    Vigenere,
+    key = VigenereKey,
+    name = "Vigenere",
+    encrypt = vigenere_encrypt,
+    decrypt = vigenere_decrypt
+);
 
 /// Family marker for the additive-progressive incrementing-wheel cipher.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct IncrementingWheel;
 
-impl Cipher for IncrementingWheel {
-    type Key = IncrementingWheelKey;
-
-    fn encrypt(
-        &self,
-        key: &IncrementingWheelKey,
-        plaintext: &[Glyph],
-    ) -> Result<Vec<Glyph>, CipherError> {
-        // Free functions take (sequence, key); trait methods take (key, sequence).
-        incrementing_wheel_encrypt(plaintext, key)
-    }
-
-    fn decrypt(
-        &self,
-        key: &IncrementingWheelKey,
-        ciphertext: &[Glyph],
-    ) -> Result<Vec<Glyph>, CipherError> {
-        // Free functions take (sequence, key); trait methods take (key, sequence).
-        incrementing_wheel_decrypt(ciphertext, key)
-    }
-
-    fn name(&self) -> &'static str {
-        "incrementing-wheel"
-    }
-}
+impl_cipher!(
+    IncrementingWheel,
+    key = IncrementingWheelKey,
+    name = "incrementing-wheel",
+    encrypt = incrementing_wheel_encrypt,
+    decrypt = incrementing_wheel_decrypt
+);
 
 /// Family marker for the generalized two-alphabet Chaocipher.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Chaocipher;
 
-impl Cipher for Chaocipher {
-    type Key = ChaocipherKey;
-
-    fn encrypt(&self, key: &ChaocipherKey, plaintext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
-        // Free functions take (sequence, key); trait methods take (key, sequence).
-        chaocipher_encrypt(plaintext, key)
-    }
-
-    fn decrypt(
-        &self,
-        key: &ChaocipherKey,
-        ciphertext: &[Glyph],
-    ) -> Result<Vec<Glyph>, CipherError> {
-        // Free functions take (sequence, key); trait methods take (key, sequence).
-        chaocipher_decrypt(ciphertext, key)
-    }
-
-    fn name(&self) -> &'static str {
-        "Chaocipher"
-    }
-}
+impl_cipher!(
+    Chaocipher,
+    key = ChaocipherKey,
+    name = "Chaocipher",
+    encrypt = chaocipher_encrypt,
+    decrypt = chaocipher_decrypt
+);
 
 /// Family marker for the generalized `S_N` deck-keystream cipher.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct DeckCipher;
 
-impl Cipher for DeckCipher {
-    type Key = DeckCipherKey;
-
-    fn encrypt(&self, key: &DeckCipherKey, plaintext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
-        // Free functions take (sequence, key); trait methods take (key, sequence).
-        deck_cipher_encrypt(plaintext, key)
-    }
-
-    fn decrypt(
-        &self,
-        key: &DeckCipherKey,
-        ciphertext: &[Glyph],
-    ) -> Result<Vec<Glyph>, CipherError> {
-        // Free functions take (sequence, key); trait methods take (key, sequence).
-        deck_cipher_decrypt(ciphertext, key)
-    }
-
-    fn name(&self) -> &'static str {
-        "deck"
-    }
-}
+impl_cipher!(
+    DeckCipher,
+    key = DeckCipherKey,
+    name = "deck",
+    encrypt = deck_cipher_encrypt,
+    decrypt = deck_cipher_decrypt
+);
 
 /// Family marker for the AGL(1,n)-GAK stream cipher.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct AglGak;
 
-impl Cipher for AglGak {
-    type Key = AglGakKey;
-
-    fn encrypt(&self, key: &AglGakKey, plaintext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
-        // Free functions take (sequence, key); trait methods take (key, sequence).
-        agl_gak_encrypt(plaintext, key)
-    }
-
-    fn decrypt(&self, key: &AglGakKey, ciphertext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
-        // Free functions take (sequence, key); trait methods take (key, sequence).
-        agl_gak_decrypt(ciphertext, key)
-    }
-
-    fn name(&self) -> &'static str {
-        "AGL-GAK"
-    }
-}
+impl_cipher!(
+    AglGak,
+    key = AglGakKey,
+    name = "AGL-GAK",
+    encrypt = agl_gak_encrypt,
+    decrypt = agl_gak_decrypt
+);
 
 /// Family marker for the general permutation-group GAK cipher.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Gak;
 
-impl Cipher for Gak {
-    type Key = GakKey;
-
-    fn encrypt(&self, key: &GakKey, plaintext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
-        // Free functions take (sequence, key); trait methods take (key, sequence).
-        gak_encrypt(plaintext, key)
-    }
-
-    fn decrypt(&self, key: &GakKey, ciphertext: &[Glyph]) -> Result<Vec<Glyph>, CipherError> {
-        // Free functions take (sequence, key); trait methods take (key, sequence).
-        gak_decrypt(ciphertext, key)
-    }
-
-    fn name(&self) -> &'static str {
-        "GAK"
-    }
-}
+impl_cipher!(
+    Gak,
+    key = GakKey,
+    name = "GAK",
+    encrypt = gak_encrypt,
+    decrypt = gak_decrypt
+);
 
 /// A cipher family together with its key, for heterogeneous search.
 ///
