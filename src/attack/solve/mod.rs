@@ -149,39 +149,10 @@ fn run_codec_search(
                 full_mean: null_mean,
                 heldout_mean: null_heldout_mean,
             };
-            for (index, codec) in &survivors {
-                match &req.space.mappings {
-                    MappingStrategy::Fixed(mappings) => {
-                        for mapping in mappings {
-                            for cipher in &family.ciphers {
-                                if let Some(candidate) =
-                                    evaluate_cipher(req, cipher, mapping, *language, nulls, codec)?
-                                {
-                                    candidates
-                                        .push(stamp_enumeration_beats_null(candidate, null_mean));
-                                }
-                            }
-                        }
-                    }
-                    MappingStrategy::Search(mapping_search) => {
-                        // Mix the codec-enumeration index into the mapping-search seed
-                        // so distinct codecs explore distinct (still deterministic)
-                        // random streams; the null mirrors this exact derivation.
-                        let derived = codec_search_mapping(mapping_search, search.seed, *index);
-                        for (cipher_index, cipher) in family.ciphers.iter().enumerate() {
-                            let target = FamilyCipher {
-                                family,
-                                cipher,
-                                cipher_index,
-                            };
-                            if let Some(candidate) = evaluate_cipher_search(
-                                req, target, *language, nulls, &derived, codec,
-                            )? {
-                                candidates.push(stamp_enumeration_beats_null(candidate, null_mean));
-                            }
-                        }
-                    }
-                }
+            for entry in &survivors {
+                candidates.extend(codec_search_candidates(
+                    req, family, *language, nulls, search, entry,
+                )?);
             }
         }
     }
@@ -189,6 +160,84 @@ fn run_codec_search(
         candidates,
         skipped,
     })
+}
+
+/// Evaluates one surviving codec (`entry` = its enumeration index + codec) on one
+/// `(family, language)` pass, returning its candidates in evaluation order. Splits
+/// on the mapping strategy; the enumeration index seeds the searched arm's mapping
+/// search. (Lifted from [`run_codec_search`] verbatim — same order, same values.)
+fn codec_search_candidates(
+    req: &SolveRequest<'_>,
+    family: &CipherFamilySpec,
+    language: Language,
+    nulls: NullBaselines,
+    search: &CodecSearch,
+    entry: &(usize, AnyCodec),
+) -> Result<Vec<Candidate>, SolveError> {
+    let (index, codec) = entry;
+    match &req.space.mappings {
+        MappingStrategy::Fixed(mappings) => {
+            fixed_mapping_candidates(req, family, mappings, language, nulls, codec)
+        }
+        MappingStrategy::Search(mapping_search) => {
+            // Mix the codec-enumeration index into the mapping-search seed so distinct
+            // codecs explore distinct (still deterministic) random streams; the null
+            // mirrors this exact derivation.
+            let derived = codec_search_mapping(mapping_search, search.seed, *index);
+            searched_mapping_candidates(req, family, language, nulls, &derived, codec)
+        }
+    }
+}
+
+/// Fixed-mapping arm of one codec's enumeration pass: every `(mapping × cipher)` pair
+/// in declaration order, round-tripped + scored + enumeration-null-stamped. Skips a
+/// cipher whose round trip does not hold (the [`None`] case), exactly as before.
+fn fixed_mapping_candidates(
+    req: &SolveRequest<'_>,
+    family: &CipherFamilySpec,
+    mappings: &[Mapping],
+    language: Language,
+    nulls: NullBaselines,
+    codec: &AnyCodec,
+) -> Result<Vec<Candidate>, SolveError> {
+    let mut candidates = Vec::new();
+    for mapping in mappings {
+        for cipher in &family.ciphers {
+            let Some(candidate) = evaluate_cipher(req, cipher, mapping, language, nulls, codec)?
+            else {
+                continue;
+            };
+            candidates.push(stamp_enumeration_beats_null(candidate, nulls.full_mean));
+        }
+    }
+    Ok(candidates)
+}
+
+/// Searched-mapping arm of one codec's enumeration pass: every cipher in the family,
+/// in index order, hill-climbed/annealed + enumeration-null-stamped. `derived` is the
+/// codec-index-mixed mapping-search config. Skips a non-round-tripping cipher.
+fn searched_mapping_candidates(
+    req: &SolveRequest<'_>,
+    family: &CipherFamilySpec,
+    language: Language,
+    nulls: NullBaselines,
+    derived: &MappingSearch,
+    codec: &AnyCodec,
+) -> Result<Vec<Candidate>, SolveError> {
+    let mut candidates = Vec::new();
+    for (cipher_index, cipher) in family.ciphers.iter().enumerate() {
+        let target = FamilyCipher {
+            family,
+            cipher,
+            cipher_index,
+        };
+        let Some(candidate) = evaluate_cipher_search(req, target, language, nulls, derived, codec)?
+        else {
+            continue;
+        };
+        candidates.push(stamp_enumeration_beats_null(candidate, nulls.full_mean));
+    }
+    Ok(candidates)
 }
 
 fn validate_request(req: &SolveRequest<'_>) -> Result<(), SolveError> {
