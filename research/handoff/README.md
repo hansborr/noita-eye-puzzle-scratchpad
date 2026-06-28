@@ -1,23 +1,23 @@
 # Handoff backlog — Noita eye-puzzle workbench
 
-A series of **small, single-pass tasks** for an implementing agent (and the
+A series of small, single-pass tasks for an implementing agent (and the
 sub-agents it delegates to). Each `TNN-*.md` is scoped to one agent, one pass.
-Work the **priority ladder** below top-down; stop when the marginal value drops
+Work the priority ladder below top-down; stop when the marginal value drops
 (it is explicitly fine to stop after Tier 1).
 
 This backlog was written 2026-06-26 after a full state read + two codex passes (a
 direction second-opinion and a review of this folder). It supersedes the (stale)
-ranking in `research/NEXT-STEPS.md` — fixing that file is task **T00**.
+ranking in `research/NEXT-STEPS.md` — fixing that file is task T00.
 
 ## The one-paragraph situation
 
 The mapping-independent *structural attack* program is essentially exhausted. The
-eyes' transitive group family is pinned to **{A₈₃, S₈₃}** (D₁₆₆ conditional); AGL
-is exhaustively excluded; perfect-isomorphism is *supported* (so GAK is **not**
+eyes' transitive group family is pinned to {A₈₃, S₈₃} (D₁₆₆ conditional); AGL
+is exhaustively excluded; perfect-isomorphism is *supported* (so GAK is not
 falsified); the Thread-4 attack gives a clean, fair honest-negative; and G3
-quantified a calibrated **NO** on chaining recovery at this data budget. The
-decode is **blocked on the unknown symbol→meaning mapping, with no external
-anchor**. So the honest next move is **harden-and-publish**, not "find the next
+quantified a calibrated no on chaining recovery at this data budget. The
+decode is blocked on the unknown symbol→meaning mapping, with no external
+anchor. So the honest next move is harden-and-publish, not "find the next
 solver." The remaining code work is transcription-robustness certification +
 (low-value, mostly-exhausted) proving-ground decodes.
 
@@ -28,34 +28,34 @@ solver." The remaining code work is transcription-robustness certification +
 - **The gate is `make verify`** (fmt-check + clippy `-D` + filesize + tests +
   rustdoc `-D` + cargo-deny); the pre-commit hook runs it, so a commit that lands
   *is* gate-green. Run `make check` before a PR. Doc-only tasks still trip
-  **codespell** — keep prose clean.
+  codespell — keep prose clean.
 - **Honesty ceiling (binding, every task).** Never exceed: *the eye data is
   deterministic, engine-generated, strikingly structured data of unknown meaning;
   unsolved; no primary developer source confirms recoverable plaintext.* A high
   n-gram score on the wrong structure is not a recovery. Label model-conditional
   and assumed choices as such. See `AGENTS.md` → Golden rules.
-- **Every new negative needs a matched null AND a positive control that fires** on
+- **Every new negative needs a matched null and a positive control that fires** on
   known signal — otherwise it is not a finding. Re-use `src/nulls/` helpers.
-- **Any candidate cleartext (English OR Finnish) → log it** as a HYPOTHESIS under
+- **Any candidate cleartext (English or Finnish) → log it** as a hypothesis under
   `research/gak-threads/candidates/` per that folder's README. Never a decode.
 - **`src/main.rs` is the CLI chokepoint.** Any task adding a subcommand edits it;
   if two code tasks run in parallel, have one agent own the subcommand stubs.
 
-## Keeping `docs/deslop-audit` merged in (read carefully — it touches CODE)
+## Keeping `docs/deslop-audit` merged in (read carefully — it touches code)
 
-A separate agent is doing a maintainability pass on **`docs/deslop-audit`**. This
-is **not prose-only** — it **refactors code** (e.g. the commit on it now extracts
+A separate agent is doing a maintainability pass on `docs/deslop-audit`. This
+is not prose-only — it refactors code (e.g. the commit on it now extracts
 `*_tests.rs` siblings out of `chaining_graph.rs`, `gak_attack/mod.rs`,
 `solve/mod.rs`, `ciphers/mod.rs`; more file-decomposition/dedup is coming per
-`docs/deslop/02-*`/`03-*`/`04-*`). It is a **local** branch — there is **no**
+`docs/deslop/02-*`/`03-*`/`04-*`). It is a local branch — there is no
 `origin/docs/deslop-audit`, so do not `git fetch` it.
 
-- **Cadence:** at the **start of each task** and again **before you commit**, run
+- **Cadence:** at the start of each task and again before you commit, run
   `git merge docs/deslop-audit` (local branch name, no `origin/`). First run
   `git log main..docs/deslop-audit --stat` to see what it is currently touching.
 - **Expect real code conflicts** if your task edits a file it is refactoring.
-  Because it **moves/splits** code (inline tests → a sibling `*_tests.rs`, files
-  decomposed), **resolve on substance** — never blindly take one side for code,
+  Because it moves/splits code (inline tests → a sibling `*_tests.rs`, files
+  decomposed), resolve on substance — never blindly take one side for code,
   and run `make verify` after every merge. For pure prose/doc conflicts, prefer
   the deslop agent's wording.
 - **Low overlap right now:** the Tier-1 code tasks touch a *new* file (T01),
@@ -77,13 +77,13 @@ is **not prose-only** — it **refactors code** (e.g. the commit on it now extra
 - `T05` — community-facing structural summary (the publish artifact).
 
 **Tier 2 — the standing unblocker + optional formalization.**
-- `T11` — external-anchor hunt (the ONLY real decode-unblocker; mostly non-computational).
+- `T11` — external-anchor hunt (the only real decode-unblocker; mostly non-computational).
 - `T04` — D₁₆₆ dihedral-exclusion robustness (optional; only sharpens an already-hedged verdict).
 - `T06` — G3 certification-degree appendix (formalization; numbers already exist in G3).
 
 **Tier 3 — proving ground (low transfer, mostly exhausted; opportunistic only).**
 - `T07` — proving-ground status + remaining low-value classical leads. Note: `one`/`six`/`two`
-  codec runs are **already logged honest-negatives**; the rest is low-value, non-transferring,
+  codec runs are already logged honest-negatives; the rest is low-value, non-transferring,
   and must be split before starting. This is a menu, not a must-do.
 
 > Optional confirmatory one-off (no task file): if GAP becomes available, run

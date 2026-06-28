@@ -1,13 +1,13 @@
 # T11 — External-anchor hunt (criteria + status now; search is standing)
 
-**Tier:** 2 · **Size:** S (the one-pass deliverable) · **Type:** doc / research · **Status:** TODO
+**Tier:** 2 · **Size:** S (the one-pass deliverable) · **Type:** doc / research · **Status:** Todo
 **Depends on:** none · **Conflicts with:** none
 **Touches:** new `research/external-anchor-hunt.md`
 
 ## Goal
-A standing, honest checklist of what a **symbol→meaning anchor** would look like and
+A standing, honest checklist of what a symbol→meaning anchor would look like and
 where it could come from — because that anchor, not more cryptanalysis, is the only
-thing that can unblock a decode. Mostly **non-computational**: it scopes and tracks
+thing that can unblock a decode. Mostly non-computational: it scopes and tracks
 the search, it does not invent a mapping.
 
 ## Scope (split — codex P2: don't let this become open-ended)
@@ -34,10 +34,10 @@ list to chase.
      eye constants as meaning (vs. just placing them), or a lookup table.
    - **Community wiki** — any newly-posted crib or partial mapping to corroborate.
 2. For each: what it would let us assert, and the honesty bar to accept it (a single
-   plausible crib is a HYPOTHESIS, not an anchor).
+   plausible crib is a hypothesis, not an anchor).
 3. Record current status (most are "absent / not found") and a re-check cadence.
 4. Cross-link to the candidate-logging directive: if an anchor ever yields candidate
-   cleartext, it goes to `gak-threads/candidates/` as a HYPOTHESIS first.
+   cleartext, it goes to `gak-threads/candidates/` as a hypothesis first.
 
 ## Definition of done
 - [ ] `external-anchor-hunt.md` lists sources, what each would unblock, and status.
@@ -47,7 +47,7 @@ list to chase.
 ## Honesty guardrails
 This is the single highest-leverage *unblocker* and therefore the single biggest
 overclaim risk. An anchor must be a primary/verifiable source, not a plausible
-coincidence. Until one exists, the decode stays BLOCKED and the claim ceiling holds
+coincidence. Until one exists, the decode stays blocked and the claim ceiling holds
 verbatim. Do not let "we're hunting for an anchor" drift into "we expect a decode."
 
 ## Pointers

@@ -1,30 +1,30 @@
 # T03 — Perfect-iso / G2 Stutter-region transcription *sensitivity*
 
-**Tier:** 1 · **Size:** S · **Type:** code+doc · **Status:** TODO
+**Tier:** 1 · **Size:** S · **Type:** code+doc · **Status:** Todo
 **Depends on:** T01 · **Conflicts with:** other `isomorph_imperfection.rs` edits
 **Touches:** `src/analysis/isomorph_imperfection.rs` (+ test),
 `research/gak-threads/G2-isomorph-imperfection.md`
 
 ## Goal
-Quantify how fragile the G2 disproof-negative ("GAK **not** falsified") is to a
-transcription error. G2 already surfaced **two** loose candidates and audited their
-benign attribution; this task adds only the **perturbation-sensitivity** layer: does
+Quantify how fragile the G2 disproof-negative ("GAK not falsified") is to a
+transcription error. G2 already surfaced two loose candidates and audited their
+benign attribution; this task adds only the perturbation-sensitivity layer: does
 any 1–2 orientation-digit mis-read in the Stutter region flip either loose candidate
 from *benign* to a *promoted robust internal violation* (which would eject the eyes
 from the perfectly-isomorphic family)?
 
-## Scope correction (do NOT redo the audit)
-G2 is **landed** in `src/analysis/isomorph_imperfection.rs` (it consumes
+## Scope correction (do not redo the audit)
+G2 is landed in `src/analysis/isomorph_imperfection.rs` (it consumes
 `perfect_isomorphism.rs` read-only). It already has the extended-window scan, the
 loose-bar matched null, the word-boundary discount, and the named-benign-Stutter
-attribution, and it lists **both** loose candidates:
+attribution, and it lists both loose candidates:
 
 | pair | offsets | island | far-run | internalness | region |
 | --- | --- | --- | --- | --- | --- |
 | east4 / west4 | 65 / 67 | 1 | 11 | 11 | Stutter |
 | east4 / east5 | 68 / 69 | 1 | 29 | 29 | Stutter |
 
-The negative is **conditional on BOTH being benign**. Do not re-implement the audit
+The negative is conditional on both being benign. Do not re-implement the audit
 or edit `perfect_isomorphism.rs`; build on the existing `isomorph_imperfection.rs`.
 
 ## Why
@@ -52,7 +52,7 @@ load-bearing caveat precise before publication.
 - [ ] `docs/deslop-audit` merged in; committed.
 
 ## Honesty guardrails
-A flip under a counterfactual mis-read is a *fragility* finding, NOT a falsification
+A flip under a counterfactual mis-read is a *fragility* finding, not a falsification
 of GAK — the verified transcription stands. The verdict stays "SUPPORTED, not
 proven" / "GAK not falsified" unless real data changes it.
 

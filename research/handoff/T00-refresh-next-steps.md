@@ -1,6 +1,6 @@
 # T00 — Refresh `NEXT-STEPS.md` (mark merged threads, record re-ranking)
 
-**Tier:** 1 · **Size:** XS · **Type:** doc · **Status:** TODO
+**Tier:** 1 · **Size:** XS · **Type:** doc · **Status:** Todo
 **Depends on:** none · **Conflicts with:** none · **Touches:** `research/NEXT-STEPS.md`
 
 ## Goal
@@ -13,10 +13,10 @@ already-done work (G2/G3 as "M, pending") and over-ranks G4/T6. Cheap correctnes
 
 ## Steps
 1. Confirm against `git log --oneline -40` what is merged. As of `5667bfe`:
-   **G1, G1b, T1, G2, G3** are all merged; the Thread-4 GAK-attack arc is complete;
+   G1, G1b, T1, G2, G3 are all merged; the Thread-4 GAK-attack arc is complete;
    the two "near-free wins" (AGL exclusion write-up, base-5 first-trigram) are
    landed as `research/findings/`.
-2. Mark those DONE in the ladder (one line each, with commit refs) and move them
+2. Mark those done in the ladder (one line each, with commit refs) and move them
    out of the "recommended order".
 3. Add a short note at the top: *"Re-ranked 2026-06-26 — see `research/handoff/`
    for the active backlog. `git log` is the source of truth for what's merged."*
@@ -33,7 +33,7 @@ already-done work (G2/G3 as "M, pending") and over-ranks G4/T6. Cheap correctnes
 
 ## Honesty guardrails
 Do not upgrade any verdict while editing. D₁₆₆ stays "conditional / MEDIUM";
-perfect-iso stays "SUPPORTED (not proven)"; the decode stays BLOCKED.
+perfect-iso stays "SUPPORTED (not proven)"; the decode stays blocked.
 
 ## Pointers
 - `research/NEXT-STEPS.md` (the file)

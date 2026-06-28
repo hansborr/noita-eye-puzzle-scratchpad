@@ -5,11 +5,11 @@ Public-domain English text used to build language models for the solve engine.
 ## Files
 
 - `english.txt` (3.1 KB) — small bigram-model sample used by the brief-04 solve
-  pipeline / codec search. **Owned by the engine-spine track; do not alter** (its
+  pipeline / codec search. Owned by the engine-spine track; do not alter (its
   exact bytes pin reported scoring numbers).
 - `finnish.txt` (2 KB) — small Finnish sample (Noita is a Finnish game).
 - `english-corpus-large.txt` (~1.48 MB, ~1.12 M letters) — larger corpus for the
-  **quadgram** language model behind the polyalphabetic *keystream* cracker
+  quadgram language model behind the polyalphabetic *keystream* cracker
   (letter puzzles `three`/`four`/`five`/`seven`). Bigram-on-3 KB is far too weak
   to guide a key search; a quadgram model needs real volume.
 
