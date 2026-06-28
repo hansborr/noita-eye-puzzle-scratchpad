@@ -165,7 +165,7 @@ fn eyes_search_surfaces_no_surviving_candidate() {
         candidates
             .iter()
             .all(|candidate| !candidate_survives(candidate)),
-        "the eyes unexpectedly surfaced a surviving candidate — the standing conclusion is BLOCKED"
+        "the eyes unexpectedly surfaced a surviving candidate — the standing conclusion is blocked"
     );
     if let Some(top) = candidates.first() {
         // Pin the reason the honest negative holds, not just the verdict. The

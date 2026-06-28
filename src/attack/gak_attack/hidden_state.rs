@@ -493,7 +493,7 @@ fn positive_control_hidden_state_recovery_fires_and_null_fails() {
 
     assert_eq!(
         real_fired, TRIALS,
-        "recovery must FIRE on every trial ({real_fired}/{TRIALS}); real edges total {real_total}"
+        "recovery must fire on every trial ({real_fired}/{TRIALS}); real edges total {real_total}"
     );
     assert_eq!(
         null_matched_real, 0,

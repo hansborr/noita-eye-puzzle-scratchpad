@@ -208,7 +208,7 @@ fn planted_decode_survives_full_gate() {
     );
     assert!(
         candidate.survives,
-        "a recovered planted decode MUST survive the gate (else the gate is too strict)"
+        "a recovered planted decode must survive the gate (else the gate is too strict)"
     );
 }
 

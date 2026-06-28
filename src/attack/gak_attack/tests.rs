@@ -513,7 +513,7 @@ fn perturbed_cyclic3_reports_realized_not_declared_structure() {
     assert_eq!(realized.realized_coset_alphabet_size, 2);
     assert!(
         !realized.faithful_to_declared,
-        "fixture must NOT claim faithfulness to the declared base group"
+        "fixture must not claim faithfulness to the declared base group"
     );
     // Trivial H must remain true, verified from the actual key.
     assert!(
@@ -1189,7 +1189,7 @@ fn idea3_small_support_prior_validates_idea2() {
     assert!(
         v.prior_is_discriminative()
             || v.small_truth_prior_on >= v.broad_truth_prior_on.saturating_sub(1),
-        "prior should help small-support at least as much as broad (TENTATIVE, weak): small_on={} broad_on={}",
+        "prior should help small-support at least as much as broad (tentative, weak): small_on={} broad_on={}",
         v.small_truth_prior_on,
         v.broad_truth_prior_on
     );
