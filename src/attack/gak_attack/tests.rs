@@ -135,7 +135,7 @@ fn shuffled_ciphertext_does_not_recover_exactly() {
     }
     // The matched within-message shuffle destroys the Cayley structure: in
     // this sample of `trials` shuffled seeds the same pipeline reproduced the
-    // exact plaintext partition 0 times (F7: a rate over this sample, not a
+    // exact plaintext partition 0 times (a rate over this sample, not a
     // claimed proof over the whole shuffle space).
     assert_eq!(
         null_recoveries, 0,

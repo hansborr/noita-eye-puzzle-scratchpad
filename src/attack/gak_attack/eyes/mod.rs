@@ -187,7 +187,7 @@ pub struct HeldOutPositiveControl {
     pub null_score: i64,
     /// SCOREABLE held-out edges on the synthetic fixture (`hits + misses +
     /// ambiguous`). Used to size the control's OWN population material-effect bar so
-    /// The validation ("the detector still clears its own bar") is checked on the
+    /// the validation ("the detector still clears its own bar") is checked on the
     /// control's population, not the eyes'.
     pub scoreable_edges: usize,
     /// Whether the predictor fired: the real signal strictly beats the worst-case
