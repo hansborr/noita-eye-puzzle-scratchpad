@@ -30,8 +30,8 @@ use compute::{
     state_count_estimate, synthetic_state_messages,
 };
 
-const ORIENTATION_BASE: usize = 5;
-const STORAGE_BASE: usize = 7;
+const ORIENTATION_BASE: usize = crate::core::glyph::ORIENTATION_COUNT;
+const STORAGE_BASE: usize = crate::core::glyph::ENGINE_STORAGE_BASE;
 const DEFAULT_CALIBRATION_SEED: u64 = 0x6578_7038_7374_6174;
 const DEFAULT_STATE_MIN_WINDOW: usize = 3;
 const DEFAULT_STATE_MAX_WINDOW: usize = 8;

@@ -32,7 +32,7 @@ use compute::{
 use compute::{g_test_homogeneity_statistic, pearson_homogeneity_statistic, repartition_table};
 
 /// Number of engine/rendered orientation digits.
-pub const ORIENTATION_BUCKETS: usize = 5;
+pub const ORIENTATION_BUCKETS: usize = crate::core::glyph::ORIENTATION_COUNT;
 /// Number of verified eye messages.
 pub const MESSAGE_COUNT: usize = 9;
 /// Degrees of freedom for the 9x5 homogeneity table.

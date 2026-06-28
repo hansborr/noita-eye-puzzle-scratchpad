@@ -7,11 +7,11 @@
 //! unchanged.
 
 use crate::analysis::orders::{GlyphGrid, GridError, read_corpus_message_values};
-use crate::core::trigram::TrigramValue;
+use crate::core::trigram::{TRIGRAM_VALUE_COUNT, TrigramValue};
 
 use super::{AnalyticBounds, SplitMix64, TrialOutcome, WilsonInterval};
 
-const TRIGRAM_ALPHABET_SIZE: f64 = 125.0;
+const TRIGRAM_ALPHABET_SIZE: f64 = TRIGRAM_VALUE_COUNT as f64;
 const HEADLINE_ALPHABET_SIZE: f64 = 83.0;
 const WILSON_Z_95: f64 = 1.959_963_984_540_054;
 

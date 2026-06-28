@@ -38,7 +38,7 @@ pub const DEFAULT_MAX_LAG: usize = 32;
 /// Headline modulus: the accepted honeycomb stream uses values `0..=82`.
 pub const PRIMARY_MODULUS: usize = orders::READING_LAYER_ALPHABET_SIZE;
 /// Secondary modulus: the full base-5 trigram reading layer uses `0..=124`.
-pub const SECONDARY_MODULUS: usize = 125;
+pub const SECONDARY_MODULUS: usize = crate::core::trigram::TRIGRAM_VALUE_COUNT;
 /// Largest modular finite-difference order reported.
 pub const MAX_DIFFERENCE_ORDER: usize = 3;
 

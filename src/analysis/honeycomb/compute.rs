@@ -8,10 +8,9 @@ use super::{
 use crate::analysis::analysis;
 use crate::analysis::orders::{self, GlyphGrid, GridError, ReadingOrder, TrigramPermutation};
 use crate::core::glyph::{Glyph, Orientation};
-use crate::core::trigram::{ReadingTrigram, TrigramValue};
+use crate::core::trigram::{ReadingTrigram, TRIGRAM_VALUE_COUNT, TrigramValue};
 use crate::nulls::null::{median_f64, scaled_quantile_index};
 
-const TRIGRAM_VALUE_COUNT: usize = 125;
 const VALUE_DECILE_COUNT: usize = 10;
 
 /// Builds the honeycomb lattice for one reconstructed grid.

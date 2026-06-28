@@ -84,6 +84,12 @@ impl Orientation {
     }
 }
 
+/// Number of distinct rendered eye orientations: the digits `0..=4`.
+///
+/// This is the radix of the base-5 reading layer and the bucket count for a
+/// per-orientation histogram; it does not name pixel directions.
+pub const ORIENTATION_COUNT: usize = 5;
+
 /// A rendered corpus symbol: either an orientation or the non-rendered row
 /// delimiter encoded as digit `5`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -150,6 +156,9 @@ impl StorageSymbol {
         }
     }
 }
+
+/// Radix of the engine base-7 storage layer that emits [`StorageSymbol`]s.
+pub const ENGINE_STORAGE_BASE: usize = 7;
 
 /// A single eye glyph, identified by its index within an [`Alphabet`].
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]

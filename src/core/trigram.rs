@@ -4,7 +4,7 @@
 //! into base-5 trigrams. This is separate from the engine-storage layer, which
 //! is base-7 over 64-bit integer chunks and can emit control values.
 
-use crate::core::glyph::Orientation;
+use crate::core::glyph::{ORIENTATION_COUNT, Orientation};
 
 /// One base-5 trigram formed from three rendered orientation digits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -68,6 +68,10 @@ impl From<ReadingTrigram> for TrigramValue {
         value.value()
     }
 }
+
+/// Number of distinct base-5 trigram values: `ORIENTATION_COUNT` cubed
+/// (= 125), i.e. the values `0..=124`.
+pub const TRIGRAM_VALUE_COUNT: usize = ORIENTATION_COUNT * ORIENTATION_COUNT * ORIENTATION_COUNT;
 
 /// Splits a base-5 trigram value into its `[leading, middle, units]` digits.
 ///

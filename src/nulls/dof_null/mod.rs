@@ -49,8 +49,8 @@ use cells::{
 
 const DEFAULT_DOF_NULL_SEED: u64 = 0x646f_666e_756c_6c00;
 const DEFAULT_DOF_NULL_TRIALS: usize = 1_000;
-const ORIENTATION_BASE: usize = 5;
-const ENGINE_STORAGE_BASE: usize = 7;
+const ORIENTATION_BASE: usize = crate::core::glyph::ORIENTATION_COUNT;
+const ENGINE_STORAGE_BASE: usize = crate::core::glyph::ENGINE_STORAGE_BASE;
 const MAX_RECURRENCE_DISTANCE: usize = 6;
 const ANALYTIC_HEADLINE_CEILING: f64 = 82.0;
 

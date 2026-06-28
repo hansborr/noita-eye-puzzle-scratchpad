@@ -36,7 +36,7 @@ use crate::report::{self, Report};
 pub use crate::core::trigram::base5_digits;
 
 /// Storage-layer base-5 trigram alphabet size (`0..=124`).
-pub const STORAGE_MODULUS: u32 = 125;
+pub const STORAGE_MODULUS: u32 = crate::core::trigram::TRIGRAM_VALUE_COUNT as u32;
 /// Reading-layer alphabet size (`0..=82`).
 pub const READING_MODULUS: u32 = orders::READING_LAYER_ALPHABET_SIZE as u32;
 
