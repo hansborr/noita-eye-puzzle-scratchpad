@@ -119,28 +119,29 @@ impl From<IsomorphNullArgs> for isomorph_null::IsomorphNullConfig {
     }
 }
 
-#[derive(Clone, Copy, Debug, Args)]
+#[derive(Clone, Debug, Args)]
 pub(crate) struct ChainingArgs {
     #[arg(long, default_value_t = chaining::DEFAULT_SEED)]
-    seed: u64,
+    pub(crate) seed: u64,
     #[arg(long, default_value_t = chaining::DEFAULT_TRIALS)]
-    trials: usize,
+    pub(crate) trials: usize,
     #[arg(long = "min-period", default_value_t = chaining::DEFAULT_MIN_PERIOD)]
-    min_period: usize,
+    pub(crate) min_period: usize,
     #[arg(long = "max-period", default_value_t = chaining::DEFAULT_MAX_PERIOD)]
-    max_period: usize,
-}
-
-impl From<ChainingArgs> for chaining::ChainingConfig {
-    fn from(args: ChainingArgs) -> Self {
-        Self {
-            seed: args.seed,
-            trials: args.trials,
-            min_period: args.min_period,
-            max_period: args.max_period,
-            ..Self::default()
-        }
-    }
+    pub(crate) max_period: usize,
+    /// Reading-layer value stream. Optional: omit to run the verified eye corpus,
+    /// or read from --input-file / --stdin.
+    pub(crate) sequence: Option<String>,
+    /// Read the stream from this file instead of the positional argument.
+    #[arg(long = "input-file", conflicts_with = "sequence")]
+    pub(crate) input_file: Option<std::path::PathBuf>,
+    /// Read the stream from stdin.
+    #[arg(long = "stdin", conflicts_with_all = ["sequence", "input_file"])]
+    pub(crate) stdin: bool,
+    /// Cipher alphabet chars, in order; required for any non-corpus input. The
+    /// alphabet size is the char count (no eye reading-layer 83 default off-corpus).
+    #[arg(long = "alphabet")]
+    pub(crate) alphabet: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Args)]

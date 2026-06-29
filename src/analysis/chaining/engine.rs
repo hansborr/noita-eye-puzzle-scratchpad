@@ -25,6 +25,25 @@ pub fn run_chaining(config: ChainingConfig) -> Result<ChainingReport, ChainingEr
     report_from_message_values(config, order, &keys, &message_values)
 }
 
+/// Computes the Experiment 7B chaining report for an arbitrary caller-supplied
+/// stream, treated as a single message under a neutral raw-rows label.
+///
+/// `RawRows` and the `"input"` key are report labels only — no eye honeycomb
+/// traversal is claimed for arbitrary input. The calibration controls are
+/// regenerated to match the stream's per-message length and the configured
+/// alphabet, so the Vigenere positive control and the independent-substitution
+/// null stay valid on any stream.
+///
+/// # Errors
+/// Returns [`ChainingError`] when the configuration is invalid or a stream value
+/// is outside the configured alphabet.
+pub fn chaining_for_stream(
+    config: ChainingConfig,
+    message_values: &[Vec<TrigramValue>],
+) -> Result<ChainingReport, ChainingError> {
+    report_from_message_values(config, ReadingOrder::RawRows, &["input"], message_values)
+}
+
 /// Computes the chaining signature for caller-supplied message values.
 ///
 /// This is the single procedure used by the real-eye stream and every control

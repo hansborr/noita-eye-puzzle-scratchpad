@@ -1,6 +1,6 @@
 use super::{
     ChainingClassification, ChainingConfig, SourceProfile, build_control_fixtures,
-    chaining_signature, run_chaining,
+    chaining_for_stream, chaining_signature, run_chaining,
 };
 use crate::analysis::orders;
 use crate::core::trigram::TrigramValue;
@@ -113,6 +113,46 @@ fn real_eye_scores_are_measured_against_the_fail_band() {
             .iter()
             .map(|row| (row.period, row.real.chain_score, row.classification))
             .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn for_stream_classifies_a_synthetic_vigenere_off_corpus() {
+    // A file-driven stream is one message. Build a long Vigenere positive control
+    // plus its independent-substitution null at a non-corpus alphabet, then run
+    // them through `chaining_for_stream` (the fn the CLI handler calls) and
+    // confirm each lands in the matching calibrated band — i.e. the positive
+    // control fires off the eye corpus, under the neutral raw-rows label.
+    let alphabet_size = 16;
+    let period = 4;
+    let lengths = [1200usize];
+    let source = SourceProfile::new(alphabet_size);
+    let mut rng = SplitMix64::new(0x5eed);
+    let controls =
+        build_control_fixtures(&lengths, period, alphabet_size, &source, &mut rng).unwrap();
+
+    let config = ChainingConfig {
+        seed: 0x77,
+        trials: 64,
+        min_period: period,
+        max_period: period,
+        alphabet_size,
+    };
+
+    let succeed = chaining_for_stream(config, &controls.succeed).unwrap();
+    assert_eq!(succeed.order.name(), "raw-rows");
+    assert_eq!(succeed.message_lengths, vec![("input", 1200)]);
+    let succeed_row = succeed.rows.first().unwrap();
+    assert!(succeed_row.score_bands_separated);
+    assert_eq!(
+        succeed_row.classification,
+        ChainingClassification::MatchesKnownSucceed
+    );
+
+    let fail = chaining_for_stream(config, &controls.fail).unwrap();
+    assert_eq!(
+        fail.rows.first().unwrap().classification,
+        ChainingClassification::MatchesKnownFail
     );
 }
 

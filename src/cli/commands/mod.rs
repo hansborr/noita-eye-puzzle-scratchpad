@@ -8,6 +8,7 @@ mod keystream;
 mod misc;
 mod ragbaby;
 mod solve;
+mod structural;
 
 pub(crate) use gak::run_gak;
 pub(crate) use keystream::{run_keystream, run_profile};
@@ -16,3 +17,4 @@ pub(crate) use misc::{
 };
 pub(crate) use ragbaby::run_ragbaby;
 pub(crate) use solve::run_solve;
+pub(crate) use structural::run_chaining;

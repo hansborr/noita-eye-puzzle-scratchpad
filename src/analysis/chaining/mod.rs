@@ -43,7 +43,7 @@ mod tests;
 
 #[cfg(test)]
 pub(crate) use engine::{SourceProfile, build_control_fixtures};
-pub use engine::{chaining_signature, run_chaining};
+pub use engine::{chaining_for_stream, chaining_signature, run_chaining};
 
 /// Default deterministic Monte-Carlo seed for Experiment 7B.
 pub const DEFAULT_SEED: u64 = 0x6368_6169_6e37_6221;
