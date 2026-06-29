@@ -25,6 +25,7 @@ pub(super) fn run_shuffle_null(
     config: ChainingGraphConfig,
     message_values: &[Vec<SymbolValue>],
     real: &GraphComputation,
+    alphabet_size: usize,
 ) -> Result<ConflictCoverageNull, ChainingGraphError> {
     let within_message_shuffle = WithinMessageShuffle {
         messages: message_values,
@@ -33,7 +34,7 @@ pub(super) fn run_shuffle_null(
     let mut samples = NullSamples::default();
     for _trial in 0..config.trials {
         let shuffled = within_message_shuffle.sample(&mut rng)?;
-        let graph = compute_graph(&shuffled, config.window_len, config.core_len)?;
+        let graph = compute_graph(&shuffled, config.window_len, config.core_len, alphabet_size)?;
         samples.push(&graph.catalogue, &graph.coverage);
     }
     Ok(samples.into_null(real, config.trials))
@@ -137,7 +138,12 @@ pub(super) fn run_positive_control(
     core_len: usize,
 ) -> Result<PositiveControlOutcome, ChainingGraphError> {
     let fixture = positive_control_fixture(seed, window_len, core_len)?;
-    let graph = compute_graph(&fixture.streams, window_len, core_len)?;
+    let graph = compute_graph(
+        &fixture.streams,
+        window_len,
+        core_len,
+        orders::READING_LAYER_ALPHABET_SIZE,
+    )?;
     let null_max_conflicts = positive_control_null_max(&fixture, seed, window_len, core_len)?;
     let conflict_margin = graph.catalogue.total.saturating_sub(null_max_conflicts);
     let passed = graph.catalogue.total
@@ -248,7 +254,12 @@ pub(super) fn positive_control_null_max(
     let mut max_conflicts = 0usize;
     for _trial in 0..POSITIVE_CONTROL_NULL_TRIALS {
         let shuffled = within_message_shuffle.sample(&mut rng)?;
-        let graph = compute_graph(&shuffled, window_len, core_len)?;
+        let graph = compute_graph(
+            &shuffled,
+            window_len,
+            core_len,
+            orders::READING_LAYER_ALPHABET_SIZE,
+        )?;
         max_conflicts = max_conflicts.max(graph.catalogue.total);
     }
     Ok(max_conflicts)

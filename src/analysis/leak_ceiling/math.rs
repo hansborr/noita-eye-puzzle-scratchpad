@@ -170,7 +170,12 @@ pub(super) fn chaining_supply(
     window_len: usize,
     core_len: usize,
 ) -> Result<ChainingSupply, LeakCeilingError> {
-    let graph = chaining_graph::compute_graph(message_values, window_len, core_len)?;
+    let graph = chaining_graph::compute_graph(
+        message_values,
+        window_len,
+        core_len,
+        crate::analysis::orders::READING_LAYER_ALPHABET_SIZE,
+    )?;
     let mut edges: BTreeSet<(u32, u8, u8)> = BTreeSet::new();
     for link in &graph.links {
         let _inserted = edges.insert((link.context.as_u32(), link.from.get(), link.to.get()));

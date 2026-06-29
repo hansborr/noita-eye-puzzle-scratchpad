@@ -499,8 +499,18 @@ pub fn run_chaining_graph(
         .collect();
     let order = orders::accepted_honeycomb_order();
     let message_values = read_corpus_message_values(&grids, order)?;
-    let computation = compute_graph(&message_values, config.window_len, config.core_len)?;
-    let null = run_shuffle_null(config, &message_values, &computation)?;
+    let computation = compute_graph(
+        &message_values,
+        config.window_len,
+        config.core_len,
+        orders::READING_LAYER_ALPHABET_SIZE,
+    )?;
+    let null = run_shuffle_null(
+        config,
+        &message_values,
+        &computation,
+        orders::READING_LAYER_ALPHABET_SIZE,
+    )?;
     let positive_control = run_positive_control(config.seed, config.window_len, config.core_len)?;
     let message_lengths = keys
         .iter()
@@ -511,6 +521,50 @@ pub fn run_chaining_graph(
     Ok(ChainingGraphReport {
         config,
         order,
+        message_lengths,
+        catalogue: computation.catalogue,
+        coverage: computation.coverage,
+        null,
+        positive_control,
+    })
+}
+
+/// Runs the Thread 5 chaining-graph audit on an arbitrary symbol-value stream.
+///
+/// The reading order and message key are neutral report labels only
+/// ([`ReadingOrder::RawRows`] and a single `"input"` key); no eye traversal is
+/// claimed for arbitrary input. `alphabet_size` is the coverage denominator
+/// (threaded from `--alphabet`). The synthetic non-commutative positive control
+/// and its matched null are stream-independent — they live over the full
+/// reading-layer permutation group — so they remain a valid self-check on any
+/// input.
+///
+/// # Errors
+/// Returns [`ChainingGraphError`] when the configuration is invalid, when a
+/// Monte-Carlo bound does not fit the PRNG helper, or when the synthetic positive
+/// control fails to recover its planted signal.
+pub fn chaining_graph_for_stream(
+    config: ChainingGraphConfig,
+    message_values: &[Vec<SymbolValue>],
+    alphabet_size: usize,
+) -> Result<ChainingGraphReport, ChainingGraphError> {
+    validate_config(config)?;
+    let computation = compute_graph(
+        message_values,
+        config.window_len,
+        config.core_len,
+        alphabet_size,
+    )?;
+    let null = run_shuffle_null(config, message_values, &computation, alphabet_size)?;
+    let positive_control = run_positive_control(config.seed, config.window_len, config.core_len)?;
+    let message_lengths = ["input"]
+        .into_iter()
+        .zip(message_values.iter().map(Vec::len))
+        .collect();
+
+    Ok(ChainingGraphReport {
+        config,
+        order: ReadingOrder::RawRows,
         message_lengths,
         catalogue: computation.catalogue,
         coverage: computation.coverage,

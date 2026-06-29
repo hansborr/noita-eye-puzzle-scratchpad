@@ -1,7 +1,8 @@
 use super::{
     AlignedOccurrence, ChainingGraphConfig, ContextId, DEFAULT_CORE_LEN, DEFAULT_WINDOW_LEN,
     POSITIVE_CONTROL_MIN_MARGIN, UnionFind, catalogue_from_links, chain_links_for_pair,
-    compute_graph, positive_control_fixture, positive_control_null_max, run_chaining_graph,
+    chaining_graph_for_stream, compute_graph, positive_control_fixture, positive_control_null_max,
+    run_chaining_graph,
 };
 use crate::analysis::orders;
 use crate::core::trigram::TrigramValue;
@@ -53,7 +54,13 @@ fn wiki_gap_signature_occurrences_are_pinned() {
     let grids = orders::corpus_grids().unwrap();
     let messages =
         orders::read_corpus_message_values(&grids, orders::accepted_honeycomb_order()).unwrap();
-    let graph = compute_graph(&messages, DEFAULT_WINDOW_LEN, DEFAULT_CORE_LEN).unwrap();
+    let graph = compute_graph(
+        &messages,
+        DEFAULT_WINDOW_LEN,
+        DEFAULT_CORE_LEN,
+        orders::READING_LAYER_ALPHABET_SIZE,
+    )
+    .unwrap();
     let signature = [0, 0, 0, 0, 0, 3, 0, 7, 4, 0, 9];
     let mut occurrences = graph
         .contexts
@@ -94,7 +101,13 @@ fn chain_links_reject_length_mismatch() {
 #[test]
 fn positive_control_recovers_non_commuting_fixture() {
     let fixture = positive_control_fixture(123, DEFAULT_WINDOW_LEN, DEFAULT_CORE_LEN).unwrap();
-    let graph = compute_graph(&fixture.streams, DEFAULT_WINDOW_LEN, DEFAULT_CORE_LEN).unwrap();
+    let graph = compute_graph(
+        &fixture.streams,
+        DEFAULT_WINDOW_LEN,
+        DEFAULT_CORE_LEN,
+        orders::READING_LAYER_ALPHABET_SIZE,
+    )
+    .unwrap();
     let null_max =
         positive_control_null_max(&fixture, 123, DEFAULT_WINDOW_LEN, DEFAULT_CORE_LEN).unwrap();
     assert!(
@@ -105,6 +118,28 @@ fn positive_control_recovers_non_commuting_fixture() {
         POSITIVE_CONTROL_MIN_MARGIN
     );
     assert!(graph.coverage.symbols_touched >= fixture.planted_symbols);
+}
+
+#[test]
+fn for_stream_fires_positive_control_off_corpus() {
+    // The fn the CLI handler calls, on an arbitrary single-message stream: the
+    // synthetic non-commutative positive control is stream-independent, so it
+    // self-validates on any input, and the coverage denominator is the supplied
+    // alphabet size (no residual 83), under the neutral raw-rows label.
+    let stream = values(&[
+        0, 1, 2, 0, 3, 4, 0, 5, 6, 0, 7, 8, 1, 2, 3, 1, 4, 5, 1, 6, 7,
+    ]);
+    let config = ChainingGraphConfig {
+        seed: 7,
+        trials: 16,
+        ..ChainingGraphConfig::default()
+    };
+    let report = chaining_graph_for_stream(config, &[stream], 10).unwrap();
+
+    assert!(report.positive_control.passed);
+    assert_eq!(report.coverage.alphabet_size, 10);
+    assert_eq!(report.order.name(), "raw-rows");
+    assert_eq!(report.message_lengths, vec![("input", 21)]);
 }
 
 #[test]

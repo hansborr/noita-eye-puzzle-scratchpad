@@ -8,7 +8,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::analysis::isomorph::PatternSignature;
-use crate::analysis::orders;
 
 use super::{
     AlignedOccurrence, ChainLink, ChainingConflict, ChainingGraphConfig, ChainingGraphError,
@@ -20,11 +19,12 @@ pub(crate) fn compute_graph(
     message_values: &[Vec<SymbolValue>],
     window_len: usize,
     core_len: usize,
+    alphabet_size: usize,
 ) -> Result<GraphComputation, ChainingGraphError> {
     let occurrences = collect_occurrences(message_values, window_len, core_len);
     let (links, contexts) = links_for_occurrences(&occurrences)?;
     let catalogue = catalogue_from_contexts(&links, &contexts);
-    let coverage = coverage_from_links(&links, orders::READING_LAYER_ALPHABET_SIZE);
+    let coverage = coverage_from_links(&links, alphabet_size);
     Ok(GraphComputation {
         links,
         contexts,

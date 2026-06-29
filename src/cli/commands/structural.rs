@@ -9,11 +9,12 @@
 use std::process::ExitCode;
 
 use noita_eye_puzzle::analysis::chaining::{self, ChainingConfig};
+use noita_eye_puzzle::analysis::chaining_graph::{self, ChainingGraphConfig};
 use noita_eye_puzzle::core::trigram::TrigramValue;
 use noita_eye_puzzle::nulls::isomorph_null::{self, IsomorphNullConfig};
 use noita_eye_puzzle::report::Report;
 
-use crate::cli::args_analysis::{ChainingArgs, IsomorphNullArgs};
+use crate::cli::args_analysis::{ChainingArgs, ChainingGraphArgs, IsomorphNullArgs};
 use crate::cli::shared::{parse_cli_sequence, resolve_input_text};
 
 /// Resolves a file-driven structural-battery stream to its [`TrigramValue`]s plus
@@ -152,5 +153,38 @@ pub(crate) fn run_isomorphnull(args: &IsomorphNullArgs) -> ExitCode {
     emit_report(
         "isomorph null error",
         isomorph_null::isomorph_null_for_stream(config, &values),
+    )
+}
+
+/// `chaining-graph`: Thread 5 graph-chaining conflict and coverage audit.
+///
+/// With no input flags, runs the verified eye corpus unchanged. With a stream
+/// input, runs the same audit over the arbitrary stream; `--alphabet`'s char count
+/// is the coverage denominator. The synthetic non-commutative positive control is
+/// stream-independent, so it self-validates the instrument on any input.
+pub(crate) fn run_chaining_graph(args: &ChainingGraphArgs) -> ExitCode {
+    let config = ChainingGraphConfig {
+        seed: args.seed,
+        trials: args.trials,
+        ..ChainingGraphConfig::default()
+    };
+    if args.sequence.is_none() && args.input_file.is_none() && !args.stdin {
+        return emit_report(
+            "chaining-graph error",
+            chaining_graph::run_chaining_graph(config),
+        );
+    }
+    let (values, alphabet_size) = match resolve_stream(
+        args.sequence.as_deref(),
+        args.input_file.as_ref(),
+        args.stdin,
+        args.alphabet.as_deref(),
+    ) {
+        Ok(pair) => pair,
+        Err(code) => return code,
+    };
+    emit_report(
+        "chaining-graph error",
+        chaining_graph::chaining_graph_for_stream(config, &[values], alphabet_size),
     )
 }

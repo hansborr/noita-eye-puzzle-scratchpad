@@ -148,22 +148,25 @@ pub(crate) struct ChainingArgs {
     pub(crate) alphabet: Option<String>,
 }
 
-#[derive(Clone, Copy, Debug, Args)]
+#[derive(Clone, Debug, Args)]
 pub(crate) struct ChainingGraphArgs {
     #[arg(long, default_value_t = chaining_graph::DEFAULT_SEED)]
-    seed: u64,
+    pub(crate) seed: u64,
     #[arg(long, default_value_t = chaining_graph::DEFAULT_TRIALS)]
-    trials: usize,
-}
-
-impl From<ChainingGraphArgs> for chaining_graph::ChainingGraphConfig {
-    fn from(args: ChainingGraphArgs) -> Self {
-        Self {
-            seed: args.seed,
-            trials: args.trials,
-            ..Self::default()
-        }
-    }
+    pub(crate) trials: usize,
+    /// Symbol-value sequence. Optional: omit to run the verified eye corpus, or
+    /// read from --input-file / --stdin.
+    pub(crate) sequence: Option<String>,
+    /// Read the sequence from this file instead of the positional argument.
+    #[arg(long = "input-file", conflicts_with = "sequence")]
+    pub(crate) input_file: Option<std::path::PathBuf>,
+    /// Read the sequence from stdin.
+    #[arg(long = "stdin", conflicts_with_all = ["sequence", "input_file"])]
+    pub(crate) stdin: bool,
+    /// Cipher alphabet chars, in order; required for any non-corpus input. Its
+    /// char count is the coverage denominator (the alphabet size).
+    #[arg(long = "alphabet")]
+    pub(crate) alphabet: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Args)]
