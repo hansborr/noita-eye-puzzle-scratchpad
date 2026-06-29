@@ -69,6 +69,13 @@ is not prose-only — it refactors code (e.g. the commit on it now extracts
 
 ## Priority ladder
 
+**Tier 0 — tooling (maintainer-requested 2026-06-29; a different shape than the publish tasks).**
+- `T12` — turn the analysis/attack capability into **file-driven CLI instruments** (un-hardwire the
+  structural battery from the eye corpus; promote the GAK hidden-state solver + discriminator out of
+  `#[cfg(test)]` into a `gak` subcommand with a self-test). High value for every future agent: the
+  toolbox becomes runnable on arbitrary ciphertext, not frozen to fixtures. Intended for a fresh-context
+  agent; independently committable in pieces.
+
 **Tier 1 — harden & publish the eyes frontier (do these first; highest value/effort).**
 - `T00` — refresh `NEXT-STEPS.md` (doc hygiene; unblocks anyone reading the stale ladder).
 - `T01` — transcription-perturbation harness (shared primitive; enables T02–T04).
