@@ -1,14 +1,59 @@
 # T12 — Turn the analysis/attack capability into runnable CLI instruments
 
 **Priority:** High (maintainer-requested, 2026-06-29). **Effort:** L (one big
-principle, several independently-committable pieces). **Status:** open / not
-started. **Owner:** unassigned — written to be picked up cold by a fresh agent.
+principle, several independently-committable pieces). **Status:** Workstream A
+**DONE** (2026-06-29); Workstream B **remaining — this is your job.** **Owner:**
+Workstream B unassigned — written to be picked up cold by a fresh agent.
 
 > **One-line:** Stop shipping cryptanalysis capability as `#[cfg(test)]`-only
 > validations or as analyses hardwired to the eye corpus. Make every analysis and
 > attack a **file-driven CLI instrument** — arbitrary ciphertext in, honest
 > candidate out, self-validated by a positive control + matched null — so future
 > agents can actually *run* the toolbox on new inputs.
+
+---
+
+## Status & what to do next (updated 2026-06-29)
+
+**Workstream A — the GAK discriminator + solver instrument — is COMPLETE.** Three
+commits on `exploration`, full `make verify` green each time, codex-reviewed clean:
+
+- `61db12e` — **P2 fix:** the convention-B decode now rejects a same-class
+  adjacency (`eps == 0`) up front in `DeckProblem::from_ciphertext` via the new
+  `GakAttackError::SameClassAdjacency`, instead of silently aliasing it into the
+  `eps == 1` cosets (the old `saturating_sub(1)` bug).
+- `e1dd966` — **instrument + promotion:** promoted `hidden_state_solver` out of
+  `#[cfg(test)]` to `pub mod` (namespaced so its consts don't collide with the
+  gate's `DEFAULT_SEED`), added `hidden_state_solver/instrument.rs` (the library
+  layer: `discriminate`, `solve_candidate`, `run_self_test`), added the `gak`
+  subcommand (`discriminate`/`solve`/`self-test`), and rewired the four tests to
+  call the instrument functions.
+- `80d0cfe` — codex nits (1-based `position`; `Ambiguous` wording).
+
+  Verified live: `gak discriminate --input-file research/data/practice-puzzles/two
+  --alphabet ABCDEFGHIJKL` → HIDDEN-STATE; `gak self-test` → PASS; `gak solve` on
+  `two` → honest "NO ENGLISH RECOVERED" candidate.
+
+**Your job: Workstream B (§5).** A is the *reference pattern* B copies (a
+file-driven instrument that self-validates against a control). §5 has been
+rewritten with a **concrete per-analysis migration map** (file:line, what's
+already generic, what's hardwired, the friction in each) and the **bespoke-handler
+migration pattern** A established — these supersede the original ease-ordered
+sketch.
+
+**What to do next, in order:**
+
+1. Read §5 (the rewritten map) and §5.0 (the migration pattern).
+2. Do the **clean three first** — `chaining`, then `isomorphnull`, then
+   `chaining-graph` — one commit each. Their controls are already matched to the
+   input (lengths/alphabet) or synthetic and stream-independent, so a file-driven
+   path keeps a valid positive control.
+3. **Stop and consult the maintainer before the entangled three** (`perfectiso`,
+   `leak_ceiling`, `isomorph_imperfection`): they bake in eye-corpus-calibrated
+   controls (pinned wiki-regression checks, the `TWO_*` measured constants,
+   `east4/west4` benign-region logic). Running them on arbitrary input means
+   gating those off or rebuilding them as per-input synthetic controls — an
+   honesty-discipline call (§6) the maintainer wants to weigh in on, not a guess.
 
 ---
 
@@ -40,6 +85,9 @@ This task makes that real.
 ---
 
 ## 2. Desired end state
+
+> **Items 1–3 are DONE (Workstream A, 2026-06-29) — see the Status section at the
+> top.** Kept for context; the remaining work is Workstream B (§5).
 
 1. **The GAK hidden-state tools become a file-driven CLI subcommand + library.**
    The discriminator and solver currently in `#[cfg(test)] mod hidden_state_solver`
@@ -104,9 +152,14 @@ Non-goal: solving puzzle `two` or the eyes. The solver remains an honest
 
 ---
 
-## 4. Workstream A — GAK discriminator + solver as a CLI instrument
+## 4. Workstream A — GAK discriminator + solver as a CLI instrument ✅ DONE
 
-This is the cohesive first piece; it also *demonstrates* the pattern for B.
+> **DONE (2026-06-29), commits `61db12e` / `e1dd966` / `80d0cfe`.** Kept here as
+> the worked reference the structural-battery migration (§5) copies. All sub-steps
+> below were completed; the P2 fix landed as its own commit first, and the four
+> tests now assert on the `instrument.rs` functions the CLI calls.
+
+This was the cohesive first piece; it also *demonstrates* the pattern for B.
 
 1. **Fold in the codex P2 fix first** (it's a precondition for honest CLI use). In
    `src/attack/gak_attack/hidden_state_solver/solver.rs` around the `eps`
@@ -150,36 +203,143 @@ honest non-English candidate (not a decode); `make check` green.
 
 ## 5. Workstream B — un-hardwire the structural battery
 
-For each analysis below, add a file-driven path (`--input-file`/`--stdin` +
-`--alphabet`, reusing `cli::shared`), keep the eye-corpus default, and add a
-positive control / self-test where one doesn't already exist. Do **one analysis
-per commit** (they're independent; small, reviewable diffs).
+**Goal (unchanged):** each analysis keeps its verified eye-corpus default (no input
+flags) and gains a file-driven path (`--input-file`/`--stdin` + `--alphabet`,
+reusing `cli::shared`) that runs the same computation on an arbitrary symbol
+stream, with a working positive control. **One analysis per commit.** The map
+below is from a fresh read of the code (2026-06-29) and supersedes the original
+ease-ordered sketch.
 
-Order by ease (reuse-first):
+### 5.0 The migration pattern (established by Workstream A — copy it)
 
-1. **`chaining`** — `chaining_signature(message_values, period, alphabet_size)` is
-   already public + generic. Mostly arg plumbing + alphabet-size from `--alphabet`.
-2. **`isomorph` / `isomorphnull`** — `detect_isomorphs<T>` is already public +
-   generic. Add a file-driven entry; the within-message-shuffle matched null
-   already exists in `src/nulls/`.
-3. **`chaining-graph`** — `chaining_graph::compute_graph` is `pub(crate)`; add a
-   public per-stream entry that takes `&[Vec<SymbolValue>]` + alphabet size.
-4. **`perfectiso`** — expose `perfect_isomorphism`'s per-stream
-   `report_from_message_values` (currently private) as a public, alphabet-size-
-   parameterized entry.
-5. **`leak_ceiling`** and **`isomorph_imperfection`** — currently have *no*
-   `Command` at all (test-only). Add a `Command` variant + file-driven entry for
-   each. `leak_ceiling` already hardcodes `two`'s measured constants
-   (`TWO_COSETS` etc.) — generalize it to compute those from the input stream.
+All four CLI-exposed battery analyses are dispatched through the *uniform*
+`emit(dispatch("… error", a.into(), lib::run_*))` registry in
+`src/cli/dispatch.rs`, which calls a config-only library entry that **loads the
+eye corpus and ignores CLI input**. The file-driven migration for each is the same
+shape:
 
-**Exclude** `honeycomb` and `grouping`: they are specific to the 2-D 83-symbol
-eye trigram lattice and are not meaningful on a linear ciphertext. If you touch
-them at all, only to document why they stay eye-specific.
+1. **Add input args.** Give the `*Args` struct in `src/cli/args_analysis.rs` a
+   positional `sequence: Option<String>` + `--input-file` + `--stdin` +
+   `--alphabet` (mirror `StatsArgs`, args_analysis.rs:17-36). Make the fields
+   `pub(crate)` (the handler reads them). Adding `Option<String>` means the struct
+   can no longer derive `Copy`; the old `From<…Args> for …Config` impl becomes
+   unused — delete it (the handler builds the config).
+2. **Add a `pub fn *_for_stream(config, message_values: &[Vec<TrigramValue>])`**
+   library entry next to the existing `run_*`, wrapping the private per-stream seam
+   (`report_from_message_values`) with a neutral `ReadingOrder::RawRows` and a
+   single generated key `&["input"]` (the `order`/`keys` are report labels only —
+   no eye traversal is claimed for arbitrary input). Re-export it from the analysis
+   module. Thread `alphabet_size` through from `--alphabet`.
+3. **Move the analysis to a bespoke handler** in `src/cli/commands/structural.rs`
+   (new file; `src/cli/commands/gak.rs` from Workstream A is the template): read
+   input via `cli::shared::resolve_input_text` + `parse_cli_sequence`, convert
+   `parsed.glyphs` (`Glyph(u16)`, value = alphabet index) to `Vec<TrigramValue>`
+   via `TrigramValue::new(u8::try_from(g.0))`, build the config with the derived
+   alphabet size, and call `*_for_stream`; with **no** input flags, fall back to
+   the existing eye-corpus `run_*`. Print `report.render()` (`use
+   noita_eye_puzzle::report::Report`).
+4. **Re-wire dispatch.** Remove the analysis's arm from the uniform block in
+   `dispatch.rs`, add a bespoke arm `Command::X(args) => run_x(&args)`, register the
+   handler in `commands/mod.rs`, and drop the now-unused name from the
+   `analysis::{…}` import in dispatch.rs.
+5. **Test the file-driven entry** on a synthetic stream (its positive control must
+   fire) and confirm the eye-corpus default still works unchanged.
 
-**Watch:** these analyses currently assume the eye alphabet size (83). Thread the
-alphabet size from `--alphabet` everywhere; don't leave an 83 hardcoded.
+### 5.1 Shared facts (apply to all six)
 
-**Acceptance (B):** each migrated analysis runs on
+- **Alphabet-size hardcode root:** `pub const READING_LAYER_ALPHABET_SIZE: usize =
+  83;` at `src/analysis/orders/mod.rs:39`. Every battery "83" flows from it. Thread
+  `alphabet_size` from `--alphabet`; don't leave an 83 hardcoded. `TrigramValue`
+  holds `0..=124` (`core/trigram.rs:51`), so alphabets up to 125 work.
+- **Two eye loaders, both eye-hardwired:** `orders::corpus_grids()` +
+  `accepted_honeycomb_order()` + `read_corpus_message_values(...)` (chaining,
+  chaining-graph, perfectiso), and the no-arg `CorpusContext::load()`
+  (`orders/context.rs:37`) (isomorphnull, leak_ceiling, isomorph_imperfection).
+- **A per-stream seam already exists for 3 of 6** — `chaining`, `isomorphnull`,
+  `perfectiso` each split into a thin `run_*` (loads the corpus) + a private
+  `report_from_message_values(config, order, keys, message_values)`. That is your
+  seam. All three take `keys: &[&'static str]` (fine for the single file stream —
+  pass `&["input"]`) and `order: ReadingOrder` (an eye concept used only as a
+  report label — pass `RawRows`).
+
+### 5.2 The clean three — DO THESE FIRST, one commit each
+
+Their calibration controls are already matched to the input (lengths/alphabet) or
+synthetic and stream-independent, so a file-driven path keeps a valid positive
+control. No honesty judgment call.
+
+1. **`chaining`** — easiest. `chaining_signature(message_values, period,
+   alphabet_size)` is already `pub` + generic (`chaining/engine.rs:37`);
+   `ChainingConfig.alphabet_size` already exists (`chaining/mod.rs:71`) but is not
+   CLI-reachable; the calibration null is built from per-message lengths + alphabet
+   (input-matched). `ChainingArgs` at `args_analysis.rs:122`; uniform dispatch at
+   `dispatch.rs:130`; seam `report_from_message_values` at `engine.rs:94`;
+   `validate_alphabet` accepts `1..=125`.
+2. **`isomorphnull`** — `detect_isomorphs<T>` is `pub` + generic
+   (`isomorph.rs:212`); the math is equality-based and alphabet-agnostic (no 83).
+   Seam `report_from_message_values` at `isomorph_null.rs:306` (its own tests
+   already call it with synthetic fixtures — proven). `IsomorphNullArgs` at
+   `args_analysis.rs:104`; uniform dispatch at `dispatch.rs:125`. The within-message
+   shuffle matched null already exists.
+3. **`chaining-graph`** — more plumbing, but **no eye-control problem**
+   (`run_positive_control` is synthetic and stream-independent). `compute_graph`
+   (`chaining_graph/graph.rs:19`) is `pub(crate)` and **hardcodes 83 at graph.rs:27**
+   (`coverage_from_links(&links, READING_LAYER_ALPHABET_SIZE)`) —
+   `coverage_from_links`/`coverage_counts_from_links` already take `alphabet_size`,
+   so only the call site needs it. There is no single `report_from_message_values`
+   seam; the trio `compute_graph` → `run_shuffle_null` → `run_positive_control` is
+   inlined in `run_chaining_graph` (`chaining_graph/mod.rs:502-504`) — wrap it in a
+   new `pub fn …_for_stream(config, message_values, alphabet_size)`. Bump
+   `compute_graph` (and `GraphComputation`/`ContextMetadata`, graph.rs:205/213) to
+   `pub` and add the `alphabet_size` parameter. `ChainingGraphArgs` at
+   `args_analysis.rs:146`; uniform dispatch at `dispatch.rs:131`.
+
+### 5.3 The entangled three — STOP, get a maintainer decision first (see §6)
+
+These fuse eye-corpus-calibrated validation into the per-stream path. Making them
+file-driven means **gating that off or rebuilding it as a per-input synthetic
+control** — an honesty call, not a mechanical change. Do not guess; raise it.
+
+4. **`perfectiso`** — seam `report_from_message_values`
+   (`perfect_isomorphism/mod.rs:379`, private) **runs pinned wiki-regression checks
+   + a positive control keyed to eye message names** (`run_regression_checks` /
+   `ensure_all_regressions_reproduced` / `run_positive_control`, mod.rs:403-405;
+   benign-region enums `east1`/`west1`/`east4`, mod.rs:223-230) — these fail on
+   arbitrary input. Its signature also takes `keys: &[&'static str]` (no `'static`
+   keys for arbitrary input → change to owned/generated labels). `ALPHABET_SIZE`
+   const at mod.rs:43. `PerfectIsomorphismArgs` at `args_analysis.rs:204`; uniform
+   dispatch at `dispatch.rs:146`.
+5. **`leak_ceiling`** — **no `Command` at all** (test-only; `run_leak_ceiling` at
+   `leak_ceiling/mod.rs:354`, loads `CorpusContext::load()`). Hardcodes `two`'s
+   G1b-measured constants at `mod.rs:70-80` (`TWO_COSETS=12`, `TWO_STREAM_LEN=698`,
+   `TWO_DOMINANT_OCCURRENCES=76`, `TWO_OUT_DEGREE=8`, `TWO_UNDECIDABLE_LOW=0.76`,
+   `TWO_UNDECIDABLE_HIGH=0.83`, `CALIBRATED_GEOMETRY=2.0`) consumed by
+   `analytic_demand`/`calibration_control`. The original handoff said "compute those
+   from the input stream," but the Part-D calibration is a *measured reference* —
+   decide with the maintainer whether to generalize it or gate it off for file
+   input. Also depends on chaining-graph's 83 fix (it calls `compute_graph` via
+   `math::chaining_supply`). Needs a new `Command` + arg struct + file-driven entry.
+6. **`isomorph_imperfection`** — **no `Command` at all** (test-only;
+   `run_isomorph_imperfection` at `isomorph_imperfection/mod.rs:321`, loads
+   `CorpusContext::load()`). No numeric alphabet hardcode (works on `u32` class
+   labels), but has eye-specific controls (`locate_stutter_candidate` keyed to
+   `east4`/`west4`, mod.rs:343; synthetic positive control `ensure_positive_control`,
+   mod.rs:347) and window bounds (`EXTENDED_WINDOWS` up to 17, validated against the
+   shortest message, mod.rs:336) that reject short arbitrary inputs. Needs a new
+   `Command` + arg struct + file-driven entry, with the eye controls gated/rebuilt.
+
+### 5.4 Exclude `honeycomb` and `grouping`
+
+Both are specific to the 2-D eye glyph geometry, not a 1-D stream: `honeycomb`
+(`honeycomb/mod.rs:314`) tests a fixed 2-D lattice over physical row-pair
+coordinates of the reconstructed grids; `grouping` (`grouping/mod.rs`, bespoke
+handler `misc.rs:57`) does base-N state-count calibration of the eye reading-layer
+stream. Leave them eye-specific; if you touch them, only to document why.
+
+**Watch:** thread the alphabet size from `--alphabet` everywhere; don't leave an 83
+hardcoded (root: `orders/mod.rs:39`).
+
+**Acceptance (B), per analysis:** runs on
 `research/data/practice-puzzles/{one,two}` and on a synthetic, with its positive
 control firing; the eye-corpus default still works unchanged; `make check` green.
 
@@ -216,20 +376,32 @@ control firing; the eye-corpus default still works unchanged; `make check` green
 
 ## 8. Suggested sequencing
 
-A (GAK tool, with the P2 fix) first — it's self-contained and establishes the
-file-driven-instrument + self-test pattern the rest of B copies. Then B in the
-ease order above, one analysis per commit. Each step is independently valuable;
-none blocks the others except that A's `cli::shared` usage is the reference.
+**A is DONE** (commits `61db12e` / `e1dd966` / `80d0cfe`) — it established the
+file-driven-instrument + self-test pattern and the `cli::shared` usage the rest of
+B copies. **Do B in this order:** the clean three (§5.2) `chaining` →
+`isomorphnull` → `chaining-graph`, one commit each; then **pause for a maintainer
+decision** on the entangled three (§5.3) before touching their eye-calibrated
+controls. The steps are independently valuable and don't logically block each
+other, but they all touch the shared CLI files (`args.rs`, `dispatch.rs`,
+`commands/mod.rs`), so do them sequentially, not in parallel worktrees.
 
 ---
 
 ## 9. Pointers
 
-- Capability to promote: `src/attack/gak_attack/hidden_state_solver/` (commit
-  `ca64f13`); wired at `src/attack/gak_attack/mod.rs` (`#[cfg(test)] mod …`).
-- CLI precedent: `src/cli/{args.rs,args_attack.rs,shared.rs,dispatch.rs,commands/}`;
-  copy `keystream`/`solve`/`profile`.
-- Generic primitives to reuse: `src/analysis/isomorph.rs:212`,
-  `src/analysis/chaining/engine.rs:37`.
+- **Reference instrument (Workstream A, DONE):** the `gak` subcommand —
+  `src/cli/commands/gak.rs` (handler), `src/cli/args_attack.rs`
+  (`GakArgs`/`GakMode` + the three mode arg structs),
+  `src/attack/gak_attack/hidden_state_solver/instrument.rs` (the
+  `discriminate`/`solve_candidate`/`run_self_test` library layer). Copy this shape
+  for the bespoke battery handlers.
+- CLI precedent for bespoke handlers: `src/cli/commands/{gak,solve,keystream}.rs`;
+  shared input plumbing in `src/cli/shared.rs`
+  (`resolve_input_text`/`parse_cli_sequence`). New battery handlers go in a new
+  `src/cli/commands/structural.rs`.
+- Generic primitives to reuse: `src/analysis/isomorph.rs:212` (`detect_isomorphs`),
+  `src/analysis/chaining/engine.rs:37` (`chaining_signature`).
+- Glyph→symbol conversion: `Glyph(pub u16)` (`core/glyph.rs:165`), value = alphabet
+  index; `TrigramValue::new(value: u8)` accepts `0..=124` (`core/trigram.rs:51`).
 - Discipline: `AGENTS.md`, `research/attack-methodology.md`.
 - Test fixtures: `research/data/practice-puzzles/`.
