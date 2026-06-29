@@ -259,15 +259,23 @@ fn append_isomorph_null_interpretation(out: &mut String, report: &IsomorphNullRe
         .map(|row| format!("k={} (p={:.4})", row.window, row.empirical_p))
         .collect::<Vec<_>>();
 
+    // The eye path always uses the accepted honeycomb order; only the
+    // `isomorph_null_for_stream` entry labels its report with `RawRows`. Stream
+    // reports must not claim eye-corpus provenance.
+    let subject = if report.order == ReadingOrder::RawRows {
+        "the input stream"
+    } else {
+        "the real eye stream"
+    };
     if pointwise_excesses.is_empty() {
         report::appendln!(
             out,
-            "Interpretation: the real eye stream does not exceed the pointwise 95% within-message shuffle band for repeated-signature kind counts at the scanned k values. Short repeated isomorphs exist, but this run does not show arrangement structure beyond the same messages shuffled against themselves."
+            "Interpretation: {subject} does not exceed the pointwise 95% within-message shuffle band for repeated-signature kind counts at the scanned k values. Short repeated isomorphs exist, but this run does not show arrangement structure beyond the same messages shuffled against themselves."
         );
     } else {
         report::appendln!(
             out,
-            "Interpretation: the real eye stream exceeds the pointwise 95% within-message shuffle band at {}. That is an arrangement signal worth rechecking, not a decryption or plaintext claim.",
+            "Interpretation: {subject} exceeds the pointwise 95% within-message shuffle band at {}. That is an arrangement signal worth rechecking, not a decryption or plaintext claim.",
             pointwise_excesses.join(", ")
         );
     }
@@ -275,10 +283,17 @@ fn append_isomorph_null_interpretation(out: &mut String, report: &IsomorphNullRe
         out,
         "The shuffle null holds symbol frequencies fixed and randomizes only order, so it tests arrangement rather than frequency. The p values are empirical fractions over the configured shuffles and are pointwise over the scanned k values."
     );
-    report::appendln!(
-        out,
-        "Any striking excess should be rechecked against Experiment 0 transcription integrity before interpretation."
-    );
+    if report.order == ReadingOrder::RawRows {
+        report::appendln!(
+            out,
+            "Any striking excess is a property of the supplied stream and should be rechecked before interpretation."
+        );
+    } else {
+        report::appendln!(
+            out,
+            "Any striking excess should be rechecked against Experiment 0 transcription integrity before interpretation."
+        );
+    }
 }
 
 fn format_isomorph_band(band: IsomorphNullBand) -> String {

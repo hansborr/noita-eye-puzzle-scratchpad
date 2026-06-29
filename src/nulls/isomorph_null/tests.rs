@@ -4,6 +4,7 @@ use super::{
 use crate::analysis::orders;
 use crate::core::trigram::TrigramValue;
 use crate::nulls::null::SplitMix64;
+use crate::report::Report;
 
 #[test]
 fn isomorph_null_is_reproducible_for_fixed_seed() {
@@ -73,6 +74,11 @@ fn for_stream_isomorph_rich_exceeds_its_shuffle_null_off_corpus() {
         row.null
     );
     assert!(row.empirical_p <= 0.05, "p={}", row.empirical_p);
+
+    // Honesty: an off-corpus stream report must not claim eye-corpus provenance.
+    let rendered = report.render();
+    assert!(!rendered.contains("eye"), "{rendered}");
+    assert!(!rendered.contains("Experiment 0"), "{rendered}");
 }
 
 #[test]

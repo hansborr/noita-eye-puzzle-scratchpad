@@ -1,5 +1,14 @@
 use super::{ChainingClassification, ChainingReport, ResidualBand, ScalarBand};
+use crate::analysis::orders::ReadingOrder;
 use crate::report::{self, Report};
+
+/// Whether this report is an arbitrary-stream run (file-driven path) rather than
+/// the verified eye corpus. The eye path always uses the accepted honeycomb order;
+/// only the `*_for_stream` entry labels its report with [`ReadingOrder::RawRows`].
+/// Stream reports must not claim eye-corpus provenance.
+fn is_stream(report: &ChainingReport) -> bool {
+    report.order == ReadingOrder::RawRows
+}
 
 impl Report for ChainingReport {
     fn render(&self) -> String {
@@ -18,9 +27,14 @@ impl Report for ChainingReport {
 fn append_chaining_header(out: &mut String, report: &ChainingReport) {
     report::appendln!(out, "Experiment 7B alphabet-chaining structural control");
     report::appendln!(out, "order: {}", report.order.name());
+    let alphabet_kind = if is_stream(report) {
+        "values"
+    } else {
+        "reading-layer values"
+    };
     report::appendln!(
         out,
-        "alphabet: reading-layer values 0..={}",
+        "alphabet: {alphabet_kind} 0..={}",
         report.config.alphabet_size.saturating_sub(1)
     );
     report::appendln!(out, "seed: {}", report.config.seed);
@@ -56,12 +70,17 @@ fn append_chaining_header(out: &mut String, report: &ChainingReport) {
 }
 
 fn append_chaining_score_table(out: &mut String, report: &ChainingReport) {
+    let (score_label, qual_label) = if is_stream(report) {
+        ("score", "quality")
+    } else {
+        ("eye score", "eye qual")
+    };
     report::appendln!(
         out,
         "{:>2} {:>10} {:>9} {:>7} {:>15} {:>15} {:>15} {:>12}",
         "p",
-        "eye score",
-        "eye qual",
+        score_label,
+        qual_label,
         "resid",
         "succeed 95%",
         "fail 95%",
@@ -133,20 +152,34 @@ fn append_chaining_interpretation(out: &mut String, report: &ChainingReport) {
         );
     }
     if fail_matches == report.rows.len() {
-        report::appendln!(
-            out,
-            "Interpretation: across the scanned periods, the eye stream lands in the calibrated known-fail chaining band, not the known-succeed Vigenere band. Under this honeycomb reading order and fixed-period additive alphabet model, the eyes lack chainable additive-related-alphabet structure."
-        );
+        if is_stream(report) {
+            report::appendln!(
+                out,
+                "Interpretation: across the scanned periods, the input stream lands in the calibrated known-fail chaining band, not the known-succeed Vigenere band. Under this fixed-period additive alphabet model, the stream lacks chainable additive-related-alphabet structure."
+            );
+        } else {
+            report::appendln!(
+                out,
+                "Interpretation: across the scanned periods, the eye stream lands in the calibrated known-fail chaining band, not the known-succeed Vigenere band. Under this honeycomb reading order and fixed-period additive alphabet model, the eyes lack chainable additive-related-alphabet structure."
+            );
+        }
     } else {
         report::appendln!(
             out,
             "Interpretation: period placement summary: {fail_matches} known-fail, {succeed_matches} known-succeed, {between} between separated bands, {overlapping} uncalibrated-overlap."
         );
     }
-    report::appendln!(
-        out,
-        "This is a structural null result only. It does not prove the eyes are meaningless, and it does not rule out other encodings, period models, reading orders, transcription corrections, or non-additive alphabet relationships."
-    );
+    if is_stream(report) {
+        report::appendln!(
+            out,
+            "This is a structural null result only on the supplied stream. It does not rule out other encodings, period models, or non-additive alphabet relationships."
+        );
+    } else {
+        report::appendln!(
+            out,
+            "This is a structural null result only. It does not prove the eyes are meaningless, and it does not rule out other encodings, period models, reading orders, transcription corrections, or non-additive alphabet relationships."
+        );
+    }
 }
 
 fn format_chaining_band(band: ScalarBand) -> String {

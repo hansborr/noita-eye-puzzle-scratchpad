@@ -5,6 +5,7 @@ use super::{
 use crate::analysis::orders;
 use crate::core::trigram::TrigramValue;
 use crate::nulls::null::SplitMix64;
+use crate::report::Report;
 
 #[test]
 fn known_succeed_and_fail_controls_are_distinct_and_separated() {
@@ -154,6 +155,12 @@ fn for_stream_classifies_a_synthetic_vigenere_off_corpus() {
         fail.rows.first().unwrap().classification,
         ChainingClassification::MatchesKnownFail
     );
+
+    // Honesty: an off-corpus stream report must not claim eye-corpus provenance.
+    let rendered = succeed.render();
+    assert!(!rendered.contains("eye"), "{rendered}");
+    assert!(!rendered.contains("reading-layer"), "{rendered}");
+    assert!(!rendered.contains("honeycomb"), "{rendered}");
 }
 
 #[test]

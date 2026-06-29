@@ -6,6 +6,7 @@ use super::{
 };
 use crate::analysis::orders;
 use crate::core::trigram::TrigramValue;
+use crate::report::Report;
 use std::collections::BTreeSet;
 
 #[test]
@@ -140,6 +141,12 @@ fn for_stream_fires_positive_control_off_corpus() {
     assert_eq!(report.coverage.alphabet_size, 10);
     assert_eq!(report.order.name(), "raw-rows");
     assert_eq!(report.message_lengths, vec![("input", 21)]);
+
+    // Honesty: an off-corpus stream report must not claim eye / wiki / wave-1 provenance.
+    let rendered = report.render();
+    assert!(!rendered.contains("eye"), "{rendered}");
+    assert!(!rendered.contains("wiki"), "{rendered}");
+    assert!(!rendered.contains("wave-1"), "{rendered}");
 }
 
 #[test]

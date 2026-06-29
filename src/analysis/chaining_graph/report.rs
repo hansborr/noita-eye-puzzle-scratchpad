@@ -3,9 +3,18 @@
 //! Holds the `Report` implementation and its `append_*` helpers, split out of
 //! the chaining-graph battery body so the compute lives separately.
 
+use crate::analysis::orders::ReadingOrder;
 use crate::report::{self, Report};
 
 use super::{ChainingGraphReport, NullStatistic};
+
+/// Whether this report is an arbitrary-stream run (file-driven path) rather than
+/// the verified eye corpus. The eye path always uses the accepted honeycomb order;
+/// only `chaining_graph_for_stream` labels its report with [`ReadingOrder::RawRows`].
+/// Stream reports must not claim eye-corpus / wiki / wave-1 provenance.
+fn is_stream(report: &ChainingGraphReport) -> bool {
+    report.order == ReadingOrder::RawRows
+}
 
 impl Report for ChainingGraphReport {
     fn render(&self) -> String {
@@ -20,7 +29,7 @@ impl Report for ChainingGraphReport {
         report::appendln!(&mut out);
         append_chaining_graph_positive_control(&mut out, self);
         report::appendln!(&mut out);
-        append_chaining_graph_interpretation(&mut out);
+        append_chaining_graph_interpretation(&mut out, self);
         out
     }
 }
@@ -41,10 +50,12 @@ fn append_chaining_graph_header(out: &mut String, report: &ChainingGraphReport) 
         "message lengths: {}",
         report::format_message_lengths(&report.message_lengths)
     );
-    report::appendln!(
-        out,
-        "wiki pages under test: Graph-Chaining.md, Alphabet-Chaining.md, Chaining-Conflicts.md, Chaining-Conflict-Rates.md"
-    );
+    if !is_stream(report) {
+        report::appendln!(
+            out,
+            "wiki pages under test: Graph-Chaining.md, Alphabet-Chaining.md, Chaining-Conflicts.md, Chaining-Conflict-Rates.md"
+        );
+    }
     report::appendln!(
         out,
         "scope: ciphertext symbol equality plus observed context actions only"
@@ -116,10 +127,17 @@ fn append_chaining_graph_coverage(out: &mut String, report: &ChainingGraphReport
         "  components among touched symbols: {}",
         report.coverage.core_supported_components
     );
-    report::appendln!(
-        out,
-        "  label note: repeated-core support is a provenance filter inside this Rust audit, not wave-1's same-plaintext genuine tier."
-    );
+    if is_stream(report) {
+        report::appendln!(
+            out,
+            "  label note: repeated-core support is a provenance filter inside this audit, not a same-plaintext genuine tier."
+        );
+    } else {
+        report::appendln!(
+            out,
+            "  label note: repeated-core support is a provenance filter inside this Rust audit, not wave-1's same-plaintext genuine tier."
+        );
+    }
 }
 
 fn append_chaining_graph_null(out: &mut String, report: &ChainingGraphReport) {
@@ -182,15 +200,17 @@ fn append_chaining_graph_positive_control(out: &mut String, report: &ChainingGra
     );
 }
 
-fn append_chaining_graph_interpretation(out: &mut String) {
+fn append_chaining_graph_interpretation(out: &mut String, report: &ChainingGraphReport) {
     report::appendln!(
         out,
         "Interpretation: broad conflict counts quantify window-11/shared-pivot gap-isomorph non-commutativity, including coincidental collisions; they are not same-plaintext evidence. Core-supported coverage is printed as a repeated-core guardrail, while same-plaintext support is not established by the broad graph. Coverage is evidence, not proof, for the transitivity premise."
     );
-    report::appendln!(
-        out,
-        "Wave-1 comparability note: this Rust audit is window-11 + shared-pivot only and is not directly comparable to wave-1's L=10..15 broad survey (17,124 conflicts, 79/83 coverage) nor its genuine tier (~1 conflict witness, ~28/83 coverage); the figures measure different search spaces."
-    );
+    if !is_stream(report) {
+        report::appendln!(
+            out,
+            "Wave-1 comparability note: this Rust audit is window-11 + shared-pivot only and is not directly comparable to wave-1's L=10..15 broad survey (17,124 conflicts, 79/83 coverage) nor its genuine tier (~1 conflict witness, ~28/83 coverage); the figures measure different search spaces."
+        );
+    }
     report::appendln!(
         out,
         "Multiplicity note: the report shows several descriptive tails from the same matched null; read them as an audit panel, not independent discoveries."
