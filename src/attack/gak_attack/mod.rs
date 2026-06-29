@@ -75,6 +75,8 @@ mod render;
 // the public path stays `crate::attack::gak_attack::*` via the `pub use` block below.
 pub(crate) mod generator;
 #[cfg(test)]
+mod hidden_state_solver; // Hidden-state (deck-stabilizer) GAK solver + hidden/visible discriminator (synthetic).
+#[cfg(test)]
 mod known_answer; // Thread G1: known-answer validation on practice puzzles.
 pub(crate) mod marginalization;
 pub(crate) mod solver;
