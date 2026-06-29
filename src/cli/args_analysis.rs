@@ -3,7 +3,7 @@
 
 use clap::{Args, Subcommand};
 use noita_eye_puzzle::{
-    analysis::{chaining, chaining_graph, honeycomb, perfect_isomorphism},
+    analysis::{chaining, chaining_graph, honeycomb, isomorph_imperfection, perfect_isomorphism},
     attack::cipher_attack,
     experiments::{
         conditional_structure, controls, modular_diff, orientation_homogeneity, periodicity,
@@ -219,6 +219,30 @@ pub(crate) struct PerfectIsomorphismArgs {
     pub(crate) min_window: usize,
     #[arg(long = "max-window", default_value_t = perfect_isomorphism::DEFAULT_MAX_WINDOW)]
     pub(crate) max_window: usize,
+    /// Reading-layer value stream. Optional: omit to run the verified eye corpus,
+    /// or read from --input-file / --stdin.
+    pub(crate) sequence: Option<String>,
+    /// Read the stream from this file instead of the positional argument.
+    #[arg(long = "input-file", conflicts_with = "sequence")]
+    pub(crate) input_file: Option<std::path::PathBuf>,
+    /// Read the stream from stdin.
+    #[arg(long = "stdin", conflicts_with_all = ["sequence", "input_file"])]
+    pub(crate) stdin: bool,
+    /// Cipher alphabet chars, in order; required for any non-corpus input. The
+    /// scan is equality- and gap-based, so the alphabet only declares which symbols
+    /// are equal (its size is not threaded into the config).
+    #[arg(long = "alphabet")]
+    pub(crate) alphabet: Option<String>,
+}
+
+#[derive(Clone, Debug, Args)]
+pub(crate) struct IsomorphImperfectionArgs {
+    #[arg(long, default_value_t = isomorph_imperfection::DEFAULT_SEED)]
+    pub(crate) seed: u64,
+    #[arg(long = "null-trials", default_value_t = isomorph_imperfection::DEFAULT_NULL_TRIALS)]
+    pub(crate) null_trials: usize,
+    #[arg(long = "family-trials", default_value_t = isomorph_imperfection::DEFAULT_FAMILY_TRIALS)]
+    pub(crate) family_trials: usize,
     /// Reading-layer value stream. Optional: omit to run the verified eye corpus,
     /// or read from --input-file / --stdin.
     pub(crate) sequence: Option<String>,

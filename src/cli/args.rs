@@ -6,9 +6,9 @@ use clap::{Parser, Subcommand};
 
 use super::args_analysis::{
     ChainingArgs, ChainingGraphArgs, CipherAttackArgs, ConditionalArgs, ControlsArgs, DofNullArgs,
-    HomogeneityArgs, HoneycombArgs, IsomorphNullArgs, ModularDiffArgs, NullArgs,
-    PerfectIsomorphismArgs, PeriodicityArgs, PerseusArgs, PyryConditionsArgs, TransitivityArgs,
-    TreeResidualArgs, ZeroAdjacencyNullArgs,
+    HomogeneityArgs, HoneycombArgs, IsomorphImperfectionArgs, IsomorphNullArgs, ModularDiffArgs,
+    NullArgs, PerfectIsomorphismArgs, PeriodicityArgs, PerseusArgs, PyryConditionsArgs,
+    TransitivityArgs, TreeResidualArgs, ZeroAdjacencyNullArgs,
 };
 use super::args_attack::{
     AglGakArgs, GakArgs, GakAttackArgs, GakAttackEyesArgs, KeystreamArgs, ProfileArgs, RagbabyArgs,
@@ -83,6 +83,11 @@ pub(crate) enum Command {
     /// Thread 3 perfect-isomorphism / allomorph-consistency scan.
     #[command(name = "perfectiso", alias = "perfect-isomorphism")]
     Perfectiso(PerfectIsomorphismArgs),
+    /// Thread G2 forward isomorph-imperfection disproof scan. With no input flags
+    /// runs the verified eye corpus; a stream input is a cross-message test that
+    /// does not apply to a single message and emits no claim about the input.
+    #[command(name = "isomorphimperf", alias = "isomorph-imperfection")]
+    Isomorphimperf(IsomorphImperfectionArgs),
     /// Experiment 7D zero adjacency vs within-message multiset shuffle null.
     #[command(name = "zeroadjnull", alias = "zero-adjacency-null")]
     Zeroadjnull(ZeroAdjacencyNullArgs),

@@ -1,6 +1,7 @@
+use super::family::{family_counts, generate_family};
 use super::{
-    EXTENDED_WINDOWS, FAMILY_MESSAGES, HIGH_EPSILON, IsomorphImperfectionConfig, family_counts,
-    generate_family, run_isomorph_imperfection, scan_counts,
+    EXTENDED_WINDOWS, FAMILY_MESSAGES, HIGH_EPSILON, IsomorphImperfectionConfig,
+    isomorph_imperfection_for_stream, run_isomorph_imperfection, scan_counts,
 };
 use crate::report::Report;
 
@@ -95,6 +96,60 @@ fn eyes_are_a_hardened_negative() {
     assert!(rendered.contains("epsilon"));
     assert!(rendered.contains("GAK not falsified"));
     assert!(rendered.contains("all loose candidates"));
+}
+
+#[test]
+fn for_stream_does_not_apply_and_is_neutral_off_corpus() {
+    // The fn the CLI handler calls, on an arbitrary single-message stream.
+    // Isomorph imperfection is a cross-message test, so a single stream has an
+    // empty cross-message break catalog by construction and no internal-violation
+    // test applies; the stream-independent synthetic imperfect-family control still
+    // self-validates the detector, under the neutral raw-rows label with no
+    // eye-corpus provenance.
+    let stream = neutral_stream();
+    let len = stream.len();
+    let report = isomorph_imperfection_for_stream(cheap_config(), &[stream]).unwrap();
+
+    assert_eq!(report.order.name(), "raw-rows");
+    assert_eq!(report.message_lengths, vec![("input", len)]);
+    assert_eq!(report.extended_counts.robust_internal_violations, 0);
+    assert!(report.loose_candidates.is_empty());
+    assert!(report.stutter_candidate.is_none());
+    // The synthetic imperfect-family positive control self-validates the detector
+    // independently of the supplied stream.
+    assert!(report.family.positive_control_fired);
+
+    // Honesty: an off-corpus stream report must not claim eye / wiki / GAK
+    // provenance, and must say plainly that the cross-message test does not apply
+    // rather than emit a vacuous verdict about the untestable input.
+    let rendered = report.render();
+    for forbidden in [
+        "eye",
+        "wiki",
+        "GAK",
+        "Stutter",
+        "CTAK",
+        "Allomorphs",
+        "Experiment 0",
+        ".md",
+    ] {
+        assert!(
+            !rendered.contains(forbidden),
+            "leaked {forbidden}: {rendered}"
+        );
+    }
+    assert!(!rendered.contains("GAK not falsified"), "{rendered}");
+    assert!(rendered.contains("does not apply"), "{rendered}");
+}
+
+fn neutral_stream() -> Vec<crate::core::trigram::TrigramValue> {
+    // >= the longest extended window (17) with internal repeats; still a single
+    // message, so it cannot populate the cross-message break catalog regardless of
+    // content.
+    [0u8, 1, 2, 0, 3, 1, 4, 2, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+        .into_iter()
+        .map(|raw| crate::core::trigram::TrigramValue::new(raw).unwrap())
+        .collect()
 }
 
 #[test]

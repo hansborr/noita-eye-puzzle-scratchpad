@@ -3,13 +3,25 @@
 //! Extracted verbatim from the leaf module; the byte-exact stdout render
 //! (verdict language included) is preserved unchanged.
 
+use crate::analysis::orders::ReadingOrder;
 use crate::analysis::perfect_isomorphism::{MAX_ISLAND_COLS, POST_MIN, SIGNIFICANCE_ALPHA};
 use crate::report::{self, Report};
 
 use super::{IsomorphImperfectionReport, NullOutcome};
 
+/// Whether this report is an arbitrary-stream run (file-driven path) rather than
+/// the verified eye corpus. The eye path always uses the accepted honeycomb order;
+/// only [`super::isomorph_imperfection_for_stream`] labels its report with
+/// [`ReadingOrder::RawRows`]. Stream reports must not claim eye-corpus provenance.
+fn is_stream(report: &IsomorphImperfectionReport) -> bool {
+    report.order == ReadingOrder::RawRows
+}
+
 impl Report for IsomorphImperfectionReport {
     fn render(&self) -> String {
+        if is_stream(self) {
+            return render_stream(self);
+        }
         let mut out = String::new();
         report::appendln!(&mut out, "Thread G2 isomorph-imperfection disproof scan");
         report::appendln!(&mut out, "order: {}", self.order.name());
@@ -213,6 +225,13 @@ fn append_family_section(out: &mut String, report: &IsomorphImperfectionReport) 
             .detection_threshold
             .map_or_else(|| "none in grid".to_owned(), |value| format!("{value:.2}"))
     );
+    if is_stream(report) {
+        report::appendln!(
+            out,
+            "  self-validation: the synthetic imperfect-family control above exercises the detector independently of the supplied stream; no per-input best-fit is computed (the cross-message statistic is empty for a single message)"
+        );
+        return;
+    }
     report::appendln!(
         out,
         "  eyes observed robust {} -> best-fit epsilon {:.2}",
@@ -281,4 +300,76 @@ fn verdict_line(report: &IsomorphImperfectionReport) -> String {
             SIGNIFICANCE_ALPHA,
         )
     }
+}
+
+// ===========================================================================
+// Arbitrary-stream (file-driven) render.
+//
+// Neutralized: no eye / wiki / community provenance, and no vacuous verdict
+// about the supplied input. Isomorph imperfection is a cross-message test, so a
+// single stream has an empty cross-message break catalog by construction and the
+// test does not apply; the synthetic imperfect-family control is the only
+// self-validation, and the run makes no claim about the input.
+// ===========================================================================
+
+fn render_stream(report: &IsomorphImperfectionReport) -> String {
+    let mut out = String::new();
+    report::appendln!(&mut out, "Thread G2 isomorph-imperfection disproof scan");
+    report::appendln!(&mut out, "order: {}", report.order.name());
+    report::appendln!(&mut out, "seed: {}", report.config.seed);
+    report::appendln!(
+        &mut out,
+        "null trials: {}, family trials per rate: {}",
+        report.config.null_trials,
+        report.config.family_trials
+    );
+    report::appendln!(
+        &mut out,
+        "message lengths: {}",
+        report::format_message_lengths(&report.message_lengths)
+    );
+    report::appendln!(
+        &mut out,
+        "mapping-independent scope: ciphertext symbol equality and first-occurrence gap structure only"
+    );
+    report::appendln!(&mut out);
+    append_stream_applicability(&mut out, report);
+    report::appendln!(&mut out);
+    append_family_section(&mut out, report);
+    report::appendln!(&mut out);
+    append_stream_interpretation(&mut out, report);
+    out
+}
+
+fn append_stream_applicability(out: &mut String, report: &IsomorphImperfectionReport) {
+    report::appendln!(out, "single-stream applicability");
+    report::appendln!(out, "  {}", stream_applicability_line(report));
+}
+
+fn stream_applicability_line(report: &IsomorphImperfectionReport) -> String {
+    if report.extended_counts.robust_internal_violations == 0 && report.loose_candidates.is_empty()
+    {
+        return "no cross-message gap-pattern repeats in the supplied stream -> the internal-violation test does not apply (isomorph imperfection compares aligned repeats across >= 2 messages, so a single message has an empty cross-message break catalog by construction)".to_owned();
+    }
+    // Reached only if a multi-message caller drives the stream fn directly.
+    format!(
+        "{} robust cross-message internal violation(s) localized in the supplied streams; a mapping-independent structural candidate to recheck against a structure-preserving null, not a recovery",
+        report.extended_counts.robust_internal_violations
+    )
+}
+
+fn append_stream_interpretation(out: &mut String, report: &IsomorphImperfectionReport) {
+    report::appendln!(out, "interpretation");
+    report::appendln!(out, "  {}", stream_interpretation(report));
+}
+
+fn stream_interpretation(report: &IsomorphImperfectionReport) -> String {
+    if report.extended_counts.robust_internal_violations == 0 && report.loose_candidates.is_empty()
+    {
+        return "Interpretation: a single-message stream has no cross-message aligned repeats, so the isomorph-imperfection internal-violation test does not apply to the input -- the cross-message break catalog is empty by construction. The synthetic imperfect-family positive control confirms the detector itself fires; this run makes no claim about the supplied stream.".to_owned();
+    }
+    format!(
+        "Interpretation: this is a mapping-independent cross-message family-falsification check on the supplied streams, not a decode. The {} robust non-benign internal violation(s) localized are a structural candidate to recheck against a structure-preserving null; the synthetic imperfect-family control self-validates the detector.",
+        report.extended_counts.robust_internal_violations
+    )
 }

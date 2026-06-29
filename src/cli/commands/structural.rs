@@ -10,13 +10,15 @@ use std::process::ExitCode;
 
 use noita_eye_puzzle::analysis::chaining::{self, ChainingConfig};
 use noita_eye_puzzle::analysis::chaining_graph::{self, ChainingGraphConfig};
+use noita_eye_puzzle::analysis::isomorph_imperfection::{self, IsomorphImperfectionConfig};
 use noita_eye_puzzle::analysis::perfect_isomorphism::{self, PerfectIsomorphismConfig};
 use noita_eye_puzzle::core::trigram::TrigramValue;
 use noita_eye_puzzle::nulls::isomorph_null::{self, IsomorphNullConfig};
 use noita_eye_puzzle::report::Report;
 
 use crate::cli::args_analysis::{
-    ChainingArgs, ChainingGraphArgs, IsomorphNullArgs, PerfectIsomorphismArgs,
+    ChainingArgs, ChainingGraphArgs, IsomorphImperfectionArgs, IsomorphNullArgs,
+    PerfectIsomorphismArgs,
 };
 use crate::cli::shared::{parse_cli_sequence, resolve_input_text};
 
@@ -234,5 +236,52 @@ pub(crate) fn run_perfectiso(args: &PerfectIsomorphismArgs) -> ExitCode {
     emit_report(
         "perfect-isomorphism error",
         perfect_isomorphism::perfect_isomorphism_for_stream(config, &[values]),
+    )
+}
+
+/// `isomorphimperf`: Thread G2 forward isomorph-imperfection disproof scan.
+///
+/// With no input flags, runs the verified eye corpus unchanged (the tuning flags
+/// `--seed`/`--null-trials`/`--family-trials` still apply). With a stream input,
+/// runs the same mapping-independent break-localization + synthetic
+/// imperfect-family self-validation over the arbitrary stream as a single `"input"`
+/// message under a neutral raw-rows label. The scan is equality- and gap-based, so
+/// `--alphabet` only declares symbol identity (its size is not threaded into the
+/// config). The eye benign-region attribution is keyed to eye message names and so
+/// is inert off-corpus; the stream-independent synthetic imperfect-family positive
+/// control self-validates the detector on any input.
+///
+/// Honest limitation: isomorph imperfection is a *cross-message* test (a robust
+/// internal violation is a same-gap-pattern repeat that diverges between two
+/// messages; the detector skips same-message pairs and a strong record must span
+/// two or more distinct messages). A single-message stream therefore has an empty
+/// cross-message break catalog by construction and the internal-violation test does
+/// not apply to it. This path self-validates the detector (synthetic control) and
+/// reports that the test is not applicable; it never claims a violation for an
+/// untestable single stream.
+pub(crate) fn run_isomorphimperf(args: &IsomorphImperfectionArgs) -> ExitCode {
+    let config = IsomorphImperfectionConfig {
+        seed: args.seed,
+        null_trials: args.null_trials,
+        family_trials: args.family_trials,
+    };
+    if args.sequence.is_none() && args.input_file.is_none() && !args.stdin {
+        return emit_report(
+            "isomorph-imperfection error",
+            isomorph_imperfection::run_isomorph_imperfection(config),
+        );
+    }
+    let (values, _alphabet_size) = match resolve_stream(
+        args.sequence.as_deref(),
+        args.input_file.as_ref(),
+        args.stdin,
+        args.alphabet.as_deref(),
+    ) {
+        Ok(pair) => pair,
+        Err(code) => return code,
+    };
+    emit_report(
+        "isomorph-imperfection error",
+        isomorph_imperfection::isomorph_imperfection_for_stream(config, &[values]),
     )
 }
