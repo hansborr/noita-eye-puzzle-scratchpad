@@ -120,7 +120,10 @@ impl<'tables, 'lm> DeckProblem<'tables, 'lm> {
             // the no-same-class precondition is load-bearing, not assumed.
             let shift = (b + CLASS_MOD - a) % CLASS_MOD;
             if shift == 0 {
-                return Err(GakAttackError::SameClassAdjacency { position: i });
+                // `i` is the 0-based index of the second symbol of the offending
+                // adjacency; report it as the 1-based stream position to match the
+                // error's documented contract.
+                return Err(GakAttackError::SameClassAdjacency { position: i + 1 });
             }
             eps.push(shift);
         }

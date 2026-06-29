@@ -219,7 +219,10 @@ pub enum HiddenVisibleVerdict {
     /// The excess lands on the visible-state (pre-compose, low-memory) side: it is
     /// within half of [`HIDDEN_MARGIN`] of the visible-state reference.
     VisibleState,
-    /// The excess falls between the calibrated references — no confident call.
+    /// The excess sits in the gray band just above the visible-state reference
+    /// (more than half [`HIDDEN_MARGIN`] above it, but less than a full margin) —
+    /// no confident call. The verdict is taken relative to the visible-state
+    /// reference; the hidden-state reference is reported for context only.
     Ambiguous,
     /// No calibration was available (alphabet size is not 12, where convention-B
     /// synthetics are undefined); only the raw excess is reported.

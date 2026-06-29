@@ -238,7 +238,9 @@ fn verdict_label(verdict: HiddenVisibleVerdict) -> &'static str {
         HiddenVisibleVerdict::VisibleState => {
             "VISIBLE-STATE (excess sits at the visible reference)"
         }
-        HiddenVisibleVerdict::Ambiguous => "AMBIGUOUS (excess falls between the references)",
+        HiddenVisibleVerdict::Ambiguous => {
+            "AMBIGUOUS (excess in the gray band above the visible reference)"
+        }
         HiddenVisibleVerdict::Uncalibrated => {
             "UNCALIBRATED (no 12-symbol convention-B calibration available)"
         }
