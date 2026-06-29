@@ -34,8 +34,8 @@
 //! The **visible-state** sibling (convention A) pre-composes
 //! (`deck <- compose(pi_a, deck)`), so the top card is a function of the *old*
 //! top alone — a low-memory Markov chain. The Markov-excess discriminator
-//! ([`markov_excess`]) separates the two: post-compose leaks more memory when
-//! conditioning on two prior symbols.
+//! (the `markov_excess` statistic, surfaced by [`discriminate`]) separates the
+//! two: post-compose leaks more memory when conditioning on two prior symbols.
 
 use std::collections::BTreeMap;
 
@@ -410,8 +410,15 @@ impl BigramLm {
 // Submodule wiring.
 // =====================================================================
 
+mod instrument;
 mod solver;
 
+pub use instrument::{
+    DEFAULT_GENERATIONS, DEFAULT_POPULATION, DEFAULT_SEED, DiscriminateReport, ENGLISH_MARGIN,
+    HIDDEN_MARGIN, HiddenVisibleVerdict, SELF_TEST_MAX_NULL, SELF_TEST_MIN_KNOWN_KEY,
+    SELF_TEST_MIN_RECOVERY, SelfTestReport, SolveCandidate, VISIBLE_ALPHABET, discriminate,
+    run_self_test, solve_candidate,
+};
 pub(crate) use solver::{decode_with_key, draw_key, encrypt, solve_hidden_state_gak};
 
 #[cfg(test)]

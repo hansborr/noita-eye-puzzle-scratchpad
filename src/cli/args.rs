@@ -11,7 +11,7 @@ use super::args_analysis::{
     TreeResidualArgs, ZeroAdjacencyNullArgs,
 };
 use super::args_attack::{
-    AglGakArgs, GakAttackArgs, GakAttackEyesArgs, KeystreamArgs, ProfileArgs, RagbabyArgs,
+    AglGakArgs, GakArgs, GakAttackArgs, GakAttackEyesArgs, KeystreamArgs, ProfileArgs, RagbabyArgs,
     SolveArgs, StatsArgs,
 };
 
@@ -45,6 +45,11 @@ pub(crate) enum Command {
     /// decode remains blocked. Writes a mandatory candidate record.
     #[command(name = "gak-attack-eyes", alias = "gak-eyes")]
     GakAttackEyes(GakAttackEyesArgs),
+    /// Hidden-state (deck-stabilizer) GAK instruments: a structural hidden-vs-visible
+    /// discriminator, an honest candidate generator, and an in-process self-test.
+    /// Runs on arbitrary ciphertext; a solve emits a candidate, never a decode.
+    #[command(name = "gak")]
+    Gak(GakArgs),
     /// Monte-Carlo null over random grids plus standard36 orders.
     #[command(name = "nulltest")]
     Nulltest(NullArgs),

@@ -18,8 +18,8 @@ use noita_eye_puzzle::{
 
 use super::args::{Cli, Command};
 use super::commands::{
-    run_controls, run_demo, run_grouping, run_keystream, run_orders, run_pipelinenull, run_profile,
-    run_ragbaby, run_solve, run_stats,
+    run_controls, run_demo, run_gak, run_grouping, run_keystream, run_orders, run_pipelinenull,
+    run_profile, run_ragbaby, run_solve, run_stats,
 };
 
 /// Outcome of one experiment run, ready for the thin CLI to emit.
@@ -67,6 +67,10 @@ where
     }
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "flat subcommand dispatch registry; one arm per command is clearest"
+)]
 pub(crate) fn run() -> ExitCode {
     match Cli::parse().command {
         // Irregular subcommands keep their bespoke handlers (multi-report,
@@ -82,6 +86,7 @@ pub(crate) fn run() -> ExitCode {
         Command::Keystream(args) => run_keystream(&args),
         Command::Ragbaby(args) => run_ragbaby(&args),
         Command::Profile(args) => run_profile(&args),
+        Command::Gak(args) => run_gak(&args),
         // Uniform experiments: build config, run, render report (or label the
         // error) via the generic `dispatch`/`emit` registry. The `&str` label
         // is the exact pre-registry stderr prefix.

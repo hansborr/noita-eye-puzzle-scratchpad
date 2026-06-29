@@ -74,8 +74,12 @@ mod render;
 // can import their internals; this widens no external (`pub`) surface —
 // the public path stays `crate::attack::gak_attack::*` via the `pub use` block below.
 pub(crate) mod generator;
-#[cfg(test)]
-mod hidden_state_solver; // Hidden-state (deck-stabilizer) GAK solver + hidden/visible discriminator (synthetic).
+// Hidden-state (deck-stabilizer, convention B) GAK: the Viterbi+genetic solver,
+// the Markov-excess discriminator, and the file-driven `gak` CLI instruments
+// (`discriminate`/`solve_candidate`/`run_self_test`). Namespaced under
+// `hidden_state_solver::` so its `DEFAULT_SEED`/`VISIBLE_ALPHABET` consts do not
+// collide with this module's gate constants.
+pub mod hidden_state_solver;
 #[cfg(test)]
 mod known_answer; // Thread G1: known-answer validation on practice puzzles.
 pub(crate) mod marginalization;

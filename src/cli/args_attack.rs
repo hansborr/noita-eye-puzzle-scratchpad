@@ -2,7 +2,7 @@
 //! keystream, ragbaby, profile, AGL-GAK, GAK-attack) plus their `From`
 //! conversions into the library config types.
 
-use clap::{Args, ValueEnum};
+use clap::{Args, Subcommand, ValueEnum};
 use noita_eye_puzzle::{
     attack::{agl_gak, gak_attack, keystream, ragbaby, solve},
     ciphers,
@@ -455,4 +455,96 @@ impl From<GakAttackEyesArgs> for gak_attack::EyesAttackConfig {
             candidates_dir: args.candidates_dir,
         }
     }
+}
+
+/// File-driven instruments over the hidden-state (deck-stabilizer, convention B)
+/// GAK. Each mode runs on arbitrary ciphertext from the CLI and self-validates
+/// against controls — it is a runnable tool, not a fixture-frozen analysis.
+#[derive(Clone, Debug, Args)]
+pub(crate) struct GakArgs {
+    /// Which instrument to run.
+    #[command(subcommand)]
+    pub(crate) mode: GakMode,
+}
+
+/// The three `gak` instrument modes.
+#[derive(Clone, Debug, Subcommand)]
+pub(crate) enum GakMode {
+    /// Structural hidden-vs-visible discriminator (Markov-excess; no language
+    /// model). Prints the excess drop, matched same-length synthetic references,
+    /// and a hidden/visible verdict.
+    Discriminate(GakDiscriminateArgs),
+    /// Honest candidate generator: the Viterbi + held-out genetic solver gated by a
+    /// matched no-English control. Emits a candidate, never a decode.
+    Solve(GakSolveArgs),
+    /// In-process self-test: a synthetic positive control plus a matched null,
+    /// printing PASS/FAIL so the instrument can be trusted before it is believed on
+    /// real data.
+    #[command(name = "self-test")]
+    SelfTest(GakSelfTestArgs),
+}
+
+/// Arguments for `gak discriminate`.
+#[derive(Clone, Debug, Args)]
+pub(crate) struct GakDiscriminateArgs {
+    /// Ciphertext sequence. Optional: omit to read from --input-file or stdin.
+    pub(crate) ciphertext: Option<String>,
+    /// Read the ciphertext from this file instead of the positional argument.
+    #[arg(long = "input-file", conflicts_with = "ciphertext")]
+    pub(crate) input_file: Option<std::path::PathBuf>,
+    /// Read the ciphertext from stdin.
+    #[arg(long = "stdin", conflicts_with_all = ["ciphertext", "input_file"])]
+    pub(crate) stdin: bool,
+    /// Cipher alphabet chars, in order. Defaults to the 12-symbol convention-B
+    /// alphabet ABCDEFGHIJKL; a non-12 alphabet reports the raw excess only (the
+    /// synthetic calibration references are undefined off the 12-symbol regime).
+    #[arg(long = "alphabet")]
+    pub(crate) alphabet: Option<String>,
+}
+
+/// Arguments for `gak solve`.
+#[derive(Clone, Debug, Args)]
+pub(crate) struct GakSolveArgs {
+    /// Ciphertext sequence. Optional: omit to read from --input-file or stdin.
+    pub(crate) ciphertext: Option<String>,
+    /// Read the ciphertext from this file instead of the positional argument.
+    #[arg(long = "input-file", conflicts_with = "ciphertext")]
+    pub(crate) input_file: Option<std::path::PathBuf>,
+    /// Read the ciphertext from stdin.
+    #[arg(long = "stdin", conflicts_with_all = ["ciphertext", "input_file"])]
+    pub(crate) stdin: bool,
+    /// Cipher alphabet chars, in order (must be the 12-symbol convention-B
+    /// alphabet). Defaults to ABCDEFGHIJKL.
+    #[arg(long = "alphabet")]
+    pub(crate) alphabet: Option<String>,
+    /// English text file to train the plaintext bigram language model (reduced to
+    /// 8 symbols by the assumed codec). Defaults to the bundled English corpus.
+    #[arg(long = "lm-corpus")]
+    pub(crate) lm_corpus: Option<std::path::PathBuf>,
+    /// Genetic-search population size.
+    #[arg(long, default_value_t = gak_attack::hidden_state_solver::DEFAULT_POPULATION)]
+    pub(crate) population: usize,
+    /// Genetic-search generations.
+    #[arg(long, default_value_t = gak_attack::hidden_state_solver::DEFAULT_GENERATIONS)]
+    pub(crate) generations: usize,
+    /// Deterministic seed (decimal or 0x-hex) for the search and the matched
+    /// no-English control.
+    #[arg(
+        long,
+        default_value_t = gak_attack::hidden_state_solver::DEFAULT_SEED,
+        value_parser = parse_seed
+    )]
+    pub(crate) seed: u64,
+}
+
+/// Arguments for `gak self-test`.
+#[derive(Clone, Copy, Debug, Args)]
+pub(crate) struct GakSelfTestArgs {
+    /// Deterministic seed (decimal or 0x-hex) for the synthetic blind solve.
+    #[arg(
+        long,
+        default_value_t = gak_attack::hidden_state_solver::DEFAULT_SEED,
+        value_parser = parse_seed
+    )]
+    pub(crate) seed: u64,
 }
