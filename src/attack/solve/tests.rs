@@ -5,7 +5,8 @@ use super::{
     solve_with_codec_trace, surviving_codecs,
 };
 use crate::attack::codec::{
-    CodecSearch, CodecSkipReason, DeltaCodec, DigitOrder, GroupingCodec, MAX_SEARCH_OUTPUT_ALPHABET,
+    CodecSearch, CodecSkipReason, DeltaCodec, DigitOrder, GroupingCodec,
+    MAX_SEARCH_OUTPUT_ALPHABET, ProjectCodec, ProjectionOp,
 };
 use crate::attack::language::{LanguageModel, english_model, finnish_model};
 use crate::ciphers::{
@@ -261,6 +262,8 @@ fn corpus_codec_request<'a>(
             codec: CodecStrategy::Search(CodecSearch {
                 max_group_len: 3,
                 try_delta: true,
+                try_binary_move: false,
+                try_fractionation: false,
                 orders: vec![DigitOrder::Msb, DigitOrder::Lsb],
                 seed: DEFAULT_SEED,
             }),
@@ -710,6 +713,8 @@ fn codec_search_recovers_planted_fixed_grouping() {
             codec: CodecStrategy::Search(CodecSearch {
                 max_group_len: 2,
                 try_delta: false,
+                try_binary_move: false,
+                try_fractionation: false,
                 orders: vec![DigitOrder::Msb, DigitOrder::Lsb],
                 seed: DEFAULT_SEED,
             }),
@@ -776,6 +781,8 @@ fn codec_search_logs_and_skips_out_of_budget_codecs() {
             codec: CodecStrategy::Search(CodecSearch {
                 max_group_len: 4,
                 try_delta: false,
+                try_binary_move: false,
+                try_fractionation: false,
                 orders: vec![DigitOrder::Msb],
                 seed: DEFAULT_SEED,
             }),
@@ -843,6 +850,8 @@ fn codec_search_skips_codec_too_wide_for_fixed_mapping() {
             codec: CodecStrategy::Search(CodecSearch {
                 max_group_len: 2,
                 try_delta: false,
+                try_binary_move: false,
+                try_fractionation: false,
                 orders: vec![DigitOrder::Msb],
                 seed: DEFAULT_SEED,
             }),
@@ -906,6 +915,8 @@ fn codec_search_is_deterministic_for_fixed_seed() {
             codec: CodecStrategy::Search(CodecSearch {
                 max_group_len: 2,
                 try_delta: true,
+                try_binary_move: false,
+                try_fractionation: false,
                 orders: vec![DigitOrder::Msb, DigitOrder::Lsb],
                 seed: DEFAULT_SEED,
             }),
@@ -962,6 +973,8 @@ fn codec_search_matched_null_stays_flat_on_shuffled_noise() {
             codec: CodecStrategy::Search(CodecSearch {
                 max_group_len: 2,
                 try_delta: false,
+                try_binary_move: false,
+                try_fractionation: false,
                 orders: vec![DigitOrder::Msb, DigitOrder::Lsb],
                 seed: DEFAULT_SEED,
             }),
@@ -1024,6 +1037,8 @@ fn enumeration_null_is_selection_complete_over_codecs() {
     let search = CodecSearch {
         max_group_len: 2,
         try_delta: false,
+        try_binary_move: false,
+        try_fractionation: false,
         orders: vec![DigitOrder::Msb, DigitOrder::Lsb],
         seed: DEFAULT_SEED,
     };
@@ -1115,6 +1130,8 @@ fn codec_search_heldout_above_null_on_plant() {
             codec: CodecStrategy::Search(CodecSearch {
                 max_group_len: 2,
                 try_delta: false,
+                try_binary_move: false,
+                try_fractionation: false,
                 orders: vec![DigitOrder::Msb],
                 seed: DEFAULT_SEED,
             }),
@@ -1168,6 +1185,8 @@ fn delta_search_recovers_delta_c5_plant() {
             codec: CodecStrategy::Search(CodecSearch {
                 max_group_len: 3,
                 try_delta: true,
+                try_binary_move: false,
+                try_fractionation: false,
                 orders: vec![DigitOrder::Msb],
                 seed: DEFAULT_SEED,
             }),
@@ -1228,6 +1247,125 @@ fn delta_search_recovers_delta_c5_plant() {
     assert_eq!(outcome, again);
 }
 
+// Binary-move positive control: prove the gate can FIRE (return a survivor)
+// through the new `Delta -> Project{Modulo 2} -> base-2 grouping` path, so puzzle
+// `one`'s negative is a real negative and not a dead/unreachable path. A known
+// English plaintext is encoded 5 bits/letter; each bit becomes a +/-1 move on C5
+// whose parity is that bit (+1 -> move 1, parity 1; -1 -> move 4, parity 0),
+// integrated into a walk. The binary-move codec differences the walk, keeps each
+// move's parity (mod 2), and regroups 5 bits into the letter index. The codec is
+// lossy (Project discards the quotient channel), so `codec_round_trip_ok` is
+// honestly false while the candidate still survives all three decode gates.
+//
+// Scope: this exercises the codec search with a Fixed mapping (the planted code is
+// a known bijection), proving the lossy `Project` path can transduce, score, and
+// clear the gates. The searched-mapping path through `Project` is exercised
+// (negatively) by the real puzzle-`one` run, which evaluates these codecs under a
+// mapping search and rejects them.
+#[test]
+fn binary_move_search_recovers_plant_and_survives() {
+    let english = english_model().unwrap();
+    let finnish = finnish_model().unwrap();
+    let base = 5usize;
+    let (ciphertext, plaintext_indices) = plant_binary_move_c5_english(&english);
+    let mapping = grouped_value_identity_mapping(&english);
+
+    let request = SolveRequest {
+        ciphertext: &ciphertext,
+        transparent: &[],
+        space: HypothesisSpace {
+            families: vec![CipherFamilySpec {
+                label: "Caesar".to_owned(),
+                ciphers: identity_plus_caesar_ciphers(base),
+            }],
+            codec: CodecStrategy::Search(CodecSearch {
+                max_group_len: 3,
+                try_delta: true,
+                try_binary_move: true,
+                try_fractionation: false,
+                orders: vec![DigitOrder::Msb],
+                seed: DEFAULT_SEED,
+            }),
+            mappings: MappingStrategy::Fixed(vec![mapping]),
+            language: LanguageChoice::English,
+            cipher_alphabet_size: base,
+            seed: DEFAULT_SEED,
+            null_trials: DEFAULT_NULL_TRIALS,
+        },
+        english: &english,
+        finnish: &finnish,
+    };
+
+    let outcome = solve_with_codec_trace(&request).unwrap();
+    let top = outcome.candidates.first().unwrap();
+
+    // The winning codec is the binary-move reading: difference the C5 walk, keep
+    // each move's parity, group 5 bits into one base-32 symbol. It is lossy, so its
+    // codec round-trip is honestly false.
+    assert_eq!(
+        top.codec,
+        AnyCodec::Delta(DeltaCodec {
+            base,
+            then: Box::new(AnyCodec::Project(ProjectCodec {
+                input_base: base,
+                output_base: 2,
+                op: ProjectionOp::Modulo,
+                then: Box::new(AnyCodec::FixedGrouping(GroupingCodec {
+                    group_len: 5,
+                    base: 2,
+                    order: DigitOrder::Msb,
+                    stride: 5,
+                })),
+            })),
+        })
+    );
+    assert!(top.crypto_round_trip_ok);
+    assert!(
+        !top.codec_round_trip_ok,
+        "Project is lossy; round-trip must be false"
+    );
+    // The decode gate fires positively through the binary-move path: it beats the
+    // matched null and generalizes, so a real decode survives where puzzle `one`
+    // (a structureless up/down walk) does not.
+    assert!(
+        candidate_survives(top),
+        "binary-move plant must survive: score {} null {} heldout {} null_heldout {}",
+        top.score,
+        top.null_mean,
+        top.heldout_mapping_score,
+        top.null_heldout_mean
+    );
+    let expected: String = plaintext_indices
+        .iter()
+        .map(|&index| english.alphabet().symbol(index).unwrap())
+        .collect();
+    assert_eq!(top.rendered_text, expected);
+}
+
+/// Plants a known English plaintext as a C5 +/-1 walk whose per-move parities are
+/// the plaintext's 5-bits-per-letter encoding (MSB first); the binary-move codec
+/// recovers it. Returns the walk (the ciphertext) and the plaintext indices.
+fn plant_binary_move_c5_english(model: &LanguageModel) -> (Vec<Glyph>, Vec<usize>) {
+    let base = 5usize;
+    let plaintext_indices = model
+        .alphabet()
+        .normalize_text(POSITIVE_CONTROL_TEXT)
+        .unwrap();
+    let mut walk = vec![Glyph(0)];
+    let mut accumulator = 0usize;
+    for &index in &plaintext_indices {
+        // MSB-first 5 bits; bit 1 -> +1 move (parity 1), bit 0 -> -1 == +4 mod 5
+        // (parity 0), so the move parity the codec keeps reproduces the bit. Each
+        // language index is < 29 < 32, so five bits hold it.
+        for shift in (0..5).rev() {
+            let mv = if (index >> shift) & 1 == 1 { 1 } else { 4 };
+            accumulator = (accumulator + mv) % base;
+            walk.push(Glyph(accumulator as u16));
+        }
+    }
+    (walk, plaintext_indices)
+}
+
 // The synthetic plant-through-codec positive control (the real proof).
 // A known English plaintext is pushed through the inverse of a
 // FixedGrouping{3,5,Msb,3} codec (each letter -> three base-5 digits) then a
@@ -1261,6 +1399,8 @@ fn codec_search_positive_control_recovers_exact_english() {
             codec: CodecStrategy::Search(CodecSearch {
                 max_group_len: 3,
                 try_delta: true,
+                try_binary_move: false,
+                try_fractionation: false,
                 orders: vec![DigitOrder::Msb, DigitOrder::Lsb],
                 seed: DEFAULT_SEED,
             }),
@@ -1957,6 +2097,8 @@ fn codec_search_with_mapping_search_recovers_plant_and_survives() {
             codec: CodecStrategy::Search(CodecSearch {
                 max_group_len: 3,
                 try_delta: true,
+                try_binary_move: false,
+                try_fractionation: false,
                 orders: vec![DigitOrder::Msb],
                 seed: DEFAULT_SEED,
             }),

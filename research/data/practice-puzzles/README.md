@@ -55,7 +55,10 @@ Notes:
 - The small-alphabet puzzles (`one`/`two`/`six`) cannot carry 26–29-letter English
   under a direct substitution; recovering them needs the codec/transduction
   (grouping) layer. `six`'s preserved spaces make it the clearest
-  base-N-grouping case.
+  base-N-grouping case. See `CODEC-RESULTS.md` for the codec-search battery:
+  `one` (a ±1 walk on C5) and `two` (whose `s%3` channel is a ±1 walk on C3) are
+  honest negatives; `two` additionally exposes a transition-law blind spot in the
+  bigram/Fisher-Yates gate (its gate "survivors" are artifacts, not decodes).
 
 ## Provenance
 External samples gathered by the maintainer (2026-06-25) to test the workbench's

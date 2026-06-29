@@ -9,7 +9,9 @@
 
 use crate::core::glyph::Glyph;
 
-use super::{AnyCodec, Codec, CodecError, DeltaCodec, DigitOrder, GroupingCodec};
+use super::{
+    AnyCodec, Codec, CodecError, DeltaCodec, DigitOrder, GroupingCodec, ProjectCodec, ProjectionOp,
+};
 
 /// Resolves a codec's output alphabet size given the input cipher alphabet size.
 ///
@@ -22,6 +24,7 @@ pub fn resolved_output_alphabet_size(codec: &AnyCodec, cipher_alphabet_size: usi
         AnyCodec::Identity => cipher_alphabet_size,
         AnyCodec::FixedGrouping(codec) => grouping_output_alphabet_size(codec),
         AnyCodec::Delta(codec) => resolved_output_alphabet_size(&codec.then, codec.base),
+        AnyCodec::Project(codec) => resolved_output_alphabet_size(&codec.then, codec.output_base),
     }
 }
 
@@ -140,6 +143,63 @@ pub(super) fn delta_transduce(
     codec.then.transduce(&moves)
 }
 
+/// Forward `Project`: keep each symbol's residue ([`ProjectionOp::Modulo`]) or
+/// quotient ([`ProjectionOp::Div`]) onto the declared `output_base` channel, then
+/// transduce through the inner codec.
+///
+/// The projection is **total** on every symbol in `0..input_base` (it never errors on
+/// valid input), so a [`super::AnyCodec::Project`] transduces a Fisher-Yates shuffle
+/// iff it transduces the original — the content-independence the matched-null
+/// enumeration relies on. It is lossy (the complementary channel is discarded), so
+/// the codec is never invertible and its round-trip is an honest `false`.
+pub(super) fn project_transduce(
+    codec: &ProjectCodec,
+    symbols: &[Glyph],
+) -> Result<Vec<Glyph>, CodecError> {
+    let input_base = codec.input_base;
+    let output_base = codec.output_base;
+    if output_base == 0 {
+        return Err(CodecError::ValueOutsideBase {
+            value: 0,
+            base: output_base,
+        });
+    }
+    let mut projected = Vec::with_capacity(symbols.len());
+    for glyph in symbols {
+        let value = usize::from(glyph.0);
+        if value >= input_base {
+            return Err(CodecError::ValueOutsideBase {
+                value,
+                base: input_base,
+            });
+        }
+        let kept = match codec.op {
+            ProjectionOp::Modulo => value % output_base,
+            ProjectionOp::Div { divisor } => {
+                if divisor == 0 {
+                    return Err(CodecError::ValueOutsideBase {
+                        value: divisor,
+                        base: input_base,
+                    });
+                }
+                let quotient = value / divisor;
+                // Defensive: the enumeration picks output_base = base/divisor, so a
+                // valid in-base symbol's quotient is always < output_base. Surface a
+                // misconfiguration honestly rather than emit an out-of-alphabet glyph.
+                if quotient >= output_base {
+                    return Err(CodecError::ValueOutsideBase {
+                        value: quotient,
+                        base: output_base,
+                    });
+                }
+                quotient
+            }
+        };
+        projected.push(Glyph(kept as u16));
+    }
+    codec.then.transduce(&projected)
+}
+
 // ---------------------------------------------------------------------------
 // Codec round-trip + alphabet-size sanity gates.
 // ---------------------------------------------------------------------------
@@ -245,6 +305,10 @@ fn re_expand(
             };
             integrate(codec.base, seed, &moves)
         }
+        // Project discards the complementary channel, so it cannot be re-expanded.
+        // `codec_round_trip_ok` short-circuits on `!is_invertible` before reaching
+        // here; this arm keeps the match exhaustive and honest.
+        AnyCodec::Project(_) => Err(CodecError::NonInvertible),
     }
 }
 

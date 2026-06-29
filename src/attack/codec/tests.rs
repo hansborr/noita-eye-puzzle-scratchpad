@@ -1,7 +1,8 @@
 use super::{
-    AnyCodec, Codec, CodecError, CodecSearch, DEFAULT_CODEC_SEARCH_MAX_GROUP_LEN,
-    DEFAULT_LANGUAGE_ALPHABET_SIZE, DeltaCodec, DigitOrder, GroupingCodec, codec_round_trip_ok,
-    default_codec_search, enumerate_codecs, honeycomb_codec, output_alphabet_hosts_language,
+    AnyCodec, BINARY_MOVE_GROUP_LENS, Codec, CodecError, CodecSearch,
+    DEFAULT_CODEC_SEARCH_MAX_GROUP_LEN, DEFAULT_LANGUAGE_ALPHABET_SIZE, DeltaCodec, DigitOrder,
+    GroupingCodec, ProjectCodec, ProjectionOp, codec_round_trip_ok, default_codec_search,
+    enumerate_codecs, honeycomb_codec, output_alphabet_hosts_language,
     output_exceeds_accepted_alphabet, resolved_output_alphabet_size,
 };
 use crate::core::glyph::{Glyph, Orientation};
@@ -330,6 +331,8 @@ fn enumerate_codecs_lists_groupings_and_dedupes_unit_group() {
     let search = CodecSearch {
         max_group_len: 3,
         try_delta: false,
+        try_binary_move: false,
+        try_fractionation: false,
         orders: vec![DigitOrder::Msb, DigitOrder::Lsb],
         seed: 0,
     };
@@ -360,6 +363,10 @@ fn cli_codec_helpers_expose_default_search_and_honeycomb() {
     let search = default_codec_search(0x1234);
     assert_eq!(search.max_group_len, DEFAULT_CODEC_SEARCH_MAX_GROUP_LEN);
     assert!(search.try_delta);
+    // binary-move on by default (makes puzzle `one`'s C5 walk testable);
+    // fractionation off by default (see `default_codec_search` / CODEC-RESULTS.md).
+    assert!(search.try_binary_move);
+    assert!(!search.try_fractionation);
     assert_eq!(search.orders, vec![DigitOrder::Msb, DigitOrder::Lsb]);
     assert_eq!(search.seed, 0x1234);
 
@@ -381,6 +388,8 @@ fn enumerate_codecs_wraps_delta_when_requested() {
     let search = CodecSearch {
         max_group_len: 3,
         try_delta: true,
+        try_binary_move: false,
+        try_fractionation: false,
         orders: vec![DigitOrder::Msb],
         seed: 0,
     };
@@ -408,4 +417,183 @@ fn enumerate_codecs_wraps_delta_when_requested() {
     });
     assert!(codecs.contains(&delta_identity));
     assert_eq!(resolved_output_alphabet_size(&delta_identity, 5), 5);
+}
+
+// Project codec: channels, lossiness, the binary-move reading, the enum appends.
+#[test]
+fn project_keeps_residue_and_quotient_channels() {
+    // base 12 -> residue mod 3 (puzzle two's r-channel): v % 3, base 3.
+    let residue = AnyCodec::Project(ProjectCodec {
+        input_base: 12,
+        output_base: 3,
+        op: ProjectionOp::Modulo,
+        then: Box::new(AnyCodec::Identity),
+    });
+    assert_eq!(
+        residue.transduce(&glyphs(&[0, 1, 2, 3, 4, 5, 11])).unwrap(),
+        glyphs(&[0, 1, 2, 0, 1, 2, 2])
+    );
+    assert_eq!(residue.name(), "project");
+    assert_eq!(resolved_output_alphabet_size(&residue, 12), 3);
+
+    // base 12 -> quotient div 3 (puzzle two's q-channel): v / 3, base 4.
+    let quotient = AnyCodec::Project(ProjectCodec {
+        input_base: 12,
+        output_base: 4,
+        op: ProjectionOp::Div { divisor: 3 },
+        then: Box::new(AnyCodec::Identity),
+    });
+    assert_eq!(
+        quotient.transduce(&glyphs(&[0, 3, 6, 9, 11])).unwrap(),
+        glyphs(&[0, 1, 2, 3, 3])
+    );
+    assert_eq!(resolved_output_alphabet_size(&quotient, 12), 4);
+}
+
+#[test]
+fn project_symbol_outside_input_base_errors() {
+    let codec = AnyCodec::Project(ProjectCodec {
+        input_base: 5,
+        output_base: 2,
+        op: ProjectionOp::Modulo,
+        then: Box::new(AnyCodec::Identity),
+    });
+    assert_eq!(
+        codec.transduce(&glyphs(&[0, 5])).unwrap_err(),
+        CodecError::ValueOutsideBase { value: 5, base: 5 }
+    );
+}
+
+#[test]
+fn project_is_lossy_and_breaks_delta_invertibility() {
+    // A projection discards the complementary channel -> never invertible (lossy);
+    // round-trip is an honest false (`candidate_survives` does not require it).
+    let project = AnyCodec::Project(ProjectCodec {
+        input_base: 5,
+        output_base: 2,
+        op: ProjectionOp::Modulo,
+        then: Box::new(AnyCodec::Identity),
+    });
+    assert!(!project.is_invertible());
+    assert!(!codec_round_trip_ok(&project, &glyphs(&[0, 1, 2, 3, 4])));
+
+    // Delta over Identity stays invertible; Delta over a lossy Project does not.
+    let delta_identity = AnyCodec::Delta(DeltaCodec {
+        base: 5,
+        then: Box::new(AnyCodec::Identity),
+    });
+    assert!(delta_identity.is_invertible());
+    let delta_project = AnyCodec::Delta(DeltaCodec {
+        base: 5,
+        then: Box::new(project),
+    });
+    assert!(!delta_project.is_invertible());
+    assert!(!codec_round_trip_ok(
+        &delta_project,
+        &glyphs(&[0, 1, 2, 3, 4, 0])
+    ));
+}
+
+#[test]
+fn binary_move_codec_groups_c5_walk_into_base32() {
+    // Puzzle one: Delta -> Project{mod 2} -> base-2 group of 5 bits -> base-32 symbol.
+    let codec = AnyCodec::Delta(DeltaCodec {
+        base: 5,
+        then: Box::new(AnyCodec::Project(ProjectCodec {
+            input_base: 5,
+            output_base: 2,
+            op: ProjectionOp::Modulo,
+            then: Box::new(AnyCodec::FixedGrouping(GroupingCodec {
+                group_len: 5,
+                base: 2,
+                order: DigitOrder::Msb,
+                stride: 5,
+            })),
+        })),
+    });
+    // 11-symbol walk -> moves [1;5, 4;5] -> bits [1;5, 0;5] -> 2 symbols [31, 0].
+    let walk = glyphs(&[0, 1, 2, 3, 4, 0, 4, 3, 2, 1, 0]);
+    assert_eq!(
+        codec.transduce(&walk).unwrap(),
+        glyphs(&[0b1_1111, 0b0_0000])
+    );
+    assert_eq!(resolved_output_alphabet_size(&codec, 5), 32); // 2^5, hosts language
+    assert!(!codec.is_invertible());
+}
+
+#[test]
+fn enumerate_codecs_appends_binary_move_codecs() {
+    let search = CodecSearch {
+        max_group_len: 3,
+        try_delta: false,
+        try_binary_move: true,
+        try_fractionation: false,
+        orders: vec![DigitOrder::Msb, DigitOrder::Lsb],
+        seed: 0,
+    };
+    let codecs = enumerate_codecs(&search, 5);
+    // Top level (delta off) = 5 codecs; appended: one per BINARY_MOVE_GROUP_LENS.
+    assert_eq!(codecs.len(), 5 + BINARY_MOVE_GROUP_LENS.len());
+    let bm5 = AnyCodec::Delta(DeltaCodec {
+        base: 5,
+        then: Box::new(AnyCodec::Project(ProjectCodec {
+            input_base: 5,
+            output_base: 2,
+            op: ProjectionOp::Modulo,
+            then: Box::new(AnyCodec::FixedGrouping(GroupingCodec {
+                group_len: 5,
+                base: 2,
+                order: DigitOrder::Msb,
+                stride: 5,
+            })),
+        })),
+    });
+    assert!(codecs.contains(&bm5));
+    assert_eq!(resolved_output_alphabet_size(&bm5, 5), 32);
+    assert!(!codecs.iter().any(|c| matches!(c, AnyCodec::Project(_))));
+}
+
+#[test]
+fn enumerate_codecs_appends_fractionation_channels() {
+    let search = CodecSearch {
+        max_group_len: 2,
+        try_delta: false,
+        try_binary_move: false,
+        try_fractionation: true,
+        orders: vec![DigitOrder::Msb],
+        seed: 0,
+    };
+    let codecs = enumerate_codecs(&search, 12);
+    // 12's base-6 pair grouping (6^2 = 36) is reachable as the d=6 residue (Modulo)
+    // and the d=2 quotient (Div).
+    let frac_mod6_pair = AnyCodec::Project(ProjectCodec {
+        input_base: 12,
+        output_base: 6,
+        op: ProjectionOp::Modulo,
+        then: Box::new(AnyCodec::FixedGrouping(GroupingCodec {
+            group_len: 2,
+            base: 6,
+            order: DigitOrder::Msb,
+            stride: 2,
+        })),
+    });
+    let frac_div2_pair = AnyCodec::Project(ProjectCodec {
+        input_base: 12,
+        output_base: 6,
+        op: ProjectionOp::Div { divisor: 2 },
+        then: Box::new(AnyCodec::FixedGrouping(GroupingCodec {
+            group_len: 2,
+            base: 6,
+            order: DigitOrder::Msb,
+            stride: 2,
+        })),
+    });
+    assert!(codecs.contains(&frac_mod6_pair));
+    assert!(codecs.contains(&frac_div2_pair));
+    assert_eq!(resolved_output_alphabet_size(&frac_mod6_pair, 12), 36);
+    assert!(
+        codecs
+            .iter()
+            .all(|c| !matches!(c, AnyCodec::Project(p) if p.output_base < 2))
+    );
 }

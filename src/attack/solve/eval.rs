@@ -290,6 +290,9 @@ fn rendered_index_for_cipher_index(codec: &AnyCodec, cipher_index: usize) -> usi
         AnyCodec::Delta(delta) => {
             rendered_index_for_cipher_index(&delta.then, cipher_index.saturating_sub(1))
         }
+        // Project is per-symbol (length-preserving), so it is the identity on the
+        // index; route through to its inner codec.
+        AnyCodec::Project(project) => rendered_index_for_cipher_index(&project.then, cipher_index),
     }
 }
 
