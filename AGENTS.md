@@ -29,6 +29,15 @@ here.
   message — don't wait to be asked. Branch off `main` first if you're on it. The
   pre-commit hook gates the commit on the correctness gate, so there's no need to
   run `make check`/`make verify` by hand first.
+- **Build instruments, not throwaway scripts or frozen fixtures.** Quick scratch
+  exploration is fine — but if a result is worth reporting or handing off, land the
+  capability that produced it as a runnable Rust CLI instrument, not a one-off
+  script (Python or otherwise) that gets tossed. The instrument accepts arbitrary
+  input (`--input-file`/`--stdin` + `--alphabet`, via `cli::shared`), self-validates
+  with a planted positive control + matched null, and is exercised by tests through
+  the same library functions the CLI calls. A `#[cfg(test)]`-only validation or an
+  analysis hardwired to the eye corpus is a regression test, not a tool; a discarded
+  scratch script leaves nothing the next agent can rerun.
 - **Keep the dependency surface minimal.** Vetted external crates are allowed, but
   justify each by use. The in-crate `SplitMix64` PRNG stays for reproducible null
   models — don't swap it for a crates.io RNG.
@@ -37,7 +46,12 @@ here.
   byte-for-byte against the ngraham20 transcription for all nine messages — so
   statistics from it are meaningful. For anything *unverified or
   model-conditional*, label guessed/assumed choices as such and never report a
-  number more strongly than its construction supports.
+  number more strongly than its construction supports. In particular, a
+  file-driven *attack* emits a **candidate**, never a "decode": it is believable
+  only behind a passing positive control and a matched null, a high
+  n-gram/structure score is not a recovery, and a bounded search must state its
+  limits and what it dropped. The cross-cutting process lessons live in
+  `research/attack-methodology.md`.
 
 ## Design notes
 
