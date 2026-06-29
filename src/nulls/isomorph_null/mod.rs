@@ -303,6 +303,26 @@ pub fn run_isomorph_null(
     report_from_message_values(config, order, &keys, &message_values)
 }
 
+/// Runs Experiment 7A on an arbitrary caller-supplied symbol stream.
+///
+/// The stream is treated as a single message under a neutral
+/// [`ReadingOrder::RawRows`] label and the synthetic key `"input"`; no eye
+/// traversal is claimed for arbitrary input. The within-message shuffle null is
+/// matched to the supplied stream's own length and symbol multiset, so the
+/// real-vs-null comparison stays valid for any alphabet — the isomorph statistic
+/// is equality-based and alphabet-agnostic.
+///
+/// # Errors
+/// Returns [`IsomorphNullError`] when the configuration is invalid (zero trials
+/// or an empty window range) or the shared detector rejects a generated window.
+pub fn isomorph_null_for_stream(
+    config: IsomorphNullConfig,
+    values: &[TrigramValue],
+) -> Result<IsomorphNullReport, IsomorphNullError> {
+    let message_values = vec![values.to_vec()];
+    report_from_message_values(config, ReadingOrder::RawRows, &["input"], &message_values)
+}
+
 fn report_from_message_values(
     config: IsomorphNullConfig,
     order: ReadingOrder,
@@ -445,121 +465,4 @@ fn summarize_window(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{IsomorphNullConfig, report_from_message_values, run_isomorph_null};
-    use crate::analysis::orders;
-    use crate::core::trigram::TrigramValue;
-    use crate::nulls::null::SplitMix64;
-
-    #[test]
-    fn isomorph_null_is_reproducible_for_fixed_seed() {
-        let config = IsomorphNullConfig {
-            seed: 0x5eed,
-            trials: 8,
-            min_window: 3,
-            max_window: 5,
-        };
-
-        let first = run_isomorph_null(config).unwrap();
-        let second = run_isomorph_null(config).unwrap();
-
-        assert_eq!(first, second);
-        assert_eq!(first.order.name(), "standard36-u012-d012");
-        assert_eq!(first.rows.len(), 3);
-    }
-
-    #[test]
-    fn isomorph_rich_fixture_exceeds_its_shuffle_null() {
-        let messages = vec![isomorph_rich_values()];
-        let config = IsomorphNullConfig {
-            seed: 0x7a,
-            trials: 64,
-            min_window: 12,
-            max_window: 12,
-        };
-        let report = report_from_message_values(
-            config,
-            orders::accepted_honeycomb_order(),
-            &["fixture"],
-            &messages,
-        )
-        .unwrap();
-        let row = report.rows.first().unwrap();
-
-        assert!(
-            row.real.repeated_signature_kinds > row.null.q975,
-            "real={} null={:?}",
-            row.real.repeated_signature_kinds,
-            row.null
-        );
-        assert!(row.empirical_p <= 0.05, "p={}", row.empirical_p);
-    }
-
-    #[test]
-    fn uniform_random_fixture_stays_inside_its_shuffle_null() {
-        let messages = vec![uniform_random_values(0x5151, 160, 83)];
-        let config = IsomorphNullConfig {
-            seed: 0x6161,
-            trials: 128,
-            min_window: 12,
-            max_window: 12,
-        };
-        let report = report_from_message_values(
-            config,
-            orders::accepted_honeycomb_order(),
-            &["uniform"],
-            &messages,
-        )
-        .unwrap();
-        let row = report.rows.first().unwrap();
-
-        assert!(
-            row.real.repeated_signature_kinds <= row.null.q975,
-            "real={} null={:?}",
-            row.real.repeated_signature_kinds,
-            row.null
-        );
-    }
-
-    fn isomorph_rich_values() -> Vec<TrigramValue> {
-        let mut values = Vec::new();
-        for block in 0u8..10 {
-            let base = block * 12;
-            for raw in [
-                base,
-                base + 1,
-                base,
-                base + 2,
-                base + 3,
-                base + 2,
-                base + 4,
-                base + 5,
-                base + 6,
-                base + 4,
-                base + 7,
-                base + 8,
-                base + 9,
-                base + 10,
-                base + 11,
-                base + 9,
-            ] {
-                values.push(value(raw));
-            }
-        }
-        values
-    }
-
-    fn uniform_random_values(seed: u64, len: usize, alphabet_size: u8) -> Vec<TrigramValue> {
-        let mut rng = SplitMix64::new(seed);
-        let mut values = Vec::new();
-        for _position in 0..len {
-            let raw = (rng.next_u64() % u64::from(alphabet_size)) as u8;
-            values.push(value(raw));
-        }
-        values
-    }
-
-    fn value(raw: u8) -> TrigramValue {
-        TrigramValue::new(raw).unwrap()
-    }
-}
+mod tests;

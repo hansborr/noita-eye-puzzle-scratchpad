@@ -10,9 +10,10 @@ use std::process::ExitCode;
 
 use noita_eye_puzzle::analysis::chaining::{self, ChainingConfig};
 use noita_eye_puzzle::core::trigram::TrigramValue;
+use noita_eye_puzzle::nulls::isomorph_null::{self, IsomorphNullConfig};
 use noita_eye_puzzle::report::Report;
 
-use crate::cli::args_analysis::ChainingArgs;
+use crate::cli::args_analysis::{ChainingArgs, IsomorphNullArgs};
 use crate::cli::shared::{parse_cli_sequence, resolve_input_text};
 
 /// Resolves a file-driven structural-battery stream to its [`TrigramValue`]s plus
@@ -116,5 +117,40 @@ pub(crate) fn run_chaining(args: &ChainingArgs) -> ExitCode {
     emit_report(
         "chaining error",
         chaining::chaining_for_stream(config, &[values]),
+    )
+}
+
+/// `isomorphnull`: Experiment 7A real isomorphs vs within-message shuffle null.
+///
+/// With no input flags, runs the verified eye corpus unchanged. With a stream
+/// input, runs the same real-vs-shuffle comparison over the arbitrary stream;
+/// the within-message shuffle null is matched to the stream's own length and
+/// multiset. The statistic is equality-based, so `--alphabet` only declares the
+/// symbol identity (its size is not threaded into the config).
+pub(crate) fn run_isomorphnull(args: &IsomorphNullArgs) -> ExitCode {
+    let config = IsomorphNullConfig {
+        seed: args.seed,
+        trials: args.trials,
+        min_window: isomorph_null::DEFAULT_MIN_WINDOW,
+        max_window: isomorph_null::DEFAULT_MAX_WINDOW,
+    };
+    if args.sequence.is_none() && args.input_file.is_none() && !args.stdin {
+        return emit_report(
+            "isomorph null error",
+            isomorph_null::run_isomorph_null(config),
+        );
+    }
+    let (values, _alphabet_size) = match resolve_stream(
+        args.sequence.as_deref(),
+        args.input_file.as_ref(),
+        args.stdin,
+        args.alphabet.as_deref(),
+    ) {
+        Ok(pair) => pair,
+        Err(code) => return code,
+    };
+    emit_report(
+        "isomorph null error",
+        isomorph_null::isomorph_null_for_stream(config, &values),
     )
 }

@@ -12,14 +12,14 @@ use noita_eye_puzzle::{
         conditional_structure, modular_diff, orientation_homogeneity, periodicity, pyry_conditions,
         transitivity,
     },
-    nulls::{dof_null, isomorph_null, null, perseus, tree_residual, zero_adjacency_null},
+    nulls::{dof_null, null, perseus, tree_residual, zero_adjacency_null},
     report::Report,
 };
 
 use super::args::{Cli, Command};
 use super::commands::{
-    run_chaining, run_controls, run_demo, run_gak, run_grouping, run_keystream, run_orders,
-    run_pipelinenull, run_profile, run_ragbaby, run_solve, run_stats,
+    run_chaining, run_controls, run_demo, run_gak, run_grouping, run_isomorphnull, run_keystream,
+    run_orders, run_pipelinenull, run_profile, run_ragbaby, run_solve, run_stats,
 };
 
 /// Outcome of one experiment run, ready for the thin CLI to emit.
@@ -88,6 +88,7 @@ pub(crate) fn run() -> ExitCode {
         Command::Profile(args) => run_profile(&args),
         Command::Gak(args) => run_gak(&args),
         Command::Chaining(args) => run_chaining(&args),
+        Command::Isomorphnull(args) => run_isomorphnull(&args),
         // Uniform experiments: build config, run, render report (or label the
         // error) via the generic `dispatch`/`emit` registry. The `&str` label
         // is the exact pre-registry stderr prefix.
@@ -122,11 +123,6 @@ pub(crate) fn run() -> ExitCode {
             "orientation homogeneity error",
             a.into(),
             orientation_homogeneity::run_orientation_homogeneity,
-        )),
-        Command::Isomorphnull(a) => emit(dispatch(
-            "isomorph null error",
-            a.into(),
-            isomorph_null::run_isomorph_null,
         )),
         Command::ChainingGraph(a) => emit(dispatch(
             "chaining-graph error",
