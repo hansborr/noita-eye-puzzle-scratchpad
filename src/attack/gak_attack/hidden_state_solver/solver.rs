@@ -112,7 +112,17 @@ impl<'tables, 'lm> DeckProblem<'tables, 'lm> {
             let b = *class
                 .get(i)
                 .ok_or(GakAttackError::SymbolOutOfRange { value: i })?;
-            eps.push((b + CLASS_MOD - a) % CLASS_MOD);
+            // Convention-B forbids a zero class shift: `eps` is only 1 or 2, so the
+            // rotor class always changes. A same-class adjacency (`shift == 0`) is
+            // impossible under the real cipher; without this guard the later
+            // `saturating_sub(1)` would alias it into the `eps == 1` cosets and
+            // silently decode a malformed or shuffled stream. Reject it instead so
+            // the no-same-class precondition is load-bearing, not assumed.
+            let shift = (b + CLASS_MOD - a) % CLASS_MOD;
+            if shift == 0 {
+                return Err(GakAttackError::SameClassAdjacency { position: i });
+            }
+            eps.push(shift);
         }
         let q0 = *q
             .first()

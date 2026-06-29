@@ -19,8 +19,8 @@
 use std::collections::BTreeMap;
 
 use super::{
-    BigramLm, DeckConvention, DeckTables, decode_with_key, draw_key, encrypt, markov_excess,
-    solve_hidden_state_gak,
+    BigramLm, DeckConvention, DeckTables, GakAttackError, decode_with_key, draw_key, encrypt,
+    markov_excess, solve_hidden_state_gak,
 };
 use crate::attack::quadgram::ENGLISH_CORPUS_LARGE;
 use crate::nulls::null::{SplitMix64, fisher_yates, random_index_below};
@@ -176,28 +176,42 @@ fn positive_control_recovers_synthetic_deck_stabilizer_plaintext() {
 }
 
 /// Matched null: the same pipeline on a Fisher-Yates shuffle of the synthetic
-/// ciphertext does not recover (the shuffle destroys the class-alternation and
-/// deck structure the convention-B decode relies on).
+/// ciphertext does not recover. The shuffle destroys the class-alternation the
+/// convention-B decode relies on, so the no-same-class precondition rejects it
+/// outright ([`GakAttackError::SameClassAdjacency`]) — the recovery is provably
+/// the cipher structure, not an always-fits artifact. A freak shuffle that
+/// happened to preserve the class law throughout would still have to not recover.
 #[test]
 fn matched_shuffle_null_does_not_recover() {
     let (plaintext, ciphertext) = synthetic_fixture();
     let lm = BigramLm::from_symbols(&plaintext, 8, SMOOTHING).expect("plaintext LM");
 
+    let mut rejected = 0usize;
     let mut max_null = 0.0f64;
     for trial in 0u64..3 {
         let mut shuffled = ciphertext.clone();
         let mut rng = SplitMix64::new(0x6e75_6c6c_5f32_0000 ^ trial.wrapping_mul(0x9e37_79b9));
         fisher_yates(&mut shuffled, &mut rng).expect("non-empty shuffle");
-        let recovery = solve_hidden_state_gak(&shuffled, &lm, POPULATION, GENERATIONS, SOLVE_SEED)
-            .expect("solve");
-        let accuracy = relabel_accuracy(&recovery.plaintext, &plaintext);
-        if accuracy > max_null {
-            max_null = accuracy;
+        match solve_hidden_state_gak(&shuffled, &lm, POPULATION, GENERATIONS, SOLVE_SEED) {
+            // Expected: the shuffle breaks class-alternation, so the decode rejects it.
+            Err(GakAttackError::SameClassAdjacency { .. }) => rejected += 1,
+            // A rare shuffle that still satisfies the class law must still not recover.
+            Ok(recovery) => {
+                let accuracy = relabel_accuracy(&recovery.plaintext, &plaintext);
+                if accuracy > max_null {
+                    max_null = accuracy;
+                }
+            }
+            Err(other) => panic!("unexpected solver error on the shuffled null: {other}"),
         }
     }
     assert!(
+        rejected > 0,
+        "the shuffle null must trip the no-same-class precondition at least once: a Fisher-Yates shuffle of a 12-symbol convention-B ciphertext destroys class-alternation"
+    );
+    assert!(
         max_null < 0.5,
-        "matched shuffle null recovered {max_null:.3}; it must stay well below the >=0.90 real recovery"
+        "a matched shuffle null that slipped past the precondition recovered {max_null:.3}; it must stay well below the >=0.90 real recovery"
     );
 }
 

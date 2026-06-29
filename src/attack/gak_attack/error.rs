@@ -77,6 +77,17 @@ pub enum GakAttackError {
     },
     /// The generated plaintext template was empty.
     EmptyTemplate,
+    /// A same-class adjacency was found in a stream presented to the hidden-state
+    /// (convention-B) decode. The cipher model forbids a zero class shift (`eps`
+    /// is only `1` or `2`, so the rotor class always changes), so a stream with
+    /// `symbol[t] % 3 == symbol[t - 1] % 3` violates the no-same-class
+    /// precondition. It is rejected here rather than silently aliased into the
+    /// `eps == 1` cosets by the decode's `saturating_sub(1)` — a malformed or
+    /// shuffled stream must not be quietly decoded as if it were valid ciphertext.
+    SameClassAdjacency {
+        /// 1-based stream position `t` where `class[t] == class[t - 1]`.
+        position: usize,
+    },
     /// The GCTAK positive-control solver did not recover a synthetic key whose
     /// ground truth we hold. This means the **methodology** is suspect, not the
     /// data; it is never a finding.
@@ -177,6 +188,10 @@ impl fmt::Display for GakAttackError {
                 )
             }
             Self::EmptyTemplate => write!(f, "the generated plaintext template was empty"),
+            Self::SameClassAdjacency { position } => write!(
+                f,
+                "same-class adjacency at position {position}: the hidden-state (convention-B) decode forbids a zero class shift (eps in 1..3), so a stream where the class repeats consecutively is rejected rather than aliased into the eps=1 cosets"
+            ),
             Self::PositiveControlFailed {
                 group,
                 seed,
