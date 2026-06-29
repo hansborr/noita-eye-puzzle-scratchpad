@@ -100,3 +100,31 @@ engine-generated, strikingly structured data of unknown meaning; unsolved.
   `src/attack/solve/{eval,search,codec_search,types,record,mod}.rs`,
   `scripts/file-size-allowlist.txt` (keystream 1280→1360, solve/mod 2282→2304 bumped with
   reasons; ragbaby 1739→1736 ratcheted down).
+
+## Addendum (2026-06-28) — solve `--codec-search` on puzzle two does flip (a false positive)
+
+The "no prior negative flips" audit above checked the keystream battery (puzzle
+`four`) but not the solve `--codec-search` path on puzzle `two`, which does flip.
+Under the corrected fold-vs-fold gate, `solve --codec-search` on puzzle two reports
+2 survivors (was 0): the held-out null baseline drops from the full-stream mean
+(−2.6617) to the held-out fold mean (−3.5327), so the top candidate's held-out score
+(−3.1923) now clears it (generalizes: true).
+
+This is a confirmed false positive, not a decode lead. Puzzle two's plaintext is known
+to be English; the surviving candidate is Finnish gibberish (`AITTEAHISTOTEMMENO…`),
+and its Gate-3 in-sample margin is a 0.0096-bit squeak over the 0.15 guard. Root cause:
+a free many-to-one mapping search (144→29) over genuinely non-random text (real encoded
+English) can beat a Fisher-Yates shuffle null on both folds without recovering the
+plaintext. So for the searched many-to-one case, "candidate survived all three gates"
+certifies non-randomness plus cross-fold generalization, not decode-correctness — the
+verdict over-claims.
+
+**Decision (2026-06-28):** the fold-vs-fold fix is correct and stays. The committed
+`solve-two` / `solve-six` / `solve-eyes-reading-layer` records were never regenerated
+after this fix, so they are stale (pre-fix wording and values), but their
+"no surviving candidate" headline is still the correct decode conclusion. They are left
+un-regenerated rather than shipped with a misleading "candidate survived" headline over
+gibberish. Deferred follow-up (not a merge blocker): harden the many-to-one survival
+semantics (margin scaled to mapping freedom, word-level readability, anti-collapse,
+and/or a known-answer crib), with puzzle two (known English) as the regression fixture,
+then regenerate the records.
