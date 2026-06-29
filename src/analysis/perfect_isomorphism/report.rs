@@ -1,11 +1,20 @@
 //! Human-readable render for the perfect-isomorphism scan report.
 
+use crate::analysis::orders::ReadingOrder;
 use crate::report::{self, Report};
 
 use super::{
     BenignDesyncRegion, BreakClass, BreakLocalization, IsomorphCatalogEntry,
     PerfectIsomorphismReport, SIGNIFICANCE_ALPHA, SafeSpan, WikiRegressionCheck,
 };
+
+/// Whether this report is an arbitrary-stream run (file-driven path) rather than
+/// the verified eye corpus. The eye path always uses the accepted honeycomb order;
+/// only `perfect_isomorphism_for_stream` labels its report with [`ReadingOrder::RawRows`].
+/// Stream reports must not claim eye-corpus / wiki provenance.
+fn is_stream(report: &PerfectIsomorphismReport) -> bool {
+    report.order == ReadingOrder::RawRows
+}
 
 impl Report for PerfectIsomorphismReport {
     fn render(&self) -> String {
@@ -147,14 +156,20 @@ fn append_perfect_headline(out: &mut String, report: &PerfectIsomorphismReport) 
         trials = report.internal_violation_null.trials,
         p = report::format_probability(report.empirical_p)
     );
-    report::appendln!(
-        out,
-        "  loose-bar note: the vetted empirical loose candidate is east4@65/west4@67 in the Stutter Section; it is benign and within the chance-collision null, so it is not promoted to the strong headline"
-    );
+    if !is_stream(report) {
+        report::appendln!(
+            out,
+            "  loose-bar note: the vetted empirical loose candidate is east4@65/west4@67 in the Stutter Section; it is benign and within the chance-collision null, so it is not promoted to the strong headline"
+        );
+    }
     report::appendln!(out, "  result: {}", perfect_headline_result(report));
 }
 
 fn perfect_headline_result(report: &PerfectIsomorphismReport) -> String {
+    if is_stream(report) && report.catalog.is_empty() {
+        return "no cross-message gap-pattern repeats in the supplied stream -> the internal-violation test does not apply (perfect isomorphism compares aligned repeats across >=2 messages)"
+            .to_owned();
+    }
     if report.robust_internal_violations == 0 {
         return "0 robust internal violations -> supports (does not prove) perfect isomorphism"
             .to_owned();
@@ -198,6 +213,19 @@ fn append_perfect_safe_extents(out: &mut String, report: &PerfectIsomorphismRepo
 }
 
 fn append_perfect_regressions(out: &mut String, report: &PerfectIsomorphismReport) {
+    if is_stream(report) {
+        report::appendln!(out, "self-validation");
+        report::appendln!(
+            out,
+            "  synthetic short-island internal-violation control: {}",
+            if report.positive_control_fired {
+                "fired"
+            } else {
+                "failed"
+            }
+        );
+        return;
+    }
     report::appendln!(out, "wiki regression checks");
     for result in &report.regression {
         let status = if result.reproduced { "PASS" } else { "FAIL" };
@@ -232,6 +260,9 @@ fn append_perfect_interpretation(out: &mut String, report: &PerfectIsomorphismRe
 }
 
 fn perfect_interpretation(report: &PerfectIsomorphismReport) -> String {
+    if is_stream(report) {
+        return perfect_interpretation_stream(report);
+    }
     if report.robust_internal_violations == 0 {
         return "Interpretation: Perfect-Isomorphism.md and Allomorphs.md make this a family-selection check, not a decode. The observed 0 robust strong-bar internal violations supports (does not prove) perfect isomorphism and keeps the GAK family viable; it does not imply \"the eyes are GAK.\" A clean internal violation would disfavor the proven CTAK..XGAK family, but XGAK's upper edge is <=, not equality."
             .to_owned();
@@ -245,6 +276,27 @@ fn perfect_interpretation(report: &PerfectIsomorphismReport) -> String {
     } else {
         format!(
             "Interpretation: Perfect-Isomorphism.md and Allomorphs.md make this a family-selection check, not a decode. The observed {} robust strong-bar internal violations do not exceed the matched chance-collision null (add-one p = {}), so they are not promoted to a family-falsifying result and the GAK family remains viable; this does not imply \"the eyes are GAK.\"",
+            report.robust_internal_violations,
+            report::format_probability(report.empirical_p)
+        )
+    }
+}
+
+fn perfect_interpretation_stream(report: &PerfectIsomorphismReport) -> String {
+    if report.catalog.is_empty() {
+        return "Interpretation: a single-message stream has no cross-message aligned repeats, so the perfect-isomorphism internal-violation test does not apply to the input -- the cross-message gap-pattern catalog is empty by construction. The synthetic short-island positive control confirms the detector itself fires; this run makes no claim about the supplied stream."
+            .to_owned();
+    }
+    // Reached only if a multi-message caller drives `perfect_isomorphism_for_stream`.
+    if report.empirical_p <= SIGNIFICANCE_ALPHA {
+        format!(
+            "Interpretation: this is a mapping-independent family-selection check on the supplied streams, not a decode. The observed {} robust strong-bar internal violations are in the matched within-message upper tail (add-one p = {}); treat this as an arrangement signal to recheck, not a recovery.",
+            report.robust_internal_violations,
+            report::format_probability(report.empirical_p)
+        )
+    } else {
+        format!(
+            "Interpretation: this is a mapping-independent family-selection check on the supplied streams, not a decode. The observed {} robust strong-bar internal violations do not exceed the matched within-message chance-collision null (add-one p = {}).",
             report.robust_internal_violations,
             report::format_probability(report.empirical_p)
         )

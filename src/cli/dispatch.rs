@@ -6,7 +6,7 @@ use std::process::ExitCode;
 
 use clap::Parser;
 use noita_eye_puzzle::{
-    analysis::{honeycomb, perfect_isomorphism},
+    analysis::honeycomb,
     attack::{agl_gak, cipher_attack, gak_attack},
     experiments::{
         conditional_structure, modular_diff, orientation_homogeneity, periodicity, pyry_conditions,
@@ -19,8 +19,8 @@ use noita_eye_puzzle::{
 use super::args::{Cli, Command};
 use super::commands::{
     run_chaining, run_chaining_graph, run_controls, run_demo, run_gak, run_grouping,
-    run_isomorphnull, run_keystream, run_orders, run_pipelinenull, run_profile, run_ragbaby,
-    run_solve, run_stats,
+    run_isomorphnull, run_keystream, run_orders, run_perfectiso, run_pipelinenull, run_profile,
+    run_ragbaby, run_solve, run_stats,
 };
 
 /// Outcome of one experiment run, ready for the thin CLI to emit.
@@ -91,6 +91,7 @@ pub(crate) fn run() -> ExitCode {
         Command::Chaining(args) => run_chaining(&args),
         Command::Isomorphnull(args) => run_isomorphnull(&args),
         Command::ChainingGraph(args) => run_chaining_graph(&args),
+        Command::Perfectiso(args) => run_perfectiso(&args),
         // Uniform experiments: build config, run, render report (or label the
         // error) via the generic `dispatch`/`emit` registry. The `&str` label
         // is the exact pre-registry stderr prefix.
@@ -135,11 +136,6 @@ pub(crate) fn run() -> ExitCode {
             "Perseus recurrence error",
             a.into(),
             perseus::run_perseus,
-        )),
-        Command::Perfectiso(a) => emit(dispatch(
-            "perfect-isomorphism error",
-            a.into(),
-            perfect_isomorphism::run_perfect_isomorphism,
         )),
         Command::Zeroadjnull(a) => emit(dispatch(
             "zero-adjacency null error",

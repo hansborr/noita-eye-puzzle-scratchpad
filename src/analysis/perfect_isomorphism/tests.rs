@@ -3,9 +3,10 @@ use std::collections::BTreeSet;
 use super::regression::synthetic_internal_violation_fires;
 use super::{
     ALPHABET_SIZE, BreakClass, PerfectIsomorphismConfig, WikiRegressionCheck,
-    report_from_message_values, run_perfect_isomorphism,
+    perfect_isomorphism_for_stream, report_from_message_values, run_perfect_isomorphism,
 };
 use crate::analysis::orders;
+use crate::report::Report;
 
 #[test]
 fn perfect_isomorphism_run_is_deterministic_for_fixed_seed() {
@@ -83,6 +84,45 @@ fn synthetic_internal_violation_control_is_detected() {
 }
 
 #[test]
+fn for_stream_self_validates_and_is_neutral_off_corpus() {
+    // The fn the CLI handler calls, on an arbitrary single-message stream. A single
+    // stream has no cross-message aligned repeats, so the gap-pattern catalog is
+    // empty by construction and no internal-violation test applies; the
+    // stream-independent synthetic short-island control still self-validates the
+    // detector, under the neutral raw-rows label with no eye-corpus provenance.
+    let stream = neutral_stream();
+    let len = stream.len();
+    let config = PerfectIsomorphismConfig {
+        seed: 0x7a,
+        trials: 64,
+        ..PerfectIsomorphismConfig::default()
+    };
+    let report = perfect_isomorphism_for_stream(config, &[stream]).unwrap();
+
+    assert!(report.positive_control_fired);
+    assert!(report.regression.is_empty());
+    assert!(report.catalog.is_empty());
+    assert_eq!(report.robust_internal_violations, 0);
+    assert_eq!(report.order.name(), "raw-rows");
+    assert_eq!(report.message_lengths, vec![("input", len)]);
+    assert_eq!(report.total_length, len);
+
+    // Honesty: an off-corpus stream report must not claim eye / wiki / GAK
+    // provenance, and must not assert "supports perfect isomorphism" for an input
+    // that cannot be tested; it must say plainly that the test does not apply.
+    let rendered = report.render();
+    assert!(!rendered.contains("eye"), "{rendered}");
+    assert!(!rendered.contains("wiki"), "{rendered}");
+    assert!(!rendered.contains("GAK"), "{rendered}");
+    assert!(!rendered.contains("Stutter"), "{rendered}");
+    assert!(
+        !rendered.contains("supports (does not prove) perfect isomorphism"),
+        "{rendered}"
+    );
+    assert!(rendered.contains("does not apply"), "{rendered}");
+}
+
+#[test]
 fn invalid_window_range_is_rejected() {
     let config = PerfectIsomorphismConfig {
         seed: 1,
@@ -129,6 +169,12 @@ fn report_from_message_values_accepts_small_trial_fixture() {
     let report = report_from_message_values(config, order, &keys, &message_values).unwrap();
 
     assert_eq!(report.robust_internal_violations, 0);
+}
+
+fn neutral_stream() -> Vec<crate::core::trigram::TrigramValue> {
+    // 16 symbols (>= the default max-window 11) with internal repeats; still a single
+    // message, so it cannot populate the cross-message catalog regardless of content.
+    values(&[0, 1, 0, 2, 3, 2, 4, 5, 6, 4, 7, 8, 9, 10, 11, 9])
 }
 
 fn values(raw: &[u8]) -> Vec<crate::core::trigram::TrigramValue> {

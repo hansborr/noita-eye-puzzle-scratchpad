@@ -23,7 +23,10 @@ use catalog::{
     CatalogRecord, build_catalog_records, catalog_significance, conservative_safe_extents,
     localize_extents, safe_extent_seed_records, strong_repeat_catalog_records,
 };
-use regression::{ensure_all_regressions_reproduced, run_positive_control, run_regression_checks};
+use regression::{
+    ensure_all_regressions_reproduced, run_positive_control, run_regression_checks,
+    synthetic_internal_violation_fires,
+};
 
 /// Default deterministic seed for the internal-violation null and sampling.
 pub const DEFAULT_SEED: u64 = 0x7065_7266_6973_6f00;
@@ -374,6 +377,76 @@ pub fn run_perfect_isomorphism(
     let order = orders::accepted_honeycomb_order();
     let message_values = read_corpus_message_values(&grids, order)?;
     report_from_message_values(config, order, &keys, &message_values)
+}
+
+/// Runs the perfect-isomorphism scan on an arbitrary single-message stream.
+///
+/// This is the file-driven path. It computes the same mapping-independent isomorph
+/// catalog, break localization, and matched within-message internal-violation null
+/// as the eye scan, but under the neutral [`ReadingOrder::RawRows`] label with a
+/// single `"input"` message key. It does not run the eye-corpus wiki regression
+/// checks or the eye main-isomorph occurrence assertions; instead it self-validates
+/// with the stream-independent synthetic short-island internal-violation control, so
+/// the emitted report is a structural **candidate** behind a passing positive
+/// control, never an eye-provenance decode.
+///
+/// # Errors
+/// Returns [`PerfectIsomorphismError`] when the configuration is invalid, the stream
+/// is shorter than the maximum scanned window, an isomorph primitive rejects a
+/// window, or the synthetic positive control does not fire.
+pub fn perfect_isomorphism_for_stream(
+    config: PerfectIsomorphismConfig,
+    message_values: &[Vec<TrigramValue>],
+) -> Result<PerfectIsomorphismReport, PerfectIsomorphismError> {
+    validate_config(config)?;
+    validate_message_windows(config, message_values)?;
+    let keys: &[&'static str] = &["input"];
+    let windows = scanned_windows(config)?;
+    let catalog_records = build_catalog_records(keys, message_values, &windows)?;
+    let catalog = catalog_records.iter().map(CatalogRecord::entry).collect();
+    let significance = catalog_significance(config, message_values, &catalog_records, &windows)?;
+    let strong_records = strong_repeat_catalog_records(&catalog_records);
+    let safe_records = safe_extent_seed_records(&strong_records);
+    let (breaks, _strong_extents) = localize_extents(keys, message_values, &strong_records, true);
+    let robust_internal_violations = count_internal_candidates(&breaks);
+    let safe_extents = conservative_safe_extents(keys, message_values, &safe_records);
+    let (internal_violation_null, empirical_p_count, empirical_p) = internal_violation_null(
+        config,
+        keys,
+        message_values,
+        &windows,
+        robust_internal_violations,
+    )?;
+    // Self-validation off-corpus: the eye wiki-regression checks and the
+    // A.B.CB.AC / ABC.DC.AD.B occurrence assertions are eye-corpus-specific, so they
+    // are not run here. The methodological internal-violation detector is instead
+    // exercised by the stream-independent synthetic short-island fixture, which must
+    // fire for this candidate report to be trusted.
+    let positive_control_fired = synthetic_internal_violation_fires()?;
+    if !positive_control_fired {
+        return Err(PerfectIsomorphismError::PositiveControlFailed {
+            detail: "synthetic short-island internal violation was not detected".to_owned(),
+        });
+    }
+    let lengths = message_values.iter().map(Vec::len).collect::<Vec<_>>();
+    let total_length = lengths.iter().sum();
+
+    Ok(PerfectIsomorphismReport {
+        config,
+        order: ReadingOrder::RawRows,
+        message_lengths: keys.iter().copied().zip(lengths).collect(),
+        total_length,
+        catalog,
+        significance,
+        breaks,
+        robust_internal_violations,
+        internal_violation_null,
+        empirical_p_count,
+        empirical_p,
+        safe_extents,
+        regression: vec![],
+        positive_control_fired,
+    })
 }
 
 fn report_from_message_values(
