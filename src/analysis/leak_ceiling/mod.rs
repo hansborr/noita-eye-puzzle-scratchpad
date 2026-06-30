@@ -36,6 +36,7 @@ use crate::analysis::orders::{
 
 mod math;
 mod report;
+mod stream;
 #[cfg(test)]
 mod tests;
 
@@ -45,6 +46,9 @@ pub use math::{
     odd_double_factorial,
 };
 use math::{chaining_supply, isomorph_supply, out_degree_supply};
+pub use stream::{
+    LeakCeilingStreamReport, StreamCeilingBounds, StreamDemand, leak_ceiling_for_stream,
+};
 
 /// Default chaining-graph window length (the wiki D166 triple).
 pub const DEFAULT_CHAINING_WINDOW_LEN: usize = 11;
@@ -378,10 +382,16 @@ pub fn run_leak_ceiling(config: LeakCeilingConfig) -> Result<LeakCeilingReport, 
         &message_values,
         config.chaining_window_len,
         config.chaining_core_len,
+        READING_LAYER_ALPHABET_SIZE,
     )?;
     let mut chaining_sensitivity = Vec::with_capacity(CHAINING_SENSITIVITY.len());
     for (window_len, core_len) in CHAINING_SENSITIVITY {
-        chaining_sensitivity.push(chaining_supply(&message_values, window_len, core_len)?);
+        chaining_sensitivity.push(chaining_supply(
+            &message_values,
+            window_len,
+            core_len,
+            READING_LAYER_ALPHABET_SIZE,
+        )?);
     }
     let isomorph: Vec<IsomorphSupply> = ISOMORPH_WINDOWS
         .iter()

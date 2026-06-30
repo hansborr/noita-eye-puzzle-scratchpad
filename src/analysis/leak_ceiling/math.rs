@@ -169,13 +169,9 @@ pub(super) fn chaining_supply(
     message_values: &[Vec<TrigramValue>],
     window_len: usize,
     core_len: usize,
+    alphabet_size: usize,
 ) -> Result<ChainingSupply, LeakCeilingError> {
-    let graph = chaining_graph::compute_graph(
-        message_values,
-        window_len,
-        core_len,
-        crate::analysis::orders::READING_LAYER_ALPHABET_SIZE,
-    )?;
+    let graph = chaining_graph::compute_graph(message_values, window_len, core_len, alphabet_size)?;
     let mut edges: BTreeSet<(u32, u8, u8)> = BTreeSet::new();
     for link in &graph.links {
         let _inserted = edges.insert((link.context.as_u32(), link.from.get(), link.to.get()));

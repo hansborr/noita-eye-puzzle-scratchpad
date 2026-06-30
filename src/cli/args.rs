@@ -6,9 +6,9 @@ use clap::{Parser, Subcommand};
 
 use super::args_analysis::{
     ChainingArgs, ChainingGraphArgs, CipherAttackArgs, ConditionalArgs, ControlsArgs, DofNullArgs,
-    HomogeneityArgs, HoneycombArgs, IsomorphImperfectionArgs, IsomorphNullArgs, ModularDiffArgs,
-    NullArgs, PerfectIsomorphismArgs, PeriodicityArgs, PerseusArgs, PyryConditionsArgs,
-    TransitivityArgs, TreeResidualArgs, ZeroAdjacencyNullArgs,
+    HomogeneityArgs, HoneycombArgs, IsomorphImperfectionArgs, IsomorphNullArgs, LeakCeilingArgs,
+    ModularDiffArgs, NullArgs, PerfectIsomorphismArgs, PeriodicityArgs, PerseusArgs,
+    PyryConditionsArgs, TransitivityArgs, TreeResidualArgs, ZeroAdjacencyNullArgs,
 };
 use super::args_attack::{
     AglGakArgs, GakArgs, GakAttackArgs, GakAttackEyesArgs, KeystreamArgs, ProfileArgs, RagbabyArgs,
@@ -88,6 +88,12 @@ pub(crate) enum Command {
     /// does not apply to a single message and emits no claim about the input.
     #[command(name = "isomorphimperf", alias = "isomorph-imperfection")]
     Isomorphimperf(IsomorphImperfectionArgs),
+    /// Leak supply / demand / bounds. With no input flags runs the verified eye
+    /// corpus (the full report incl. the fitted coverage model). A stream input runs
+    /// only the transparent measured supply, coupon-collector demand, and
+    /// information-theoretic / counting bounds -- no recoverability prediction.
+    #[command(name = "leakceiling", alias = "leak-ceiling")]
+    Leakceiling(LeakCeilingArgs),
     /// Experiment 7D zero adjacency vs within-message multiset shuffle null.
     #[command(name = "zeroadjnull", alias = "zero-adjacency-null")]
     Zeroadjnull(ZeroAdjacencyNullArgs),

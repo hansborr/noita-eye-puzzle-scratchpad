@@ -19,8 +19,8 @@ use noita_eye_puzzle::{
 use super::args::{Cli, Command};
 use super::commands::{
     run_chaining, run_chaining_graph, run_controls, run_demo, run_gak, run_grouping,
-    run_isomorphimperf, run_isomorphnull, run_keystream, run_orders, run_perfectiso,
-    run_pipelinenull, run_profile, run_ragbaby, run_solve, run_stats,
+    run_isomorphimperf, run_isomorphnull, run_keystream, run_leakceiling, run_orders,
+    run_perfectiso, run_pipelinenull, run_profile, run_ragbaby, run_solve, run_stats,
 };
 
 /// Outcome of one experiment run, ready for the thin CLI to emit.
@@ -93,6 +93,7 @@ pub(crate) fn run() -> ExitCode {
         Command::ChainingGraph(args) => run_chaining_graph(&args),
         Command::Perfectiso(args) => run_perfectiso(&args),
         Command::Isomorphimperf(args) => run_isomorphimperf(&args),
+        Command::Leakceiling(args) => run_leakceiling(&args),
         // Uniform experiments: build config, run, render report (or label the
         // error) via the generic `dispatch`/`emit` registry. The `&str` label
         // is the exact pre-registry stderr prefix.

@@ -1,8 +1,10 @@
 use super::{
     CALIBRATED_GEOMETRY, LeakCeilingConfig, TWO_COSETS, TWO_DOMINANT_OCCURRENCES, TWO_STREAM_LEN,
-    binomial_f64, coupon_full_pin, coverage_undecidable_fraction, harmonic, log2_factorial,
-    near_identity_neighborhood, odd_double_factorial, run_leak_ceiling,
+    binomial_f64, coupon_full_pin, coverage_undecidable_fraction, harmonic,
+    leak_ceiling_for_stream, log2_factorial, near_identity_neighborhood, odd_double_factorial,
+    run_leak_ceiling,
 };
+use crate::core::trigram::TrigramValue;
 use crate::report::Report;
 
 fn close(actual: f64, expected: f64, eps: f64) {
@@ -169,4 +171,105 @@ fn zero_isomorph_window_is_rejected() {
         ..LeakCeilingConfig::default()
     };
     assert!(run_leak_ceiling(config).is_err());
+}
+
+#[test]
+fn for_stream_emits_measurements_and_bounds_only() {
+    // The fn the CLI handler calls, on an arbitrary multi-message stream over a
+    // small declared alphabet. The stream path computes only the transparent,
+    // control-free pieces (measured supply + textbook coupon demand + counting /
+    // information-theoretic bounds) under the neutral raw-rows label, threading the
+    // caller's alphabet size; it deliberately omits the fitted coverage model, its
+    // single-point fit, and the scaling sweep.
+    let alphabet_size = 8usize;
+    let messages = vec![
+        values(&[
+            0, 1, 2, 3, 0, 1, 2, 4, 5, 6, 7, 0, 1, 2, 3, 5, 4, 6, 7, 1, 2, 3, 0, 4, 5, 6, 1, 2, 3,
+            7,
+        ]),
+        values(&[
+            7, 6, 5, 4, 3, 2, 1, 0, 1, 2, 3, 4, 5, 6, 7, 0, 2, 4, 6, 1, 3, 5, 7, 0, 1, 2, 3, 4, 5,
+            6,
+        ]),
+    ];
+    let keys: &[&'static str] = &["m0", "m1"];
+    let total: usize = messages.iter().map(Vec::len).sum();
+    let report =
+        leak_ceiling_for_stream(LeakCeilingConfig::default(), keys, &messages, alphabet_size)
+            .unwrap();
+
+    // Neutral raw-rows label; the caller's alphabet size is threaded everywhere.
+    assert_eq!(report.order.name(), "raw-rows");
+    assert_eq!(report.supply.alphabet_size, alphabet_size);
+    assert_eq!(report.supply.total_trigrams, total);
+    assert_eq!(report.demand.cosets, alphabet_size);
+    assert_eq!(report.demand.cert_degree_sharp, alphabet_size - 1);
+    // Part B coupon demand is the textbook function of N -- no fitted parameter.
+    close(
+        report.demand.coupon_full_pin,
+        alphabet_size as f64 * (alphabet_size as f64).ln(),
+        1e-9,
+    );
+    // Part C bounds (inequalities / counting bounds) are all computed.
+    assert!(report.bounds.per_element_demand > 0.0);
+    assert!(report.bounds.mi_upper_bound_bits > 0.0);
+    assert!(report.bounds.underdetermination_unconstrained > 0.0);
+    assert!(report.bounds.underdetermination_near_identity > 0.0);
+
+    let rendered = report.render();
+    // Parts A/B/C are all rendered (supply, coupon demand, the bounds).
+    assert!(
+        rendered.contains("Part A -- empirical supply"),
+        "{rendered}"
+    );
+    assert!(rendered.contains("Part B -- demand"), "{rendered}");
+    assert!(rendered.contains("Part C -- bounds"), "{rendered}");
+    assert!(
+        rendered.contains("coupon-collector full-pin demand"),
+        "{rendered}"
+    );
+    assert!(
+        rendered.contains("MI upper bound on leaked bits"),
+        "{rendered}"
+    );
+
+    // Honest framing: these are measurements / bounds, NOT a recoverability
+    // prediction, and the run emits no candidate / recovery / decode.
+    assert!(
+        rendered.contains("NOT a prediction of how much is recoverable"),
+        "{rendered}"
+    );
+    assert!(
+        rendered.contains("no recovery, and no decode"),
+        "{rendered}"
+    );
+
+    // The gated fitted pieces are absent from the stream render.
+    for gated in ["undecidable", "calibration", "scaling sweep", "IN-BAND"] {
+        assert!(!rendered.contains(gated), "gated {gated:?} in:\n{rendered}");
+    }
+    // Provenance-clean: no eye / wiki / GAK / thread-citation / corpus references.
+    for token in [
+        "eye",
+        "wiki",
+        "GAK",
+        "G3",
+        "G1b",
+        ".md",
+        "Experiment 0",
+        "S83",
+        "S82",
+    ] {
+        assert!(
+            !rendered.contains(token),
+            "forbidden token {token:?} in:\n{rendered}"
+        );
+    }
+}
+
+fn values(raw: &[u8]) -> Vec<TrigramValue> {
+    raw.iter()
+        .copied()
+        .map(|value| TrigramValue::new(value).unwrap())
+        .collect()
 }

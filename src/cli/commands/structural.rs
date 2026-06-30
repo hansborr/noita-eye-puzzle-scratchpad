@@ -11,6 +11,7 @@ use std::process::ExitCode;
 use noita_eye_puzzle::analysis::chaining::{self, ChainingConfig};
 use noita_eye_puzzle::analysis::chaining_graph::{self, ChainingGraphConfig};
 use noita_eye_puzzle::analysis::isomorph_imperfection::{self, IsomorphImperfectionConfig};
+use noita_eye_puzzle::analysis::leak_ceiling::{self, LeakCeilingConfig};
 use noita_eye_puzzle::analysis::perfect_isomorphism::{self, PerfectIsomorphismConfig};
 use noita_eye_puzzle::core::glyph::Glyph;
 use noita_eye_puzzle::core::trigram::TrigramValue;
@@ -18,7 +19,7 @@ use noita_eye_puzzle::nulls::isomorph_null::{self, IsomorphNullConfig};
 use noita_eye_puzzle::report::Report;
 
 use crate::cli::args_analysis::{
-    ChainingArgs, ChainingGraphArgs, IsomorphImperfectionArgs, IsomorphNullArgs,
+    ChainingArgs, ChainingGraphArgs, IsomorphImperfectionArgs, IsomorphNullArgs, LeakCeilingArgs,
     PerfectIsomorphismArgs,
 };
 use crate::cli::shared::{
@@ -95,6 +96,10 @@ fn glyphs_to_trigram_values(glyphs: Vec<Glyph>) -> Result<Vec<TrigramValue>, Exi
     Ok(values)
 }
 
+/// A resolved file-driven multi-message stream: the per-message [`TrigramValue`]s,
+/// one display key per message, and the declared alphabet size (its char count).
+type ResolvedStreamMulti = (Vec<Vec<TrigramValue>>, Vec<&'static str>, usize);
+
 /// Resolves a file-driven *multi-message* structural-battery stream: like
 /// [`resolve_stream`] but split into one or more messages on blank-line
 /// boundaries (see [`split_blank_line_messages`]), each tagged with a display key
@@ -104,12 +109,14 @@ fn glyphs_to_trigram_values(glyphs: Vec<Glyph>) -> Result<Vec<TrigramValue>, Exi
 /// exactly as the single-message path parses them, and an input with no
 /// blank-line separator yields exactly one message, so this is fully backward
 /// compatible. The keys are display-only; the detectors key on message position.
+/// The declared alphabet size (the alphabet's char count) is returned alongside, as
+/// some instruments (e.g. `leakceiling`) thread it into their supply/demand/bounds.
 fn resolve_stream_multi(
     sequence: Option<&str>,
     input_file: Option<&std::path::PathBuf>,
     stdin: bool,
     alphabet: Option<&str>,
-) -> Result<(Vec<Vec<TrigramValue>>, Vec<&'static str>), ExitCode> {
+) -> Result<ResolvedStreamMulti, ExitCode> {
     let Some(alphabet_spec) = alphabet else {
         eprintln!("a stream input requires --alphabet (its char count is the alphabet size)");
         return Err(ExitCode::FAILURE);
@@ -138,7 +145,7 @@ fn resolve_stream_multi(
         messages.push(glyphs_to_trigram_values(parsed.glyphs)?);
     }
     let keys = stream_message_keys(messages.len());
-    Ok((messages, keys))
+    Ok((messages, keys, alphabet_spec.chars().count()))
 }
 
 /// Renders a structural-battery report to stdout, or prints a labelled error to
@@ -297,13 +304,13 @@ pub(crate) fn run_perfectiso(args: &PerfectIsomorphismArgs) -> ExitCode {
             perfect_isomorphism::run_perfect_isomorphism(config),
         );
     }
-    let (messages, keys) = match resolve_stream_multi(
+    let (messages, keys, _alphabet_size) = match resolve_stream_multi(
         args.sequence.as_deref(),
         args.input_file.as_ref(),
         args.stdin,
         args.alphabet.as_deref(),
     ) {
-        Ok(pair) => pair,
+        Ok(parts) => parts,
         Err(code) => return code,
     };
     emit_report(
@@ -346,17 +353,57 @@ pub(crate) fn run_isomorphimperf(args: &IsomorphImperfectionArgs) -> ExitCode {
             isomorph_imperfection::run_isomorph_imperfection(config),
         );
     }
-    let (messages, keys) = match resolve_stream_multi(
+    let (messages, keys, _alphabet_size) = match resolve_stream_multi(
         args.sequence.as_deref(),
         args.input_file.as_ref(),
         args.stdin,
         args.alphabet.as_deref(),
     ) {
-        Ok(pair) => pair,
+        Ok(parts) => parts,
         Err(code) => return code,
     };
     emit_report(
         "isomorph-imperfection error",
         isomorph_imperfection::isomorph_imperfection_for_stream(config, &keys, &messages),
+    )
+}
+
+/// `leakceiling`: narrowed leak supply / demand / bounds instrument.
+///
+/// With no input flags, runs the verified eye corpus unchanged (the full G3 report,
+/// including the fitted coverage model, its single-point fit, and the scaling
+/// sweep). With a stream input, runs only the transparent, control-free pieces over
+/// the supplied message(s) under a neutral raw-rows label: measured supply (Part A),
+/// analytic coupon-collector demand (Part B), and information-theoretic / counting
+/// bounds (Part C). Blank lines separate messages (see [`resolve_stream_multi`]).
+///
+/// Unlike the equality/gap-based scans, `--alphabet`'s char count IS threaded here:
+/// it is the chaining-graph coverage denominator, the coupon-collector `N`, and the
+/// `log2(N!)` key budget. The stream path deliberately omits the fitted coverage /
+/// undecidable-fraction prediction (its only free constant has no non-circular
+/// control), so it makes no recoverability prediction and needs no positive control:
+/// Parts A/B/C are direct measurements and textbook bounds, control-free by
+/// construction. The eye path keeps the full report and its calibration intact.
+pub(crate) fn run_leakceiling(args: &LeakCeilingArgs) -> ExitCode {
+    let config = LeakCeilingConfig {
+        chaining_window_len: args.chaining_window_len,
+        chaining_core_len: args.chaining_core_len,
+        isomorph_window_len: args.isomorph_window_len,
+    };
+    if args.sequence.is_none() && args.input_file.is_none() && !args.stdin {
+        return emit_report("leak-ceiling error", leak_ceiling::run_leak_ceiling(config));
+    }
+    let (messages, keys, alphabet_size) = match resolve_stream_multi(
+        args.sequence.as_deref(),
+        args.input_file.as_ref(),
+        args.stdin,
+        args.alphabet.as_deref(),
+    ) {
+        Ok(parts) => parts,
+        Err(code) => return code,
+    };
+    emit_report(
+        "leak-ceiling error",
+        leak_ceiling::leak_ceiling_for_stream(config, &keys, &messages, alphabet_size),
     )
 }

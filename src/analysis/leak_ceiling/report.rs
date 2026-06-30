@@ -8,8 +8,8 @@ use crate::report::{self, Report};
 
 use super::{
     AnalyticDemand, CALIBRATED_GEOMETRY, CalibrationControl, CeilingEstimate, ChainingSupply,
-    EmpiricalSupply, LeakCeilingReport, ScalingSweep, TWO_COSETS, TWO_DOMINANT_OCCURRENCES,
-    coupon_full_pin,
+    EmpiricalSupply, LeakCeilingReport, LeakCeilingStreamReport, ScalingSweep, StreamCeilingBounds,
+    StreamDemand, TWO_COSETS, TWO_DOMINANT_OCCURRENCES, coupon_full_pin,
 };
 
 impl Report for LeakCeilingReport {
@@ -302,5 +302,182 @@ fn append_interpretation(out: &mut String, report: &LeakCeilingReport) {
     report::appendln!(
         out,
         "  This bounds recoverability only; it makes no claim that the eyes are or are not GAK. Assumptions: coupon demand for maximal H=S82 (scales down with larger H); MI figure is an upper bound; coverage model is analytic with one G1b-calibrated geometry constant."
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Stream path render (file-driven; measured supply + textbook demand + bounds).
+//
+// Deliberately omits the fitted coverage / undecidable-fraction prediction, its
+// single-point fit, and the scaling sweep -- those are gated to the eye path. This
+// render is provenance-neutral (no eye / wiki / GAK / G3 citations) and makes no
+// recoverability prediction.
+// ---------------------------------------------------------------------------
+
+impl Report for LeakCeilingStreamReport {
+    fn render(&self) -> String {
+        let mut out = String::new();
+        append_stream_header(&mut out, self);
+        report::appendln!(&mut out);
+        append_stream_supply(&mut out, &self.supply, self.config.isomorph_window_len);
+        report::appendln!(&mut out);
+        append_stream_demand(&mut out, &self.demand);
+        report::appendln!(&mut out);
+        append_stream_bounds(&mut out, &self.bounds);
+        report::appendln!(&mut out);
+        append_stream_interpretation(&mut out);
+        out
+    }
+}
+
+fn append_stream_header(out: &mut String, report: &LeakCeilingStreamReport) {
+    report::appendln!(
+        out,
+        "leak supply / demand / bounds (file-driven; measured + textbook, no fitted recoverability model)"
+    );
+    report::appendln!(
+        out,
+        "order: {} (chaining window/core {}/{}, isomorph reference window {})",
+        report.order.name(),
+        report.config.chaining_window_len,
+        report.config.chaining_core_len,
+        report.config.isomorph_window_len
+    );
+    report::appendln!(
+        out,
+        "labels: supply=measured; demand=analytic coupon-collector over N; bounds=information-theoretic/counting inequalities. No recoverability prediction is made here: the fitted coverage model is omitted because its single free constant was reverse-fit to one measurement with no matched null and no buildable positive control. What follows are direct measurements, a textbook evidence demand, and bounds -- not a prediction of how much is recoverable."
+    );
+}
+
+fn append_stream_supply(out: &mut String, supply: &EmpiricalSupply, isomorph_window_len: usize) {
+    report::appendln!(out, "Part A -- empirical supply (measured, read-only)");
+    report::appendln!(
+        out,
+        "  M (trigrams): {}   distinct symbols: {}/{}",
+        supply.total_trigrams,
+        supply.distinct_symbols,
+        supply.alphabet_size
+    );
+    report::appendln!(
+        out,
+        "  message lengths: {}",
+        report::format_message_lengths(&supply.message_lengths)
+    );
+    report::appendln!(
+        out,
+        "  raw successor out-degree: source symbols {} mean {:.3} min {} max {} branching {:.3} bits",
+        supply.out_degree.source_symbols,
+        supply.out_degree.mean,
+        supply.out_degree.min,
+        supply.out_degree.max,
+        supply.out_degree.branching_bits
+    );
+    report::appendln!(
+        out,
+        "  out-degree histogram (degree:symbols): {}",
+        report::format_histogram(&supply.out_degree.histogram)
+    );
+    append_chaining_line(out, "chaining supply (headline)", supply.chaining);
+    for sensitivity in &supply.chaining_sensitivity {
+        append_chaining_line(out, "chaining supply (sensitivity)", *sensitivity);
+    }
+    report::appendln!(
+        out,
+        "    note: this is the broad gap-isomorph chaining graph (collision-prone); a full N/N touch is not same-plaintext genuine supply."
+    );
+    report::appendln!(
+        out,
+        "  repeated-isomorph occurrence-pair supply (pooled across messages):"
+    );
+    for iso in &supply.isomorph {
+        report::appendln!(
+            out,
+            "    window {:>2}: kinds {:>2} max-repeat {:>2} aligned-occ-pairs SumC(occ,2) {:>4} (redundant) informative-windows {}",
+            iso.window_len,
+            iso.repeated_signature_kinds,
+            iso.max_repeat_count,
+            iso.aligned_occurrence_pairs,
+            iso.informative_windows
+        );
+    }
+    report::appendln!(
+        out,
+        "  dominant signature occurrences: {} (window {}); richest across windows: {}",
+        supply.dominant_occurrences,
+        isomorph_window_len,
+        supply.richest_occurrences
+    );
+    report::appendln!(
+        out,
+        "  empirical per-symbol entropy H_emp: {:.4} bits (message-weighted; uniform ceiling log2(N) = {:.4})",
+        supply.entropy_bits_per_symbol,
+        supply.max_entropy_bits_per_symbol
+    );
+}
+
+fn append_stream_demand(out: &mut String, demand: &StreamDemand) {
+    report::appendln!(
+        out,
+        "Part B -- demand (analytic coupon-collector over N = {})",
+        demand.cosets
+    );
+    report::appendln!(
+        out,
+        "  edge-overlap certification degree t(N={}): sharp S_N regime t = N-1 = {}; low-transitivity (dihedral) t = {}",
+        demand.cosets,
+        demand.cert_degree_sharp,
+        demand.cert_degree_low
+    );
+    report::appendln!(
+        out,
+        "  coupon-collector full-pin demand: exact >=N-1 N*(H_N-1) = {:.1}; full-collection asymptotic N*lnN = {:.1}",
+        demand.coupon_harmonic_exact,
+        demand.coupon_full_pin
+    );
+    report::appendln!(
+        out,
+        "  (one keystream element is fully pinned only after observing its permutation on >= N-1 of N cosets)"
+    );
+}
+
+fn append_stream_bounds(out: &mut String, bounds: &StreamCeilingBounds) {
+    report::appendln!(
+        out,
+        "Part C -- bounds (counting / information-theoretic inequalities; no fitted prediction)"
+    );
+    report::appendln!(
+        out,
+        "  per-element evidence demand vs measured supply (a counting bound, not a recovery probability): demand exact >=N-1 N*(H_N-1) = {:.1}; supply occ (length-matched) = {} -> ratio {:.1}x; richest occ = {} -> ratio {:.1}x",
+        bounds.per_element_demand,
+        bounds.per_element_supply,
+        bounds.per_element_shortfall_ratio,
+        bounds.per_element_supply_richest,
+        bounds.per_element_shortfall_ratio_richest
+    );
+    report::appendln!(
+        out,
+        "  MI upper bound on leaked bits (bounds the per-position keystream): M*H_emp = {:.0} bits",
+        bounds.mi_upper_bound_bits
+    );
+    report::appendln!(
+        out,
+        "  needed per-position keystream entropy (i) unconstrained S_N: M*log2(N!) = {:.0} bits -> underdetermination {:.1}x",
+        bounds.key_bits_unconstrained,
+        bounds.underdetermination_unconstrained
+    );
+    report::appendln!(
+        out,
+        "  needed per-position keystream entropy (ii) near-identity (<=4 swaps/element): log2(neighborhood) = {:.1} bits/element, M* = {:.0} bits -> underdetermination {:.1}x",
+        bounds.near_identity_neighborhood_log2,
+        bounds.key_bits_near_identity,
+        bounds.underdetermination_near_identity
+    );
+}
+
+fn append_stream_interpretation(out: &mut String) {
+    report::appendln!(out, "Interpretation");
+    report::appendln!(
+        out,
+        "  These are measurements (Part A supply), a textbook coupon-collector evidence demand (Part B), and information-theoretic / counting bounds (Part C) on the supplied stream(s). They are NOT a prediction of how much is recoverable: the fitted coverage model that would estimate a recoverable fraction is deliberately omitted here because its single free constant has no non-circular control. The demand/supply ratio and the underdetermination factors are bounds -- they state what the evidence at this budget cannot do; this run emits no candidate, no recovery, and no decode."
     );
 }
