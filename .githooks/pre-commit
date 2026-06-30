@@ -102,6 +102,22 @@ staged() {
     git diff --cached --name-only --diff-filter=ACM "$@"
 }
 
+fast_commit_enabled() {
+    local marker
+
+    if [[ -n "${NOITA_FAST_COMMIT_MARKER:-}" ]]; then
+        if [[ "$NOITA_FAST_COMMIT_MARKER" != /* ]]; then
+            printf 'pre-commit: NOITA_FAST_COMMIT_MARKER must be an absolute path\n' >&2
+            exit 2
+        fi
+        marker="$NOITA_FAST_COMMIT_MARKER"
+    else
+        marker="$(git rev-parse --git-dir)/noita-fast-commit"
+    fi
+
+    [[ -e "$marker" ]]
+}
+
 suppressions_staged() {
     local path
     while IFS= read -r -d '' path; do
@@ -115,6 +131,33 @@ suppressions_staged() {
     return 1
 }
 
+rust_gate_staged() {
+    staged | grep -qE '\.rs$|(^|/)Cargo\.(toml|lock)$|(^|/)(clippy|deny)\.toml$'
+}
+
+collect_shell_files() {
+    shell_files=()
+    local f
+    while IFS= read -r -d '' f; do
+        shell_files+=("$f")
+    done < <(staged -z 2>/dev/null | grep -zE '\.(sh|bash)$|(^|/)\.githooks/' || true)
+}
+
+print_fast_commit_notice() {
+    cat >&2 <<EOF
+pre-commit: FAST-COMMIT MODE ENABLED
+pre-commit: skipped slow slots: tests, rustdoc
+pre-commit: CI, make verify, and make check remain the full gate.
+EOF
+}
+
+print_slot_plan() {
+    local slot
+    for slot in "${slot_plan[@]}"; do
+        printf 'pre-commit: plan: %s\n' "$slot"
+    done
+}
+
 guard_protected_branch
 guard_clean_source_worktree
 
@@ -123,18 +166,60 @@ if [[ "${PRECOMMIT_GUARDS_ONLY:-}" == "1" ]]; then
     exit 0
 fi
 
-run "blob-size" ./scripts/check-blob-size.sh
+fast_commit=0
+if fast_commit_enabled; then
+    fast_commit=1
+fi
+
+run_suppressions=0
 if suppressions_staged; then
+    run_suppressions=1
+fi
+
+run_rust_gate=0
+if rust_gate_staged; then
+    run_rust_gate=1
+fi
+
+shell_files=()
+collect_shell_files
+
+slot_plan=("blob-size")
+if (( run_suppressions == 1 )); then
+    slot_plan+=("suppressions")
+fi
+if (( run_rust_gate == 1 )); then
+    slot_plan+=("rustfmt" "clippy" "file-size")
+    if (( fast_commit == 0 )); then
+        slot_plan+=("tests" "rustdoc")
+    fi
+    slot_plan+=("cargo-deny")
+fi
+if (( ${#shell_files[@]} > 0 )); then
+    slot_plan+=("shellcheck")
+fi
+
+if [[ "${PRECOMMIT_PLAN_ONLY:-}" == "1" ]]; then
+    print_slot_plan
+    exit 0
+fi
+
+run "blob-size" ./scripts/check-blob-size.sh
+if (( run_suppressions == 1 )); then
     run "suppressions" ./scripts/check-suppressions.sh
 fi
 
 # --- Rust gate: only when Rust-relevant files are staged ---
-if staged | grep -qE '\.rs$|(^|/)Cargo\.(toml|lock)$|(^|/)(clippy|deny)\.toml$'; then
+if (( run_rust_gate == 1 )); then
     run "rustfmt" cargo fmt --check
     run "clippy" cargo clippy --all-targets --all-features --locked -- -D warnings
     run "file-size" ./scripts/check-file-size.sh
-    RUSTFLAGS="-D warnings" run "tests" cargo test --locked
-    RUSTDOCFLAGS="-D warnings" run "rustdoc" cargo doc --no-deps --locked
+    if (( fast_commit == 1 )); then
+        print_fast_commit_notice
+    else
+        RUSTFLAGS="-D warnings" run "tests" cargo test --locked
+        RUSTDOCFLAGS="-D warnings" run "rustdoc" cargo doc --no-deps --locked
+    fi
     if command -v cargo-deny >/dev/null 2>&1; then
         run "cargo-deny" cargo deny check
     else
@@ -143,11 +228,6 @@ if staged | grep -qE '\.rs$|(^|/)Cargo\.(toml|lock)$|(^|/)(clippy|deny)\.toml$';
 fi
 
 # --- Shell gate: only when shell scripts are staged ---
-shell_files=()
-while IFS= read -r -d '' f; do
-    shell_files+=("$f")
-done < <(staged -z 2>/dev/null | grep -zE '\.(sh|bash)$|(^|/)\.githooks/' || true)
-
 if [ "${#shell_files[@]}" -gt 0 ]; then
     if command -v shellcheck >/dev/null 2>&1; then
         run "shellcheck" shellcheck -x "${shell_files[@]}"

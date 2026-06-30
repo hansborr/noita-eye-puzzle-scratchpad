@@ -53,6 +53,15 @@ here.
   limits and what it dropped. The cross-cutting process lessons live in
   `research/attack-methodology.md`.
 
+### Fast-commit mode
+
+For cheap intermediate commits on feature branches only, enable the worktree-local
+pre-commit shortcut with `touch "$(git rev-parse --git-dir)/noita-fast-commit"`.
+It skips only `cargo test` and the rustdoc check; it still runs rustfmt, clippy,
+file-size, blob-size, suppressions, and cargo-deny. CI and `make verify` /
+`make check` always remain the full gate. Disable it with
+`rm "$(git rev-parse --git-dir)/noita-fast-commit"`.
+
 ## Design notes
 
 - A `Glyph` is an opaque `u16` index into an `Alphabet`, not a closed enum,
