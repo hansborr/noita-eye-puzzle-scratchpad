@@ -24,6 +24,74 @@ EOF
     fi
 }
 
+source_relevant_path() {
+    local path="$1"
+
+    case "$path" in
+        *.rs | Cargo.toml | Cargo.lock | .githooks/* | scripts/* | .github/workflows/*)
+            return 0
+            ;;
+    esac
+
+    [[ "$path" != */* && "$path" == *.toml ]]
+}
+
+source_relevant_unstaged_paths() {
+    local path
+    while IFS= read -r -d '' path; do
+        if source_relevant_path "$path"; then
+            printf '%s\0' "$path"
+        fi
+    done < <(git diff --name-only -z)
+}
+
+source_relevant_untracked_paths() {
+    local path
+    while IFS= read -r -d '' path; do
+        if source_relevant_path "$path"; then
+            printf '%s\0' "$path"
+        fi
+    done < <(git ls-files --others --exclude-standard -z)
+}
+
+guard_clean_source_worktree() {
+    if [[ "${ALLOW_DIRTY_COMMIT:-}" == "1" ]]; then
+        return 0
+    fi
+
+    # The Rust/shell gates run against the working tree, while git commits the
+    # index. Source-relevant unstaged or untracked files would mean the gate
+    # verified something other than the commit being created.
+    local unstaged=()
+    local untracked=()
+    local path
+    while IFS= read -r -d '' path; do
+        unstaged+=("$path")
+    done < <(source_relevant_unstaged_paths)
+    while IFS= read -r -d '' path; do
+        untracked+=("$path")
+    done < <(source_relevant_untracked_paths)
+
+    if (( ${#unstaged[@]} == 0 && ${#untracked[@]} == 0 )); then
+        return 0
+    fi
+
+    {
+        echo "pre-commit: source-relevant working tree changes are not staged."
+        echo "pre-commit: stage or stash them first so verified == committed; git stash -k keeps staged changes."
+        if (( ${#unstaged[@]} > 0 )); then
+            echo "pre-commit: unstaged source-relevant paths:"
+            printf '  %s\n' "${unstaged[@]}"
+        fi
+        if (( ${#untracked[@]} > 0 )); then
+            echo "pre-commit: untracked source-relevant paths:"
+            printf '  %s\n' "${untracked[@]}"
+        fi
+        echo "pre-commit: emergency override: ALLOW_DIRTY_COMMIT=1"
+    } >&2
+    exit 1
+}
+
 run() {
     printf '\033[1mpre-commit:\033[0m %s\n' "$1"
     shift
@@ -35,6 +103,12 @@ staged() {
 }
 
 guard_protected_branch
+guard_clean_source_worktree
+
+if [[ "${PRECOMMIT_GUARDS_ONLY:-}" == "1" ]]; then
+    echo "pre-commit: guards OK"
+    exit 0
+fi
 
 # --- Rust gate: only when Rust-relevant files are staged ---
 if staged | grep -qE '\.rs$|(^|/)Cargo\.(toml|lock)$|(^|/)(clippy|deny)\.toml$'; then
