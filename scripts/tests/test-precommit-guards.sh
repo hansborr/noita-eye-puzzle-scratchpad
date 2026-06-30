@@ -11,13 +11,26 @@ cleanup() {
 }
 trap cleanup EXIT
 
+git_hermetic() {
+    local repo="$1"
+    shift
+
+    git \
+        -C "$repo" \
+        -c commit.gpgsign=false \
+        -c core.hooksPath= \
+        -c user.name=t \
+        -c user.email=t@e \
+        "$@"
+}
+
 new_repo() {
     local branch="$1"
     local name="${branch//\//-}"
     local repo
 
     repo="$(mktemp -d "$tmp_root/repo-$name.XXXXXX")"
-    git -C "$repo" init -q -b "$branch"
+    git_hermetic "$repo" init -q -b "$branch"
     printf '%s\n' "$repo"
 }
 
@@ -25,12 +38,7 @@ commit_index() {
     local repo="$1"
     local message="$2"
 
-    env \
-        GIT_AUTHOR_NAME="precommit guard test" \
-        GIT_AUTHOR_EMAIL="precommit-guard@example.invalid" \
-        GIT_COMMITTER_NAME="precommit guard test" \
-        GIT_COMMITTER_EMAIL="precommit-guard@example.invalid" \
-        git -C "$repo" commit -q -m "$message"
+    git_hermetic "$repo" commit -q -m "$message"
 }
 
 run_hook() {
