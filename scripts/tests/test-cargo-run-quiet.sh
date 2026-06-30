@@ -165,6 +165,19 @@ assert_rewrite() {
         || fail "$name" "expected updatedInput rewrite:"$'\n'"$RUN_OUTPUT"
 }
 
+assert_codex_block_contains() {
+    local name="$1"
+    local needle="$2"
+
+    assert_status_zero "$name"
+    printf '%s' "$RUN_OUTPUT" \
+        | jq -e --arg needle "$needle" \
+            '.decision == "block" and (.reason | contains($needle))' \
+            >/dev/null 2>&1 \
+        || fail "$name" "expected Codex block containing [$needle]:"$'\n'"$RUN_OUTPUT"
+    pass "$name"
+}
+
 rewritten_command() {
     printf '%s' "$RUN_OUTPUT" | jq -r '.hookSpecificOutput.updatedInput.command // empty'
 }
@@ -311,6 +324,14 @@ assert_contains "cargo metachar failure prints semicolon verbatim" "$REPLAY_OUTP
 assert_contains "cargo metachar failure prints quote verbatim" "$REPLAY_OUTPUT" 'stray " quote'
 assert_cargo_invocations "cargo metachar failure ran" 6
 pass "cargo metachar failure replay is injection-safe"
+
+run_cargo_hook "$(command_payload "cargo clippy --locked")" AI_HOOK_PROTOCOL=codex STUB_CARGO_STATUS=0 STUB_CARGO_LINES=1
+assert_codex_block_contains "Codex cargo success blocks original command with summary" "cargo clippy OK ("
+assert_cargo_invocations "Codex cargo success ran" 7
+
+run_cargo_hook "$(command_payload "cargo check --locked")" AI_HOOK_PROTOCOL=codex STUB_CARGO_STATUS=23 STUB_CARGO_LINES=2
+assert_codex_block_contains "Codex cargo failure blocks original command with tail" "cargo check failed (exit 23"
+assert_cargo_invocations "Codex cargo failure ran" 8
 
 run_cargo_hook "$(command_payload "cargo build")" STUB_CARGO_STATUS=7 STUB_CARGO_LINES=50
 assert_rewrite "cargo build failure rewrites command"

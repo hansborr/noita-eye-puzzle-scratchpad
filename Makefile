@@ -53,9 +53,9 @@ machete:
 spell:
 	codespell
 
-## shellcheck: lint shell scripts (the git hook + any scripts/*.sh)
+## shellcheck: lint shell scripts (git hook, agent adapters, and scripts/*.sh)
 shellcheck:
-	bash -c 'shopt -s nullglob globstar; shellcheck -x .githooks/* .claude/hooks/*.sh scripts/**/*.sh'
+	bash -c 'shopt -s nullglob globstar; shellcheck -x .githooks/* .claude/hooks/*.sh .codex/hooks/*.sh scripts/**/*.sh'
 
 ## test-scripts: run shell smoke tests
 test-scripts:

@@ -77,6 +77,16 @@ command_payload() {
     }'
 }
 
+codex_command_payload() {
+    local command="$1"
+
+    jq -n --arg command "$command" '{
+        tool_name: "Bash",
+        tool_use_id: "codex-bash",
+        tool_input: {command: $command}
+    }'
+}
+
 file_payload() {
     local path="$1"
     local session="$2"
@@ -85,6 +95,16 @@ file_payload() {
         hook_event_name: "PreToolUse",
         session_id: $session,
         tool_input: {file_path: $path}
+    }'
+}
+
+codex_patch_payload() {
+    local patch="$1"
+
+    jq -n --arg command "$patch" '{
+        tool_name: "apply_patch",
+        tool_use_id: "codex-patch",
+        tool_input: {command: $command}
     }'
 }
 
@@ -118,6 +138,26 @@ expect_commit_allow() {
     pass "$name"
 }
 
+expect_codex_commit_block() {
+    local name="$1"
+    local command="$2"
+
+    run_hook "$repo_root/.codex/hooks/pre-tool-use.sh" "$(codex_command_payload "$command")"
+    assert_status_zero "$name"
+    assert_jq "$name" '.decision == "deny" and (.reason | contains("pre-commit hook"))'
+    pass "$name"
+}
+
+expect_codex_command_allow() {
+    local name="$1"
+    local command="$2"
+
+    run_hook "$repo_root/.codex/hooks/pre-tool-use.sh" "$(codex_command_payload "$command")"
+    assert_status_zero "$name"
+    assert_jq "$name" '.continue == true'
+    pass "$name"
+}
+
 expect_file_context() {
     local name="$1"
     local path="$2"
@@ -140,6 +180,19 @@ expect_file_allow() {
         AI_HOOK_REPO_ROOT="$repo_root"
     assert_status_zero "$name"
     assert_jq "$name" '.continue == true'
+    pass "$name"
+}
+
+expect_codex_file_context() {
+    local name="$1"
+    local patch="$2"
+    local needle="$3"
+
+    run_hook "$repo_root/.codex/hooks/protected-files.sh" "$(codex_patch_payload "$patch")" \
+        AI_HOOK_REPO_ROOT="$repo_root"
+    assert_status_zero "$name"
+    assert_jq "$name" \
+        ".hookSpecificOutput.hookEventName == \"PreToolUse\" and (.hookSpecificOutput.additionalContext | contains(\"$needle\"))"
     pass "$name"
 }
 
@@ -245,9 +298,28 @@ expect_commit_allow "allows git status" "git status"
 expect_commit_allow "allows git log" "git log"
 expect_commit_allow "allows non-git command" 'printf "%s\n" "git commit --no-verify"'
 
+expect_codex_commit_block "Codex pre-hook blocks git commit --no-verify" "git commit --no-verify"
+expect_codex_command_allow "Codex pre-hook allows normal Bash command" "git status"
+
 expect_file_context "advises on Cargo.toml" "Cargo.toml" "dependency surface" "cargo-file"
 expect_file_context "advises on verified corpus" "src/data/corpus.rs" "Experiment-0-verified corpus" "corpus-file"
 expect_file_allow "allows normal source file" "src/lib.rs"
+
+codex_guardrail_patch=$(printf '%s\n' \
+    '*** Begin Patch' \
+    '*** Update File: Cargo.toml' \
+    '@@' \
+    '-old' \
+    '+new' \
+    '*** Update File: scripts/ai-hooks/common.sh' \
+    '@@' \
+    '-old' \
+    '+new' \
+    '*** End Patch')
+expect_codex_file_context \
+    "Codex protected-files hook advises on apply_patch paths" \
+    "$codex_guardrail_patch" \
+    "dependency surface"
 
 clean_repo="$(new_repo feature/clean-stop)"
 expect_stop_silent "stop hook silent on clean repo" "$clean_repo" "clean-stop"

@@ -39,6 +39,8 @@ ai_tidy_tool_succeeded() {
             | jq -r '(.tool_response? // .tool_output? // {}) as $response
                 | if ($response | type) == "object" and ($response | has("success")) then
                     $response.success
+                elif ($response | type) == "object" and ($response | has("exit_code")) then
+                    ($response.exit_code == 0)
                 else
                     true
                 end' 2>/dev/null
@@ -49,10 +51,7 @@ ai_tidy_tool_succeeded() {
 ai_tidy_absolute_path() {
     local path="$1"
 
-    case "$path" in
-        /*) realpath -m -- "$path" ;;
-        *) realpath -m -- "$REPO_ROOT/$path" ;;
-    esac
+    ai_payload_absolute_path "$AI_HOOK_PAYLOAD" "$path" "$REPO_ROOT"
 }
 
 ai_tidy_relative_path() {
@@ -165,55 +164,68 @@ ai_tidy_bounded_tail() {
 
 main() {
     local tool_name requested_path absolute_path relative_path state_file before_hash after_hash
-    local rustfmt_output rustfmt_status message timeout_seconds
+    local rustfmt_output rustfmt_status message timeout_seconds combined
+    local -A seen=()
 
     ai_read_payload PostToolUse || ai_emit_continue
     tool_name=$(ai_payload_tool_name "$AI_HOOK_PAYLOAD" 2>/dev/null || printf '')
     case "$tool_name" in
-        Edit | Write) ;;
+        Edit | Write | MultiEdit | apply_patch) ;;
         *) ai_emit_continue ;;
     esac
 
     ai_tidy_tool_succeeded "$AI_HOOK_PAYLOAD" || ai_emit_continue
-    requested_path=$(ai_payload_file_path "$AI_HOOK_PAYLOAD") || ai_emit_continue
-    absolute_path=$(ai_tidy_resolve_rust_file "$requested_path") || ai_emit_continue
-    relative_path=$(ai_tidy_relative_path "$absolute_path")
-    before_hash=$(ai_tidy_file_hash "$absolute_path") || ai_emit_continue
-    [ -n "$before_hash" ] || ai_emit_continue
-    state_file=$(ai_tidy_state_file "$relative_path") || ai_emit_continue
-    ai_tidy_seen_current_hash "$state_file" "$before_hash" && ai_emit_continue
 
     command -v rustfmt >/dev/null 2>&1 || ai_emit_continue
     command -v timeout >/dev/null 2>&1 || ai_emit_continue
     cd "$REPO_ROOT" || ai_emit_continue
 
     timeout_seconds=$(ai_tidy_positive_integer_or_default "$AI_TIDY_ON_EDIT_TIMEOUT" 45)
-    rustfmt_output=$(timeout --kill-after=5s "${timeout_seconds}s" rustfmt "$absolute_path" 2>&1)
-    rustfmt_status=$?
-    after_hash=$(ai_tidy_file_hash "$absolute_path") || ai_emit_continue
-    [ -n "$after_hash" ] || ai_emit_continue
-    ai_tidy_write_hash "$state_file" "$after_hash" || true
+    combined=""
+    while IFS= read -r requested_path; do
+        [ -n "$requested_path" ] || continue
+        absolute_path=$(ai_tidy_resolve_rust_file "$requested_path") || continue
+        relative_path=$(ai_tidy_relative_path "$absolute_path")
+        [ -z "${seen[$relative_path]+x}" ] || continue
+        seen[$relative_path]=1
 
-    if [ "$rustfmt_status" -eq 124 ] || [ "$rustfmt_status" -eq 137 ]; then
-        message=$(printf 'tidy-on-edit: %s rustfmt TIMEOUT after %ss (non-blocking)' \
-            "$relative_path" "$timeout_seconds")
-        if [ -n "$rustfmt_output" ]; then
-            message="${message}"$'\n'"--- rustfmt output ---"$'\n'"$(ai_tidy_bounded_tail "$rustfmt_output")"
+        before_hash=$(ai_tidy_file_hash "$absolute_path") || continue
+        [ -n "$before_hash" ] || continue
+        state_file=$(ai_tidy_state_file "$relative_path") || continue
+        ai_tidy_seen_current_hash "$state_file" "$before_hash" && continue
+
+        rustfmt_output=$(timeout --kill-after=5s "${timeout_seconds}s" rustfmt "$absolute_path" 2>&1)
+        rustfmt_status=$?
+        after_hash=$(ai_tidy_file_hash "$absolute_path") || continue
+        [ -n "$after_hash" ] || continue
+        ai_tidy_write_hash "$state_file" "$after_hash" || true
+
+        message=""
+        if [ "$rustfmt_status" -eq 124 ] || [ "$rustfmt_status" -eq 137 ]; then
+            message=$(printf 'tidy-on-edit: %s rustfmt TIMEOUT after %ss (non-blocking)' \
+                "$relative_path" "$timeout_seconds")
+            if [ -n "$rustfmt_output" ]; then
+                message="${message}"$'\n'"--- rustfmt output ---"$'\n'"$(ai_tidy_bounded_tail "$rustfmt_output")"
+            fi
+        elif [ "$rustfmt_status" -ne 0 ]; then
+            message=$(printf 'tidy-on-edit: %s rustfmt ERROR (non-blocking)' "$relative_path")
+            if [ -n "$rustfmt_output" ]; then
+                message="${message}"$'\n'"--- rustfmt output ---"$'\n'"$(ai_tidy_bounded_tail "$rustfmt_output")"
+            fi
+        elif [ "$before_hash" != "$after_hash" ]; then
+            message="tidy-on-edit: $relative_path rustfmt applied"
         fi
-        ai_emit_additional_context "PostToolUse" "$message"
-    fi
 
-    if [ "$rustfmt_status" -ne 0 ]; then
-        message=$(printf 'tidy-on-edit: %s rustfmt ERROR (non-blocking)' "$relative_path")
-        if [ -n "$rustfmt_output" ]; then
-            message="${message}"$'\n'"--- rustfmt output ---"$'\n'"$(ai_tidy_bounded_tail "$rustfmt_output")"
+        if [ -n "$message" ]; then
+            if [ -n "$combined" ]; then
+                combined="${combined}"$'\n'"$message"
+            else
+                combined="$message"
+            fi
         fi
-        ai_emit_additional_context "PostToolUse" "$message"
-    fi
+    done < <(ai_payload_file_paths "$AI_HOOK_PAYLOAD")
 
-    if [ "$before_hash" != "$after_hash" ]; then
-        ai_emit_additional_context "PostToolUse" "tidy-on-edit: $relative_path rustfmt applied"
-    fi
+    [ -n "$combined" ] && ai_emit_additional_context "PostToolUse" "$combined"
 
     ai_emit_continue
 }

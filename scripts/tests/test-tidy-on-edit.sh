@@ -86,6 +86,18 @@ edit_payload() {
     }'
 }
 
+codex_patch_payload() {
+    local patch="$1"
+    local session="${2:-tidy-codex}"
+
+    jq -n --arg command "$patch" --arg session "$session" '{
+        session_id: $session,
+        tool_name: "apply_patch",
+        tool_input: {command: $command},
+        tool_response: {exit_code: 0}
+    }'
+}
+
 run_tidy_hook() {
     local payload="$1"
     shift
@@ -93,13 +105,16 @@ run_tidy_hook() {
     set +e
     RUN_OUTPUT=$(
         printf '%s' "$payload" \
-            | env \
+            | (
+                cd "$tidy_repo" || exit 1
+                env \
                 AI_HOOK_REPO_ROOT="$tidy_repo" \
                 AI_TIDY_ON_EDIT_STATE_DIR="$state_dir" \
                 PATH="$fake_bin:$PATH" \
                 RUSTFMT_LOG="$rustfmt_log" \
                 "$@" \
                 bash "$hook" 2>&1
+            )
     )
     RUN_STATUS=$?
     set -e
@@ -190,6 +205,18 @@ run_tidy_hook "$(edit_payload "src/slow.rs" "Edit" "tidy-timeout")" \
 assert_context_contains "tidy hook reports rustfmt timeout without blocking" "tidy-on-edit: src/slow.rs rustfmt TIMEOUT after 1s (non-blocking)"
 assert_rustfmt_invocations "rustfmt ran for timeout case" 3
 
+printf 'fn codex()->u8{7}\n' > "$tidy_repo/src/codex.rs"
+codex_patch=$(printf '%s\n' \
+    '*** Begin Patch' \
+    '*** Update File: src/codex.rs' \
+    '@@' \
+    '-old' \
+    '+new' \
+    '*** End Patch')
+run_tidy_hook "$(codex_patch_payload "$codex_patch")" AI_HOOK_PROTOCOL=codex STUB_RUSTFMT_MODE=modify
+assert_context_contains "tidy hook formats Codex apply_patch Rust file" "tidy-on-edit: src/codex.rs rustfmt applied"
+assert_rustfmt_invocations "rustfmt ran for Codex apply_patch file" 4
+
 run_tidy_hook "{"
 assert_continue "tidy hook fails open on malformed stdin"
-assert_rustfmt_invocations "rustfmt did not run for malformed stdin" 3
+assert_rustfmt_invocations "rustfmt did not run for malformed stdin" 4

@@ -1,7 +1,18 @@
 #!/bin/bash
 
-# Shared helpers for Claude Code hook bodies. Hook callers should treat a
-# non-zero helper result as fail-open and emit ai_emit_continue.
+# Shared helpers for AI hook bodies. Hook callers should treat a non-zero helper
+# result as fail-open and emit ai_emit_continue.
+
+ai_hook_protocol() {
+    case "${AI_HOOK_PROTOCOL:-claude}" in
+        codex)
+            printf 'codex\n'
+            ;;
+        *)
+            printf 'claude\n'
+            ;;
+    esac
+}
 
 ai_have_jq() {
     command -v jq >/dev/null 2>&1
@@ -32,6 +43,9 @@ ai_emit_continue() {
 }
 
 ai_emit_block() {
+    if [ "$(ai_hook_protocol)" = "codex" ]; then
+        ai_emit_codex_block "$1"
+    fi
     ai_emit_deny "$1"
 }
 
@@ -40,8 +54,22 @@ ai_emit_deny() {
     local event="${AI_HOOK_EVENT_NAME:-PreToolUse}"
 
     ai_have_jq || ai_emit_continue
-    jq -n --arg event "$event" --arg reason "$reason" \
-        '{hookSpecificOutput:{hookEventName:$event,permissionDecision:"deny",permissionDecisionReason:$reason}}' \
+    if [ "$(ai_hook_protocol)" = "codex" ]; then
+        jq -n --arg reason "$reason" '{decision:"deny",reason:$reason}' \
+            || ai_emit_continue
+    else
+        jq -n --arg event "$event" --arg reason "$reason" \
+            '{hookSpecificOutput:{hookEventName:$event,permissionDecision:"deny",permissionDecisionReason:$reason}}' \
+            || ai_emit_continue
+    fi
+    exit 0
+}
+
+ai_emit_codex_block() {
+    local reason="$1"
+
+    ai_have_jq || ai_emit_continue
+    jq -n --arg reason "$reason" '{decision:"block",reason:$reason}' \
         || ai_emit_continue
     exit 0
 }
@@ -141,6 +169,13 @@ ai_payload_tool_name() {
     printf '%s' "$payload" | jq -er '.tool_name? // empty | strings' 2>/dev/null
 }
 
+ai_payload_tool_use_id() {
+    local payload="$1"
+
+    printf '%s' "$payload" \
+        | jq -er '.tool_use_id? // .toolUseId? // empty | strings' 2>/dev/null
+}
+
 ai_payload_command() {
     local payload="$1"
 
@@ -157,6 +192,68 @@ ai_payload_file_path() {
     local payload="$1"
 
     printf '%s' "$payload" | jq -er '.tool_input.file_path | strings' 2>/dev/null
+}
+
+ai_payload_apply_patch_paths() {
+    local patch="$1"
+
+    printf '%s\n' "$patch" | awk '
+        /^\*\*\* (Add|Update|Delete) File: / {
+            sub(/^\*\*\* (Add|Update|Delete) File: /, "")
+            sub(/\r$/, "")
+            print
+            next
+        }
+        /^\*\*\* Move to: / {
+            sub(/^\*\*\* Move to: /, "")
+            sub(/\r$/, "")
+            print
+        }
+    '
+}
+
+ai_payload_file_paths() {
+    local payload="$1"
+    local tool_name command file_path
+
+    tool_name=$(ai_payload_tool_name "$payload" 2>/dev/null || printf '')
+    if [ "$tool_name" = "apply_patch" ]; then
+        command=$(ai_payload_command "$payload" 2>/dev/null || printf '')
+        [ -n "$command" ] || return 0
+        ai_payload_apply_patch_paths "$command"
+        return 0
+    fi
+
+    file_path=$(ai_payload_file_path "$payload" 2>/dev/null || printf '')
+    [ -n "$file_path" ] && printf '%s\n' "$file_path"
+}
+
+ai_payload_path_base_dir() {
+    local payload="$1"
+    local repo_root="$2"
+    local tool_name
+
+    tool_name=$(ai_payload_tool_name "$payload" 2>/dev/null || printf '')
+    if [ "$tool_name" = "apply_patch" ]; then
+        printf '%s\n' "$PWD"
+    else
+        printf '%s\n' "$repo_root"
+    fi
+}
+
+ai_payload_absolute_path() {
+    local payload="$1"
+    local path="$2"
+    local repo_root="$3"
+    local base_dir
+
+    case "$path" in
+        /*) realpath -m -- "$path" ;;
+        *)
+            base_dir=$(ai_payload_path_base_dir "$payload" "$repo_root")
+            realpath -m -- "$base_dir/$path"
+            ;;
+    esac
 }
 
 ai_payload_session_id() {

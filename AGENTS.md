@@ -63,16 +63,38 @@ file-size, blob-size, suppressions, and cargo-deny. CI and `make verify` /
 `make check` always remain the full gate. Disable it with
 `rm "$(git rev-parse --git-dir)/noita-fast-commit"`.
 
-`PRECOMMIT_PLAN_ONLY=1` and `PRECOMMIT_GUARDS_ONLY=1` are dry-run inspection
-shortcuts that exit 0; do not set them during a real `git commit`, where they
-would bypass the gate.
+`PRECOMMIT_PLAN_ONLY=1` and `PRECOMMIT_GUARDS_ONLY=1` are direct dry-run
+inspection shortcuts. They exit 0 only when `.githooks/pre-commit` is run
+directly; during a real `git commit`, they abort instead of bypassing the gate.
 
 ### Agent hooks
 
-Claude Code hooks use shared bodies in `scripts/ai-hooks/` with thin
-`.claude/hooks/` adapters. Hook errors fail open (they emit "continue" rather
-than blocking a tool call); only a confident commit-bypass match is intentionally
-denied.
+Claude Code and Codex hooks use shared bodies in `scripts/ai-hooks/` with thin
+`.claude/hooks/` and `.codex/hooks/` adapters. Hook errors fail open (they emit
+"continue" rather than blocking a tool call); only a confident commit-bypass
+match is intentionally denied.
+
+Codex only runs this repo's `.codex/hooks.json` after each hook entry is trusted
+for this worktree. Start Codex in `/home/node/persist/noita-eye-puzzle-maint` and
+accept the hook trust prompts, or preseed equivalent entries in
+`~/.codex/config.toml` using the hashes shown by Codex:
+
+```toml
+[features]
+hooks = true
+
+[hooks.state."/home/node/persist/noita-eye-puzzle-maint/.codex/hooks.json:pre_tool_use:0:0"]
+trusted_hash = "sha256:<codex-reported hash>"
+
+[hooks.state."/home/node/persist/noita-eye-puzzle-maint/.codex/hooks.json:pre_tool_use:1:0"]
+trusted_hash = "sha256:<codex-reported hash>"
+
+[hooks.state."/home/node/persist/noita-eye-puzzle-maint/.codex/hooks.json:post_tool_use:0:0"]
+trusted_hash = "sha256:<codex-reported hash>"
+
+[hooks.state."/home/node/persist/noita-eye-puzzle-maint/.codex/hooks.json:stop:0:0"]
+trusted_hash = "sha256:<codex-reported hash>"
+```
 
 - `commit-bypass-guard` (PreToolUse Bash) blocks pre-commit/history bypasses
   such as `--no-verify`, `-n`, `--amend`, and `git -c core.hooksPath=...` while
@@ -80,11 +102,11 @@ denied.
 - `cargo-run-quiet` (PreToolUse Bash) summarizes and caches whitelisted
   `cargo test`/`clippy`/`build`/`check` and `cargo fmt --check` output. Opt out
   with `NOITA_QUIET_OFF=1` (including an inline prefix) or `.noita-quiet-off`.
-- `protected-files-advisory` (PreToolUse Edit|Write) gives throttled heads-up
-  notes when editing guardrails, Cargo policy/dependency files, the verified
-  corpus, or embedded research fixtures.
-- `tidy-on-edit` (PostToolUse Edit|Write) runs `rustfmt` on edited in-repo
-  `.rs` files; failures are advisory.
+- `protected-files-advisory` (Claude PreToolUse Edit|Write, Codex PreToolUse
+  apply_patch) gives throttled heads-up notes when editing guardrails, Cargo
+  policy/dependency files, the verified corpus, or embedded research fixtures.
+- `tidy-on-edit` (Claude PostToolUse Edit|Write, Codex PostToolUse apply_patch)
+  runs `rustfmt` on edited in-repo `.rs` files; failures are advisory.
 - `stop-nudge` (Stop, non-blocking) reminds about uncommitted work. Disable it
   with `.no-stop-uncommitted`.
 
@@ -115,4 +137,4 @@ denied.
 | Local gate         | `.githooks/pre-commit` (install via `make setup`)     |
 | CI                 | `.github/workflows/ci.yml`                            |
 | Dangerous commands | `.claude/settings.json` deny list                     |
-| Agent hooks        | `.claude/settings.json` hooks + `scripts/ai-hooks/` (thin `.claude/hooks/` shims) |
+| Agent hooks        | `.claude/settings.json` + `.codex/hooks.json` hooks, thin adapters in `.claude/hooks/` and `.codex/hooks/`, shared bodies in `scripts/ai-hooks/` |

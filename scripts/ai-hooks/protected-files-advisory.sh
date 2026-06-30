@@ -48,7 +48,7 @@ ai_protected_file_entry() {
             key="policy-floor"
             advisory="lint/supply-chain/toolchain policy: changing this moves the guardrail floor"
             ;;
-        .githooks/* | scripts/check-*.sh | scripts/ai-hooks/*)
+        .claude/* | .codex/* | .githooks/* | scripts/check-*.sh | scripts/ai-hooks/*)
             key="guardrails"
             advisory="you are editing the guardrails themselves; cover changes with scripts/tests and shellcheck"
             ;;
@@ -118,20 +118,33 @@ ai_protected_should_emit() {
 }
 
 main() {
-    local path rel entry advisory_key advisory
+    local path abs rel entry advisory_key advisory combined
+    local -A seen=()
 
     ai_read_payload PreToolUse || ai_emit_continue
-    path=$(ai_payload_file_path "$AI_HOOK_PAYLOAD") || ai_emit_continue
-    [ -n "$path" ] || ai_emit_continue
+    combined=""
 
-    rel=$(ai_repo_relative_path "$path")
-    entry=$(ai_protected_file_entry "$rel") || ai_emit_continue
-    advisory_key="${entry%%$'\t'*}"
-    advisory="${entry#*$'\t'}"
+    while IFS= read -r path; do
+        [ -n "$path" ] || continue
+        abs=$(ai_payload_absolute_path "$AI_HOOK_PAYLOAD" "$path" "$REPO_ROOT") || continue
+        rel=$(ai_repo_relative_path "$abs")
+        [ -z "${seen[$rel]+x}" ] || continue
+        seen[$rel]=1
 
-    if ai_protected_should_emit "$advisory_key"; then
-        ai_emit_context "PreToolUse" "protected-files: $advisory"
-    fi
+        entry=$(ai_protected_file_entry "$rel") || continue
+        advisory_key="${entry%%$'\t'*}"
+        advisory="${entry#*$'\t'}"
+
+        if ai_protected_should_emit "$advisory_key"; then
+            if [ -n "$combined" ]; then
+                combined="${combined}"$'\n'"protected-files: $advisory"
+            else
+                combined="protected-files: $advisory"
+            fi
+        fi
+    done < <(ai_payload_file_paths "$AI_HOOK_PAYLOAD")
+
+    [ -n "$combined" ] && ai_emit_context "PreToolUse" "$combined"
 
     ai_emit_continue
 }

@@ -370,6 +370,13 @@ ai_cargo_emit_result_command() {
     local exit_status="$2"
     local state_dir result_file quoted_file command
 
+    if [ "$(ai_hook_protocol)" = "codex" ]; then
+        if [ "$exit_status" -eq 0 ]; then
+            ai_emit_block "$message"
+        fi
+        ai_emit_block "$message"
+    fi
+
     state_dir=$(ai_cargo_state_dir) || ai_emit_continue
     mkdir -p -- "$state_dir" || ai_emit_continue
     result_file=$(mktemp "$state_dir/result.XXXXXX") || ai_emit_continue

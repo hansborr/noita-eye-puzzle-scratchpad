@@ -25,8 +25,17 @@ Entries are grouped by date, newest first, loosely following
   `.claude/hooks/` adapters for commit-bypass guarding, quiet cached cargo runs,
   protected-file advisories, post-edit rustfmt, and a non-blocking stop nudge;
   `.claude/settings.json` also broadens destructive-command deny patterns.
+- **Codex agent hook parity.** Added `.codex/hooks.json` plus thin `.codex/hooks/`
+  adapters for the same commit-bypass guard, quiet cached cargo runs,
+  protected-file advisories, post-edit rustfmt, and stop nudge, with Codex-shaped
+  payload parsing/output and documented hook trust setup.
 - **Shell smoke-test harness.** Added `scripts/tests/*.sh` coverage and
   `make test-scripts`; CI runs the shell smoke suite.
+
+### Fixed
+- **Pre-commit inspection modes cannot bypass real commits.**
+  `PRECOMMIT_PLAN_ONLY=1` and `PRECOMMIT_GUARDS_ONLY=1` now abort when invoked
+  by `git commit`; they remain direct hook inspection shortcuts.
 
 ## 2026-06-26 — GAK attack threads
 
