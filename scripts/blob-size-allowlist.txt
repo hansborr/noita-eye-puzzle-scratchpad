@@ -1,0 +1,7 @@
+# Staged blobs that are intentionally larger than the default blob-size warning
+# or block thresholds. Format:
+#
+# <path> # reason
+#
+# Every entry needs a reason. Stale entries fail the gate.
+research/data/lang/english-corpus-large.txt # 1.38 MiB English n-gram corpus embedded via include_str! for scoring

@@ -1,10 +1,10 @@
 # Developer guardrail commands. Run `make check` (or `make verify`) before a commit.
 # CI (.github/workflows/ci.yml) runs the same checks plus the release build.
 
-.PHONY: check verify fmt fmt-check lint filesize test doc-check deny machete spell shellcheck test-scripts build setup run clean
+.PHONY: check verify fmt fmt-check lint filesize blob-size test doc-check deny machete spell shellcheck test-scripts build setup run clean
 
-## check: full local CI — verify + unused-deps + spelling + shellcheck + shell smoke tests + release build
-check: verify machete spell shellcheck test-scripts build
+## check: full local CI — verify + staged blob-size + unused-deps + spelling + shellcheck + shell smoke tests + release build
+check: verify blob-size machete spell shellcheck test-scripts build
 
 ## verify: the correctness gate the pre-commit hook runs
 verify: fmt-check lint filesize test doc-check deny
@@ -24,6 +24,10 @@ lint:
 ## filesize: enforce the per-file Rust line budget (ratchet)
 filesize:
 	./scripts/check-file-size.sh
+
+## blob-size: enforce the staged blob-size budget
+blob-size:
+	./scripts/check-blob-size.sh
 
 ## test: run tests, failing on any compiler warning
 test:

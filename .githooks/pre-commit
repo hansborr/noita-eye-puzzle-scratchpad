@@ -110,6 +110,8 @@ if [[ "${PRECOMMIT_GUARDS_ONLY:-}" == "1" ]]; then
     exit 0
 fi
 
+run "blob-size" ./scripts/check-blob-size.sh
+
 # --- Rust gate: only when Rust-relevant files are staged ---
 if staged | grep -qE '\.rs$|(^|/)Cargo\.(toml|lock)$|(^|/)(clippy|deny)\.toml$'; then
     run "rustfmt" cargo fmt --check
