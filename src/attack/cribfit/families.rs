@@ -20,17 +20,27 @@ use super::crib::AnchorPair;
 pub(crate) const ENGLISH_ALPHABET: usize = 26;
 
 /// One token of a tokenization: a dense id of its *input* content (used to confirm
-/// the two crib windows really carry the same plaintext) and the run index where
-/// the token begins (used to map a run-index crib window onto token positions).
+/// the two crib windows really carry the same plaintext) and the run span it
+/// occupies (used to test whether a crib window aligns to token boundaries).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Token {
     /// Dense id of the token's input content (by first appearance).
     key: usize,
     /// Run index where the token's content begins.
     run_start: usize,
+    /// Number of runs the token covers (`0` for an empty chunk, which covers none).
+    run_len: usize,
 }
 
 /// Per-anchor occurrence-equality result.
+///
+/// The crib-equality test is only *sound* when the repeated carrier span aligns to
+/// plaintext-token boundaries. `aligned` records that precondition: a window aligns
+/// only when its tokens **exactly tile** the run span with **no token straddling
+/// either boundary** (and the two windows tile to equal counts with matching input
+/// content). When `aligned` is false the test is *inapplicable* to that crib — the
+/// tokenization's boundaries do not line up across the repeat — which is **not** an
+/// exclusion.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AnchorConsistency {
     /// Crib repeat length (run-length magnitudes).
@@ -39,8 +49,8 @@ pub struct AnchorConsistency {
     pub compared: usize,
     /// Number of compared positions whose outputs agree.
     pub agreements: usize,
-    /// Whether the two windows mapped onto equal-count, content-matched token spans
-    /// (a precondition for a meaningful comparison).
+    /// Whether both windows exactly tile their run span on token boundaries with no
+    /// straddle (the soundness precondition for comparing this crib).
     pub aligned: bool,
 }
 
@@ -53,13 +63,39 @@ impl AnchorConsistency {
 }
 
 /// The crib-consistency verdict of one candidate: per-anchor detail plus the
-/// conjunction (consistent ⟺ identical decode across every crib).
+/// three-way classification.
+///
+/// A candidate is in exactly one of three states. **Applicable + consistent**: the
+/// tokenization aligns to every crib and decodes each identically (it survives the
+/// filter). **Applicable + inconsistent (excluded)**: it aligns but at least one
+/// crib decodes differently, so under the "repeated plaintext decodes identically"
+/// necessary condition the codec is excluded. **Inapplicable**: the tokenization's
+/// boundaries do not align across the cribs, so the filter cannot judge it — it is
+/// *set aside*, never excluded.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ConsistencyVerdict {
     /// Per-anchor occurrence-equality.
     pub anchors: Vec<AnchorConsistency>,
-    /// `true` only when every anchor is individually consistent.
+    /// `true` when every crib aligns to token boundaries (the filter applies).
+    pub applicable: bool,
+    /// `true` only when applicable *and* every crib decodes identically.
     pub consistent: bool,
+}
+
+impl ConsistencyVerdict {
+    /// `true` when the filter applies and the candidate fails it (a genuine
+    /// crib-inconsistency exclusion).
+    #[must_use]
+    pub const fn excluded(&self) -> bool {
+        self.applicable && !self.consistent
+    }
+
+    /// `true` when the tokenization does not align to the cribs, so the filter
+    /// cannot judge it (set aside, not excluded).
+    #[must_use]
+    pub const fn inapplicable(&self) -> bool {
+        !self.applicable
+    }
 }
 
 /// One decoded candidate awaiting (or excluded from) the language gate.
@@ -110,40 +146,75 @@ fn dense_content_ids(contents: &[Vec<usize>]) -> Vec<usize> {
         .collect()
 }
 
-/// Checks occurrence-equality of an output stream across the cribs.
+/// Returns the `(input key, emitted output)` of the tokens that **exactly tile** the
+/// run window `[start, start + length)`, or `None` when the window is not aligned to
+/// token boundaries.
 ///
-/// `tokens[t].run_start` locates each output position in run-index space, so a crib
-/// window `[first, first+length)` maps to the tokens starting inside it. Two windows
-/// are *aligned* when they cover equal token counts with matching input content; an
-/// aligned anchor is consistent only when every output also agrees. Per-run streams
-/// (one token per run) align trivially, so this one routine serves every family.
+/// A window is aligned only when no token straddles either boundary (no token starts
+/// before `start` yet extends into the window, and none starts inside yet extends
+/// past the end) **and** the in-window tokens tile the span with no gap. Per-run
+/// tokenizations tile trivially; a variable-rate tokenization whose chunk boundaries
+/// fall mid-window — or that drops separator runs, leaving a gap — is therefore
+/// *inapplicable*, not silently compared on its in-window subset (the false-accept
+/// blind spot).
+fn aligned_window(
+    tokens: &[Token],
+    outputs: &[usize],
+    start: usize,
+    length: usize,
+) -> Option<Vec<(usize, usize)>> {
+    let end = start + length;
+    // No token may straddle either boundary.
+    for tok in tokens {
+        let token_end = tok.run_start + tok.run_len;
+        let straddles_start = tok.run_start < start && token_end > start;
+        let straddles_end = tok.run_start < end && token_end > end;
+        if straddles_start || straddles_end {
+            return None;
+        }
+    }
+    // The in-window tokens must tile [start, end) contiguously with no gap.
+    let mut cursor = start;
+    let mut cells = Vec::new();
+    for (idx, tok) in tokens.iter().enumerate() {
+        if tok.run_len == 0 || tok.run_start < start || tok.run_start + tok.run_len > end {
+            continue;
+        }
+        if tok.run_start != cursor {
+            return None; // a gap (e.g. a dropped separator run) or an overlap
+        }
+        cursor = tok.run_start + tok.run_len;
+        cells.push((tok.key, outputs.get(idx).copied().unwrap_or(usize::MAX)));
+    }
+    if cursor == end { Some(cells) } else { None }
+}
+
+/// Classifies an output stream across the cribs into the three-way verdict.
+///
+/// Each crib is *aligned* only when both windows tile to token boundaries with
+/// matching input content; an aligned crib is consistent when every output also
+/// agrees. A crib that does not align is recorded as inapplicable (`aligned =
+/// false`), never as an exclusion. The candidate is `applicable` when every crib
+/// aligns, and `consistent` when, additionally, every crib decodes identically.
 fn occurrence_consistency(
     tokens: &[Token],
     outputs: &[usize],
     anchors: &[AnchorPair],
 ) -> ConsistencyVerdict {
-    // Each window is the (input key, emitted output) of every token that *starts*
-    // inside the crib's run-index span, so per-run and variable-length families are
-    // handled uniformly without indexing.
-    let window = |start: usize, length: usize| -> Vec<(usize, usize)> {
-        tokens
-            .iter()
-            .enumerate()
-            .filter(|(_, tok)| tok.run_start >= start && tok.run_start < start + length)
-            .map(|(idx, tok)| (tok.key, outputs.get(idx).copied().unwrap_or(usize::MAX)))
-            .collect()
-    };
     let mut results = Vec::with_capacity(anchors.len());
     for anchor in anchors {
-        let a = window(anchor.first, anchor.length);
-        let b = window(anchor.second, anchor.length);
-        // Aligned ⟺ equal token counts with matching input content (same plaintext).
-        let aligned = a.len() == b.len() && a.iter().zip(&b).all(|(x, y)| x.0 == y.0);
-        let compared = a.len();
-        let agreements = if aligned {
-            a.iter().zip(&b).filter(|(x, y)| x.1 == y.1).count()
-        } else {
-            0
+        let a = aligned_window(tokens, outputs, anchor.first, anchor.length);
+        let b = aligned_window(tokens, outputs, anchor.second, anchor.length);
+        let (compared, agreements, aligned) = match (a, b) {
+            (Some(a), Some(b))
+                if a.len() == b.len() && a.iter().zip(&b).all(|(x, y)| x.0 == y.0) =>
+            {
+                let agreements = a.iter().zip(&b).filter(|(x, y)| x.1 == y.1).count();
+                (a.len(), agreements, true)
+            }
+            // Both windows tiled but their token counts / contents disagree: the
+            // boundaries do not correspond, so the crib is inapplicable, not failed.
+            _ => (0, 0, false),
         };
         results.push(AnchorConsistency {
             length: anchor.length,
@@ -152,9 +223,11 @@ fn occurrence_consistency(
             aligned,
         });
     }
-    let consistent = !results.is_empty() && results.iter().all(AnchorConsistency::consistent);
+    let applicable = !results.is_empty() && results.iter().all(|anchor| anchor.aligned);
+    let consistent = applicable && results.iter().all(AnchorConsistency::consistent);
     ConsistencyVerdict {
         anchors: results,
+        applicable,
         consistent,
     }
 }
@@ -167,6 +240,7 @@ fn per_run_tokens(magnitudes: &[usize]) -> Vec<Token> {
         .map(|(i, &m)| Token {
             key: m,
             run_start: i,
+            run_len: 1,
         })
         .collect()
 }
@@ -175,8 +249,9 @@ fn per_run_tokens(magnitudes: &[usize]) -> Vec<Token> {
 ///
 /// Crib-consistent ⟺ `n | bit-gap` for every anchor (proven: the per-window output
 /// offset equals the bit-gap). The output is a **bounded-increment walk**
-/// (consecutive symbols differ by `M[i] ∈ 1..=5 mod n`), so it merely re-expresses
-/// the carrier and cannot host general English; it is gated only for the record.
+/// (consecutive symbols differ by `M[i] ∈ 1..=5 mod n`) — a strong structural
+/// constraint on what English it could carry, but not a proof of impossibility — so
+/// the matched-null gate, not the walk structure, is the evidence.
 #[must_use]
 pub fn cumsum_candidate(magnitudes: &[usize], n: usize, anchors: &[AnchorPair]) -> CribCandidate {
     let mut acc = 0usize;
@@ -247,19 +322,21 @@ impl Tokenization {
         }
     }
 
-    /// Tokenizes `M` into `(content, run_start)` pairs (content keys assigned later).
-    fn tokenize(&self, magnitudes: &[usize]) -> Vec<(Vec<usize>, usize)> {
+    /// Tokenizes `M` into `(content, run_start, run_len)` tuples (content keys
+    /// assigned later). `run_len` is the number of *runs* the token covers, which
+    /// the alignment test uses to detect boundary straddles and tiling gaps.
+    fn tokenize(&self, magnitudes: &[usize]) -> Vec<(Vec<usize>, usize, usize)> {
         match *self {
             Self::Single => magnitudes
                 .iter()
                 .enumerate()
-                .map(|(i, &m)| (vec![m], i))
+                .map(|(i, &m)| (vec![m], i, 1))
                 .collect(),
             Self::Pair { phase } => {
                 let mut out = Vec::new();
                 let mut i = phase;
                 while let (Some(&a), Some(&b)) = (magnitudes.get(i), magnitudes.get(i + 1)) {
-                    out.push((vec![a, b], i));
+                    out.push((vec![a, b], i, 2));
                     i += 2;
                 }
                 out
@@ -271,25 +348,32 @@ impl Tokenization {
 }
 
 /// Splits `magnitudes` on `sep` (separator excluded from any chunk); each chunk
-/// carries the run index where its content begins.
-fn chunk_excluding(magnitudes: &[usize], sep: usize) -> Vec<(Vec<usize>, usize)> {
+/// carries the run index where its content begins and the count of content runs.
+/// Because the separator runs belong to no chunk, the chunks do **not** tile `M` —
+/// a separator inside a crib window leaves a gap, so the alignment test sets such a
+/// window aside as inapplicable.
+fn chunk_excluding(magnitudes: &[usize], sep: usize) -> Vec<(Vec<usize>, usize, usize)> {
     let mut out = Vec::new();
     let mut content = Vec::new();
     let mut chunk_start = 0usize;
     for (i, &m) in magnitudes.iter().enumerate() {
         if m == sep {
-            out.push((std::mem::take(&mut content), chunk_start));
+            let len = content.len();
+            out.push((std::mem::take(&mut content), chunk_start, len));
             chunk_start = i + 1;
         } else {
             content.push(m);
         }
     }
-    out.push((content, chunk_start));
+    let len = content.len();
+    out.push((content, chunk_start, len));
     out
 }
 
-/// Splits `magnitudes` after each `t` (terminator included in the chunk).
-fn chunk_including(magnitudes: &[usize], t: usize) -> Vec<(Vec<usize>, usize)> {
+/// Splits `magnitudes` after each `t` (terminator included in the chunk). Every run
+/// belongs to exactly one chunk, so these chunks tile `M`; a crib window is aligned
+/// only when both its boundaries fall on chunk boundaries.
+fn chunk_including(magnitudes: &[usize], t: usize) -> Vec<(Vec<usize>, usize, usize)> {
     let mut out = Vec::new();
     let mut content = Vec::new();
     let mut chunk_start = 0usize;
@@ -299,11 +383,13 @@ fn chunk_including(magnitudes: &[usize], t: usize) -> Vec<(Vec<usize>, usize)> {
         }
         content.push(m);
         if m == t {
-            out.push((std::mem::take(&mut content), chunk_start));
+            let len = content.len();
+            out.push((std::mem::take(&mut content), chunk_start, len));
         }
     }
     if !content.is_empty() {
-        out.push((content, chunk_start));
+        let len = content.len();
+        out.push((content, chunk_start, len));
     }
     out
 }
@@ -339,12 +425,16 @@ pub fn mtf_candidate(
     anchors: &[AnchorPair],
 ) -> CribCandidate {
     let raw = tokenization.tokenize(magnitudes);
-    let contents: Vec<Vec<usize>> = raw.iter().map(|(content, _)| content.clone()).collect();
+    let contents: Vec<Vec<usize>> = raw.iter().map(|(content, _, _)| content.clone()).collect();
     let keys = dense_content_ids(&contents);
     let tokens: Vec<Token> = keys
         .iter()
         .zip(&raw)
-        .map(|(&key, &(_, run_start))| Token { key, run_start })
+        .map(|(&key, &(_, run_start, run_len))| Token {
+            key,
+            run_start,
+            run_len,
+        })
         .collect();
     let outputs = dense_ids(&mtf_ranks(&keys));
     let alphabet = distinct(&outputs);

@@ -400,9 +400,19 @@ cargo run -- rlcodec --self-test
 > excluded every *memoryless* reading of `M`; the live regime is a keyed/stateful
 > codec. This instrument applies the lever the prior handoff flagged: `M`'s
 > census-significant repeats (the cribs) almost certainly mark repeated *plaintext*
-> spans, so under **any correct codec every occurrence must decode identically** —
-> a language-free necessary condition that prunes the stateful space and **derives
-> the admissible state/key period**.
+> spans, so for **any codec whose tokens align to the crib (plaintext-token)
+> boundaries, every occurrence must decode identically** — a language-free necessary
+> condition that prunes the stateful space and **derives the admissible state/key
+> period**.
+>
+> **The alignment precondition is load-bearing.** A tokenization whose boundaries do
+> *not* line up across the cribs (a chunk straddles a window edge, or a dropped
+> separator leaves a gap) is **inapplicable** — the test sets that candidate aside,
+> it does **not** exclude it. Every candidate is therefore in one of three states:
+> *applicable + consistent* (survives the filter), *applicable + inconsistent*
+> (excluded), or *inapplicable* (set aside). This matters because a real codec could
+> carry the same repeated plaintext with shifted token boundaries; treating
+> misalignment as exclusion would be a false negative.
 
 ### The cribs' geometry (verified)
 
@@ -433,33 +443,39 @@ are the whole constraint:
 
 ### Per-family verdict
 
-- **CumulativeSumMod(n)** (`output[i] = (Σ M[0..=i]) mod n`): crib-consistent for
-  every `n | 21`, but the output is a **bounded-increment walk** (consecutive
-  symbols differ by `M[i] ∈ 1..=5 mod n`), so it merely re-expresses the walk and
-  cannot host general English — an analytic exclusion. Only `n = 21` is
-  English-viable (alphabet 21 ∈ [8, 26]); it is language-gated for the record and
-  scores **below its matched null** (real −11.49 vs null mean −11.03, z = −1.64,
-  p = 0.99 — an honest negative; its near-English fragments are the preserved crib
-  repeats under free substitution, not a decode).
+- **CumulativeSumMod(n)** (`output[i] = (Σ M[0..=i]) mod n`): per-run aligned, so
+  the filter applies; crib-consistent for every `n | 21`. The output is a
+  **bounded-increment walk** (consecutive symbols differ by `M[i] ∈ 1..=5 mod n`) —
+  a *strong structural constraint* on what English it could carry, but **not** a
+  proof of impossibility. Only `n = 21` is English-viable (alphabet 21 ∈ [8, 26]);
+  it is language-gated and the **matched null is the actual evidence**: it scores
+  **below its null** (real −11.49 vs null mean −11.03, z = −1.64, p = 0.99 — an
+  honest negative; its near-English fragments are the preserved crib repeats under
+  free substitution, not a decode).
 - **RunPeriodicKey / BitPeriodicKey**: reported as the analytic admissible period
   sets above ({1} and {1, 3, 7, 21}).
 - **EvolvingTableMtf(tokenization)** (move-to-front rank code over single
-  magnitudes / pairs / comma / terminator chunkings): **every tokenization is
-  crib-inconsistent.** Single-magnitude MTF's two len-26 windows agree on only
-  **22 / 26** output positions — *not* identical, so it is rejected (the carrier
-  agreement is 22/26, not the 0/26 a coarser model would predict: the small
-  5-value alphabet plus the dominance of magnitude 1 keeps MTF nearly stationary,
-  yet the 4 disagreements still break occurrence-equality). The pair/chunk
-  tokenizations are rejected because the odd run-gaps misalign their token phase
-  across the cribs.
+  magnitudes / pairs / comma / terminator chunkings): the verdict depends on
+  whether the tokenization aligns to the cribs.
+  - **Single-magnitude MTF is per-run aligned, and genuinely crib-INCONSISTENT ⟹
+    excluded.** Its two len-26 windows agree on only **22 / 26** output positions —
+    *not* identical (the carrier value is 22/26, not the 0/26 a coarser model would
+    predict: the small 5-value alphabet plus the dominance of magnitude 1 keeps MTF
+    nearly stationary, yet the 4 disagreements still break occurrence-equality).
+  - **The pair / comma / terminator tokenizations are INAPPLICABLE** (set aside, not
+    excluded): the odd run-gaps shift the pair phase across the cribs, and the comma
+    chunking drops separator runs, so their token boundaries do not line up across
+    the repeats. The filter cannot judge them.
 
 ### Honest verdict
 
 **No English survivor** (honest negative) **plus the derived structural
 constraint:** any surviving codec-with-memory must key on a period that divides
 `gcd(bit-gaps) = 21` (bit-periodic) and, if it advances per run, must be
-memoryless (`gcd(run-gaps) = 1`); move-to-front over `M` is excluded outright.
-This narrows the live regime without claiming a decode.
+memoryless (`gcd(run-gaps) = 1`). Among the move-to-front readings, the per-run
+**single-magnitude MTF is excluded**, while the **chunked / paired tokenizations
+are inapplicable** under this filter (set aside, not excluded — their boundaries
+don't align to the cribs). This narrows the live regime without claiming a decode.
 
 ### The instrument
 

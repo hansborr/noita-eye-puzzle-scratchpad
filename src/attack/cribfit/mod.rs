@@ -6,12 +6,19 @@
 //! negative; the live regime is a codec **with memory / a keyed or stateful
 //! reading** of `M`. This instrument operationalizes the lever that regime leaves
 //! open: `M` has census-significant exact repeats (the *cribs*), and a repeat in a
-//! carrier almost certainly marks a repeated *plaintext* span — so under **any
-//! correct codec, every occurrence must decode identically.**
+//! carrier almost certainly marks a repeated *plaintext* span — so for **any codec
+//! whose tokens align to the crib (plaintext-token) boundaries, every occurrence
+//! must decode identically.**
 //!
-//! That is a **language-free necessary condition**. For memoryless codecs it is
-//! trivial; for codecs with memory it is a hard filter that excludes most of the
-//! space *and derives the admissible state/key period* from the cribs' geometry:
+//! That is a **language-free necessary condition**, with an explicit precondition:
+//! the repeated carrier span must line up with the codec's token boundaries. When a
+//! tokenization's boundaries do *not* align across the cribs (a chunk straddles a
+//! window edge, or a dropped separator leaves a gap), the test is **inapplicable** —
+//! the crib is *set aside*, never treated as an exclusion. Every candidate is thus in
+//! one of three states: **applicable + consistent** (survives the filter),
+//! **applicable + inconsistent** (excluded), or **inapplicable** (set aside). For
+//! aligned codecs the condition is a hard filter that excludes most of the space
+//! *and derives the admissible state/key period* from the cribs' geometry:
 //!
 //! - a **run-periodic** key (advances once per run) is consistent ⟺ its period
 //!   divides every **run-gap** ⟺ it divides `gcd(run-gaps)`;
@@ -19,7 +26,7 @@
 //!   **cumulative-sum-mod-`n`** code are consistent ⟺ their period / modulus
 //!   divides every **bit-gap** ⟺ it divides `gcd(bit-gaps)`;
 //! - a **move-to-front** (evolving-table) code is checked directly by
-//!   occurrence-equality across the cribs.
+//!   occurrence-equality across the cribs, where its tokenization aligns.
 //!
 //! ## Honesty discipline (binding — see `AGENTS.md`)
 //!

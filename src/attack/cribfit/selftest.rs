@@ -62,12 +62,21 @@ pub struct CribfitSelfTest {
     /// Whether single-magnitude MTF is crib-consistent on real `one` (must be
     /// `false` — it is the documented inconsistency that proves the filter bites).
     pub mtf_single_consistent: bool,
+    /// Whether single-magnitude MTF *applies* on real `one` (must be `true`: it is
+    /// per-run aligned, so its inconsistency is a genuine exclusion, not set-aside).
+    pub mtf_single_applicable: bool,
+    /// Whether at least one variable-length MTF tokenization is INAPPLICABLE on real
+    /// `one` (must be `true` — pins inapplicable ≠ excluded for misaligned tokens).
+    pub one_has_inapplicable_mtf: bool,
     /// Whether the discrimination control's matching-modulus cumulative-sum code is
     /// crib-consistent (must be `true` — the filter is not reject-everything).
     pub control_cumsum_consistent: bool,
     /// Whether the discrimination control's MTF is crib-consistent (must be `false`
     /// — the filter rejects a memoryful codec that breaks occurrence-equality).
     pub control_mtf_consistent: bool,
+    /// Whether the discrimination control's MTF is a genuine *exclusion* (applicable
+    /// + inconsistent, must be `true` — proving accept-one/reject-one, not set-aside).
+    pub control_mtf_excluded: bool,
     /// Whether the planted English positive control fired through `cribfit`'s gate
     /// (must be `true`).
     pub positive_survivor: bool,
@@ -77,19 +86,22 @@ pub struct CribfitSelfTest {
 
 impl CribfitSelfTest {
     /// `true` only if the geometry matches the documented constraints, single-mag
-    /// MTF is crib-inconsistent, the discrimination control passes a matching
-    /// modulus and rejects MTF, the positive control fires, and real `one` is a
-    /// negative.
+    /// MTF is applicable-and-excluded, at least one variable-length MTF is set aside
+    /// as inapplicable, the discrimination control accepts a matching modulus and
+    /// excludes MTF, the positive control fires, and real `one` is a negative.
     #[must_use]
     pub fn passed(&self) -> bool {
         self.gcd_bit_gaps == 21
             && self.gcd_run_gaps == 1
             && self.bit_periods == [1, 3, 7, 21]
             && !self.mtf_single_consistent
+            && self.mtf_single_applicable
             && self.mtf_single_len26_agreements < self.mtf_single_len26_compared
             && self.mtf_single_len26_compared == 26
+            && self.one_has_inapplicable_mtf
             && self.control_cumsum_consistent
             && !self.control_mtf_consistent
+            && self.control_mtf_excluded
             && self.positive_survivor
             && !self.negative_overall_survivor
     }
@@ -164,6 +176,7 @@ fn positive_candidate(symbols: Vec<usize>) -> CribCandidate {
                 agreements: symbols.len(),
                 aligned: true,
             }],
+            applicable: true,
             consistent: true,
         },
         symbols,
@@ -195,6 +208,9 @@ pub fn cribfit_self_test(seed: u64) -> Result<CribfitSelfTest, RlError> {
     let control_mtf = mtf_candidate(&control_m, Tokenization::Single, &control_anchors);
     let control_cumsum_consistent = control_cumsum.consistency.consistent;
     let control_mtf_consistent = control_mtf.consistency.consistent;
+    // Single-magnitude MTF is per-run aligned, so its inconsistency is a genuine
+    // EXCLUSION (applicable + inconsistent), not a set-aside.
+    let control_mtf_excluded = control_mtf.consistency.excluded();
 
     // NEGATIVE + geometry: real `one`'s documented anchors give the verified
     // gcd(bit-gaps)=21 / gcd(run-gaps)=1, single-magnitude MTF is crib-inconsistent,
@@ -226,6 +242,13 @@ pub fn cribfit_self_test(seed: u64) -> Result<CribfitSelfTest, RlError> {
         });
 
     let report = run_cribfit(&one, BASE, &negative_cfg(seed))?;
+    // At least one variable-length MTF tokenization must be set aside as INAPPLICABLE
+    // (its token boundaries do not align across the cribs) — pinning the distinction
+    // that misaligned ≠ excluded.
+    let one_has_inapplicable_mtf = report
+        .mtf
+        .iter()
+        .any(|candidate| candidate.consistency.inapplicable());
 
     Ok(CribfitSelfTest {
         gcd_bit_gaps: geometry.gcd_bit_gaps,
@@ -234,8 +257,11 @@ pub fn cribfit_self_test(seed: u64) -> Result<CribfitSelfTest, RlError> {
         mtf_single_len26_agreements: mtf_anchor.agreements,
         mtf_single_len26_compared: mtf_anchor.compared,
         mtf_single_consistent: mtf_single.consistency.consistent,
+        mtf_single_applicable: mtf_single.consistency.applicable,
+        one_has_inapplicable_mtf,
         control_cumsum_consistent,
         control_mtf_consistent,
+        control_mtf_excluded,
         positive_survivor,
         negative_overall_survivor: report.overall_survivor,
     })

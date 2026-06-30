@@ -79,6 +79,18 @@ fn run_scan(args: &CribfitArgs) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+/// The three-way crib-filter status of a candidate (consistent / excluded /
+/// inapplicable — set aside, never excluded).
+fn status_str(candidate: &CribCandidate) -> &'static str {
+    if candidate.consistency.consistent {
+        "consistent"
+    } else if candidate.consistency.excluded() {
+        "excluded"
+    } else {
+        "inapplicable"
+    }
+}
+
 /// Renders a list of periods/moduli as `{a, b, c}`.
 fn set_str(values: &[usize]) -> String {
     format!(
@@ -182,14 +194,17 @@ fn print_section_b(report: &CribfitReport) {
         "  [1] CumulativeSumMod(n): output[i] = (Σ M[0..=i]) mod n; consistent ⟺ n | every bit-gap."
     );
     println!(
-        "      caveat: the output is a bounded-increment walk (consecutive symbols differ by M[i]∈1..5 mod n),"
+        "      caveat: the output is a bounded-increment walk (consecutive symbols differ by M[i]∈1..5 mod n) —"
     );
     println!(
-        "              so it re-expresses the walk and cannot host general English; gated only for the record."
+        "              a strong structural constraint on the English it could carry, not a proof of impossibility;"
     );
     println!(
-        "      {:<8} {:>4}  {:<11}  english-viable",
-        "n", "|S|", "consistent"
+        "              the matched-null gate (Section C), not the walk structure, is the evidence."
+    );
+    println!(
+        "      {:<8} {:>4}  {:<13}  english-viable",
+        "n", "|S|", "status"
     );
     for candidate in &report.cumsum {
         print_candidate_row(candidate);
@@ -222,8 +237,11 @@ fn print_section_b(report: &CribfitReport) {
         "  [4] EvolvingTableMtf(tokenization): move-to-front rank code; consistency checked directly on M."
     );
     println!(
-        "      {:<8} {:>4}  {:<11}  {:<28}  english-viable",
-        "tok", "|S|", "consistent", "agreements per anchor"
+        "      (excluded = aligned + inconsistent; inapplicable = token boundaries do not align across the cribs, set aside)"
+    );
+    println!(
+        "      {:<8} {:>4}  {:<13}  {:<28}  english-viable",
+        "tok", "|S|", "status", "agreements per anchor"
     );
     for candidate in &report.mtf {
         print_mtf_row(candidate);
@@ -237,14 +255,10 @@ fn print_candidate_row(candidate: &CribCandidate) {
         .trim_start_matches("CumulativeSumMod{n=")
         .trim_end_matches('}');
     println!(
-        "      {:<8} {:>4}  {:<11}  {}",
+        "      {:<8} {:>4}  {:<13}  {}",
         n,
         candidate.alphabet,
-        if candidate.consistency.consistent {
-            "yes"
-        } else {
-            "no"
-        },
+        status_str(candidate),
         if candidate.english_viable {
             "yes"
         } else {
@@ -273,14 +287,10 @@ fn print_mtf_row(candidate: &CribCandidate) {
         .collect::<Vec<_>>()
         .join(" ");
     println!(
-        "      {:<8} {:>4}  {:<11}  {:<28}  {}",
+        "      {:<8} {:>4}  {:<13}  {:<28}  {}",
         tag,
         candidate.alphabet,
-        if candidate.consistency.consistent {
-            "yes"
-        } else {
-            "no"
-        },
+        status_str(candidate),
         agreements,
         if candidate.english_viable {
             "yes"
@@ -394,15 +404,22 @@ fn run_self_test(seed: u64) -> ExitCode {
         set_str(&report.bit_periods)
     );
     println!(
-        "  MTF single-magnitude on real one: len-26 windows agree {}/{} (< {} ⟹ crib-INCONSISTENT) — consistent = {}",
+        "  MTF single-magnitude on real one: applicable = {} (want true), len-26 windows agree {}/{} (< {} ⟹ EXCLUDED) — consistent = {}",
+        report.mtf_single_applicable,
         report.mtf_single_len26_agreements,
         report.mtf_single_len26_compared,
         report.mtf_single_len26_compared,
         report.mtf_single_consistent
     );
     println!(
-        "  DISCRIMINATION control: matching-modulus cumsum consistent = {} (want true), memoryful MTF consistent = {} (want false)",
-        report.control_cumsum_consistent, report.control_mtf_consistent
+        "  MTF variable-length on real one: at least one tokenization INAPPLICABLE (set aside, not excluded) = {} (want true)",
+        report.one_has_inapplicable_mtf
+    );
+    println!(
+        "  DISCRIMINATION control: matching-modulus cumsum consistent = {} (want true), memoryful MTF excluded = {} (want true; consistent = {} want false)",
+        report.control_cumsum_consistent,
+        report.control_mtf_excluded,
+        report.control_mtf_consistent
     );
     println!(
         "  POSITIVE (planted English via gate): survivor = {} (want true)",

@@ -47,14 +47,18 @@ of `rlcodec` that reuses its carrier, census, English model, and matched-null ga
 (`rlcodec::gate_symbol_stream`). It turns the cribs into a *derived structural
 constraint*: `gcd(run-gaps) = 1` (so no nontrivial run-periodic key is admissible)
 and `gcd(bit-gaps) = 21` (so any bit-periodic key / cumulative-sum modulus must
-divide 21 → {1, 3, 7, 21}). Move-to-front over `M` is excluded directly (the two
-len-26 crib windows agree on only 22/26 outputs — not identical). The one
-English-viable crib-consistent candidate (cumsum mod 21) is a bounded-increment
-walk and scores below its matched null: **honest negative + the 21-bit /
-run-period-1 constraint.** Next agent: search the *bit-periodic-period-|21* and
-*evolving-table* families this narrows to, using `cribfit` as the consistency
-pre-filter before any language scoring. Write-up: `CODEC-RESULTS.md` §
-"`one` — crib-consistency filter (cribfit)".
+divide 21 → {1, 3, 7, 21}). The filter distinguishes three states — consistent,
+*excluded* (aligned + inconsistent), and *inapplicable* (token boundaries don't
+align across the cribs, set aside ≠ excluded): per-run single-magnitude
+move-to-front is **excluded** (its two len-26 crib windows agree on only 22/26
+outputs — not identical), while the chunked / paired MTF tokenizations are
+**inapplicable**. The one English-viable crib-consistent candidate (cumsum mod 21)
+is a bounded-increment walk and scores below its matched null: **honest negative +
+the 21-bit / run-period-1 constraint.** Next agent: search the
+*bit-periodic-period-|21* and *evolving-table* families this narrows to, using
+`cribfit` as the consistency pre-filter before any language scoring (and remember
+a misaligned tokenization is set aside, not refuted). Write-up: `CODEC-RESULTS.md`
+§ "`one` — crib-consistency filter (cribfit)".
 
 ---
 (original handoff below; angles #1 and #3 are now tested/excluded as noted above)
