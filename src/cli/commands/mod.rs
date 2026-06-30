@@ -4,6 +4,7 @@
 //! [`super::dispatch`].
 
 mod crcscan;
+mod ctakscan;
 mod gak;
 mod groupscan;
 mod isoscan;
@@ -16,6 +17,7 @@ mod solve;
 mod structural;
 
 pub(crate) use crcscan::run_crcscan;
+pub(crate) use ctakscan::run_ctakscan;
 pub(crate) use gak::run_gak;
 pub(crate) use groupscan::run_groupscan;
 pub(crate) use isoscan::run_isoscan;

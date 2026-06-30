@@ -51,6 +51,7 @@ pub mod analysis;
 pub mod chaining;
 pub mod chaining_graph;
 pub mod crc_scan;
+pub mod ctak_feedback;
 pub mod first_trigram;
 pub mod group_order;
 pub mod grouping;

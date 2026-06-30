@@ -15,6 +15,7 @@ use super::args_attack::{
     AglGakArgs, GakArgs, GakAttackArgs, GakAttackEyesArgs, IsoscanArgs, KeystreamArgs, ProfileArgs,
     RagbabyArgs, SolveArgs, StatsArgs,
 };
+use super::args_ctak::CtakscanArgs;
 use super::args_predicates::PredscanArgs;
 
 #[derive(Debug, Parser)]
@@ -63,6 +64,15 @@ pub(crate) enum Command {
     /// structural discriminator over the hidden group, never a decode.
     #[command(name = "groupscan")]
     Groupscan(GroupscanArgs),
+    /// Ciphertext-autokey (feedback) deck discriminator for the `C3 × H`
+    /// hidden-state GAK reading of a deck/rotor cipher. Exhaustively searches the
+    /// advance map `g` of the feedback regime that `groupscan`/`keydiff` leave
+    /// untested (the deck advances on the emitted ciphertext, so its trajectory is
+    /// computable), gated on whether one `g` reproduces the rotor-anchor plaintext
+    /// repeat in the deck channel above a deck-resample null. A verdict is a
+    /// structural discriminator over the feedback-deck family, never a decode.
+    #[command(name = "ctakscan")]
+    Ctakscan(CtakscanArgs),
     /// Toboter predicate battery + multiple-comparisons meta-analysis (Thread C).
     /// Recomputes each community-listed arithmetic predicate against the repo's
     /// matched nulls (within-message shuffle for the gap predicate, value-resample

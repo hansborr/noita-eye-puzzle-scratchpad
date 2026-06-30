@@ -244,6 +244,24 @@ and is a candidate explanation for `two`'s honest negative; settling it needs a
 **feedback-aware attack/discriminator**, not a readout-convention instrument. This
 is structural reasoning about the hypothesis space, never recovered plaintext.
 
+> **RESOLVED (ctakscan):** the feedback-aware discriminator was built
+> (`src/analysis/ctak_feedback/`, the `ctakscan` subcommand;
+> `research/findings/ctak-feedback-discriminator.md`). Under ciphertext-autokey the
+> deck trajectory is computable from the observed ciphertext, so the search
+> collapses to the advance map `g: card -> S4` alone (`24^4`, fully general for the
+> `D0`-cancelling forward/right convention). Gated on whether one `g` reproduces the
+> *real* ~34-letter rotor repeat across **all** `isoscan` anchors jointly (a single
+> overfit anchor cannot satisfy the joint minimum), with a null that reruns the
+> entire search on a deck-resampled stream: real `two` is a **`NoFeedbackSignal`**
+> at the random floor (joint min-run 4 = chance, p≈1.0, all four conventions). So
+> ciphertext-autokey single-symbol-feedback is **excluded too**, within the scope in
+> the findings doc (`g` on the 4-valued card channel, ≤4-card deck). Combined with
+> the passive-deck exclusion, **no computable-deck reading reproduces the genuine
+> deck-channel repeat** — `two`'s deck carries true hidden state, the eye-cipher wall
+> at small scale. (The length-68 rotor repeat is confirmed a *real* repeated phrase,
+> not the period-2 codec artifact: it clears a period-2-preserving null, max 25 vs
+> 68.)
+
 ## What was built: the `Project` codec
 
 `AnyCodec::Project { input_base, output_base, op: Modulo | Div{divisor}, then }` —

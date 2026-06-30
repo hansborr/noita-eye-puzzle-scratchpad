@@ -66,7 +66,16 @@ Notes:
   The `groupscan` instrument is the `D4`/`A4`/`S4` hidden-group element-order
   discriminator (disjoint giveaway cycle types over the deck channel, null-gated);
   real `two` is a robust `NoDeckSignal` (the crib anchors are eps-only/rotor-only
-  repeats at the deck level, which weakens the crib-recovery lead).
+  repeats at the deck level, which weakens the crib-recovery lead). The `ctakscan`
+  instrument then closes the **ciphertext-autokey (feedback)** regime `groupscan`
+  left untested (the deck advances on the emitted ciphertext, so its trajectory is
+  computable): real `two` is a `NoFeedbackSignal` (joint min-run at the random
+  floor across all four conventions). With both the passive-deck and the
+  single-symbol-feedback decks excluded — and the length-68 rotor repeat confirmed a
+  *genuine* repeated phrase (it clears a period-2-preserving null) — no
+  computable-deck reading reproduces `two`'s real deck-channel repeat: the deck
+  carries true hidden state, the eye-cipher wall at small scale. See
+  `research/findings/ctak-feedback-discriminator.md`.
 
 ## Provenance
 External samples gathered by the maintainer (2026-06-25) to test the workbench's
