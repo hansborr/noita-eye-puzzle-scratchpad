@@ -4,7 +4,7 @@
 use clap::{Args, Subcommand};
 use noita_eye_puzzle::{
     analysis::{
-        chaining, chaining_graph, honeycomb, isomorph_imperfection, leak_ceiling,
+        chaining, chaining_graph, group_order, honeycomb, isomorph_imperfection, leak_ceiling,
         perfect_isomorphism,
     },
     attack::cipher_attack,
@@ -15,10 +15,51 @@ use noita_eye_puzzle::{
     nulls::{dof_null, isomorph_null, null, perseus, tree_residual, zero_adjacency_null},
 };
 
+use super::shared::parse_seed;
+
 const DEFAULT_NULL_SEED: u64 = 0x6e6f_6974_612d_6579;
 const DEFAULT_NULL_TRIALS: usize = 1_000;
 const DEFAULT_DOF_NULL_SEED: u64 = 0x646f_666e_756c_6c00;
 const DEFAULT_DOF_NULL_TRIALS: usize = 1_000;
+
+/// `groupscan`: the D4/A4/S4 hidden-group element-order discriminator for the
+/// `C3 × H` hidden-state GAK reading of a deck/rotor cipher (e.g. puzzle `two`).
+#[derive(Debug, Args)]
+pub(crate) struct GroupscanArgs {
+    /// Symbol sequence. Optional: omit to read from --input-file or stdin.
+    pub(crate) sequence: Option<String>,
+    /// Read the sequence from this file instead of the positional argument.
+    #[arg(long = "input-file", conflicts_with = "sequence")]
+    pub(crate) input_file: Option<std::path::PathBuf>,
+    /// Read the sequence from stdin.
+    #[arg(long = "stdin", conflicts_with_all = ["sequence", "input_file"])]
+    pub(crate) stdin: bool,
+    /// Cipher alphabet chars, in order (e.g. ABCDEFGHIJKL). Defaults to rendered
+    /// orientation digits when omitted; the alphabet size must be a multiple of
+    /// the rotor modulus.
+    #[arg(long = "alphabet")]
+    pub(crate) alphabet: Option<String>,
+    /// Rotor modulus: the transparent direct-product factor (`r = symbol % M`).
+    /// The deck channel is `q = symbol / M` over `alphabet_size / M` card values.
+    #[arg(long = "rotor-mod", default_value_t = group_order::DEFAULT_ROTOR_MOD)]
+    pub(crate) rotor_mod: usize,
+    /// Minimum consistent-prefix length required to trust a recovered context.
+    #[arg(long = "min-anchor-len", default_value_t = group_order::DEFAULT_MIN_ANCHOR_LEN)]
+    pub(crate) min_anchor_len: usize,
+    /// Maximum number of difference-channel anchors (contexts) to examine.
+    #[arg(long = "top-k", default_value_t = group_order::DEFAULT_TOP_K)]
+    pub(crate) top_k: usize,
+    /// Number of matched-null (deck-channel decoupling) trials.
+    #[arg(long = "null-trials", default_value_t = group_order::DEFAULT_NULL_TRIALS)]
+    pub(crate) null_trials: usize,
+    /// Deterministic seed (decimal or 0x-hex) for the matched null and controls.
+    #[arg(long, default_value_t = group_order::DEFAULT_SEED, value_parser = parse_seed)]
+    pub(crate) seed: u64,
+    /// Run the in-process controls (planted C3 x {D4,A4,S4} + eps-only matched
+    /// null) and print PASS/FAIL instead of scanning input.
+    #[arg(long = "self-test")]
+    pub(crate) self_test: bool,
+}
 
 #[derive(Clone, Copy, Debug, Args)]
 pub(crate) struct NullArgs {

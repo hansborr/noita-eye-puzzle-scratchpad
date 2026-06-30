@@ -15,6 +15,10 @@
 //! - [`first_trigram`]: first-trigram "message start" tabulation in both the
 //!   storage-order base-5 and honeycomb reading-layer representations, with
 //!   index/checksum/last-character/base-5 digit-structure hypothesis verdicts.
+//! - [`group_order`]: D4/A4/S4 hidden-group element-order discriminator for the
+//!   `C3 × H` hidden-state GAK reading — reads the deck channel's induced
+//!   permutation across difference-channel anchors and reports which hidden group
+//!   the observed cycle-length spectrum is consistent with.
 //! - [`grouping`]: Experiment 8 base-N grouping comparison and independent
 //!   collision-based state-count calibration.
 //! - [`honeycomb`]: fixed-order two-dimensional honeycomb lattice structure
@@ -42,6 +46,7 @@ pub mod analysis;
 pub mod chaining;
 pub mod chaining_graph;
 pub mod first_trigram;
+pub mod group_order;
 pub mod grouping;
 pub mod honeycomb;
 pub mod isomorph;

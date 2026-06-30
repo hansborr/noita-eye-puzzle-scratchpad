@@ -6,9 +6,9 @@ use clap::{Parser, Subcommand};
 
 use super::args_analysis::{
     ChainingArgs, ChainingGraphArgs, CipherAttackArgs, ConditionalArgs, ControlsArgs, DofNullArgs,
-    HomogeneityArgs, HoneycombArgs, IsomorphImperfectionArgs, IsomorphNullArgs, LeakCeilingArgs,
-    ModularDiffArgs, NullArgs, PerfectIsomorphismArgs, PeriodicityArgs, PerseusArgs,
-    PyryConditionsArgs, TransitivityArgs, TreeResidualArgs, ZeroAdjacencyNullArgs,
+    GroupscanArgs, HomogeneityArgs, HoneycombArgs, IsomorphImperfectionArgs, IsomorphNullArgs,
+    LeakCeilingArgs, ModularDiffArgs, NullArgs, PerfectIsomorphismArgs, PeriodicityArgs,
+    PerseusArgs, PyryConditionsArgs, TransitivityArgs, TreeResidualArgs, ZeroAdjacencyNullArgs,
 };
 use super::args_attack::{
     AglGakArgs, GakArgs, GakAttackArgs, GakAttackEyesArgs, IsoscanArgs, KeystreamArgs, ProfileArgs,
@@ -55,6 +55,12 @@ pub(crate) enum Command {
     /// `--delta-mod` difference channel — as a structural candidate, never a decode.
     #[command(name = "isoscan")]
     Isoscan(IsoscanArgs),
+    /// D4/A4/S4 hidden-group element-order discriminator for the `C3 × H`
+    /// hidden-state GAK reading of a deck/rotor cipher. Reads the deck channel's
+    /// induced permutation across difference-channel anchors; a verdict is a
+    /// structural discriminator over the hidden group, never a decode.
+    #[command(name = "groupscan")]
+    Groupscan(GroupscanArgs),
     /// Monte-Carlo null over random grids plus standard36 orders.
     #[command(name = "nulltest")]
     Nulltest(NullArgs),

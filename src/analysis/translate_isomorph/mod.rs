@@ -250,7 +250,12 @@ fn longest_repeat_len(stream: &[u32], hash: &RollingHash) -> usize {
 /// deduplicating nested sub-repeats (a shorter same-gap repeat contained inside a
 /// longer one). Returns at most `top_k` anchors; `top_k == 0` suppresses anchor
 /// enumeration entirely (the significance verdict still stands).
-fn find_anchors(stream: &[u32], threshold: usize, top_k: usize) -> Vec<RepeatAnchor> {
+///
+/// Exposed to the crate so the [`super::group_order`] element-order discriminator
+/// can enumerate difference-channel anchors directly, on a length threshold,
+/// without routing through [`iso_scan`]'s significance verdict (which is a
+/// separate question the discriminator does not need answered).
+pub(crate) fn find_anchors(stream: &[u32], threshold: usize, top_k: usize) -> Vec<RepeatAnchor> {
     if top_k == 0 || threshold == 0 || threshold > stream.len() {
         return Vec::new();
     }
