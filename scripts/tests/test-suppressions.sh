@@ -101,6 +101,84 @@ expect_failure_contains \
     "$unregistered_repo" \
     "unregistered safety suppression"
 
+cfg_attr_repo="$(new_repo cfg-attr)"
+cat > "$cfg_attr_repo/src/lib.rs" <<'RS'
+#[cfg_attr(not(test), allow(clippy::indexing_slicing, reason = "positive control"))]
+pub fn demo() {}
+RS
+stage_src "$cfg_attr_repo"
+expect_failure_contains \
+    "cfg_attr-wrapped safety allow fails" \
+    "$cfg_attr_repo" \
+    "clippy::indexing_slicing"
+
+doc_comment_repo="$(new_repo doc-comment)"
+cat > "$doc_comment_repo/src/lib.rs" <<'RS'
+/// see #[allow(clippy::unwrap_used)] in the suppression policy
+/* and ignore #[expect(clippy::panic)] inside block comments */
+pub fn demo() {}
+RS
+stage_src "$doc_comment_repo"
+expect_success_contains \
+    "doc and block comment allow prose is ignored" \
+    "$doc_comment_repo" \
+    "0 safety-gated"
+
+string_repo="$(new_repo string-literal)"
+cat > "$string_repo/src/lib.rs" <<'RS'
+pub const NORMAL: &str = "#[allow(clippy::panic)]";
+pub const RAW: &str = r#"#[expect(clippy::unwrap_used)]"#;
+RS
+stage_src "$string_repo"
+expect_success_contains \
+    "string literal allow prose is ignored" \
+    "$string_repo" \
+    "0 safety-gated"
+
+broad_repo="$(new_repo broad-group)"
+cat > "$broad_repo/src/lib.rs" <<'RS'
+#[allow(warnings, reason = "positive control")]
+pub fn demo() {}
+RS
+stage_src "$broad_repo"
+expect_failure_contains \
+    "broad lint group allow fails" \
+    "$broad_repo" \
+    "canonical warnings"
+
+non_safety_repo="$(new_repo non-safety)"
+cat > "$non_safety_repo/src/lib.rs" <<'RS'
+#[allow(clippy::too_many_lines, reason = "positive control")]
+pub fn demo() {}
+RS
+stage_src "$non_safety_repo"
+expect_success_contains \
+    "non-safety allow passes" \
+    "$non_safety_repo" \
+    "0 safety-gated"
+
+let_underscore_repo="$(new_repo let-underscore)"
+cat > "$let_underscore_repo/src/lib.rs" <<'RS'
+#[allow(let_underscore_must_use, reason = "positive control")]
+pub fn demo() {}
+RS
+stage_src "$let_underscore_repo"
+expect_failure_contains \
+    "let_underscore_must_use allow fails" \
+    "$let_underscore_repo" \
+    "clippy::let_underscore_must_use"
+
+map_err_repo="$(new_repo map-err)"
+cat > "$map_err_repo/src/lib.rs" <<'RS'
+#[allow(clippy::map_err_ignore, reason = "positive control")]
+pub fn demo() {}
+RS
+stage_src "$map_err_repo"
+expect_failure_contains \
+    "map_err_ignore allow fails" \
+    "$map_err_repo" \
+    "clippy::map_err_ignore"
+
 registered_repo="$(new_repo registered)"
 cat > "$registered_repo/src/lib.rs" <<'RS'
 #![allow(clippy::unwrap_used, reason = "positive control")]
@@ -125,6 +203,32 @@ expect_failure_contains \
     "stale suppression register entry fails" \
     "$stale_repo" \
     "stale register entry"
+
+reasonless_repo="$(new_repo reasonless-register)"
+cat > "$reasonless_repo/src/lib.rs" <<'RS'
+#![allow(clippy::unwrap_used, reason = "positive control")]
+pub fn demo() {}
+RS
+printf 'src/lib.rs:1:clippy::unwrap_used #\n' > \
+    "$reasonless_repo/scripts/suppression-register.txt"
+stage_src "$reasonless_repo"
+expect_failure_contains \
+    "reasonless suppression register entry fails" \
+    "$reasonless_repo" \
+    "entry needs a non-empty reason"
+
+malformed_repo="$(new_repo malformed-register)"
+cat > "$malformed_repo/src/lib.rs" <<'RS'
+#![allow(clippy::unwrap_used, reason = "positive control")]
+pub fn demo() {}
+RS
+printf 'src/lib.rs:1 clippy::unwrap_used # malformed positive control\n' > \
+    "$malformed_repo/scripts/suppression-register.txt"
+stage_src "$malformed_repo"
+expect_failure_contains \
+    "malformed suppression register entry fails" \
+    "$malformed_repo" \
+    "malformed"
 
 summary_repo="$(new_repo summary)"
 cat > "$summary_repo/src/lib.rs" <<'RS'
