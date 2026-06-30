@@ -347,11 +347,19 @@ fn append_stream_applicability(out: &mut String, report: &IsomorphImperfectionRe
 }
 
 fn stream_applicability_line(report: &IsomorphImperfectionReport) -> String {
-    if report.extended_counts.robust_internal_violations == 0 && report.loose_candidates.is_empty()
-    {
-        return "no cross-message gap-pattern repeats in the supplied stream -> the internal-violation test does not apply (isomorph imperfection compares aligned repeats across >= 2 messages, so a single message has an empty cross-message break catalog by construction)".to_owned();
+    // Case 1: a single supplied message cannot be tested by construction.
+    if report.message_lengths.len() == 1 {
+        return "single supplied message -> the cross-message internal-violation test does not apply by construction (isomorph imperfection compares aligned repeats across >= 2 messages, so a lone message has an empty cross-message break catalog)".to_owned();
     }
-    // Reached only if a multi-message caller drives the stream fn directly.
+    // Case 2: >= 2 messages but no robust cross-message internal violations -> there
+    // is nothing for this falsification check to flag: a tested negative.
+    if report.extended_counts.robust_internal_violations == 0 {
+        return format!(
+            "{} messages supplied; no robust cross-message internal violations localized, so there is nothing to falsify -- a tested negative, not a recovery or an affirmation",
+            report.message_lengths.len()
+        );
+    }
+    // Case 3: >= 2 messages with localized robust internal violations -> candidate.
     format!(
         "{} robust cross-message internal violation(s) localized in the supplied streams; a mapping-independent structural candidate to recheck against a structure-preserving null, not a recovery",
         report.extended_counts.robust_internal_violations
@@ -364,9 +372,17 @@ fn append_stream_interpretation(out: &mut String, report: &IsomorphImperfectionR
 }
 
 fn stream_interpretation(report: &IsomorphImperfectionReport) -> String {
-    if report.extended_counts.robust_internal_violations == 0 && report.loose_candidates.is_empty()
-    {
-        return "Interpretation: a single-message stream has no cross-message aligned repeats, so the isomorph-imperfection internal-violation test does not apply to the input -- the cross-message break catalog is empty by construction. The synthetic imperfect-family positive control confirms the detector itself fires; this run makes no claim about the supplied stream.".to_owned();
+    // Case 1: single message -> test does not apply by construction.
+    if report.message_lengths.len() == 1 {
+        return "Interpretation: a single supplied message has no cross-message aligned repeats, so the isomorph-imperfection internal-violation test does not apply to the input -- the cross-message break catalog is empty by construction. The synthetic imperfect-family positive control confirms the detector itself fires; this run makes no claim about the supplied stream.".to_owned();
+    }
+    // Case 2: >= 2 messages but no robust cross-message internal violations -> a
+    // tested negative; this falsification check flags nothing and affirms nothing.
+    if report.extended_counts.robust_internal_violations == 0 {
+        return format!(
+            "Interpretation: {} messages were supplied but yield no robust cross-message internal violations, so there is nothing for this falsification check to flag -- a tested negative, not a recovery and not an affirmation. The synthetic imperfect-family positive control confirms the detector itself fires.",
+            report.message_lengths.len()
+        );
     }
     format!(
         "Interpretation: this is a mapping-independent cross-message family-falsification check on the supplied streams, not a decode. The {} robust non-benign internal violation(s) localized are a structural candidate to recheck against a structure-preserving null; the synthetic imperfect-family control self-validates the detector.",

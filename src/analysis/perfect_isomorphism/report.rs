@@ -166,25 +166,16 @@ fn append_perfect_headline(out: &mut String, report: &PerfectIsomorphismReport) 
 }
 
 fn perfect_headline_result(report: &PerfectIsomorphismReport) -> String {
-    if is_stream(report) && report.catalog.is_empty() {
-        return "no cross-message gap-pattern repeats in the supplied stream -> the internal-violation test does not apply (perfect isomorphism compares aligned repeats across >=2 messages)"
-            .to_owned();
+    if is_stream(report) {
+        // Off-corpus path: a strict case analysis that never affirms perfect
+        // isomorphism. The "supports (does not prove)" affirmation below is gated to
+        // the eye path; the stream path only states applicability, a tested negative,
+        // a no-claim, or a localized structural candidate.
+        return perfect_headline_result_stream(report);
     }
     if report.robust_internal_violations == 0 {
         return "0 robust internal violations -> supports (does not prove) perfect isomorphism"
             .to_owned();
-    }
-    if is_stream(report) {
-        // Stream path with a non-empty cross-message catalog. The within-message
-        // multiset-shuffle null is structure-destroying for this cross-message
-        // statistic, so its add-one p is a near-trivial floor, not discriminating
-        // evidence; the localized count is the candidate signal to recheck against a
-        // structure-preserving null.
-        return format!(
-            "{} robust cross-message internal violation(s) localized -> a mapping-independent structural candidate to recheck against a structure-preserving null, not a recovery (the within-message add-one p = {} is a near-trivial floor, not discriminating evidence)",
-            report.robust_internal_violations,
-            report::format_probability(report.empirical_p)
-        );
     }
     if report.empirical_p <= SIGNIFICANCE_ALPHA {
         format!(
@@ -199,6 +190,44 @@ fn perfect_headline_result(report: &PerfectIsomorphismReport) -> String {
             report::format_probability(report.empirical_p)
         )
     }
+}
+
+/// Stream-path headline result. A case analysis keyed to the supplied message
+/// COUNT (not catalog emptiness) that never emits an affirmative "supports perfect
+/// isomorphism" off-corpus.
+fn perfect_headline_result_stream(report: &PerfectIsomorphismReport) -> String {
+    // Case 1: a single supplied message cannot be tested by construction -- the
+    // cross-message statistic compares aligned repeats across >= 2 messages, so its
+    // catalog is empty and the test does not apply.
+    if report.message_lengths.len() == 1 {
+        return "single supplied message -> the cross-message internal-violation test does not apply by construction (perfect isomorphism compares aligned repeats across >= 2 messages, so a lone message has an empty cross-message catalog)"
+            .to_owned();
+    }
+    // Case 2: >= 2 messages but no shared gap-pattern repeats at all -> a tested
+    // negative, not evidence of any structure.
+    if report.catalog.is_empty() {
+        return format!(
+            "{} messages supplied; no cross-message gap-pattern repeats found, so there is nothing to test -- a tested negative, not evidence of any structure",
+            report.message_lengths.len()
+        );
+    }
+    // Case 3: >= 2 messages with shared repeats but zero robust internal violations
+    // -> no candidate and no claim. The within-message null is structure-destroying
+    // for this cross-message statistic, so it is a trivial floor, not evidence.
+    if report.robust_internal_violations == 0 {
+        return format!(
+            "{} messages share cross-message gap-pattern repeats but 0 robust internal violations -> no candidate and no claim; the within-message null here is a structure-destroying trivial floor, so the binding control is the synthetic perfect-isomorphism-family self-validation",
+            report.message_lengths.len()
+        );
+    }
+    // Case 4: >= 2 messages with localized robust internal violations -> a structural
+    // candidate to recheck against a structure-preserving null, not a recovery. The
+    // within-message add-one p is a near-trivial floor, not discriminating evidence.
+    format!(
+        "{} robust cross-message internal violation(s) localized -> a mapping-independent structural candidate to recheck against a structure-preserving null, not a recovery (the within-message add-one p = {} is a near-trivial floor, not discriminating evidence)",
+        report.robust_internal_violations,
+        report::format_probability(report.empirical_p)
+    )
 }
 
 fn append_perfect_safe_extents(out: &mut String, report: &PerfectIsomorphismReport) {
@@ -295,15 +324,34 @@ fn perfect_interpretation(report: &PerfectIsomorphismReport) -> String {
 }
 
 fn perfect_interpretation_stream(report: &PerfectIsomorphismReport) -> String {
-    if report.catalog.is_empty() {
-        return "Interpretation: a single-message stream has no cross-message aligned repeats, so the perfect-isomorphism internal-violation test does not apply to the input -- the cross-message gap-pattern catalog is empty by construction. The synthetic short-island positive control confirms the detector itself fires; this run makes no claim about the supplied stream."
+    // Case 1: single message -> test does not apply by construction.
+    if report.message_lengths.len() == 1 {
+        return "Interpretation: a single supplied message has no cross-message aligned repeats, so the perfect-isomorphism internal-violation test does not apply to the input -- the cross-message gap-pattern catalog is empty by construction. The synthetic short-island positive control confirms the detector itself fires; this run makes no claim about the supplied stream."
             .to_owned();
     }
-    // Reached only if a multi-message caller drives `perfect_isomorphism_for_stream`.
-    // The within-message multiset-shuffle null is structure-destroying for the
-    // cross-message internal-violation statistic, so the add-one p against it is a
-    // near-trivial floor, not the strength of evidence; the localized count is the
-    // candidate signal, calibrated by the synthetic family control, not this null.
+    // Case 2: >= 2 messages but no shared gap-pattern repeats -> a tested negative.
+    if report.catalog.is_empty() {
+        return format!(
+            "Interpretation: {} messages were supplied but share no cross-message gap-pattern repeats, so the internal-violation test finds nothing to compare -- a tested negative, not evidence of any structure. The synthetic short-island positive control confirms the detector itself fires; this run makes no positive claim about the supplied streams.",
+            report.message_lengths.len()
+        );
+    }
+    // Case 3: >= 2 messages with shared repeats but zero robust internal violations
+    // -> no affirmation either way. The within-message null is structure-destroying
+    // for this cross-message statistic, so its add-one p is a near-trivial floor.
+    if report.robust_internal_violations == 0 {
+        return format!(
+            "Interpretation: {} messages share cross-message gap-pattern repeats but yield 0 robust strong-bar internal violations, so this run makes no affirmation either way -- it is neither a candidate nor an affirmation of perfect isomorphism. Disclosure: for this cross-message internal-violation statistic the within-message multiset-shuffle null is structure-destroying -- it scrambles the very cross-message alignment the statistic depends on, so it degenerates toward zero violations and its add-one p = {} is a near-trivial floor, not discriminating evidence. The binding control is the synthetic perfect-isomorphism-family self-validation, not this within-message null.",
+            report.message_lengths.len(),
+            report::format_probability(report.empirical_p)
+        );
+    }
+    // Case 4: >= 2 messages with localized robust internal violations -> a structural
+    // candidate to recheck, never a recovery. The within-message multiset-shuffle null
+    // is structure-destroying for the cross-message internal-violation statistic, so
+    // the add-one p against it is a near-trivial floor, not the strength of evidence;
+    // the localized count is the candidate signal, calibrated by the synthetic family
+    // control, not this null.
     format!(
         "Interpretation: this is a mapping-independent family-selection check on the supplied streams, not a decode. The {} localized robust strong-bar internal violation(s) across the supplied messages are the candidate signal to recheck against a structure-preserving null, not a recovery. Disclosure: for this cross-message internal-violation statistic the within-message multiset-shuffle null is structure-destroying -- it scrambles the very cross-message alignment the statistic depends on, so it degenerates toward zero violations and the add-one p = {} against it is a near-trivial floor, not discriminating evidence. The binding positive control is the synthetic perfect-isomorphism-family self-validation, not this within-message null.",
         report.robust_internal_violations,

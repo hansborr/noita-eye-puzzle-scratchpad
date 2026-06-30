@@ -129,6 +129,12 @@ pub fn leak_ceiling_for_stream(
     message_values: &[Vec<TrigramValue>],
     alphabet_size: usize,
 ) -> Result<LeakCeilingStreamReport, LeakCeilingError> {
+    if keys.len() != message_values.len() {
+        return Err(LeakCeilingError::MismatchedStreamKeys {
+            keys: keys.len(),
+            messages: message_values.len(),
+        });
+    }
     if config.isomorph_window_len == 0 {
         return Err(LeakCeilingError::ZeroIsomorphWindow);
     }

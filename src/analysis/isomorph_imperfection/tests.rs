@@ -222,6 +222,80 @@ fn for_stream_multi_message_localizes_cross_message_violation() {
     assert!(rendered.contains("not a recovery"), "{rendered}");
 }
 
+#[test]
+fn for_stream_multi_message_no_violation_is_a_tested_negative() {
+    // Two supplied messages (count >= 2) with no robust cross-message internal
+    // violation localized. This is a TESTED NEGATIVE -- the falsification check found
+    // nothing to flag -- not the single-message "does not apply" degeneracy, and it
+    // affirms nothing.
+    let messages = disjoint_no_violation_pair();
+    let keys = ["m0", "m1"];
+    let report = isomorph_imperfection_for_stream(cheap_config(), &keys, &messages).unwrap();
+
+    assert_eq!(report.message_lengths.len(), 2);
+    assert_eq!(report.extended_counts.robust_internal_violations, 0);
+    assert!(report.family.positive_control_fired);
+
+    let rendered = report.render();
+    assert!(
+        !rendered.contains("does not apply"),
+        "multi-message negative must not use single-message degeneracy wording: {rendered}"
+    );
+    assert!(
+        rendered.contains("tested negative"),
+        "must state a tested negative: {rendered}"
+    );
+    assert!(!rendered.contains("GAK not falsified"), "{rendered}");
+    for forbidden in [
+        "eye",
+        "wiki",
+        "GAK",
+        "Stutter",
+        "CTAK",
+        "Allomorphs",
+        "Experiment 0",
+        ".md",
+    ] {
+        assert!(
+            !rendered.contains(forbidden),
+            "leaked {forbidden}: {rendered}"
+        );
+    }
+}
+
+#[test]
+fn mismatched_keys_and_messages_are_rejected() {
+    // The public stream fn must reject a caller that supplies a different number of
+    // display keys than messages rather than silently zip-and-drop.
+    let messages = disjoint_no_violation_pair();
+    let result = isomorph_imperfection_for_stream(cheap_config(), &["only-one"], &messages);
+    assert!(matches!(
+        result,
+        Err(super::IsomorphImperfectionError::MismatchedStreamKeys {
+            keys: 1,
+            messages: 2
+        })
+    ));
+}
+
+fn disjoint_no_violation_pair() -> Vec<Vec<crate::core::trigram::TrigramValue>> {
+    // Two messages of all-distinct symbols (length >= the longest extended window 17):
+    // no shared cross-message gap-pattern repeat, so no robust internal violation is
+    // localized. Two messages (count >= 2), so a tested negative rather than the
+    // single-message degeneracy.
+    let to_values = |raw: &[u8]| -> Vec<crate::core::trigram::TrigramValue> {
+        raw.iter()
+            .copied()
+            .map(|value| crate::core::trigram::TrigramValue::new(value).unwrap())
+            .collect()
+    };
+    let left = to_values(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
+    let right = to_values(&[
+        20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37,
+    ]);
+    vec![left, right]
+}
+
 fn planted_internal_violation_pair() -> Vec<Vec<crate::core::trigram::TrigramValue>> {
     let to_values = |raw: &[u8]| -> Vec<crate::core::trigram::TrigramValue> {
         raw.iter()

@@ -267,6 +267,24 @@ fn for_stream_emits_measurements_and_bounds_only() {
     }
 }
 
+#[test]
+fn mismatched_keys_and_messages_are_rejected() {
+    // The public stream fn must reject a caller that supplies a different number of
+    // display keys than messages rather than silently zip-and-drop.
+    let messages = vec![
+        values(&[0, 1, 2, 3, 4, 5, 6, 7]),
+        values(&[7, 6, 5, 4, 3, 2, 1, 0]),
+    ];
+    let result = leak_ceiling_for_stream(LeakCeilingConfig::default(), &["only-one"], &messages, 8);
+    assert!(matches!(
+        result,
+        Err(super::LeakCeilingError::MismatchedStreamKeys {
+            keys: 1,
+            messages: 2
+        })
+    ));
+}
+
 fn values(raw: &[u8]) -> Vec<TrigramValue> {
     raw.iter()
         .copied()

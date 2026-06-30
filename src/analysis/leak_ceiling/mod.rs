@@ -113,6 +113,13 @@ pub enum LeakCeilingError {
     Chaining(ChainingGraphError),
     /// The configured isomorph reference window was zero.
     ZeroIsomorphWindow,
+    /// A stream call supplied a different number of keys than messages.
+    MismatchedStreamKeys {
+        /// Number of display keys supplied.
+        keys: usize,
+        /// Number of messages supplied.
+        messages: usize,
+    },
 }
 
 impl From<GridError> for LeakCeilingError {
@@ -133,6 +140,10 @@ impl fmt::Display for LeakCeilingError {
             Self::Grid(error) => write!(f, "grid/order error: {error:?}"),
             Self::Chaining(error) => write!(f, "chaining-graph error: {error}"),
             Self::ZeroIsomorphWindow => write!(f, "isomorph reference window must be non-zero"),
+            Self::MismatchedStreamKeys { keys, messages } => write!(
+                f,
+                "stream call supplied {keys} display key(s) for {messages} message(s); one key per message is required"
+            ),
         }
     }
 }

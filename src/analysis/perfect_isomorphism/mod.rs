@@ -113,6 +113,13 @@ pub enum PerfectIsomorphismError {
         /// Human-readable failure detail.
         detail: String,
     },
+    /// A stream call supplied a different number of keys than messages.
+    MismatchedStreamKeys {
+        /// Number of display keys supplied.
+        keys: usize,
+        /// Number of messages supplied.
+        messages: usize,
+    },
 }
 
 impl From<GridError> for PerfectIsomorphismError {
@@ -166,6 +173,10 @@ impl fmt::Display for PerfectIsomorphismError {
             Self::PositiveControlFailed { detail } => write!(
                 formatter,
                 "positive control failed ({detail}); methodology is suspect, not a finding"
+            ),
+            Self::MismatchedStreamKeys { keys, messages } => write!(
+                formatter,
+                "stream call supplied {keys} display key(s) for {messages} message(s); one key per message is required"
             ),
         }
     }
@@ -410,6 +421,12 @@ pub fn perfect_isomorphism_for_stream(
     keys: &[&'static str],
     message_values: &[Vec<TrigramValue>],
 ) -> Result<PerfectIsomorphismReport, PerfectIsomorphismError> {
+    if keys.len() != message_values.len() {
+        return Err(PerfectIsomorphismError::MismatchedStreamKeys {
+            keys: keys.len(),
+            messages: message_values.len(),
+        });
+    }
     validate_config(config)?;
     validate_message_windows(config, message_values)?;
     let windows = scanned_windows(config)?;

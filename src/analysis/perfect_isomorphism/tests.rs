@@ -151,17 +151,22 @@ fn for_stream_multi_message_fires_cross_message_detector() {
     // Both planted messages are 20 columns by construction.
     assert_eq!(report.message_lengths, vec![("m0", 20), ("m1", 20)]);
 
-    // (2) Matched null: the within-message multiset shuffle destroys the planted
-    // alignment, so the violation sits in the null's upper tail (p <= alpha) and
-    // its mean null count stays below the observed count.
+    // (2) Matched within-message null: this shuffle is structure-destroying for the
+    // cross-message internal-violation statistic -- it scrambles the planted
+    // cross-message alignment, so the null collapses toward zero and a non-zero
+    // localized count clears it trivially. The p <= alpha / mean-below-observed checks
+    // below are therefore a sanity floor (a non-zero count against a null that
+    // degenerates to ~0), not a significance result -- the report itself now discloses
+    // this add-one p as a near-trivial floor. The binding positive control is the
+    // synthetic perfect-isomorphism-family check asserted in (3) below, not this null.
     assert!(
         report.empirical_p <= SIGNIFICANCE_ALPHA,
-        "planted signal did not exceed its null (p = {})",
+        "sanity floor: non-zero localized count did not clear the collapsed within-message null (p = {})",
         report.empirical_p
     );
     assert!(
         report.internal_violation_null.count_mean < report.robust_internal_violations as f64,
-        "null mean {} not below observed {}",
+        "sanity floor: collapsed null mean {} is not below observed {}",
         report.internal_violation_null.count_mean,
         report.robust_internal_violations
     );
@@ -188,6 +193,139 @@ fn for_stream_multi_message_fires_cross_message_detector() {
     assert!(!rendered.contains("does not apply"), "{rendered}");
     assert!(rendered.contains("supplied streams"), "{rendered}");
     assert!(rendered.contains("not a recovery"), "{rendered}");
+}
+
+#[test]
+fn for_stream_multi_message_repeats_zero_robust_makes_no_claim() {
+    // The honesty-critical case: two supplied messages that DO share a cross-message
+    // gap-pattern repeat (non-empty catalog) but are fully gap-aligned, so the strong
+    // isomorph never breaks internally -- zero robust internal violations. This run
+    // must make NO affirmation: it must not say "supports perfect isomorphism", and it
+    // must not call zero violations a candidate signal. It must also not be mistaken
+    // for the single-message "does not apply" degeneracy.
+    let messages = aligned_no_violation_pair();
+    let keys = ["m0", "m1"];
+    let config = PerfectIsomorphismConfig {
+        seed: 0x5a17,
+        trials: 128,
+        ..PerfectIsomorphismConfig::default()
+    };
+    let report = perfect_isomorphism_for_stream(config, &keys, &messages).unwrap();
+
+    assert_eq!(report.message_lengths.len(), 2);
+    assert!(
+        !report.catalog.is_empty(),
+        "cross-message catalog should be populated by the shared aligned repeat"
+    );
+    assert_eq!(
+        report.robust_internal_violations, 0,
+        "fully aligned pair should localize no internal violation"
+    );
+    assert!(report.positive_control_fired);
+
+    let rendered = report.render();
+    let lowered = rendered.to_lowercase();
+    assert!(
+        !lowered.contains("supports"),
+        "zero-robust multi-message stream must not affirm support: {rendered}"
+    );
+    assert!(
+        !rendered.contains("does not apply"),
+        "must not be reported as the single-message degeneracy: {rendered}"
+    );
+    assert!(
+        rendered.contains("no candidate and no claim"),
+        "must state the honest no-candidate/no-claim outcome: {rendered}"
+    );
+    assert!(
+        rendered.contains("no affirmation either way"),
+        "interpretation must make no affirmation either way: {rendered}"
+    );
+    for forbidden in [
+        "eye",
+        "wiki",
+        "GAK",
+        "Stutter",
+        "CTAK",
+        "Allomorphs",
+        "Experiment 0",
+        ".md",
+    ] {
+        assert!(
+            !rendered.contains(forbidden),
+            "leaked {forbidden}: {rendered}"
+        );
+    }
+}
+
+#[test]
+fn for_stream_multi_message_no_repeats_is_a_tested_negative() {
+    // Two supplied messages with no shared cross-message gap-pattern repeat at all
+    // (empty catalog), count >= 2. This is a TESTED NEGATIVE, not the single-message
+    // degeneracy and not support for any structure.
+    let messages = disjoint_no_repeat_pair();
+    let keys = ["m0", "m1"];
+    let config = PerfectIsomorphismConfig {
+        seed: 0x4e30,
+        trials: 64,
+        ..PerfectIsomorphismConfig::default()
+    };
+    let report = perfect_isomorphism_for_stream(config, &keys, &messages).unwrap();
+
+    assert_eq!(report.message_lengths.len(), 2);
+    assert!(report.catalog.is_empty(), "catalog should be empty");
+    assert_eq!(report.robust_internal_violations, 0);
+    assert!(report.positive_control_fired);
+
+    let rendered = report.render();
+    let lowered = rendered.to_lowercase();
+    assert!(
+        !lowered.contains("supports"),
+        "multi-message no-repeat stream must not affirm support: {rendered}"
+    );
+    assert!(
+        !rendered.contains("does not apply"),
+        "must not be reported as the single-message degeneracy: {rendered}"
+    );
+    assert!(
+        rendered.contains("tested negative"),
+        "must state a tested negative: {rendered}"
+    );
+    for forbidden in [
+        "eye",
+        "wiki",
+        "GAK",
+        "Stutter",
+        "CTAK",
+        "Allomorphs",
+        "Experiment 0",
+        ".md",
+    ] {
+        assert!(
+            !rendered.contains(forbidden),
+            "leaked {forbidden}: {rendered}"
+        );
+    }
+}
+
+#[test]
+fn mismatched_keys_and_messages_are_rejected() {
+    // The public stream fn must reject a caller that supplies a different number of
+    // display keys than messages rather than silently zip-and-drop.
+    let messages = disjoint_no_repeat_pair();
+    let config = PerfectIsomorphismConfig {
+        seed: 1,
+        trials: 8,
+        ..PerfectIsomorphismConfig::default()
+    };
+    let result = perfect_isomorphism_for_stream(config, &["only-one"], &messages);
+    assert!(matches!(
+        result,
+        Err(super::PerfectIsomorphismError::MismatchedStreamKeys {
+            keys: 1,
+            messages: 2
+        })
+    ));
 }
 
 #[test]
@@ -257,6 +395,34 @@ fn planted_internal_violation_pair() -> Vec<Vec<crate::core::trigram::TrigramVal
     ]);
     let right = values(&[
         31, 32, 33, 31, 34, 32, 35, 33, 36, 37, 38, 39, 31, 40, 41, 42, 43, 44, 45, 46,
+    ]);
+    vec![left, right]
+}
+
+fn aligned_no_violation_pair() -> Vec<Vec<crate::core::trigram::TrigramValue>> {
+    // Two messages with IDENTICAL gap structure in disjoint symbol ranges (right =
+    // left + 30 throughout). The first columns carry repeated symbols, so a strong
+    // cross-message window-8/9/11 signature is shared (the catalog is non-empty), but
+    // because the structures are perfectly aligned the isomorph never breaks
+    // internally -- there is no short-island desync, so zero robust internal
+    // violations. This is the zero-robust multi-message case.
+    let left = values(&[
+        1, 2, 3, 1, 4, 2, 5, 3, 6, 2, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+    ]);
+    let right = values(&[
+        31, 32, 33, 31, 34, 32, 35, 33, 36, 32, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46,
+    ]);
+    vec![left, right]
+}
+
+fn disjoint_no_repeat_pair() -> Vec<Vec<crate::core::trigram::TrigramValue>> {
+    // Two messages of all-distinct symbols: no window has a repeated symbol, so no
+    // gap-pattern signature is recorded and the cross-message catalog is empty. Two
+    // messages (count >= 2), so this is a tested negative, not single-message
+    // degeneracy.
+    let left = values(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+    let right = values(&[
+        20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35,
     ]);
     vec![left, right]
 }

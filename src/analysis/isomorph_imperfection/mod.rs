@@ -132,6 +132,13 @@ pub enum IsomorphImperfectionError {
         /// Human-readable failure detail.
         detail: String,
     },
+    /// A stream call supplied a different number of keys than messages.
+    MismatchedStreamKeys {
+        /// Number of display keys supplied.
+        keys: usize,
+        /// Number of messages supplied.
+        messages: usize,
+    },
 }
 
 impl From<GridError> for IsomorphImperfectionError {
@@ -164,6 +171,10 @@ impl fmt::Display for IsomorphImperfectionError {
             Self::PositiveControlFailed { detail } => write!(
                 formatter,
                 "imperfect-family positive control failed ({detail}); methodology is suspect, not a finding"
+            ),
+            Self::MismatchedStreamKeys { keys, messages } => write!(
+                formatter,
+                "stream call supplied {keys} display key(s) for {messages} message(s); one key per message is required"
             ),
         }
     }
@@ -400,6 +411,12 @@ pub fn isomorph_imperfection_for_stream(
     keys: &[&'static str],
     message_values: &[Vec<TrigramValue>],
 ) -> Result<IsomorphImperfectionReport, IsomorphImperfectionError> {
+    if keys.len() != message_values.len() {
+        return Err(IsomorphImperfectionError::MismatchedStreamKeys {
+            keys: keys.len(),
+            messages: message_values.len(),
+        });
+    }
     if config.null_trials == 0 || config.family_trials == 0 {
         return Err(IsomorphImperfectionError::ZeroTrials);
     }
