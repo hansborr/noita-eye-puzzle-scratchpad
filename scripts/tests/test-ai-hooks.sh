@@ -212,10 +212,23 @@ expect_commit_block "blocks git commit --no-verify" "git commit --no-verify"
 expect_commit_block "blocks git commit flag after message" "git commit -m x --no-verify"
 expect_commit_block "blocks env-prefixed amend" "HUSKY=0 git commit --amend"
 expect_commit_block "blocks git commit --amend" "git commit --amend"
+expect_commit_block "blocks short cluster no-verify" 'git commit -nm "x"'
+expect_commit_block "blocks single-quoted no-verify token" "git commit '--no-verify'"
+expect_commit_block "blocks double-quoted amend token" 'git commit "--amend"'
+expect_commit_block "blocks chained bypass commit" "git commit && git commit --no-verify"
+expect_commit_block "blocks bypass after git -C" "git -C /tmp commit --no-verify"
+expect_commit_block "blocks hooksPath config bypass" "git -c core.hooksPath=/dev/null commit -m x"
+expect_commit_block "blocks hooksPath long config bypass" "git --config core.hooksPath=/dev/null commit -m x"
 
 expect_commit_allow "allows quoted no-verify mention" 'git commit -m "explain --no-verify behavior"'
-expect_commit_allow "allows quoted short flag mention" 'git commit -m "fix -n flag"'
+expect_commit_allow "allows quoted short flag mention" 'git commit -m "fix -n flag handling"'
+expect_commit_allow "allows commit dry-run" "git commit --dry-run"
+expect_commit_allow "allows commit fixup value" "git commit --fixup=HEAD"
+expect_commit_allow "allows commit reuse-message" "git commit -C HEAD~1"
 expect_commit_allow "allows normal commit" 'git commit -m "msg"'
+expect_commit_allow "allows normal unquoted commit message" "git commit -m msg"
+expect_commit_allow "allows git status" "git status"
+expect_commit_allow "allows git log" "git log"
 expect_commit_allow "allows non-git command" 'printf "%s\n" "git commit --no-verify"'
 
 expect_file_context "advises on Cargo.toml" "Cargo.toml" "dependency surface" "cargo-file"
