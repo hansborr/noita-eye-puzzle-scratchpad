@@ -123,3 +123,49 @@ fn rejects_degenerate_inputs() {
         Err(IsoScanError::StreamTooShort { length: 1 })
     );
 }
+
+/// A difference modulus larger than the alphabet is rejected up front (it would
+/// overflow the projection / inflate the matched-null alphabet without adding
+/// any cyclic structure).
+#[test]
+fn rejects_oversized_delta_modulus() {
+    assert_eq!(
+        iso_scan(&[0, 1, 2, 3], 5, Some(6), DEFAULT_TOP_K, 16, 1),
+        Err(IsoScanError::ModulusTooLarge {
+            modulus: 6,
+            alphabet_size: 5,
+        })
+    );
+    // A modulus equal to the alphabet size is still accepted (the natural cyclic
+    // difference channel); this input only fails for being too short.
+    assert_eq!(
+        iso_scan(&[0, 1], 5, Some(5), DEFAULT_TOP_K, 16, 1),
+        Err(IsoScanError::StreamTooShort { length: 1 })
+    );
+}
+
+/// `top_k = 0` suppresses anchor enumeration even when the scan is significant —
+/// the verdict still stands, but no positions are reported.
+#[test]
+fn zero_top_k_suppresses_anchors() {
+    const PLANT_LEN: usize = 28;
+    let mut rng = SplitMix64::new(0x1234_5678_9ABC_DEF0);
+    let n = 360usize;
+    let mut stream: Vec<u16> = (0..n)
+        .map(|_| u16::try_from(random_index_below(5, &mut rng).expect("draw")).unwrap_or(0))
+        .collect();
+    // Plant an exact repeat so the raw scan is significant.
+    let block: Vec<u16> = stream
+        .get(20..20 + PLANT_LEN)
+        .map(<[u16]>::to_vec)
+        .expect("source block in range");
+    if let Some(slot) = stream.get_mut(200..200 + PLANT_LEN) {
+        slot.copy_from_slice(&block);
+    }
+    let report = iso_scan(&stream, 5, None, 0, DEFAULT_NULL_TRIALS, 5).expect("scan");
+    assert!(report.significant, "planted repeat must be significant");
+    assert!(
+        report.anchors.is_empty(),
+        "top_k = 0 must suppress anchor enumeration: {report:?}"
+    );
+}

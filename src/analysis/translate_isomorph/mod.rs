@@ -52,6 +52,15 @@ pub enum IsoScanError {
     },
     /// A difference modulus of zero was requested.
     ZeroModulus,
+    /// A difference modulus larger than the alphabet was requested. Such a
+    /// modulus adds no cyclic structure (the symbols never wrap) yet inflates the
+    /// matched-null alphabet, so it is rejected rather than scanned.
+    ModulusTooLarge {
+        /// The requested difference modulus.
+        modulus: usize,
+        /// The alphabet size it may not exceed.
+        alphabet_size: usize,
+    },
     /// The declared alphabet size was zero.
     EmptyAlphabet,
     /// An in-crate random draw rejected its bound (unreachable for the bounds
@@ -76,6 +85,13 @@ impl fmt::Display for IsoScanError {
                 "stream too short: need at least {MIN_STREAM_LEN} symbols after projection, have {length}"
             ),
             Self::ZeroModulus => write!(f, "difference modulus must be non-zero"),
+            Self::ModulusTooLarge {
+                modulus,
+                alphabet_size,
+            } => write!(
+                f,
+                "difference modulus {modulus} exceeds the alphabet size {alphabet_size}"
+            ),
             Self::EmptyAlphabet => write!(f, "alphabet size must be non-zero"),
             Self::RandomDraw { bound } => write!(f, "random draw rejected bound {bound}"),
         }
@@ -138,13 +154,16 @@ fn project(values: &[u16], delta_mod: Option<usize>) -> Result<Vec<u32>, IsoScan
     match delta_mod {
         Some(0) => Err(IsoScanError::ZeroModulus),
         Some(m) => {
-            let modulus = u32::try_from(m).unwrap_or(u32::MAX);
+            // `u64` so `b + modulus` cannot overflow for any modulus that survives
+            // the `iso_scan` bound check (the caller caps it at the alphabet size).
+            let modulus = u64::try_from(m).unwrap_or(u64::MAX);
             let mut out = Vec::with_capacity(values.len().saturating_sub(1));
             for pair in values.windows(2) {
                 if let [a, b] = pair {
-                    let a = u32::from(*a) % modulus;
-                    let b = u32::from(*b) % modulus;
-                    out.push((b + modulus - a) % modulus);
+                    let a = u64::from(*a) % modulus;
+                    let b = u64::from(*b) % modulus;
+                    let diff = (b + modulus - a) % modulus;
+                    out.push(u32::try_from(diff).unwrap_or(0));
                 }
             }
             Ok(out)
@@ -229,9 +248,10 @@ fn longest_repeat_len(stream: &[u32], hash: &RollingHash) -> usize {
 
 /// Finds the longest exact repeats of length `>= threshold`, longest first,
 /// deduplicating nested sub-repeats (a shorter same-gap repeat contained inside a
-/// longer one). Returns at most `top_k` anchors.
+/// longer one). Returns at most `top_k` anchors; `top_k == 0` suppresses anchor
+/// enumeration entirely (the significance verdict still stands).
 fn find_anchors(stream: &[u32], threshold: usize, top_k: usize) -> Vec<RepeatAnchor> {
-    if threshold == 0 || threshold > stream.len() {
+    if top_k == 0 || threshold == 0 || threshold > stream.len() {
         return Vec::new();
     }
     let n = stream.len();
@@ -345,6 +365,17 @@ pub fn iso_scan(
     if alphabet_size == 0 {
         return Err(IsoScanError::EmptyAlphabet);
     }
+    if let Some(modulus) = delta_mod {
+        if modulus == 0 {
+            return Err(IsoScanError::ZeroModulus);
+        }
+        if modulus > alphabet_size {
+            return Err(IsoScanError::ModulusTooLarge {
+                modulus,
+                alphabet_size,
+            });
+        }
+    }
     let stream = project(values, delta_mod)?;
     if stream.len() < MIN_STREAM_LEN {
         return Err(IsoScanError::StreamTooShort {
@@ -379,7 +410,7 @@ pub fn iso_scan(
 
     let threshold = (null_ceiling + 1).max(MIN_ANCHOR_LEN);
     let anchors = if significant {
-        find_anchors(&stream, threshold, top_k.max(1))
+        find_anchors(&stream, threshold, top_k)
     } else {
         Vec::new()
     };
