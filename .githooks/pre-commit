@@ -161,6 +161,7 @@ print_slot_plan() {
 guard_protected_branch
 guard_clean_source_worktree
 
+# Inspection-only dry run: exits 0 after the branch/worktree guards, so never set it for a real commit.
 if [[ "${PRECOMMIT_GUARDS_ONLY:-}" == "1" ]]; then
     echo "pre-commit: guards OK"
     exit 0
@@ -169,6 +170,7 @@ fi
 fast_commit=0
 if fast_commit_enabled; then
     fast_commit=1
+    print_fast_commit_notice
 fi
 
 run_suppressions=0
@@ -199,6 +201,7 @@ if (( ${#shell_files[@]} > 0 )); then
     slot_plan+=("shellcheck")
 fi
 
+# Inspection-only dry run: prints the slot plan and exits 0, so never set it for a real commit.
 if [[ "${PRECOMMIT_PLAN_ONLY:-}" == "1" ]]; then
     print_slot_plan
     exit 0
@@ -214,9 +217,7 @@ if (( run_rust_gate == 1 )); then
     run "rustfmt" cargo fmt --check
     run "clippy" cargo clippy --all-targets --all-features --locked -- -D warnings
     run "file-size" ./scripts/check-file-size.sh
-    if (( fast_commit == 1 )); then
-        print_fast_commit_notice
-    else
+    if (( fast_commit == 0 )); then
         RUSTFLAGS="-D warnings" run "tests" cargo test --locked
         RUSTDOCFLAGS="-D warnings" run "rustdoc" cargo doc --no-deps --locked
     fi

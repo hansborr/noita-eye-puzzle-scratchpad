@@ -62,6 +62,10 @@ file-size, blob-size, suppressions, and cargo-deny. CI and `make verify` /
 `make check` always remain the full gate. Disable it with
 `rm "$(git rev-parse --git-dir)/noita-fast-commit"`.
 
+`PRECOMMIT_PLAN_ONLY=1` and `PRECOMMIT_GUARDS_ONLY=1` are dry-run inspection
+shortcuts that exit 0; do not set them during a real `git commit`, where they
+would bypass the gate.
+
 ## Design notes
 
 - A `Glyph` is an opaque `u16` index into an `Alphabet`, not a closed enum,
