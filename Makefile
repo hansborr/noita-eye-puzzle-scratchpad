@@ -55,7 +55,7 @@ spell:
 
 ## shellcheck: lint shell scripts (the git hook + any scripts/*.sh)
 shellcheck:
-	bash -c 'shopt -s nullglob globstar; shellcheck -x .githooks/* scripts/**/*.sh'
+	bash -c 'shopt -s nullglob globstar; shellcheck -x .githooks/* .claude/hooks/*.sh scripts/**/*.sh'
 
 ## test-scripts: run shell smoke tests
 test-scripts:
