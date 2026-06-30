@@ -64,6 +64,51 @@ ai_emit_context() {
     exit 0
 }
 
+ai_emit_additional_context() {
+    ai_emit_context "$@"
+}
+
+ai_claude_updated_command() {
+    local command="$1"
+    local payload="${AI_HOOK_PAYLOAD:-}"
+
+    ai_have_jq || ai_emit_continue
+    if [ -n "$payload" ] \
+        && printf '%s' "$payload" | jq -e '.tool_input | type == "object"' >/dev/null 2>&1; then
+        printf '%s' "$payload" | jq -c --arg command "$command" '{
+            hookSpecificOutput: {
+                hookEventName: "PreToolUse",
+                permissionDecision: "allow",
+                updatedInput: (.tool_input + {command: $command})
+            }
+        }' || ai_emit_continue
+    else
+        jq -n --arg command "$command" '{
+            hookSpecificOutput: {
+                hookEventName: "PreToolUse",
+                permissionDecision: "allow",
+                updatedInput: {command: $command}
+            }
+        }' || ai_emit_continue
+    fi
+    exit 0
+}
+
+ai_claude_result_command() {
+    local message="$1"
+    local prefix="$2"
+    local result_file quoted_file
+
+    result_file=$(mktemp "$prefix.XXXXXX") || ai_emit_continue
+    if ! printf '%s\n' "$message" > "$result_file"; then
+        rm -f -- "$result_file"
+        ai_emit_continue
+    fi
+
+    printf -v quoted_file '%q' "$result_file"
+    ai_claude_updated_command "cat $quoted_file; rm -f $quoted_file"
+}
+
 ai_json_escape() {
     local value="$1"
 
@@ -90,10 +135,22 @@ ai_read_payload() {
     [ -n "$AI_HOOK_EVENT_NAME" ] || AI_HOOK_EVENT_NAME="${1:-PreToolUse}"
 }
 
+ai_payload_tool_name() {
+    local payload="$1"
+
+    printf '%s' "$payload" | jq -er '.tool_name? // empty | strings' 2>/dev/null
+}
+
 ai_payload_command() {
     local payload="$1"
 
     printf '%s' "$payload" | jq -er '.tool_input.command | strings' 2>/dev/null
+}
+
+ai_payload_background() {
+    local payload="$1"
+
+    printf '%s' "$payload" | jq -er '.tool_input.run_in_background? // false' 2>/dev/null
 }
 
 ai_payload_file_path() {
