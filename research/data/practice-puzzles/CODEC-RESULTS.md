@@ -212,6 +212,38 @@ cargo run -q -- groupscan --input-file research/data/practice-puzzles/two \
 cargo run -q -- groupscan --self-test
 ```
 
+### Readout convention and the autokey-family boundary
+
+The top-card vs marked-position readout question is **redundant** — no new
+instrument is warranted. `groupscan`'s `read_context` fits a fixed permutation
+directly on the *observed* deck channel `q = symbol // 3`, and is blind to whether
+`q` means `deck[0]` (top-card readout) or `deck⁻¹[0]` (marked-position / position-of-marked-card
+readout). The two self-consistent passive-deck **plaintext-autokey** models are
+inverse-relabelings of each other — (right-multiplication deck update, top-card
+readout), the convention the `hidden_state_solver` generator uses, and
+(left-multiplication update, marked-position readout), the sibling G1b
+generator's convention. Over a repeated-plaintext span the two anchor occurrences
+differ by a single constant group element `K`, and **both readouts expose a `q`
+that transforms by a constant permutation** between occurrences
+(`q_{b+s} = K(q_{a+s})` for top-card, `q_{b+s} = K⁻¹(q_{a+s})` for
+marked-position). `groupscan` already recovers exactly this relation and already
+validates a positive control for it, so real `two`'s `NoDeckSignal` robustly
+excludes passive-deck structure under **both** readouts — it is not a top-card
+artifact, and a marked-position instrument would recompute the identical
+statistic. (The mismatched pairings, e.g. right-mult + marked-position, yield no
+fixed-permutation relation under *either* readout — the coverage-collapse already
+documented above as `two`'s honest negative.)
+
+The remaining **untested** regime is a noted open lead. `groupscan`'s premise that
+the two anchor occurrences differ by a *single constant* `K` holds **only** for
+plaintext-autokey with a passive deck. If real `two` is instead
+**ciphertext-autokey** — the deck advance feeds back the emitted symbol — then no
+readout yields a constant-`K` fixed-permutation relation and `groupscan`'s
+positive-control premise itself collapses. That regime is untested by `groupscan`
+and is a candidate explanation for `two`'s honest negative; settling it needs a
+**feedback-aware attack/discriminator**, not a readout-convention instrument. This
+is structural reasoning about the hypothesis space, never recovered plaintext.
+
 ## What was built: the `Project` codec
 
 `AnyCodec::Project { input_base, output_base, op: Modulo | Div{divisor}, then }` —
