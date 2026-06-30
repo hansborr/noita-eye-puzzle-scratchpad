@@ -150,7 +150,7 @@ ai_payload_command() {
 ai_payload_background() {
     local payload="$1"
 
-    printf '%s' "$payload" | jq -er '.tool_input.run_in_background? // false' 2>/dev/null
+    printf '%s' "$payload" | jq -r '.tool_input.run_in_background? // false' 2>/dev/null
 }
 
 ai_payload_file_path() {

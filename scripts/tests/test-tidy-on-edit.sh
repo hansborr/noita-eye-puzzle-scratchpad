@@ -57,6 +57,9 @@ set -u
 
 file="$1"
 printf '%s\n' "$file" >> "$RUSTFMT_LOG"
+if [ "${STUB_RUSTFMT_SLEEP:-0}" -gt 0 ]; then
+    sleep "$STUB_RUSTFMT_SLEEP"
+fi
 if [ "${STUB_RUSTFMT_STATUS:-0}" -ne 0 ]; then
     printf 'rustfmt stub error\n' >&2
     exit "$STUB_RUSTFMT_STATUS"
@@ -179,6 +182,14 @@ run_tidy_hook "$(edit_payload "src/bad.rs" "Edit" "tidy-error")" STUB_RUSTFMT_ST
 assert_context_contains "tidy hook reports rustfmt errors without blocking" "tidy-on-edit: src/bad.rs rustfmt ERROR (non-blocking)"
 assert_rustfmt_invocations "rustfmt ran for error case" 2
 
+printf 'fn slow(){}\n' > "$tidy_repo/src/slow.rs"
+run_tidy_hook "$(edit_payload "src/slow.rs" "Edit" "tidy-timeout")" \
+    AI_TIDY_ON_EDIT_TIMEOUT=1 \
+    STUB_RUSTFMT_SLEEP=2 \
+    STUB_RUSTFMT_MODE=none
+assert_context_contains "tidy hook reports rustfmt timeout without blocking" "tidy-on-edit: src/slow.rs rustfmt TIMEOUT after 1s (non-blocking)"
+assert_rustfmt_invocations "rustfmt ran for timeout case" 3
+
 run_tidy_hook "{"
 assert_continue "tidy hook fails open on malformed stdin"
-assert_rustfmt_invocations "rustfmt did not run for malformed stdin" 2
+assert_rustfmt_invocations "rustfmt did not run for malformed stdin" 3

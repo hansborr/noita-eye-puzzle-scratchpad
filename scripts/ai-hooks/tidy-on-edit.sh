@@ -13,6 +13,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 REPO_ROOT=$(realpath -m -- "$(ai_repo_root "$SCRIPT_DIR")" 2>/dev/null || ai_repo_root "$SCRIPT_DIR")
 AI_TIDY_ON_EDIT_MAX_OUTPUT_LINES="${AI_TIDY_ON_EDIT_MAX_OUTPUT_LINES:-30}"
+AI_TIDY_ON_EDIT_TIMEOUT="${AI_TIDY_ON_EDIT_TIMEOUT:-45}"
 
 ai_tidy_on_edit_state_dir() {
     printf '%s\n' "${AI_TIDY_ON_EDIT_STATE_DIR:-$(ai_state_root)/tidy-on-edit}"
@@ -164,7 +165,7 @@ ai_tidy_bounded_tail() {
 
 main() {
     local tool_name requested_path absolute_path relative_path state_file before_hash after_hash
-    local rustfmt_output rustfmt_status message
+    local rustfmt_output rustfmt_status message timeout_seconds
 
     ai_read_payload PostToolUse || ai_emit_continue
     tool_name=$(ai_payload_tool_name "$AI_HOOK_PAYLOAD" 2>/dev/null || printf '')
@@ -183,13 +184,24 @@ main() {
     ai_tidy_seen_current_hash "$state_file" "$before_hash" && ai_emit_continue
 
     command -v rustfmt >/dev/null 2>&1 || ai_emit_continue
+    command -v timeout >/dev/null 2>&1 || ai_emit_continue
     cd "$REPO_ROOT" || ai_emit_continue
 
-    rustfmt_output=$(rustfmt "$absolute_path" 2>&1)
+    timeout_seconds=$(ai_tidy_positive_integer_or_default "$AI_TIDY_ON_EDIT_TIMEOUT" 45)
+    rustfmt_output=$(timeout --kill-after=5s "${timeout_seconds}s" rustfmt "$absolute_path" 2>&1)
     rustfmt_status=$?
     after_hash=$(ai_tidy_file_hash "$absolute_path") || ai_emit_continue
     [ -n "$after_hash" ] || ai_emit_continue
     ai_tidy_write_hash "$state_file" "$after_hash" || true
+
+    if [ "$rustfmt_status" -eq 124 ] || [ "$rustfmt_status" -eq 137 ]; then
+        message=$(printf 'tidy-on-edit: %s rustfmt TIMEOUT after %ss (non-blocking)' \
+            "$relative_path" "$timeout_seconds")
+        if [ -n "$rustfmt_output" ]; then
+            message="${message}"$'\n'"--- rustfmt output ---"$'\n'"$(ai_tidy_bounded_tail "$rustfmt_output")"
+        fi
+        ai_emit_additional_context "PostToolUse" "$message"
+    fi
 
     if [ "$rustfmt_status" -ne 0 ]; then
         message=$(printf 'tidy-on-edit: %s rustfmt ERROR (non-blocking)' "$relative_path")
