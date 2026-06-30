@@ -56,6 +56,24 @@ run_check() {
     )
 }
 
+run_check_without_json_tools() {
+    local repo="$1"
+    local bin_dir="$tmp_root/no-json-tools-bin"
+    local command_name command_path
+    shift
+
+    mkdir -p -- "$bin_dir"
+    for command_name in bash git sort tr wc; do
+        command_path="$(command -v "$command_name")"
+        ln -sf -- "$command_path" "$bin_dir/$command_name"
+    done
+
+    (
+        cd "$repo"
+        PATH="$bin_dir" "$check" "$@"
+    )
+}
+
 expect_success_contains() {
     local name="$1"
     local repo="$2"
@@ -184,6 +202,38 @@ expect_failure_contains \
     "corrupt debt JSONL fails" \
     "$corrupt_debt_repo" \
     "invalid"
+
+missing_key_debt_repo="$(new_repo missing-key-debt-log)"
+printf '// small file\n' > "$missing_key_debt_repo/src/lib.rs"
+printf '{}\n' > "$missing_key_debt_repo/scripts/file-size-debt-log.jsonl"
+git_hermetic "$missing_key_debt_repo" add src/lib.rs
+if output="$(run_check_without_json_tools "$missing_key_debt_repo" 2>&1)"; then
+    printf 'not ok - fallback rejects empty debt JSON object\nexpected failure\nactual output:\n%s\n' \
+        "$output" >&2
+    exit 1
+fi
+if [[ "$output" != *"missing mandatory debt-log key"* ]]; then
+    printf 'not ok - fallback rejects empty debt JSON object\nactual output:\n%s\n' \
+        "$output" >&2
+    exit 1
+fi
+printf 'ok - fallback rejects empty debt JSON object\n'
+
+garbage_object_debt_repo="$(new_repo garbage-object-debt-log)"
+printf '// small file\n' > "$garbage_object_debt_repo/src/lib.rs"
+printf '{garbage}\n' > "$garbage_object_debt_repo/scripts/file-size-debt-log.jsonl"
+git_hermetic "$garbage_object_debt_repo" add src/lib.rs
+if output="$(run_check_without_json_tools "$garbage_object_debt_repo" 2>&1)"; then
+    printf 'not ok - fallback rejects garbage debt JSON object\nexpected failure\nactual output:\n%s\n' \
+        "$output" >&2
+    exit 1
+fi
+if [[ "$output" != *"missing mandatory debt-log key"* ]]; then
+    printf 'not ok - fallback rejects garbage debt JSON object\nactual output:\n%s\n' \
+        "$output" >&2
+    exit 1
+fi
+printf 'ok - fallback rejects garbage debt JSON object\n'
 
 log_arg_repo="$(new_repo log-debt-args)"
 expect_failure_contains \

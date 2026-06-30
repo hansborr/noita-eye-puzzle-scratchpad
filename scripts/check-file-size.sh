@@ -137,6 +137,14 @@ PY
                 "$debt_log" "$line_no" >&2
             exit 1
         fi
+        local required_key
+        for required_key in '"path"' '"old_cap"' '"new_cap"' '"reason"'; do
+            if [[ "$line" != *"$required_key"* ]]; then
+                printf 'file-size: %s:%d: missing mandatory debt-log key: %s\n' \
+                    "$debt_log" "$line_no" "$required_key" >&2
+                exit 1
+            fi
+        done
     done < "$debt_log"
 }
 
