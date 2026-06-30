@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use super::regression::synthetic_internal_violation_fires;
 use super::{
-    ALPHABET_SIZE, BreakClass, PerfectIsomorphismConfig, WikiRegressionCheck,
+    ALPHABET_SIZE, BreakClass, PerfectIsomorphismConfig, SIGNIFICANCE_ALPHA, WikiRegressionCheck,
     perfect_isomorphism_for_stream, report_from_message_values, run_perfect_isomorphism,
 };
 use crate::analysis::orders;
@@ -123,6 +123,74 @@ fn for_stream_self_validates_and_is_neutral_off_corpus() {
 }
 
 #[test]
+fn for_stream_multi_message_fires_cross_message_detector() {
+    // Planted positive on USER input: two supplied messages that share an aligned
+    // isomorph which diverges at a single fresh-singleton interior island and then
+    // re-syncs for a long far run carrying a cross-island back-reference -- the
+    // proven short-island internal-violation geometry, in disjoint symbol ranges
+    // per message. The CROSS-MESSAGE detector must catch it on user data, not just
+    // the synthetic-internal control. This is the multi-message report branch that
+    // a single stream can never reach.
+    let messages = planted_internal_violation_pair();
+    let keys = ["m0", "m1"];
+    let config = PerfectIsomorphismConfig {
+        seed: 0x6d31,
+        trials: 256,
+        ..PerfectIsomorphismConfig::default()
+    };
+    let report = perfect_isomorphism_for_stream(config, &keys, &messages).unwrap();
+
+    // (1) The cross-message detector actually fires: a non-empty cross-message
+    // catalog and at least one robust internal violation localized across m0/m1.
+    assert!(!report.catalog.is_empty(), "cross-message catalog is empty");
+    assert!(
+        report.robust_internal_violations >= 1,
+        "no robust internal violation localized"
+    );
+    assert_eq!(report.order.name(), "raw-rows");
+    // Both planted messages are 20 columns by construction.
+    assert_eq!(report.message_lengths, vec![("m0", 20), ("m1", 20)]);
+
+    // (2) Matched null: the within-message multiset shuffle destroys the planted
+    // alignment, so the violation sits in the null's upper tail (p <= alpha) and
+    // its mean null count stays below the observed count.
+    assert!(
+        report.empirical_p <= SIGNIFICANCE_ALPHA,
+        "planted signal did not exceed its null (p = {})",
+        report.empirical_p
+    );
+    assert!(
+        report.internal_violation_null.count_mean < report.robust_internal_violations as f64,
+        "null mean {} not below observed {}",
+        report.internal_violation_null.count_mean,
+        report.robust_internal_violations
+    );
+
+    // (3) The synthetic control still fires; the render is provenance-clean and
+    // frames the hit as a structural candidate to recheck, not a recovery/decode.
+    assert!(report.positive_control_fired);
+    let rendered = report.render();
+    for forbidden in [
+        "eye",
+        "wiki",
+        "GAK",
+        "Stutter",
+        "CTAK",
+        "Allomorphs",
+        "Experiment 0",
+        ".md",
+    ] {
+        assert!(
+            !rendered.contains(forbidden),
+            "leaked {forbidden}: {rendered}"
+        );
+    }
+    assert!(!rendered.contains("does not apply"), "{rendered}");
+    assert!(rendered.contains("supplied streams"), "{rendered}");
+    assert!(rendered.contains("not a recovery"), "{rendered}");
+}
+
+#[test]
 fn invalid_window_range_is_rejected() {
     let config = PerfectIsomorphismConfig {
         seed: 1,
@@ -175,6 +243,22 @@ fn neutral_stream() -> Vec<crate::core::trigram::TrigramValue> {
     // 16 symbols (>= the default max-window 11) with internal repeats; still a single
     // message, so it cannot populate the cross-message catalog regardless of content.
     values(&[0, 1, 0, 2, 3, 2, 4, 5, 6, 4, 7, 8, 9, 10, 11, 9])
+}
+
+fn planted_internal_violation_pair() -> Vec<Vec<crate::core::trigram::TrigramValue>> {
+    // Two messages whose first nine columns share a gap pattern (a strong window-8
+    // isomorph), diverge at exactly one interior column (a fresh-singleton island),
+    // then re-sync for ten columns whose back-reference points across the island
+    // into the shared prefix. The two messages use disjoint symbol ranges, so the
+    // match is purely gap-structural -- the same short-island internal-violation
+    // geometry the synthetic control validates, here split across two user messages.
+    let left = values(&[
+        1, 2, 3, 1, 4, 2, 5, 3, 6, 2, 7, 8, 1, 9, 10, 11, 12, 13, 14, 15,
+    ]);
+    let right = values(&[
+        31, 32, 33, 31, 34, 32, 35, 33, 36, 37, 38, 39, 31, 40, 41, 42, 43, 44, 45, 46,
+    ]);
+    vec![left, right]
 }
 
 fn values(raw: &[u8]) -> Vec<crate::core::trigram::TrigramValue> {

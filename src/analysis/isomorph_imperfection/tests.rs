@@ -3,6 +3,7 @@ use super::{
     EXTENDED_WINDOWS, FAMILY_MESSAGES, HIGH_EPSILON, IsomorphImperfectionConfig,
     isomorph_imperfection_for_stream, run_isomorph_imperfection, scan_counts,
 };
+use crate::analysis::perfect_isomorphism::SIGNIFICANCE_ALPHA;
 use crate::report::Report;
 
 // The full-corpus shuffle null dominates cost, so the run()-driven tests use
@@ -150,6 +151,86 @@ fn neutral_stream() -> Vec<crate::core::trigram::TrigramValue> {
         .into_iter()
         .map(|raw| crate::core::trigram::TrigramValue::new(raw).unwrap())
         .collect()
+}
+
+#[test]
+fn for_stream_multi_message_localizes_cross_message_violation() {
+    // Planted positive on USER input: two supplied messages whose first nine
+    // columns share a gap pattern (a strong window-8 isomorph), diverge at one
+    // fresh-singleton interior island, then re-sync for a long far run carrying a
+    // cross-island back-reference -- the proven short-island internal-violation
+    // geometry, split across two user messages in disjoint symbol ranges. The
+    // CROSS-MESSAGE break detector must localize it as a robust internal violation
+    // on user data (the multi-message branch a single stream can never reach).
+    let messages = planted_internal_violation_pair();
+    let keys = ["m0", "m1"];
+    let config = IsomorphImperfectionConfig {
+        seed: 0x6d31,
+        null_trials: 256,
+        family_trials: 12,
+    };
+    let report = isomorph_imperfection_for_stream(config, &keys, &messages).unwrap();
+
+    // (1) The cross-message detector actually fires on user input.
+    assert!(report.extended_counts.robust_internal_violations >= 1);
+    assert_eq!(report.order.name(), "raw-rows");
+    assert_eq!(report.message_lengths, vec![("m0", 20), ("m1", 20)]);
+
+    // (2) Matched null: the within-message multiset shuffle destroys the planted
+    // alignment, so the localized violation exceeds its null (upper-tail p <= alpha
+    // and the null mean stays below the observed count).
+    assert!(report.robust_null.observed >= 1);
+    assert!(
+        report.robust_null.p <= SIGNIFICANCE_ALPHA,
+        "planted signal did not exceed its null (p = {})",
+        report.robust_null.p
+    );
+    assert!(
+        report.robust_null.band.mean < report.robust_null.observed as f64,
+        "null mean {} not below observed {}",
+        report.robust_null.band.mean,
+        report.robust_null.observed
+    );
+
+    // (3) The synthetic imperfect-family control still fires; the render is
+    // provenance-clean and frames the hit as a structural candidate to recheck,
+    // not a recovery/decode, and is no longer in the "does not apply" branch.
+    assert!(report.family.positive_control_fired);
+    let rendered = report.render();
+    for forbidden in [
+        "eye",
+        "wiki",
+        "GAK",
+        "Stutter",
+        "CTAK",
+        "Allomorphs",
+        "Experiment 0",
+        ".md",
+    ] {
+        assert!(
+            !rendered.contains(forbidden),
+            "leaked {forbidden}: {rendered}"
+        );
+    }
+    assert!(!rendered.contains("does not apply"), "{rendered}");
+    assert!(rendered.contains("structural candidate"), "{rendered}");
+    assert!(rendered.contains("not a recovery"), "{rendered}");
+}
+
+fn planted_internal_violation_pair() -> Vec<Vec<crate::core::trigram::TrigramValue>> {
+    let to_values = |raw: &[u8]| -> Vec<crate::core::trigram::TrigramValue> {
+        raw.iter()
+            .copied()
+            .map(|value| crate::core::trigram::TrigramValue::new(value).unwrap())
+            .collect()
+    };
+    let left = to_values(&[
+        1, 2, 3, 1, 4, 2, 5, 3, 6, 2, 7, 8, 1, 9, 10, 11, 12, 13, 14, 15,
+    ]);
+    let right = to_values(&[
+        31, 32, 33, 31, 34, 32, 35, 33, 36, 37, 38, 39, 31, 40, 41, 42, 43, 44, 45, 46,
+    ]);
+    vec![left, right]
 }
 
 #[test]
