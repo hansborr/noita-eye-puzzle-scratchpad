@@ -1,0 +1,7 @@
+# Safety/correctness allow/expect register. Format:
+#
+# <path>:<line>:<lint> # reason
+#
+# Register only suppressions that silence one of the safety-gated lints checked
+# by scripts/check-suppressions.sh. The current src/ tree has no such
+# suppressions, so this register is intentionally empty below this header.
