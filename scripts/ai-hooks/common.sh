@@ -32,10 +32,16 @@ ai_emit_continue() {
 }
 
 ai_emit_block() {
+    ai_emit_deny "$1"
+}
+
+ai_emit_deny() {
     local reason="$1"
+    local event="${AI_HOOK_EVENT_NAME:-PreToolUse}"
 
     ai_have_jq || ai_emit_continue
-    jq -n --arg reason "$reason" '{decision:"block",reason:$reason}' \
+    jq -n --arg event "$event" --arg reason "$reason" \
+        '{hookSpecificOutput:{hookEventName:$event,permissionDecision:"deny",permissionDecisionReason:$reason}}' \
         || ai_emit_continue
     exit 0
 }

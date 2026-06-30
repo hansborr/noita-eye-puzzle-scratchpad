@@ -103,7 +103,8 @@ expect_commit_block() {
 
     run_hook "$hooks_dir/commit-bypass-guard.sh" "$(command_payload "$command")"
     assert_status_zero "$name"
-    assert_jq "$name" '.decision == "block" and (.reason | contains("pre-commit hook"))'
+    assert_jq "$name" \
+        '.hookSpecificOutput.hookEventName == "PreToolUse" and .hookSpecificOutput.permissionDecision == "deny" and (.hookSpecificOutput.permissionDecisionReason | contains("pre-commit hook"))'
     pass "$name"
 }
 
