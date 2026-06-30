@@ -1,0 +1,102 @@
+# Handoff — crack practice puzzle `one`'s codec
+
+**For the next agent.** Goal: recover the English (or Finnish) plaintext of
+`research/data/practice-puzzles/one`. Read `AGENTS.md` first — the honesty
+discipline (matched null + firing positive control, never present a high n-gram
+score as a decode) is binding here.
+
+## Why `one` is the right target
+
+`one`'s **cipher is already fully solved** — there is no key search and no hidden
+state left. It is a transparent ±1 walk on `C5`: all 265 transitions are ±1 mod 5,
+so the plaintext is a recovered **265-bit up/down stream**. The *only* unknown is
+the **binary→language codec**. So this is a pure transduction problem, not
+cryptanalysis. (Contrast: `two`'s codec sits behind a genuine hidden-state GAK
+deck — see `research/findings/ctak-feedback-discriminator.md` — which is why `one`
+is the tractable codec testbed. If you crack `one`'s codec it likely reveals the
+setter's encoding family.)
+
+## The recovered plaintext (reproduce, don't trust)
+
+```python
+d = [int(c) for c in open("research/data/practice-puzzles/one").read().strip()]   # 266 base-5 digits
+steps = [(d[i]-d[i-1]) % 5 for i in range(1, len(d))]                              # all in {1,4}
+bits  = [1 if s == 1 else 0 for s in steps]                                        # 265 bits; up=+1
+```
+
+- 265 bits, `#up(+1)=125`, `#down(-1)=140`.
+- **Try both bit polarities** (up=1 and up=0) and both walk directions — the codec
+  could use either; the assignment above is arbitrary.
+- bitstream (up=1): `0001011001111010011110001110100000101111001101001011110011110010001010111011000101000001111001111010010110110000110000101100101100001000100010000110010110100001100001101110101000100111010111011100110000101100101000011000011011101110010110100001100001101110101000100`
+
+## The load-bearing new constraint: the codec is NOT fixed-width
+
+There is an **exact 36-bit repeat at bit positions 145 and 229** (gap 84) — a real
+repeated plaintext word (`isoscan --delta-mod 5` finds it; significant vs the
+order-1 Markov null, longest 36 vs ceiling ~22). For a fixed-width-`k` codec, an
+*exact bit-level* repeat of a word forces both occurrences to the same bit phase,
+i.e. **`k | 84`** (`84 = 2²·3·7`). For the message to tile 265 bits into whole
+letters, **`k | 265`** (`265 = 5·53`). But **`gcd(265, 84) = 1`**, so no `k>1`
+satisfies both → **no fixed-width codec can both tile the message and phase-align
+the repeat.** This is consistent with the failed fixed-code battery below, and it
+redirects the search:
+
+- the codec is **variable-length** (prefix/Huffman/Fibonacci–Zeckendorf/Morse-like),
+  **or**
+- it is fixed-width with **padding / a partial final letter** (then `k ∤ 265` is
+  fine; `k | 84` still constrains it to `k ∈ {4,6,7,12,...}` with a few leftover
+  bits — note `k=7` is ASCII-width, `k=6`/`k=4` are plausible), **or**
+- (less likely) the 36-bit repeat is a non-letter-aligned coincidence — but 36 exact
+  bits is long, so treat it as a genuine word repeat and a **known-plaintext crib**.
+
+## Already tried — DO NOT just repeat (honest negatives)
+
+Per `research/data/practice-puzzles/CODEC-RESULTS.md` (§ `one`): Baconian (5-bit),
+ITA2, ASCII, Gray, bignum, transposition, run-length — all give gibberish, **flat
+IoC at every grouping**. Quick re-check this session: 4/6/7/8-bit fixed groupings
+with a full phase+order sweep stay at the uniform floor (k=4 pair-IoC 0.070 ≈
+uniform-16 0.0625; k=6 0.028; k=7 0.039) — no English spike. The matched-null
+codec-search (`cargo run -- solve --codec-search` on `one`) returns 0 survivors and
+correctly rejects a 32→29 binary-move overfit.
+
+## Promising untried angles (ranked)
+
+1. **Variable-length / prefix codes.** Decode the bit-stream greedily under
+   candidate code trees (Morse with the run-structure as separators; an English-
+   frequency Huffman; Fibonacci/Zeckendorf). Score with a held-out quadgram LM
+   against a matched null; build it as a file-driven instrument, not a one-off.
+2. **Run-length as the message.** 135 runs, values 1–5, dist `{1:64,2:34,3:17,4:18,5:2}`.
+   The run-length sequence (or (up-run,down-run) pairs) may be the carrier rather
+   than the raw bits.
+3. **Fixed-width with leftover.** Test `k ∈ {4,6,7,12}` (the `k|84` set) allowing a
+   1–N-bit offset/leftover and both polarities, gated on the 36-bit crib aligning to
+   a letter boundary.
+4. **Use the crib.** The repeated 36-bit word is a known-plaintext anchor: under a
+   correct codec it must decode to the *same letters* at 145 and 229. Use that to
+   filter codec hypotheses before scoring the whole stream.
+
+## Discipline + where to record
+
+- A high n-gram score is **not** a decode. Require a firing planted positive control
+  + a matched null + held-out scoring; a `--codec-search` survivor on a transition-
+  structured stream must be read with the rendered text, not the gate count (a
+  first-order Markov null can't separate a transition law from first-order language —
+  see CODEC-RESULTS.md § "Why the gate is fooled"). Use a **trigram/quadgram**
+  objective.
+- Build a reusable file-driven CLI instrument (`--input-file`/`--stdin` + a planted
+  control + matched null), not a throwaway script. Record results in
+  `CODEC-RESULTS.md` (the authoritative `one`/`two` codec record).
+- If you recover candidate cleartext, log it as a HYPOTHESIS under
+  `research/gak-threads/candidates/` (per the maintainer's standing directive).
+- The maintainer holds `two`'s English (not `one`'s, as far as recorded); there is
+  no in-repo ground truth, so a scored candidate is never a decode until checked.
+
+## Related context
+
+- `research/data/practice-puzzles/CODEC-RESULTS.md` — the `one`/`two` codec record
+  (transparent-rotor leak, isoscan crib anchors, the gate blind-spot).
+- `research/findings/ctak-feedback-discriminator.md` — why `two` is blocked (hidden
+  state); `one` is the cleaner codec target.
+- Instruments: `isoscan` (repeats + null), `solve --codec-search` (the codec layer,
+  `src/attack/codec/` + `src/attack/solve/`), `keydiff` (one → constant-additive Δ,
+  consistent with C5).
