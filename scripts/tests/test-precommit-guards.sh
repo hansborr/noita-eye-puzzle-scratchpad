@@ -51,6 +51,16 @@ run_hook() {
     )
 }
 
+run_full_hook() {
+    local repo="$1"
+    shift
+
+    (
+        cd "$repo"
+        "$@" "$hook"
+    )
+}
+
 expect_success() {
     local name="$1"
     local repo="$2"
@@ -58,6 +68,19 @@ expect_success() {
     shift 2
 
     if ! output="$(run_hook "$repo" "$@" 2>&1)"; then
+        printf 'not ok - %s\n%s\n' "$name" "$output" >&2
+        exit 1
+    fi
+    printf 'ok - %s\n' "$name"
+}
+
+expect_full_hook_success() {
+    local name="$1"
+    local repo="$2"
+    local output
+    shift 2
+
+    if ! output="$(run_full_hook "$repo" "$@" 2>&1)"; then
         printf 'not ok - %s\n%s\n' "$name" "$output" >&2
         exit 1
     fi
@@ -82,6 +105,27 @@ expect_failure_contains() {
         exit 1
     fi
     printf 'ok - %s\n' "$name"
+}
+
+install_stub_guards() {
+    local repo="$1"
+
+    mkdir -p -- "$repo/scripts"
+    cat > "$repo/scripts/check-blob-size.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p hook-runs
+printf 'blob\n' >> hook-runs/blob-size
+SH
+    cat > "$repo/scripts/check-suppressions.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p hook-runs
+printf 'suppressions\n' >> hook-runs/suppressions
+SH
+    chmod +x "$repo/scripts/check-blob-size.sh" "$repo/scripts/check-suppressions.sh"
+    git -C "$repo" add scripts/check-blob-size.sh scripts/check-suppressions.sh
+    commit_index "$repo" "add stub guards"
 }
 
 main_repo="$(new_repo main)"
@@ -186,3 +230,31 @@ printf 'scratch\n' > "$unrelated_repo/notes.txt"
 expect_success \
     "dirty guard ignores unrelated untracked paths" \
     "$unrelated_repo"
+
+docs_only_repo="$(new_repo feature/docs-only-wiring)"
+install_stub_guards "$docs_only_repo"
+printf 'docs\n' > "$docs_only_repo/README.md"
+git -C "$docs_only_repo" add README.md
+expect_full_hook_success \
+    "pre-commit skips suppressions for docs-only commits" \
+    "$docs_only_repo"
+if [[ ! -f "$docs_only_repo/hook-runs/blob-size" ]]; then
+    printf 'not ok - pre-commit skips suppressions for docs-only commits\nblob-size did not run\n' >&2
+    exit 1
+fi
+if [[ -f "$docs_only_repo/hook-runs/suppressions" ]]; then
+    printf 'not ok - pre-commit skips suppressions for docs-only commits\nsuppressions unexpectedly ran\n' >&2
+    exit 1
+fi
+
+register_repo="$(new_repo feature/register-wiring)"
+install_stub_guards "$register_repo"
+: > "$register_repo/scripts/suppression-register.txt"
+git -C "$register_repo" add scripts/suppression-register.txt
+expect_full_hook_success \
+    "pre-commit runs suppressions for register changes" \
+    "$register_repo"
+if [[ ! -f "$register_repo/hook-runs/suppressions" ]]; then
+    printf 'not ok - pre-commit runs suppressions for register changes\nsuppressions did not run\n' >&2
+    exit 1
+fi

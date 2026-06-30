@@ -102,6 +102,19 @@ staged() {
     git diff --cached --name-only --diff-filter=ACM "$@"
 }
 
+suppressions_staged() {
+    local path
+    while IFS= read -r -d '' path; do
+        case "$path" in
+            *.rs | scripts/suppression-register.txt | scripts/check-suppressions.sh)
+                return 0
+                ;;
+        esac
+    done < <(git diff --cached --name-only -z --diff-filter=ACMRD)
+
+    return 1
+}
+
 guard_protected_branch
 guard_clean_source_worktree
 
@@ -111,7 +124,9 @@ if [[ "${PRECOMMIT_GUARDS_ONLY:-}" == "1" ]]; then
 fi
 
 run "blob-size" ./scripts/check-blob-size.sh
-run "suppressions" ./scripts/check-suppressions.sh
+if suppressions_staged; then
+    run "suppressions" ./scripts/check-suppressions.sh
+fi
 
 # --- Rust gate: only when Rust-relevant files are staged ---
 if staged | grep -qE '\.rs$|(^|/)Cargo\.(toml|lock)$|(^|/)(clippy|deny)\.toml$'; then
