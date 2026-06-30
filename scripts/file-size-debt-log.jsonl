@@ -1,0 +1,5 @@
+{"path":"src/attack/gak_attack/tests.rs","old_cap":null,"new_cap":1702,"reason":"baseline pin: extracted GCTAK gate tests (synthetic fixtures); split by stage only if it grows"}
+{"path":"src/attack/gak_attack/eyes/heldout.rs","old_cap":null,"new_cap":826,"reason":"baseline pin: indivisible held-out scoring core; split by stage only if it grows"}
+{"path":"src/attack/gak_attack/solver/mod.rs","old_cap":null,"new_cap":797,"reason":"baseline pin: cohesive indivisible GCTAK solve core; deck substrate already split into siblings"}
+{"path":"src/ciphers/tests.rs","old_cap":null,"new_cap":992,"reason":"baseline pin: extracted candidate-cipher unit tests (exact round-trip controls)"}
+{"path":"src/attack/solve/tests.rs","old_cap":null,"new_cap":2186,"reason":"baseline pin: extracted solve-pipeline tests plus planted positive-control coverage; split into focused test modules if it grows"}
