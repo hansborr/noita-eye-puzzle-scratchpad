@@ -59,6 +59,10 @@ Notes:
   `one` (a ±1 walk on C5) and `two` (whose `s%3` channel is a ±1 walk on C3) are
   honest negatives; `two` additionally exposes a transition-law blind spot in the
   bigram/Fisher-Yates gate (its gate "survivors" are artifacts, not decodes).
+  `CODEC-RESULTS.md` also records the transparent-rotor leak (the C3 channel
+  exposes ~1/3 of the plaintext key-free) and the `isoscan` crib anchors — long
+  exact translate-isomorphs in the difference channel (`two`: len 68; `one`: len
+  36) that locate repeated plaintext spans (structural candidates, not decodes).
 
 ## Provenance
 External samples gathered by the maintainer (2026-06-25) to test the workbench's

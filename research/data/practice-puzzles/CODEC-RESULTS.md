@@ -43,6 +43,98 @@ substitution/anagram into English):
 | Per-period coset IoC | flat | flat at every period 1..24 (no Vigenère key length) |
 | Channel independence | — | q ⟂ r (χ² ≈ df) |
 
+## The transparent rotor channel and crib anchors (`isoscan`)
+
+The C3 walk above is not just structure — in the hidden-state GAK reading it is a
+**transparent channel that leaks plaintext with no key**, and it carries exact
+repeated spans that locate where the plaintext repeats.
+
+### The rotor leaks ~1/3 of the plaintext key-free
+
+Read `two` as a `C3 × S4` hidden-state group-autokey (convention B: the visible
+symbol is the deck's top-card image, post-composed). Because `C3` is a **direct
+product** factor, the rotor updates `r += eps` *independently* of the hidden deck.
+So the observed rotor increment
+
+    eps[i] = (class[i] - class[i-1]) mod 3,  class = symbol mod 3
+
+equals the plaintext symbol's own `eps` **exactly — zero cipher noise**. Writing
+the octal plaintext symbol as `(eps-1)*4 + t`, the high bit (`sym // 4 = eps - 1`)
+is public: roughly **one plaintext bit in three leaks with no key at all**. Only
+the 2-bit top-card image `t` stays hidden behind `S4`. This is the cryptographic
+meaning of the "r-channel is a ±1 walk on C3" fact above.
+
+The `mod 3` rotor is **forced, not assumed**: every symbol has exactly 8 of 12
+successors, the 48 forbidden pairs are exactly the three residue classes
+`{ADGJ, BEHK, CFIL}`, and that transition graph admits **only one** balanced
+3-coloring. (Independently confirmed by codex.)
+
+### Crib anchors: exact repeats in the difference channel
+
+The transparent channel `d[i] = (v[i+1] - v[i]) mod 3` is mapping-independent (a
+global symbol offset cancels), so a repeated plaintext span leaves a **literal
+exact repeat** there — the translate-isomorph fingerprint of a GAK cipher. The
+`isoscan` instrument finds them and calibrates the longest repeat against an
+order-1 Markov (transition-preserving) null — the same discipline the gate
+blind-spot section demands, *not* a Fisher-Yates shuffle:
+
+| Stream | Projection | Longest repeat | Null ceiling (200 trials) | p | Anchors (pos1/pos2, gap) |
+| --- | --- | --- | --- | --- | --- |
+| `two` | `--delta-mod 3` | **68** | 29 | 0.005 | 68 @231/351 (120); 51 @5/555; 41 @352/506; 37 @108/572; 34 @22/108 |
+| `one` | `--delta-mod 5` | **36** | 22 | 0.005 | 36 @145/229 (84) |
+| `two` | raw (no projection) | 7 | 8 | 0.11 | none — not significant |
+
+The raw-vs-difference contrast is the GAK signature: the full ciphertext shows
+**no** significant repeat (the hidden deck differs at each occurrence, scrambling
+the literal symbols), but the transparent rotor channel does. A length-68
+difference-channel repeat is about **34 repeated plaintext letters**.
+
+### Honesty framing (binding)
+
+An anchor is a **structural candidate, never a decode**. It locates *where* the
+plaintext repeats — a crib / known-plaintext anchor to seed a key recovery — not
+*what* it says. Two caveats bound how far this reading can be pushed:
+
+- **Not forced to `S4`.** `C3 × D4` (2 hidden states) and `C3 × A4` (3 hidden
+  states) reproduce the `mod 3` law and out-degree 8 identically; `S4` is only the
+  maximal member. A smaller hidden group means less deck slack and an easier
+  solve, so the current solver may be over-parameterized on real `two`. The
+  cheapest discriminator is an isomorph chaining-graph element-order (cycle-length)
+  scan.
+- **The free 4-class projection is not English-diagnostic.** Its above-null
+  sequential structure is the period-2 codec artifact (the same `eps` signature
+  that makes even positions ~72% "down", odd ~54% "up"), not language — it lacks
+  the conditional-entropy drop genuine English projection carries. It is usable as
+  a key-free codec *constraint*, not a crack.
+
+### The instrument
+
+`isoscan` (`src/analysis/translate_isomorph` + the `isoscan` subcommand) is
+file-driven and self-validating: an order-1 Markov matched null plus a planted
+positive control (`isoscan --self-test`). It reproduces every figure above and
+generalizes to the eyes. This moves the crib-anchor analysis **in-engine** (the
+structural/null figures elsewhere in this doc were produced out-of-engine).
+
+```sh
+# two — the rotor (transparent) channel
+cargo run -- isoscan --input-file research/data/practice-puzzles/two \
+  --alphabet ABCDEFGHIJKL --delta-mod 3
+# one — its C5 walk channel
+cargo run -- isoscan --input-file research/data/practice-puzzles/one \
+  --alphabet 01234 --delta-mod 5
+# raw two — no significant repeat (deck scrambles it)
+cargo run -- isoscan --input-file research/data/practice-puzzles/two \
+  --alphabet ABCDEFGHIJKL
+# planted positive control
+cargo run -- isoscan --self-test
+```
+
+**Next leads (ranked):** (1) crib-anchored deck-key recovery over the length-68
+span, where the plaintext is constant and the deck permutation can be solved
+locally; (2) a `D4`/`A4`/`S4` structure discriminator via isomorph chaining-graph
+element orders; (3) the quadgram-in-octal codec objective the gate blind-spot
+section recommends.
+
 ## What was built: the `Project` codec
 
 `AnyCodec::Project { input_base, output_base, op: Modulo | Div{divisor}, then }` —
