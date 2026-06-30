@@ -115,6 +115,36 @@ ai_commit_arg_value_mode() {
     esac
 }
 
+ai_commit_short_option_takes_value() {
+    case "$1" in
+        m | F | C | c | S)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+ai_commit_short_cluster_has_no_verify() {
+    local token="${1:-}"
+    local cluster
+    local char
+    local i
+
+    [[ "$token" = --* || "$token" != -* ]] && return 1
+    [ "${#token}" -gt 1 ] || return 1
+
+    cluster="${token:1}"
+    for ((i = 0; i < ${#cluster}; i += 1)); do
+        char="${cluster:i:1}"
+        [ "$char" = "n" ] && return 0
+        ai_commit_short_option_takes_value "$char" && return 1
+    done
+
+    return 1
+}
+
 ai_commit_args_have_bypass() {
     local -n commit_tokens="$1"
     local idx=0
@@ -159,7 +189,7 @@ ai_commit_args_have_bypass() {
                 ;;
         esac
 
-        if [[ "$token" =~ ^-[A-Za-z]+$ && "$token" == *n* ]]; then
+        if ai_commit_short_cluster_has_no_verify "$token"; then
             return 0
         fi
 
@@ -213,14 +243,25 @@ ai_tokens_segment_has_commit_bypass() {
                 ai_is_git_hooks_path_config "$config_value" && return 0
                 idx=$((idx + 1))
                 ;;
-            -C | --git-dir | --work-tree | --namespace | --exec-path | --config-env | --super-prefix)
+            --config-env)
+                idx=$((idx + 1))
+                [ "$idx" -lt "$len" ] || return 2
+                ai_is_command_separator "${segment_tokens[$idx]}" && return 2
+                ai_is_git_hooks_path_config "${segment_tokens[$idx]}" && return 0
+                idx=$((idx + 1))
+                ;;
+            --config-env=*)
+                config_value="${token#--config-env=}"
+                ai_is_git_hooks_path_config "$config_value" && return 0
+                idx=$((idx + 1))
+                ;;
+            -C | --git-dir | --work-tree | --namespace | --exec-path | --super-prefix)
                 idx=$((idx + 1))
                 [ "$idx" -lt "$len" ] || return 2
                 ai_is_command_separator "${segment_tokens[$idx]}" && return 2
                 idx=$((idx + 1))
                 ;;
-            --git-dir=* | --work-tree=* | --namespace=* | --exec-path=* | --config-env=* | \
-                --super-prefix=*)
+            --git-dir=* | --work-tree=* | --namespace=* | --exec-path=* | --super-prefix=*)
                 idx=$((idx + 1))
                 ;;
             -p | --paginate | -P | --no-pager | --bare | --no-replace-objects | \
@@ -267,9 +308,6 @@ ai_command_has_commit_bypass() {
         case "$status" in
             0)
                 return 0
-                ;;
-            2)
-                return 1
                 ;;
         esac
 
