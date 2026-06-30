@@ -74,14 +74,7 @@ impl RlCodec {
     /// codecs do not share a random stream.
     #[must_use]
     pub(crate) fn seed_tag(&self) -> u64 {
-        let mut hasher_state: u64 = 0x9e37_79b9_7f4a_7c15;
-        for byte in self.name().bytes() {
-            hasher_state = hasher_state
-                .rotate_left(7)
-                .wrapping_add(u64::from(byte))
-                .wrapping_mul(0x0100_0000_01b3);
-        }
-        hasher_state
+        name_seed_tag(&self.name())
     }
 
     /// Decodes the magnitude carrier into a dense symbol stream.
@@ -102,6 +95,23 @@ impl RlCodec {
             Self::PairSub { phase } => decode_pair_sub(magnitudes, phase),
         }
     }
+}
+
+/// A deterministic per-name seed tag (FNV-style mix of the name bytes), so two
+/// differently-named candidates never share a random stream.
+///
+/// Shared between [`RlCodec::seed_tag`] and the `cribfit` instrument's candidate
+/// gating, so both derive their search/null seeds the same way.
+#[must_use]
+pub(crate) fn name_seed_tag(name: &str) -> u64 {
+    let mut state: u64 = 0x9e37_79b9_7f4a_7c15;
+    for byte in name.bytes() {
+        state = state
+            .rotate_left(7)
+            .wrapping_add(u64::from(byte))
+            .wrapping_mul(0x0100_0000_01b3);
+    }
+    state
 }
 
 /// The fixed, deterministic codec order the battery evaluates.

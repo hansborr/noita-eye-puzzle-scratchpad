@@ -44,15 +44,17 @@ mod tests;
 
 pub use battery::{
     BatteryReport, CodecVerdict, DerivationSummary, default_battery_cfg, evaluate_codec,
-    run_battery,
+    gate_symbol_stream, run_battery,
 };
 pub use census::{CensusAnchor, CensusReport, magnitude_census};
+pub(crate) use codecs::name_seed_tag;
 pub use codecs::{RlCodec, all_codecs, alphabet_size};
 pub use derive::{
     ONE_PRACTICE_PUZZLE, RunLengthDerivation, derive_magnitudes, one_practice_digits,
     parse_base_digits,
 };
 pub use search::{MIN_LETTERS, SubResult, substitution_search};
+pub(crate) use selftest::planted_positive_symbols;
 pub use selftest::{SelfTestReport, rlcodec_self_test};
 
 /// Default deterministic seed for the battery's search and matched nulls.

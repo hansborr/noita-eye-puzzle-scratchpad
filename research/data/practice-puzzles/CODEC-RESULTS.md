@@ -394,6 +394,92 @@ cargo run -- rlcodec --input-file research/data/practice-puzzles/one --alphabet 
 cargo run -- rlcodec --self-test
 ```
 
+## `one` — crib-consistency filter (`cribfit`)
+
+> Attacks the **codec-with-memory regime** `rlcodec` leaves open. `rlcodec`
+> excluded every *memoryless* reading of `M`; the live regime is a keyed/stateful
+> codec. This instrument applies the lever the prior handoff flagged: `M`'s
+> census-significant repeats (the cribs) almost certainly mark repeated *plaintext*
+> spans, so under **any correct codec every occurrence must decode identically** —
+> a language-free necessary condition that prunes the stateful space and **derives
+> the admissible state/key period**.
+
+### The cribs' geometry (verified)
+
+The carrier `M` (135 magnitudes) has two census-significant exact repeats
+(observed longest 26 vs order-1 Markov null ceiling 14, p = 0.0050): the
+26-magnitude `M[16..42] == M[69..95]` and the 19-magnitude triple
+`M[19..38] == M[72..91] == M[116..135]`. Each repeat pair has a **run-gap**
+(`second − first`) and a **bit-gap** (`Σ M[first..second]`, the carrier-bit
+distance):
+
+| pair | run-gap | bit-gap |
+| ---- | ------- | ------- |
+| (16, 69) len 26 | 53 | 105 |
+| (19, 72) len 19 | 53 | 105 |
+| (72, 116) len 19 | 44 | 84 |
+| (19, 116) len 19 | 97 | 189 |
+
+**`gcd(run-gaps) = 1`** and **`gcd(bit-gaps) = 21`** (`= 3·7`). These two numbers
+are the whole constraint:
+
+- **Run-periodic key** (state advances once per run): consistent ⟺ its period
+  divides every run-gap ⟺ it divides `gcd(run-gaps) = 1` ⟹ **only period 1**
+  (the memoryless case). *No nontrivial run-periodic keyed codec is
+  crib-consistent* — reported analytically, no decode needed.
+- **Bit-periodic key / cumulative-sum modulus** (state advances per carrier bit):
+  consistent ⟺ the period/modulus divides every bit-gap ⟺ it divides
+  `gcd(bit-gaps) = 21` ⟹ admissible set **{1, 3, 7, 21}**.
+
+### Per-family verdict
+
+- **CumulativeSumMod(n)** (`output[i] = (Σ M[0..=i]) mod n`): crib-consistent for
+  every `n | 21`, but the output is a **bounded-increment walk** (consecutive
+  symbols differ by `M[i] ∈ 1..=5 mod n`), so it merely re-expresses the walk and
+  cannot host general English — an analytic exclusion. Only `n = 21` is
+  English-viable (alphabet 21 ∈ [8, 26]); it is language-gated for the record and
+  scores **below its matched null** (real −11.49 vs null mean −11.03, z = −1.64,
+  p = 0.99 — an honest negative; its near-English fragments are the preserved crib
+  repeats under free substitution, not a decode).
+- **RunPeriodicKey / BitPeriodicKey**: reported as the analytic admissible period
+  sets above ({1} and {1, 3, 7, 21}).
+- **EvolvingTableMtf(tokenization)** (move-to-front rank code over single
+  magnitudes / pairs / comma / terminator chunkings): **every tokenization is
+  crib-inconsistent.** Single-magnitude MTF's two len-26 windows agree on only
+  **22 / 26** output positions — *not* identical, so it is rejected (the carrier
+  agreement is 22/26, not the 0/26 a coarser model would predict: the small
+  5-value alphabet plus the dominance of magnitude 1 keeps MTF nearly stationary,
+  yet the 4 disagreements still break occurrence-equality). The pair/chunk
+  tokenizations are rejected because the odd run-gaps misalign their token phase
+  across the cribs.
+
+### Honest verdict
+
+**No English survivor** (honest negative) **plus the derived structural
+constraint:** any surviving codec-with-memory must key on a period that divides
+`gcd(bit-gaps) = 21` (bit-periodic) and, if it advances per run, must be
+memoryless (`gcd(run-gaps) = 1`); move-to-front over `M` is excluded outright.
+This narrows the live regime without claiming a decode.
+
+### The instrument
+
+`cribfit` (`src/attack/cribfit/` + the `cribfit` subcommand) reuses `rlcodec`'s
+carrier derivation, census, English model, and — crucially — the **same**
+matched-null gate (`rlcodec::gate_symbol_stream`, promoted from `evaluate_codec`
+so the two cannot drift). It is file-driven and self-validating: a planted-English
+positive control that *must* fire through the gate, a discrimination control (a
+constructed carrier whose matching-modulus cumsum is accepted but whose
+move-to-front is rejected — proving the filter is neither pass-all nor
+reject-all), and the real-`one` honest negative with its documented anchors, all
+checked by `cribfit --self-test`.
+
+```sh
+# one — crib geometry + per-family consistency + the gated honest negative
+cargo run -- cribfit --input-file research/data/practice-puzzles/one --alphabet 01234
+# planted positive + discrimination control + real-one negative
+cargo run -- cribfit --self-test
+```
+
 ## `one` — honest negative (`solve --codec-search` binary-move)
 
 `solve --codec-search` now yields 12 evaluated candidates (cipher round-trip held);

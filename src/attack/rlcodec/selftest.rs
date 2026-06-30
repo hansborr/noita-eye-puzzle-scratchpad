@@ -76,6 +76,16 @@ impl SelfTestReport {
     }
 }
 
+/// The decoded symbol stream of the planted English-via-`Comma{sep=4}` positive
+/// control (the partition the codec recovers).
+///
+/// Exposed so a sibling instrument (`cribfit`) can drive the *same* matched-null
+/// gate ([`super::gate_symbol_stream`]) on a control known to fire — proving the
+/// gate fires inside `cribfit` without re-deriving the English plant.
+pub(crate) fn planted_positive_symbols() -> Vec<usize> {
+    build_plant().1
+}
+
 /// The positive-control budget (a single planted codec, so it can afford the
 /// larger search the long stream needs).
 fn positive_cfg(seed: u64) -> BatteryCfg {

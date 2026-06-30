@@ -24,6 +24,11 @@
 //!   direction-blind magnitude carrier, censuses its exact repeats, and gates a
 //!   family of codecs against a matched order-1 Markov null over each codec's
 //!   decoded symbol stream, with a planted positive control and self-test.
+//! - [`cribfit`]: crib-anchored consistency filter for the codec-with-memory
+//!   regime of `rlcodec`'s carrier — a language-free necessary condition (repeated
+//!   plaintext spans must decode identically) that excludes most stateful/keyed
+//!   codecs and derives the admissible state/key period, reusing `rlcodec`'s
+//!   carrier, matched-null gate, and English model.
 //! - [`solve`]: unified search-and-score solve pipeline for candidate
 //!   hypotheses, with round-trip, held-out, and matched-null gates.
 
@@ -33,6 +38,7 @@ pub mod codec;
 /// Shared scaffolding (`mean_std`, the null-comparison gate, the matched-null loop,
 /// and the invariant candidate-record blocks) for the keystream and ragbaby crackers.
 mod crack;
+pub mod cribfit;
 pub mod gak_attack;
 pub mod keystream;
 pub mod language;

@@ -184,12 +184,39 @@ pub fn evaluate_codec(
             "(degenerate: no symbol stream)".to_owned(),
         ));
     };
-    let n_alphabet = alphabet_size(&real_symbols);
-    let n_letters = real_symbols.len();
+    gate_symbol_stream(name, &real_symbols, codec.seed_tag(), model, cfg)
+}
 
-    let real_seed = mix_seed(cfg.seed, codec.seed_tag() ^ REAL_TAG);
+/// Gates an already-decoded symbol stream against its matched null — the core of
+/// [`evaluate_codec`], promoted so sibling instruments (the `cribfit` crib-anchored
+/// filter) drive the *same* gate rather than copy-pasting the null/search/verdict
+/// logic.
+///
+/// Runs the substitution search on `symbols`, then the same search on
+/// `cfg.null_trials` order-1 Markov resamples of the *decoded symbol stream* (see
+/// the module note on why the symbol-level null, not a magnitude-level one, is the
+/// right reference), and forms the gated [`CodecVerdict`] (`survivor` ⟺ the real
+/// score beats the null mean at `p < SURVIVOR_ALPHA`). `seed_tag` separates this
+/// candidate's real/null random streams from every other candidate's.
+///
+/// `symbols` must be dense ids (`0..alphabet`), as [`RlCodec::decode`] produces, so
+/// the alphabet size and the Markov resample are well-formed.
+///
+/// # Errors
+/// Returns [`RlError`] if a Markov resample or substitution search fails.
+pub fn gate_symbol_stream(
+    name: String,
+    symbols: &[usize],
+    seed_tag: u64,
+    model: &QuadgramModel,
+    cfg: &BatteryCfg,
+) -> Result<CodecVerdict, RlError> {
+    let n_alphabet = alphabet_size(symbols);
+    let n_letters = symbols.len();
+
+    let real_seed = mix_seed(cfg.seed, seed_tag ^ REAL_TAG);
     let real = substitution_search(
-        &real_symbols,
+        symbols,
         n_alphabet,
         model,
         cfg.restarts,
@@ -205,9 +232,9 @@ pub fn evaluate_codec(
         ));
     }
 
-    let null_seed = mix_seed(cfg.seed, codec.seed_tag() ^ NULL_TAG);
+    let null_seed = mix_seed(cfg.seed, seed_tag ^ NULL_TAG);
     let mut rng = SplitMix64::new(null_seed);
-    let real_stream: Vec<u32> = real_symbols.iter().map(|&symbol| symbol as u32).collect();
+    let real_stream: Vec<u32> = symbols.iter().map(|&symbol| symbol as u32).collect();
     let mut null_scores: Vec<f64> = Vec::new();
     for trial in 0..cfg.null_trials {
         let resampled = markov_resample(&real_stream, n_alphabet, &mut rng)?;

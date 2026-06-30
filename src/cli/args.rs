@@ -15,6 +15,7 @@ use super::args_attack::{
     AglGakArgs, GakArgs, GakAttackArgs, GakAttackEyesArgs, IsoscanArgs, KeystreamArgs, ProfileArgs,
     RagbabyArgs, SolveArgs, StatsArgs,
 };
+use super::args_cribfit::CribfitArgs;
 use super::args_ctak::CtakscanArgs;
 use super::args_predicates::PredscanArgs;
 use super::args_rlcodec::RlcodecArgs;
@@ -66,6 +67,15 @@ pub(crate) enum Command {
     /// the expected verdict on real `one` is an honest negative.
     #[command(name = "rlcodec")]
     Rlcodec(RlcodecArgs),
+    /// Crib-anchored consistency filter for the codec-with-memory regime of
+    /// `rlcodec`'s run-length carrier. Derives the cribs' run-gap/bit-gap geometry
+    /// and the state/key periods it admits, tests each codec family by the
+    /// language-free necessary condition that repeated plaintext spans decode
+    /// identically, and language-gates the crib-consistent + English-viable
+    /// survivors against the same matched null `rlcodec` uses. The expected verdict
+    /// on real `one` is an honest negative plus the derived structural constraint.
+    #[command(name = "cribfit")]
+    Cribfit(CribfitArgs),
     /// D4/A4/S4 hidden-group element-order discriminator for the `C3 × H`
     /// hidden-state GAK reading of a deck/rotor cipher. Reads the deck channel's
     /// induced permutation across difference-channel anchors; a verdict is a
