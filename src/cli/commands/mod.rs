@@ -10,6 +10,7 @@ mod isoscan;
 mod keydiff;
 mod keystream;
 mod misc;
+mod predscan;
 mod ragbaby;
 mod solve;
 mod structural;
@@ -23,6 +24,7 @@ pub(crate) use keystream::{run_keystream, run_profile};
 pub(crate) use misc::{
     run_controls, run_demo, run_grouping, run_orders, run_pipelinenull, run_stats,
 };
+pub(crate) use predscan::run_predscan;
 pub(crate) use ragbaby::run_ragbaby;
 pub(crate) use solve::run_solve;
 pub(crate) use structural::{

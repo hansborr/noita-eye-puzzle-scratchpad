@@ -9,6 +9,7 @@
 mod args;
 mod args_analysis;
 mod args_attack;
+mod args_predicates;
 mod commands;
 mod dispatch;
 mod shared;

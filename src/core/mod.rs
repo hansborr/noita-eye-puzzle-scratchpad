@@ -12,4 +12,5 @@
 
 pub mod glyph;
 pub mod ingest;
+pub mod math;
 pub mod trigram;

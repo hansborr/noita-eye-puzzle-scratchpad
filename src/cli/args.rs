@@ -15,6 +15,7 @@ use super::args_attack::{
     AglGakArgs, GakArgs, GakAttackArgs, GakAttackEyesArgs, IsoscanArgs, KeystreamArgs, ProfileArgs,
     RagbabyArgs, SolveArgs, StatsArgs,
 };
+use super::args_predicates::PredscanArgs;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -62,6 +63,14 @@ pub(crate) enum Command {
     /// structural discriminator over the hidden group, never a decode.
     #[command(name = "groupscan")]
     Groupscan(GroupscanArgs),
+    /// Toboter predicate battery + multiple-comparisons meta-analysis (Thread C).
+    /// Recomputes each community-listed arithmetic predicate against the repo's
+    /// matched nulls (within-message shuffle for the gap predicate, value-resample
+    /// for the magnitude/sum predicates) and reports how many "surprising" hits
+    /// would survive given how many were tested. Individually-weak predicates are
+    /// never findings; the meta-analysis is the deliverable.
+    #[command(name = "predscan")]
+    Predscan(PredscanArgs),
     /// Thread B isomorph key-difference discriminator. Recovers the additive
     /// realisation Δ of the isomorph relabelling and classifies it by
     /// finite-difference order (identical / constant-additive / linear /

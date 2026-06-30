@@ -46,6 +46,7 @@
 use std::fmt;
 
 use crate::analysis::translate_isomorph::{RepeatAnchor, find_anchors};
+use crate::core::math::gcd;
 use crate::nulls::null::{RandomBoundError, SplitMix64, mix_seed, random_index_below};
 
 mod control;
@@ -398,13 +399,6 @@ fn lcm(a: usize, b: usize) -> usize {
         return 0;
     }
     a / gcd(a, b) * b
-}
-
-fn gcd(mut a: usize, mut b: usize) -> usize {
-    while b != 0 {
-        (a, b) = (b, a % b);
-    }
-    a
 }
 
 /// Builds the verdict from the observed cycle-length union, context count, and null.

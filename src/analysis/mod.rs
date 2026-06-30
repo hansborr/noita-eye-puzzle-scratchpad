@@ -61,4 +61,5 @@ pub mod key_difference;
 pub mod leak_ceiling;
 pub mod orders;
 pub mod perfect_isomorphism;
+pub mod predicates;
 pub mod translate_isomorph;
