@@ -10,12 +10,14 @@
 //! - an **additive-progressive** synthetic (`k[i] = k0 + r·i`) with the same
 //!   phrase planted at distinct gaps — a constant `Δ` whose offset is `r·g`, so it
 //!   must classify order 1 *and* the regression must read it as progressive;
-//! - a **non-additive deck relabel** — the same phrase planted twice with the
+//! - a **non-additive deck relabel** — a long phrase planted twice with the
 //!   second occurrence passed through a fixed non-additive permutation (a seeded
 //!   [`fisher_yates`] shuffle of the alphabet, reusing the existing generator).
-//!   The two occurrences share an equality pattern (a gap-pattern certificate)
-//!   while the relabelling is a genuine permutation that is neither additive nor
-//!   the identity, so no additive order fires and it must classify `Irregular`.
+//!   The two occurrences share an equality pattern long enough to be a
+//!   *significant* gap-pattern certificate (it clears the certificate's order-1
+//!   Markov null) while the relabelling is a genuine permutation that is neither
+//!   additive nor the identity, so no additive order fires and it must classify
+//!   `Irregular`.
 //!
 //! (The spec's suggested deck control — a dihedral GCTAK fixture from
 //! [`crate::attack::gak_attack`] — does not reproduce: its bijective trivial-`H`
@@ -26,9 +28,12 @@
 //! certificate. The fixed-permutation relabel is the robust positive control for
 //! the same non-additive class.)
 //!
-//! The matched null is [`super::iso_scan`]'s order-1 Markov resample, applied per
-//! difference channel: the constant-`Δ` controls must clear it (their firing is
-//! significant) while the deck control must not manufacture any additive firing.
+//! The matched null is the order-1 Markov resample, applied per difference channel
+//! for the additive orders *and* to the raw stream for the gap-pattern certificate:
+//! the constant-`Δ` controls must clear the per-channel null (their firing is
+//! significant), the deck control must not manufacture any additive firing, and the
+//! deck control's certificate must clear its own raw-stream Markov null (a
+//! significant relabelled repeat, not a chance-level one).
 
 use crate::attack::keystream::{KeystreamFamily, encrypt};
 use crate::nulls::null::{SplitMix64, fisher_yates, mix_seed, random_index_below};
@@ -207,13 +212,22 @@ fn non_additive_permutation(m: usize, rng: &mut SplitMix64) -> Result<Vec<u8>, K
 
 /// Non-additive deck-relabel control: the same phrase planted twice with the
 /// second occurrence passed through a fixed non-additive permutation. The two
-/// occurrences share an equality pattern (gap-pattern certificate present) while
-/// the relabelling is neither additive nor the identity, so no additive order
-/// fires and it must classify `Irregular`.
+/// occurrences share an equality pattern while the relabelling is neither additive
+/// nor the identity, so no additive order fires and it must classify `Irregular`.
+///
+/// The phrase is long (120 symbols) so the shared equality pattern is a
+/// *significant* relabelled repeat: its repeated-signature count clears the
+/// gap-pattern certificate's order-1 Markov null at the firing window, not merely
+/// the chance-level certificate every stream carries at window 8. (A length-40
+/// phrase — the original — is swamped by the window-8 baseline and does not clear
+/// the null-calibrated certificate; the fix is a faithfully longer isomorph, never
+/// a weaker null.)
 fn deck_relabel_irregular_control(seed: u64) -> Result<KeyDiffReport, KeyDiffError> {
     const M: usize = 12;
     const LEN: usize = 360;
-    const PHRASE_LEN: usize = 40;
+    const PHRASE_LEN: usize = 120;
+    const FIRST_POS: usize = 20;
+    const SECOND_POS: usize = 200;
 
     let mut rng = SplitMix64::new(mix_seed(seed, 8));
     let mut stream = random_plaintext(LEN, M, &mut rng)?;
@@ -223,8 +237,8 @@ fn deck_relabel_irregular_control(seed: u64) -> Result<KeyDiffReport, KeyDiffErr
         .iter()
         .map(|&p| perm.get(usize::from(p)).copied().unwrap_or(p))
         .collect();
-    plant_block(&mut stream, 20, &phrase);
-    plant_block(&mut stream, 200, &relabelled);
+    plant_block(&mut stream, FIRST_POS, &phrase);
+    plant_block(&mut stream, SECOND_POS, &relabelled);
     scan_control(&stream, M, mix_seed(seed, 9))
 }
 

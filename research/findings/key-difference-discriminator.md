@@ -31,16 +31,21 @@ the whole stream, since a constant offset cancels under one differencing:
 | `Δ ≡ 0` | raw stream (order 0) | identical key | Vigenère, gap a period multiple |
 | constant | 1st-difference channel (order 1) | constant additive | classical autokey / Wadsworth / progressive |
 | linear | 2nd-difference channel (order 2) | linear additive | accelerating progressive |
-| non-additive permutation | no order, but a gap-pattern certificate exists | irregular | deck / GAK / self-modifying |
+| non-additive permutation | no order, but a *significant* (null-cleared) gap-pattern certificate | irregular | deck / GAK / self-modifying |
 
 The verdict is the **lowest order** that fires *significantly* — clearing the
 order-1 Markov matched null (the `isoscan` significance test, reused per channel,
-not eyeballed). The `Irregular` verdict additionally requires a gap-pattern
-isomorph certificate ([`detect_isomorphs`]) so an *absence* of additive structure
-is never reported as a positive deck claim on a structureless stream. Within the
-constant (order 1) bucket, a modular regression of the per-pair offset `δ` on the
-gap `g` splits the family: a single shared slope `δ ≡ r·g (mod m)` across distinct
-gaps is progressive-alphabet; a content-driven `δ` is classical autokey.
+not eyeballed). The `Irregular` verdict additionally requires a **null-calibrated**
+gap-pattern isomorph certificate: the observed count of repeated informative
+signatures ([`detect_isomorphs`]) at the firing window must exceed its **own**
+order-1 Markov null ceiling at `p < 0.05` — the same discipline the additive
+channels use. A merely-present, chance-level certificate (random mod-12 streams
+carry one essentially always at window 8) is **not** enough, so an *absence* of
+additive structure is never reported as a positive deck claim on a structureless
+stream. Within the constant (order 1) bucket, a modular regression of the per-pair
+offset `δ` on the gap `g` splits the family: a single shared slope `δ ≡ r·g (mod
+m)` across distinct gaps is progressive-alphabet; a content-driven `δ` is classical
+autokey.
 
 ## 2. The four positive controls + matched null
 
@@ -54,13 +59,21 @@ verdict, each gated against the per-channel order-1 Markov null:
 - **additive-progressive** (`k[i] = k0 + r·i`, one phrase planted at three distinct
   gaps, none a multiple of `m`) ⇒ constant `Δ = r·g` ⇒ **order 1** *and* the
   regression recovers the shared slope ⇒ **progressive-alphabet**. ✔
-- **non-additive deck relabel**: the same phrase planted twice with the second
-  occurrence passed through a fixed non-additive permutation (a seeded
+- **non-additive deck relabel**: a long phrase (120 symbols) planted twice with
+  the second occurrence passed through a fixed non-additive permutation (a seeded
   `fisher_yates` shuffle of the alphabet). The two occurrences share an equality
-  pattern (certificate present) but the relabelling is neither additive nor the
-  identity ⇒ no additive order fires ⇒ **irregular**. ✔
-- **matched-null agreement**: the constant-`Δ` controls clear the null (their
-  firing is significant); the deck control manufactures no additive firing. ✔
+  pattern long enough to be a **significant** gap-pattern certificate — its
+  repeated-signature count clears the certificate's order-1 Markov null at the
+  firing window (observed ≈ 90–104 vs null ceiling ≈ 62–72 across the self-test
+  seeds) — while the relabelling is neither additive nor the identity ⇒ no additive
+  order fires ⇒ **irregular**. ✔ (The phrase was lengthened from the original 40 so
+  the relabelled repeat clears the *null-calibrated* certificate; a length-40 phrase
+  is swamped by the window-8 baseline. The fix is a faithfully longer isomorph,
+  never a weaker null.)
+- **matched-null agreement**: the constant-`Δ` controls clear the per-channel null
+  (their firing is significant); the deck control manufactures no additive firing
+  **and** its certificate clears its own raw-stream Markov null (a significant
+  relabelled repeat, not a chance-level one). ✔
 
 ### Deviation from the spec's suggested deck control (documented)
 
@@ -96,7 +109,9 @@ fires at length **36** (anchor 145/229, gap 84) — the same repeat `isoscan
 only one distinct gap is observed, so the progressive-vs-classical-autokey split is
 underdetermined (constant `Δ` is still established). Orders 2 and 3 also fire (the
 constant-`Δ` repeat survives further differencing); the verdict takes the lowest
-firing order.
+firing order. (The null-calibrated gap-pattern certificate is *absent* at window 8
+here — observed 47 vs null ceiling 64 over the small mod-5 alphabet — so the order-1
+firing alone drives the verdict; the certificate is not load-bearing for `one`.)
 
 ### `two` — non-additive on the full alphabet (marginal order-2 firing)
 
@@ -108,35 +123,57 @@ finding behind `groupscan`'s robust `NoDeckSignal`. So `two` carries **no
 identical-key and no constant-additive structure on the full alphabet**: a
 passive-additive-deck / plaintext-autokey reading is **not supported**.
 
-The only firing is a **marginal length-10 order-2 repeat** (anchor 181/333, gap
-152), just above the null ceiling of 8 (`p = 0.005`, robust across null seeds). At
-the default `--min-anchor-len 8` the tool therefore labels `two` *linear additive
-(order 2)*; raise the threshold by two (`--min-anchor-len 12`) and the firing drops
-out, flipping the verdict to **`Irregular`**. The length-10 order-2 signal is too
-short to support a confident "accelerating keystream" claim and is most consistent
-with the period-2 codec artifact the `CODEC-RESULTS.md` `isoscan` caveat warns
-about.
+The only additive firing is a **marginal length-10 order-2 repeat** (anchor
+181/333, gap 152), just above the null ceiling of 8 (`p = 0.005`, robust across
+null seeds). At the default `--min-anchor-len 8` the tool therefore labels `two`
+*linear additive (order 2)*; raise the threshold to `--min-anchor-len 11` and the
+firing drops out (length 10 < 11), flipping the verdict to **`Irregular`**. The
+length-10 order-2 signal is too short to support a confident "accelerating
+keystream" claim and is most consistent with the period-2 codec artifact the
+`CODEC-RESULTS.md` `isoscan` caveat warns about.
+
+**The gap-pattern certificate is now null-calibrated**, and its behaviour on `two`
+is informative. At the **default firing window 8** the certificate is **not
+significant** (observed 136 repeated signatures vs null ceiling 138, the
+chance-level the reviewer flagged) — so if the marginal order-2 firing were dropped
+*at window 8*, `two` would read `NoSignal`, not `Irregular`. The certificate only
+becomes significant at **windows ≥ 10** (window 10: 135 vs 94; window 11: 125 vs
+37; window 12: 115 vs null ceiling 9–14, robust across null seeds, `p = 0.005`):
+`two`'s full-alphabet stream carries far more repeated equality-pattern signatures
+at those windows than an order-1 Markov null produces. So at `--min-anchor-len ≥
+11` the `Irregular` verdict is now backed by a **genuinely significant** certificate
+rather than the near-vacuous one.
 
 **Substantive reading for `two`:** the full-alphabet key difference is
-**non-additive** — neither identical nor constant nor convincingly linear. This is
-the **untested ciphertext-autokey-feedback / non-additive-deck regime** flagged in
-`CODEC-RESULTS.md` ("Readout convention and the autokey-family boundary"): if the
-deck advance feeds back the emitted symbol, no readout yields a constant-`K`
-relation and `groupscan`'s positive-control premise collapses. `keydiff` measures
-exactly that absence of additive structure on the full alphabet, and a tightened
-threshold reads it as irregular outright. Either way the constant-`Δ`
-plaintext-autokey hypothesis is excluded; the result points at the feedback/deck
-regime, never at recovered plaintext.
+**non-additive** — neither identical nor constant nor convincingly linear; the
+constant-`Δ` plaintext-autokey hypothesis is **excluded** (orders 0/1 never fire on
+the full alphabet). **The famous length-68 mod-3 rotor repeat still does not survive
+to the full alphabet** (the `NoDeckSignal` finding). The now-significant certificate
+says only that there is repeated relabelled-structure *beyond first-order chaining*
+— it does **not** distinguish a genuine non-additive deck from the **period-2 codec
+artifact** (the order-1 Markov null models adjacent transitions but not the codec's
+sustained period-2 regularity, so the codec alone inflates the longer-window
+signature counts). It is consistent with the **untested
+ciphertext-autokey-feedback / non-additive-deck regime** flagged in
+`CODEC-RESULTS.md` ("Readout convention and the autokey-family boundary") *and* with
+the codec artifact, and it recovers **no plaintext** and affirms **no deck**.
 
 ## 4. Honesty framing (binding)
 
 A verdict is a structural discriminator, never a decode. Every order's firing is
-gated against the matched null; the `Irregular` verdict requires the gap-pattern
-certificate so the absence of additive structure is never sold as a positive deck
-claim on a structureless stream. The `two` verdict is threshold-sensitive at the
-margin (linear at `--min-anchor-len 8`, irregular at `12`); that sensitivity is
-itself reported rather than hidden, and the robust conclusion is the *absence* of
-additive structure on the full alphabet, not the marginal order-2 firing.
+gated against the matched null; the `Irregular` verdict requires the **null-gated**
+gap-pattern certificate (the repeated-signature count must clear its own order-1
+Markov null at `p < 0.05`), so the absence of additive structure is never sold as a
+positive deck claim on a structureless stream — a chance-level certificate yields
+`NoSignal`, not `Irregular`. The `two` verdict is threshold-sensitive at the margin
+(linear at `--min-anchor-len ≤ 10`, irregular at `≥ 11`); that sensitivity is itself
+reported rather than hidden, and the robust conclusion is the *absence* of additive
+structure on the full alphabet (constant-`Δ` plaintext-autokey excluded), not the
+marginal order-2 firing. Where the calibrated certificate *is* significant for `two`
+(windows ≥ 10), that is honestly reported as significant non-additive
+relabelled-repeat structure beyond first-order chaining — consistent with the
+period-2 codec artifact and the feedback/deck regime alike, affirming neither a deck
+nor any plaintext.
 
 ## 5. Next step (labeled limitation)
 

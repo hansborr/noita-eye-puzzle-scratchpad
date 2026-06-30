@@ -97,7 +97,8 @@ pub(crate) struct KeydiffArgs {
     #[arg(long, default_value_t = key_difference::DEFAULT_SEED, value_parser = parse_seed)]
     pub(crate) seed: u64,
     /// Run the in-process controls (ciphertext-autokey / Vigenère / progressive /
-    /// dihedral GAK + matched null) and print PASS/FAIL instead of scanning input.
+    /// non-additive deck relabel + matched null) and print PASS/FAIL instead of
+    /// scanning input.
     #[arg(long = "self-test")]
     pub(crate) self_test: bool,
 }

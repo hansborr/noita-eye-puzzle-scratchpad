@@ -24,10 +24,12 @@
 //!
 //! So the verdict is the **lowest finite-difference order `k`** at which an exact
 //! repeat fires *significantly* (clearing the order-1 Markov matched null — the
-//! `isoscan` significance test, reused here, not eyeballed). When a relabelled
-//! repeat demonstrably exists (a gap-pattern isomorph certificate from
-//! [`detect_isomorphs`]) but **no** additive order fires up to the scanned ceiling,
-//! the relabelling is non-additive — a deck / GAK / self-modifying keystream.
+//! `isoscan` significance test, reused here, not eyeballed). When a *significant*
+//! relabelled repeat exists (a gap-pattern isomorph certificate from
+//! [`detect_isomorphs`] whose repeated-signature count clears its **own** order-1
+//! Markov null, the crate-internal `markov_resample`) but **no** additive order
+//! fires up to the scanned ceiling, the relabelling is non-additive — a deck /
+//! GAK / self-modifying keystream.
 //!
 //! Within the constant (`k = 1`) bucket, a secondary modular regression of the
 //! per-pair additive offset `δ` on the translation gap `g` splits the autokey
@@ -40,13 +42,16 @@
 //! This is a **structural discriminator, not a decode**. It reports the additive
 //! order of the keystream difference behind an isomorph; it never recovers
 //! plaintext. Every order's firing is gated against the matched null, and the
-//! `Irregular` verdict additionally requires the gap-pattern isomorph certificate
-//! so an *absence* of additive structure is never reported as a positive deck
-//! claim on a structureless stream.
+//! `Irregular` verdict additionally requires a **null-calibrated** gap-pattern
+//! isomorph certificate — the observed repeated-signature count must exceed its
+//! order-1 Markov null ceiling at `p < 0.05`, the same discipline the additive
+//! channels use — so an *absence* of additive structure is never reported as a
+//! positive deck claim on a structureless stream (a merely-present, chance-level
+//! certificate yields the honest `NoSignal` verdict, not `Irregular`).
 
 use crate::analysis::isomorph::detect_isomorphs;
-use crate::analysis::translate_isomorph::{IsoScanError, RepeatAnchor, iso_scan};
-use crate::nulls::null::{RandomBoundError, mix_seed};
+use crate::analysis::translate_isomorph::{IsoScanError, RepeatAnchor, iso_scan, markov_resample};
+use crate::nulls::null::{RandomBoundError, SplitMix64, add_one_p_value, mix_seed};
 
 mod control;
 #[cfg(test)]
@@ -76,6 +81,11 @@ pub enum KeyDiffError {
         /// Number of input symbols available.
         length: usize,
     },
+    /// Zero matched-null trials were requested. A significance-bearing verdict
+    /// (any firing, or `Irregular`) cannot be emitted without a null actually run,
+    /// so a zero trial count is rejected as a configuration error rather than
+    /// silently yielding an uncalibrated verdict.
+    NoNullTrials,
     /// A per-order [`iso_scan`] call failed.
     Channel(IsoScanError),
     /// A Monte-Carlo draw bound did not fit the PRNG helper (controls only).
@@ -109,6 +119,10 @@ impl std::fmt::Display for KeyDiffError {
                     "input stream too short ({length} symbols); need at least 2"
                 )
             }
+            Self::NoNullTrials => write!(
+                f,
+                "null-trials must be >= 1: a significance-bearing verdict cannot be emitted without a matched null"
+            ),
             Self::Channel(error) => write!(f, "difference-channel scan failed: {error}"),
             Self::RandomBound { bound } => write!(f, "random draw bound {bound} is too large"),
             Self::SelfTestFailed => write!(f, "key-difference self-test failed"),
@@ -156,12 +170,15 @@ pub enum KeyDiffVerdict {
         /// The lowest firing finite-difference order.
         order: usize,
     },
-    /// A gap-pattern isomorph certificate exists (a relabelled repeat is present)
-    /// but **no** additive order fired up to the scanned ceiling: the relabelling
-    /// is non-additive — a deck / GAK / self-modifying keystream.
+    /// A *significant* gap-pattern isomorph certificate exists (a relabelled repeat
+    /// clearing its order-1 Markov null at `p < 0.05`) but **no** additive order
+    /// fired up to the scanned ceiling: the relabelling is non-additive — a deck /
+    /// GAK / self-modifying keystream.
     Irregular,
-    /// No additive order fired and no gap-pattern isomorph certificate was found:
-    /// no relabelled-repeat structure to classify. Not evidence of any family.
+    /// No additive order fired and no *significant* gap-pattern isomorph certificate
+    /// was found (the observed relabelled-repeat count did not clear its order-1
+    /// Markov null): no recoverable structure to classify. Not evidence of any
+    /// family.
     NoSignal,
 }
 
@@ -200,6 +217,32 @@ pub struct RegressionFit {
     pub consistent_pairs: usize,
 }
 
+/// The gap-pattern isomorph certificate, calibrated against the raw stream's
+/// order-1 Markov null.
+///
+/// The statistic is the number of repeated informative gap-pattern signatures
+/// (substitution-invariant equality patterns from [`detect_isomorphs`]) at the
+/// firing window. It is `present` only when the observed count strictly exceeds
+/// every matched-null trial **and** the add-one p-value clears `p < 0.05` — a
+/// *significant* relabelled repeat, not one merely present by chance (which random
+/// streams produce at window 8 essentially always). The `Irregular` verdict
+/// requires `present`, so the absence of additive structure is never sold as a
+/// positive deck claim on a structureless stream.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GapCertificate {
+    /// Repeated informative gap-pattern signatures observed at the firing window.
+    pub observed_groups: usize,
+    /// Largest repeated-signature count any matched-null trial reached.
+    pub null_ceiling: usize,
+    /// Add-one p-value of the observed count versus the matched null.
+    pub p_value: f64,
+    /// Number of order-1 Markov matched-null trials run.
+    pub null_trials: usize,
+    /// Whether the observed count is a *significant* relabelled repeat (clears the
+    /// null ceiling at `p < 0.05`), not merely present by chance.
+    pub present: bool,
+}
+
 /// Complete key-difference discriminator report.
 #[derive(Clone, Debug, PartialEq)]
 pub struct KeyDiffReport {
@@ -215,8 +258,8 @@ pub struct KeyDiffReport {
     pub firings: Vec<OrderFiring>,
     /// The lowest finite-difference order that fired, if any.
     pub fired_order: Option<usize>,
-    /// Whether a gap-pattern isomorph certificate was found on the raw stream.
-    pub gap_isomorph_present: bool,
+    /// The null-calibrated gap-pattern isomorph certificate on the raw stream.
+    pub gap_certificate: GapCertificate,
     /// The `δ`-versus-gap regression, present only for a constant-`Δ` verdict.
     pub regression: Option<RegressionFit>,
     /// The discriminator verdict.
@@ -276,6 +319,9 @@ pub fn key_difference_scan(
             length: values.len(),
         });
     }
+    if null_trials == 0 {
+        return Err(KeyDiffError::NoNullTrials);
+    }
 
     let raw: Vec<u16> = values
         .iter()
@@ -319,8 +365,14 @@ pub fn key_difference_scan(
     } else {
         None
     };
-    let gap_isomorph_present = gap_pattern_certificate(&raw, min_anchor_len);
-    let verdict = verdict_from(fired_order, regression.as_ref(), gap_isomorph_present);
+    let gap_certificate = gap_pattern_certificate(
+        &raw,
+        alphabet_size,
+        min_anchor_len,
+        null_trials,
+        mix_seed(seed, CERTIFICATE_SEED_TAG),
+    )?;
+    let verdict = verdict_from(fired_order, regression.as_ref(), gap_certificate.present);
 
     Ok(KeyDiffReport {
         input_len: values.len(),
@@ -329,15 +381,16 @@ pub fn key_difference_scan(
         min_anchor_len,
         firings,
         fired_order,
-        gap_isomorph_present,
+        gap_certificate,
         regression,
         verdict,
     })
 }
 
 /// Runs the in-process self-test: planted ciphertext-autokey, Vigenère,
-/// additive-progressive, and non-commutative dihedral GAK controls, each gated
-/// against the matched null.
+/// additive-progressive, and non-additive deck-relabel (fixed-permutation)
+/// controls, each gated against the matched null — the additive channels and the
+/// gap-pattern isomorph certificate both calibrated by the order-1 Markov null.
 ///
 /// # Errors
 /// Returns [`KeyDiffError`] if a control stream cannot be built or scanned.
@@ -434,12 +487,12 @@ fn autokey_family(fit: &RegressionFit) -> AutokeyFamily {
     }
 }
 
-/// Builds the verdict from the lowest firing order, the regression, and the
-/// gap-pattern certificate.
+/// Builds the verdict from the lowest firing order, the regression, and whether
+/// the null-calibrated gap-pattern certificate is significantly present.
 fn verdict_from(
     fired_order: Option<usize>,
     regression: Option<&RegressionFit>,
-    gap_isomorph_present: bool,
+    certificate_present: bool,
 ) -> KeyDiffVerdict {
     match fired_order {
         Some(0) => KeyDiffVerdict::IdenticalKey,
@@ -448,22 +501,71 @@ fn verdict_from(
         },
         Some(2) => KeyDiffVerdict::LinearAdditive,
         Some(order) => KeyDiffVerdict::HigherOrderAdditive { order },
-        None if gap_isomorph_present => KeyDiffVerdict::Irregular,
+        None if certificate_present => KeyDiffVerdict::Irregular,
         None => KeyDiffVerdict::NoSignal,
     }
 }
 
-/// Whether a gap-pattern isomorph (a substitution-invariant repeated equality
-/// pattern, the certificate that a relabelled repeat exists) is present on the
-/// raw stream at the firing window length.
-fn gap_pattern_certificate(values: &[u16], window: usize) -> bool {
+/// Significance threshold the gap-pattern certificate must clear against its
+/// order-1 Markov null — the same `0.05` the additive channels and `isoscan` use.
+const CERTIFICATE_SIGNIFICANCE_P: f64 = 0.05;
+/// Seed tag separating the certificate's null stream from the per-order channel
+/// nulls (`mix_seed(seed, order)` for `order` up to the scanned ceiling).
+const CERTIFICATE_SEED_TAG: u64 = 0x0063_6572_7469_6679; // "certify"
+
+/// Number of repeated informative gap-pattern signatures (substitution-invariant
+/// equality patterns occurring more than once) at `window`. Generic over the
+/// symbol type so the observed stream and its `u32` Markov resamples share one
+/// path. `min_period = max_period = 1` keeps the period machinery trivial — only
+/// the repeated-signature groups are needed.
+fn repeated_signature_count<T: Eq + Copy>(values: &[T], window: usize) -> usize {
+    if window == 0 || window > values.len() {
+        return 0;
+    }
+    detect_isomorphs(values, window, 1, 1).map_or(0, |detection| detection.groups.len())
+}
+
+/// The null-calibrated gap-pattern isomorph certificate on the raw stream.
+///
+/// The observed statistic is the repeated-informative-signature count at the
+/// firing `window`; it is calibrated against `null_trials` order-1 Markov
+/// resamples (the crate-internal `markov_resample`) of the raw stream, the *same*
+/// matched null the additive difference channels clear. The certificate is
+/// `present` only when the observed count strictly exceeds every null trial
+/// **and** the add-one p-value clears [`CERTIFICATE_SIGNIFICANCE_P`] — a
+/// *significant* relabelled repeat, not the chance-level certificate a
+/// structureless stream carries essentially always.
+fn gap_pattern_certificate(
+    values: &[u16],
+    alphabet_size: usize,
+    window: usize,
+    null_trials: usize,
+    seed: u64,
+) -> Result<GapCertificate, KeyDiffError> {
     let effective = window.min(values.len());
-    if effective == 0 {
-        return false;
+    let observed_groups = repeated_signature_count(values, effective);
+
+    let stream: Vec<u32> = values.iter().map(|&v| u32::from(v)).collect();
+    let mut rng = SplitMix64::new(seed);
+    let mut null_ceiling = 0usize;
+    let mut reached = 0usize;
+    for _ in 0..null_trials {
+        let resampled = markov_resample(&stream, alphabet_size, &mut rng)?;
+        let trial = repeated_signature_count(&resampled, effective);
+        null_ceiling = null_ceiling.max(trial);
+        if trial >= observed_groups {
+            reached += 1;
+        }
     }
-    let max_period = values.len().saturating_sub(1).max(1);
-    match detect_isomorphs(values, effective, 1, max_period) {
-        Ok(detection) => !detection.groups.is_empty(),
-        Err(_unscannable) => false,
-    }
+
+    let p_value = add_one_p_value(reached, null_trials);
+    let present =
+        null_trials > 0 && observed_groups > null_ceiling && p_value < CERTIFICATE_SIGNIFICANCE_P;
+    Ok(GapCertificate {
+        observed_groups,
+        null_ceiling,
+        p_value,
+        null_trials,
+        present,
+    })
 }

@@ -109,9 +109,10 @@ fn print_report(report: &KeyDiffReport) {
         Some(order) => println!("  lowest firing additive order: {order}"),
         None => println!("  lowest firing additive order: none"),
     }
+    let cert = &report.gap_certificate;
     println!(
-        "  gap-pattern isomorph certificate (raw stream): {}",
-        report.gap_isomorph_present
+        "  gap-pattern isomorph certificate (raw stream, null-calibrated): {} (observed {} repeated signatures vs null ceiling {}, p {:.4} over {} trials)",
+        cert.present, cert.observed_groups, cert.null_ceiling, cert.p_value, cert.null_trials
     );
     if let Some(fit) = &report.regression {
         println!(
@@ -144,10 +145,10 @@ fn print_verdict(verdict: &KeyDiffVerdict) {
             println!("  VERDICT: higher-order polynomial additive Δ (order {order}).");
         }
         KeyDiffVerdict::Irregular => println!(
-            "  VERDICT: irregular Δ — a relabelled repeat exists (gap-pattern certificate) but NO additive order fired up to the scanned ceiling: the relabelling is non-additive (deck / GAK / self-modifying keystream)."
+            "  VERDICT: irregular Δ — a SIGNIFICANT relabelled repeat exists (gap-pattern certificate clears its order-1 Markov null at p < 0.05) but NO additive order fired up to the scanned ceiling: the relabelling is non-additive (deck / GAK / self-modifying keystream)."
         ),
         KeyDiffVerdict::NoSignal => println!(
-            "  VERDICT: no signal — no additive order fired and no gap-pattern isomorph certificate was found. No relabelled-repeat structure to classify; NOT evidence of any family."
+            "  VERDICT: no signal — no additive order fired and the gap-pattern certificate did not clear its order-1 Markov null. No SIGNIFICANT relabelled-repeat structure to classify; NOT evidence of any family."
         ),
     }
 }

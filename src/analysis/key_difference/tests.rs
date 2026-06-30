@@ -120,6 +120,19 @@ fn scan_rejects_invalid_configuration() {
 }
 
 #[test]
+fn scan_rejects_zero_null_trials() {
+    // With zero matched-null trials no order can be significant and the
+    // gap-pattern certificate has no null to clear, so a significance-bearing
+    // verdict (including `Irregular`) would be emitted with no null actually run.
+    // The scan must reject the configuration rather than emit an uncalibrated
+    // verdict.
+    assert_eq!(
+        key_difference_scan(&[0, 1, 2, 3, 0, 1, 2, 3], 12, 3, 4, 8, 0, DEFAULT_SEED),
+        Err(KeyDiffError::NoNullTrials)
+    );
+}
+
+#[test]
 fn scan_classifies_a_constant_offset_repeat_as_order_one() {
     // A random base stream with a phrase planted twice, the second occurrence
     // shifted by a constant +4 (a constant Δ): the raw stream shows no repeat but
@@ -149,6 +162,34 @@ fn scan_classifies_a_constant_offset_repeat_as_order_one() {
         report.verdict,
         KeyDiffVerdict::ConstantAdditive { .. }
     ));
+}
+
+#[test]
+fn structureless_stream_is_no_signal_not_irregular() {
+    // A random stream has no additive firing AND no *significant* relabelled
+    // repeat: its window-8 repeated-signature count does not clear the order-1
+    // Markov null. The null-calibrated certificate must therefore stay absent, so
+    // the verdict is the honest `NoSignal` — never `Irregular` sold on a
+    // chance-level certificate (the failure mode the calibration removes).
+    let m = 12usize;
+    let mut rng = SplitMix64::new(0x5eed_1234);
+    let mut stream: Vec<u16> = Vec::with_capacity(420);
+    for _ in 0..420 {
+        stream.push(u16::try_from(random_index_below(m, &mut rng).expect("draw")).unwrap_or(0));
+    }
+    let report = key_difference_scan(&stream, m, 3, 8, 8, 200, DEFAULT_SEED).expect("scan runs");
+    assert_eq!(report.fired_order, None, "no additive order fires on noise");
+    assert!(
+        !report.gap_certificate.present,
+        "the gap-pattern certificate must not clear its null on a structureless stream \
+         (observed {} vs null ceiling {})",
+        report.gap_certificate.observed_groups, report.gap_certificate.null_ceiling
+    );
+    assert_eq!(
+        report.verdict,
+        KeyDiffVerdict::NoSignal,
+        "a chance-level certificate must yield NoSignal, not Irregular"
+    );
 }
 
 #[test]

@@ -305,7 +305,11 @@ pub(crate) fn find_anchors(stream: &[u32], threshold: usize, top_k: usize) -> Ve
 /// then draws each next symbol from the empirical `P(next | current)`. This
 /// preserves the first-order transition law while destroying longer repeats — the
 /// matched null an anchor must clear.
-fn markov_resample(
+///
+/// Exposed to the crate so [`super::key_difference`] can calibrate its gap-pattern
+/// isomorph certificate against the very same order-1 Markov null the additive
+/// difference channels use.
+pub(crate) fn markov_resample(
     stream: &[u32],
     alphabet: usize,
     rng: &mut SplitMix64,
