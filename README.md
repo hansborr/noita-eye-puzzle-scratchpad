@@ -142,16 +142,19 @@ sequence-analysis questions:
 ## Building and contributing
 
 ```sh
-make verify   # the correctness gate: fmt + clippy(-D) + filesize + tests + rustdoc(-D) + cargo-deny
-make check    # verify + cargo-machete + codespell + shellcheck + release build (full local CI)
+make verify   # the correctness gate: fmt-check + clippy(-D) + filesize + tests + rustdoc(-D) + cargo-deny
+make check    # verify + blob-size + suppressions + cargo-machete + codespell + shellcheck + test-scripts + release build
+make test-scripts  # run scripts/tests/*.sh shell smoke tests
 make setup    # install the git pre-commit hook
 ```
 
 `make verify` must be green before every commit; the pre-commit hook enforces it.
 The crate forbids `unsafe`, bans panics and unwraps in library and CLI code,
 documents every public item, and runs clippy `pedantic` as `-D warnings`; the
-supply chain is gated by `cargo-deny` and `cargo machete`. See `CONTRIBUTING.md`
-and `AGENTS.md` for the full working agreement.
+supply chain is gated by `cargo-deny` and `cargo machete`. `make check` also
+runs the staged blob-size guard, suppression register audit, shellcheck, and the
+shell smoke tests in `scripts/tests/`. See `CONTRIBUTING.md` and `AGENTS.md` for
+the full working agreement.
 
 ## Further reading
 

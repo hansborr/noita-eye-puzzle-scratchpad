@@ -1,0 +1,451 @@
+#!/bin/bash
+
+# PreToolUse Bash hook: block only confident, argv-level git commit bypasses.
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/ai-hooks/common.sh
+. "$SCRIPT_DIR/common.sh"
+
+AI_COMMIT_BYPASS_REASON="Git commit hook bypasses are not allowed. Stay on the feature branch, make a normal git commit, and let the pre-commit hook plus CI/make verify be the gate. Do not use --no-verify, -n, or --amend."
+AI_COMMAND_SEPARATOR_TOKEN="__NOITA_AI_HOOK_COMMAND_SEPARATOR__"
+
+ai_mark_command_separators() {
+    local input="$1"
+    local output=""
+    local quote=""
+    local char
+    local next
+    local i
+
+    for ((i = 0; i < ${#input}; i += 1)); do
+        char="${input:i:1}"
+        if [ -n "$quote" ]; then
+            output+="$char"
+            if [ "$quote" = '"' ] && [ "$char" = "\\" ]; then
+                i=$((i + 1))
+                if [ "$i" -lt "${#input}" ]; then
+                    output+="${input:i:1}"
+                fi
+                continue
+            fi
+            if [ "$char" = "$quote" ]; then
+                quote=""
+            fi
+            continue
+        fi
+
+        case "$char" in
+            "'" | '"')
+                quote="$char"
+                output+="$char"
+                ;;
+            \\)
+                output+="$char"
+                i=$((i + 1))
+                if [ "$i" -lt "${#input}" ]; then
+                    output+="${input:i:1}"
+                fi
+                ;;
+            ";" | $'\n')
+                output+=" $AI_COMMAND_SEPARATOR_TOKEN "
+                ;;
+            "&" | "|")
+                next="${input:i + 1:1}"
+                if [ "$next" = "$char" ]; then
+                    i=$((i + 1))
+                fi
+                output+=" $AI_COMMAND_SEPARATOR_TOKEN "
+                ;;
+            *)
+                output+="$char"
+                ;;
+        esac
+    done
+
+    [ -z "$quote" ] || return 1
+    printf '%s\n' "$output"
+}
+
+ai_tokenize_command() {
+    local command="$1"
+    local marked
+    local tokens
+
+    command -v xargs >/dev/null 2>&1 || return 1
+    marked=$(ai_mark_command_separators "$command") || return 1
+    [[ "$marked" =~ [^[:space:]] ]] || return 0
+    tokens=$(printf '%s\n' "$marked" | xargs -n1 printf '%s\n' 2>/dev/null) || return 1
+    printf '%s\n' "$tokens"
+}
+
+ai_is_command_separator() {
+    [ "${1:-}" = "$AI_COMMAND_SEPARATOR_TOKEN" ]
+}
+
+ai_is_env_assignment() {
+    [[ "${1:-}" =~ ^[A-Za-z_][A-Za-z0-9_]*=.*$ ]]
+}
+
+ai_is_git_command_token() {
+    case "${1:-}" in
+        git | */git)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+ai_skip_env_prefix() {
+    local tokens_name="$1"
+    local -n env_tokens="$tokens_name"
+    local idx="$2"
+    local len="${#env_tokens[@]}"
+    local token
+
+    [ "$idx" -lt "$len" ] && [ "${env_tokens[$idx]}" = "env" ] || return 1
+    idx=$((idx + 1))
+
+    while [ "$idx" -lt "$len" ]; do
+        token="${env_tokens[$idx]}"
+        ai_is_command_separator "$token" && return 2
+        case "$token" in
+            --)
+                idx=$((idx + 1))
+                break
+                ;;
+            -i | --ignore-environment | --null)
+                idx=$((idx + 1))
+                ;;
+            -u | --unset | -C | --chdir)
+                idx=$((idx + 1))
+                [ "$idx" -lt "$len" ] || return 2
+                ai_is_command_separator "${env_tokens[$idx]}" && return 2
+                idx=$((idx + 1))
+                ;;
+            --unset=* | --chdir=*)
+                idx=$((idx + 1))
+                ;;
+            -*)
+                return 2
+                ;;
+            *)
+                if ai_is_env_assignment "$token"; then
+                    idx=$((idx + 1))
+                    continue
+                fi
+                break
+                ;;
+        esac
+    done
+
+    printf '%s\n' "$idx"
+}
+
+ai_skip_command_builtin_prefix() {
+    local tokens_name="$1"
+    local -n command_tokens="$tokens_name"
+    local idx="$2"
+    local len="${#command_tokens[@]}"
+    local token
+
+    [ "$idx" -lt "$len" ] && [ "${command_tokens[$idx]}" = "command" ] || return 1
+    idx=$((idx + 1))
+
+    while [ "$idx" -lt "$len" ]; do
+        token="${command_tokens[$idx]}"
+        ai_is_command_separator "$token" && return 2
+        case "$token" in
+            --)
+                idx=$((idx + 1))
+                break
+                ;;
+            -p)
+                idx=$((idx + 1))
+                ;;
+            -*)
+                return 2
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+
+    printf '%s\n' "$idx"
+}
+
+ai_command_start_index() {
+    local tokens_name="$1"
+    local -n command_start_tokens="$tokens_name"
+    local idx="$2"
+    local len="${#command_start_tokens[@]}"
+    local next_idx
+
+    while [ "$idx" -lt "$len" ]; do
+        while [ "$idx" -lt "$len" ] && ai_is_env_assignment "${command_start_tokens[$idx]}"; do
+            idx=$((idx + 1))
+        done
+        [ "$idx" -lt "$len" ] || break
+
+        case "${command_start_tokens[$idx]}" in
+            env)
+                next_idx=$(ai_skip_env_prefix "$tokens_name" "$idx") || return "$?"
+                idx="$next_idx"
+                ;;
+            command)
+                next_idx=$(ai_skip_command_builtin_prefix "$tokens_name" "$idx") || return "$?"
+                idx="$next_idx"
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+
+    printf '%s\n' "$idx"
+}
+
+ai_is_git_hooks_path_config() {
+    local config="${1:-}"
+    local key="${config%%=*}"
+
+    [ "$config" != "$key" ] || return 1
+    [ "${key,,}" = "core.hookspath" ]
+}
+
+ai_commit_arg_value_mode() {
+    case "$1" in
+        -m | --message | -F | --file | -C | --reuse-message | -c | --reedit-message | \
+            --reedit | --author | --date | --fixup | --squash | --template | \
+            --pathspec-from-file | --cleanup)
+            return 0
+            ;;
+        --message=* | --file=* | --reuse-message=* | --reedit-message=* | --author=* | \
+            --reedit=* | --date=* | --fixup=* | --squash=* | --gpg-sign=* | -S?* | \
+            --template=* | --pathspec-from-file=* | --cleanup=*)
+            return 2
+            ;;
+        --gpg-sign | -S)
+            return 3
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+ai_commit_short_option_takes_value() {
+    case "$1" in
+        m | F | C | c | S)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+ai_commit_short_cluster_has_no_verify() {
+    local token="${1:-}"
+    local cluster
+    local char
+    local i
+
+    [[ "$token" = --* || "$token" != -* ]] && return 1
+    [ "${#token}" -gt 1 ] || return 1
+
+    cluster="${token:1}"
+    for ((i = 0; i < ${#cluster}; i += 1)); do
+        char="${cluster:i:1}"
+        [ "$char" = "n" ] && return 0
+        ai_commit_short_option_takes_value "$char" && return 1
+    done
+
+    return 1
+}
+
+ai_commit_args_have_bypass() {
+    local -n commit_tokens="$1"
+    local idx=0
+    local len
+    local token
+
+    idx="$2"
+    len="${#commit_tokens[@]}"
+    while [ "$idx" -lt "$len" ]; do
+        token="${commit_tokens[$idx]}"
+        ai_is_command_separator "$token" && return 1
+        case "$token" in
+            --)
+                return 1
+                ;;
+            --no-verify | --amend)
+                return 0
+                ;;
+        esac
+
+        ai_commit_arg_value_mode "$token"
+        case "$?" in
+            0)
+                idx=$((idx + 1))
+                [ "$idx" -lt "$len" ] || return 2
+                ai_is_command_separator "${commit_tokens[$idx]}" && return 2
+                idx=$((idx + 1))
+                continue
+                ;;
+            2)
+                idx=$((idx + 1))
+                continue
+                ;;
+            3)
+                idx=$((idx + 1))
+                if [ "$idx" -lt "$len" ] \
+                    && ! ai_is_command_separator "${commit_tokens[$idx]}" \
+                    && [[ "${commit_tokens[$idx]}" != -* ]]; then
+                    idx=$((idx + 1))
+                fi
+                continue
+                ;;
+        esac
+
+        if ai_commit_short_cluster_has_no_verify "$token"; then
+            return 0
+        fi
+
+        idx=$((idx + 1))
+    done
+
+    return 1
+}
+
+ai_tokens_segment_has_commit_bypass() {
+    local tokens_name="$1"
+    local -n segment_tokens="$tokens_name"
+    local idx="$2"
+    local len
+    local token
+    local config_value
+
+    len="${#segment_tokens[@]}"
+    [ "$idx" -lt "$len" ] || return 1
+
+    idx=$(ai_command_start_index "$tokens_name" "$idx") || return "$?"
+
+    [ "$idx" -lt "$len" ] && ai_is_git_command_token "${segment_tokens[$idx]}" || return 1
+    idx=$((idx + 1))
+
+    while [ "$idx" -lt "$len" ]; do
+        token="${segment_tokens[$idx]}"
+        ai_is_command_separator "$token" && return 1
+
+        case "$token" in
+            commit)
+                idx=$((idx + 1))
+                ai_commit_args_have_bypass "$tokens_name" "$idx"
+                return "$?"
+                ;;
+            -c | --config)
+                idx=$((idx + 1))
+                [ "$idx" -lt "$len" ] || return 2
+                ai_is_command_separator "${segment_tokens[$idx]}" && return 2
+                ai_is_git_hooks_path_config "${segment_tokens[$idx]}" && return 0
+                idx=$((idx + 1))
+                ;;
+            --config=*)
+                config_value="${token#--config=}"
+                ai_is_git_hooks_path_config "$config_value" && return 0
+                idx=$((idx + 1))
+                ;;
+            --config-env)
+                idx=$((idx + 1))
+                [ "$idx" -lt "$len" ] || return 2
+                ai_is_command_separator "${segment_tokens[$idx]}" && return 2
+                ai_is_git_hooks_path_config "${segment_tokens[$idx]}" && return 0
+                idx=$((idx + 1))
+                ;;
+            --config-env=*)
+                config_value="${token#--config-env=}"
+                ai_is_git_hooks_path_config "$config_value" && return 0
+                idx=$((idx + 1))
+                ;;
+            -C | --git-dir | --work-tree | --namespace | --exec-path | --super-prefix)
+                idx=$((idx + 1))
+                [ "$idx" -lt "$len" ] || return 2
+                ai_is_command_separator "${segment_tokens[$idx]}" && return 2
+                idx=$((idx + 1))
+                ;;
+            --git-dir=* | --work-tree=* | --namespace=* | --exec-path=* | --super-prefix=*)
+                idx=$((idx + 1))
+                ;;
+            -p | --paginate | -P | --no-pager | --bare | --no-replace-objects | \
+                --literal-pathspecs | --glob-pathspecs | --noglob-pathspecs | \
+                --icase-pathspecs | --no-optional-locks)
+                idx=$((idx + 1))
+                ;;
+            --)
+                idx=$((idx + 1))
+                ;;
+            -*)
+                return 2
+                ;;
+            *)
+                return 1
+                ;;
+        esac
+    done
+
+    return 1
+}
+
+ai_command_has_commit_bypass() {
+    local command="$1"
+    local token_output
+    local tokens=()
+    local idx=0
+    local len
+    local status
+
+    token_output=$(ai_tokenize_command "$command") || return 1
+    if [ -n "$token_output" ]; then
+        mapfile -t tokens <<< "$token_output"
+    fi
+    len="${#tokens[@]}"
+
+    while [ "$idx" -lt "$len" ]; do
+        while [ "$idx" -lt "$len" ] && ai_is_command_separator "${tokens[$idx]}"; do
+            idx=$((idx + 1))
+        done
+
+        ai_tokens_segment_has_commit_bypass tokens "$idx"
+        status="$?"
+        case "$status" in
+            0)
+                return 0
+                ;;
+        esac
+
+        while [ "$idx" -lt "$len" ] && ! ai_is_command_separator "${tokens[$idx]}"; do
+            idx=$((idx + 1))
+        done
+    done
+
+    return 1
+}
+
+main() {
+    local command
+
+    ai_read_payload PreToolUse || ai_emit_continue
+    command=$(ai_payload_command "$AI_HOOK_PAYLOAD") || ai_emit_continue
+    [ -n "$command" ] || ai_emit_continue
+
+    if ai_command_has_commit_bypass "$command"; then
+        ai_emit_deny "$AI_COMMIT_BYPASS_REASON"
+    fi
+
+    ai_emit_continue
+}
+
+main "$@"

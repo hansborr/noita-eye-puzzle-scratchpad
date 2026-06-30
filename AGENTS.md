@@ -13,7 +13,8 @@ hypothesis space, not premature claims about what the glyphs mean.
 
 ```sh
 make verify   # the correctness gate: fmt-check + clippy(-D) + filesize + tests + rustdoc(-D) + cargo-deny
-make check    # verify + cargo-machete + codespell + shellcheck + release build (full local CI)
+make check    # verify + blob-size + suppressions + cargo-machete + codespell + shellcheck + test-scripts + release build (full local CI)
+make test-scripts  # run scripts/tests/*.sh shell smoke tests
 make setup    # install the git pre-commit hook (core.hooksPath = .githooks)
 make run ARGS=demo
 ```
@@ -53,6 +54,65 @@ here.
   limits and what it dropped. The cross-cutting process lessons live in
   `research/attack-methodology.md`.
 
+### Fast-commit mode
+
+For cheap intermediate commits on feature branches only, enable the worktree-local
+pre-commit shortcut with `touch "$(git rev-parse --git-dir)/noita-fast-commit"`.
+It skips only `cargo test` and the rustdoc check; it still runs rustfmt, clippy,
+file-size, blob-size, suppressions, and cargo-deny. CI and `make verify` /
+`make check` always remain the full gate. Disable it with
+`rm "$(git rev-parse --git-dir)/noita-fast-commit"`.
+
+`PRECOMMIT_PLAN_ONLY=1` and `PRECOMMIT_GUARDS_ONLY=1` are direct dry-run
+inspection shortcuts. They exit 0 only when `.githooks/pre-commit` is run
+directly; during a real `git commit`, they abort instead of bypassing the gate.
+
+### Agent hooks
+
+Claude Code and Codex hooks use shared bodies in `scripts/ai-hooks/` with thin
+`.claude/hooks/` and `.codex/hooks/` adapters. Hook errors fail open (they emit
+"continue" rather than blocking a tool call); only a confident commit-bypass
+match is intentionally denied.
+
+Codex only runs this repo's `.codex/hooks.json` after each hook entry is trusted
+for this worktree. Start Codex in `/home/node/persist/noita-eye-puzzle-maint` and
+accept the hook trust prompts, or preseed equivalent entries in
+`~/.codex/config.toml` using the hashes shown by Codex:
+
+```toml
+[features]
+hooks = true
+
+[hooks.state."/home/node/persist/noita-eye-puzzle-maint/.codex/hooks.json:pre_tool_use:0:0"]
+trusted_hash = "sha256:<codex-reported hash>"
+
+[hooks.state."/home/node/persist/noita-eye-puzzle-maint/.codex/hooks.json:pre_tool_use:1:0"]
+trusted_hash = "sha256:<codex-reported hash>"
+
+[hooks.state."/home/node/persist/noita-eye-puzzle-maint/.codex/hooks.json:post_tool_use:0:0"]
+trusted_hash = "sha256:<codex-reported hash>"
+
+[hooks.state."/home/node/persist/noita-eye-puzzle-maint/.codex/hooks.json:stop:0:0"]
+trusted_hash = "sha256:<codex-reported hash>"
+```
+
+- `commit-bypass-guard` (PreToolUse Bash) blocks pre-commit/history bypasses
+  such as `--no-verify`, `-n`, `--amend`, and `git -c core.hooksPath=...` while
+  allowing normal commits.
+- `cargo-run-quiet` (PreToolUse Bash) summarizes and caches whitelisted
+  `cargo test`/`clippy`/`build`/`check` and `cargo fmt --check` output. Opt out
+  with truthy `NOITA_QUIET_OFF` values (`1`, `true`, `yes`, `on`, including an
+  inline prefix) or `.noita-quiet-off`.
+- `protected-files-advisory` (Claude PreToolUse Edit|Write|MultiEdit, Codex
+  PreToolUse apply_patch) gives throttled heads-up notes when editing
+  guardrails, Cargo policy/dependency files, the verified corpus, or embedded
+  research fixtures.
+- `tidy-on-edit` (Claude PostToolUse Edit|Write|MultiEdit, Codex PostToolUse
+  apply_patch) runs `rustfmt` on edited in-repo `.rs` files; failures are
+  advisory.
+- `stop-nudge` (Stop, non-blocking) reminds about uncommitted work. Disable it
+  with `.no-stop-uncommitted`.
+
 ## Design notes
 
 - A `Glyph` is an opaque `u16` index into an `Alphabet`, not a closed enum,
@@ -68,11 +128,16 @@ here.
 | Concern            | Mechanism                                             |
 | ------------------ | ----------------------------------------------------- |
 | Lints / format     | `Cargo.toml [lints]`, `clippy.toml`, `rustfmt.toml`   |
-| File size / god-files | `scripts/check-file-size.sh` + `scripts/file-size-allowlist.txt` (ratchet) |
+| File size / god-files | `scripts/check-file-size.sh` + `scripts/file-size-allowlist.txt` (indexed ratchet) |
+| File-size debt log | `scripts/file-size-debt-log.jsonl` (`scripts/check-file-size.sh --summary`) |
+| Large staged blobs | `scripts/check-blob-size.sh` + `scripts/blob-size-allowlist.txt` |
+| Safety-lint suppressions | `scripts/check-suppressions.sh` + `scripts/suppression-register.txt` |
 | Supply chain       | `deny.toml` (cargo-deny), `cargo machete`             |
 | Toolchain          | `rust-toolchain.toml`, MSRV in `Cargo.toml`+`clippy.toml` |
 | Spelling / text    | `.codespellrc`, `.editorconfig`, `.gitattributes`     |
 | Shell scripts      | `.shellcheckrc`, `shellcheck` (CI + pre-commit)       |
+| Harness shell tests | `scripts/tests/` (`make test-scripts`, CI)           |
 | Local gate         | `.githooks/pre-commit` (install via `make setup`)     |
 | CI                 | `.github/workflows/ci.yml`                            |
 | Dangerous commands | `.claude/settings.json` deny list                     |
+| Agent hooks        | `.claude/settings.json` + `.codex/hooks.json` hooks, thin adapters in `.claude/hooks/` and `.codex/hooks/`, shared bodies in `scripts/ai-hooks/` |

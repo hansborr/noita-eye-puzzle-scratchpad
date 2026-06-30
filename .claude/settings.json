@@ -2,6 +2,11 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "deny": [
+      "Bash(git commit --no-verify:*)",
+      "Bash(git commit -n:*)",
+      "Bash(git commit --amend:*)",
+      "Bash(HUSKY=0:*)",
+      "Bash(env HUSKY=0:*)",
       "Bash(git reset --hard:*)",
       "Bash(git reset --soft:*)",
       "Bash(git reset --mixed:*)",
@@ -21,11 +26,88 @@
       "Bash(git branch -D:*)",
       "Bash(git branch -df:*)",
       "Bash(git branch -fd:*)",
+      "Bash(git branch -M:*)",
+      "Bash(git branch -C:*)",
+      "Bash(git tag -d:*)",
+      "Bash(git tag -f:*)",
       "Bash(git clean -f:*)",
+      "Bash(git clean --force:*)",
+      "Bash(git clean -fd:*)",
+      "Bash(git clean -df:*)",
+      "Bash(git clean -fx:*)",
+      "Bash(git clean -xf:*)",
+      "Bash(git clean -fdx:*)",
+      "Bash(git clean -dfx:*)",
+      "Bash(git clean -dxf:*)",
+      "Bash(git clean -fxd:*)",
+      "Bash(git clean -xdf:*)",
+      "Bash(git clean -xfd:*)",
+      "Bash(git checkout -f:*)",
+      "Bash(git checkout --force:*)",
+      "Bash(git switch -f:*)",
+      "Bash(git switch --force:*)",
+      "Bash(git restore --worktree:*)",
+      "Bash(git restore -W:*)",
+      "Bash(git worktree remove -f:*)",
+      "Bash(git worktree remove --force:*)",
+      "Bash(gh auth login:*)",
+      "Bash(gh auth logout:*)",
+      "Bash(gh auth token:*)",
+      "Bash(gh auth refresh:*)",
+      "Bash(gh auth setup-git:*)",
       "Bash(gh pr merge:*)",
       "Bash(gh repo delete:*)",
       "Bash(gh release delete:*)",
       "Bash(gh secret set:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/commit-bypass-guard.sh\""
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/cargo-run-quiet.sh\"",
+            "timeout": 1260
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/protected-files-advisory.sh\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/tidy-on-edit.sh\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/stop-nudge.sh\"",
+            "timeout": 30
+          }
+        ]
+      }
     ]
   }
 }

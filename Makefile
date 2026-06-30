@@ -1,10 +1,10 @@
 # Developer guardrail commands. Run `make check` (or `make verify`) before a commit.
 # CI (.github/workflows/ci.yml) runs the same checks plus the release build.
 
-.PHONY: check verify fmt fmt-check lint filesize test doc-check deny machete spell shellcheck build setup run clean
+.PHONY: check verify fmt fmt-check lint filesize blob-size suppressions test doc-check deny machete spell shellcheck test-scripts build setup run clean
 
-## check: full local CI — verify + unused-deps + spelling + shellcheck + release build
-check: verify machete spell shellcheck build
+## check: full local CI — verify + staged blob-size + suppressions + unused-deps + spelling + shellcheck + shell smoke tests + release build
+check: verify blob-size suppressions machete spell shellcheck test-scripts build
 
 ## verify: the correctness gate the pre-commit hook runs
 verify: fmt-check lint filesize test doc-check deny
@@ -24,6 +24,14 @@ lint:
 ## filesize: enforce the per-file Rust line budget (ratchet)
 filesize:
 	./scripts/check-file-size.sh
+
+## blob-size: enforce the staged blob-size budget
+blob-size:
+	./scripts/check-blob-size.sh
+
+## suppressions: audit Rust allow/expect suppressions against the safety register
+suppressions:
+	./scripts/check-suppressions.sh
 
 ## test: run tests, failing on any compiler warning
 test:
@@ -45,9 +53,13 @@ machete:
 spell:
 	codespell
 
-## shellcheck: lint shell scripts (the git hook + any scripts/*.sh)
+## shellcheck: lint shell scripts (git hook, agent adapters, and scripts/*.sh)
 shellcheck:
-	bash -c 'shopt -s nullglob globstar; shellcheck -x .githooks/* scripts/**/*.sh'
+	bash -c 'shopt -s nullglob globstar; shellcheck -x .githooks/* .claude/hooks/*.sh .codex/hooks/*.sh scripts/**/*.sh'
+
+## test-scripts: run shell smoke tests
+test-scripts:
+	bash -c 'set -e; shopt -s nullglob; for test_script in scripts/tests/*.sh; do bash "$$test_script"; done'
 
 ## build: optimized release build
 build:

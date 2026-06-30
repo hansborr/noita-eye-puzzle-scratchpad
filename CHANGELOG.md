@@ -14,6 +14,40 @@ Entries are grouped by date, newest first, loosely following
 > engine-generated, strikingly structured data of unknown meaning; unsolved; no
 > primary developer source confirms it encodes recoverable plaintext.
 
+## 2026-06-30 — Harness guardrails and agent hooks
+
+### Added
+- **Development harness guardrails.** The pre-commit hook now guards protected
+  branches and source-relevant dirty worktrees, checks staged blob size, audits
+  safety-lint suppressions against a register, validates the file-size debt log,
+  and supports feature-branch fast-commit mode that skips only tests and rustdoc.
+- **Claude Code agent hooks.** Added shared `scripts/ai-hooks/` bodies plus thin
+  `.claude/hooks/` adapters for commit-bypass guarding, quiet cached cargo runs,
+  protected-file advisories, post-edit rustfmt, and a non-blocking stop nudge;
+  `.claude/settings.json` also broadens destructive-command deny patterns.
+- **Codex agent hook parity.** Added `.codex/hooks.json` plus thin `.codex/hooks/`
+  adapters for the same commit-bypass guard, quiet cached cargo runs,
+  protected-file advisories, post-edit rustfmt, and stop nudge, with Codex-shaped
+  payload parsing/output and documented hook trust setup.
+- **Shell smoke-test harness.** Added `scripts/tests/*.sh` coverage and
+  `make test-scripts`; CI runs the shell smoke suite.
+
+### Fixed
+- **Pre-commit inspection modes cannot bypass real commits.**
+  `PRECOMMIT_PLAN_ONLY=1` and `PRECOMMIT_GUARDS_ONLY=1` now abort when invoked
+  by `git commit`; they remain direct hook inspection shortcuts.
+- **Agent hook hardening.** The commit-bypass guard now recognizes `git` behind
+  `command`, path-qualified `*/git`, and `env` prefixes with flags, including
+  the Codex hook path.
+- **Cargo quiet cache correctness.** `NOITA_QUIET_OFF` uses the same truthy
+  values in hook and inline forms, and cached cargo successes now fingerprint
+  rustc/toolchain plus Cargo/Rust environment inputs.
+- **Guardrail scan coverage.** Safety-suppression inventory now scans all
+  tracked Rust files, and file-size ratcheting measures indexed blobs to align
+  with staged blob checks.
+- **Edit hook coverage.** Claude edit hook matchers include `MultiEdit`, quoted
+  project paths, and the cargo quiet smoke suite ignores ambient opt-outs.
+
 ## 2026-06-26 — GAK attack threads
 
 Work aligned to the community's Group Autokey (GAK / S₈₃ deck-cipher) framing,
