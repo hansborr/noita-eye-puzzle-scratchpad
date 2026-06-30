@@ -176,9 +176,14 @@ fn for_stream_multi_message_localizes_cross_message_violation() {
     assert_eq!(report.order.name(), "raw-rows");
     assert_eq!(report.message_lengths, vec![("m0", 20), ("m1", 20)]);
 
-    // (2) Matched null: the within-message multiset shuffle destroys the planted
-    // alignment, so the localized violation exceeds its null (upper-tail p <= alpha
-    // and the null mean stays below the observed count).
+    // (2) Matched within-message null: this shuffle is structure-destroying for the
+    // robust cross-message statistic -- it scrambles the planted cross-message
+    // alignment, so the null degenerates toward zero and a non-zero localized count
+    // clears it trivially. The p <= alpha / mean-below-observed checks below are
+    // therefore a sanity floor (count is non-zero against a null that collapses to
+    // ~0), not a significance result -- per this module's own report stance
+    // (report.rs:101, "carries no evidential weight"). The binding positive control
+    // is the synthetic imperfect-family check asserted in (3) below, not this null.
     assert!(report.robust_null.observed >= 1);
     assert!(
         report.robust_null.p <= SIGNIFICANCE_ALPHA,

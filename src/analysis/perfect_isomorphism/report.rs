@@ -174,6 +174,18 @@ fn perfect_headline_result(report: &PerfectIsomorphismReport) -> String {
         return "0 robust internal violations -> supports (does not prove) perfect isomorphism"
             .to_owned();
     }
+    if is_stream(report) {
+        // Stream path with a non-empty cross-message catalog. The within-message
+        // multiset-shuffle null is structure-destroying for this cross-message
+        // statistic, so its add-one p is a near-trivial floor, not discriminating
+        // evidence; the localized count is the candidate signal to recheck against a
+        // structure-preserving null.
+        return format!(
+            "{} robust cross-message internal violation(s) localized -> a mapping-independent structural candidate to recheck against a structure-preserving null, not a recovery (the within-message add-one p = {} is a near-trivial floor, not discriminating evidence)",
+            report.robust_internal_violations,
+            report::format_probability(report.empirical_p)
+        );
+    }
     if report.empirical_p <= SIGNIFICANCE_ALPHA {
         format!(
             "{} robust internal violations exceed the matched null (p = {}) -> disfavours the proven-perfect-isomorphism family",
@@ -288,19 +300,15 @@ fn perfect_interpretation_stream(report: &PerfectIsomorphismReport) -> String {
             .to_owned();
     }
     // Reached only if a multi-message caller drives `perfect_isomorphism_for_stream`.
-    if report.empirical_p <= SIGNIFICANCE_ALPHA {
-        format!(
-            "Interpretation: this is a mapping-independent family-selection check on the supplied streams, not a decode. The observed {} robust strong-bar internal violations are in the matched within-message upper tail (add-one p = {}); treat this as an arrangement signal to recheck, not a recovery.",
-            report.robust_internal_violations,
-            report::format_probability(report.empirical_p)
-        )
-    } else {
-        format!(
-            "Interpretation: this is a mapping-independent family-selection check on the supplied streams, not a decode. The observed {} robust strong-bar internal violations do not exceed the matched within-message chance-collision null (add-one p = {}).",
-            report.robust_internal_violations,
-            report::format_probability(report.empirical_p)
-        )
-    }
+    // The within-message multiset-shuffle null is structure-destroying for the
+    // cross-message internal-violation statistic, so the add-one p against it is a
+    // near-trivial floor, not the strength of evidence; the localized count is the
+    // candidate signal, calibrated by the synthetic family control, not this null.
+    format!(
+        "Interpretation: this is a mapping-independent family-selection check on the supplied streams, not a decode. The {} localized robust strong-bar internal violation(s) across the supplied messages are the candidate signal to recheck against a structure-preserving null, not a recovery. Disclosure: for this cross-message internal-violation statistic the within-message multiset-shuffle null is structure-destroying -- it scrambles the very cross-message alignment the statistic depends on, so it degenerates toward zero violations and the add-one p = {} against it is a near-trivial floor, not discriminating evidence. The binding positive control is the synthetic perfect-isomorphism-family self-validation, not this within-message null.",
+        report.robust_internal_violations,
+        report::format_probability(report.empirical_p)
+    )
 }
 
 fn format_catalog_occurrences(entry: &IsomorphCatalogEntry) -> String {
