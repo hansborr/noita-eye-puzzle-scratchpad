@@ -110,7 +110,7 @@ suppressions_staged() {
                 return 0
                 ;;
         esac
-    done < <(git diff --cached --name-only -z --diff-filter=ACMRD)
+    done < <(git diff --cached --no-renames --name-only -z --diff-filter=ACMRD)
 
     return 1
 }

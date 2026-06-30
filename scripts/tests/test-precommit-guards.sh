@@ -258,3 +258,18 @@ if [[ ! -f "$register_repo/hook-runs/suppressions" ]]; then
     printf 'not ok - pre-commit runs suppressions for register changes\nsuppressions did not run\n' >&2
     exit 1
 fi
+
+renamed_rs_repo="$(new_repo feature/renamed-rs-suppressions)"
+install_stub_guards "$renamed_rs_repo"
+mkdir -p -- "$renamed_rs_repo/src"
+printf 'pub fn old_path() {}\n' > "$renamed_rs_repo/src/old.rs"
+git -C "$renamed_rs_repo" add src/old.rs
+commit_index "$renamed_rs_repo" "add rust source"
+git -C "$renamed_rs_repo" mv src/old.rs notes.txt
+expect_full_hook_success \
+    "pre-commit runs suppressions for Rust files renamed away" \
+    "$renamed_rs_repo"
+if [[ ! -f "$renamed_rs_repo/hook-runs/suppressions" ]]; then
+    printf 'not ok - pre-commit runs suppressions for Rust files renamed away\nsuppressions did not run\n' >&2
+    exit 1
+fi
