@@ -105,11 +105,18 @@
     "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
   },
   {
-    "claim": "Developer (Arvi Teikari/Hempuli, Nolla Games) publicly acknowledged the Eye Messages and Cauldron as deliberate unsolved mysteries.",
-    "confidence": "speculative",
-    "evidence": "A YouTube video documents Hempuli discussing Noita's secrets at Roguelike Celebration, and the dev advised players 'not being too concerned about the cauldron' (2021). But I could NOT retrieve a verbatim quote in which a dev calls the Eye Messages an 'intentional puzzle.' Intentionality is INFERRED from gating (mod check), engine-hardcoding, statistical structure, and dev acknowledgment of it as a mystery.",
-    "source": "youtube.com/watch?v=ItzQh6K3hP8 (transcript not retrievable via fetch)",
+    "claim": "Developer (Arvi Teikari/Hempuli, Nolla Games) publicly acknowledged the Eye Messages and Cauldron as deliberate mysteries. UPDATE 2026-06-29: a verbatim eye-specific quote was located (see next entry) -- this is no longer mere inference.",
+    "confidence": "likely",
+    "evidence": "CORRECTION 2026-06-29: this entry's video youtube.com/watch?v=ItzQh6K3hP8 was previously described as a 'Roguelike Celebration' talk whose transcript 'could NOT be retrieved', concluding no verbatim eye quote existed. Per the maintainer, that video is actually the FuryForged Noita-dev interview and DOES contain Arvi's verbatim eye statement -- it was simply un-fetchable by automated tools. So intentionality is no longer merely inferred; see the dedicated verbatim entry (next).",
+    "source": "https://www.youtube.com/watch?v=ItzQh6K3hP8 ; see next entry for the verbatim eye-specific Arvi quote + Discord transcription",
     "topic": "Noita \"Eye Messages\" Puzzle — definition & locations (deep-dive, fact-checked)"
+  },
+  {
+    "claim": "DEV STATEMENT ON THE EYES (located 2026-06-29, supersedes the repo's 'no dev ever commented on the eyes'): in a 2021-10-15 Twitch stream, Nolla dev Arvi (Teikari) said, verbatim relayed: 'for the eye decorations, I think I do dare say that I have confirmation that the eye decorations do contain a message. They are not, uh, just a bug or just a meaningless thing. They actually do have a meaning.' Asked how easy they are to solve (1-10), Arvi replied (paraphrased) ~'square root of minus 1... probably very difficult.' This is the SAME 2021 Arvi interview the repo already cites for the Cauldron remark -- the repo had captured only the Cauldron half. It confirms intent/meaning + extreme difficulty; it gives NO cipher, key, method, or solution, so the unsolved status and the solvability-to-plaintext caveat are UNCHANGED.",
+    "confidence": "confirmed",
+    "evidence": "PRIMARY VIDEO located: youtube.com/watch?v=ItzQh6K3hP8 is a recording of Arvi making this exact statement (maintainer-supplied and confirmed to be the same quote FuryForged transcribed). Notably this is the SAME video URL the repo previously catalogued under 'Roguelike Celebration / transcript not retrievable via fetch' (the Arvi-acknowledgment entry just above) -- the eye quote was in it all along, just un-fetchable by automated tools (same browser-only pattern as the community Google Docs). Corroborating verbatim transcription: Noita community Discord permalink https://discord.com/channels/453998283174576133/817530812454010910/899514286290898985 (FuryForged 'Silmamestari'/eye-master, posted 2021-10-17, quoting the 2021-10-15 stream). Provenance: Arvi (dev, on video) -> FuryForged transcription (Discord) -> maintainer -> here. Two corroborating maintainer-vouched sources (video + dated verbatim relay); confidence raised to confirmed for the STATEMENT's existence. (I could not auto-retrieve the video transcript myself; this rests on the maintainer's attestation + the dated Discord relay.) Nolla-trolls caveat noted but this is an earnest interview answer.",
+    "source": "https://www.youtube.com/watch?v=ItzQh6K3hP8 ; https://discord.com/channels/453998283174576133/817530812454010910/899514286290898985",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — community-docs firsthand ingest (2026-06-29)"
   },
   {
     "claim": "A widely-circulated claim that the messages are 'originally written in Hexadecimal and converted by an algorithm into 0-5 values' is NOT supported by the primary doc.",
@@ -126,9 +133,9 @@
     "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
   },
   {
-    "claim": "Each eye has one of five orientations encoded as 0=neutral/center, 1=up, 2=right, 3=down, 4=left; value 5 = end of line (no eye generated).",
-    "confidence": "confirmed",
-    "evidence": "Fandom verbatim: 'Each individual eye can be looking in one of 5 directions where: 0-neutral, 1-up, 2-right, 3-down, and 4-left. The number 5 represents end of line, and no eye is generated for this value.'",
+    "claim": "Each eye has one of five orientations (digits 0-4); value 5 = end of line (no eye generated). Fandom labels the digits 0=neutral/center, 1=up, 2=right, 3=down, 4=left -- but that digit->direction NAMING is Fandom/community-stated, NOT independently established, and the repo (src/core/glyph.rs) deliberately keeps the orientation digits opaque.",
+    "confidence": "mixed",
+    "evidence": "CONFIRMED part: there are exactly five orientations plus 5=delimiter -- Fandom verbatim: 'Each individual eye can be looking in one of 5 directions where: 0-neutral, 1-up, 2-right, 3-down, and 4-left. The number 5 represents end of line, and no eye is generated for this value.' MODEL-CONDITIONAL part: the specific digit->direction NAMES are not pinned by any retrievable primary source (the orientation legend is shown only as a sprite image; see 01-overview.md and src/core/glyph.rs, which refuses to assign pixel-direction names). Treat the names as a conventional-but-unverified labeling, consistent with the community-docs digest (research/findings/community-docs-firsthand-digest.md sec.4).",
     "source": "https://noita.fandom.com/wiki/Eye_Messages",
     "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
   },
@@ -138,6 +145,41 @@
     "evidence": "Fandom wikitext gives the worked example verbatim; I reproduced int conversion, base-7 list, and EyePositionNumeric exactly in Python. Note: this is DIVISION BY 7 (base-7), not base-5 — a correction to the survey's 'converted to 0-5' phrasing which omitted the base-7 mechanism. The wiki states 'this has been confirmed to be the process that the engine uses.'",
     "source": "https://noita.fandom.com/wiki/Eye_Messages (action=raw via api.php)",
     "topic": "Noita Eye Messages (Eye Glyph Puzzle) — raw-eye-data deep dive and fact-check"
+  },
+  {
+    "claim": "EXE WORD = CRC-32 OF 'lumikki' (Snow White), VERIFIED: the second u32 of eye message 0's first stored pair, 0xacf68674 (generator.rs:34; Xkeeper0 transcoder xk_eye.php:53), equals CRC-32/BZIP2('lumikki') byte-reversed. CRC-32/BZIP2('lumikki') = 0x7486f6ac; reading its 4 bytes little-endian gives 0xacf68674. NOTE the community 'CRC-32b' label is imprecise -- standard reflected CRC-32 of 'lumikki' is 0x5bfc21b9 and does NOT match; the match is the non-reflected BZIP2 variant plus byte-reversal. Toboter reports no other stored byte sequence has a comparable property.",
+    "confidence": "confirmed",
+    "evidence": "Recomputed this session: CRC-32/BZIP2 (poly 0x04C11DB7, init/xorout 0xffffffff, refin/refout false) over ASCII bytes 'lumikki' = 0x7486f6ac; byte-reversed = 0xacf68674, which is literally the high word of message-0's first pair [0x5634505c, 0xacf68674] in src/data/generator.rs. The MATH is confirmed and reproducible; AUTHORIAL INTENT is unprovable [speculation]: with ~300 stored u32 words (150 [u32,u32] pairs in ENGINE_MESSAGES, 283 unique nonzero) searched over a word list x CRC variants x byte order, one spurious meaningful-word hit is not astronomically unlikely. 'lumikki' = Finnish 'Snow White', a plausible Nolla Easter egg. Source: Toboter Progress doc (read firsthand 2026-06-29).",
+    "source": "https://docs.google.com/document/d/1XMNXktCoSabnFWZf9rJFoaKMzsA1bbv7x1Xh9tXkKYk/edit ; src/data/generator.rs",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — community-docs firsthand ingest (2026-06-29)"
+  },
+  {
+    "claim": "WHY 83, STRUCTURAL CORE (VERIFIED): over all 1036 trigrams on the accepted reading order, the leading-trigram-digit histogram is {0:317, 1:312, 2:310, 3:97, 4:0}. Digit 4 never leads and a leading 3 spans only values 75..82 (8 of 25), so the distinct-value count is 25+25+25+8 = 83. This is the arithmetic of 'why 83 distinct symbols'. The 'Why 83?' community doc frames the legend as Center/Up/Right/Down/Left = digits 0/1/2/3/4, but those direction NAMES stay model-conditional per repo glyph policy.",
+    "confidence": "confirmed",
+    "evidence": "Recomputed exact against src/data/corpus.rs on accepted order standard36-u012-d012 (digit = value//25). Histogram and the 25+25+25+8 decomposition reproduce. Conditional on the community-inferred reading order. Source: 'Why 83?' doc (read firsthand 2026-06-29). Distinct from the repo's transitivity 'six groups for 83' (those are permutation groups; the doc's separate 'six' is six moduli {39,43,59,67,83,87}).",
+    "source": "https://docs.google.com/document/d/1H3dpTLw8oE5TGQLsjQEk4O9tT8B106N93AH1e5-ag2c/edit",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — community-docs firsthand ingest (2026-06-29)"
+  },
+  {
+    "claim": "BASE-5 BLANKS ARE THE TOP 42 (VERIFIED): of the 125 possible base-5 trigram values, exactly 83 occur and 42 never do, and the 42 absent values are precisely 83..124 -- i.e. the present set is the contiguous block 0..82, not an interior-gapped subset. CodeWarrior0 frames this as '42 blanks with respect to the outer-level base-5 reading'.",
+    "confidence": "confirmed",
+    "evidence": "Recomputed against src/data/corpus.rs on the accepted reading order: distinct present = 83 (range 0..82, contiguous), absent = exactly {83..124}, count 42 = 125-83. Conditional on the reading order. Source: CodeWarrior0 Analytical Overview (read firsthand 2026-06-29).",
+    "source": "https://docs.google.com/document/d/1QeagH8TklJsd8iribMtT5LIRL91laOUU_tFcVl7OOqA/edit",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — community-docs firsthand ingest (2026-06-29)"
+  },
+  {
+    "claim": "PER-MESSAGE INDEX OF COINCIDENCE (VERIFIED): on the accepted reading order the nine messages have IoC = 0.958, 1.043, 0.950, 0.918, 1.025, 0.990, 1.040, 0.872, 0.928, under the normalization IoC = 83 * sum_i n_i(n_i-1) / [L(L-1)] (L = message trigram length; 83 = reading-layer alphabet size, so uniform random ~= 1.0). All nine sit near 1.0 -> flat, near-uniform, consistent with the polyalphabetic/aperiodic characterization. The repo previously had only the pooled IoC.",
+    "confidence": "confirmed",
+    "evidence": "Recomputed against src/data/corpus.rs on accepted order standard36-u012-d012; matches CodeWarrior0's stated values at the given precision. (Normalizing by per-message DISTINCT instead gives 0.66-0.83 and does NOT match, confirming the multiplier is the fixed alphabet size 83.) Conditional on the community-inferred reading order. Source: CodeWarrior0 Analytical Overview (read firsthand 2026-06-29).",
+    "source": "https://docs.google.com/document/d/1QeagH8TklJsd8iribMtT5LIRL91laOUU_tFcVl7OOqA/edit",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — community-docs firsthand ingest (2026-06-29)"
+  },
+  {
+    "claim": "POSITIONAL KAPPA DECAYS WITH START OFFSET (VERIFIED): superimposing the 9 messages aligned at the start and counting column coincidences, the rate is full = 338/3887 (0.087), from column 25 = 76/2987 (0.025), from column 50 = 31/2087 (0.015). CodeWarrior0's reading: the cipher looks positional over the whole length but NOT positional past ~column 50, i.e. 'not strictly positional'. The doc's loose per-1000 figures (86/25/14) are roundings of these exact fractions.",
+    "confidence": "confirmed",
+    "evidence": "Recomputed the exact match/test counts against src/data/corpus.rs on accepted order: 338/3887, 76/2987, 31/2087 reproduce exactly. Conditional on the reading order. Source: CodeWarrior0 Analytical Overview (read firsthand 2026-06-29).",
+    "source": "https://docs.google.com/document/d/1QeagH8TklJsd8iribMtT5LIRL91laOUU_tFcVl7OOqA/edit",
+    "topic": "Noita Eye Messages (Eye Glyph Puzzle) — community-docs firsthand ingest (2026-06-29)"
   },
   {
     "claim": "Eyes are grouped into 'trigrams' by pairing offset rows and taking three eyes forming a triangle, read as a three-digit BASE-5 number 000-444 = decimal 0-124. This is the trigram base; it is NOT base-83.",
@@ -322,7 +364,7 @@
     "topic": "Noita Eye Messages / Eye Puzzle — encoding theories (deep-dive verification)"
   },
   {
-    "claim": "There is NO verified developer statement (Petri Purho / Olli Harjola / Arvi Teikari / Nolla) confirming the eyes encode a real decodable message. Developer DENIALS in the wiki concern the Orb-Room symbol, not the eyes.",
+    "claim": "There is NO verified developer statement confirming the eyes encode a real DECODABLE/SOLVABLE message (this narrow claim stands). NOTE 2026-06-29: Arvi DID state in 2021 that the eyes 'do contain a message' and 'have a meaning' (intent/meaning) -- see the verbatim Arvi entry -- but he asserted no method and called them ~'square root of minus 1' hard, so he did NOT confirm decodability/solvability. Separately, the Orb-Room denials concern that symbol, not the eyes.",
     "confidence": "confirmed",
     "evidence": "Wikipedia and wiki say only 'unsolved.' Mysteries_and_Oddities: Orb-Room symbol denied by 'both [artists Arvi and Antti] ... Additionally, Olli has denied putting it there'; Petri attribution is speculative ('likely ... means something to Petri'). No dev quote ties to the eyes. Search-summary claims that 'devs confirmed it's meaningful' are unsourced.",
     "source": "https://en.wikipedia.org/wiki/Noita_(video_game) ; https://noita.wiki.gg/wiki/Mysteries_and_Oddities",
@@ -784,16 +826,16 @@
     "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
   },
   {
-    "claim": "No Nolla Games developer (Petri Purho, Olli Harjola, Arvi Teikari, Antti Tiihonen) has ever made a public, eye-specific statement about the Eye Messages' meaning, cipher, intent, or solvability.",
-    "confidence": "likely",
-    "evidence": "Exhaustive searches across Wikipedia, both wikis, Steam, Reddit, YouTube, and the official Discord references surfaced no eye-specific dev quote. Wikipedia explicitly 'contains no statements from Nolla Games developers confirming whether the Eye Messages are technically solvable.' (Absence of evidence; the private Discord #silmä channels were not directly accessible.)",
+    "claim": "CORRECTED 2026-06-29 (was: 'No Nolla developer has ever made a public eye-specific statement about meaning/cipher/intent/solvability'). One eye-specific dev statement DOES exist: in a 2021 Twitch stream (video youtube.com/watch?v=ItzQh6K3hP8, transcribed verbatim by FuryForged) Arvi confirmed the eyes 'do contain a message... do have a meaning' (MEANING + INTENT), and rated difficulty ~'square root of minus 1'. NO dev has disclosed cipher/key/method or confirmed SOLVABILITY -- so the narrower claims that no dev confirmed the eyes are decodable-to-plaintext remain true; only the blanket 'no eye-specific comment at all' was wrong.",
+    "confidence": "confirmed",
+    "evidence": "The prior 'exhaustive searches surfaced no eye-specific dev quote' missed this: the FuryForged interview recording (youtube.com/watch?v=ItzQh6K3hP8) is the SAME video this repo previously catalogued under 'Roguelike Celebration / transcript not retrievable' (facts.json entry ~108) -- the eye quote was in it all along but un-fetchable by automated tools (the same browser-only pattern as the community Google Docs). Maintainer supplied both the video and FuryForged's verbatim Discord transcription (permalink https://discord.com/channels/453998283174576133/817530812454010910/899514286290898985, posted 2021-10-17 quoting the 2021-10-15 stream) and confirmed the two are the same quote. See the dedicated verbatim entry near facts.json's Arvi-acknowledgment fact.",
     "source": "https://en.wikipedia.org/wiki/Noita_(video_game)",
     "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
   },
   {
     "claim": "By contrast, the adjacent Cauldron Room secret DOES have a better-attributed dev remark: dev Arvi reportedly said in 2021 to not be too concerned about the cauldron for the time being.",
     "confidence": "likely",
-    "evidence": "Survey-cited via the Cauldron Room wiki page; framed as a 2021 Arvi quote. Provides a clear contrast to the eyes' total dev silence, but the exact wording/date still rests on community attribution rather than a primary screenshot located here.",
+    "evidence": "Survey-cited via the Cauldron Room wiki page; framed as a 2021 Arvi quote. (Note: the eyes are NOT in total dev silence either -- the same 2021 Arvi stream contains an eye-specific statement; see the verbatim Arvi entry.) The exact Cauldron wording/date still rests on community attribution rather than a primary screenshot located here.",
     "source": "https://noita.wiki.gg/wiki/Cauldron_Room",
     "topic": "Noita Eye Messages — developer/ARG context and the \"developers confirmed it is solvable\" claim (angle: dev-arg-context)"
   },

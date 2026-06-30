@@ -81,13 +81,13 @@
     "title": "CodeWarrior0 — Noita Eye Glyphs: Analytical Overview (Google Doc)",
     "url": "https://docs.google.com/document/d/1QeagH8TklJsd8iribMtT5LIRL91laOUU_tFcVl7OOqA/edit",
     "type": "document",
-    "notes": "Key cryptanalytic findings (via search extract): frequency flat & not monoalphabetic; ciphertext not periodic; same-position letters across messages likely enciphered by DIFFERENT alphabets; six segments of the first three messages are isomorphs. Does not render via automated fetch; needs browser."
+    "notes": "READ FIRSTHAND 2026-06-29 via /export?format=txt (the prior 'needs browser' note was wrong; the doc is link-shared and exports as text). A LANAKI/Friedman-structured cryptanalysis of the 83-symbol/1036-letter base-5 trigram corpus. Firsthand-confirmed-against-corpus contents: per-message IoC (0.958..0.928, normalized 83xrawIoC) and unique-letter counts (57,57,62,61,67,65,62,68,63); '42 blanks' = the absent base-5 values are exactly 83..124; full Kasiski repeat census (4 triple digraphs incl. 62-13 at distinct columns {4,35,66}, under an alignment-aware/distinct-column count, NOT raw); three Kappa tests with a Toboter periodic-homophonic positive control (positional 338/3887, 76/2987, 31/2087 at offsets 0/25/50). Plus the ciphertext-autokey base-letter/running-sum model with the M+N=E+I convergence constraint at the Funny-Looking Obstacle, the D-set 'disrupting numbers' imperfect-isomorph data, and the isomorph-via-constant-key-difference theory. Emits no decode ('To be continued'). All stats are on the canonical reordered 0-82 stream and inherit the reading-order caveat. Full ingest: research/findings/community-docs-firsthand-digest.md."
   },
   {
-    "title": "Toboter — Noita Eye Glyphs 'Progress' (Google Doc, dated 2024-01-25)",
+    "title": "Toboter — Noita Eye Glyphs 'Progress' (Google Doc, header dated 28.12.2025)",
     "url": "https://docs.google.com/document/d/1XMNXktCoSabnFWZf9rJFoaKMzsA1bbv7x1Xh9tXkKYk/edit",
     "type": "document",
-    "notes": "Discord-server collation. States cipher is polyalphabetic; each ciphertext char depends on something beyond a single plaintext char; sizable shared sections between messages; the ~86,000 reading-order test. Linked from both wikis. Browser-only."
+    "notes": "READ FIRSTHAND 2026-06-29 via /export?format=txt (was mis-tagged 'Browser-only'; live header date is 28.12.2025, NOT the previously-recorded 2024-01-25). The community's master Discord collation: polyalphabetic; ciphertext-char depends on more than one plaintext char; large shared sections; ~86,000 reading-order test; full GAK/6-group/S83 framework (all already in repo). Newly ingested: ~20 granular named micro-observations -- incl. the CRC-32('lumikki' = Finnish 'Snow White') = 0xacf68674 claim (VERIFIED this session: CRC-32/BZIP2('lumikki')=0x7486f6ac, byte-reversed = 0xacf68674 = the 2nd u32 of msg-0's first stored pair at generator.rs:34; math confirmed, intent unprovable), starting-trigrams >26, abab message-sums (4040/5656/4545), no-two-digit-prime-factor (0.4%), Naugam GCD (6.5%), Dr Cats inter-message relation, ruled-out modular forms (m=25/s=51; +f>=69, *f>=61; 'only missing gap = 1'), Lymm's pattern strings + spaces-omitted inference -- plus a long dead-end catalog. One contradiction RESOLVED via this doc: it surfaced a FuryForged-relayed Arvi quote that 'the eye decorations do contain a message'; the maintainer then supplied the primary video (youtube.com/watch?v=ItzQh6K3hP8) + verbatim Discord transcription, confirming a real 2021 dev statement that the eyes have a meaning and are ~'square root of minus 1' hard (meaning/intent, NOT solvability/method). The repo's blanket 'no developer has ever commented on the eyes' (01/02/03/facts.json) was corrected accordingly. Full ingest: research/findings/community-docs-firsthand-digest.md."
   },
   {
     "title": "Lymm — Eye Message Alignments and Gap Patterns (Google Doc)",
@@ -102,10 +102,28 @@
     "notes": "README (raw at /-/raw/main/README.md) confirms: Python script that, given a seed, returns that seed's eye-message coordinates. 'All credit goes to Lymm.' numpy dependency. Web port by Chillie at chillie-ilya.github.io/lymms-binoculars-web/."
   },
   {
-    "title": "The Emerald Tablet — organized community work (Google Sheet)",
+    "title": "The Emerald Tablet — Noita Documents Directory (Google Sheet, by .gonzo.)",
     "url": "https://docs.google.com/spreadsheets/d/1Aih_3v9BMbVI-MQQgWP51HTTplgRwXi2jRKYgyhPMao/edit",
     "type": "spreadsheet",
-    "notes": "Named on Fandom as the organized collection of prominent community work. Likely holds full per-message raw data. Renders 'Loading...' to fetchers; browser-only. (Distinct from the SirCapybar-linked 'Noita Eye Data' sheet 195Rtc8kj4b...)"
+    "notes": "READ FIRSTHAND 2026-06-29 via /export?format=csv. CORRECTION: it does NOT hold raw per-message data (prior 'likely holds full per-message raw data' was wrong). It is the community's master LINK DIRECTORY -- sectioned Name/Description/User/Date rows pointing to analysis docs, code/datasets/tools, hypotheses, Cauldron-Room work, the Cessation Cipher. Raw data lives in the docs it links (e.g. 'Raw Eye Messages Data' 2021-02-06; Nemare's decimal 'Eye Values'). Highest-value uncatalogued leads: independent C++ and JS ports of the datamined generation function (independent cross-check of the binary-RE step); RmVw 'Eyes - Vigenere Theory' (2021-03-14); 7Soldier per-message frequency analysis (2025-04-06, newest); CodeWarrior0 'Isomorphism in Classical Ciphers' (2022-03-31). Link targets are cell-hyperlinks absent from CSV export; resolve in-browser. (Distinct from the SirCapybar-linked 'Noita Eye Data' sheet 195Rtc8kj4b...)"
+  },
+  {
+    "title": "Lymm (attrib.) — 'Why 83?' (Google Doc)",
+    "url": "https://docs.google.com/document/d/1H3dpTLw8oE5TGQLsjQEk4O9tT8B106N93AH1e5-ag2c/edit",
+    "type": "document",
+    "notes": "READ FIRSTHAND 2026-06-29 via /export. Argues 83 is the largest PRIME modulus M<125 whose max value 82 writes as three base-5 digits that are distinct, nonzero, and not 4 -- the six qualifying permutations of {1,2,3} give moduli {39,43,59,67,83,87} -- which makes the eye-direction order AND trigram reading order recoverable WITHOUT datamining. IMPORTANT: this '6' is NOT the repo's transitivity six-groups (those are transitive permutation groups of degree 83; these are six moduli). VERIFIED against corpus: the leading-trigram-digit histogram {0:317,1:312,2:310,3:97,4:0} is exact, giving the structural decomposition 25+25+25+8 = 83 (digit 4 never leads; leading-3 spans only 75..82). Adds a ~1e-33 figure for the 83 present values being SPECIFICALLY the contiguous 0..82 block (beyond the known 5.836e-185). Direction NAMES (Center/Up/Right/Down/Left) stay model-conditional per repo glyph policy. Closes with speculative numerological 83-hints. Ingest: research/findings/community-docs-firsthand-digest.md."
+  },
+  {
+    "title": "'83 Occurrences' (Google Doc; maintainer-labeled 'Luc / 83 & 23')",
+    "url": "https://docs.google.com/document/d/1lrPlAJH8jCa1mSDV2uGUiMEFxt-81lrgC3U_IRX_G9c/edit",
+    "type": "document",
+    "notes": "READ FIRSTHAND 2026-06-29. A numerology catalog of where the number 83 appears in Noita: 83 distinct trigram values (the ONLY structural item, already in repo), 83 liquids, 83 gun names, 83% modifier-card chance, Kolmi health 1660=20*83, 83x26 blood pool, blood #830000, 83 'you'/83 sentences in wall messages, blurhash base-83, 83-char Erasure snippet, 83 material subcategories. Everything past line 1 is coincidence-hunting -> [speculation]. NOTE: contains no '23' and no author 'Luc' -- the maintainer's '83 & 23 connection found by Luc' label is a mismatch (its only 83-paired numbers are 26 and 20)."
+  },
+  {
+    "title": "defektu — 'Noita Community Tools / Decrypting Tools' (Google Doc, 2022-12-01)",
+    "url": "https://docs.google.com/document/d/1oSY46-WCmytHvI-BtD0X2UkGX6jg9DFJ9oeFGsMKd1g/edit",
+    "type": "document",
+    "notes": "READ FIRSTHAND 2026-06-29. A date-sorted directory of (a) generic decryption tools with explicit URLs (AZdecrypt, CryptoCrack, CyberChef, cryptii, quipqiup, dCode, Ciphey, CrypTool, Practical Cryptography) and (b) ~25 named community eye/cauldron tools by author handle (tomster12 Eye Web Analyzer; ZeroPoint LymmPatternScanner; Joanie NoitaEyeCipherTools; Phnx Lumikki Tool; Muddycat Eye Visualization; Fortunes NoitaEyePy; etc.). The eye-tool target URLs are hyperlinks not preserved in the text export; resolve in-browser. Tool list captured in research/findings/community-docs-firsthand-digest.md."
   },
   {
     "title": "Steam discussion: 'Eye Messages discovery(?)' — Perseus analysis",
@@ -315,7 +333,7 @@
     "title": "Cauldron Room — The Noita Wiki",
     "url": "https://noita.wiki.gg/wiki/Cauldron_Room",
     "type": "wiki",
-    "notes": "Source for the better-attributed 2021 'Arvi' remark to not be too concerned about the cauldron — the closest thing to a dev statement on Noita's grouped secrets, and a contrast to total dev silence on the eyes."
+    "notes": "Source for the better-attributed 2021 'Arvi' remark to not be too concerned about the cauldron. (The eyes are no longer in total dev silence either: the same 2021 Arvi stream contains an eye-specific confirmation that they 'contain a message' — see research/findings/community-docs-firsthand-digest.md.)"
   },
   {
     "title": "i solved the eyes :: Noita General Discussions — Steam",
