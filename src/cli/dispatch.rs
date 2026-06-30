@@ -18,9 +18,10 @@ use noita_eye_puzzle::{
 
 use super::args::{Cli, Command};
 use super::commands::{
-    run_chaining, run_chaining_graph, run_controls, run_demo, run_gak, run_grouping, run_groupscan,
-    run_isomorphimperf, run_isomorphnull, run_isoscan, run_keystream, run_leakceiling, run_orders,
-    run_perfectiso, run_pipelinenull, run_profile, run_ragbaby, run_solve, run_stats,
+    run_chaining, run_chaining_graph, run_controls, run_crcscan, run_demo, run_gak, run_grouping,
+    run_groupscan, run_isomorphimperf, run_isomorphnull, run_isoscan, run_keystream,
+    run_leakceiling, run_orders, run_perfectiso, run_pipelinenull, run_profile, run_ragbaby,
+    run_solve, run_stats,
 };
 
 /// Outcome of one experiment run, ready for the thin CLI to emit.
@@ -90,6 +91,7 @@ pub(crate) fn run() -> ExitCode {
         Command::Gak(args) => run_gak(&args),
         Command::Isoscan(args) => run_isoscan(&args),
         Command::Groupscan(args) => run_groupscan(&args),
+        Command::Crcscan(args) => run_crcscan(&args),
         Command::Chaining(args) => run_chaining(&args),
         Command::Isomorphnull(args) => run_isomorphnull(&args),
         Command::ChainingGraph(args) => run_chaining_graph(&args),

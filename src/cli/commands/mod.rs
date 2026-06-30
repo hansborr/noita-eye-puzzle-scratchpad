@@ -3,6 +3,7 @@
 //! pipelines). The uniform experiments are dispatched generically in
 //! [`super::dispatch`].
 
+mod crcscan;
 mod gak;
 mod groupscan;
 mod isoscan;
@@ -12,6 +13,7 @@ mod ragbaby;
 mod solve;
 mod structural;
 
+pub(crate) use crcscan::run_crcscan;
 pub(crate) use gak::run_gak;
 pub(crate) use groupscan::run_groupscan;
 pub(crate) use isoscan::run_isoscan;

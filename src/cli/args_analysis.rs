@@ -4,8 +4,8 @@
 use clap::{Args, Subcommand};
 use noita_eye_puzzle::{
     analysis::{
-        chaining, chaining_graph, group_order, honeycomb, isomorph_imperfection, leak_ceiling,
-        perfect_isomorphism,
+        chaining, chaining_graph, crc_scan, group_order, honeycomb, isomorph_imperfection,
+        leak_ceiling, perfect_isomorphism,
     },
     attack::cipher_attack,
     experiments::{
@@ -57,6 +57,32 @@ pub(crate) struct GroupscanArgs {
     pub(crate) seed: u64,
     /// Run the in-process controls (planted C3 x {D4,A4,S4} + eps-only matched
     /// null) and print PASS/FAIL instead of scanning input.
+    #[arg(long = "self-test")]
+    pub(crate) self_test: bool,
+}
+
+/// `crcscan`: file-driven stored-`u32` CRC/hash word scanner with calibrated
+/// false-alarm significance. Candidate hits are anchors to corroborate, never
+/// recovered plaintext.
+#[derive(Debug, Args)]
+pub(crate) struct CrcscanArgs {
+    /// Wordlist file, one word per line. Defaults to the bundled reproducible
+    /// calibration wordlist under research/data.
+    #[arg(long = "wordlist")]
+    pub(crate) wordlist: Option<std::path::PathBuf>,
+    /// Read stored targets from this file instead of the verified eye corpus.
+    #[arg(long = "input-file")]
+    pub(crate) input_file: Option<std::path::PathBuf>,
+    /// Read stored targets from stdin instead of the verified eye corpus.
+    #[arg(long = "stdin", conflicts_with = "input_file")]
+    pub(crate) stdin: bool,
+    /// Number of `SplitMix64` empirical-null trials.
+    #[arg(long = "null-trials", default_value_t = crc_scan::DEFAULT_NULL_TRIALS)]
+    pub(crate) null_trials: usize,
+    /// Deterministic seed (decimal or 0x-hex) for the empirical null.
+    #[arg(long, default_value_t = crc_scan::DEFAULT_SEED, value_parser = parse_seed)]
+    pub(crate) seed: u64,
+    /// Run the in-process lumikki positive control and null agreement check.
     #[arg(long = "self-test")]
     pub(crate) self_test: bool,
 }

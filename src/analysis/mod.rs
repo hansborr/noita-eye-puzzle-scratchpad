@@ -10,6 +10,8 @@
 //!   n-grams).
 //! - [`chaining`]: Experiment 7B alphabet-chaining structural signatures with
 //!   generated known-succeed and known-fail calibration controls.
+//! - [`crc_scan`]: file-driven stored-`u32` CRC/hash word scanner with analytic
+//!   and `SplitMix64` empirical false-alarm calibration.
 //! - [`chaining_graph`]: graph-chaining conflict and coverage audit over
 //!   aligned isomorph occurrences.
 //! - [`first_trigram`]: first-trigram "message start" tabulation in both the
@@ -45,6 +47,7 @@
 pub mod analysis;
 pub mod chaining;
 pub mod chaining_graph;
+pub mod crc_scan;
 pub mod first_trigram;
 pub mod group_order;
 pub mod grouping;
