@@ -63,6 +63,10 @@ Notes:
   exposes ~1/3 of the plaintext key-free) and the `isoscan` crib anchors — long
   exact translate-isomorphs in the difference channel (`two`: len 68; `one`: len
   36) that locate repeated plaintext spans (structural candidates, not decodes).
+  The `groupscan` instrument is the `D4`/`A4`/`S4` hidden-group element-order
+  discriminator (disjoint giveaway cycle types over the deck channel, null-gated);
+  real `two` is a robust `NoDeckSignal` (the crib anchors are eps-only/rotor-only
+  repeats at the deck level, which weakens the crib-recovery lead).
 
 ## Provenance
 External samples gathered by the maintainer (2026-06-25) to test the workbench's

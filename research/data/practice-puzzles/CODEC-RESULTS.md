@@ -135,6 +135,83 @@ locally; (2) a `D4`/`A4`/`S4` structure discriminator via isomorph chaining-grap
 element orders; (3) the quadgram-in-octal codec objective the gate blind-spot
 section recommends.
 
+## Hidden-group discriminator (`groupscan`)
+
+The `isoscan` honesty framing left the hidden group `H ⊆ S4` undetermined: the
+`mod 3` law and out-degree 8 are reproduced identically by `C3 × D4`, `C3 × A4`,
+and `C3 × S4`, so `S4` is only the maximal member. `groupscan` (lead #2 above) is
+the cheapest discriminator — an element-order scan over the deck channel that
+constrains *which* group `H` is, never recovered plaintext.
+
+### The idea: disjoint giveaway cycle types
+
+Read `two` as the `C3 × H` hidden-state group-autokey: the rotor `r = symbol % 3`
+is the transparent `C3` factor, and `H` acts on a 4-card deck with values
+`q = symbol // 3`. As subgroups of `S4` the three candidates have **disjoint
+giveaway cycle types**:
+
+| Group | Has 3-cycle? | Has 4-cycle? |
+| --- | --- | --- |
+| `D4` (order 8) | no | yes |
+| `A4` (order 12) | yes | no |
+| `S4` (order 24) | yes | yes |
+
+So a single observed 3-cycle **rules out `D4`**, and a single observed 4-cycle
+**rules out `A4`**. Element orders are read off the deck channel via the same
+repeated-plaintext anchors `isoscan` finds: at a difference-channel anchor the
+plaintext is (claimed) constant, so the induced top-card permutation's cycle type
+**is** the order of the corresponding group element. A clean 3-cycle or 4-cycle in
+the deck channel is therefore a structural giveaway for `H`.
+
+### Null gate
+
+The verdict is gated on a **matched null**: the deck channel is decoupled from the
+rotor under an order-1 Markov law and significance is required at `p < 0.05` using
+an add-one Monte-Carlo estimator. An apparent cycle that the deck-decoupled null
+reproduces as easily as the real channel is not a giveaway — it is the period-2
+codec artifact leaking into the deck readout, the same trap the `isoscan` 4-class
+caveat warns about.
+
+### Real-`two` result (NoDeckSignal, robust)
+
+- 698 symbols over a 12-symbol alphabet; channels: rotor `mod 3` (transparent) +
+  deck channel of 4 card values.
+- 16 difference-channel anchors (len ≥ 8) examined; **0** consistent
+  deck-channel contexts; observed deck-channel cycle lengths `[]`.
+- matched null (deck channel decoupled, order-1 Markov, 200 trials): mean
+  consistent 0.07, ceiling 1, **p-value 1.0000**.
+- **VERDICT: `NoDeckSignal`** — no *significant* deck-channel signal versus the
+  deck-decoupled null.
+- Longest clean deck-channel prefix across anchors: **13** (anchor len 37 at
+  108/572). The corrected all-offset scan raised the longest clean prefix from 7
+  (old bounded scan) to 13 but still recovered **no determined permutation**, so
+  the negative is **robust, not a prior false negative**.
+
+### Honest interpretation (binding)
+
+Under the top-card readout the `isoscan` crib anchors are **eps-only (rotor-only)
+repeats at the deck level**: the rotor / high-bit plaintext repeats where the
+deck / low-2-bit plaintext does not. So the length-68 crib span (anchor 231/351)
+is a **constant-`eps` span, not a constant-full-plaintext span** at the deck
+level — which **weakens the crib-recovery lead** (lead #1 above): a deck-key
+recovery seeded by it stands on little, because the plaintext it would treat as
+constant is constant only in the transparent rotor bit. A `groupscan` verdict is a
+**structural discriminator over the hidden group `H`, never recovered plaintext.**
+
+### The instrument
+
+`groupscan` (`src/analysis/group_order` + the `groupscan` subcommand) is
+file-driven and self-validating: planted `D4`/`A4`/`S4` controls plus an eps-only
+matched-null rejection (`groupscan --self-test`).
+
+```sh
+# two — the deck channel under the C3 × H reading
+cargo run -q -- groupscan --input-file research/data/practice-puzzles/two \
+  --alphabet ABCDEFGHIJKL
+# planted D4/A4/S4 controls + eps-only matched-null rejection
+cargo run -q -- groupscan --self-test
+```
+
 ## What was built: the `Project` codec
 
 `AnyCodec::Project { input_base, output_base, op: Modulo | Div{divisor}, then }` —
