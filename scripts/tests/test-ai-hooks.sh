@@ -27,6 +27,25 @@ pass() {
 
 command -v jq >/dev/null 2>&1 || fail "jq is required for ai hook tests"
 
+assert_codex_hooks_enabled() {
+    local name="$1"
+    local config="$repo_root/.codex/config.toml"
+
+    [ -f "$config" ] || fail "$name" "missing $config"
+    awk '
+        /^[[:space:]]*(#|$)/ { next }
+        /^\[/ {
+            in_features = ($0 ~ /^[[:space:]]*\[features\][[:space:]]*(#.*)?$/)
+            next
+        }
+        in_features && $0 ~ /^[[:space:]]*hooks[[:space:]]*=[[:space:]]*true[[:space:]]*(#.*)?$/ {
+            found = 1
+        }
+        END { exit found ? 0 : 1 }
+    ' "$config" || fail "$name" "$config must enable [features] hooks = true"
+    pass "$name"
+}
+
 run_hook() {
     local hook="$1"
     local payload="$2"
@@ -260,6 +279,8 @@ expect_stop_silent() {
     assert_empty_output "$name"
     pass "$name"
 }
+
+assert_codex_hooks_enabled "Codex hooks feature is enabled"
 
 expect_commit_block "blocks git commit --no-verify" "git commit --no-verify"
 expect_commit_block "blocks git commit flag after message" "git commit -m x --no-verify"
