@@ -116,6 +116,8 @@ run_cargo_hook() {
             | env \
                 AI_HOOK_REPO_ROOT="$cargo_repo" \
                 AI_CARGO_QUIET_STATE_DIR="$state_dir" \
+                AI_CARGO_QUIET_OFF_MARKER="$tmp_root/noita-quiet-off-disabled" \
+                NOITA_QUIET_OFF= \
                 PATH="$fake_bin:$PATH" \
                 STUB_CARGO_LOG="$cargo_log" \
                 STUB_TIMEOUT_LOG="$timeout_log" \
@@ -234,6 +236,10 @@ run_cargo_hook "$(command_payload "cargo test")" NOITA_QUIET_OFF=1
 assert_continue "cargo quiet off switch continues unchanged"
 assert_cargo_invocations "off switch does not run cargo" 0
 
+run_cargo_hook "$(command_payload "cargo test")" NOITA_QUIET_OFF=true
+assert_continue "cargo quiet off switch accepts true"
+assert_cargo_invocations "truthy off switch does not run cargo" 0
+
 run_cargo_hook "$(command_payload "NOITA_QUIET_OFF=1 cargo check")"
 assert_continue "inline quiet off assignment continues unchanged"
 assert_cargo_invocations "inline assignment does not run cargo" 0
@@ -273,6 +279,15 @@ assert_contains "cargo check cached replay summary" "$REPLAY_OUTPUT" "cargo chec
 assert_cargo_invocations "cargo check cached path does not rerun cargo" 1
 pass "cargo check cached success replay summary"
 
+run_cargo_hook "$(command_payload "cargo check")" RUSTFLAGS="-D warnings" STUB_CARGO_STATUS=0 STUB_CARGO_LINES=2
+assert_rewrite "RUSTFLAGS change busts cargo check cache"
+run_rewritten "$(rewritten_command)"
+[ "$REPLAY_STATUS" -eq 0 ] || fail "RUSTFLAGS cache-bust replay exits zero" "$REPLAY_OUTPUT"
+assert_contains "RUSTFLAGS cache-bust replay summary" "$REPLAY_OUTPUT" "cargo check OK ("
+assert_not_contains "RUSTFLAGS cache-bust is not cached" "$REPLAY_OUTPUT" "cached"
+assert_cargo_invocations "RUSTFLAGS cache-bust reruns cargo" 2
+pass "RUSTFLAGS change busts cache"
+
 mkdir -p "$cargo_repo/tests/golden"
 printf 'first\n' > "$cargo_repo/tests/golden/x.stdout"
 run_cargo_hook "$(command_payload "cargo check")" STUB_CARGO_STATUS=0 STUB_CARGO_LINES=2
@@ -281,7 +296,7 @@ run_rewritten "$(rewritten_command)"
 [ "$REPLAY_STATUS" -eq 0 ] || fail "untracked non-source replay exits zero" "$REPLAY_OUTPUT"
 assert_contains "untracked non-source replay summary" "$REPLAY_OUTPUT" "cargo check OK ("
 assert_not_contains "untracked non-source replay is not cached" "$REPLAY_OUTPUT" "cached"
-assert_cargo_invocations "untracked non-source file reruns cargo" 2
+assert_cargo_invocations "untracked non-source file reruns cargo" 3
 pass "untracked non-source file busts cache"
 
 printf 'second\n' > "$cargo_repo/tests/golden/x.stdout"
@@ -291,7 +306,7 @@ run_rewritten "$(rewritten_command)"
 [ "$REPLAY_STATUS" -eq 0 ] || fail "untracked non-source modification exits zero" "$REPLAY_OUTPUT"
 assert_contains "untracked non-source modification summary" "$REPLAY_OUTPUT" "cargo check OK ("
 assert_not_contains "untracked non-source modification is not cached" "$REPLAY_OUTPUT" "cached"
-assert_cargo_invocations "untracked non-source modification reruns cargo" 3
+assert_cargo_invocations "untracked non-source modification reruns cargo" 4
 pass "untracked non-source modification busts cache"
 
 : > "$timeout_log"
@@ -301,7 +316,7 @@ assert_contains "caller timeout clamps cargo pre-run" "$(tail -n 1 "$timeout_log
 run_rewritten "$(rewritten_command)"
 [ "$REPLAY_STATUS" -eq 0 ] || fail "caller timeout replay exits zero" "$REPLAY_OUTPUT"
 assert_contains "caller timeout replay summary" "$REPLAY_OUTPUT" "cargo clippy OK ("
-assert_cargo_invocations "caller timeout cargo clippy ran" 4
+assert_cargo_invocations "caller timeout cargo clippy ran" 5
 pass "caller timeout clamps cargo pre-run"
 
 run_cargo_hook "$(command_payload "cargo test")" STUB_CARGO_STATUS=0 STUB_CARGO_METACHARS=1
@@ -310,7 +325,7 @@ run_rewritten "$(rewritten_command)"
 [ "$REPLAY_STATUS" -eq 0 ] || fail "cargo metachar success replay exits zero" "$REPLAY_OUTPUT"
 assert_no_sentinels "cargo metachar success replay is injection-safe"
 assert_contains "cargo metachar success replay summary" "$REPLAY_OUTPUT" "cargo test OK ("
-assert_cargo_invocations "cargo metachar success ran" 5
+assert_cargo_invocations "cargo metachar success ran" 6
 pass "cargo metachar success replay is injection-safe"
 
 run_cargo_hook "$(command_payload "cargo fmt --check")" STUB_CARGO_STATUS=13 STUB_CARGO_METACHARS=1
@@ -322,16 +337,16 @@ assert_contains "cargo metachar failure prints dollar paren verbatim" "$REPLAY_O
 assert_contains "cargo metachar failure prints backticks verbatim" "$REPLAY_OUTPUT" "\`touch SENTINEL_B\`"
 assert_contains "cargo metachar failure prints semicolon verbatim" "$REPLAY_OUTPUT" '; touch SENTINEL_C'
 assert_contains "cargo metachar failure prints quote verbatim" "$REPLAY_OUTPUT" 'stray " quote'
-assert_cargo_invocations "cargo metachar failure ran" 6
+assert_cargo_invocations "cargo metachar failure ran" 7
 pass "cargo metachar failure replay is injection-safe"
 
 run_cargo_hook "$(command_payload "cargo clippy --locked")" AI_HOOK_PROTOCOL=codex STUB_CARGO_STATUS=0 STUB_CARGO_LINES=1
 assert_codex_block_contains "Codex cargo success blocks original command with summary" "cargo clippy OK ("
-assert_cargo_invocations "Codex cargo success ran" 7
+assert_cargo_invocations "Codex cargo success ran" 8
 
 run_cargo_hook "$(command_payload "cargo check --locked")" AI_HOOK_PROTOCOL=codex STUB_CARGO_STATUS=23 STUB_CARGO_LINES=2
 assert_codex_block_contains "Codex cargo failure blocks original command with tail" "cargo check failed (exit 23"
-assert_cargo_invocations "Codex cargo failure ran" 8
+assert_cargo_invocations "Codex cargo failure ran" 9
 
 run_cargo_hook "$(command_payload "cargo build")" STUB_CARGO_STATUS=7 STUB_CARGO_LINES=50
 assert_rewrite "cargo build failure rewrites command"

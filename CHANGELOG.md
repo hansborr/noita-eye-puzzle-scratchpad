@@ -36,6 +36,17 @@ Entries are grouped by date, newest first, loosely following
 - **Pre-commit inspection modes cannot bypass real commits.**
   `PRECOMMIT_PLAN_ONLY=1` and `PRECOMMIT_GUARDS_ONLY=1` now abort when invoked
   by `git commit`; they remain direct hook inspection shortcuts.
+- **Agent hook hardening.** The commit-bypass guard now recognizes `git` behind
+  `command`, path-qualified `*/git`, and `env` prefixes with flags, including
+  the Codex hook path.
+- **Cargo quiet cache correctness.** `NOITA_QUIET_OFF` uses the same truthy
+  values in hook and inline forms, and cached cargo successes now fingerprint
+  rustc/toolchain plus Cargo/Rust environment inputs.
+- **Guardrail scan coverage.** Safety-suppression inventory now scans all
+  tracked Rust files, and file-size ratcheting measures indexed blobs to align
+  with staged blob checks.
+- **Edit hook coverage.** Claude edit hook matchers include `MultiEdit`, quoted
+  project paths, and the cargo quiet smoke suite ignores ambient opt-outs.
 
 ## 2026-06-26 — GAK attack threads
 

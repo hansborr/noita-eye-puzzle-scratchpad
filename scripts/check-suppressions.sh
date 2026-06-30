@@ -133,7 +133,7 @@ collect_inventory() {
 
     while IFS= read -r -d '' path; do
         src_files+=("$path")
-    done < <(git ls-files -z -- 'src/*.rs')
+    done < <(git ls-files -z -- '*.rs')
 
     if (( ${#src_files[@]} == 0 )); then
         return 0

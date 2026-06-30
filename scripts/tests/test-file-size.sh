@@ -151,6 +151,15 @@ expect_failure_contains \
     "$unpinned_repo" \
     "cap 600"
 
+indexed_repo="$(new_repo index-lines)"
+write_lines "$indexed_repo/src/lib.rs" 600
+git_hermetic "$indexed_repo" add src/lib.rs
+write_lines "$indexed_repo/src/lib.rs" 601
+expect_success_contains \
+    "file-size measures indexed Rust file" \
+    "$indexed_repo" \
+    "file-size: OK"
+
 stale_repo="$(new_repo stale-pin)"
 printf 'src/missing.rs 650 # stale fixture pin\n' > \
     "$stale_repo/scripts/file-size-allowlist.txt"

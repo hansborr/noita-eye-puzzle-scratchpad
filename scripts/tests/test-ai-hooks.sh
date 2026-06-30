@@ -278,6 +278,13 @@ expect_commit_block "blocks hooksPath config bypass" "git -c core.hooksPath=/dev
 expect_commit_block "blocks hooksPath long config bypass" "git --config core.hooksPath=/dev/null commit -m x"
 expect_commit_block "blocks hooksPath config-env bypass" "git --config-env=core.hooksPath=NO_HOOKS commit -m x"
 expect_commit_block "blocks hooksPath config-env space bypass" "git --config-env core.hooksPath=NO_HOOKS commit -m x"
+expect_commit_block "blocks command-prefixed git bypass" "command git commit --no-verify"
+expect_commit_block "blocks command -p git bypass" "command -p git commit --no-verify"
+expect_commit_block "blocks absolute git path bypass" "/usr/bin/git commit --no-verify"
+expect_commit_block "blocks relative git path bypass" "./tools/git commit --no-verify"
+expect_commit_block "blocks env ignore-environment git bypass" "env -i git commit --no-verify"
+expect_commit_block "blocks env unset absolute git bypass" "env --unset GIT_CONFIG /usr/bin/git commit -n"
+expect_commit_block "blocks env assignment after flag git bypass" "env -i HUSKY=0 git commit --amend"
 
 expect_commit_allow "allows attached commit message" "git commit -mnew"
 expect_commit_allow "allows attached n commit message" "git commit -mn"
@@ -297,8 +304,11 @@ expect_commit_allow "allows normal unquoted commit message" "git commit -m msg"
 expect_commit_allow "allows git status" "git status"
 expect_commit_allow "allows git log" "git log"
 expect_commit_allow "allows non-git command" 'printf "%s\n" "git commit --no-verify"'
+expect_commit_allow "allows command builtin lookup" "command -v git commit --no-verify"
+expect_commit_allow "allows env-prefixed git status" "env -i git status"
 
 expect_codex_commit_block "Codex pre-hook blocks git commit --no-verify" "git commit --no-verify"
+expect_codex_commit_block "Codex pre-hook blocks command path git bypass" "command /usr/bin/git commit --no-verify"
 expect_codex_command_allow "Codex pre-hook allows normal Bash command" "git status"
 
 expect_file_context "advises on Cargo.toml" "Cargo.toml" "dependency surface" "cargo-file"

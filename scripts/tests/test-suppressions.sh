@@ -101,6 +101,23 @@ expect_failure_contains \
     "$unregistered_repo" \
     "unregistered safety suppression"
 
+test_rs_repo="$(new_repo test-rust-file)"
+mkdir -p "$test_rs_repo/tests"
+cat > "$test_rs_repo/src/lib.rs" <<'RS'
+pub fn demo() {}
+RS
+cat > "$test_rs_repo/tests/allow_integration.rs" <<'RS'
+#![allow(clippy::unwrap_used, reason = "positive control")]
+#[test]
+fn demo() {}
+RS
+stage_src "$test_rs_repo"
+git_hermetic "$test_rs_repo" add tests/allow_integration.rs
+expect_failure_contains \
+    "unregistered safety allow in tests fails" \
+    "$test_rs_repo" \
+    "tests/allow_integration.rs"
+
 cfg_attr_repo="$(new_repo cfg-attr)"
 cat > "$cfg_attr_repo/src/lib.rs" <<'RS'
 #[cfg_attr(not(test), allow(clippy::indexing_slicing, reason = "positive control"))]

@@ -51,6 +51,15 @@ trim() {
     rtrim "$value"
 }
 
+indexed_line_count() {
+    local path="$1"
+    local lines
+
+    lines="$(git cat-file blob ":$path" | wc -l)"
+    lines="${lines//[[:space:]]/}"
+    printf '%s\n' "$lines"
+}
+
 validate_debt_log() {
     if [[ ! -s "$debt_log" ]]; then
         return 0
@@ -274,8 +283,7 @@ violations=0
 stale=0
 
 while IFS= read -r -d '' f; do
-    lines="$(wc -l < "$f")"
-    lines="${lines//[[:space:]]/}"
+    lines="$(indexed_line_count "$f")"
     if [[ -n "${cap[$f]+x}" ]]; then
         pin_seen["$f"]=1
         actual_lines["$f"]="$lines"

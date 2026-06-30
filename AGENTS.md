@@ -101,12 +101,15 @@ trusted_hash = "sha256:<codex-reported hash>"
   allowing normal commits.
 - `cargo-run-quiet` (PreToolUse Bash) summarizes and caches whitelisted
   `cargo test`/`clippy`/`build`/`check` and `cargo fmt --check` output. Opt out
-  with `NOITA_QUIET_OFF=1` (including an inline prefix) or `.noita-quiet-off`.
-- `protected-files-advisory` (Claude PreToolUse Edit|Write, Codex PreToolUse
-  apply_patch) gives throttled heads-up notes when editing guardrails, Cargo
-  policy/dependency files, the verified corpus, or embedded research fixtures.
-- `tidy-on-edit` (Claude PostToolUse Edit|Write, Codex PostToolUse apply_patch)
-  runs `rustfmt` on edited in-repo `.rs` files; failures are advisory.
+  with truthy `NOITA_QUIET_OFF` values (`1`, `true`, `yes`, `on`, including an
+  inline prefix) or `.noita-quiet-off`.
+- `protected-files-advisory` (Claude PreToolUse Edit|Write|MultiEdit, Codex
+  PreToolUse apply_patch) gives throttled heads-up notes when editing
+  guardrails, Cargo policy/dependency files, the verified corpus, or embedded
+  research fixtures.
+- `tidy-on-edit` (Claude PostToolUse Edit|Write|MultiEdit, Codex PostToolUse
+  apply_patch) runs `rustfmt` on edited in-repo `.rs` files; failures are
+  advisory.
 - `stop-nudge` (Stop, non-blocking) reminds about uncommitted work. Disable it
   with `.no-stop-uncommitted`.
 
@@ -125,7 +128,7 @@ trusted_hash = "sha256:<codex-reported hash>"
 | Concern            | Mechanism                                             |
 | ------------------ | ----------------------------------------------------- |
 | Lints / format     | `Cargo.toml [lints]`, `clippy.toml`, `rustfmt.toml`   |
-| File size / god-files | `scripts/check-file-size.sh` + `scripts/file-size-allowlist.txt` (ratchet) |
+| File size / god-files | `scripts/check-file-size.sh` + `scripts/file-size-allowlist.txt` (indexed ratchet) |
 | File-size debt log | `scripts/file-size-debt-log.jsonl` (`scripts/check-file-size.sh --summary`) |
 | Large staged blobs | `scripts/check-blob-size.sh` + `scripts/blob-size-allowlist.txt` |
 | Safety-lint suppressions | `scripts/check-suppressions.sh` + `scripts/suppression-register.txt` |

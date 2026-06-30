@@ -9,12 +9,12 @@
 # calls, and any command containing a `--` program-argument separator are left
 # unchanged.
 #
-# Disable with NOITA_QUIET_OFF=1 in the hook environment, as an inline command
-# prefix (`NOITA_QUIET_OFF=1 cargo check` or `env NOITA_QUIET_OFF=1 cargo
-# test`), or by creating .noita-quiet-off at the repo root. The hook is
-# fail-open: malformed payloads, missing helper tools, parser uncertainty, or
-# cache/fingerprint errors all emit continue so the original command runs
-# unchanged.
+# Disable with truthy NOITA_QUIET_OFF values (1, true, yes, on) in the hook
+# environment, as an inline command prefix (`NOITA_QUIET_OFF=1 cargo check` or
+# `env NOITA_QUIET_OFF=true cargo test`), or by creating .noita-quiet-off at the
+# repo root. The hook is fail-open: malformed payloads, missing helper tools,
+# parser uncertainty, or cache/fingerprint errors all emit continue so the
+# original command runs unchanged.
 
 set -u -o pipefail
 
@@ -33,15 +33,6 @@ AI_CARGO_ACTIVE_LABEL=""
 AI_CARGO_ACTIVE_LOG=""
 AI_CARGO_ACTIVE_START=0
 
-# Successes are the only cached/replayed results; failures always re-run. The
-# fingerprint is worktree-scoped, so within the TTL a real pass can still replay
-# as cached OK if only non-worktree inputs changed, such as flaky/time/network
-# behavior, RUSTFLAGS or feature env, or the active toolchain.
-
-ai_cargo_quiet_off() {
-    [ "${NOITA_QUIET_OFF:-0}" = "1" ] || [ -f "$AI_CARGO_QUIET_OFF_MARKER" ]
-}
-
 ai_cargo_positive_integer_or_default() {
     local value="$1"
     local default="$2"
@@ -51,6 +42,21 @@ ai_cargo_positive_integer_or_default() {
     else
         printf '%s\n' "$default"
     fi
+}
+
+ai_cargo_is_truthy() {
+    case "${1,,}" in
+        1 | true | yes | on)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+ai_cargo_quiet_off() {
+    ai_cargo_is_truthy "${NOITA_QUIET_OFF:-0}" || [ -f "$AI_CARGO_QUIET_OFF_MARKER" ]
 }
 
 ai_cargo_nonnegative_integer_or_default() {
@@ -132,17 +138,6 @@ ai_cargo_tokenize_command() {
 
 ai_cargo_is_env_assignment() {
     [[ "${1:-}" =~ ^[A-Za-z_][A-Za-z0-9_]*=.*$ ]]
-}
-
-ai_cargo_is_truthy() {
-    case "${1,,}" in
-        1 | true | yes | on)
-            return 0
-            ;;
-        *)
-            return 1
-            ;;
-    esac
 }
 
 ai_cargo_inline_quiet_off() {
@@ -263,6 +258,15 @@ ai_cargo_untracked_file_hashes() {
 
 ai_cargo_worktree_fingerprint() {
     {
+        printf 'RUSTC_VERSION\n'
+        rustc -vV 2>/dev/null || printf 'rustc unavailable\n'
+        printf '\nRELEVANT_ENV\n'
+        env | LC_ALL=C sort | awk -F= '
+            /^(RUSTFLAGS|RUSTDOCFLAGS|RUSTC|RUSTUP_TOOLCHAIN|CARGO|CARGO_[A-Za-z0-9_]*|CARGO_TARGET_[A-Za-z0-9_]*|CARGO_BUILD_[A-Za-z0-9_]*|CARGO_PROFILE_[A-Za-z0-9_]*|CARGO_INCREMENTAL)=/ {
+                print
+            }
+        '
+        printf '\nWORKTREE\n'
         printf 'HEAD\n'
         git -C "$REPO_ROOT" rev-parse --verify HEAD 2>/dev/null || printf 'NO_HEAD\n'
         printf '\nINDEX_DIFF\n'
@@ -505,7 +509,7 @@ main() {
         if [ "$age" -ge 0 ] \
             && [ "$age" -lt "$ttl" ] \
             && [ "$AI_CARGO_MARKER_FP" = "$fingerprint" ]; then
-            message="$label OK (cached; previous ${AI_CARGO_MARKER_ELAPSED}s, ${age}s ago, unchanged worktree)"
+            message="$label OK (cached; previous ${AI_CARGO_MARKER_ELAPSED}s, ${age}s ago, unchanged worktree/env)"
             ai_cargo_emit_result_command "$message" 0
         fi
     fi

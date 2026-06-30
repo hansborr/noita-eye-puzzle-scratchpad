@@ -68,32 +68,32 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/commit-bypass-guard.sh"
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/commit-bypass-guard.sh\""
           },
           {
             "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/cargo-run-quiet.sh",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/cargo-run-quiet.sh\"",
             "timeout": 1260
           }
         ]
       },
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/protected-files-advisory.sh"
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/protected-files-advisory.sh\""
           }
         ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/tidy-on-edit.sh"
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/tidy-on-edit.sh\""
           }
         ]
       }
@@ -103,7 +103,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/stop-nudge.sh",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/stop-nudge.sh\"",
             "timeout": 30
           }
         ]

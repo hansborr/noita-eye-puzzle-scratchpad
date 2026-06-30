@@ -86,6 +86,127 @@ ai_is_env_assignment() {
     [[ "${1:-}" =~ ^[A-Za-z_][A-Za-z0-9_]*=.*$ ]]
 }
 
+ai_is_git_command_token() {
+    case "${1:-}" in
+        git | */git)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+ai_skip_env_prefix() {
+    local tokens_name="$1"
+    local -n env_tokens="$tokens_name"
+    local idx="$2"
+    local len="${#env_tokens[@]}"
+    local token
+
+    [ "$idx" -lt "$len" ] && [ "${env_tokens[$idx]}" = "env" ] || return 1
+    idx=$((idx + 1))
+
+    while [ "$idx" -lt "$len" ]; do
+        token="${env_tokens[$idx]}"
+        ai_is_command_separator "$token" && return 2
+        case "$token" in
+            --)
+                idx=$((idx + 1))
+                break
+                ;;
+            -i | --ignore-environment | --null)
+                idx=$((idx + 1))
+                ;;
+            -u | --unset | -C | --chdir)
+                idx=$((idx + 1))
+                [ "$idx" -lt "$len" ] || return 2
+                ai_is_command_separator "${env_tokens[$idx]}" && return 2
+                idx=$((idx + 1))
+                ;;
+            --unset=* | --chdir=*)
+                idx=$((idx + 1))
+                ;;
+            -*)
+                return 2
+                ;;
+            *)
+                if ai_is_env_assignment "$token"; then
+                    idx=$((idx + 1))
+                    continue
+                fi
+                break
+                ;;
+        esac
+    done
+
+    printf '%s\n' "$idx"
+}
+
+ai_skip_command_builtin_prefix() {
+    local tokens_name="$1"
+    local -n command_tokens="$tokens_name"
+    local idx="$2"
+    local len="${#command_tokens[@]}"
+    local token
+
+    [ "$idx" -lt "$len" ] && [ "${command_tokens[$idx]}" = "command" ] || return 1
+    idx=$((idx + 1))
+
+    while [ "$idx" -lt "$len" ]; do
+        token="${command_tokens[$idx]}"
+        ai_is_command_separator "$token" && return 2
+        case "$token" in
+            --)
+                idx=$((idx + 1))
+                break
+                ;;
+            -p)
+                idx=$((idx + 1))
+                ;;
+            -*)
+                return 2
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+
+    printf '%s\n' "$idx"
+}
+
+ai_command_start_index() {
+    local tokens_name="$1"
+    local -n command_start_tokens="$tokens_name"
+    local idx="$2"
+    local len="${#command_start_tokens[@]}"
+    local next_idx
+
+    while [ "$idx" -lt "$len" ]; do
+        while [ "$idx" -lt "$len" ] && ai_is_env_assignment "${command_start_tokens[$idx]}"; do
+            idx=$((idx + 1))
+        done
+        [ "$idx" -lt "$len" ] || break
+
+        case "${command_start_tokens[$idx]}" in
+            env)
+                next_idx=$(ai_skip_env_prefix "$tokens_name" "$idx") || return "$?"
+                idx="$next_idx"
+                ;;
+            command)
+                next_idx=$(ai_skip_command_builtin_prefix "$tokens_name" "$idx") || return "$?"
+                idx="$next_idx"
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+
+    printf '%s\n' "$idx"
+}
+
 ai_is_git_hooks_path_config() {
     local config="${1:-}"
     local key="${config%%=*}"
@@ -210,15 +331,9 @@ ai_tokens_segment_has_commit_bypass() {
     len="${#segment_tokens[@]}"
     [ "$idx" -lt "$len" ] || return 1
 
-    if [ "${segment_tokens[$idx]}" = "env" ]; then
-        idx=$((idx + 1))
-    fi
+    idx=$(ai_command_start_index "$tokens_name" "$idx") || return "$?"
 
-    while [ "$idx" -lt "$len" ] && ai_is_env_assignment "${segment_tokens[$idx]}"; do
-        idx=$((idx + 1))
-    done
-
-    [ "$idx" -lt "$len" ] && [ "${segment_tokens[$idx]}" = "git" ] || return 1
+    [ "$idx" -lt "$len" ] && ai_is_git_command_token "${segment_tokens[$idx]}" || return 1
     idx=$((idx + 1))
 
     while [ "$idx" -lt "$len" ]; do
