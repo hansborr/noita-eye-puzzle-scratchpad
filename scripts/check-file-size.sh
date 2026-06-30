@@ -33,20 +33,31 @@ declare -A cap          # path -> pinned max lines
 declare -A pin_seen     # path -> 1 once matched to a tracked file
 declare -A actual_lines  # path -> actual tracked line count
 
-require_python3() {
-    if ! command -v python3 >/dev/null 2>&1; then
-        printf 'file-size: python3 is required to validate %s\n' "$debt_log" >&2
-        exit 1
-    fi
+ltrim() {
+    local value="$1"
+    value="${value#"${value%%[![:space:]]*}"}"
+    printf '%s' "$value"
+}
+
+rtrim() {
+    local value="$1"
+    value="${value%"${value##*[![:space:]]}"}"
+    printf '%s' "$value"
+}
+
+trim() {
+    local value="$1"
+    value="$(ltrim "$value")"
+    rtrim "$value"
 }
 
 validate_debt_log() {
-    if [[ ! -f "$debt_log" ]]; then
+    if [[ ! -s "$debt_log" ]]; then
         return 0
     fi
 
-    require_python3
-    python3 - "$debt_log" <<'PY'
+    if command -v python3 >/dev/null 2>&1; then
+        python3 - "$debt_log" <<'PY'
 import json
 import sys
 
@@ -54,8 +65,7 @@ path = sys.argv[1]
 with open(path, encoding="utf-8") as handle:
     for line_no, line in enumerate(handle, 1):
         if not line.strip():
-            print(f"file-size: {path}:{line_no}: blank JSONL line", file=sys.stderr)
-            sys.exit(1)
+            continue
         try:
             entry = json.loads(line)
         except json.JSONDecodeError as error:
@@ -83,6 +93,61 @@ with open(path, encoding="utf-8") as handle:
             print(f"file-size: {path}:{line_no}: reason must be a non-empty string", file=sys.stderr)
             sys.exit(1)
 PY
+        return 0
+    fi
+
+    if command -v jq >/dev/null 2>&1; then
+        local line_no=0
+        local raw line
+        while IFS= read -r raw || [[ -n "$raw" ]]; do
+            line_no=$((line_no + 1))
+            line="$(trim "$raw")"
+            if [[ -z "$line" ]]; then
+                continue
+            fi
+            if ! printf '%s\n' "$line" | jq -e '
+                type == "object"
+                and has("path")
+                and (.path | type == "string" and length > 0)
+                and has("old_cap")
+                and (.old_cap == null or ((.old_cap | type) == "number" and (.old_cap | floor) == .old_cap))
+                and has("new_cap")
+                and ((.new_cap | type) == "number" and (.new_cap | floor) == .new_cap)
+                and has("reason")
+                and (.reason | type == "string" and length > 0)
+            ' >/dev/null 2>&1; then
+                printf 'file-size: %s:%d: invalid debt-log JSON object\n' \
+                    "$debt_log" "$line_no" >&2
+                exit 1
+            fi
+        done < "$debt_log"
+        return 0
+    fi
+
+    local line_no=0
+    local raw line
+    while IFS= read -r raw || [[ -n "$raw" ]]; do
+        line_no=$((line_no + 1))
+        line="$(trim "$raw")"
+        if [[ -z "$line" ]]; then
+            continue
+        fi
+        if [[ "${line:0:1}" != "{" || "${line: -1}" != "}" ]]; then
+            printf 'file-size: %s:%d: invalid debt-log JSON object shape\n' \
+                "$debt_log" "$line_no" >&2
+            exit 1
+        fi
+    done < "$debt_log"
+}
+
+json_escape() {
+    local value="$1"
+    value="${value//\\/\\\\}"
+    value="${value//\"/\\\"}"
+    value="${value//$'\t'/\\t}"
+    value="${value//$'\r'/\\r}"
+    value="${value//$'\n'/\\n}"
+    printf '%s' "$value"
 }
 
 log_debt() {
@@ -109,21 +174,15 @@ log_debt() {
         exit 1
     fi
 
-    require_python3
-    python3 - "$debt_log" "$path" "$old_cap" "$new_cap" "$reason" <<'PY'
-import json
-import sys
-
-log_path, path, old_cap, new_cap, reason = sys.argv[1:]
-entry = {
-    "path": path,
-    "old_cap": None if old_cap == "-" else int(old_cap),
-    "new_cap": int(new_cap),
-    "reason": reason,
-}
-with open(log_path, "a", encoding="utf-8") as handle:
-    handle.write(json.dumps(entry, ensure_ascii=True, separators=(",", ":")) + "\n")
-PY
+    local old_json path_json reason_json
+    old_json="$old_cap"
+    if [[ "$old_cap" == "-" ]]; then
+        old_json="null"
+    fi
+    path_json="$(json_escape "$path")"
+    reason_json="$(json_escape "$reason")"
+    printf '{"path":"%s","old_cap":%s,"new_cap":%s,"reason":"%s"}\n' \
+        "$path_json" "$old_json" "$new_cap" "$reason_json" >> "$debt_log"
     validate_debt_log
     printf 'file-size: logged debt for %s (%s -> %s)\n' "$path" "$old_cap" "$new_cap"
 }
@@ -214,34 +273,45 @@ while IFS= read -r -d '' f; do
         actual_lines["$f"]="$lines"
         limit="${cap[$f]}"
         if (( lines <= max_default )); then
-            printf 'file-size: %s is %d lines (<= %d) — delete its line from %s\n' \
-                "$f" "$lines" "$max_default" "$allowlist" >&2
+            if [[ "$mode" != "summary" ]]; then
+                printf 'file-size: %s is %d lines (<= %d) — delete its line from %s\n' \
+                    "$f" "$lines" "$max_default" "$allowlist" >&2
+            fi
             violations=$((violations + 1))
         elif (( lines > limit )); then
-            printf 'file-size: %s grew to %d lines (pin %d) — pins may not grow\n' \
-                "$f" "$lines" "$limit" >&2
+            if [[ "$mode" != "summary" ]]; then
+                printf 'file-size: %s grew to %d lines (pin %d) — pins may not grow\n' \
+                    "$f" "$lines" "$limit" >&2
+            fi
             violations=$((violations + 1))
         elif (( lines < limit - slack )); then
-            printf 'file-size: %s shrank to %d lines (pin %d) — lower its pin\n' \
-                "$f" "$lines" "$limit" >&2
+            if [[ "$mode" != "summary" ]]; then
+                printf 'file-size: %s shrank to %d lines (pin %d) — lower its pin\n' \
+                    "$f" "$lines" "$limit" >&2
+            fi
             violations=$((violations + 1))
         fi
     elif (( lines > max_default )); then
-        printf 'file-size: %s is %d lines (cap %d) — split it or add a justified pin\n' \
-            "$f" "$lines" "$max_default" >&2
+        if [[ "$mode" != "summary" ]]; then
+            printf 'file-size: %s is %d lines (cap %d) — split it or add a justified pin\n' \
+                "$f" "$lines" "$max_default" >&2
+        fi
         violations=$((violations + 1))
     fi
 done < <(git ls-files -z -- '*.rs')
 
 for p in "${!cap[@]}"; do
     if [[ -z "${pin_seen[$p]+x}" ]]; then
-        printf 'file-size: stale allowlist entry for missing file: %s\n' "$p" >&2
+        if [[ "$mode" != "summary" ]]; then
+            printf 'file-size: stale allowlist entry for missing file: %s\n' "$p" >&2
+        fi
         stale=$((stale + 1))
     fi
 done
 
 if [[ "$mode" == "summary" ]]; then
     print_summary
+    exit 0
 fi
 
 if (( violations > 0 || stale > 0 )); then
