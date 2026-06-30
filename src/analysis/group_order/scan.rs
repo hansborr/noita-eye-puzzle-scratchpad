@@ -79,8 +79,10 @@ pub(crate) struct ContextOutcome {
     /// collision (a source value mapping to two different images) or the end of
     /// the anchor. The `TopCard` gate — a genuine full-plaintext repeat under a
     /// top-card readout stays consistent for the whole repeat, while an eps-only
-    /// (rotor-only) repeat or a non-`TopCard` readout collides quickly, so a short
-    /// prefix is the signature of "no deck signal here".
+    /// (rotor-only) repeat or a non-`TopCard` readout is generically not a clean
+    /// group action. A finite consistency gate can still be fooled by degenerate
+    /// cases (a context that fixes the marked card, low coverage, or chance
+    /// consistency).
     pub(crate) prefix_len: usize,
     /// The inducing permutation recovered from the consistent prefix, present
     /// only when that prefix is an injection covering at least `deck_size - 1`
@@ -90,27 +92,18 @@ pub(crate) struct ContextOutcome {
     pub(crate) permutation: Option<Vec<usize>>,
 }
 
-/// Maximum number of leading positions trimmed when aligning an anchor.
-///
-/// The binary difference channel lets the maximal eps-repeat extend a position or
-/// two past the constant-context region at *either* end. A trailing overrun is
-/// handled by stopping at the first collision; a leading overrun (a spurious
-/// position before the constant region begins, e.g. a filler/connector symbol
-/// whose eps happens to match) would otherwise corrupt the map, so the reader
-/// tries the first few start offsets and keeps the longest clean run.
-const MAX_LEADING_TRIM: usize = 4;
-
 /// Reads the deck-channel map induced by one aligned isomorph occurrence pair.
 ///
 /// `q` is the full deck-channel stream (`value / rotor_mod`); `first`/`second`
 /// are the anchor start positions in the rotor *difference* stream (the aligned
 /// visible positions are `first + s` and `second + s`). The constant-context
 /// region is a contiguous sub-window of the anchor; the reader finds it by trying
-/// the first few leading offsets and, for each, reading forward until the first
-/// collision. The returned [`ContextOutcome`] is the offset whose consistent run
-/// is longest — the true context yields the longest run by construction, while an
-/// eps-only (rotor-only) repeat or a non-TopCard readout collides quickly at every
-/// offset and fixes no permutation.
+/// every leading offset and, for each, reading forward until the first collision.
+/// The returned [`ContextOutcome`] is the offset whose consistent run is longest;
+/// a determined permutation only breaks an equal-prefix tie. A non-TopCard
+/// readout is generically not a clean group action, but degenerate cases can pass
+/// a finite consistency gate by fixing the marked card, low coverage, or chance
+/// consistency.
 #[must_use]
 pub(crate) fn read_context(
     q: &[usize],
@@ -119,19 +112,17 @@ pub(crate) fn read_context(
     second: usize,
     length: usize,
 ) -> ContextOutcome {
-    let max_trim = MAX_LEADING_TRIM.min(length);
     let mut best = ContextOutcome {
         coverage: 0,
         prefix_len: 0,
         permutation: None,
     };
-    for start in 0..=max_trim {
+    for start in 0..length {
         let outcome = read_run(q, deck_size, first + start, second + start, length - start);
-        let better = match (&outcome.permutation, &best.permutation) {
-            (Some(_), None) => true,
-            (None, Some(_)) => false,
-            _ => outcome.prefix_len > best.prefix_len,
-        };
+        let better = outcome.prefix_len > best.prefix_len
+            || (outcome.prefix_len == best.prefix_len
+                && outcome.permutation.is_some()
+                && best.permutation.is_none());
         if better {
             best = outcome;
         }

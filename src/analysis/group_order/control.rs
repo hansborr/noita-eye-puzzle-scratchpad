@@ -299,7 +299,7 @@ fn scan_control(stream: &[u16], seed: u64) -> Result<super::GroupScanReport, Gro
         ROTOR_MOD,
         SELF_TEST_MIN_ANCHOR,
         16,
-        16,
+        64,
         seed,
     )
 }
@@ -360,8 +360,13 @@ pub(crate) fn self_test(seed: u64) -> Result<GroupScanSelfTest, GroupScanError> 
     // 3. Eps-only matched null must be rejected (no consistent determined context).
     let null_stream = build_eps_only_stream(&s4, mix_seed(seed, 600))?;
     let null_report = scan_control(&null_stream, mix_seed(seed, 601))?;
+    let long_anchor_rejected = null_report.readings.iter().any(|reading| {
+        reading.anchor.length >= SELF_TEST_MIN_ANCHOR && reading.permutation.is_none()
+    });
     let null_rejected = matches!(null_report.verdict, GroupVerdict::NoDeckSignal)
-        && null_report.consistent_contexts == 0;
+        && null_report.consistent_contexts == 0
+        && null_report.anchors_examined > 0
+        && long_anchor_rejected;
 
     let passed =
         cycle_recovery_passed && d4_excludes_a4 && a4_excludes_d4 && s4_verdict && null_rejected;

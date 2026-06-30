@@ -6,7 +6,9 @@
 
 use super::control::{a4, d4, s4};
 use super::scan::{compose, cycle_lengths, invert, is_even, read_context};
-use super::{DEFAULT_SEED, GroupScanError, GroupVerdict, group_scan, group_scan_self_test};
+use super::{
+    DEFAULT_SEED, GroupScanError, GroupVerdict, NullBand, group_scan, group_scan_self_test,
+};
 
 #[test]
 fn compose_follows_repo_convention() {
@@ -104,6 +106,85 @@ fn read_context_rejects_non_injective_low_coverage() {
     let outcome = read_context(&q, 4, 0, 4, 3);
     assert_eq!(outcome.prefix_len, 4);
     assert_eq!(outcome.permutation, None);
+}
+
+#[test]
+fn read_context_prefers_longest_prefix_over_shorter_permutation() {
+    // Start 0 is longer but non-bijective; start 1 determines a shorter
+    // permutation. The longer clean run is the honest choice.
+    let mut q = vec![0usize; 15];
+    let first_window = [3, 0, 1, 2, 0];
+    let second_window = [1, 1, 2, 3, 1];
+    for (slot, &value) in q
+        .iter_mut()
+        .take(first_window.len())
+        .zip(first_window.iter())
+    {
+        *slot = value;
+    }
+    for (slot, &value) in q
+        .iter_mut()
+        .skip(10)
+        .take(second_window.len())
+        .zip(second_window.iter())
+    {
+        *slot = value;
+    }
+
+    let outcome = read_context(&q, 4, 0, 10, 4);
+    assert_eq!(outcome.prefix_len, 5);
+    assert_eq!(outcome.permutation, None);
+}
+
+#[test]
+fn read_context_scans_offsets_beyond_the_old_leading_trim_bound() {
+    // The clean context starts after five noisy leading positions, beyond the
+    // old bounded leading trim.
+    let mut q = vec![0usize; 33];
+    let first_window = [0, 0, 0, 0, 0, 0, 1, 2, 3, 0, 1, 2, 3];
+    let second_window = [2, 3, 2, 3, 2, 1, 2, 3, 0, 1, 2, 3, 0];
+    for (slot, &value) in q
+        .iter_mut()
+        .take(first_window.len())
+        .zip(first_window.iter())
+    {
+        *slot = value;
+    }
+    for (slot, &value) in q
+        .iter_mut()
+        .skip(20)
+        .take(second_window.len())
+        .zip(second_window.iter())
+    {
+        *slot = value;
+    }
+
+    let outcome = read_context(&q, 4, 0, 20, 12);
+    assert_eq!(outcome.prefix_len, 8);
+    assert_eq!(outcome.permutation, Some(vec![1, 2, 3, 0]));
+}
+
+#[test]
+fn verdict_requires_a_significant_matched_null() {
+    let non_significant_null = NullBand {
+        trials: 64,
+        mean_consistent: 1.0,
+        ceiling: 3,
+        p_value: 0.20,
+    };
+    assert_eq!(
+        super::verdict_from(&[3], 1, &non_significant_null),
+        GroupVerdict::NoDeckSignal
+    );
+
+    let significant_null = NullBand {
+        p_value: 0.01,
+        ..non_significant_null
+    };
+    assert!(matches!(
+        super::verdict_from(&[3], 1, &significant_null),
+        GroupVerdict::ExcludesD4 { contexts: 1, .. }
+    ));
 }
 
 #[test]

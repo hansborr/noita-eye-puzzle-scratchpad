@@ -29,9 +29,11 @@
 //! the inducing permutation is the context's `H`-component, so its cycle type is
 //! the order of one element of `H`. The instrument reads `q[a+s] -> q[b+s]`
 //! across each rotor-difference-channel anchor; a **consistent bijection** is the
-//! honest gate — a genuine full-plaintext repeat under a top-card readout yields
-//! one, while an eps-only (rotor-only) repeat or a non-TopCard readout does not,
-//! and is excluded from the verdict.
+//! honesty gate — a genuine full-plaintext repeat under a top-card readout yields
+//! one, while an eps-only (rotor-only) repeat or a non-TopCard readout is
+//! generically not a clean group action. A finite consistency gate can still be
+//! fooled by degenerate cases (a context that fixes the marked card, low coverage,
+//! or chance consistency), so verdicts are gated against a matched null.
 //!
 //! # Honesty ceiling (binding)
 //!
@@ -63,6 +65,8 @@ pub const DEFAULT_TOP_K: usize = 16;
 pub const DEFAULT_NULL_TRIALS: usize = 200;
 /// Default deterministic seed (`"grouporder"` little-endian-ish tag).
 pub const DEFAULT_SEED: u64 = 0x6772_6f75_705f_6f31;
+/// Matched-null p-value threshold required before emitting an exclusion verdict.
+const SIGNIFICANCE_P: f64 = 0.05;
 
 /// Error returned by the element-order discriminator.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -171,9 +175,9 @@ pub enum GroupVerdict {
         /// Number of consistent determined contexts examined.
         contexts: usize,
     },
-    /// No consistent deck-channel permutation was recovered from any anchor
-    /// (eps-only repeats, a non-TopCard readout, or too little coverage). Not
-    /// evidence of any particular group.
+    /// No significant deck-channel signal was recovered versus the deck-decoupled
+    /// null (eps-only repeats, a non-TopCard readout, too little coverage, or
+    /// chance consistency). Not evidence of any particular group.
     NoDeckSignal,
 }
 
@@ -186,7 +190,8 @@ pub struct NullBand {
     pub mean_consistent: f64,
     /// Largest consistent-determined-context count any null trial reached.
     pub ceiling: usize,
-    /// Add-one p-value: fraction of trials reaching the real consistent count.
+    /// Add-one p-value: fraction of null trials whose consistent-determined
+    /// context count reaches the observed real count, with +1 smoothing.
     pub p_value: f64,
 }
 
@@ -298,7 +303,7 @@ pub fn group_scan(
         null_trials,
         seed,
     )?;
-    let verdict = verdict_from(&observed_cycle_lengths, real_consistent);
+    let verdict = verdict_from(&observed_cycle_lengths, real_consistent, &null);
 
     Ok(GroupScanReport {
         input_len: values.len(),
@@ -402,9 +407,14 @@ fn gcd(mut a: usize, mut b: usize) -> usize {
     a
 }
 
-/// Builds the verdict from the observed cycle-length union and context count.
-fn verdict_from(observed_cycle_lengths: &[usize], contexts: usize) -> GroupVerdict {
-    if contexts == 0 {
+/// Builds the verdict from the observed cycle-length union, context count, and null.
+fn verdict_from(
+    observed_cycle_lengths: &[usize],
+    contexts: usize,
+    null: &NullBand,
+) -> GroupVerdict {
+    let significant = contexts > 0 && null.p_value < SIGNIFICANCE_P;
+    if !significant {
         return GroupVerdict::NoDeckSignal;
     }
     let has_three = observed_cycle_lengths.contains(&3);
@@ -445,11 +455,12 @@ fn deck_decouple_null(
     seed: u64,
 ) -> Result<NullBand, GroupScanError> {
     if trials == 0 || anchors.is_empty() {
+        let at_least_real = if real_consistent == 0 { trials } else { 0 };
         return Ok(NullBand {
             trials,
             mean_consistent: 0.0,
             ceiling: 0,
-            p_value: crate::nulls::null::add_one_p_value(0, trials),
+            p_value: crate::nulls::null::add_one_p_value(at_least_real, trials),
         });
     }
     let table = markov_table(q, deck_size);

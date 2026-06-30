@@ -139,7 +139,7 @@ fn print_verdict(verdict: &GroupVerdict) {
             "  VERDICT: inconclusive — only cycle lengths <= 2 observed across {contexts} contexts; consistent with D4, A4, or S4."
         ),
         GroupVerdict::NoDeckSignal => println!(
-            "  VERDICT: no deck-channel signal — no anchor yielded a consistent deck-channel permutation (eps-only repeats, a non-TopCard readout, or too little coverage). NOT evidence for any group."
+            "  VERDICT: no significant deck-channel signal (vs the deck-decoupled null) — no anchor yielded a significant consistent deck-channel permutation (eps-only repeats, a non-TopCard readout, too little coverage, or chance consistency). NOT evidence for any group."
         ),
     }
 }
