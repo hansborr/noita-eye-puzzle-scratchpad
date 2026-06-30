@@ -7,6 +7,7 @@ mod crcscan;
 mod gak;
 mod groupscan;
 mod isoscan;
+mod keydiff;
 mod keystream;
 mod misc;
 mod ragbaby;
@@ -17,6 +18,7 @@ pub(crate) use crcscan::run_crcscan;
 pub(crate) use gak::run_gak;
 pub(crate) use groupscan::run_groupscan;
 pub(crate) use isoscan::run_isoscan;
+pub(crate) use keydiff::run_keydiff;
 pub(crate) use keystream::{run_keystream, run_profile};
 pub(crate) use misc::{
     run_controls, run_demo, run_grouping, run_orders, run_pipelinenull, run_stats,

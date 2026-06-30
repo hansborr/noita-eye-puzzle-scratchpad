@@ -7,9 +7,9 @@ use clap::{Parser, Subcommand};
 use super::args_analysis::{
     ChainingArgs, ChainingGraphArgs, CipherAttackArgs, ConditionalArgs, ControlsArgs, CrcscanArgs,
     DofNullArgs, GroupscanArgs, HomogeneityArgs, HoneycombArgs, IsomorphImperfectionArgs,
-    IsomorphNullArgs, LeakCeilingArgs, ModularDiffArgs, NullArgs, PerfectIsomorphismArgs,
-    PeriodicityArgs, PerseusArgs, PyryConditionsArgs, TransitivityArgs, TreeResidualArgs,
-    ZeroAdjacencyNullArgs,
+    IsomorphNullArgs, KeydiffArgs, LeakCeilingArgs, ModularDiffArgs, NullArgs,
+    PerfectIsomorphismArgs, PeriodicityArgs, PerseusArgs, PyryConditionsArgs, TransitivityArgs,
+    TreeResidualArgs, ZeroAdjacencyNullArgs,
 };
 use super::args_attack::{
     AglGakArgs, GakArgs, GakAttackArgs, GakAttackEyesArgs, IsoscanArgs, KeystreamArgs, ProfileArgs,
@@ -62,6 +62,13 @@ pub(crate) enum Command {
     /// structural discriminator over the hidden group, never a decode.
     #[command(name = "groupscan")]
     Groupscan(GroupscanArgs),
+    /// Thread B isomorph key-difference discriminator. Recovers the additive
+    /// realisation Δ of the isomorph relabelling and classifies it by
+    /// finite-difference order (identical / constant-additive / linear /
+    /// irregular); the constant bucket splits classical-autokey vs
+    /// progressive-alphabet. A verdict is a structural discriminator, never a decode.
+    #[command(name = "keydiff")]
+    Keydiff(KeydiffArgs),
     /// Stored-u32 CRC/hash word scanner with calibrated false-alarm significance.
     /// Reports candidate mapping anchors, never recovered plaintext.
     #[command(name = "crcscan")]

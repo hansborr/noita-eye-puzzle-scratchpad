@@ -5,7 +5,7 @@ use clap::{Args, Subcommand};
 use noita_eye_puzzle::{
     analysis::{
         chaining, chaining_graph, crc_scan, group_order, honeycomb, isomorph_imperfection,
-        leak_ceiling, perfect_isomorphism,
+        key_difference, leak_ceiling, perfect_isomorphism,
     },
     attack::cipher_attack,
     experiments::{
@@ -57,6 +57,47 @@ pub(crate) struct GroupscanArgs {
     pub(crate) seed: u64,
     /// Run the in-process controls (planted C3 x {D4,A4,S4} + eps-only matched
     /// null) and print PASS/FAIL instead of scanning input.
+    #[arg(long = "self-test")]
+    pub(crate) self_test: bool,
+}
+
+/// `keydiff`: the Thread B isomorph key-difference discriminator. Recovers the
+/// additive realisation `Δ` of the isomorph relabelling and classifies it by
+/// finite-difference order (identical / constant-additive / linear / irregular).
+/// A verdict is a structural discriminator over the keystream-difference family,
+/// never recovered plaintext.
+#[derive(Debug, Args)]
+pub(crate) struct KeydiffArgs {
+    /// Symbol sequence. Optional: omit to read from --input-file or stdin.
+    pub(crate) sequence: Option<String>,
+    /// Read the sequence from this file instead of the positional argument.
+    #[arg(long = "input-file", conflicts_with = "sequence")]
+    pub(crate) input_file: Option<std::path::PathBuf>,
+    /// Read the sequence from stdin.
+    #[arg(long = "stdin", conflicts_with_all = ["sequence", "input_file"])]
+    pub(crate) stdin: bool,
+    /// Cipher alphabet chars, in order (e.g. ABCDEFGHIJKL). Defaults to rendered
+    /// orientation digits when omitted. Its char count is the modulus `m` the
+    /// difference channels and the `δ` regression work over.
+    #[arg(long = "alphabet")]
+    pub(crate) alphabet: Option<String>,
+    /// Highest finite-difference order scanned (orders `0..=MAX`).
+    #[arg(long = "max-order", default_value_t = key_difference::DEFAULT_MAX_ORDER)]
+    pub(crate) max_order: usize,
+    /// Minimum exact-repeat length (channel symbols) that counts as a firing.
+    #[arg(long = "min-anchor-len", default_value_t = key_difference::DEFAULT_MIN_ANCHOR_LEN)]
+    pub(crate) min_anchor_len: usize,
+    /// Maximum number of anchors enumerated per difference channel.
+    #[arg(long = "top-k", default_value_t = key_difference::DEFAULT_TOP_K)]
+    pub(crate) top_k: usize,
+    /// Number of order-1 Markov matched-null trials per difference channel.
+    #[arg(long = "null-trials", default_value_t = key_difference::DEFAULT_NULL_TRIALS)]
+    pub(crate) null_trials: usize,
+    /// Deterministic seed (decimal or 0x-hex) for the matched null and controls.
+    #[arg(long, default_value_t = key_difference::DEFAULT_SEED, value_parser = parse_seed)]
+    pub(crate) seed: u64,
+    /// Run the in-process controls (ciphertext-autokey / Vigenère / progressive /
+    /// dihedral GAK + matched null) and print PASS/FAIL instead of scanning input.
     #[arg(long = "self-test")]
     pub(crate) self_test: bool,
 }
