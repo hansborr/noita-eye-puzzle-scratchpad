@@ -108,7 +108,7 @@ fn for_stream_does_not_apply_and_is_neutral_off_corpus() {
     // eye-corpus provenance.
     let stream = neutral_stream();
     let len = stream.len();
-    let report = isomorph_imperfection_for_stream(cheap_config(), &[stream]).unwrap();
+    let report = isomorph_imperfection_for_stream(cheap_config(), &["input"], &[stream]).unwrap();
 
     assert_eq!(report.order.name(), "raw-rows");
     assert_eq!(report.message_lengths, vec![("input", len)]);

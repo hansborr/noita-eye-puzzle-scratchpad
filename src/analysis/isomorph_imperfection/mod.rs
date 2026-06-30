@@ -367,12 +367,14 @@ pub fn run_isomorph_imperfection(
     })
 }
 
-/// Runs the isomorph-imperfection scan on an arbitrary caller-supplied stream.
+/// Runs the isomorph-imperfection scan on an arbitrary caller-supplied stream of
+/// one or more messages.
 ///
 /// This is the file-driven path. It runs the same mapping-independent
 /// break-localization, word-boundary discount, matched within-message null, and
 /// synthetic imperfect-family fit as the eye scan, but under the neutral
-/// [`ReadingOrder::RawRows`] label with a single `"input"` message key. The
+/// [`ReadingOrder::RawRows`] label with the caller's per-message `keys`
+/// (display-only; the cross-message detector keys on message position). The
 /// eye-keyed benign-region attribution is inert off-corpus, so the detector is
 /// self-validated only by the stream-independent synthetic imperfect-family
 /// positive control, which must fire for the emitted report to be trusted.
@@ -381,35 +383,40 @@ pub fn run_isomorph_imperfection(
 /// same-message occurrence pairs and a strong record must span
 /// `>= STRONG_MIN_OCCURRENCES` distinct messages, so a single supplied stream has
 /// an empty cross-message break catalog by construction and the internal-violation
-/// test does not apply to it. The report says so plainly and makes no claim about
-/// the input; it is a structural **candidate** path, never a decode.
+/// test does not apply to it (the report says so plainly). A robust break localized
+/// across `>= 2` supplied messages is reported as a structural **candidate** to
+/// recheck against a structure-preserving null, never a decode.
+///
+/// `keys` provides one display label per message, in the same order as
+/// `message_values` (e.g. `&["input"]` for a lone stream, `&["m0", "m1", ...]` for
+/// several).
 ///
 /// # Errors
 /// Returns [`IsomorphImperfectionError`] when the trial counts are zero, an
-/// extended window exceeds the supplied stream, a shuffle draw fails, or the
-/// synthetic imperfect-family positive control does not fire.
+/// extended window exceeds the shortest supplied message, a shuffle draw fails, or
+/// the synthetic imperfect-family positive control does not fire.
 pub fn isomorph_imperfection_for_stream(
     config: IsomorphImperfectionConfig,
+    keys: &[&'static str],
     message_values: &[Vec<TrigramValue>],
 ) -> Result<IsomorphImperfectionReport, IsomorphImperfectionError> {
     if config.null_trials == 0 || config.family_trials == 0 {
         return Err(IsomorphImperfectionError::ZeroTrials);
     }
-    let keys: Vec<&'static str> = vec!["input"];
     let messages = to_symbol_messages(message_values);
     let shortest = messages.iter().map(Vec::len).min().unwrap_or_default();
     validate_window_bound(&EXTENDED_WINDOWS, shortest)?;
 
-    let base_counts = scan_counts(&keys, &messages, &BASE_WINDOWS);
-    let extended_breaks = scan_breaks(&keys, &messages, &EXTENDED_WINDOWS);
+    let base_counts = scan_counts(keys, &messages, &BASE_WINDOWS);
+    let extended_breaks = scan_breaks(keys, &messages, &EXTENDED_WINDOWS);
     let extended_counts = counts_from_breaks(&extended_breaks);
-    let (loose_null, robust_null) = matched_nulls(&keys, &messages, extended_counts, config)?;
-    let stutter_candidate = locate_stutter_candidate(&keys, &extended_breaks);
-    let loose_candidates = collect_loose_candidates(&keys, &extended_breaks);
+    let (loose_null, robust_null) = matched_nulls(keys, &messages, extended_counts, config)?;
+    let stutter_candidate = locate_stutter_candidate(keys, &extended_breaks);
+    let loose_candidates = collect_loose_candidates(keys, &extended_breaks);
 
     // Self-validation off-corpus: the eye benign-region attribution and the
-    // east4/west4 chase are keyed to eye message names (inert under the neutral
-    // "input" key), and the within-message shuffle null is structure-destroying. The
+    // east4/west4 chase are keyed to eye message names (inert under neutral stream
+    // keys), and the within-message shuffle null is structure-destroying. The
     // methodology is instead exercised by the stream-independent synthetic
     // imperfect-family control, which must fire for this candidate report to be
     // trusted.

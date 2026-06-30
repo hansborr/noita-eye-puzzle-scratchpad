@@ -379,28 +379,39 @@ pub fn run_perfect_isomorphism(
     report_from_message_values(config, order, &keys, &message_values)
 }
 
-/// Runs the perfect-isomorphism scan on an arbitrary single-message stream.
+/// Runs the perfect-isomorphism scan on an arbitrary caller-supplied stream of one
+/// or more messages.
 ///
 /// This is the file-driven path. It computes the same mapping-independent isomorph
 /// catalog, break localization, and matched within-message internal-violation null
-/// as the eye scan, but under the neutral [`ReadingOrder::RawRows`] label with a
-/// single `"input"` message key. It does not run the eye-corpus wiki regression
-/// checks or the eye main-isomorph occurrence assertions; instead it self-validates
-/// with the stream-independent synthetic short-island internal-violation control, so
-/// the emitted report is a structural **candidate** behind a passing positive
-/// control, never an eye-provenance decode.
+/// as the eye scan, but under the neutral [`ReadingOrder::RawRows`] label with the
+/// caller's per-message `keys` (display-only; the cross-message detector keys on
+/// message position). It does not run the eye-corpus wiki regression checks or the
+/// eye main-isomorph occurrence assertions; instead it self-validates with the
+/// stream-independent synthetic short-island internal-violation control, so the
+/// emitted report is a structural **candidate** behind a passing positive control,
+/// never an eye-provenance decode.
+///
+/// A single supplied message has an empty cross-message catalog by construction, so
+/// the internal-violation test does not apply and the report says so. A genuine
+/// aligned repeat across `>= 2` messages populates the catalog and is reported as a
+/// candidate to recheck, not a recovery.
+///
+/// `keys` provides one display label per message, in the same order as
+/// `message_values` (e.g. `&["input"]` for a lone stream, `&["m0", "m1", ...]` for
+/// several).
 ///
 /// # Errors
-/// Returns [`PerfectIsomorphismError`] when the configuration is invalid, the stream
+/// Returns [`PerfectIsomorphismError`] when the configuration is invalid, a message
 /// is shorter than the maximum scanned window, an isomorph primitive rejects a
 /// window, or the synthetic positive control does not fire.
 pub fn perfect_isomorphism_for_stream(
     config: PerfectIsomorphismConfig,
+    keys: &[&'static str],
     message_values: &[Vec<TrigramValue>],
 ) -> Result<PerfectIsomorphismReport, PerfectIsomorphismError> {
     validate_config(config)?;
     validate_message_windows(config, message_values)?;
-    let keys: &[&'static str] = &["input"];
     let windows = scanned_windows(config)?;
     let catalog_records = build_catalog_records(keys, message_values, &windows)?;
     let catalog = catalog_records.iter().map(CatalogRecord::entry).collect();

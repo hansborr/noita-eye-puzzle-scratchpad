@@ -228,7 +228,7 @@ fn append_family_section(out: &mut String, report: &IsomorphImperfectionReport) 
     if is_stream(report) {
         report::appendln!(
             out,
-            "  self-validation: the synthetic imperfect-family control above exercises the detector independently of the supplied stream; no per-input best-fit is computed (the cross-message statistic is empty for a single message)"
+            "  self-validation: the synthetic imperfect-family control above exercises the detector independently of the supplied stream; no per-input best-fit epsilon is reported off-corpus, since the epsilon axis is calibrated to the synthetic family geometry, not the supplied stream"
         );
         return;
     }

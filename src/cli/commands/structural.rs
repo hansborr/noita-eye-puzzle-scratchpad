@@ -12,6 +12,7 @@ use noita_eye_puzzle::analysis::chaining::{self, ChainingConfig};
 use noita_eye_puzzle::analysis::chaining_graph::{self, ChainingGraphConfig};
 use noita_eye_puzzle::analysis::isomorph_imperfection::{self, IsomorphImperfectionConfig};
 use noita_eye_puzzle::analysis::perfect_isomorphism::{self, PerfectIsomorphismConfig};
+use noita_eye_puzzle::core::glyph::Glyph;
 use noita_eye_puzzle::core::trigram::TrigramValue;
 use noita_eye_puzzle::nulls::isomorph_null::{self, IsomorphNullConfig};
 use noita_eye_puzzle::report::Report;
@@ -20,7 +21,9 @@ use crate::cli::args_analysis::{
     ChainingArgs, ChainingGraphArgs, IsomorphImperfectionArgs, IsomorphNullArgs,
     PerfectIsomorphismArgs,
 };
-use crate::cli::shared::{parse_cli_sequence, resolve_input_text};
+use crate::cli::shared::{
+    parse_cli_sequence, resolve_input_text, split_blank_line_messages, stream_message_keys,
+};
 
 /// Resolves a file-driven structural-battery stream to its [`TrigramValue`]s plus
 /// the declared alphabet size, or an error exit code (after printing the reason).
@@ -68,6 +71,74 @@ fn resolve_stream(
         }
     }
     Ok((values, alphabet_spec.chars().count()))
+}
+
+/// Converts one message's parsed cipher-alphabet glyphs to bounded
+/// [`TrigramValue`]s, printing a labelled error and returning the failure exit
+/// code on an out-of-range symbol. Shares the per-symbol bound checks with
+/// [`resolve_stream`]; factored out for the per-message multi-stream path.
+fn glyphs_to_trigram_values(glyphs: Vec<Glyph>) -> Result<Vec<TrigramValue>, ExitCode> {
+    let mut values = Vec::with_capacity(glyphs.len());
+    for glyph in glyphs {
+        let Ok(raw) = u8::try_from(glyph.0) else {
+            eprintln!("alphabet symbol value {} exceeds 255", glyph.0);
+            return Err(ExitCode::FAILURE);
+        };
+        match TrigramValue::new(raw) {
+            Ok(value) => values.push(value),
+            Err(raw) => {
+                eprintln!("symbol value {raw} exceeds 124");
+                return Err(ExitCode::FAILURE);
+            }
+        }
+    }
+    Ok(values)
+}
+
+/// Resolves a file-driven *multi-message* structural-battery stream: like
+/// [`resolve_stream`] but split into one or more messages on blank-line
+/// boundaries (see [`split_blank_line_messages`]), each tagged with a display key
+/// from [`stream_message_keys`]. Used by the cross-message detectors
+/// (`perfectiso`, `isomorphimperf`), whose internal-violation test only carries
+/// signal across >= 2 distinct messages. Within a message, symbols are parsed
+/// exactly as the single-message path parses them, and an input with no
+/// blank-line separator yields exactly one message, so this is fully backward
+/// compatible. The keys are display-only; the detectors key on message position.
+fn resolve_stream_multi(
+    sequence: Option<&str>,
+    input_file: Option<&std::path::PathBuf>,
+    stdin: bool,
+    alphabet: Option<&str>,
+) -> Result<(Vec<Vec<TrigramValue>>, Vec<&'static str>), ExitCode> {
+    let Some(alphabet_spec) = alphabet else {
+        eprintln!("a stream input requires --alphabet (its char count is the alphabet size)");
+        return Err(ExitCode::FAILURE);
+    };
+    let text = match resolve_input_text(sequence, input_file, stdin) {
+        Ok(text) => text,
+        Err(error) => {
+            eprintln!("failed to read input: {error}");
+            return Err(ExitCode::FAILURE);
+        }
+    };
+    let blocks = split_blank_line_messages(&text);
+    if blocks.is_empty() {
+        eprintln!("input contained no symbols");
+        return Err(ExitCode::FAILURE);
+    }
+    let mut messages = Vec::with_capacity(blocks.len());
+    for block in &blocks {
+        let parsed = match parse_cli_sequence(block, Some(alphabet_spec), false) {
+            Ok(parsed) => parsed,
+            Err(error) => {
+                eprintln!("{error}");
+                return Err(ExitCode::FAILURE);
+            }
+        };
+        messages.push(glyphs_to_trigram_values(parsed.glyphs)?);
+    }
+    let keys = stream_message_keys(messages.len());
+    Ok((messages, keys))
 }
 
 /// Renders a structural-battery report to stdout, or prints a labelled error to
@@ -198,19 +269,21 @@ pub(crate) fn run_chaining_graph(args: &ChainingGraphArgs) -> ExitCode {
 ///
 /// With no input flags, runs the verified eye corpus unchanged (the tuning flags
 /// `--seed`/`--trials`/`--min-window`/`--max-window` still apply). With a stream
-/// input, runs the same mapping-independent compute over the arbitrary stream as a
-/// single `"input"` message under a neutral raw-rows label. The scan is equality-
-/// and gap-based, so `--alphabet` only declares symbol identity (its size is not
-/// threaded into the config). The eye wiki-regression checks are replaced
-/// off-corpus by the stream-independent synthetic short-island positive control,
-/// which self-validates the detector on any input.
+/// input, runs the same mapping-independent compute over the supplied message(s)
+/// under a neutral raw-rows label: blank lines separate messages (see
+/// [`resolve_stream_multi`]), so the cross-message detector compares aligned
+/// repeats across them. The scan is equality- and gap-based, so `--alphabet` only
+/// declares symbol identity (its size is not threaded into the config). The eye
+/// wiki-regression checks are replaced off-corpus by the stream-independent
+/// synthetic short-island positive control, which self-validates the detector on
+/// any input.
 ///
-/// Honest limitation: perfect isomorphism compares aligned repeats *across* >=2
+/// Honest limitation: perfect isomorphism compares aligned repeats *across* >= 2
 /// messages, so a single-message stream has an empty cross-message catalog by
-/// construction and the internal-violation test does not apply to it. This path
-/// therefore self-validates the detector (synthetic control) and reports that the
-/// test is not applicable; it never claims "supports perfect isomorphism" for an
-/// untestable single stream.
+/// construction and the internal-violation test does not apply to it (the report
+/// says so plainly). A genuine cross-message repeat across the user's >= 2
+/// messages surfaces as a mapping-independent structural **candidate** to recheck,
+/// never a recovery or decode.
 pub(crate) fn run_perfectiso(args: &PerfectIsomorphismArgs) -> ExitCode {
     let config = PerfectIsomorphismConfig {
         seed: args.seed,
@@ -224,7 +297,7 @@ pub(crate) fn run_perfectiso(args: &PerfectIsomorphismArgs) -> ExitCode {
             perfect_isomorphism::run_perfect_isomorphism(config),
         );
     }
-    let (values, _alphabet_size) = match resolve_stream(
+    let (messages, keys) = match resolve_stream_multi(
         args.sequence.as_deref(),
         args.input_file.as_ref(),
         args.stdin,
@@ -235,7 +308,7 @@ pub(crate) fn run_perfectiso(args: &PerfectIsomorphismArgs) -> ExitCode {
     };
     emit_report(
         "perfect-isomorphism error",
-        perfect_isomorphism::perfect_isomorphism_for_stream(config, &[values]),
+        perfect_isomorphism::perfect_isomorphism_for_stream(config, &keys, &messages),
     )
 }
 
@@ -244,21 +317,23 @@ pub(crate) fn run_perfectiso(args: &PerfectIsomorphismArgs) -> ExitCode {
 /// With no input flags, runs the verified eye corpus unchanged (the tuning flags
 /// `--seed`/`--null-trials`/`--family-trials` still apply). With a stream input,
 /// runs the same mapping-independent break-localization + synthetic
-/// imperfect-family self-validation over the arbitrary stream as a single `"input"`
-/// message under a neutral raw-rows label. The scan is equality- and gap-based, so
-/// `--alphabet` only declares symbol identity (its size is not threaded into the
-/// config). The eye benign-region attribution is keyed to eye message names and so
-/// is inert off-corpus; the stream-independent synthetic imperfect-family positive
-/// control self-validates the detector on any input.
+/// imperfect-family self-validation over the supplied message(s) under a neutral
+/// raw-rows label: blank lines separate messages (see [`resolve_stream_multi`]),
+/// so the cross-message break detector compares aligned repeats across them. The
+/// scan is equality- and gap-based, so `--alphabet` only declares symbol identity
+/// (its size is not threaded into the config). The eye benign-region attribution
+/// is keyed to eye message names and so is inert off-corpus; the stream-independent
+/// synthetic imperfect-family positive control self-validates the detector on any
+/// input.
 ///
 /// Honest limitation: isomorph imperfection is a *cross-message* test (a robust
 /// internal violation is a same-gap-pattern repeat that diverges between two
 /// messages; the detector skips same-message pairs and a strong record must span
 /// two or more distinct messages). A single-message stream therefore has an empty
 /// cross-message break catalog by construction and the internal-violation test does
-/// not apply to it. This path self-validates the detector (synthetic control) and
-/// reports that the test is not applicable; it never claims a violation for an
-/// untestable single stream.
+/// not apply to it (the report says so plainly). A robust break localized across
+/// the user's >= 2 messages surfaces as a mapping-independent structural
+/// **candidate** to recheck against a structure-preserving null, never a recovery.
 pub(crate) fn run_isomorphimperf(args: &IsomorphImperfectionArgs) -> ExitCode {
     let config = IsomorphImperfectionConfig {
         seed: args.seed,
@@ -271,7 +346,7 @@ pub(crate) fn run_isomorphimperf(args: &IsomorphImperfectionArgs) -> ExitCode {
             isomorph_imperfection::run_isomorph_imperfection(config),
         );
     }
-    let (values, _alphabet_size) = match resolve_stream(
+    let (messages, keys) = match resolve_stream_multi(
         args.sequence.as_deref(),
         args.input_file.as_ref(),
         args.stdin,
@@ -282,6 +357,6 @@ pub(crate) fn run_isomorphimperf(args: &IsomorphImperfectionArgs) -> ExitCode {
     };
     emit_report(
         "isomorph-imperfection error",
-        isomorph_imperfection::isomorph_imperfection_for_stream(config, &[values]),
+        isomorph_imperfection::isomorph_imperfection_for_stream(config, &keys, &messages),
     )
 }

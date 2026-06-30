@@ -86,3 +86,98 @@ pub(crate) fn display_prefix(text: &str, max_chars: usize) -> String {
     }
     rendered
 }
+
+/// Splits raw stream text into one or more messages on blank-line boundaries.
+///
+/// A *blank line* is empty or whitespace-only; one or more consecutive blank
+/// lines separate messages, and leading/trailing blank lines are ignored. Input
+/// with no blank-line separator yields exactly one message (the whole text), so
+/// the single-message path is fully backward compatible. Each returned element
+/// keeps its message's raw, whitespace-separated symbols verbatim for
+/// [`parse_cli_sequence`] to tokenize unchanged (newlines inside a message are
+/// just more whitespace). An empty or all-blank input yields no messages.
+pub(crate) fn split_blank_line_messages(text: &str) -> Vec<String> {
+    let mut messages = Vec::new();
+    let mut current = String::new();
+    for line in text.lines() {
+        if line.trim().is_empty() {
+            if !current.is_empty() {
+                messages.push(std::mem::take(&mut current));
+            }
+        } else {
+            if !current.is_empty() {
+                current.push('\n');
+            }
+            current.push_str(line);
+        }
+    }
+    if !current.is_empty() {
+        messages.push(current);
+    }
+    messages
+}
+
+/// Mints stable per-message display labels for a file-driven multi-message
+/// stream. A lone message keeps the friendly `"input"` label (matching the
+/// single-stream path); two or more messages get positional `m0`, `m1`, ...
+/// labels, so the report's per-message lengths and the cross-message occurrence
+/// pairs are distinguishable.
+///
+/// The structural reports inherit `&'static str` message keys from the finite,
+/// statically-named eye corpus, but a file-driven stream has a runtime message
+/// count. The positional labels are therefore interned for the remainder of the
+/// process via [`Box::leak`]: the leaked set is bounded by one run's message
+/// count (the CLI parses one input and exits), and the labels are display-only --
+/// the cross-message detectors key on message *position*, never on these strings.
+pub(crate) fn stream_message_keys(count: usize) -> Vec<&'static str> {
+    match count {
+        0 => Vec::new(),
+        1 => vec!["input"],
+        _ => (0..count)
+            .map(|index| -> &'static str { Box::leak(format!("m{index}").into_boxed_str()) })
+            .collect(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{split_blank_line_messages, stream_message_keys};
+
+    #[test]
+    fn no_blank_line_is_a_single_message() {
+        assert_eq!(split_blank_line_messages("a b c"), vec!["a b c".to_owned()]);
+    }
+
+    #[test]
+    fn one_blank_line_separates_two_messages() {
+        assert_eq!(
+            split_blank_line_messages("a b\n\nc d"),
+            vec!["a b".to_owned(), "c d".to_owned()]
+        );
+    }
+
+    #[test]
+    fn whitespace_only_lines_and_runs_split_and_are_trimmed() {
+        // Leading/trailing blanks, whitespace-only separators, and multiple
+        // consecutive blank lines all collapse to message boundaries.
+        let text = "\n  \na b\nc d\n \n\n\ne f\n  \n";
+        assert_eq!(
+            split_blank_line_messages(text),
+            vec!["a b\nc d".to_owned(), "e f".to_owned()]
+        );
+    }
+
+    #[test]
+    fn empty_and_all_blank_inputs_yield_no_messages() {
+        assert!(split_blank_line_messages("").is_empty());
+        assert!(split_blank_line_messages("   \n\t\n  ").is_empty());
+    }
+
+    #[test]
+    fn keys_label_single_vs_multi_message_streams() {
+        assert!(stream_message_keys(0).is_empty());
+        assert_eq!(stream_message_keys(1), vec!["input"]);
+        assert_eq!(stream_message_keys(2), vec!["m0", "m1"]);
+        assert_eq!(stream_message_keys(4), vec!["m0", "m1", "m2", "m3"]);
+    }
+}

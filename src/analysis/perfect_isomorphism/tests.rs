@@ -97,7 +97,7 @@ fn for_stream_self_validates_and_is_neutral_off_corpus() {
         trials: 64,
         ..PerfectIsomorphismConfig::default()
     };
-    let report = perfect_isomorphism_for_stream(config, &[stream]).unwrap();
+    let report = perfect_isomorphism_for_stream(config, &["input"], &[stream]).unwrap();
 
     assert!(report.positive_control_fired);
     assert!(report.regression.is_empty());
