@@ -28,8 +28,10 @@ const BASE_LEN: usize = 110;
 const WORD_LEN: usize = 34;
 const MIN_ANCHOR_LEN: usize = 8;
 const TOP_K: usize = 6;
-/// Enough trials that a perfect positive reaches `p = 1/(TRIALS+1) < 0.05`.
-const NULL_TRIALS: usize = 30;
+/// Enough trials that a perfect positive reaches `p = 1/(TRIALS+1)` below the
+/// Bonferroni-corrected gate (`0.05 / 4 = 0.0125`); the 3-card search is tiny, so
+/// the extra trials stay cheap.
+const NULL_TRIALS: usize = 90;
 
 /// The convention the positive control is encrypted under (the canonical
 /// `D0`-cancelling one, so the `D0 = identity` search is exact).

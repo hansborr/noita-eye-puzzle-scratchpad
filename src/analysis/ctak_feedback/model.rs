@@ -98,6 +98,17 @@ impl Convention {
 
     /// Whether the initial deck `D0` provably cancels from crib equalities, so the
     /// search over `g` at `D0 = identity` is fully general.
+    ///
+    /// `D0` is the *outermost* factor exactly when it ends up outside the readout:
+    /// - `forward/right`: `D_i = D0 ∘ A_i`, `t_i = D0(A_i(q_i))` — `D0` outside.
+    /// - `inverse/left`: `D_i = A_i ∘ D0`, `t_i = D0^{-1}(A_i^{-1}(q_i))` — `D0^{-1}`
+    ///   outside.
+    ///
+    /// In both, a crib equality `t[a] == t[b]` is invariant under the common
+    /// bijection, so it does not depend on `D0`. For `forward/left` and
+    /// `inverse/right` the `D0` factor lands *inside* the readout (applied to the
+    /// differing `q` values), so it does not cancel and the search is the
+    /// `D0 = identity` representative slice.
     #[must_use]
     pub const fn d0_cancels(self) -> bool {
         matches!(
@@ -105,6 +116,9 @@ impl Convention {
             Self {
                 side: Side::Right,
                 readout: Readout::Forward,
+            } | Self {
+                side: Side::Left,
+                readout: Readout::Inverse,
             }
         )
     }
@@ -294,7 +308,10 @@ pub fn crib_run_count(t: &[usize], anchor: CribAnchor) -> (usize, usize) {
     let mut current = 0usize;
     let mut count = 0usize;
     for s in 0..anchor.length {
-        let (Some(&a), Some(&b)) = (t.get(anchor.first + s), t.get(anchor.second + s)) else {
+        let (Some(&a), Some(&b)) = (
+            t.get(anchor.first.saturating_add(s)),
+            t.get(anchor.second.saturating_add(s)),
+        ) else {
             break;
         };
         if a == b {
@@ -346,7 +363,7 @@ pub fn search_best_map(
     let perm_count = perms.count();
     let max_end = anchors
         .iter()
-        .map(|a| a.second + a.length)
+        .map(|a| a.second.saturating_add(a.length))
         .max()
         .unwrap_or(0);
     let decode_len = max_end.min(q.len());
@@ -398,7 +415,10 @@ fn longest_crib_run(t: &[usize], anchor: CribAnchor) -> usize {
     let mut best = 0usize;
     let mut current = 0usize;
     for s in 0..anchor.length {
-        let (Some(&a), Some(&b)) = (t.get(anchor.first + s), t.get(anchor.second + s)) else {
+        let (Some(&a), Some(&b)) = (
+            t.get(anchor.first.saturating_add(s)),
+            t.get(anchor.second.saturating_add(s)),
+        ) else {
             break;
         };
         if a == b {

@@ -10,7 +10,9 @@
 
 use std::process::ExitCode;
 
-use noita_eye_puzzle::analysis::ctak_feedback::{self, Convention, CtakVerdict, Readout, Side};
+use noita_eye_puzzle::analysis::ctak_feedback::{
+    self, Convention, CtakVerdict, Readout, Side, bonferroni_alpha,
+};
 
 use crate::cli::args_ctak::CtakscanArgs;
 use crate::cli::shared::{parse_cli_sequence, resolve_input_text};
@@ -91,7 +93,11 @@ fn run_scan(args: &CtakscanArgs) -> ExitCode {
             anchor.length, anchor.first, anchor.second
         );
     }
-    println!("  per-convention best advance map (joint-minimum crib run across all anchors):");
+    let alpha = bonferroni_alpha(report.conventions_tested);
+    println!(
+        "  per-convention best advance map (joint-minimum crib run across all anchors; firing gate p < {alpha:.4}, Bonferroni over {} conventions):",
+        report.conventions_tested
+    );
     for result in &report.conventions {
         let general = if result.d0_cancels {
             "D0-free (general)"
@@ -108,7 +114,7 @@ fn run_scan(args: &CtakscanArgs) -> ExitCode {
             result.null_mean,
             result.null_ceiling,
             result.p_value,
-            if result.fires() { "  *FIRES*" } else { "" },
+            if result.fires(alpha) { "  *FIRES*" } else { "" },
         );
     }
     print_verdict(&report.verdict, report.conventions_tested);
@@ -128,17 +134,17 @@ fn print_verdict(verdict: &CtakVerdict, conventions_tested: usize) {
             p_value,
         } => {
             println!(
-                "  VERDICT: FeedbackDeckSignal — convention {}/{} reproduces the crib in the deck channel (joint min-run {min_run}, p={p_value:.4} vs the deck-resample null) with advance map g={g:?}.",
+                "  VERDICT: FeedbackDeckSignal — convention {}/{} reproduces the crib in the deck channel (joint min-run {min_run}, p={p_value:.4} vs the deck-resample null, clearing the Bonferroni gate p < {:.4} over {conventions_tested} conventions) with advance map g={g:?}.",
                 convention_side(*convention),
                 convention_readout(*convention),
+                bonferroni_alpha(conventions_tested),
             );
             println!(
-                "    This recovers the deck *mechanism* (an advance map consistent with the repeat), NOT plaintext: the digit→language codec is a separate unknown. Bonferroni across {conventions_tested} conventions: require p < {:.4}.",
-                0.05 / conventions_tested as f64
+                "    This recovers the deck *mechanism* (an advance map consistent with the repeat), NOT plaintext: the digit→language codec is a separate unknown."
             );
         }
         CtakVerdict::NoFeedbackSignal => println!(
-            "  VERDICT: NoFeedbackSignal — no convention's advance map reproduces the rotor-anchor plaintext repeat in the deck channel above the deck-resample null (across {conventions_tested} conventions). The ciphertext-autokey single-symbol-feedback deck is excluded too; with passive-deck plaintext-autokey already excluded, no computable-deck reading reproduces the real repeat."
+            "  VERDICT: NoFeedbackSignal — no convention's advance map reproduces the rotor-anchor plaintext repeat in the deck channel above the deck-resample null (across {conventions_tested} conventions). Within scope (g keyed on the deck card channel, two conventions fully general and two searched at D0=identity), the ciphertext-autokey single-symbol-feedback deck is excluded; with passive-deck plaintext-autokey already excluded, no computable-deck reading in this family reproduces the real repeat."
         ),
     }
 }

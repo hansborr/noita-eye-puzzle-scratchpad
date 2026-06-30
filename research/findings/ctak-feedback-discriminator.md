@@ -40,10 +40,13 @@ where `q_i = symbol / rotor_mod` is the observed deck channel (4 card values for
 `two`) and `g: card-value -> S_deck` is the advance map. So the search collapses
 from the plaintext-autokey `6^8` per-coset key space to the advance map `g` alone
 (`(deck!)^deck = 24^4 = 331_776` for `two`) — a few hundred thousand deterministic
-forward passes. For the canonical forward/right convention `D0` **cancels** from
-every crib equality (`t_i = D0(P_i(q_i))`, `D0` a bijection), so the `g`-search is
-fully general; the other three conventions are searched at `D0 = identity` (a
-documented representative slice).
+forward passes. **Two** of the four conventions have `D0` **cancel** from every
+crib equality, so their `g`-search at `D0 = identity` is *fully general*:
+`forward/right` (`t_i = D0(A_i(q_i))`, `D0` outside) and `inverse/left`
+(`t_i = D0^{-1}(A_i^{-1}(q_i))`, `D0^{-1}` outside) — a crib equality is invariant
+under the common bijection. For `forward/left` and `inverse/right` the `D0` factor
+lands *inside* the readout (applied to the differing `q`), so it does not cancel and
+those two are the `D0 = identity` representative slice.
 
 **The crib-anchored, codec-free statistic.** `isoscan` locates
 rotor-difference-channel anchors — spans where the plaintext *really repeats*. The
@@ -62,7 +65,8 @@ structure, breaking the cross-occurrence alignment with the fixed rotor anchors)
 and **reruns the entire `g`-search**, so the exhaustive search's
 optimised-over-`331_776`-maps inflation is reproduced inside the null itself. A
 convention fires only when its observed joint minimum **strictly clears the null
-ceiling** at `p < 0.05` (and Bonferroni across the four conventions). Anchors
+ceiling** at the **Bonferroni-corrected** `p < 0.05/4 = 0.0125` (the firing gate,
+not just a printed caveat). Anchors
 themselves are the `isoscan`-significant repeats (above the difference-channel
 Markov ceiling), so chance repeats — which no `g` can satisfy and which would
 collapse the joint minimum — are never used as cribs.
@@ -84,9 +88,11 @@ search lands on the **random floor**:
 | right/forward | `D0`-free (general) | **4** | `[5,5,4,4,4]` | 4.0, 5 | 1.000 |
 | left/forward | `D0=id` slice | 4 | `[4,5,4,6,4]` | 4.0, 5 | 0.980 |
 | right/inverse | `D0=id` slice | 4 | `[4,5,4,6,4]` | 4.0, 5 | 0.995 |
-| left/inverse | `D0=id` slice | 4 | `[5,5,4,4,4]` | 4.0, 5 | 1.000 |
+| left/inverse | `D0`-free (general) | 4 | `[5,5,4,4,4]` | 4.0, 5 | 1.000 |
 
-(200 null trials; the default 60-trial run is identical to two significant figures.)
+(200 null trials; the default 100-trial run is identical to two significant
+figures. Firing is gated at the Bonferroni-corrected `p < 0.05/4 = 0.0125`; every
+convention here is at `p ≈ 1`, so the verdict is unambiguous.)
 
 A joint minimum of **4** over a 4-card deck is exactly the chance level (a random
 map matches each aligned position with probability `1/4`, longest run ≈ 4), and the
@@ -109,13 +115,14 @@ it is the standing first-class miniature (G1b).
 ### Scope of the negative (binding honesty)
 
 The exclusion is for a **single-card-channel-symbol-feedback deck on a ≤4-card
-deck**, the natural ciphertext-autokey realisation. It does **not** exclude:
+deck**, the natural ciphertext-autokey realisation. Two of the four conventions
+(`forward/right`, `inverse/left`) are searched fully generally; the run does **not**
+exclude:
 
 - an advance map keyed on the **full 12-valued ciphertext symbol** (`24^12`, beyond
   exhaustive search) rather than the 4-valued card channel `q`;
-- the three non-`(forward,right)` conventions at a **non-identity `D0`** (they are
-  searched only at `D0 = identity`; only `forward/right` is `D0`-free and so fully
-  general);
+- the two non-`D0`-cancelling conventions (`forward/left`, `inverse/right`) at a
+  **non-identity `D0`** (they are searched only at `D0 = identity`);
 - a hidden deck group **larger than `S4`** or a different readout/codec coupling.
 
 These are labeled limitations, not covered by this run.

@@ -47,9 +47,13 @@
 //! A verdict is a **structural discriminator over the feedback-deck family, never
 //! a decode**. A positive `FeedbackDeckSignal` recovers the deck *mechanism* (an
 //! advance map reproducing the crib), not plaintext — the digit→language codec is
-//! a separate unknown. A `NoFeedbackSignal` strengthens the honest negative: with
-//! passive-deck plaintext-autokey already excluded, no single-symbol-feedback deck
-//! reproduces the real repeat either.
+//! a separate unknown. A `NoFeedbackSignal` strengthens the honest negative
+//! *within its scope*: two of the four conventions (`forward/right` and
+//! `inverse/left`) are fully general (`D0` cancels), the other two are searched at
+//! `D0 = identity`, and the advance map `g` is keyed on the deck card channel (not
+//! the full symbol). So it excludes the natural single-card-channel-symbol-feedback
+//! deck, not every conceivable feedback law — see the findings doc's "Scope of the
+//! negative".
 
 use std::fmt;
 
@@ -74,7 +78,9 @@ pub const DEFAULT_MIN_ANCHOR_LEN: usize = 8;
 pub const DEFAULT_TOP_K: usize = 8;
 /// Default matched-null trial count (each trial reruns the full `g`-search, so
 /// this trades runtime for p-value resolution; raise it for a publication run).
-pub const DEFAULT_NULL_TRIALS: usize = 60;
+/// At least `1/(N+1) < SIGNIFICANCE_P / 4` so a default positive can clear the
+/// Bonferroni-corrected gate (`N >= 80`); raised above that for headroom.
+pub const DEFAULT_NULL_TRIALS: usize = 100;
 /// Trial count for the rotor-anchor significance null (the `isoscan` gate that
 /// keeps only genuine plaintext repeats, not chance repeats, as cribs).
 const ANCHOR_NULL_TRIALS: usize = 200;
@@ -183,12 +189,22 @@ pub struct ConventionResult {
 }
 
 impl ConventionResult {
-    /// Whether this convention fires: a significant joint minimum that also
-    /// strictly clears the null ceiling (not merely a tie).
+    /// Whether this convention fires at family-wise level `alpha`: a significant
+    /// joint minimum (`p < alpha`) that also strictly clears the null ceiling (not
+    /// merely a tie). `alpha` is the Bonferroni-corrected threshold
+    /// ([`bonferroni_alpha`]), so the four-convention multiple-comparisons family
+    /// is corrected at the firing gate, not only in the printed caveat.
     #[must_use]
-    pub fn fires(&self) -> bool {
-        self.p_value < SIGNIFICANCE_P && self.min_run > self.null_ceiling
+    pub fn fires(&self, alpha: f64) -> bool {
+        self.p_value < alpha && self.min_run > self.null_ceiling
     }
+}
+
+/// The Bonferroni-corrected per-convention firing threshold for a family of
+/// `conventions` tested (`SIGNIFICANCE_P / conventions`).
+#[must_use]
+pub fn bonferroni_alpha(conventions: usize) -> f64 {
+    SIGNIFICANCE_P / conventions.max(1) as f64
 }
 
 /// The discriminator verdict.
@@ -445,11 +461,13 @@ fn feedback_null(
 }
 
 /// Builds the verdict: the firing convention with the largest joint minimum, or
-/// `NoFeedbackSignal` when none fires.
+/// `NoFeedbackSignal` when none fires. Firing is gated at the Bonferroni-corrected
+/// family-wise threshold across the conventions tested.
 fn verdict_from(conventions: &[ConventionResult]) -> CtakVerdict {
+    let alpha = bonferroni_alpha(conventions.len());
     let best = conventions
         .iter()
-        .filter(|c| c.fires())
+        .filter(|c| c.fires(alpha))
         .max_by_key(|c| c.min_run);
     match best {
         Some(c) => CtakVerdict::FeedbackDeckSignal {
