@@ -16,10 +16,21 @@ new_repo() {
     local name="${branch//\//-}"
     local repo
 
-    repo="$tmp_root/repo-$name"
-    mkdir -p -- "$repo"
+    repo="$(mktemp -d "$tmp_root/repo-$name.XXXXXX")"
     git -C "$repo" init -q -b "$branch"
     printf '%s\n' "$repo"
+}
+
+commit_index() {
+    local repo="$1"
+    local message="$2"
+
+    env \
+        GIT_AUTHOR_NAME="precommit guard test" \
+        GIT_AUTHOR_EMAIL="precommit-guard@example.invalid" \
+        GIT_COMMITTER_NAME="precommit guard test" \
+        GIT_COMMITTER_EMAIL="precommit-guard@example.invalid" \
+        git -C "$repo" commit -q -m "$message"
 }
 
 run_hook() {
@@ -75,6 +86,22 @@ expect_success \
     "$main_repo" \
     ALLOW_COMMIT_ON_MAIN=1
 
+master_repo="$(new_repo master)"
+expect_failure_contains \
+    "protected branch rejects master" \
+    "$master_repo" \
+    "refusing to commit directly on master"
+
+detached_repo="$(new_repo main)"
+printf 'base\n' > "$detached_repo/README.md"
+git -C "$detached_repo" add README.md
+commit_index "$detached_repo" "initial commit"
+detached_sha="$(git -C "$detached_repo" rev-parse HEAD)"
+git -C "$detached_repo" checkout -q "$detached_sha"
+expect_success \
+    "protected branch allows detached HEAD" \
+    "$detached_repo"
+
 feature_repo="$(new_repo feature/precommit-guards)"
 expect_success \
     "protected branch allows feature branch" \
@@ -113,6 +140,38 @@ expect_success \
     "dirty guard override allows untracked source-relevant paths" \
     "$untracked_repo" \
     ALLOW_DIRTY_COMMIT=1
+
+root_toml_untracked_repo="$(new_repo feature/root-toml-untracked)"
+printf '[advisories]\n' > "$root_toml_untracked_repo/deny.toml"
+expect_failure_contains \
+    "dirty guard rejects untracked root toml" \
+    "$root_toml_untracked_repo" \
+    "deny.toml"
+
+root_toml_unstaged_repo="$(new_repo feature/root-toml-unstaged)"
+printf '[advisories]\n' > "$root_toml_unstaged_repo/deny.toml"
+git -C "$root_toml_unstaged_repo" add deny.toml
+commit_index "$root_toml_unstaged_repo" "add deny config"
+printf 'ignore = []\n' >> "$root_toml_unstaged_repo/deny.toml"
+expect_failure_contains \
+    "dirty guard rejects unstaged root toml" \
+    "$root_toml_unstaged_repo" \
+    "deny.toml"
+
+nested_toml_repo="$(new_repo feature/nested-toml)"
+mkdir -p -- "$nested_toml_repo/docs"
+printf '[notes]\n' > "$nested_toml_repo/docs/foo.toml"
+expect_success \
+    "dirty guard ignores nested non-cargo toml" \
+    "$nested_toml_repo"
+
+fixture_repo="$(new_repo feature/embedded-fixture)"
+mkdir -p -- "$fixture_repo/research/data/lang"
+printf 'word\n' > "$fixture_repo/research/data/lang/english.txt"
+expect_failure_contains \
+    "dirty guard rejects untracked embedded fixture" \
+    "$fixture_repo" \
+    "research/data/lang/english.txt"
 
 unrelated_repo="$(new_repo feature/unrelated-untracked)"
 printf 'scratch\n' > "$unrelated_repo/notes.txt"
