@@ -11,6 +11,7 @@ mod args_analysis;
 mod args_attack;
 mod args_ctak;
 mod args_predicates;
+mod args_rlcodec;
 mod commands;
 mod dispatch;
 mod shared;

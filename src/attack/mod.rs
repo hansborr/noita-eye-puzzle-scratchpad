@@ -20,6 +20,10 @@
 //! - [`ragbaby`]: general (non-keyword) Ragbaby keyed-alphabet cracker with a
 //!   simulated-annealing search, quadgram scoring, a planted-recovery positive
 //!   control, and a matched-null/held-out survival gate.
+//! - [`rlcodec`]: run-length codec battery for `±1`-walk puzzles — derives the
+//!   direction-blind magnitude carrier, censuses its exact repeats, and gates a
+//!   family of codecs against a matched order-1 Markov null over each codec's
+//!   decoded symbol stream, with a planted positive control and self-test.
 //! - [`solve`]: unified search-and-score solve pipeline for candidate
 //!   hypotheses, with round-trip, held-out, and matched-null gates.
 
@@ -35,4 +39,5 @@ pub mod language;
 pub mod profile;
 pub mod quadgram;
 pub mod ragbaby;
+pub mod rlcodec;
 pub mod solve;

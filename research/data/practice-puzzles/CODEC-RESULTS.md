@@ -291,7 +291,110 @@ floor. The engine logs every ungroupable codec as `Untransducible` rather than
 dropping symbols; the base-4/base-3 readings are covered by the IoC/independence
 analysis above (negative).
 
-## `one` — honest negative
+## `one` — direction-blind run-length carrier + memoryless-codec exclusion (`rlcodec`)
+
+> Supersedes the bit-level framing of the "`one` — honest negative" section below.
+> The `solve --codec-search` binary-move result there still stands; this adds the
+> carrier re-diagnosis and a matched-null exclusion of the variable-length family
+> the prior handoff ranked first.
+
+### The carrier is the direction-blind run-length *magnitude* sequence
+
+`one`'s 265 `±1`-moves run-length-encode to a **magnitude sequence `M`** of 135
+values in `1..=5` (distribution `{1:64, 2:34, 3:17, 4:18, 5:2}`). `M` discards the
+up/down *direction* of each run. That direction-blind reading is **forced, not
+assumed**: `M` carries an exact 26-magnitude repeat `M[16..42] == M[69..95]` whose
+two occurrences begin on **opposite run-direction parity** (run 16 is a down-run,
+run 69 an up-run) — i.e. it is a *bit-complemented* repeat, invisible to a raw-bit
+scan. A repeat that survives polarity inversion can only live in the magnitudes, so
+the codec reads magnitudes, not bits.
+
+This **strengthens the `gcd(265, 84) = 1` no-fixed-width argument** already recorded
+below into two hard exclusions:
+
+- **No fixed even/odd pairing into letters.** A Polybius/grid pairing makes each
+  letter a fixed (row, col) pair of runs; a repeated letter-string then requires
+  both occurrences to start on the same pairing parity. The 26-run repeat starts on
+  *opposite* parity, so it cannot be pair-aligned at both occurrences — pairing-into-
+  letters is structurally impossible (not merely unobserved).
+- **No bit-level fixed-width / ASCII codec.** Those are polarity-dependent; a
+  bit-complemented repeat would decode to two *different* letter strings, so a
+  genuine repeated word cannot appear complemented under any bit-width code.
+
+Secondary repeats corroborate the structure: `M[116..135]` (the message tail)
+`== M[72..91] == M[19..38]`, plus several shorter complemented anchors. The longest
+repeat is **census-significant** against an order-1 Markov (transition-preserving)
+null: observed 26 vs null mean 8.4 / ceiling 13, p = 0.0050. (A significant repeat
+is a **structural candidate, not a decode** — it locates *where* the plaintext
+repeats, not *what* it says.)
+
+### Every memoryless magnitude codec is an honest negative
+
+`rlcodec` decodes `M` through a battery of memoryless families — `Direct`,
+`Polybius` (both phases), `Base5Group` (pairs/triples, all offsets), `Comma{sep}`
+and `Term{t}` (variable-length comma/terminator codes over the magnitudes, the
+prior handoff's #1 lead), and `PairSub` — then hill-climbs each to the best
+English-quadgram substitution and gates it against a **matched null**. **No codec
+survives** (overall verdict: honest negative).
+
+The matched null is the load-bearing choice, and it is the one the "Why the gate is
+fooled" section above prescribes: an **order-1 Markov resample of each codec's
+*decoded symbol stream***, re-run through the *same* substitution search. This holds
+the decoded alphabet size, length, and symbol-*bigram* structure fixed and asks only
+whether the real ordering carries **above-first-order** (quadgram-over-bigram)
+English that a bigram-matched reordering cannot. The variable-length `Comma`/`Term`
+codecs score *near* English under a free substitution (mean quadgram ≈ −8.3 to −9.3,
+versus English ≈ −7 and uniform ≈ −11) and render seductive fragments
+(`Term{t=2}` → `VERIETYOUARTMORETHETYOU…`, `Comma{sep=4}` → `LUMBERECEISBETHENED`),
+but **none beats its null** (every codec `z < 0`; `Comma{sep=4}` z = −2.71,
+`Term{t=2}` z = −1.11). That near-English text is **substitution-freedom pareidolia
+on an 18–35-symbol stream**, exactly the gate blind-spot — now demonstrated
+in-engine rather than argued.
+
+The negative is **robust to search budget**: re-running real `one` at
+restarts = 16 / iters = 4000 / null-trials = 200 (above the positive control's
+budget) keeps every codec below its null (z from −0.37 to −1.81). So the negative is
+not a stingy-search artifact.
+
+**Why a magnitude-level null is wrong here (recorded so it is not re-tried):**
+resampling or shuffling the *magnitudes* drifts the decoded alphabet size and
+destroys the census-significant carrier repeat, which the variable-length codecs
+faithfully transmit as a repeated decoded symbol. Real `one` then "beats" such a
+null with a spurious z ≈ 2–4 — re-detecting the repeat, **not** finding English. The
+symbol-stream Markov null preserves the repeat's bigram contribution, so the gate
+asks the right question. (The *census* null above is the opposite, correct choice:
+it is magnitude-level precisely because the question there is repeat-length
+significance, for which preserving the transition law is the right reference.)
+
+### Honest scope of the negative
+
+Because the matched null preserves bigram structure, the gate fires only for genuine
+English whose quadgram structure exceeds its bigrams *and* whose decoded stream is
+long / low-freedom enough for the substitution search to recover it (the planted
+positive control — a 285-letter, 12-symbol English passage through `Comma{sep=4}` —
+fires at z ≈ 5–8). At the short lengths of `one`'s `Comma`/`Term` decodes (n ≈ 18–35)
+the test has **limited power**. So the result is precisely: **no detectable
+above-first-order English signal under any memoryless magnitude codec** — it
+excludes the "search overfits to manufacture English" failure mode the handoff
+warned about, but it does **not** prove `one` is non-English; a short genuine message
+would also read as below-null. The remaining live regime is a codec with memory / a
+non-memoryless reading of the run-length sequence.
+
+### The instrument
+
+`rlcodec` (`src/attack/rlcodec/` + the `rlcodec` subcommand) is file-driven and
+self-validating: a planted-English-via-comma positive control that *must* clear the
+matched null (and recovers the planted partition, relabel-invariantly) plus the
+real-`one` honest negative that *must not*, both checked by `rlcodec --self-test`.
+
+```sh
+# one — the magnitude census + memoryless-codec battery
+cargo run -- rlcodec --input-file research/data/practice-puzzles/one --alphabet 01234
+# planted positive control (must fire) + real-one negative (must not)
+cargo run -- rlcodec --self-test
+```
+
+## `one` — honest negative (`solve --codec-search` binary-move)
 
 `solve --codec-search` now yields 12 evaluated candidates (cipher round-trip held);
 **0 survive**. The top candidate is the binary-move codec

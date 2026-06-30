@@ -17,6 +17,7 @@ use super::args_attack::{
 };
 use super::args_ctak::CtakscanArgs;
 use super::args_predicates::PredscanArgs;
+use super::args_rlcodec::RlcodecArgs;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -58,6 +59,13 @@ pub(crate) enum Command {
     /// `--delta-mod` difference channel — as a structural candidate, never a decode.
     #[command(name = "isoscan")]
     Isoscan(IsoscanArgs),
+    /// Run-length codec battery for `±1`-walk puzzles. Derives the direction-blind
+    /// run-length magnitude carrier, censuses its exact repeats, and gates a family
+    /// of codecs against a matched Markov-resampled-`M` null. A near-English codec
+    /// score that does not beat the matched null is an artifact, never a decode;
+    /// the expected verdict on real `one` is an honest negative.
+    #[command(name = "rlcodec")]
+    Rlcodec(RlcodecArgs),
     /// D4/A4/S4 hidden-group element-order discriminator for the `C3 × H`
     /// hidden-state GAK reading of a deck/rotor cipher. Reads the deck channel's
     /// induced permutation across difference-channel anchors; a verdict is a

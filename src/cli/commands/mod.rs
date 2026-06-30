@@ -13,6 +13,7 @@ mod keystream;
 mod misc;
 mod predscan;
 mod ragbaby;
+mod rlcodec;
 mod solve;
 mod structural;
 
@@ -28,6 +29,7 @@ pub(crate) use misc::{
 };
 pub(crate) use predscan::run_predscan;
 pub(crate) use ragbaby::run_ragbaby;
+pub(crate) use rlcodec::run_rlcodec;
 pub(crate) use solve::run_solve;
 pub(crate) use structural::{
     run_chaining, run_chaining_graph, run_isomorphimperf, run_isomorphnull, run_leakceiling,

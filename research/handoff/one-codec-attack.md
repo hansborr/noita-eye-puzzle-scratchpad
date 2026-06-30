@@ -1,5 +1,49 @@
 # Handoff — crack practice puzzle `one`'s codec
 
+## UPDATE (this session) — carrier re-diagnosed; memoryless codecs excluded; `rlcodec` landed
+
+The codec is **not** a memoryless transduction of the bit/magnitude stream. Two
+results tighten the search:
+
+1. **The carrier is the direction-blind run-length *magnitude* sequence `M`**
+   (135 values in `1..=5`), not the raw bits. Forced by a *bit-complemented* 26-run
+   repeat `M[16..42] == M[69..95]` (opposite run-direction parity), invisible to the
+   bit-level scan this handoff was written against. This strengthens the
+   `gcd(265,84)=1` argument into hard exclusions: **no fixed even/odd pairing into
+   letters** (the repeat can't be pair-aligned at both parities) and **no bit-level
+   fixed-width / ASCII codec** (polarity-dependent). So angle #3 below (fixed-width
+   with leftover, ASCII `k=7`) is **dead**, and any Polybius/grid pairing is **dead**.
+
+2. **Every memoryless magnitude codec is an honest negative** (`rlcodec` instrument,
+   below). The variable-length comma/prefix family (angle #1 below — the prior #1
+   lead) scores *near* English under a free substitution hill-climb but **does not
+   beat a matched symbol-stream order-1 Markov null** (every codec `z < 0`, robust to
+   search budget at restarts=16/iters=4000/nulls=200). Its seductive fragments
+   (`VERIETYOUARTMORETHETYOU`, `LUMBERECEISBETHENED`) are substitution-freedom
+   pareidolia on an 18–35-symbol stream — the gate blind-spot, now shown in-engine.
+   **Scope (honest):** the null preserves first-order (bigram) structure, so this is
+   "no detectable *above-bigram* English signal", not "not English"; at these short
+   lengths the test is **underpowered**, so it excludes a strong/searchable codec
+   signal, not a short genuine message.
+
+**The instrument:** `rlcodec` (`src/attack/rlcodec/` + the `rlcodec` subcommand) —
+file-driven, self-validating (planted-English-via-comma positive control + matched
+null + `--self-test`). Reproduces the census + the exclusion battery. Authoritative
+write-up: `CODEC-RESULTS.md` § "`one` — direction-blind run-length carrier +
+memoryless-codec exclusion".
+
+**What's left (the live regime).** A memoryless reading of `M` is excluded. The
+remaining hypotheses are **codecs with memory / non-transduction readings of the
+run-length sequence**: e.g. the run-length sequence as the operand of a *keyed* or
+*stateful* transform, a 2-D / interleaved layout, or a reading where the magnitudes
+index a table that itself evolves. The cribs are still the lever (26-run @16/69;
+the 19-run tail @116 = @72 = @19) — under any correct codec both occurrences must
+decode consistently. Also still open: confirm `one`'s language (English assumed
+from the corpus; the maintainer holds `two`'s English, not `one`'s).
+
+---
+(original handoff below; angles #1 and #3 are now tested/excluded as noted above)
+
 **For the next agent.** Goal: recover the English (or Finnish) plaintext of
 `research/data/practice-puzzles/one`. Read `AGENTS.md` first — the honesty
 discipline (matched null + firing positive control, never present a high n-gram
