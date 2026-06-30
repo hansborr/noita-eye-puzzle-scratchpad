@@ -28,7 +28,7 @@ source_relevant_path() {
     local path="$1"
 
     case "$path" in
-        *.rs | Cargo.toml | Cargo.lock | .githooks/* | scripts/* | .github/workflows/*)
+        *.rs | Cargo.toml | Cargo.lock | */Cargo.toml | */Cargo.lock | .githooks/* | scripts/* | .github/workflows/* | research/data/* | tests/* | .shellcheckrc)
             return 0
             ;;
     esac
