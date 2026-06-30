@@ -51,7 +51,7 @@ shellcheck:
 
 ## test-scripts: run shell smoke tests
 test-scripts:
-	bash -c 'shopt -s nullglob; for test_script in scripts/tests/*.sh; do bash "$$test_script"; done'
+	bash -c 'set -e; shopt -s nullglob; for test_script in scripts/tests/*.sh; do bash "$$test_script"; done'
 
 ## build: optimized release build
 build:

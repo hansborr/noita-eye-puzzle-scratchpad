@@ -75,6 +75,14 @@ jobs:
           shopt -s nullglob globstar
           shellcheck -x .githooks/* scripts/**/*.sh
 
+  shell-smoke:
+    name: shell smoke tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell smoke tests
+        run: make test-scripts
+
   file-size:
     name: file-size ratchet
     runs-on: ubuntu-latest
