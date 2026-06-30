@@ -2,8 +2,8 @@
 
 **Priority:** High (maintainer-requested, 2026-06-29). **Effort:** L (one big
 principle, several independently-committable pieces). **Status:** Workstream A
-**DONE** (2026-06-29); Workstream B **remaining — this is your job.** **Owner:**
-Workstream B unassigned — written to be picked up cold by a fresh agent.
+**DONE** (2026-06-29); Workstream B **DONE** (2026-06-29) — see the completion
+record below. **Owner:** complete.
 
 > **One-line:** Stop shipping cryptanalysis capability as `#[cfg(test)]`-only
 > validations or as analyses hardwired to the eye corpus. Make every analysis and
@@ -34,26 +34,76 @@ commits on `exploration`, full `make verify` green each time, codex-reviewed cle
   --alphabet ABCDEFGHIJKL` → HIDDEN-STATE; `gak self-test` → PASS; `gak solve` on
   `two` → honest "NO ENGLISH RECOVERED" candidate.
 
-**Your job: Workstream B (§5).** A is the *reference pattern* B copies (a
-file-driven instrument that self-validates against a control). §5 has been
-rewritten with a **concrete per-analysis migration map** (file:line, what's
-already generic, what's hardwired, the friction in each) and the **bespoke-handler
-migration pattern** A established — these supersede the original ease-ordered
-sketch.
+## Workstream B — COMPLETE (2026-06-29)
 
-**What to do next, in order:**
+Seven commits on `exploration`, full `make verify` green each, each primary-reviewed;
+the entangled-three + multi-message work also got a codex second-opinion sweep (one
+P1 + three P2 found and fixed in `bd8eeab`, re-reviewed). Every analysis keeps its
+verified eye-corpus default **byte-for-byte unchanged** and gains a file-driven path.
 
-1. Read §5 (the rewritten map) and §5.0 (the migration pattern).
-2. Do the **clean three first** — `chaining`, then `isomorphnull`, then
-   `chaining-graph` — one commit each. Their controls are already matched to the
-   input (lengths/alphabet) or synthetic and stream-independent, so a file-driven
-   path keeps a valid positive control.
-3. **Stop and consult the maintainer before the entangled three** (`perfectiso`,
-   `leak_ceiling`, `isomorph_imperfection`): they bake in eye-corpus-calibrated
-   controls (pinned wiki-regression checks, the `TWO_*` measured constants,
-   `east4/west4` benign-region logic). Running them on arbitrary input means
-   gating those off or rebuilding them as per-input synthetic controls — an
-   honesty-discipline call (§6) the maintainer wants to weigh in on, not a guess.
+**Clean three (§5.2), one commit each:**
+
+- `395e870` **chaining** — file-driven; calibration null matched to input
+  lengths/alphabet; `ChainingConfig.alphabet_size` now CLI-reachable.
+- `edab982` **isomorphnull** — file-driven; within-message multiset-shuffle null;
+  equality-based, alphabet-agnostic.
+- `abdc7f9` **chaining-graph** — file-driven; `compute_graph` threaded with
+  `alphabet_size` (the 83 hardcode removed); synthetic stream-independent positive
+  control.
+- `cd7a881` — dropped false eye-corpus/wiki/wave-1 provenance from the three stream
+  reports (codex P2).
+
+**Entangled three (§5.3) — maintainer decision (2026-06-29): rebuild all three with
+synthetic per-input controls, gating the eye-calibrated controls off the stream
+path.**
+
+- `b97b1c9` **perfectiso** — cross-message: a single stream → empty cross-message
+  catalog *by construction* (`STRONG_MIN_OCCURRENCES = 2`), so the stream report
+  honestly states "the cross-message test does not apply" and self-validates only the
+  synthetic internal-violation control. Eye path untouched.
+- `55bcbfa` **isomorphimperf** — same cross-message degeneracy pattern; **new
+  `isomorphimperf` Command** (it had none); family generator split into `family.rs`
+  for the 600-line cap.
+- `30072ef` **leakceiling — option 2 (maintainer's choice):** the headline
+  "undecidable fraction" is a *fitted* analytic prediction (free constant `G = 2`,
+  reverse-fit to puzzle two's band, no non-circular control). A sound synthetic
+  positive control was investigated and found **not buildable** (any ground truth is
+  either circular — re-deriving the coupon formula it validates — or requires
+  generalizing the test-only, C3×S4-bound G1b marginalization oracle, a research
+  subproject). So the stream path **gates the fitted prediction + `calibration_control`
+  + `scaling_sweep` OFF** (via a separate `LeakCeilingStreamReport` type) and exposes
+  ONLY transparent per-input measurements + textbook bounds (Part A measured supply,
+  Part B coupon-collector demand, Part C shortfall-ratio / MI-upper-bound /
+  underdetermination bounds — control-free by construction). The fitted prediction is
+  deliberately withheld. **New `leakceiling` Command.**
+
+**Multi-message extension — maintainer-approved (2026-06-29).** The two cross-message
+instruments could only ever see a single `"input"` message from the CLI, so their
+detectors never ran on user data. Added a blank-line-separated multi-message input
+format so they actually test user corpora:
+
+- `d612e51` + `ba7fd5d` — `cli::shared::split_blank_line_messages` +
+  `resolve_stream_multi` (backward-compatible: no blank line → one `"input"` message);
+  rewired perfectiso/isomorphimperf to consume all messages; planted-positive-on-user-
+  input + matched-null tests. They now emit an honest "structural candidate … not a
+  recovery" when a supplied corpus has a genuine cross-message repeat.
+- `cefc227` — disclose that the within-message shuffle null is a structure-destroying
+  **trivial floor** for the cross-message statistic (degenerates to ~0), so the reports
+  defer to the synthetic family control as the binding positive control.
+- `bd8eeab` — codex-sweep fixes: **(P1)** the perfectiso stream headline could affirm
+  `supports (does not prove) perfect isomorphism` off-corpus for a multi-message stream
+  with repeats but zero robust violations → now a 4-case analysis keyed to message
+  count never affirms off-corpus (the affirmation is gated to the eye path);
+  **(P2a)** degeneracy wording keyed to message count, not empty results; **(P2b)** the
+  three public `*_for_stream` fns reject mismatched `keys`/`messages` lengths;
+  **(P2c)** the perfectiso planted test frames the trivial-floor p as a sanity floor.
+
+**Honeycomb / grouping** left eye-specific (§5.4) — they are 2-D glyph-geometry, not
+1-D streams.
+
+**Known cosmetic nit (pre-existing, not fixed):** isomorphimperf's stream section
+header prints `single-stream applicability` even for a multi-message stream; the body
+correctly says "N messages supplied."
 
 ---
 
@@ -295,6 +345,11 @@ control. No honesty judgment call.
    `args_analysis.rs:146`; uniform dispatch at `dispatch.rs:131`.
 
 ### 5.3 The entangled three — STOP, get a maintainer decision first (see §6)
+
+> **RESOLVED (2026-06-29) — see the Workstream B completion record above.** The
+> maintainer chose to rebuild all three with synthetic per-input controls; `leakceiling`
+> was narrowed to transparent measurements/bounds with its fitted prediction withheld.
+> The text below is the original pre-decision analysis, kept for provenance.
 
 These fuse eye-corpus-calibrated validation into the per-stream path. Making them
 file-driven means **gating that off or rebuilding it as a per-input synthetic
