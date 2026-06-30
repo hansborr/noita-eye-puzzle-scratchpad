@@ -158,11 +158,40 @@ print_slot_plan() {
     done
 }
 
+invoked_by_git_commit() {
+    local parent
+
+    parent="$(ps -o comm= -p "${PPID:-0}" 2>/dev/null || true)"
+    parent="${parent//[[:space:]]/}"
+    case "$parent" in
+        git | git.exe)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+guard_inspection_mode() {
+    local mode="$1"
+
+    if invoked_by_git_commit; then
+        cat >&2 <<EOF
+pre-commit: $mode is inspection-only and cannot be used during git commit.
+pre-commit: run .githooks/pre-commit directly for inspection, or unset $mode and let the commit gate run.
+EOF
+        exit 1
+    fi
+}
+
 guard_protected_branch
 guard_clean_source_worktree
 
-# Inspection-only dry run: exits 0 after the branch/worktree guards, so never set it for a real commit.
+# Inspection-only dry run: exits 0 after the branch/worktree guards, but refuses
+# to run under git commit so it cannot bypass the gate.
 if [[ "${PRECOMMIT_GUARDS_ONLY:-}" == "1" ]]; then
+    guard_inspection_mode PRECOMMIT_GUARDS_ONLY
     echo "pre-commit: guards OK"
     exit 0
 fi
@@ -201,8 +230,10 @@ if (( ${#shell_files[@]} > 0 )); then
     slot_plan+=("shellcheck")
 fi
 
-# Inspection-only dry run: prints the slot plan and exits 0, so never set it for a real commit.
+# Inspection-only dry run: prints the slot plan and exits 0, but refuses to run
+# under git commit so it cannot bypass the gate.
 if [[ "${PRECOMMIT_PLAN_ONLY:-}" == "1" ]]; then
+    guard_inspection_mode PRECOMMIT_PLAN_ONLY
     print_slot_plan
     exit 0
 fi

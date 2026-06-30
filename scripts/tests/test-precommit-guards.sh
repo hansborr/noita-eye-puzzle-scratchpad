@@ -61,6 +61,21 @@ run_full_hook() {
     )
 }
 
+run_real_commit_with_hook() {
+    local repo="$1"
+    local message="$2"
+    shift 2
+
+    env "$@" \
+        git \
+        -C "$repo" \
+        -c core.hooksPath="$repo_root/.githooks" \
+        -c commit.gpgsign=false \
+        -c user.name=t \
+        -c user.email=t@e \
+        commit -q -m "$message"
+}
+
 expect_success() {
     local name="$1"
     local repo="$2"
@@ -102,6 +117,33 @@ expect_failure_contains() {
     if [[ "$output" != *"$needle"* ]]; then
         printf 'not ok - %s\nexpected output to contain: %s\nactual output:\n%s\n' \
             "$name" "$needle" "$output" >&2
+        exit 1
+    fi
+    printf 'ok - %s\n' "$name"
+}
+
+expect_commit_failure_contains() {
+    local name="$1"
+    local repo="$2"
+    local needle="$3"
+    local before after output
+    shift 3
+
+    before="$(git -C "$repo" rev-parse HEAD)"
+    if output="$(run_real_commit_with_hook "$repo" "$name" "$@" 2>&1)"; then
+        printf 'not ok - %s\nexpected commit failure containing: %s\nactual output:\n%s\n' \
+            "$name" "$needle" "$output" >&2
+        exit 1
+    fi
+    if [[ "$output" != *"$needle"* ]]; then
+        printf 'not ok - %s\nexpected output to contain: %s\nactual output:\n%s\n' \
+            "$name" "$needle" "$output" >&2
+        exit 1
+    fi
+    after="$(git -C "$repo" rev-parse HEAD)"
+    if [[ "$after" != "$before" ]]; then
+        printf 'not ok - %s\ncommit advanced despite hook failure: %s -> %s\n' \
+            "$name" "$before" "$after" >&2
         exit 1
     fi
     printf 'ok - %s\n' "$name"
@@ -273,3 +315,23 @@ if [[ ! -f "$renamed_rs_repo/hook-runs/suppressions" ]]; then
     printf 'not ok - pre-commit runs suppressions for Rust files renamed away\nsuppressions did not run\n' >&2
     exit 1
 fi
+
+plan_bypass_repo="$(new_repo feature/plan-bypass)"
+install_stub_guards "$plan_bypass_repo"
+printf 'docs\n' > "$plan_bypass_repo/README.md"
+git -C "$plan_bypass_repo" add README.md
+expect_commit_failure_contains \
+    "pre-commit rejects plan inspection during git commit" \
+    "$plan_bypass_repo" \
+    "PRECOMMIT_PLAN_ONLY is inspection-only" \
+    PRECOMMIT_PLAN_ONLY=1
+
+guards_bypass_repo="$(new_repo feature/guards-bypass)"
+install_stub_guards "$guards_bypass_repo"
+printf 'docs\n' > "$guards_bypass_repo/README.md"
+git -C "$guards_bypass_repo" add README.md
+expect_commit_failure_contains \
+    "pre-commit rejects guards inspection during git commit" \
+    "$guards_bypass_repo" \
+    "PRECOMMIT_GUARDS_ONLY is inspection-only" \
+    PRECOMMIT_GUARDS_ONLY=1
