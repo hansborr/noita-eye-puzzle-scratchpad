@@ -4,6 +4,7 @@
 //! [`super::dispatch`].
 
 mod gak;
+mod isoscan;
 mod keystream;
 mod misc;
 mod ragbaby;
@@ -11,6 +12,7 @@ mod solve;
 mod structural;
 
 pub(crate) use gak::run_gak;
+pub(crate) use isoscan::run_isoscan;
 pub(crate) use keystream::{run_keystream, run_profile};
 pub(crate) use misc::{
     run_controls, run_demo, run_grouping, run_orders, run_pipelinenull, run_stats,

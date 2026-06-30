@@ -11,8 +11,8 @@ use super::args_analysis::{
     PyryConditionsArgs, TransitivityArgs, TreeResidualArgs, ZeroAdjacencyNullArgs,
 };
 use super::args_attack::{
-    AglGakArgs, GakArgs, GakAttackArgs, GakAttackEyesArgs, KeystreamArgs, ProfileArgs, RagbabyArgs,
-    SolveArgs, StatsArgs,
+    AglGakArgs, GakArgs, GakAttackArgs, GakAttackEyesArgs, IsoscanArgs, KeystreamArgs, ProfileArgs,
+    RagbabyArgs, SolveArgs, StatsArgs,
 };
 
 #[derive(Debug, Parser)]
@@ -50,6 +50,11 @@ pub(crate) enum Command {
     /// Runs on arbitrary ciphertext; a solve emits a candidate, never a decode.
     #[command(name = "gak")]
     Gak(GakArgs),
+    /// Translate-isomorph (exact repeated-substring) scanner with an order-1
+    /// Markov matched null. Locates where a stream repeats — optionally on the
+    /// `--delta-mod` difference channel — as a structural candidate, never a decode.
+    #[command(name = "isoscan")]
+    Isoscan(IsoscanArgs),
     /// Monte-Carlo null over random grids plus standard36 orders.
     #[command(name = "nulltest")]
     Nulltest(NullArgs),

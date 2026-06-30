@@ -4,6 +4,7 @@
 
 use clap::{Args, Subcommand, ValueEnum};
 use noita_eye_puzzle::{
+    analysis::translate_isomorph,
     attack::{agl_gak, gak_attack, keystream, ragbaby, solve},
     ciphers,
 };
@@ -547,4 +548,42 @@ pub(crate) struct GakSelfTestArgs {
         value_parser = parse_seed
     )]
     pub(crate) seed: u64,
+}
+
+/// `isoscan`: translate-isomorph (exact repeated-substring) scanner with an
+/// order-1 Markov matched null. Finds where a stream repeats — optionally on the
+/// `--delta-mod` difference channel — and reports anchors as structural
+/// candidates, never decodes.
+#[derive(Debug, Args)]
+pub(crate) struct IsoscanArgs {
+    /// Symbol sequence. Optional: omit to read from --input-file or stdin.
+    pub(crate) sequence: Option<String>,
+    /// Read the sequence from this file instead of the positional argument.
+    #[arg(long = "input-file", conflicts_with = "sequence")]
+    pub(crate) input_file: Option<std::path::PathBuf>,
+    /// Read the sequence from stdin.
+    #[arg(long = "stdin", conflicts_with_all = ["sequence", "input_file"])]
+    pub(crate) stdin: bool,
+    /// Cipher alphabet chars, in order (e.g. ABCDEFGHIJKL or 01234). Defaults to
+    /// rendered orientation digits when omitted.
+    #[arg(long = "alphabet")]
+    pub(crate) alphabet: Option<String>,
+    /// Scan the modular finite-difference channel `d[i] = (v[i+1]-v[i]) mod M`
+    /// instead of the raw stream (exposes additive-walk / autokey plaintext
+    /// repeats; e.g. 3 for puzzle `two`'s rotor channel, 5 for puzzle `one`).
+    #[arg(long = "delta-mod")]
+    pub(crate) delta_mod: Option<usize>,
+    /// Maximum number of anchors to report.
+    #[arg(long = "top-k", default_value_t = translate_isomorph::DEFAULT_TOP_K)]
+    pub(crate) top_k: usize,
+    /// Number of matched-null (order-1 Markov resample) trials.
+    #[arg(long = "null-trials", default_value_t = translate_isomorph::DEFAULT_NULL_TRIALS)]
+    pub(crate) null_trials: usize,
+    /// Deterministic seed (decimal or 0x-hex) for the matched null.
+    #[arg(long, default_value_t = translate_isomorph::DEFAULT_SEED, value_parser = parse_seed)]
+    pub(crate) seed: u64,
+    /// Run the in-process positive control (a planted exact repeat + matched null)
+    /// and print PASS/FAIL instead of scanning input.
+    #[arg(long = "self-test")]
+    pub(crate) self_test: bool,
 }
