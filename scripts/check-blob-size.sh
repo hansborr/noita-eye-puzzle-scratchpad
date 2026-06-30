@@ -92,12 +92,23 @@ checked=0
 warnings=0
 blocks=0
 while IFS= read -r -d '' path; do
-    checked=$((checked + 1))
     if [[ -n "${allowlisted[$path]+x}" ]]; then
         continue
     fi
 
-    size="$(git cat-file -s ":$path")"
+    index_entry="$(git ls-files -s -- "$path")"
+    mode="${index_entry%% *}"
+    if [[ "$mode" == "160000" ]]; then
+        printf 'blob-size: skipping staged gitlink: %s\n' "$path" >&2
+        continue
+    fi
+
+    if ! size="$(git cat-file -s ":$path" 2>/dev/null)"; then
+        printf 'blob-size: skipping staged non-blob path: %s\n' "$path" >&2
+        continue
+    fi
+
+    checked=$((checked + 1))
     if (( size >= block_bytes )); then
         printf 'blob-size: %s is %s (%d bytes), exceeding block threshold %s; add to %s as "%s # reason" only if intentional\n' \
             "$path" "$(human_bytes "$size")" "$size" "$(human_bytes "$block_bytes")" "$allowlist" "$path" >&2
@@ -107,7 +118,7 @@ while IFS= read -r -d '' path; do
             "$path" "$(human_bytes "$size")" "$size" "$(human_bytes "$warn_bytes")" >&2
         warnings=$((warnings + 1))
     fi
-done < <(git diff --cached --name-only -z --diff-filter=ACM)
+done < <(git diff --cached --no-renames --name-only -z --diff-filter=ACM)
 
 if (( blocks > 0 || stale > 0 )); then
     printf 'blob-size: %d blocked blob(s), %d warning(s), %d stale allowlist entry(s). See %s\n' \

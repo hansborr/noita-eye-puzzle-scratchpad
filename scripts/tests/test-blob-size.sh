@@ -47,10 +47,11 @@ stage_blob() {
 
 run_check() {
     local repo="$1"
+    shift
 
     (
         cd "$repo"
-        "$check"
+        "$@" "$check"
     )
 }
 
@@ -59,8 +60,9 @@ expect_success_contains() {
     local repo="$2"
     local needle="$3"
     local output
+    shift 3
 
-    if ! output="$(run_check "$repo" 2>&1)"; then
+    if ! output="$(run_check "$repo" "$@" 2>&1)"; then
         printf 'not ok - %s\n%s\n' "$name" "$output" >&2
         exit 1
     fi
@@ -77,8 +79,9 @@ expect_failure_contains() {
     local repo="$2"
     local needle="$3"
     local output
+    shift 3
 
-    if output="$(run_check "$repo" 2>&1)"; then
+    if output="$(run_check "$repo" "$@" 2>&1)"; then
         printf 'not ok - %s\nexpected failure containing: %s\nactual output:\n%s\n' \
             "$name" "$needle" "$output" >&2
         exit 1
@@ -90,6 +93,20 @@ expect_failure_contains() {
     fi
     printf 'ok - %s\n' "$name"
 }
+
+small_repo="$(new_repo small)"
+stage_blob "$small_repo" small.bin 1024
+expect_success_contains \
+    "small staged blob passes silently" \
+    "$small_repo" \
+    "0 warning(s)"
+
+env_repo="$(new_repo env-validation)"
+expect_failure_contains \
+    "blob threshold env rejects block not above warn" \
+    "$env_repo" \
+    "require 0 < BLOB_WARN_BYTES < BLOB_BLOCK_BYTES" \
+    env BLOB_WARN_BYTES=10 BLOB_BLOCK_BYTES=10
 
 blocked_repo="$(new_repo blocked)"
 stage_blob "$blocked_repo" big.bin 2097153
@@ -113,6 +130,24 @@ expect_success_contains \
     "staged blob at warning threshold warns but passes" \
     "$warn_repo" \
     "blob-size: warning:"
+
+renamed_repo="$(new_repo renamed-grown)"
+stage_blob "$renamed_repo" old.bin 1
+git_hermetic "$renamed_repo" commit -q -m "base blob"
+git_hermetic "$renamed_repo" mv old.bin new.bin
+stage_blob "$renamed_repo" new.bin 2097153
+expect_failure_contains \
+    "renamed and grown blob is checked" \
+    "$renamed_repo" \
+    "new.bin is"
+
+gitlink_repo="$(new_repo gitlink)"
+git_hermetic "$gitlink_repo" update-index --add --cacheinfo \
+    160000 1111111111111111111111111111111111111111 vendor/submodule
+expect_success_contains \
+    "staged gitlink is skipped" \
+    "$gitlink_repo" \
+    "skipping staged gitlink"
 
 reasonless_repo="$(new_repo reasonless)"
 printf 'big.bin #\n' > "$reasonless_repo/scripts/blob-size-allowlist.txt"
