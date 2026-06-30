@@ -14,6 +14,20 @@ Entries are grouped by date, newest first, loosely following
 > engine-generated, strikingly structured data of unknown meaning; unsolved; no
 > primary developer source confirms it encodes recoverable plaintext.
 
+## 2026-06-30 — Harness guardrails and agent hooks
+
+### Added
+- **Development harness guardrails.** The pre-commit hook now guards protected
+  branches and source-relevant dirty worktrees, checks staged blob size, audits
+  safety-lint suppressions against a register, validates the file-size debt log,
+  and supports feature-branch fast-commit mode that skips only tests and rustdoc.
+- **Claude Code agent hooks.** Added shared `scripts/ai-hooks/` bodies plus thin
+  `.claude/hooks/` adapters for commit-bypass guarding, quiet cached cargo runs,
+  protected-file advisories, post-edit rustfmt, and a non-blocking stop nudge;
+  `.claude/settings.json` also broadens destructive-command deny patterns.
+- **Shell smoke-test harness.** Added `scripts/tests/*.sh` coverage and
+  `make test-scripts`; CI runs the shell smoke suite.
+
 ## 2026-06-26 — GAK attack threads
 
 Work aligned to the community's Group Autokey (GAK / S₈₃ deck-cipher) framing,

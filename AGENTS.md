@@ -13,7 +13,8 @@ hypothesis space, not premature claims about what the glyphs mean.
 
 ```sh
 make verify   # the correctness gate: fmt-check + clippy(-D) + filesize + tests + rustdoc(-D) + cargo-deny
-make check    # verify + cargo-machete + codespell + shellcheck + release build (full local CI)
+make check    # verify + blob-size + suppressions + cargo-machete + codespell + shellcheck + test-scripts + release build (full local CI)
+make test-scripts  # run scripts/tests/*.sh shell smoke tests
 make setup    # install the git pre-commit hook (core.hooksPath = .githooks)
 make run ARGS=demo
 ```
@@ -66,6 +67,27 @@ file-size, blob-size, suppressions, and cargo-deny. CI and `make verify` /
 shortcuts that exit 0; do not set them during a real `git commit`, where they
 would bypass the gate.
 
+### Agent hooks
+
+Claude Code hooks use shared bodies in `scripts/ai-hooks/` with thin
+`.claude/hooks/` adapters. Hook errors fail open (they emit "continue" rather
+than blocking a tool call); only a confident commit-bypass match is intentionally
+denied.
+
+- `commit-bypass-guard` (PreToolUse Bash) blocks pre-commit/history bypasses
+  such as `--no-verify`, `-n`, `--amend`, and `git -c core.hooksPath=...` while
+  allowing normal commits.
+- `cargo-run-quiet` (PreToolUse Bash) summarizes and caches whitelisted
+  `cargo test`/`clippy`/`build`/`check` and `cargo fmt --check` output. Opt out
+  with `NOITA_QUIET_OFF=1` (including an inline prefix) or `.noita-quiet-off`.
+- `protected-files-advisory` (PreToolUse Edit|Write) gives throttled heads-up
+  notes when editing guardrails, Cargo policy/dependency files, the verified
+  corpus, or embedded research fixtures.
+- `tidy-on-edit` (PostToolUse Edit|Write) runs `rustfmt` on edited in-repo
+  `.rs` files; failures are advisory.
+- `stop-nudge` (Stop, non-blocking) reminds about uncommitted work. Disable it
+  with `.no-stop-uncommitted`.
+
 ## Design notes
 
 - A `Glyph` is an opaque `u16` index into an `Alphabet`, not a closed enum,
@@ -82,10 +104,15 @@ would bypass the gate.
 | ------------------ | ----------------------------------------------------- |
 | Lints / format     | `Cargo.toml [lints]`, `clippy.toml`, `rustfmt.toml`   |
 | File size / god-files | `scripts/check-file-size.sh` + `scripts/file-size-allowlist.txt` (ratchet) |
+| File-size debt log | `scripts/file-size-debt-log.jsonl` (`scripts/check-file-size.sh --summary`) |
+| Large staged blobs | `scripts/check-blob-size.sh` + `scripts/blob-size-allowlist.txt` |
+| Safety-lint suppressions | `scripts/check-suppressions.sh` + `scripts/suppression-register.txt` |
 | Supply chain       | `deny.toml` (cargo-deny), `cargo machete`             |
 | Toolchain          | `rust-toolchain.toml`, MSRV in `Cargo.toml`+`clippy.toml` |
 | Spelling / text    | `.codespellrc`, `.editorconfig`, `.gitattributes`     |
 | Shell scripts      | `.shellcheckrc`, `shellcheck` (CI + pre-commit)       |
+| Harness shell tests | `scripts/tests/` (`make test-scripts`, CI)           |
 | Local gate         | `.githooks/pre-commit` (install via `make setup`)     |
 | CI                 | `.github/workflows/ci.yml`                            |
 | Dangerous commands | `.claude/settings.json` deny list                     |
+| Agent hooks        | `.claude/settings.json` hooks + `scripts/ai-hooks/` (thin `.claude/hooks/` shims) |
