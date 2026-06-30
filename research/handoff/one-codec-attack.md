@@ -60,6 +60,17 @@ the 21-bit / run-period-1 constraint.** Next agent: search the
 a misaligned tokenization is set aside, not refuted). Write-up: `CODEC-RESULTS.md`
 § "`one` — crib-consistency filter (cribfit)".
 
+**UPDATE: bit-periodic keyed substitution lead closed as an honest negative.**
+`cribfit` now instantiates `BitPeriodicSubst(p)` as the free substitution on
+augmented `(magnitude, bit-coset)` symbols. The crib-admissible English-viable
+periods `p=3` (alphabet 14) and `p=7` (alphabet 24) both score below their matched
+nulls; `p=21` is reported as monoalphabetic-infeasible (alphabet 47 > 26), not
+dropped. That closes the per-run keyed-substitution lead. The remaining live regime
+is **non-substitution memoryful readings**: evolving-table codes beyond
+single-magnitude MTF, plus 2-D / interleaved layouts. Same caveat: at this length
+the gate excludes a searchable above-bigram codec signal, not a short genuine
+message.
+
 ---
 (original handoff below; angles #1 and #3 are now tested/excluded as noted above)
 

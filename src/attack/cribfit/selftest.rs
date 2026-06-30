@@ -11,8 +11,8 @@ use crate::attack::rlcodec::{
 
 use super::crib::crib_geometry;
 use super::families::{
-    AnchorConsistency, ConsistencyVerdict, CribCandidate, Tokenization, cumsum_candidate,
-    mtf_candidate,
+    AnchorConsistency, ConsistencyVerdict, CribCandidate, Tokenization, bitperiodic_candidate,
+    cumsum_candidate, mtf_candidate,
 };
 use super::gate::gate_candidates;
 use super::{AnchorPair, run_cribfit};
@@ -44,7 +44,7 @@ const SELFTEST_TOP_K: usize = 8;
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[allow(
     clippy::struct_excessive_bools,
-    reason = "self-test report DTO: each bool is an independent control verdict (MTF/cumsum consistency, positive/negative survival) surfaced verbatim, not a packed state machine"
+    reason = "self-test report DTO: each bool is an independent control verdict (MTF/cumsum/bitperiodic consistency, positive/negative survival) surfaced verbatim, not a packed state machine"
 )]
 pub struct CribfitSelfTest {
     /// `gcd` of real `one`'s documented bit-gaps (must be `21`).
@@ -71,6 +71,31 @@ pub struct CribfitSelfTest {
     /// Whether the discrimination control's matching-modulus cumulative-sum code is
     /// crib-consistent (must be `true` — the filter is not reject-everything).
     pub control_cumsum_consistent: bool,
+    /// Real `one`'s `BitPeriodicSubst(p=3)` realized augmented alphabet size (must
+    /// be `14`).
+    pub bitperiodic_p3_alphabet: usize,
+    /// Whether real `one`'s `BitPeriodicSubst(p=3)` is crib-consistent (must be
+    /// `true`).
+    pub bitperiodic_p3_consistent: bool,
+    /// Whether real `one`'s `BitPeriodicSubst(p=3)` is English-viable (must be
+    /// `true`).
+    pub bitperiodic_p3_english_viable: bool,
+    /// Real `one`'s `BitPeriodicSubst(p=7)` realized augmented alphabet size (must
+    /// be `24`).
+    pub bitperiodic_p7_alphabet: usize,
+    /// Whether real `one`'s `BitPeriodicSubst(p=7)` is English-viable (must be
+    /// `true`).
+    pub bitperiodic_p7_english_viable: bool,
+    /// Real `one`'s `BitPeriodicSubst(p=21)` realized augmented alphabet size
+    /// (must be `47`, monoalphabetic-infeasible).
+    pub bitperiodic_p21_alphabet: usize,
+    /// Whether real `one`'s `BitPeriodicSubst(p=21)` is English-viable (must be
+    /// `false`; alphabet > 26).
+    pub bitperiodic_p21_english_viable: bool,
+    /// Whether the discrimination control's `BitPeriodicSubst(p=3)` is
+    /// crib-consistent (must be `true` — the keyed-substitution family is
+    /// accept-capable, not reject-all).
+    pub bitperiodic_control_p3_consistent: bool,
     /// Whether the discrimination control's MTF is crib-consistent (must be `false`
     /// — the filter rejects a memoryful codec that breaks occurrence-equality).
     pub control_mtf_consistent: bool,
@@ -100,6 +125,14 @@ impl CribfitSelfTest {
             && self.mtf_single_len26_compared == 26
             && self.one_has_inapplicable_mtf
             && self.control_cumsum_consistent
+            && self.bitperiodic_p3_alphabet == 14
+            && self.bitperiodic_p3_consistent
+            && self.bitperiodic_p3_english_viable
+            && self.bitperiodic_p7_alphabet == 24
+            && self.bitperiodic_p7_english_viable
+            && self.bitperiodic_p21_alphabet == 47
+            && !self.bitperiodic_p21_english_viable
+            && self.bitperiodic_control_p3_consistent
             && !self.control_mtf_consistent
             && self.control_mtf_excluded
             && self.positive_survivor
@@ -205,8 +238,10 @@ pub fn cribfit_self_test(seed: u64) -> Result<CribfitSelfTest, RlError> {
     let (control_m, control_anchor) = discrimination_carrier();
     let control_anchors = [control_anchor];
     let control_cumsum = cumsum_candidate(&control_m, 3, &control_anchors);
+    let bitperiodic_control_p3 = bitperiodic_candidate(&control_m, 3, &control_anchors);
     let control_mtf = mtf_candidate(&control_m, Tokenization::Single, &control_anchors);
     let control_cumsum_consistent = control_cumsum.consistency.consistent;
+    let bitperiodic_control_p3_consistent = bitperiodic_control_p3.consistency.consistent;
     let control_mtf_consistent = control_mtf.consistency.consistent;
     // Single-magnitude MTF is per-run aligned, so its inconsistency is a genuine
     // EXCLUSION (applicable + inconsistent), not a set-aside.
@@ -249,6 +284,18 @@ pub fn cribfit_self_test(seed: u64) -> Result<CribfitSelfTest, RlError> {
         .mtf
         .iter()
         .any(|candidate| candidate.consistency.inapplicable());
+    let bitperiodic_p3 = report
+        .bitperiodic
+        .iter()
+        .find(|candidate| candidate.name == "BitPeriodicSubst{p=3}");
+    let bitperiodic_p7 = report
+        .bitperiodic
+        .iter()
+        .find(|candidate| candidate.name == "BitPeriodicSubst{p=7}");
+    let bitperiodic_p21 = report
+        .bitperiodic
+        .iter()
+        .find(|candidate| candidate.name == "BitPeriodicSubst{p=21}");
 
     Ok(CribfitSelfTest {
         gcd_bit_gaps: geometry.gcd_bit_gaps,
@@ -260,6 +307,18 @@ pub fn cribfit_self_test(seed: u64) -> Result<CribfitSelfTest, RlError> {
         mtf_single_applicable: mtf_single.consistency.applicable,
         one_has_inapplicable_mtf,
         control_cumsum_consistent,
+        bitperiodic_p3_alphabet: bitperiodic_p3.map_or(0, |candidate| candidate.alphabet),
+        bitperiodic_p3_consistent: bitperiodic_p3
+            .is_some_and(|candidate| candidate.consistency.consistent),
+        bitperiodic_p3_english_viable: bitperiodic_p3
+            .is_some_and(|candidate| candidate.english_viable),
+        bitperiodic_p7_alphabet: bitperiodic_p7.map_or(0, |candidate| candidate.alphabet),
+        bitperiodic_p7_english_viable: bitperiodic_p7
+            .is_some_and(|candidate| candidate.english_viable),
+        bitperiodic_p21_alphabet: bitperiodic_p21.map_or(0, |candidate| candidate.alphabet),
+        bitperiodic_p21_english_viable: bitperiodic_p21
+            .is_some_and(|candidate| candidate.english_viable),
+        bitperiodic_control_p3_consistent,
         control_mtf_consistent,
         control_mtf_excluded,
         positive_survivor,

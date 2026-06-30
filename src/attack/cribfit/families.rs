@@ -4,7 +4,7 @@
 //! and is tested by a single necessary condition: **a repeated plaintext span must
 //! decode identically.** For per-run families (cumulative-sum) and for the
 //! memoryful move-to-front code this is checked directly by occurrence-equality
-//! across the crib windows; for the run/bit-periodic keyed families it is decided
+//! across the crib windows; for run-periodic keyed families it is decided
 //! analytically by the gap divisibility (handled in [`super::mod`]).
 //!
 //! A family that fails occurrence-equality on any crib is excluded *without any
@@ -268,6 +268,44 @@ pub fn cumsum_candidate(magnitudes: &[usize], n: usize, anchors: &[AnchorPair]) 
     let consistency = occurrence_consistency(&tokens, &symbols, anchors);
     CribCandidate {
         name: format!("CumulativeSumMod{{n={n}}}"),
+        english_viable: english_viable(alphabet),
+        alphabet,
+        consistency,
+        symbols,
+    }
+}
+
+/// Family 3 — `BitPeriodicSubst(p)`: a bit-periodic keyed substitution over `M`.
+///
+/// The most general substitution keyed by the run's bit-coset is exactly a free
+/// monoalphabetic map on the augmented symbol `(M[i], (Σ M[0..i]) mod p)`, where
+/// the prefix sum is exclusive (the bit-start position of run `i`). Repeated crib
+/// windows are consistent precisely when their coset offset is zero, i.e. `p`
+/// divides the bit-gap; the direct occurrence check below confirms that condition
+/// on the realized per-run stream before the existing matched-null gate scores it.
+#[must_use]
+pub fn bitperiodic_candidate(
+    magnitudes: &[usize],
+    p: usize,
+    anchors: &[AnchorPair],
+) -> CribCandidate {
+    let period = p.max(1);
+    let mut prefix = 0usize;
+    let packed: Vec<usize> = magnitudes
+        .iter()
+        .map(|&m| {
+            let coset = if p == 0 { 0 } else { prefix % p };
+            let packed = m * period + coset;
+            prefix += m;
+            packed
+        })
+        .collect();
+    let symbols = dense_ids(&packed);
+    let alphabet = distinct(&symbols);
+    let tokens = per_run_tokens(magnitudes);
+    let consistency = occurrence_consistency(&tokens, &symbols, anchors);
+    CribCandidate {
+        name: format!("BitPeriodicSubst{{p={p}}}"),
         english_viable: english_viable(alphabet),
         alphabet,
         consistency,

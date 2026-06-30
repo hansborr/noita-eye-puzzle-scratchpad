@@ -232,6 +232,22 @@ fn print_section_b(report: &CribfitReport) {
         "      admissible periods (analytic): {}",
         set_str(&geometry.bit_periods)
     );
+    println!(
+        "      concrete substitution family: free monoalphabetic map on augmented symbols (magnitude, bit-coset)."
+    );
+    println!(
+        "      note: english-viable requires the realized augmented alphabet to fall in [8, 26];"
+    );
+    println!(
+        "            a period whose augmented alphabet exceeds 26 is monoalphabetic-infeasible and is reported, not silently dropped."
+    );
+    println!(
+        "      {:<8} {:>4}  {:<13}  english-viable",
+        "p", "|S|", "status"
+    );
+    for candidate in &report.bitperiodic {
+        print_bitperiodic_row(candidate);
+    }
 
     println!(
         "  [4] EvolvingTableMtf(tokenization): move-to-front rank code; consistency checked directly on M."
@@ -250,10 +266,7 @@ fn print_section_b(report: &CribfitReport) {
 
 /// Prints one cumulative-sum candidate row.
 fn print_candidate_row(candidate: &CribCandidate) {
-    let n = candidate
-        .name
-        .trim_start_matches("CumulativeSumMod{n=")
-        .trim_end_matches('}');
+    let n = cumsum_mod(candidate);
     println!(
         "      {:<8} {:>4}  {:<13}  {}",
         n,
@@ -265,6 +278,40 @@ fn print_candidate_row(candidate: &CribCandidate) {
             "no"
         }
     );
+}
+
+/// Extracts the display modulus from a cumulative-sum candidate name.
+fn cumsum_mod(candidate: &CribCandidate) -> &str {
+    candidate
+        .name
+        .strip_prefix("CumulativeSumMod{n=")
+        .and_then(|rest| rest.strip_suffix('}'))
+        .unwrap_or(&candidate.name)
+}
+
+/// Prints one bit-periodic substitution candidate row.
+fn print_bitperiodic_row(candidate: &CribCandidate) {
+    let p = bitperiodic_period(candidate);
+    println!(
+        "      {:<8} {:>4}  {:<13}  {}",
+        p,
+        candidate.alphabet,
+        status_str(candidate),
+        if candidate.english_viable {
+            "yes"
+        } else {
+            "no"
+        }
+    );
+}
+
+/// Extracts the display period from a bit-periodic substitution candidate name.
+fn bitperiodic_period(candidate: &CribCandidate) -> &str {
+    candidate
+        .name
+        .strip_prefix("BitPeriodicSubst{p=")
+        .and_then(|rest| rest.strip_suffix('}'))
+        .unwrap_or(&candidate.name)
 }
 
 /// Prints one MTF candidate row, with per-anchor occurrence-agreement detail.
@@ -338,6 +385,12 @@ fn print_section_c(report: &CribfitReport) {
             "OVERALL VERDICT: SURVIVOR present — a crib-consistent candidate beat its matched null (verify as a candidate, never a decode)."
         );
     } else if report.has_cribs() {
+        let gated_names = report
+            .gated
+            .iter()
+            .map(|verdict| verdict.codec_name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
         println!("OVERALL VERDICT: no survivor (honest negative) + derived structural constraint.");
         println!(
             "  constraint: a run-periodic key must have period | gcd(run-gaps)={} (so {} — only the memoryless case when gcd=1);",
@@ -349,10 +402,15 @@ fn print_section_c(report: &CribfitReport) {
             geometry.gcd_bit_gaps,
             set_str(&geometry.bit_periods)
         );
-        println!(
-            "  scope: the only English-viable crib-consistent candidate (cumsum mod {}) is a bounded-increment walk and is below its matched null — the filter excludes the searchable crib-consistent codecs, it does not prove `one` is non-English.",
-            geometry.bit_periods.last().copied().unwrap_or(0)
-        );
+        if gated_names.is_empty() {
+            println!(
+                "  scope: no crib-consistent English-viable candidate reached the matched-null gate — the filter is structural, not a proof `one` is non-English."
+            );
+        } else {
+            println!(
+                "  scope: gated crib-consistent English-viable candidates were {gated_names}; all are below their matched nulls — this excludes these searchable codec signals, not a short genuine message."
+            );
+        }
     } else {
         println!("OVERALL VERDICT: inapplicable — no census-significant crib to filter against.");
     }
@@ -420,6 +478,20 @@ fn run_self_test(seed: u64) -> ExitCode {
         report.control_cumsum_consistent,
         report.control_mtf_excluded,
         report.control_mtf_consistent
+    );
+    println!(
+        "  BITPERIODIC real one: p=3 alphabet {} (want 14), consistent = {} (want true), english-viable = {} (want true); p=7 alphabet {} (want 24), english-viable = {} (want true); p=21 alphabet {} (want 47), english-viable = {} (want false)",
+        report.bitperiodic_p3_alphabet,
+        report.bitperiodic_p3_consistent,
+        report.bitperiodic_p3_english_viable,
+        report.bitperiodic_p7_alphabet,
+        report.bitperiodic_p7_english_viable,
+        report.bitperiodic_p21_alphabet,
+        report.bitperiodic_p21_english_viable
+    );
+    println!(
+        "  BITPERIODIC discrimination control: p=3 consistent = {} (want true)",
+        report.bitperiodic_control_p3_consistent
     );
     println!(
         "  POSITIVE (planted English via gate): survivor = {} (want true)",

@@ -452,8 +452,20 @@ are the whole constraint:
   **below its null** (real −11.49 vs null mean −11.03, z = −1.64, p = 0.99 — an
   honest negative; its near-English fragments are the preserved crib repeats under
   free substitution, not a decode).
-- **RunPeriodicKey / BitPeriodicKey**: reported as the analytic admissible period
-  sets above ({1} and {1, 3, 7, 21}).
+- **RunPeriodicKey**: reported as the analytic admissible period set above ({1}):
+  no nontrivial run-periodic keyed codec is crib-consistent.
+- **BitPeriodicSubst(p)**: a bit-periodic keyed substitution over the per-run
+  single-magnitude tokenization is exactly a free monoalphabetic substitution on
+  the augmented symbol `(magnitude, bit-coset)`, where the bit-coset is the
+  exclusive prefix sum modulo `p`. The admissible periods are {1, 3, 7, 21}; `p=1`
+  is memoryless (alphabet 5), `p=21` is **monoalphabetic-infeasible** (alphabet 47 >
+  26) and is reported rather than dropped, and the two English-viable periods are
+  language-gated. Both are honest negatives: `p=3` (alphabet 14) scores real −9.978
+  vs null mean −9.848 / null max −9.414 (z = −0.54, p = 0.7037), and `p=7`
+  (alphabet 24) scores real −10.219 vs null mean −10.122 / null max −9.431
+  (z = −0.32, p = 0.5802). This completes the per-run crib-admissible
+  bit-periodic keyed-substitution family: per-run is the crib-forced tokenization;
+  pair/chunk tokenizations are inapplicable under this filter.
 - **EvolvingTableMtf(tokenization)** (move-to-front rank code over single
   magnitudes / pairs / comma / terminator chunkings): the verdict depends on
   whether the tokenization aligns to the cribs.
@@ -472,10 +484,15 @@ are the whole constraint:
 **No English survivor** (honest negative) **plus the derived structural
 constraint:** any surviving codec-with-memory must key on a period that divides
 `gcd(bit-gaps) = 21` (bit-periodic) and, if it advances per run, must be
-memoryless (`gcd(run-gaps) = 1`). Among the move-to-front readings, the per-run
-**single-magnitude MTF is excluded**, while the **chunked / paired tokenizations
-are inapplicable** under this filter (set aside, not excluded — their boundaries
-don't align to the cribs). This narrows the live regime without claiming a decode.
+memoryless (`gcd(run-gaps) = 1`). The concrete gated candidates are cumsum mod 21
+and `BitPeriodicSubst(p)` at `p=3` and `p=7`; all are below their matched nulls.
+Scope caveat: this is "no above-bigram English under a per-(magnitude, bit-coset)
+substitution at the crib-admissible periods 3 and 7"; at ~33 bytes of entropy the
+test is underpowered, so it excludes a searchable codec signal, not a short genuine
+message. Among the move-to-front readings, the per-run **single-magnitude MTF is
+excluded**, while the **chunked / paired tokenizations are inapplicable** under
+this filter (set aside, not excluded — their boundaries don't align to the cribs).
+This narrows the live regime without claiming a decode.
 
 ### The instrument
 

@@ -25,6 +25,9 @@
 //! - a **bit-periodic** key (advances once per carrier bit) and a
 //!   **cumulative-sum-mod-`n`** code are consistent ⟺ their period / modulus
 //!   divides every **bit-gap** ⟺ it divides `gcd(bit-gaps)`;
+//! - a **bit-periodic keyed substitution** is instantiated as a free substitution
+//!   over `(magnitude, bit-coset)` augmented symbols and gated by the same matched
+//!   null as the cumulative-sum candidates;
 //! - a **move-to-front** (evolving-table) code is checked directly by
 //!   occurrence-equality across the cribs, where its tokenization aligns.
 //!
@@ -56,8 +59,8 @@ mod tests;
 
 pub use crib::{AnchorPair, CribGeometry, crib_geometry, derive_crib_geometry};
 pub use families::{
-    AnchorConsistency, ConsistencyVerdict, CribCandidate, Tokenization, cumsum_candidate,
-    mtf_candidate,
+    AnchorConsistency, ConsistencyVerdict, CribCandidate, Tokenization, bitperiodic_candidate,
+    cumsum_candidate, mtf_candidate,
 };
 pub use gate::gate_candidates;
 pub use selftest::{CribfitSelfTest, cribfit_self_test};
@@ -99,6 +102,8 @@ pub struct CribfitReport {
     pub census: CensusReport,
     /// `CumulativeSumMod(n)` candidates, one per admissible modulus (Section B).
     pub cumsum: Vec<CribCandidate>,
+    /// `BitPeriodicSubst(p)` candidates, one per admissible bit period (Section B).
+    pub bitperiodic: Vec<CribCandidate>,
     /// `EvolvingTableMtf` candidates, one per tokenization (Section B).
     pub mtf: Vec<CribCandidate>,
     /// Matched-null verdicts for the crib-consistent + English-viable candidates
@@ -164,12 +169,18 @@ pub fn run_cribfit(
         .iter()
         .map(|&n| cumsum_candidate(magnitudes, n, &geometry.anchors))
         .collect();
+    let bitperiodic: Vec<CribCandidate> = geometry
+        .bit_periods
+        .iter()
+        .map(|&p| bitperiodic_candidate(magnitudes, p, &geometry.anchors))
+        .collect();
     let mtf: Vec<CribCandidate> = Tokenization::all()
         .into_iter()
         .map(|tok| mtf_candidate(magnitudes, tok, &geometry.anchors))
         .collect();
 
     let mut all = cumsum.clone();
+    all.extend(bitperiodic.clone());
     all.extend(mtf.clone());
     let gated = gate_candidates(&all, &model, cfg)?;
     let overall_survivor = gated.iter().any(|verdict| verdict.survivor);
@@ -179,6 +190,7 @@ pub fn run_cribfit(
         geometry,
         census,
         cumsum,
+        bitperiodic,
         mtf,
         gated,
         overall_survivor,
