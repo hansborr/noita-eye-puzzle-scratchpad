@@ -1,19 +1,24 @@
-//! Bigram-order codec gate for base-walk practice puzzles.
+//! Bigram-order codec probe for base-walk practice puzzles.
 //!
 //! `bigramcodec` is the converse of `rlcodec`'s quadgram-over-bigram battery: it
 //! asks whether simple token streams already carry language at the bigram level.
 //! That is exactly where the practice-puzzle hint points, but it is also where
 //! the known base-5 walk and GAK repeat can create non-language ordering. For
-//! that reason every stream is reported against two nulls:
+//! that reason every stream is reported with a readability crib heuristic plus
+//! two diagnostic nulls:
 //!
 //! - order-0: a unigram-preserving shuffle, which has power for token ordering
 //!   but is confounded by the walk/repeat structure;
 //! - order-1: a Markov resample preserving token bigram transitions, the
-//!   confound control.
+//!   confound control. Because the scorer is itself a bigram objective, this null
+//!   is deliberately near-powerless as a language discriminator: the self-test
+//!   pins a perfectly recovered English plant at only about order-1 z = +0.6,
+//!   p = 0.33.
 //!
-//! A candidate text remains a hypothesis, never a decode. If a stream beats
-//! order-0 but not order-1, the measured signal is the token-bigram structure,
-//! not language beyond that structure.
+//! A candidate is therefore readable hypothesis text, never a decode. If text is
+//! not readable but beats order-0, the measured signal is token-bigram structure,
+//! not language. The order-1 table is retained to expose the confound and the
+//! statistical gate's lack of power at this carrier budget.
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -49,11 +54,24 @@ pub const DEFAULT_ITERS: usize = 900;
 pub const SURVIVOR_ALPHA: f64 = 0.05;
 /// Streams below this alphabet size are explicitly alphabet-capped in reports.
 pub const GENERAL_ENGLISH_DISTINCT_FLOOR: usize = 20;
+/// Minimum distinct crib-word hits for a decoded text to be considered readable.
+///
+/// This is a small deterministic crib heuristic, not a language model. It exists
+/// because the bigram objective and the bigram-preserving order-1 null cannot by
+/// themselves discriminate a recovered English monoalphabetic plant.
+pub const READABLE_MIN: usize = 3;
 
 const SIGMA_FLOOR: f64 = 1e-9;
 const REAL_TAG: u64 = 0x6269_6772_5ea1_0001;
 const ORDER0_TAG: u64 = 0x6269_6772_0000_0001;
 const ORDER1_TAG: u64 = 0x6269_6772_0001_0001;
+
+const READABLE_WORDS: &[&str] = &[
+    "THAT", "WITH", "HAVE", "THIS", "FROM", "THEY", "WERE", "BEEN", "INTO", "ONTO", "OVER", "THAN",
+    "THEN", "WHEN", "RAIN", "WIND", "ROAD", "TREE", "TREES", "LOST", "LAND", "LANDS", "NORTH",
+    "RIDER", "RIDERS", "STONE", "WALL", "WALLS", "DEAD", "SLOW", "SEASON", "SEASONS", "SILENT",
+    "SHADE", "TIRED", "RODE", "LONE", "SAIL", "SAILED", "TRADE", "TRADED", "HELD",
+];
 
 /// Configuration for one bigramcodec run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -223,12 +241,12 @@ pub struct NullStats {
 /// Honest high-level verdict for one stream/language row.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HonestVerdict {
-    /// The order-1 confound-control gate cleared; still only a candidate
-    /// hypothesis, and the text must be inspected.
+    /// The decoded text clears the readability heuristic; still only a candidate
+    /// hypothesis, and the text must be inspected by eye.
     Candidate,
-    /// Order-0 cleared but order-1 did not: token-bigram artifact.
+    /// The text is not readable, but order-0 cleared: token-bigram artifact.
     Artifact,
-    /// Neither null gate cleared.
+    /// The text is not readable and order-0 did not clear.
     Negative,
     /// Search was skipped because the stream was too short or alphabet-rich.
     Skipped,
@@ -245,6 +263,20 @@ impl HonestVerdict {
             Self::Skipped => "skipped",
         }
     }
+}
+
+/// Counts distinct curated English crib words that occur as substrings of `text`.
+///
+/// The fixed list is intentionally small and plant-aware. It is a deterministic
+/// readability tripwire for human inspection, not a general language model and
+/// not evidence of plaintext recovery by itself.
+#[must_use]
+pub fn readable_coverage(text: &str) -> usize {
+    let upper = text.to_ascii_uppercase();
+    READABLE_WORDS
+        .iter()
+        .filter(|word| word.len() >= 4 && upper.contains(*word))
+        .count()
 }
 
 /// Summary of the derived base-walk carrier.
@@ -277,6 +309,8 @@ pub struct LanguageRow {
     pub order0: Option<NullStats>,
     /// Order-1 null calibration, absent only when skipped.
     pub order1: Option<NullStats>,
+    /// Number of distinct curated readability crib words in the best text.
+    pub readability_coverage: usize,
     /// Honest verdict.
     pub verdict: HonestVerdict,
 }
@@ -390,10 +424,12 @@ fn evaluate_language(
             real,
             order0: None,
             order1: None,
+            readability_coverage: 0,
             verdict: HonestVerdict::Skipped,
         });
     }
 
+    let readability_coverage = readable_coverage(&real.text);
     let order0 = score_null(
         NullKind::Order0,
         &stream.tokens,
@@ -412,13 +448,14 @@ fn evaluate_language(
         mix_seed(cfg.seed, seed_tag ^ ORDER1_TAG),
         real.best_mean,
     )?;
-    let verdict = classify(&order0, &order1);
+    let verdict = classify(readability_coverage, &order0);
 
     Ok(LanguageRow {
         language,
         real,
         order0: Some(order0),
         order1: Some(order1),
+        readability_coverage,
         verdict,
     })
 }
@@ -488,8 +525,8 @@ fn finalise_null(kind: NullKind, scores: &[f64], real_mean: f64) -> NullStats {
     }
 }
 
-fn classify(order0: &NullStats, order1: &NullStats) -> HonestVerdict {
-    if order1.beats {
+fn classify(readability_coverage: usize, order0: &NullStats) -> HonestVerdict {
+    if readability_coverage >= READABLE_MIN {
         HonestVerdict::Candidate
     } else if order0.beats {
         HonestVerdict::Artifact

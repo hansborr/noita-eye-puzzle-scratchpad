@@ -71,10 +71,10 @@ pub(crate) enum Command {
     /// the expected verdict on real `one` is an honest negative.
     #[command(name = "rlcodec")]
     Rlcodec(RlcodecArgs),
-    /// Bigram-order codec gate for base-walk puzzles. Scores digit-pair, edge,
+    /// Bigram-order codec probe for base-walk puzzles. Scores digit-pair, edge,
     /// and magnitude-pair token streams with English/Finnish bigram models, then
-    /// reports both order-0 shuffle and order-1 Markov nulls. A candidate is a
-    /// hypothesis, never a decode.
+    /// reports readability coverage plus order-0 shuffle and order-1 Markov
+    /// diagnostics. A candidate is a readable hypothesis, never a decode.
     #[command(name = "bigramcodec")]
     Bigramcodec(BigramcodecArgs),
     /// Detection-power ceiling for `rlcodec`'s comma-code matched-null gate at

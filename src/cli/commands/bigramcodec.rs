@@ -4,7 +4,7 @@ use std::process::ExitCode;
 
 use noita_eye_puzzle::attack::bigramcodec::{
     self, BigramCfg, BigramReport, BigramSelfTestReport, HonestVerdict, LanguageRow, NullStats,
-    StreamKind, StreamReport,
+    READABLE_MIN, StreamKind, StreamReport,
 };
 
 use crate::cli::args_bigramcodec::{BigramStreamArg, BigramcodecArgs};
@@ -84,11 +84,11 @@ fn print_report(report: &BigramReport, cfg: &BigramCfg) {
     println!();
     if report.has_candidate() {
         println!(
-            "OVERALL VERDICT: candidate hypothesis present. This is not a decode; inspect the text and any crib evidence."
+            "OVERALL VERDICT: readable candidate hypothesis present. This is not a decode; inspect the text and crib hits by eye. The statistical gate cannot confirm a bigram-carried signal at this budget."
         );
     } else {
         println!(
-            "OVERALL VERDICT: no order-1 candidate. If order-0 fires alone, the signal is token-bigram structure from the walk/repeat confound, not language."
+            "OVERALL VERDICT: no readable candidate. Order-0-only rows are token-bigram artifacts; order-1 is a near-powerless diagnostic for this bigram objective, not a language discriminator."
         );
     }
 }
@@ -114,10 +114,13 @@ fn print_header(report: &BigramReport, cfg: &BigramCfg) {
         cfg.null_trials, cfg.restarts, cfg.iters, cfg.seed
     );
     println!(
-        "  verdict rule: readable text/cribs are primary; order-0 only means artifact, order-1 clearing means candidate hypothesis."
+        "  verdict rule: candidate = readability coverage >= {READABLE_MIN}; artifact = not readable but beats order-0; negative = not readable and does not beat order-0."
     );
     println!(
-        "  nulls: order-0 = unigram-preserving shuffle; order-1 = Markov transition-preserving confound control."
+        "  nulls: order-0 = unigram-preserving shuffle; order-1 = Markov transition-preserving confound control retained as a diagnostic."
+    );
+    println!(
+        "  order-1 honesty note: a perfectly recovered English plant scores only about z=+0.6, p=0.33, so genuine English can fail it too."
     );
 }
 
@@ -143,7 +146,7 @@ fn print_stream(stream: &StreamReport) {
         );
     }
     println!(
-        "  {:<8} {:>9} {:>9} {:>9} {:>7} {:>7} {:>9} {:>9} {:>7} {:>7}  verdict",
+        "  {:<8} {:>9} {:>9} {:>9} {:>7} {:>7} {:>9} {:>9} {:>7} {:>7} {:>4}  verdict",
         "lang",
         "observed",
         "o0_mean",
@@ -153,7 +156,8 @@ fn print_stream(stream: &StreamReport) {
         "o1_mean",
         "o1_max",
         "o1_z",
-        "o1_p"
+        "o1_p",
+        "read"
     );
     for row in &stream.languages {
         print_row(row);
@@ -167,8 +171,9 @@ fn print_stream(stream: &StreamReport) {
 fn print_row(row: &LanguageRow) {
     let Some(order0) = row.order0.as_ref() else {
         println!(
-            "  {:<8} {:>9} {:>9} {:>9} {:>7} {:>7} {:>9} {:>9} {:>7} {:>7}  skipped",
+            "  {:<8} {:>9} {:>9} {:>9} {:>7} {:>7} {:>9} {:>9} {:>7} {:>7} {:>4}  skipped",
             row.language.label(),
+            "-",
             "-",
             "-",
             "-",
@@ -185,7 +190,7 @@ fn print_row(row: &LanguageRow) {
         return;
     };
     println!(
-        "  {:<8} {:>9.3} {:>9.3} {:>9.3} {:>+7.2} {:>7.4} {:>9.3} {:>9.3} {:>+7.2} {:>7.4}  {}",
+        "  {:<8} {:>9.3} {:>9.3} {:>9.3} {:>+7.2} {:>7.4} {:>9.3} {:>9.3} {:>+7.2} {:>7.4} {:>4}  {}",
         row.language.label(),
         row.real.best_mean,
         order0.mean,
@@ -196,6 +201,7 @@ fn print_row(row: &LanguageRow) {
         order1.ceiling,
         finite_z(order1),
         order1.p,
+        row.readability_coverage,
         verdict_label(row.verdict)
     );
 }
@@ -232,15 +238,29 @@ fn run_self_test(seed: u64) -> ExitCode {
 fn print_self_test(seed: u64, report: &BigramSelfTestReport) {
     println!("bigramcodec self-test (seed=0x{seed:016x}):");
     println!(
-        "  POSITIVE (mag-pairs English plant): readable crib = {}, beats order-0 = {}",
-        report.positive_readable, report.positive_beats_order0
+        "  POSITIVE (mag-pairs English plant): readability coverage = {} (min {}), beats order-0 = {}",
+        report.positive_readability_coverage, READABLE_MIN, report.positive_beats_order0
     );
     println!(
-        "  NEGATIVE (real one): order-1 candidate present = {} (must be false)",
-        report.negative_has_candidate
+        "  ORDER-1 CONTROL (same English plant): z = {:+.2}, p = {:.4}, clears gate = {} (must be false)",
+        finite_self_test_z(report.positive_order1_z),
+        finite_self_test_p(report.positive_order1_p),
+        report.positive_beats_order1
+    );
+    println!(
+        "  NEGATIVE (real one): max readability coverage = {} (must be < {})",
+        report.negative_max_readability_coverage, READABLE_MIN
     );
     println!(
         "  SELF-TEST: {}",
         if report.passed() { "PASS" } else { "FAIL" }
     );
+}
+
+fn finite_self_test_z(z: f64) -> f64 {
+    if z.is_finite() { z } else { 999.0 }
+}
+
+fn finite_self_test_p(p: f64) -> f64 {
+    if p.is_finite() { p } else { 1.0 }
 }

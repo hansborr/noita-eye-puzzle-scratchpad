@@ -3,7 +3,7 @@
 use crate::attack::rlcodec::one_practice_digits;
 
 use super::{
-    BIGRAM_PLANT_STREAM, BigramCfg, BigramError, BigramLanguage, HonestVerdict, StreamKind,
+    BIGRAM_PLANT_STREAM, BigramCfg, BigramError, BigramLanguage, READABLE_MIN, StreamKind,
     analyze_bigramcodec, planted_magpair_walk,
 };
 
@@ -15,22 +15,37 @@ const NEGATIVE_RESTARTS: usize = 4;
 const NEGATIVE_ITERS: usize = 500;
 
 /// Outcome of the `bigramcodec --self-test` controls.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct BigramSelfTestReport {
-    /// Whether the planted positive control recovered the expected crib text.
-    pub positive_readable: bool,
+    /// Readability crib-word coverage for the planted positive control.
+    pub positive_readability_coverage: usize,
     /// Whether the planted positive control beat the order-0 null.
     pub positive_beats_order0: bool,
-    /// Whether real practice puzzle `one` produced any order-1 candidate.
-    pub negative_has_candidate: bool,
+    /// The planted English positive's order-1 z-score.
+    ///
+    /// This is expected not to clear because the objective is a bigram score and
+    /// the order-1 null preserves the transition matrix that objective sees.
+    pub positive_order1_z: f64,
+    /// The planted English positive's add-one p-value versus order-1.
+    pub positive_order1_p: f64,
+    /// Whether the planted English positive beat the order-1 null.
+    pub positive_beats_order1: bool,
+    /// Maximum readability crib-word coverage observed across real `one` rows.
+    pub negative_max_readability_coverage: usize,
 }
 
 impl BigramSelfTestReport {
-    /// `true` iff the positive fires and the real-`one` negative stays below the
-    /// order-1 candidate gate.
+    /// `true` iff the positive is readable, beats order-0, demonstrates that the
+    /// order-1 gate does not clear on genuine English, and real `one` is not
+    /// readable under the same heuristic.
     #[must_use]
-    pub const fn passed(&self) -> bool {
-        self.positive_readable && self.positive_beats_order0 && !self.negative_has_candidate
+    pub fn passed(&self) -> bool {
+        self.positive_readability_coverage >= READABLE_MIN
+            && self.positive_beats_order0
+            && self.positive_order1_z.is_finite()
+            && self.positive_order1_p.is_finite()
+            && !self.positive_beats_order1
+            && self.negative_max_readability_coverage < READABLE_MIN
     }
 }
 
@@ -57,10 +72,18 @@ pub fn bigramcodec_self_test(seed: u64) -> Result<BigramSelfTestReport, BigramEr
                 .iter()
                 .find(|row| row.language == BigramLanguage::English)
         });
-    let positive_text = positive_row.map_or("", |row| row.real.text.as_str());
-    let positive_readable = positive_text.contains("THERAIN") || positive_text.contains("THEWIND");
+    let positive_readability_coverage = positive_row.map_or(0, |row| row.readability_coverage);
     let positive_beats_order0 = positive_row
         .and_then(|row| row.order0.as_ref())
+        .is_some_and(|null| null.beats);
+    let positive_order1_z = positive_row
+        .and_then(|row| row.order1.as_ref())
+        .map_or(f64::NAN, |null| null.z);
+    let positive_order1_p = positive_row
+        .and_then(|row| row.order1.as_ref())
+        .map_or(f64::NAN, |null| null.p);
+    let positive_beats_order1 = positive_row
+        .and_then(|row| row.order1.as_ref())
         .is_some_and(|null| null.beats);
 
     let negative_cfg = BigramCfg {
@@ -80,16 +103,21 @@ pub fn bigramcodec_self_test(seed: u64) -> Result<BigramSelfTestReport, BigramEr
         ],
         &negative_cfg,
     )?;
-    let negative_has_candidate = negative.streams.iter().any(|stream| {
+    let negative_max_readability_coverage = negative.streams.iter().fold(0, |max, stream| {
         stream
             .languages
             .iter()
-            .any(|row| row.verdict == HonestVerdict::Candidate)
+            .map(|row| row.readability_coverage)
+            .max()
+            .map_or(max, |coverage| max.max(coverage))
     });
 
     Ok(BigramSelfTestReport {
-        positive_readable,
+        positive_readability_coverage,
         positive_beats_order0,
-        negative_has_candidate,
+        positive_order1_z,
+        positive_order1_p,
+        positive_beats_order1,
+        negative_max_readability_coverage,
     })
 }

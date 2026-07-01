@@ -32,8 +32,8 @@ impl BigramStreamArg {
 }
 
 /// `bigramcodec`: score simple base-walk tokenizations with a bigram language
-/// model, then report both the order-0 shuffle null and the order-1 Markov
-/// confound-control null. A candidate text is a hypothesis, never a decode.
+/// model, then report readability coverage plus order-0 shuffle and order-1
+/// Markov diagnostics. A readable candidate text is a hypothesis, never a decode.
 #[derive(Debug, Args)]
 pub(crate) struct BigramcodecArgs {
     /// Base digit sequence. Optional: omit to read from --input-file or stdin.
