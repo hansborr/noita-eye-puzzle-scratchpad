@@ -19,6 +19,7 @@ use super::args_bigramcodec::BigramcodecArgs;
 use super::args_codecpower::CodecpowerArgs;
 use super::args_cribfit::CribfitArgs;
 use super::args_ctak::CtakscanArgs;
+use super::args_maskdecode::MaskdecodeArgs;
 use super::args_mdlcodec::MdlcodecArgs;
 use super::args_predicates::PredscanArgs;
 use super::args_rankcodec::RankcodecArgs;
@@ -97,6 +98,14 @@ pub(crate) enum Command {
     /// the quadgram gate is tertiary and underpowered at 135 magnitudes.
     #[command(name = "rankcodec")]
     Rankcodec(RankcodecArgs),
+    /// Masked `C_n`-walk ASCII readout for `±1`-walk puzzles. Derives the
+    /// walk's direction bits, sweeps static/alternating masks x chunk width x
+    /// offset x bit-order x polarity x direction, and promotes a full-letter
+    /// readout to a verified decode only via an exact round-trip re-encode.
+    /// Packages the verified practice-puzzle-`one` solve (`Permutation
+    /// Representation Destination`, `RoundTrip` 266/266).
+    #[command(name = "maskdecode")]
+    Maskdecode(MaskdecodeArgs),
     /// Crib-synchronous MDL-like affine running-key codec search for `one`'s
     /// run-length carrier. It selects a shortest crib-consistent candidate under a
     /// post-selection crib-pinned null; emitted-symbol-history codecs are out of

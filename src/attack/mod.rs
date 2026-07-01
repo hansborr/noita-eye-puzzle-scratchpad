@@ -17,6 +17,10 @@
 //!   with an annealed key search, quadgram scoring, and z-score/held-out gates.
 //! - [`language`]: English/Finnish n-gram language models for scoring candidate
 //!   plaintexts.
+//! - [`maskdecode`]: masked `C_n`-walk ASCII readout for `±1`-walk puzzles,
+//!   with an exact round-trip re-encode as the decisive verification gate; it
+//!   packages the verified practice-puzzle-`one` decode
+//!   (`Permutation Representation Destination`, `RoundTrip 266/266`).
 //! - [`mdlcodec`]: crib-synchronous MDL-like affine running-key codec search for
 //!   `one`'s run-length carrier, with post-selection crib-pinned nulls and a
 //!   candidate-only verdict.
@@ -55,6 +59,7 @@ pub mod cribfit;
 pub mod gak_attack;
 pub mod keystream;
 pub mod language;
+pub mod maskdecode;
 pub mod mdlcodec;
 pub mod profile;
 pub mod quadgram;
