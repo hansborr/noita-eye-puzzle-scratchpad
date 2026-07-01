@@ -9,6 +9,7 @@
 mod args;
 mod args_analysis;
 mod args_attack;
+mod args_bigramcodec;
 mod args_codecpower;
 mod args_cribfit;
 mod args_ctak;

@@ -5,6 +5,9 @@
 //! - [`cipher_attack`]: Experiment 12 attack/null harness that scores named
 //!   candidate ciphers only under declared, unverified symbol-to-letter
 //!   mappings.
+//! - [`bigramcodec`]: bigram-order codec gate for base-walk practice puzzles,
+//!   with order-0 and order-1 nulls to separate token-order artifacts from
+//!   language candidates.
 //! - [`codecpower`]: detection-power calibration for `rlcodec`'s comma-code
 //!   matched-null gate at practice puzzle `one`'s carrier budget.
 //! - [`codec`]: codec transduction layer feeding the [`solve`] search.
@@ -41,6 +44,7 @@
 //!   hypotheses, with round-trip, held-out, and matched-null gates.
 
 pub mod agl_gak;
+pub mod bigramcodec;
 pub mod cipher_attack;
 pub mod codec;
 pub mod codecpower;

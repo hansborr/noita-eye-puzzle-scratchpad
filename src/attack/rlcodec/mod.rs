@@ -50,6 +50,7 @@ pub use battery::{
 pub use census::{CensusAnchor, CensusReport, magnitude_census};
 pub(crate) use codecs::name_seed_tag;
 pub use codecs::{RlCodec, all_codecs, alphabet_size};
+pub(crate) use derive::synthesize_walk;
 pub use derive::{
     ONE_PRACTICE_PUZZLE, RunLengthDerivation, derive_magnitudes, one_practice_digits,
     parse_base_digits,

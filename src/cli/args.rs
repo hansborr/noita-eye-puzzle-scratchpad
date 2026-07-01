@@ -15,6 +15,7 @@ use super::args_attack::{
     AglGakArgs, GakArgs, GakAttackArgs, GakAttackEyesArgs, IsoscanArgs, KeystreamArgs, ProfileArgs,
     RagbabyArgs, SolveArgs, StatsArgs,
 };
+use super::args_bigramcodec::BigramcodecArgs;
 use super::args_codecpower::CodecpowerArgs;
 use super::args_cribfit::CribfitArgs;
 use super::args_ctak::CtakscanArgs;
@@ -70,6 +71,12 @@ pub(crate) enum Command {
     /// the expected verdict on real `one` is an honest negative.
     #[command(name = "rlcodec")]
     Rlcodec(RlcodecArgs),
+    /// Bigram-order codec gate for base-walk puzzles. Scores digit-pair, edge,
+    /// and magnitude-pair token streams with English/Finnish bigram models, then
+    /// reports both order-0 shuffle and order-1 Markov nulls. A candidate is a
+    /// hypothesis, never a decode.
+    #[command(name = "bigramcodec")]
+    Bigramcodec(BigramcodecArgs),
     /// Detection-power ceiling for `rlcodec`'s comma-code matched-null gate at
     /// practice puzzle `one`'s carrier budget. Plants English and matched
     /// non-English controls, then reuses the actual `rlcodec` gate; this is a
