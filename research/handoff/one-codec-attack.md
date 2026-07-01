@@ -2,10 +2,12 @@
 
 ## ✅ SOLVED (2026-07-01) — this handoff is closed
 
-`one` decodes to **`Permutation Representation Destination`** under the
-alternating-orientation dihedral GAK over C5 (orientation bit `b_i = i mod 2`,
-deterministic — *not* feedback hidden state) with a 7-bit-ASCII plaintext codec,
-verified by an exact 266/266 ciphertext round-trip. Instrument: `maskdecode`
+`one` decodes to **`Permutation Representation Destination`**: the ±1 walk's
+direction bits, unmasked by a deterministically alternating orientation bit
+(`b_i = i mod 2` — *not* feedback hidden state), read as 7-bit ASCII; verified by
+an exact 266/266 ciphertext round-trip. (Calling this "the dihedral GAK over C5
+of the author's hints" is our hint-consistent interpretation, not
+author-confirmed — the mechanism is what the round-trip verifies.) Instrument: `maskdecode`
 (planted positives + matched null + `--self-test`). Authoritative write-up,
 including why every negative below stands as scoped and how the convention
 closure + crib-window discriminator found the untested carrier:

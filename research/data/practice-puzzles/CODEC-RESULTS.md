@@ -2,13 +2,15 @@
 
 Attack on the small-alphabet *digit* puzzles, which a direct symbol→letter
 substitution cannot carry (5 < 26, 12 < 26): they need the codec/transduction
-layer to widen the alphabet first. As with the letter-puzzle battery
-(`KEYSTREAM-RESULTS.md`), the result is **honest negatives** — and, for `two`, a
-documented limitation of the matched-null gate itself.
+layer to widen the alphabet first. Result: **`one` is SOLVED** (2026-07-01, exact
+ciphertext round-trip — see its section); `two` and `six` remain **honest
+negatives**, with `two` also documenting a limitation of the matched-null gate
+itself.
 
 > Honesty ceiling (binding): a high n-gram score (or "surviving the gates") is not
-> a decode. Nothing here is a recovered message. The negatives are claims only
-> about the codecs, mappings, and nulls actually searched.
+> a decode. Except for `one`'s round-trip-verified solve, nothing here is a
+> recovered message. The negatives are claims only about the codecs, mappings,
+> and nulls actually searched.
 
 ## Headline
 
@@ -823,15 +825,17 @@ is verified; the letter-level settings are not recovered.
 Permutation Representation Destination
 ```
 
-**The cipher.** `one` is the dihedral / 1-bit-orientation GAK the author hinted at
-(h1/h4/h5), in its *simplest possible* setting: the orientation bit is not hidden
-state at all — it **alternates deterministically every step**, `b_i = i mod 2`.
-The plaintext is the 7-bit-ASCII bit stream `m` (MSB-first) of the 38-character
+**The cipher (verified mechanism).** The orientation bit is not hidden state at
+all — it **alternates deterministically every step**, `b_i = i mod 2`. The
+plaintext is the 7-bit-ASCII bit stream `m` (MSB-first) of the 38-character
 message above (266 bits). Each step emits direction `o_i = m_{i+1} XOR b_i` and the
 ciphertext digit walks `±1` on C5 from starting digit `4` (up for `o=1`). The 265
 steps carry message bits 2..266; the leading bit of `P` is not carried by any step
 (observation: an implicit predecessor digit `0` would carry it consistently —
-recorded as a note, not a claim).
+recorded as a note, not a claim). Reading this mechanism as "the dihedral /
+1-bit-orientation GAK of the author's hints (h1/h4/h5) in its simplest setting"
+is our **interpretation** — it fits all five hints, but only the mechanism above
+is what the round-trip verifies; the family label is not author-confirmed.
 
 **Verification (why this clears the claim ceiling).** This is not a scored
 candidate: the readout has **zero free parameters** beyond a small enumerated grid

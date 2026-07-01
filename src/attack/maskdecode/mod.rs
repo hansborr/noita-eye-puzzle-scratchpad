@@ -104,6 +104,22 @@ pub enum MaskError {
         /// The declared base.
         base: usize,
     },
+    /// The base exceeds the largest digit a [`Glyph`] index can carry.
+    BaseTooLarge {
+        /// The rejected base.
+        base: usize,
+        /// The largest supported base.
+        max: usize,
+    },
+    /// Head/tail trims leave no message bits to carry.
+    InvalidTrim {
+        /// Requested head skip in bits.
+        head_skip: usize,
+        /// Requested tail skip in bits.
+        tail_skip: usize,
+        /// Total message bits available before trimming.
+        available: usize,
+    },
     /// A shared `rlcodec` primitive (embedded fixture, random draw) failed.
     Rl(RlError),
 }
@@ -143,6 +159,17 @@ impl fmt::Display for MaskError {
             Self::InvalidStartDigit { start, base } => {
                 write!(f, "starting digit {start} is not below the base {base}")
             }
+            Self::BaseTooLarge { base, max } => {
+                write!(f, "base {base} exceeds the largest supported base {max}")
+            }
+            Self::InvalidTrim {
+                head_skip,
+                tail_skip,
+                available,
+            } => write!(
+                f,
+                "trims (head {head_skip} + tail {tail_skip}) do not leave any of the {available} message bits"
+            ),
             Self::Rl(error) => write!(f, "{error}"),
         }
     }

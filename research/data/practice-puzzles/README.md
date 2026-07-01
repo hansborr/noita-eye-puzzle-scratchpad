@@ -61,8 +61,9 @@ Notes:
   under a direct substitution; recovering them needs the codec/transduction
   (grouping) layer. `six`'s preserved spaces make it the clearest
   base-N-grouping case. See `CODEC-RESULTS.md` for the codec-search battery:
-  `one` (a ±1 walk on C5) and `two` (whose `s%3` channel is a ±1 walk on C3) are
-  honest negatives; `two` additionally exposes a transition-law blind spot in the
+  `one` (a ±1 walk on C5) is now **SOLVED** (2026-07-01, exact round-trip — see
+  the inventory row above); `two` (whose `s%3` channel is a ±1 walk on C3) is an
+  honest negative and additionally exposes a transition-law blind spot in the
   bigram/Fisher-Yates gate (its gate "survivors" are artifacts, not decodes).
   `CODEC-RESULTS.md` also records the transparent-rotor leak (the C3 channel
   exposes ~1/3 of the plaintext key-free) and the `isoscan` crib anchors — long

@@ -17,8 +17,9 @@ use super::{
 ///
 /// # Errors
 /// Returns [`MaskError`] if the width is out of range, the base is below
-/// [`MIN_BASE`], the starting digit is not below the base, or a character does
-/// not fit the chunk width.
+/// [`MIN_BASE`] or above a [`Glyph`]'s capacity, the starting digit is not
+/// below the base, a character does not fit the chunk width, or the text is
+/// empty (no message bit to carry).
 pub fn mask_encode(
     text: &str,
     params: &CellParams,
@@ -38,7 +39,10 @@ pub fn mask_encode(
 /// drops, so a verified completion reproduces the ciphertext digits exactly.
 ///
 /// # Errors
-/// Returns [`MaskError`] under the same conditions as [`mask_encode`].
+/// Returns [`MaskError`] under the same conditions as [`mask_encode`], plus
+/// [`MaskError::InvalidTrim`] when the head/tail skips consume the whole
+/// message and [`MaskError::BaseTooLarge`] when a digit index cannot fit a
+/// [`Glyph`].
 pub fn mask_encode_trimmed(
     text: &str,
     params: &CellParams,
@@ -51,6 +55,13 @@ pub fn mask_encode_trimmed(
     if base < MIN_BASE {
         return Err(MaskError::InvalidBase { base });
     }
+    let max_base = usize::from(u16::MAX) + 1;
+    if base > max_base {
+        return Err(MaskError::BaseTooLarge {
+            base,
+            max: max_base,
+        });
+    }
     if start >= base {
         return Err(MaskError::InvalidStartDigit { start, base });
     }
@@ -59,8 +70,17 @@ pub fn mask_encode_trimmed(
         let value = char_value(ch, params.width)?;
         message_bits.extend(char_stream_bits(value, params.width, params.order));
     }
-    let end = message_bits.len().saturating_sub(tail_skip);
-    let carried = message_bits.get(head_skip..end).unwrap_or(&[]);
+    let invalid_trim = MaskError::InvalidTrim {
+        head_skip,
+        tail_skip,
+        available: message_bits.len(),
+    };
+    let Some(end) = message_bits.len().checked_sub(tail_skip) else {
+        return Err(invalid_trim);
+    };
+    let Some(carried) = message_bits.get(head_skip..end).filter(|c| !c.is_empty()) else {
+        return Err(invalid_trim);
+    };
     let polarity = matches!(params.polarity, Polarity::Complemented);
     let masked: Vec<bool> = carried
         .iter()

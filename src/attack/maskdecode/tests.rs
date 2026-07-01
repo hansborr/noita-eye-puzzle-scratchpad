@@ -186,6 +186,52 @@ fn encoder_rejects_bad_starts_and_unencodable_chars() {
 }
 
 #[test]
+fn encoder_rejects_oversized_bases_and_consuming_trims() {
+    let params = CellParams {
+        mask: MaskKind::Static,
+        width: 5,
+        offset: 0,
+        order: BitOrder::MsbFirst,
+        polarity: Polarity::Plain,
+        direction: ReadDirection::Forward,
+    };
+    let max_base = usize::from(u16::MAX) + 1;
+    assert_eq!(
+        mask_encode("a", &params, max_base + 1, 0),
+        Err(MaskError::BaseTooLarge {
+            base: max_base + 1,
+            max: max_base
+        })
+    );
+    // trims that consume the whole 7-bit message are an error, not an Ok walk
+    let wide = CellParams { width: 7, ..params };
+    assert_eq!(
+        mask_encode_trimmed("a", &wide, ONE_BASE, 0, 4, 3),
+        Err(MaskError::InvalidTrim {
+            head_skip: 4,
+            tail_skip: 3,
+            available: 7
+        })
+    );
+    assert_eq!(
+        mask_encode_trimmed("a", &wide, ONE_BASE, 0, 0, 8),
+        Err(MaskError::InvalidTrim {
+            head_skip: 0,
+            tail_skip: 8,
+            available: 7
+        })
+    );
+    assert_eq!(
+        mask_encode("", &wide, ONE_BASE, 0),
+        Err(MaskError::InvalidTrim {
+            head_skip: 0,
+            tail_skip: 0,
+            available: 0
+        })
+    );
+}
+
+#[test]
 fn planted_complemented_reversed_cell_is_recovered_too() {
     // Exercise the polarity and direction axes end-to-end: a plant encoded
     // with complemented polarity and reversed direction must still come back
