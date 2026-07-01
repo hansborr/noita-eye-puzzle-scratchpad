@@ -496,7 +496,7 @@ fn matched_null_decodes(
     Ok(nulls)
 }
 
-fn pinned_positions(n: usize, anchors: &[AnchorPair]) -> Vec<bool> {
+pub(crate) fn pinned_positions(n: usize, anchors: &[AnchorPair]) -> Vec<bool> {
     let mut pinned = vec![false; n];
     for anchor in anchors {
         for offset in 0..anchor.length {
@@ -511,7 +511,7 @@ fn pinned_positions(n: usize, anchors: &[AnchorPair]) -> Vec<bool> {
     pinned
 }
 
-fn markov_resample_pinned(
+pub(crate) fn markov_resample_pinned(
     magnitudes: &[usize],
     alphabet: usize,
     pinned: &[bool],

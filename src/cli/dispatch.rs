@@ -20,9 +20,9 @@ use super::args::{Cli, Command};
 use super::commands::{
     run_chaining, run_chaining_graph, run_codecpower, run_controls, run_crcscan, run_cribfit,
     run_ctakscan, run_demo, run_gak, run_grouping, run_groupscan, run_isomorphimperf,
-    run_isomorphnull, run_isoscan, run_keydiff, run_keystream, run_leakceiling, run_orders,
-    run_perfectiso, run_pipelinenull, run_predscan, run_profile, run_ragbaby, run_rankcodec,
-    run_rlcodec, run_solve, run_stats,
+    run_isomorphnull, run_isoscan, run_keydiff, run_keystream, run_leakceiling, run_mdlcodec,
+    run_orders, run_perfectiso, run_pipelinenull, run_predscan, run_profile, run_ragbaby,
+    run_rankcodec, run_rlcodec, run_solve, run_stats,
 };
 
 /// Outcome of one experiment run, ready for the thin CLI to emit.
@@ -95,6 +95,7 @@ pub(crate) fn run() -> ExitCode {
         Command::Codecpower(args) => run_codecpower(&args),
         Command::Cribfit(args) => run_cribfit(&args),
         Command::Rankcodec(args) => run_rankcodec(&args),
+        Command::Mdlcodec(args) => run_mdlcodec(&args),
         Command::Groupscan(args) => run_groupscan(&args),
         Command::Ctakscan(args) => run_ctakscan(&args),
         Command::Predscan(args) => run_predscan(&args),

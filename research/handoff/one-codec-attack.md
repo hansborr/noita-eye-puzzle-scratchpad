@@ -90,16 +90,27 @@ representable in ranks `<=5` under any swept order (best coverage 98.6%, still
 underpowered by the `codecpower` result. Write-up: `CODEC-RESULTS.md` § "`one` —
 bounded-order predictive-rank codec (`rankcodec`)".
 
+`mdlcodec` has now tested the final planned in-engine lever: a crib-synchronous
+MDL-like affine running-key family `idx[i] = (a*S_i + b*i) mod R`, with
+`o_0=0`, unit-scaling canonicalization, deduped densified index streams, effective
+alphabet `L_codec`, and a **post-selection** crib-pinned magnitude null that
+recomputes crib eligibility from each null draw's own bit-gaps. Real `one`'s best
+cell is `R=14,a=1,b=7,k=13` with `MDL=1988.56` bits and a candidate string, but it
+does **not** beat the null p05 survivor rule (`Delta=-54.89`, `z=-0.61`,
+survivor no). This is a candidate, not a decode. Write-up: `CODEC-RESULTS.md`
+§ "`one` — crib-synchronous MDL affine running-key search (`mdlcodec`)".
+
 Ranked backlog for `one`:
 
 1. **External anchor / `anchorfit` known-crib.** Escalate here once the power
-   ceiling and bounded-order rank family both fail; the maintainer-held withheld
-   `one` snippet is the right anchor if available.
+   ceiling, bounded-order rank family, and affine MDL family all fail or remain
+   under-determined; the maintainer-held withheld `one` snippet is the right
+   anchor if available.
 2. **Other evolving-table layouts.** `rankcodec` closes the direct predictive-rank
-   reading, but not every possible state table or synchronization convention.
-3. **Crib-synchronous WFST / MDL search.** Use the carrier repeats as synchronized
-   constraints while penalizing codec complexity explicitly.
-4. **2-D / interleaved carrier layouts.** The current instruments are one-dimensional
+   reading, and `mdlcodec` closes the enumerated affine running-key family, but
+   neither covers every possible emitted-symbol-history or synchronization
+   convention. State that as an out-of-scope bound, not as total exhaustion.
+3. **2-D / interleaved carrier layouts.** The current instruments are one-dimensional
    over the run sequence; a layout change could move the crib alignment question.
 
 For `two`: next leads are eps-pair codec projection, full-D0 `ctakscan`, and a

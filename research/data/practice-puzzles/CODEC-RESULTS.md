@@ -14,7 +14,7 @@ documented limitation of the matched-null gate itself.
 
 | Puzzle | Verdict | Notes |
 | --- | --- | --- |
-| `one` | honest negative (0 survivors), with measured gate underpower at the 135-magnitude budget | now *testable* via the new binary-move codec; `codecpower` calibrates how much weight the negative can carry |
+| `one` | honest negatives / under-determined candidates across the tested codec families | `rlcodec`, `cribfit`, `codecpower`, `rankcodec`, and `mdlcodec` now bound the in-engine search; external anchor is the remaining rigorous lever |
 | `two` | honest negative — gate "survivors" are **transition-law artifacts**, not decodes | exposes a bigram/Fisher-Yates gate blind spot (below) |
 | `six` | honest negative (0 survivors) | base-6, spaces preserved |
 
@@ -625,6 +625,72 @@ subcommand). It is self-validating: `rankcodec --self-test` checks the encode /
 decode round trip, a planted rank-coded positive with a repeated crib that must
 lock and clear the matched null, and a crib-inconsistent control that must be
 excluded.
+
+## `one` — crib-synchronous MDL affine running-key search (`mdlcodec`)
+
+> Last in-engine computational lever before an external anchor. This searches the
+> affine running-key family `idx[i] = (a*S_i + b*i) mod R`, with `o_0 = 0`, over
+> the direction-blind run-length carrier `M`. For a fixed `(R,a,b)`, the index
+> stream is fully determined, so the best key `pi` is exactly the existing
+> `rlcodec::substitution_search` on the **densified** visited residues. The raw
+> residues are kept for the crib arithmetic.
+
+Run recorded for this build:
+
+```sh
+cargo run -- mdlcodec
+```
+
+Default budget: rings `10..=26`, `coeff_max=8`, `null_trials=24`,
+`restarts=6`, `iters=900`, seed `0x6d646c636f640001`. The effective alphabet
+floor is `k >= 8`; `L_codec` is still charged on the actual effective `k` plus
+`log2` of the canonical searched grid.
+
+Crib modular check: each cell must satisfy
+`R | (a*bit_gap + b*run_gap)` for every census-derived anchor. The `a=1,b=0`
+cross-check agrees with `cribfit`'s admissible cumsum set and includes `R=21`.
+
+Cell coverage on real `one`: **searched 595 / eligible 35 / feasible 6 /
+deduped 5**. The post-selection null reruns the whole eligible grid on each
+crib-pinned Markov-resampled carrier and recomputes crib eligibility from that
+draw's own bit-gaps. In this bounded run, 14/24 null draws produced a finite
+English-feasible best cell; finite best-null MDL had mean **2043.46**, p05
+**1926.86**, and range **1926.86..2263.66** bits. The survivor rule is
+`real MDL <= null p05` (lower MDL is better).
+
+Top MDL-like cells:
+
+| rank | R | a | b | k | L_codec | L_text | MDL | Delta vs null mean | z | survivor |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 1 | 14 | 1 | 7 | 13 | 65.06 | 1923.50 | 1988.56 | -54.89 | -0.61 | no |
+| 2 | 12 | 1 | 3 | 12 | 61.26 | 1931.08 | 1992.33 | -51.12 | -0.56 | no |
+| 3 | 16 | 2 | 6 | 8 | 45.09 | 1997.74 | 2042.84 | -0.62 | -0.01 | no |
+| 4 | 21 | 1 | 0 | 21 | 90.69 | 2171.56 | 2262.25 | +218.80 | +2.41 | no |
+| 5 | 24 | 1 | 3 | 24 | 96.60 | 2204.13 | 2300.72 | +257.27 | +2.84 | no |
+
+Global winner: `R=14,a=1,b=7,k=13`, with `L_codec=65.06`,
+`L_text=1923.50`, `MDL=1988.56`, `Delta=-54.89`, `z=-0.61`, survivor **no**.
+Under-determination count at `epsilon=2.0` bits: **1** cell (spread 0.00 bits).
+
+**Honest verdict:** this enumerated affine running-key family is exhausted or
+under-determined at 33 bytes. The winner is below the finite null mean but does
+not beat the post-selection null p05, so the search has selected a candidate
+rather than recovered plaintext. Emitted-symbol-history codecs are **out of
+scope** for this instrument; `rankcodec` tested only the bounded predictive-rank
+subfamily, not every possible emitted-history codec.
+
+CANDIDATE (MDL-selected affine codec `R=14,a=1,b=7`), **not** a recovered
+plaintext:
+
+```text
+LMISEATERMENTERTERSEAMITERSEITENDOTENDWAMISMEATERMISERMEATERMOTEATENDERSEAMITERSEITENDOTENDWAMISCASEATERMOTERSEITENDEAMITERSEITENDOTEND
+```
+
+The instrument is `mdlcodec` (`src/attack/mdlcodec/` + the `mdlcodec`
+subcommand). It self-validates with `mdlcodec --self-test`: a planted affine
+English positive recovers exactly and beats the post-selection null, a random
+repeated-block control remains a non-survivor with near ties, and the `a=1,b=0`
+crib modular check matches `cribfit`.
 
 ## `one` — honest negative (`solve --codec-search` binary-move)
 

@@ -12,6 +12,7 @@ mod groupscan;
 mod isoscan;
 mod keydiff;
 mod keystream;
+mod mdlcodec;
 mod misc;
 mod predscan;
 mod ragbaby;
@@ -29,6 +30,7 @@ pub(crate) use groupscan::run_groupscan;
 pub(crate) use isoscan::run_isoscan;
 pub(crate) use keydiff::run_keydiff;
 pub(crate) use keystream::{run_keystream, run_profile};
+pub(crate) use mdlcodec::run_mdlcodec;
 pub(crate) use misc::{
     run_controls, run_demo, run_grouping, run_orders, run_pipelinenull, run_stats,
 };

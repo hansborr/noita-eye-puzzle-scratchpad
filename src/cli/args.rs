@@ -18,6 +18,7 @@ use super::args_attack::{
 use super::args_codecpower::CodecpowerArgs;
 use super::args_cribfit::CribfitArgs;
 use super::args_ctak::CtakscanArgs;
+use super::args_mdlcodec::MdlcodecArgs;
 use super::args_predicates::PredscanArgs;
 use super::args_rankcodec::RankcodecArgs;
 use super::args_rlcodec::RlcodecArgs;
@@ -89,6 +90,12 @@ pub(crate) enum Command {
     /// the quadgram gate is tertiary and underpowered at 135 magnitudes.
     #[command(name = "rankcodec")]
     Rankcodec(RankcodecArgs),
+    /// Crib-synchronous MDL-like affine running-key codec search for `one`'s
+    /// run-length carrier. It selects a shortest crib-consistent candidate under a
+    /// post-selection crib-pinned null; emitted-symbol-history codecs are out of
+    /// scope, and the output is a candidate, never a decode.
+    #[command(name = "mdlcodec")]
+    Mdlcodec(MdlcodecArgs),
     /// D4/A4/S4 hidden-group element-order discriminator for the `C3 × H`
     /// hidden-state GAK reading of a deck/rotor cipher. Reads the deck channel's
     /// induced permutation across difference-channel anchors; a verdict is a

@@ -14,6 +14,9 @@
 //!   with an annealed key search, quadgram scoring, and z-score/held-out gates.
 //! - [`language`]: English/Finnish n-gram language models for scoring candidate
 //!   plaintexts.
+//! - [`mdlcodec`]: crib-synchronous MDL-like affine running-key codec search for
+//!   `one`'s run-length carrier, with post-selection crib-pinned nulls and a
+//!   candidate-only verdict.
 //! - [`profile`]: ciphertext structural profile (whole-stream and per-period
 //!   index of coincidence, absent letters, per-word column `IoC`, and maximal
 //!   cross-word-boundary repeats) for the practice letter puzzles.
@@ -48,6 +51,7 @@ pub mod cribfit;
 pub mod gak_attack;
 pub mod keystream;
 pub mod language;
+pub mod mdlcodec;
 pub mod profile;
 pub mod quadgram;
 pub mod ragbaby;
