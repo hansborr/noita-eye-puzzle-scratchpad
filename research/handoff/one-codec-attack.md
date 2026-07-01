@@ -1,5 +1,22 @@
 # Handoff — crack practice puzzle `one`'s codec
 
+## UPDATE (2026-07-01) — author hints received; the dihedral hidden-1-bit model; exhaustion is the measured read
+
+The puzzle's author supplied five hints (relayed by the maintainer). They reframe
+`one` from "transparent ±1 walk, no hidden state, only the codec is unknown" (the
+"Why `one` is the right target" section below is **superseded on that point**) to a
+**dihedral / hidden-1-bit-orientation GAK over C5**: a hidden chirality bit flips
+each letter's up/down reading (hint h4), which is *why* every memoryless/static codec
+family here is an honest negative rather than a near-miss. The 2-symbol reduction
+`b_{i+1} = ¬obs_i` recovers exactly the direction-blind run-length carrier, so the
+carrier diagnosis stands — the model explains it. Full hint list + the honest-scope
+labeling: `CODEC-RESULTS.md` § "`one` — the author hints and the dihedral hidden-1-bit
+model (hypothesis)". Net: the principled codec families are closed, and
+`codecpower`/`bigramcodec` show the gate is underpowered at `one`'s length, so the
+measured next lever is backlog #1 — the **external anchor / `anchorfit`** on the
+maintainer's withheld `one` snippet — not another codec search. The dihedral model is
+our reverse-engineering (fits all five hints), not creator-confirmed.
+
 ## UPDATE (this session) — carrier re-diagnosed; memoryless codecs excluded; `rlcodec` landed
 
 The codec is **not** a memoryless transduction of the bit/magnitude stream. Two

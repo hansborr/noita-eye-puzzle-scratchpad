@@ -747,6 +747,68 @@ subcommand), file-driven and self-validating (`bigramcodec --self-test`).
   32→29 search manufactures English-looking bigrams in-sample (above real English)
   that neither beat the null nor generalize. The gate correctly rejects it.
 
+## `one` — the author hints and the dihedral hidden-1-bit model (hypothesis)
+
+**Provenance.** On 2026-07-01 the maintainer relayed five hints from the puzzle's
+author. They are creator-supplied and reliable *as hints*; the model below that
+fits them is our reverse-engineering, **not** creator-confirmed.
+
+- **h1** — "it is a GAK cipher made for practice solving the eyes." (`one` is a
+  group-autokey, the same family as the eyes — not a static transduction.)
+- **h2** — "look at the bigrams." (Chased by `bigramcodec`, above.)
+- **h3** — reversibility ⟹ each state has a distinct allowed-successor set. (This
+  *is* the crisp ±1 law already observed: from digit `c`, only `c±1` is legal.)
+- **h4** — the plaintext-letter → direction mapping **flips with a hidden 1-bit
+  orientation**: the same letter reads "up" here and "down" there.
+- **h5** — "especially simple settings limit the bigrams": a minimal 1-bit hidden
+  state + ±1 generators ⇒ only the 10 ±1 pentagon edges ever occur.
+
+**The model these imply (hypothesis).** `one` is the *simplest* GAK — a **dihedral /
+hidden-1-bit-orientation (chirality) group-autokey over C5**. This corrects the
+earlier "`one`'s cipher is fully solved, no hidden state left" framing (see
+`research/handoff/one-codec-attack.md`): the ±1 walk is the *observable*, but a
+hidden 1-bit orientation sits behind it. h4 is the crux — because a hidden bit flips
+each letter's up/down reading, **no memoryless or static codec can be correct**,
+which is exactly why every family tested above (`rlcodec`, `cribfit`, `rankcodec`,
+`mdlcodec`, `bigramcodec`) is an honest negative rather than a near-miss.
+
+**It reduces to the carrier we already have (verified).** A 2-symbol dihedral GAK
+with orientation update `b_{i+1} = ¬obs_i` emits, as its recovered per-step symbol,
+"did the direction change" — which *is* the direction-blind run-length structure of
+§ "`one` — direction-blind run-length carrier". So the dihedral model does not
+overturn the carrier diagnosis; it **explains** it (direction is blind because it is
+absorbed into the hidden bit) and it explains the bit-*complemented* 26-run repeat
+(the two occurrences carry opposite orientation).
+
+**Plaintext structure under the model.** The census triple
+`M[19..38] == M[72..91] == M[116..135]` (≈40% of the message) reads as a **phrase
+repeated three times** over a reduced (~14-symbol) alphabet. This is *not* passively
+recoverable at `one`'s length: a free substitution search over the repeated,
+small-alphabet stream produces **repeat-inflated pareidolia** (the map never locks —
+`HERETIS` in one run, `HEREDIT` in the next), and a *planted* positive control (a
+known English phrase repeated ×4, clean substitution) **fails to recover** under the
+same search. Short + repetitive + small-alphabet = under-determined, independent of
+the gate's power.
+
+**Why this is the exhaustion point (measured, not asserted).** `bigramcodec`'s
+self-test proves the magnitude-pair carrier *is* solvable for long English (a
+~222-token plant recovers verbatim), so `one`'s failure is an **unknown hidden-state
+trajectory + a short ~67-token length**, not an unsolvable carrier. Combined with the
+`codecpower` result (the matched-null gate has ≈0 power at the 135-magnitude budget)
+and its bigram-order analog, the principled low-parameter codec families are closed
+*and* the statistical gate is demonstrably underpowered at this length. The honest
+next lever is therefore **not another codec search** but the **external anchor**: the
+maintainer-held withheld `one` snippet → an `anchorfit` known-crib attack (align the
+snippet to the carrier, back the codec out of known input/output, verify on the
+rest — needs no statistical power). Because the phrase repeats 3×, even its first
+word would lock most of the message.
+
+**Honesty scope (binding).** The five hints are creator-supplied; the dihedral /
+1-bit model is *our* reverse-engineering that fits all five and reduces correctly to
+the observed carrier — treat it as the leading hypothesis, not a confirmed setting.
+No candidate cleartext is claimed. The reduction `b_{i+1} = ¬obs_i` → run structure
+is verified; the letter-level settings are not recovered.
+
 ## `two` — honest negative, and a gate blind spot
 
 `solve --codec-search` (default: fractionation off) yields 52 candidates; the

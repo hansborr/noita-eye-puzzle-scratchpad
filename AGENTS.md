@@ -9,6 +9,22 @@ A Rust workbench for analyzing and attempting to decode the Noita eye-glyph
 puzzle. The aim is *trustworthy* cryptanalysis: primitives that constrain the
 hypothesis space, not premature claims about what the glyphs mean.
 
+## Research dossier (findings live here — record them in-repo, not in agent memory)
+
+All cryptanalysis results belong in the repo so every contributor and agent shares
+one source of truth. Start at **`research/README.md`** (the dossier index).
+Load-bearing entries:
+
+- `research/03-confirmed-vs-speculation.md` — the skeptic's scorecard / claim ceiling.
+- `research/attack-methodology.md` — reusable, cross-cutting process lessons.
+- `research/gak-threads/` (`README.md`, `PROGRESS.md`) — the GAK-cipher campaign on the eyes.
+- `research/findings/` — individual calibrated results (CRC/lumikki, predicate battery, discriminators).
+- `research/data/practice-puzzles/{KEYSTREAM,RAGBABY,CODEC}-RESULTS.md` — the practice-puzzle solve records.
+- `research/handoff/` — scoped task backlog + handoffs (e.g. `one-codec-attack.md`).
+
+When you produce a result worth keeping, write it into the relevant doc above; do
+not leave it only in an agent's private notes.
+
 ## Commands
 
 ```sh
