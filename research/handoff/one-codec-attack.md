@@ -1,5 +1,19 @@
 # Handoff — crack practice puzzle `one`'s codec
 
+## ✅ SOLVED (2026-07-01) — this handoff is closed
+
+`one` decodes to **`Permutation Representation Destination`** under the
+alternating-orientation dihedral GAK over C5 (orientation bit `b_i = i mod 2`,
+deterministic — *not* feedback hidden state) with a 7-bit-ASCII plaintext codec,
+verified by an exact 266/266 ciphertext round-trip. Instrument: `maskdecode`
+(planted positives + matched null + `--self-test`). Authoritative write-up,
+including why every negative below stands as scoped and how the convention
+closure + crib-window discriminator found the untested carrier:
+`CODEC-RESULTS.md` § "`one` — SOLVED: alternating-orientation dihedral GAK +
+7-bit ASCII (`maskdecode`)". The backlog below (external anchor / `anchorfit`,
+evolving tables, 2-D layouts) is obsolete for `one`; everything below is kept as
+the historical record of the attack ladder.
+
 ## UPDATE (2026-07-01) — author hints received; the dihedral hidden-1-bit model; exhaustion is the measured read
 
 The puzzle's author supplied five hints (relayed by the maintainer). They reframe

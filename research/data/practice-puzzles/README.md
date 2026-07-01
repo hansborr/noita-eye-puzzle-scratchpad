@@ -20,12 +20,17 @@ the sole honest-negative.
   engine cannot be tuned to it.) Recovering a puzzle's English is a goal /
   hypothesis; a scored candidate is never a decode until checked against
   withheld ground truth. Same claim ceiling as the eyes.
+- Exception, precisely scoped: a candidate that **re-encodes to the exact
+  ciphertext** under a stated zero-free-parameter model (an exact round-trip, not
+  an n-gram score) is a *verified decode* — the ciphertext itself is the ground
+  truth check. Maintainer/author confirmation remains the formal close-out.
+  (`one` is the demonstrating case, 2026-07-01.)
 
 ## Inventory (verified structural facts + hypothesis)
 
 | File | Symbols | Alphabet (verified) | Structure (verified) | Likely mode (hypothesis) |
 | ---- | ------- | ------------------- | -------------------- | ------------------------ |
-| `one`   | 266 | 5 digits `{0,1,2,3,4}`, no spaces | **±1 walk on C5** (all 265 transitions ±1 mod 5: +1×125, −1×140); `H1≈2.321/2.322` | small-alphabet keystream/GAK → **needs codec** |
+| `one`   | 266 | 5 digits `{0,1,2,3,4}`, no spaces | **±1 walk on C5** (all 265 transitions ±1 mod 5: +1×125, −1×140); `H1≈2.321/2.322` | **SOLVED (2026-07-01):** `Permutation Representation Destination` — alternating-orientation dihedral GAK + 7-bit ASCII, exact 266/266 round-trip (`maskdecode`; `CODEC-RESULTS.md` § "`one` — SOLVED") |
 | `two`   | 698 | 12 letters `{A..L}`, no spaces | near-flat marginal (`H1≈3.578/3.585`), out-degree ≈8 | polyalphabetic/keystream → **needs codec** |
 | `three` | 142 | ~letters `{A..Z}` (J, V absent) + space `,` `.` | word + two-sentence structure, spaces preserved | not mono, not periodic ≤40 (flat IoC) → **aperiodic polyalphabetic / position-keyed**; see `profile` |
 | `four`  | 128 | letters + space `,` `.` `?`, 6 lines | multi-sentence, spaces + punctuation preserved | not mono, not periodic ≤40 → **aperiodic polyalphabetic / position-keyed**; see `profile` |

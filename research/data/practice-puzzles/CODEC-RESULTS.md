@@ -14,7 +14,7 @@ documented limitation of the matched-null gate itself.
 
 | Puzzle | Verdict | Notes |
 | --- | --- | --- |
-| `one` | honest negatives / under-determined candidates across the tested codec families | `rlcodec`, `cribfit`, `codecpower`, `rankcodec`, `mdlcodec`, and `bigramcodec` now bound the in-engine search; external anchor is the remaining rigorous lever |
+| `one` | **SOLVED (2026-07-01)** — `Permutation Representation Destination` | alternating-orientation dihedral GAK over C5 + 7-bit ASCII; verified by an exact 266/266 ciphertext round-trip (`maskdecode`); see § "`one` — SOLVED" below. The prior honest negatives (`rlcodec`, `cribfit`, `rankcodec`, `mdlcodec`, `bigramcodec`) all stand *as scoped* — they attacked direction-blind reductions forced by a hidden-state assumption the actual cipher does not satisfy |
 | `two` | honest negative — gate "survivors" are **transition-law artifacts**, not decodes | exposes a bigram/Fisher-Yates gate blind spot (below) |
 | `six` | honest negative (0 survivors) | base-6, spaces preserved |
 
@@ -808,6 +808,109 @@ word would lock most of the message.
 the observed carrier — treat it as the leading hypothesis, not a confirmed setting.
 No candidate cleartext is claimed. The reduction `b_{i+1} = ¬obs_i` → run structure
 is verified; the letter-level settings are not recovered.
+
+> **SUPERSEDED (2026-07-01, same day):** the "measured exhaustion → external anchor"
+> synthesis above was correct about the tested families but wrong about the next
+> lever. The orientation bit is *deterministic* (alternates every step), not
+> feedback-driven hidden state, and the puzzle fell to a zero-parameter readout.
+> See the next section.
+
+## `one` — SOLVED: alternating-orientation dihedral GAK + 7-bit ASCII (`maskdecode`)
+
+**Plaintext (verified decode, 2026-07-01):**
+
+```text
+Permutation Representation Destination
+```
+
+**The cipher.** `one` is the dihedral / 1-bit-orientation GAK the author hinted at
+(h1/h4/h5), in its *simplest possible* setting: the orientation bit is not hidden
+state at all — it **alternates deterministically every step**, `b_i = i mod 2`.
+The plaintext is the 7-bit-ASCII bit stream `m` (MSB-first) of the 38-character
+message above (266 bits). Each step emits direction `o_i = m_{i+1} XOR b_i` and the
+ciphertext digit walks `±1` on C5 from starting digit `4` (up for `o=1`). The 265
+steps carry message bits 2..266; the leading bit of `P` is not carried by any step
+(observation: an implicit predecessor digit `0` would carry it consistently —
+recorded as a note, not a claim).
+
+**Verification (why this clears the claim ceiling).** This is not a scored
+candidate: the readout has **zero free parameters** beyond a small enumerated grid
+(mask ∈ {static, alternating} × width × offset × bit-order × polarity × direction),
+and the decode is gated on an **exact ciphertext round-trip** — re-encoding
+`Permutation Representation Destination` under the stated model reproduces **all
+266/266 digits exactly**. All 37 full 7-bit chunks are ASCII letters/space (letter
+fraction 1.0 vs ≈0.41 chance baseline; the whole sweep is ~10² cells, so a
+full-letter English readout surviving by chance is ≲10⁻¹²), and the 6 recovered
+head bits `010000` uniquely complete to `P` among printable options (`0x50` vs the
+unprintable `0x10`). Per this corpus's discipline the maintainer/author check is
+still the formal ground truth, but the round-trip makes this a verified decode,
+not a hypothesis.
+
+**Consistency with the census (retrodiction).** Under `b_i = i mod 2` the phrase
+windows at bit starts 42/147/231 (the 19-run triple) become **literally identical**
+(34/34, 34/34), and the model *forces* the observed polarity law: repeats at odd
+bit-gap appear direction-complemented (occ1↔occ2, gap 105), repeats at even
+bit-gap appear direction-exact (occ2↔occ3, gap 84). All 9 maximal run-magnitude
+repeats of length ≥ 6 obey the parity prediction (0 violations). The
+`...ation`/`...ntation` suffixes shared by the three words *are* the census
+repeats: `M[16..42]==M[69..95]` (47 bits ≈ `-ntation `) and the triple
+`M[19..38]==M[72..91]==M[116..135]` (34 bits ≈ `tation `-grade suffix), which is
+why they read as a "phrase repeated 3×" at the carrier level. The crib bit-gap
+`gcd = 21 = 3·7` was the codec width in plain sight.
+
+**How it was found (and why every prior negative was right-but-scoped).** The
+2026-07-01 hints prompted a closure enumeration of the 1-bit orientation updates
+`b_{i+1} = f(b_i, p_i, o_i)` (16 boolean functions, collapsing to five families):
+
+| family | update | derived plaintext stream | verdict on real `one` |
+| --- | --- | --- | --- |
+| static | `b' = b` | `o` (± complement) | excluded (occ1↔occ2 complemented ⇒ no literal repeat) |
+| conv-C | `b' = f(o)`, `b' = b⊕p` | `d` / magnitudes `M` | consistent; the already-attacked carrier |
+| conv-P | `b' = f(p)` | `p_i = d_i ⊕ p_{i-2}` (4 seeds) | **excluded** — crib-window discriminator |
+| conv-A | `b' = b⊕o` | prefix-parity of `o` (2 seeds) | **excluded** — crib-window discriminator |
+| **conv-alt** | `b' = ¬b` | `o ⊕ 0101…` | **live → solved** |
+
+The discriminator: a repeated-plaintext span must survive as a literal repeat in
+the true convention's derived stream. Polarity-blind window agreement on the
+phrase windows is 0.50 (chance) for the odd-gap pair under conv-P/conv-A
+reconstructions of real `one` but ~1.0 under planted conv-P/conv-A positive
+controls — so those conventions cannot host the 3×-repeated phrase. The
+alternating stream was the one convention whose derived carrier
+(`|runs|=131`, max 6) no battery had ever seen, and literal ASCII fired on it
+immediately. The prior negatives are all still correct *as scoped*: they attacked
+the direction-blind carrier `M`, which is the right reduction only for
+state-dependent (feedback) hidden bits. A deterministic mask keeps polarity
+meaningful, which resurrected exactly the family ("bit-level fixed-width /
+ASCII") the earlier complemented-repeat argument had excluded — that argument
+was proven against raw `o`, and silently over-generalized to all bit-level
+readings. Process lesson recorded in `research/attack-methodology.md`.
+
+**The instrument.** `maskdecode` (`src/attack/maskdecode/` + the `maskdecode`
+subcommand) is file-driven and self-validating: planted alternating-mask and
+static-mask positives that must recover verbatim with exact round-trips, a
+SplitMix64 random-walk matched null that must stay negative, a `NotAWalk`
+inapplicability verdict, and the real-`one` regression. It generalizes the readout
+(any ±1 walk alphabet, widths 5..=8, both masks, all offsets/orders/polarities/
+directions) and gates any full-letter readout on the exact re-encode round-trip.
+
+```sh
+# one — the verified decode (defaults to the embedded puzzle)
+cargo run -q -- maskdecode
+# arbitrary input
+cargo run -q -- maskdecode --input-file research/data/practice-puzzles/one --alphabet 01234
+# planted positives + matched null + NotAWalk + real-one regression
+cargo run -q -- maskdecode --self-test
+```
+
+**Implications for the eyes (hypothesis, clearly labeled).** Two transferable
+leads, neither a claim about the eyes: (1) the author's practice cipher realized
+"hidden 1-bit orientation" as a *deterministic alternation* — when attacking the
+eyes' GAK layer, cheap deterministic-convention sweeps (periodic masks) deserve to
+run **before** assuming true feedback hidden state, because they are exactly
+solvable; (2) the recovered plaintext `Permutation Representation Destination` is
+itself group-theory-flavored and may be an author meta-hint about the eye cipher's
+intended framing — recorded verbatim, no interpretation claimed. (`six` was
+checked and is *not* a ±1 walk — this scheme does not transfer there directly.)
 
 ## `two` — honest negative, and a gate blind spot
 

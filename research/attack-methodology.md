@@ -55,3 +55,20 @@ same length and alphabet. Report that power (e.g. `five` Ragbaby ruled out at
 planted-recovery 1.00 @274; `four`/121 near the information floor at ~0.70). A negative
 below ~0.7 recovery power is "couldn't find it," not "isn't there." Demonstrated:
 `data/practice-puzzles/RAGBABY-RESULTS.md`.
+
+## 7. An exclusion binds only the model class that proved it — re-audit on model change
+
+`one`'s "no bit-level fixed-width / ASCII codec" exclusion was proven against the raw
+direction stream (a bit-complemented repeat is fatal there) and then silently
+over-generalized to *every* bit-level reading. It never covered deterministic
+orientation masks: under `b_i = i mod 2` polarity is meaningful again, the phrase
+repeats become literal, and 7-bit ASCII read straight off — the solved plaintext had
+been excluded only by scope creep, not by evidence. Two habits fix this cheaply:
+(a) when hints or new structure change the model class, re-derive which recorded
+exclusions still apply *from their proofs*, not from their headlines; and (b)
+enumerate small closures — writing out all 16 one-bit update rules
+`b' = f(b, p, o)` took minutes and exposed the one untested derived carrier.
+Corollary: sweep **zero-parameter self-reading codecs first** (fixed codes + exact
+re-encode round-trip) — at lengths where matched-null gates are measured-underpowered
+(`codecpower`), a round-trip verdict is decisive in both directions and costs nothing.
+Demonstrated: `data/practice-puzzles/CODEC-RESULTS.md` § "`one` — SOLVED".
