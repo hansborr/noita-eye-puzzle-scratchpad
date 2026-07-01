@@ -14,7 +14,7 @@ documented limitation of the matched-null gate itself.
 
 | Puzzle | Verdict | Notes |
 | --- | --- | --- |
-| `one` | honest negatives / under-determined candidates across the tested codec families | `rlcodec`, `cribfit`, `codecpower`, `rankcodec`, and `mdlcodec` now bound the in-engine search; external anchor is the remaining rigorous lever |
+| `one` | honest negatives / under-determined candidates across the tested codec families | `rlcodec`, `cribfit`, `codecpower`, `rankcodec`, `mdlcodec`, and `bigramcodec` now bound the in-engine search; external anchor is the remaining rigorous lever |
 | `two` | honest negative — gate "survivors" are **transition-law artifacts**, not decodes | exposes a bigram/Fisher-Yates gate blind spot (below) |
 | `six` | honest negative (0 survivors) | base-6, spaces preserved |
 
@@ -691,6 +691,49 @@ subcommand). It self-validates with `mdlcodec --self-test`: a planted affine
 English positive recovers exactly and beats the post-selection null, a random
 repeated-block control remains a non-survivor with near ties, and the `a=1,b=0`
 crib modular check matches `cribfit`.
+
+## `one` — bigram-order codec gate (`bigramcodec`)
+
+Chases a puzzle-author hint ("look at the bigrams"). Two readings, both closed:
+
+**Encoding-unit reading (dead structurally).** Read the walk as symbol *pairs*.
+Because every adjacent digit differs by ±1 mod 5, both overlapping and
+non-overlapping digit-bigrams collapse to only **10 distinct values** (the ten
+directed edges of the pentagon = 5 vertices × 2 directions) — too few to carry
+26-letter English. Run-length **magnitude**-pairs reach a 25-symbol alphabet but
+`one` populates only ~14 of them. All three token streams are alphabet-capped.
+
+**Scoring reading (measured honest negative).** For each stream, anneal the best
+injective symbol→letter map under the English/Finnish **bigram** mean-log-
+likelihood (the converse of `rlcodec`'s quadgram-over-bigram battery), then gate
+against **two** nulls: order-0 (unigram-preserving shuffle — has power for token
+ordering but is confounded by the walk/GAK-repeat) and order-1 (Markov transition-
+preserving — the confound control). Verdict keys on a **readability crib
+heuristic**, not the nulls.
+
+| stream (alphabet) | best decode | order-0 z | order-1 z | readable | verdict |
+| --- | --- | --- | --- | --- | --- |
+| digit-pairs (10) EN | `HEELELOOHOITOII…` | +3.18 | −1.26 | 0 | artifact |
+| edges (10) EN | `HERARASERASOUTUT…` | +23.56 | −0.76 | 0 | artifact |
+| **mag-pairs (14/25) EN** | `STHEHCERYDEIYHIS…` | **−0.39** | −2.63 | 0 | **negative** |
+
+No stream yields readable text. The two 10-symbol streams beat *only* the
+confounded order-0 null — the huge edge z is the ±1-walk's structural correlation
+(overlapping edges share a vertex), not language. The only alphabet-rich stream
+(`mag-pairs`) beats **neither** null.
+
+**The load-bearing measurement (why this closes the lever, not just fails it):**
+the order-1 gate is *provably* powerless for a bigram objective. The `--self-test`
+plants genuine English through the `mag-pairs` codec and recovers it **verbatim**
+(`THERAINONTHEROAD…`), yet that perfect English scores order-1 **z ≈ +0.6,
+p ≈ 0.33** — it does *not* clear the gate. So a bigram objective cannot see past
+the transition matrix the order-1 null preserves; readability, not a null, is the
+only discriminator here. This is the bigram-level analog of `codecpower`. The
+self-test asserts: positive is readable + beats order-0 + does **not** clear
+order-1, and real `one` is non-readable — a symmetric, non-vacuous control.
+
+The instrument is `bigramcodec` (`src/attack/bigramcodec/` + the `bigramcodec`
+subcommand), file-driven and self-validating (`bigramcodec --self-test`).
 
 ## `one` — honest negative (`solve --codec-search` binary-move)
 
