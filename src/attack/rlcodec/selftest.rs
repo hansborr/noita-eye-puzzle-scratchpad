@@ -1,21 +1,17 @@
 //! The in-process self-test: a planted positive control that *must* fire and the
 //! real-`one` honest negative that *must not*.
 
-use std::collections::HashMap;
-
 use crate::attack::quadgram::QuadgramModel;
 use crate::core::glyph::Glyph;
 
 use super::battery::{evaluate_codec, run_battery};
 use super::codecs::RlCodec;
-use super::derive::{derive_magnitudes, one_practice_digits, synthesize_walk};
+use super::derive::{derive_magnitudes, one_practice_digits};
+use super::plant::{
+    DEFAULT_COMMA_SEP, DEFAULT_PLANT_BASE, PLANT_PLAINTEXT, encode_comma, english_letters,
+    partition_of,
+};
 use super::{BatteryCfg, RlError};
-
-/// Separator magnitude used by the planted comma code (never appears inside a
-/// letter tuple, which are drawn from `{1, 2, 3}`).
-const PLANT_SEP: usize = 4;
-/// Base of the synthetic `±1` walk.
-const PLANT_BASE: usize = 5;
 
 /// Positive-control matched-null trials. With `ge == 0` the add-one p-value is
 /// `1/(trials+1)`, so `>= 20` trials are needed for `p < 0.05`.
@@ -38,19 +34,6 @@ const NEGATIVE_ITERS: usize = 1_800;
 const SELFTEST_CENSUS_TRIALS: usize = 60;
 /// Self-test census top-k anchors.
 const SELFTEST_TOP_K: usize = 6;
-
-/// A genuine, long English plaintext for the planted positive control.
-///
-/// Restricted to a 12-letter alphabet (`A D E H I L N O R S T W`) so the planted
-/// stream's substitution search converges reliably at a modest budget — the
-/// English quadgram structure beyond bigrams is what beats the matched null, and
-/// keeping the alphabet small keeps that recovery deterministic (a 22-letter plant
-/// needs a far larger search budget to find its global optimum). It is genuine
-/// English prose throughout.
-const PLANT_PLAINTEXT: &str = "THERAINONTHEROADANDTHEWINDINTHETREESHIDTHELOSTRIDERS\
-INTOTHEOLDNORTHLANDSWHERENOONEHADSAILEDORTRADEDINTENSLOWSEASONSANDTHESTONEWALLSHELD\
-THESILENTDEADWHILETHETIREDRIDERSRODEONINTOTHERAINANDTHEWINDANDTHELONESHADEANDTHEOLD\
-ROADSTILLLEDTHERIDERSINTOTHENORTHWHERETHEHEARTLANDSLIEDROWNEDINRAIN";
 
 /// Outcome of the self-test.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -111,64 +94,11 @@ fn negative_cfg(seed: u64) -> BatteryCfg {
     }
 }
 
-/// Maps each distinct value to a dense id by first appearance (the planted
-/// partition's canonical form).
-fn partition_of(values: &[usize]) -> Vec<usize> {
-    let mut ids: HashMap<usize, usize> = HashMap::new();
-    let mut out = Vec::with_capacity(values.len());
-    for &value in values {
-        let next = ids.len();
-        out.push(*ids.entry(value).or_insert(next));
-    }
-    out
-}
-
-/// The `rank`-th distinct tuple over `{1, 2, 3}`, enumerated by increasing length
-/// then lexicographically. Injective in `rank`, so distinct letters get distinct
-/// tuples.
-fn tuple_for_rank(rank: usize) -> Vec<usize> {
-    let symbols = [1usize, 2, 3];
-    let mut remaining = rank;
-    let mut length = 1usize;
-    loop {
-        let count = symbols.len().pow(u32::try_from(length).unwrap_or(1));
-        if remaining < count {
-            let mut digits = Vec::with_capacity(length);
-            let mut value = remaining;
-            for _ in 0..length {
-                let digit = value % symbols.len();
-                value /= symbols.len();
-                digits.push(*symbols.get(digit).unwrap_or(&1));
-            }
-            digits.reverse();
-            return digits;
-        }
-        remaining -= count;
-        length += 1;
-    }
-}
-
 /// Builds the planted positive control: the synthetic walk digits and the planted
 /// symbol partition the `Comma{sep=4}` codec must recover.
 fn build_plant() -> (Vec<Glyph>, Vec<usize>) {
-    let letters: Vec<usize> = PLANT_PLAINTEXT
-        .bytes()
-        .filter(u8::is_ascii_uppercase)
-        .map(|byte| usize::from(byte - b'A'))
-        .collect();
-
-    let mut rank_of: HashMap<usize, usize> = HashMap::new();
-    let mut magnitudes: Vec<usize> = Vec::new();
-    for (position, &letter) in letters.iter().enumerate() {
-        if position > 0 {
-            magnitudes.push(PLANT_SEP);
-        }
-        let next_rank = rank_of.len();
-        let rank = *rank_of.entry(letter).or_insert(next_rank);
-        magnitudes.extend(tuple_for_rank(rank));
-    }
-
-    let digits = synthesize_walk(&magnitudes, PLANT_BASE);
+    let letters = english_letters(PLANT_PLAINTEXT);
+    let digits = encode_comma(&letters, DEFAULT_COMMA_SEP, DEFAULT_PLANT_BASE);
     let planted_partition = partition_of(&letters);
     (digits, planted_partition)
 }
@@ -182,14 +112,16 @@ fn build_plant() -> (Vec<Glyph>, Vec<usize>) {
 /// fails (it should not in a correct build).
 pub fn rlcodec_self_test(seed: u64) -> Result<SelfTestReport, RlError> {
     let model = QuadgramModel::english()?;
-    let comma = RlCodec::Comma { sep: PLANT_SEP };
+    let comma = RlCodec::Comma {
+        sep: DEFAULT_COMMA_SEP,
+    };
     let positive_codec = comma.name();
 
     // POSITIVE: the planted English-via-Comma walk must fire and be recovered.
     // Only the planted codec is evaluated (the gate it fires through), so the long
     // stream can afford the larger search its reliable English recovery needs.
     let (plant_digits, planted_partition) = build_plant();
-    let plant_magnitudes = derive_magnitudes(&plant_digits, PLANT_BASE)?;
+    let plant_magnitudes = derive_magnitudes(&plant_digits, DEFAULT_PLANT_BASE)?;
     let verdict = evaluate_codec(
         &plant_magnitudes.magnitudes,
         &comma,
@@ -204,7 +136,7 @@ pub fn rlcodec_self_test(seed: u64) -> Result<SelfTestReport, RlError> {
     // NEGATIVE: the real `one` magnitude sequence must produce no survivor across
     // the whole battery.
     let one_digits = one_practice_digits()?;
-    let one_report = run_battery(&one_digits, PLANT_BASE, &negative_cfg(seed))?;
+    let one_report = run_battery(&one_digits, DEFAULT_PLANT_BASE, &negative_cfg(seed))?;
     let negative_overall_survivor = one_report.overall_survivor;
 
     Ok(SelfTestReport {

@@ -71,6 +71,31 @@ single-magnitude MTF, plus 2-D / interleaved layouts. Same caveat: at this lengt
 the gate excludes a searchable above-bigram codec signal, not a short genuine
 message.
 
+## Next leads (codex consult 2026-06-30)
+
+`codecpower` has now measured the gate ceiling directly: at the carrier≈135
+operating point for `Comma{sep=4}`, the actual `rlcodec` matched-null gate has
+power 0.000 on the built-in English calibration sweep, with aggregate
+non-English false-positive rate 0.018. Treat this as underpowering at `one`'s
+length, not as a plaintext claim.
+
+Ranked backlog for `one`:
+
+1. **External anchor / `anchorfit` known-crib.** Escalate here once the power
+   ceiling shows the gate is underpowered; the maintainer-held withheld `one`
+   snippet is the right anchor if available.
+2. **`rankcodec` predictive-rank decode (NEXT build).** Test whether the carrier
+   encodes ranks / predictive choices rather than direct comma symbols.
+3. **Crib-synchronous WFST / MDL search.** Use the carrier repeats as synchronized
+   constraints while penalizing codec complexity explicitly.
+4. **`codecpower` power ceiling (THIS build).** Landed as the calibration
+   instrument; keep rerunning it when a codec family has a real encoder.
+
+For `two`: next leads are eps-pair codec projection, full-D0 `ctakscan`, and a
+full-symbol-feedback CSP. `two` currently looks structurally walled: the transparent
+rotor repeats are real, but the deck/full-symbol channel has not yielded a
+computable signal under the tested regimes.
+
 ---
 (original handoff below; angles #1 and #3 are now tested/excluded as noted above)
 

@@ -5,6 +5,8 @@
 //! - [`cipher_attack`]: Experiment 12 attack/null harness that scores named
 //!   candidate ciphers only under declared, unverified symbol-to-letter
 //!   mappings.
+//! - [`codecpower`]: detection-power calibration for `rlcodec`'s comma-code
+//!   matched-null gate at practice puzzle `one`'s carrier budget.
 //! - [`codec`]: codec transduction layer feeding the [`solve`] search.
 //! - [`gak_attack`]: Thread 4 synthetic GAK generator and the decisive GCTAK
 //!   solver gate, validated against held-back ground truth (synthetic-only).
@@ -35,6 +37,7 @@
 pub mod agl_gak;
 pub mod cipher_attack;
 pub mod codec;
+pub mod codecpower;
 /// Shared scaffolding (`mean_std`, the null-comparison gate, the matched-null loop,
 /// and the invariant candidate-record blocks) for the keystream and ragbaby crackers.
 mod crack;

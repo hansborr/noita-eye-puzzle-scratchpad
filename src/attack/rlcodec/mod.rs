@@ -36,6 +36,7 @@ mod battery;
 mod census;
 mod codecs;
 mod derive;
+mod plant;
 mod search;
 mod selftest;
 
@@ -52,6 +53,10 @@ pub use codecs::{RlCodec, all_codecs, alphabet_size};
 pub use derive::{
     ONE_PRACTICE_PUZZLE, RunLengthDerivation, derive_magnitudes, one_practice_digits,
     parse_base_digits,
+};
+pub use plant::{
+    DEFAULT_COMMA_SEP, DEFAULT_PLANT_BASE, PLANT_PLAINTEXT, encode_comma, english_letters,
+    partition_of,
 };
 pub use search::{MIN_LETTERS, SubResult, substitution_search};
 pub(crate) use selftest::planted_positive_symbols;

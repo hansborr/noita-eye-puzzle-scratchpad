@@ -14,7 +14,7 @@ documented limitation of the matched-null gate itself.
 
 | Puzzle | Verdict | Notes |
 | --- | --- | --- |
-| `one` | honest negative (0 survivors) | now *testable* via the new binary-move codec; was 0 candidates before |
+| `one` | honest negative (0 survivors), with measured gate underpower at the 135-magnitude budget | now *testable* via the new binary-move codec; `codecpower` calibrates how much weight the negative can carry |
 | `two` | honest negative — gate "survivors" are **transition-law artifacts**, not decodes | exposes a bigram/Fisher-Yates gate blind spot (below) |
 | `six` | honest negative (0 survivors) | base-6, spaces preserved |
 
@@ -393,6 +393,60 @@ cargo run -- rlcodec --input-file research/data/practice-puzzles/one --alphabet 
 # planted positive control (must fire) + real-one negative (must not)
 cargo run -- rlcodec --self-test
 ```
+
+## `one` — codec detection-power ceiling (`codecpower`)
+
+> Calibrates the **method**, not the plaintext. `codecpower` plants known English
+> through the same comma encoder used by `rlcodec`'s positive control, decodes it
+> with `RlCodec::Comma{sep=4}`, and then reuses the actual
+> `rlcodec::gate_symbol_stream` matched-null gate. It asks: at a carrier budget
+> comparable to `one`'s `|M| = 135`, how often would this gate detect a genuine
+> comma-coded English message?
+
+Run recorded for this build:
+
+```sh
+cargo run -- codecpower --alphabet 01234
+```
+
+Built-in English source: the 285-letter planted-control passage (same quadgram
+model that the gate scores; this is a calibration of the gate's own notion of
+English, not a held-out generalization claim). Gate budget:
+`null_trials=80`, `restarts=10`, `iters=1500`, seed `0x726c636f64656301`.
+
+| L | mean `|M|` | power | detections | mean z | mean p | non-English controls |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 8 | 18.9 | 0.250 | 2/8 | +0.54 | 0.3904 | 0/8 |
+| 12 | 30.1 | 0.000 | 0/8 | -0.69 | 0.7238 | 1/8 |
+| 16 | 40.2 | 0.000 | 0/8 | -0.94 | 0.7608 | 0/8 |
+| 24 | 62.0 | 0.000 | 0/8 | -1.61 | 0.9120 | 0/8 |
+| 32 | 83.9 | 0.000 | 0/8 | -1.81 | 0.9568 | 0/8 |
+| 48 | 129.0 | 0.000 | 0/8 | -0.74 | 0.6574 | 0/8 |
+| 64 | 171.9 | 0.375 | 3/8 | +0.30 | 0.4707 | 0/8 |
+
+Size control: aggregate non-English false-positive rate **0.018** (1/56), close
+to and below the nominal `alpha = 0.05` gate size. The gate is therefore not
+firing indiscriminately; the low power at short carrier budgets is not hidden by an
+inflated false-positive rate.
+
+Operating point: the row closest to `one`'s carrier size is **L≈48** with
+mean `|M| = 129.0`; the measured power there is **0.000** (0/8). No swept length
+reaches the default detectable-length floor of 0.8.
+
+**Honest reading:** the memoryless-comma negative on real `one` is not strong
+evidence that a comma-coded English message is absent at the 135-magnitude budget.
+It says the actual matched-null gate has essentially no measured power at that
+budget under this calibration. The `rlcodec` negative still excludes a strong,
+searchable above-bigram signal in the tested codec families, but a genuine short
+message could fall below the null. This is the measured trigger for escalating to
+an external anchor rather than continuing to treat near-English failures as
+decodes.
+
+The instrument is `codecpower` (`src/attack/codecpower/` + the `codecpower`
+subcommand). It is file-driven (`--input-file` / `--stdin`), has a required
+uniform-letter size control, and self-validates with `codecpower --self-test`. The
+comma encoder is shared with `rlcodec` as `rlcodec::encode_comma`, so the
+positive control and this calibration cannot drift.
 
 ## `one` — crib-consistency filter (`cribfit`)
 

@@ -3,6 +3,7 @@
 //! pipelines). The uniform experiments are dispatched generically in
 //! [`super::dispatch`].
 
+mod codecpower;
 mod crcscan;
 mod cribfit;
 mod ctakscan;
@@ -18,6 +19,7 @@ mod rlcodec;
 mod solve;
 mod structural;
 
+pub(crate) use codecpower::run_codecpower;
 pub(crate) use crcscan::run_crcscan;
 pub(crate) use cribfit::run_cribfit;
 pub(crate) use ctakscan::run_ctakscan;

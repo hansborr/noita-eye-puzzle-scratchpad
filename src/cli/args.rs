@@ -15,6 +15,7 @@ use super::args_attack::{
     AglGakArgs, GakArgs, GakAttackArgs, GakAttackEyesArgs, IsoscanArgs, KeystreamArgs, ProfileArgs,
     RagbabyArgs, SolveArgs, StatsArgs,
 };
+use super::args_codecpower::CodecpowerArgs;
 use super::args_cribfit::CribfitArgs;
 use super::args_ctak::CtakscanArgs;
 use super::args_predicates::PredscanArgs;
@@ -67,6 +68,12 @@ pub(crate) enum Command {
     /// the expected verdict on real `one` is an honest negative.
     #[command(name = "rlcodec")]
     Rlcodec(RlcodecArgs),
+    /// Detection-power ceiling for `rlcodec`'s comma-code matched-null gate at
+    /// practice puzzle `one`'s carrier budget. Plants English and matched
+    /// non-English controls, then reuses the actual `rlcodec` gate; this is a
+    /// method calibration, never a plaintext claim.
+    #[command(name = "codecpower")]
+    Codecpower(CodecpowerArgs),
     /// Crib-anchored consistency filter for the codec-with-memory regime of
     /// `rlcodec`'s run-length carrier. Derives the cribs' run-gap/bit-gap geometry
     /// and the state/key periods it admits, tests each codec family by the
