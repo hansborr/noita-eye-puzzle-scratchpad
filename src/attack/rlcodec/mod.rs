@@ -45,7 +45,7 @@ mod tests;
 
 pub use battery::{
     BatteryReport, CodecVerdict, DerivationSummary, default_battery_cfg, evaluate_codec,
-    gate_symbol_stream, run_battery,
+    gate_symbol_stream, gate_symbol_stream_with_nulls, run_battery,
 };
 pub use census::{CensusAnchor, CensusReport, magnitude_census};
 pub(crate) use codecs::name_seed_tag;

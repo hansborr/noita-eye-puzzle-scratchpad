@@ -15,6 +15,7 @@ mod keystream;
 mod misc;
 mod predscan;
 mod ragbaby;
+mod rankcodec;
 mod rlcodec;
 mod solve;
 mod structural;
@@ -33,6 +34,7 @@ pub(crate) use misc::{
 };
 pub(crate) use predscan::run_predscan;
 pub(crate) use ragbaby::run_ragbaby;
+pub(crate) use rankcodec::run_rankcodec;
 pub(crate) use rlcodec::run_rlcodec;
 pub(crate) use solve::run_solve;
 pub(crate) use structural::{

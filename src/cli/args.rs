@@ -19,6 +19,7 @@ use super::args_codecpower::CodecpowerArgs;
 use super::args_cribfit::CribfitArgs;
 use super::args_ctak::CtakscanArgs;
 use super::args_predicates::PredscanArgs;
+use super::args_rankcodec::RankcodecArgs;
 use super::args_rlcodec::RlcodecArgs;
 
 #[derive(Debug, Parser)]
@@ -83,6 +84,11 @@ pub(crate) enum Command {
     /// on real `one` is an honest negative plus the derived structural constraint.
     #[command(name = "cribfit")]
     Cribfit(CribfitArgs),
+    /// Bounded-order predictive-rank codec analysis for `one`'s run-length
+    /// carrier. Feasibility and crib-consistency are the primary discriminators;
+    /// the quadgram gate is tertiary and underpowered at 135 magnitudes.
+    #[command(name = "rankcodec")]
+    Rankcodec(RankcodecArgs),
     /// D4/A4/S4 hidden-group element-order discriminator for the `C3 × H`
     /// hidden-state GAK reading of a deck/rotor cipher. Reads the deck channel's
     /// induced permutation across difference-channel anchors; a verdict is a

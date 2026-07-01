@@ -13,6 +13,7 @@ mod args_codecpower;
 mod args_cribfit;
 mod args_ctak;
 mod args_predicates;
+mod args_rankcodec;
 mod args_rlcodec;
 mod commands;
 mod dispatch;

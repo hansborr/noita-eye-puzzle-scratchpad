@@ -567,6 +567,65 @@ cargo run -- cribfit --input-file research/data/practice-puzzles/one --alphabet 
 cargo run -- cribfit --self-test
 ```
 
+## `one` — bounded-order predictive-rank codec (`rankcodec`)
+
+> Tests the remaining bounded-memory / evolving-table idea: read each magnitude
+> `M[i]` as the rank of the next plaintext letter in a deterministic order-`k`
+> English predictor's next-letter list. The predictor orders swept here are
+> `k = 1, 2, 3`, strictly below the order-4 quadgram scorer, so the decoder is not
+> allowed to manufacture exactly the structure the scorer measures.
+
+Run recorded for this build:
+
+```sh
+cargo run -- rankcodec
+```
+
+Default predictor source: the built-in `rlcodec` planted-control passage (285
+letters after filtering). Target: embedded practice puzzle `one`, whose carrier
+is `|M| = 135` with distribution `{1:64, 2:34, 3:17, 4:18, 5:2}`. Gate budget:
+`null_trials=80`, `restarts=10`, `iters=1500`, seed `0x72616e6b900d0001`.
+
+The matched null is specific to this memoryful decoder: an order-1 Markov
+resample of `M` with the crib windows pinned, followed by the **identical
+order-`k` decode** and the same substitution/quadgram gate finalization as
+`rlcodec`. The code pins the crib windows and resamples only the non-crib
+positions, so the null keeps the same carrier-repeat structure while cancelling
+the decoder's baseline higher-order language-like output. As with `codecpower`,
+the gate is **TERTIARY only and underpowered at 135 magnitudes**.
+
+Primary results:
+
+| order `k` | English ranks `<=5` | representable? | crib verdict / locked tails | gate z | gate p | survivor |
+| ---: | ---: | --- | --- | ---: | ---: | --- |
+| 1 | 244/285 = 85.6% | no | excluded; len26 15/25, len19 11/18, 12/18, 11/18 | -1.19 | 0.9136 | no |
+| 2 | 280/285 = 98.2% | no | excluded; len26 4/24, len19 0/17, 0/17, 10/17 | +0.05 | 0.4691 | no |
+| 3 | 281/285 = 98.6% | no | excluded; len26 17/23, len19 13/16, 12/16, 12/16 | -0.02 | 0.4938 | no |
+
+Expected rank-hit distributions on the English source:
+
+- `k=1`: `1:102, 2:51, 3:39, 4:29, 5:23, >5:41`
+- `k=2`: `1:177, 2:55, 3:29, 4:15, 5:4, >5:5`
+- `k=3`: `1:237, 2:32, 3:6, 4:4, 5:2, >5:4`
+
+**Honest verdict:** no swept order is crib-admissible. The crib-consistency filter
+is the primary exclusion: every order fails at least one required locked tail
+after the allowed `<=k` transient. Independently, the feasibility control says the
+built-in English source is **not fully representable** in ranks `<=5` for any
+bounded order swept here (best coverage is 98.6%, still with 4/285 letters needing
+rank `>5`). This feasibility figure is an **optimistic best case**: the predictor is
+trained on the very passage it then rank-encodes (a self-fit), so a real unknown
+plaintext would overflow rank `>5` at least this often, not less — the exclusion is
+if anything stronger for `one`'s actual message. The statistical gate adds no
+positive evidence and is explicitly underpowered at this 135-magnitude budget (see
+`codecpower`). No candidate text is reported as a recovered plaintext.
+
+The instrument is `rankcodec` (`src/attack/rankcodec/` + the `rankcodec`
+subcommand). It is self-validating: `rankcodec --self-test` checks the encode /
+decode round trip, a planted rank-coded positive with a repeated crib that must
+lock and clear the matched null, and a crib-inconsistent control that must be
+excluded.
+
 ## `one` — honest negative (`solve --codec-search` binary-move)
 
 `solve --codec-search` now yields 12 evaluated candidates (cipher round-trip held);

@@ -79,17 +79,28 @@ power 0.000 on the built-in English calibration sweep, with aggregate
 non-English false-positive rate 0.018. Treat this as underpowering at `one`'s
 length, not as a plaintext claim.
 
+`rankcodec` has now tested the bounded-order predictive-rank family. It decodes
+`M[i]` as the rank of the next plaintext letter under deterministic order-1/2/3
+English predictors (all below the order-4 quadgram scorer), with a matched null
+that Markov-resamples `M`, pins the crib windows, and reruns the identical
+order-`k` decode. Real `one` is an honest negative: no order is crib-admissible
+after the allowed `<=k` transient, and the built-in English source is not fully
+representable in ranks `<=5` under any swept order (best coverage 98.6%, still
+4/285 letters above rank 5). The tertiary gate has no survivor and remains
+underpowered by the `codecpower` result. Write-up: `CODEC-RESULTS.md` § "`one` —
+bounded-order predictive-rank codec (`rankcodec`)".
+
 Ranked backlog for `one`:
 
 1. **External anchor / `anchorfit` known-crib.** Escalate here once the power
-   ceiling shows the gate is underpowered; the maintainer-held withheld `one`
-   snippet is the right anchor if available.
-2. **`rankcodec` predictive-rank decode (NEXT build).** Test whether the carrier
-   encodes ranks / predictive choices rather than direct comma symbols.
+   ceiling and bounded-order rank family both fail; the maintainer-held withheld
+   `one` snippet is the right anchor if available.
+2. **Other evolving-table layouts.** `rankcodec` closes the direct predictive-rank
+   reading, but not every possible state table or synchronization convention.
 3. **Crib-synchronous WFST / MDL search.** Use the carrier repeats as synchronized
    constraints while penalizing codec complexity explicitly.
-4. **`codecpower` power ceiling (THIS build).** Landed as the calibration
-   instrument; keep rerunning it when a codec family has a real encoder.
+4. **2-D / interleaved carrier layouts.** The current instruments are one-dimensional
+   over the run sequence; a layout change could move the crib alignment question.
 
 For `two`: next leads are eps-pair codec projection, full-D0 `ctakscan`, and a
 full-symbol-feedback CSP. `two` currently looks structurally walled: the transparent

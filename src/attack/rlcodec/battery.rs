@@ -263,6 +263,78 @@ pub fn gate_symbol_stream(
     ))
 }
 
+/// Gates an already-decoded symbol stream against caller-supplied matched null
+/// streams, using the same substitution search and survivor finalization as
+/// [`gate_symbol_stream`].
+///
+/// This is for sibling instruments whose honest null is not a Markov resample of
+/// the decoded symbol stream. The real stream is searched once, each supplied
+/// null stream is searched with the same budget and deterministic seed family,
+/// and the returned [`CodecVerdict`] uses the identical z / add-one-p / survivor
+/// rule as the standard gate.
+///
+/// `symbols` and every entry in `null_symbols` must use symbol ids in
+/// `0..=25`; dense ids are preferred but not required by the underlying
+/// substitution search.
+///
+/// # Errors
+/// Returns [`RlError`] if the substitution search fails.
+pub fn gate_symbol_stream_with_nulls(
+    name: String,
+    symbols: &[usize],
+    null_symbols: &[Vec<usize>],
+    seed_tag: u64,
+    model: &QuadgramModel,
+    cfg: &BatteryCfg,
+) -> Result<CodecVerdict, RlError> {
+    let n_alphabet = alphabet_size(symbols);
+    let n_letters = symbols.len();
+
+    let real_seed = mix_seed(cfg.seed, seed_tag ^ REAL_TAG);
+    let real = substitution_search(
+        symbols,
+        n_alphabet,
+        model,
+        cfg.restarts,
+        cfg.iters,
+        real_seed,
+    )?;
+    if real.skipped {
+        return Ok(CodecVerdict::degenerate(
+            name,
+            n_letters,
+            n_alphabet,
+            format!("(skipped: {n_letters} symbols over {n_alphabet}-symbol alphabet)"),
+        ));
+    }
+
+    let null_seed = mix_seed(cfg.seed, seed_tag ^ NULL_TAG);
+    let mut null_scores: Vec<f64> = Vec::new();
+    for (trial, stream) in null_symbols.iter().enumerate() {
+        let null_alphabet = alphabet_size(stream);
+        let trial_seed = mix_seed(null_seed, trial as u64);
+        let null = substitution_search(
+            stream,
+            null_alphabet,
+            model,
+            cfg.restarts,
+            cfg.iters,
+            trial_seed,
+        )?;
+        if !null.skipped {
+            null_scores.push(null.best_mean);
+        }
+    }
+
+    Ok(finalise_verdict(
+        name,
+        n_letters,
+        n_alphabet,
+        &real,
+        &null_scores,
+    ))
+}
+
 /// Forms the gated verdict from the real result and the collected null scores.
 fn finalise_verdict(
     name: String,
