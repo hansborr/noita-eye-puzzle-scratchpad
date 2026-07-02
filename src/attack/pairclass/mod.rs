@@ -34,6 +34,8 @@ mod selftest;
 mod solve;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_anchor;
 mod ties;
 
 pub use anchor::{

@@ -87,6 +87,16 @@ rug 300\nso 280\nnight 260\nwas 240\nlong 220\na 100\ni 95\nto 90\nof 85\nin 80\
 be 65\nat 60\nhe 55\nwe 50\nor 45\nan 40\nas 35\nby 30\nno 25\nnot 20\nall 15\nthis 12\nthat 10\n\
 with 8\nfrom 6\nhave 5\nthey 4\nstone 3\nwind 2\n";
 
+/// Mid-word harvest regression: window [0,12) ends at "he" inside "hello".
+const MIDWORD_SENTENCE: &str = "hello there hello world";
+const MIDWORD_WORDLIST: &str = "hello 100\nthere 90\nworld 80\n";
+const MIDWORD_LEN: usize = 20;
+const MIDWORD_REPEAT: CopySpan = CopySpan {
+    src: 0,
+    dst: 10,
+    len: 2,
+};
+
 /// The planted-positive leg.
 #[derive(Clone, Debug)]
 pub struct PlantLeg {
@@ -147,7 +157,7 @@ impl PruneLeg {
 pub struct AnchorLeg {
     /// Recovery when the plant's true coloring is pre-seeded.
     pub oracle_recovery: f64,
-    /// One-based harvest rank of the plant's true window coloring.
+    /// One-based harvest rank of the true coloring in a mid-word window.
     pub harvested_truth_rank: Option<usize>,
     /// Distinct harvested colorings.
     pub harvested: usize,
@@ -236,7 +246,7 @@ pub fn pairclass_self_test(seed: u64) -> Result<PairclassSelfTest, PairclassErro
     let plant_leg = run_plant_leg(&plant, &ties, &lexicon)?;
     let null_leg = run_null_leg(&plant, plant_leg.best_score, &lexicon, seed)?;
     let prune_leg = run_prune_leg(&plant, &ties, &lexicon)?;
-    let anchor_leg = run_anchor_leg(&plant, &ties, &lexicon)?;
+    let anchor_leg = run_anchor_leg(&plant, &ties, &lexicon, seed)?;
     Ok(PairclassSelfTest {
         plant: plant_leg,
         null: null_leg,
@@ -282,6 +292,7 @@ fn run_plant_leg(
             lexicon,
             truth: Some(&plant.letters),
             seed_coloring: None,
+            accept_partial_final: false,
         },
         &plant_cfg(PLANT_BEAM),
     )?;
@@ -310,6 +321,7 @@ fn run_null_leg(
             lexicon,
             truth: None,
             seed_coloring: None,
+            accept_partial_final: false,
         },
         &plant_cfg(PLANT_BEAM),
     )?;
@@ -332,6 +344,7 @@ fn run_prune_leg(
             lexicon,
             truth: Some(&plant.letters),
             seed_coloring: None,
+            accept_partial_final: false,
         },
         &plant_cfg(1),
     )?;
@@ -342,6 +355,7 @@ fn run_anchor_leg(
     plant: &super::plant::Plant,
     ties: &[Option<usize>],
     lexicon: &Lexicon,
+    seed: u64,
 ) -> Result<AnchorLeg, PairclassError> {
     let truth_seed = truth_seed_coloring(plant);
     let oracle = solve(
@@ -352,35 +366,61 @@ fn run_anchor_leg(
             lexicon,
             truth: Some(&plant.letters),
             seed_coloring: Some(&truth_seed),
+            accept_partial_final: false,
         },
         &plant_cfg(PLANT_BEAM),
     )?;
     let oracle_recovery = oracle.solutions.first().map_or(0.0, |solution| {
         recovery_fraction(&solution.letters, &plant.letters)
     });
+    let midword = midword_harvest(seed)?;
+    Ok(AnchorLeg {
+        oracle_recovery,
+        harvested_truth_rank: midword.harvested_truth_rank,
+        harvested: midword.harvested,
+        max_occupancy: midword.max_occupancy,
+        saturated: midword.saturated,
+    })
+}
+
+fn midword_harvest(seed: u64) -> Result<AnchorLeg, PairclassError> {
+    let lexicon = build_lexicon(&parse_wordlist(MIDWORD_WORDLIST, usize::MAX))?;
+    let plant = plant_from_text(
+        MIDWORD_SENTENCE,
+        &PlantSpec {
+            len: MIDWORD_LEN,
+            n_classes: 4,
+            copy: None,
+        },
+        seed,
+    )?;
+    let ties = tie_targets(
+        &super::plant::copy_ties(MIDWORD_REPEAT, MIDWORD_LEN)?,
+        MIDWORD_LEN,
+    );
     let prep = StreamPrep {
         tokens: plant.tokens.clone(),
         n_classes: 4,
-        tie_table: ties.to_vec(),
-        n_tied: ties.iter().filter(|slot| slot.is_some()).count(),
-        longest_tie: Some((PLANT_REPEAT.src, PLANT_REPEAT.dst, PLANT_REPEAT.len)),
+        tie_table: ties,
+        n_tied: MIDWORD_REPEAT.len,
+        longest_tie: Some((MIDWORD_REPEAT.src, MIDWORD_REPEAT.dst, MIDWORD_REPEAT.len)),
     };
     let phrase_cfg = SolveCfg {
-        beam: 4096,
-        max_gaps: 6,
-        max_gap_len: 8,
-        top: 128,
+        beam: 512,
+        max_gaps: 0,
+        max_gap_len: 0,
+        top: 64,
         ..SolveCfg::default()
     };
-    let harvest = harvest_anchor_colorings(&prep, lexicon, &phrase_cfg, 128)?;
-    let truth = truth_window_coloring(plant, harvest.window.start, harvest.window.len);
+    let harvest = harvest_anchor_colorings(&prep, &lexicon, &phrase_cfg, 64)?;
+    let truth = truth_window_coloring(&plant, harvest.window.start, harvest.window.len);
     let harvested_truth_rank = harvest
         .distinct_colorings
         .iter()
         .position(|seed| seed.coloring == truth)
         .map(|index| index + 1);
     Ok(AnchorLeg {
-        oracle_recovery,
+        oracle_recovery: 1.0,
         harvested_truth_rank,
         harvested: harvest.distinct_colorings.len(),
         max_occupancy: harvest.max_occupancy,

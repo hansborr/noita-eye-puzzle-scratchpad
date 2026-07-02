@@ -15,17 +15,18 @@ pub(super) fn print_anchor_power(args: &PairclassArgs, power: &AnchorPowerReport
     for (index, plant) in power.plants.iter().enumerate() {
         println!(
             "  plant {:>2}: recovery {:.3}  coloring {:.3}  truth-seed {}  \
-             harvest {} seeds {}  occupancy {}/{} {}  {}",
+             window {}  harvest {} seeds {}  occupancy {}/{} {}  full {}",
             index,
             plant.recovery,
             plant.coloring_accuracy,
             render_truth_seed(plant.truth_seed_rank),
+            render_fate(plant.truth_window_fate),
             plant.harvested,
             plant.seeds_run,
             plant.max_occupancy,
             args.phrase_beam,
             if plant.saturated { "SATURATED" } else { "open" },
-            render_anchor_fate(plant)
+            render_fate(plant.winning_fate)
         );
     }
     println!(
@@ -45,17 +46,41 @@ pub(super) fn anchor_ladder(power: &AnchorPowerReport) -> String {
         .plants
         .iter()
         .all(|plant| plant.truth_seed_rank.is_some());
-    let missed_open = power
+    let missed = power
         .plants
         .iter()
-        .any(|plant| plant.truth_seed_rank.is_none() && !plant.saturated);
-    let missed_saturated = power
-        .plants
-        .iter()
-        .any(|plant| plant.truth_seed_rank.is_none() && plant.saturated);
+        .filter(|plant| plant.truth_seed_rank.is_none());
     if all_harvested {
         return "ladder: truth was harvested; investigate Phase-2/objective behavior.".to_owned();
     }
+    let missed_plants: Vec<&AnchorPlantOutcome> = missed.collect();
+    if missed_plants
+        .iter()
+        .any(|plant| matches!(plant.truth_window_fate, Some(TruthFate::Infeasible { .. })))
+    {
+        return "ladder: truth window was infeasible; coverage/gap/lexicon limit.".to_owned();
+    }
+    if missed_plants
+        .iter()
+        .any(|plant| matches!(plant.truth_window_fate, Some(TruthFate::BeamPruned { .. })))
+    {
+        return "ladder: truth window was beam-pruned; score-pruning/LM label-bias.".to_owned();
+    }
+    if missed_plants.iter().any(|plant| {
+        matches!(
+            plant.truth_window_fate,
+            Some(TruthFate::Found { .. } | TruthFate::OutScored { .. })
+        )
+    }) {
+        return "ladder: truth survived the window but missed harvested top-K; increase phrase-top/oversample."
+            .to_owned();
+    }
+    let missed_open = missed_plants
+        .iter()
+        .any(|plant| plant.truth_seed_rank.is_none() && !plant.saturated);
+    let missed_saturated = missed_plants
+        .iter()
+        .any(|plant| plant.truth_seed_rank.is_none() && plant.saturated);
     if missed_open {
         return "ladder: truth was not harvested before saturation; coverage/gap/lexicon limit."
             .to_owned();
@@ -162,8 +187,8 @@ fn render_truth_seed(rank: Option<usize>) -> String {
     rank.map_or_else(|| "not-harvested".to_owned(), |rank| format!("#{rank}"))
 }
 
-fn render_anchor_fate(plant: &AnchorPlantOutcome) -> String {
-    match plant.winning_fate {
+fn render_fate(fate: Option<TruthFate>) -> String {
+    match fate {
         Some(TruthFate::Found { score }) => format!("truth FOUND (score {score:.1})"),
         Some(TruthFate::OutScored {
             truth_score,

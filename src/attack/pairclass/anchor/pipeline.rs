@@ -2,7 +2,7 @@
 
 use std::collections::BTreeSet;
 
-use super::{AnchorHarvestReport, AnchorWindow, harvest_anchor_colorings};
+use super::{AnchorHarvestReport, AnchorWindow, harvest_anchor_colorings_with_truth};
 use crate::attack::pairclass::campaign::{NullGate, PowerCfg, StreamPrep};
 use crate::attack::pairclass::plant::{
     CopySpan, Plant, PlantSpec, copy_ties, markov_resample, plant_from_text,
@@ -65,6 +65,8 @@ pub struct AnchorPlantOutcome {
     pub coloring_accuracy: f64,
     /// Truth fate in the seeded solve that produced the winning full score.
     pub winning_fate: Option<TruthFate>,
+    /// Truth fate inside the phrase-window harvest.
+    pub truth_window_fate: Option<TruthFate>,
     /// One-based rank at which the true harvest-window coloring appeared.
     pub truth_seed_rank: Option<usize>,
     /// Distinct colorings harvested.
@@ -115,7 +117,8 @@ pub fn solve_anchor_seeded(
     phrase_top: usize,
     truth: Option<&[u8]>,
 ) -> Result<AnchorSeedReport, PairclassError> {
-    let harvest = harvest_anchor_colorings(prep, lexicon, phrase_cfg, phrase_top)?;
+    let harvest =
+        harvest_anchor_colorings_with_truth(prep, lexicon, phrase_cfg, phrase_top, truth)?;
     let tie_to = (!prep.tie_table.is_empty()).then_some(prep.tie_table.as_slice());
     let mut outcomes = Vec::with_capacity(harvest.distinct_colorings.len());
     let mut collected = Vec::new();
@@ -130,6 +133,7 @@ pub fn solve_anchor_seeded(
                 lexicon,
                 truth,
                 seed_coloring: Some(&seed.coloring),
+                accept_partial_final: false,
             },
             full_cfg,
         )?;
@@ -309,6 +313,7 @@ fn solve_anchor_plant(
         }),
         coloring_accuracy: best.map_or(0.0, |seeded| coloring_accuracy(&seeded.solution, plant)),
         winning_fate,
+        truth_window_fate: report.harvest.truth,
         truth_seed_rank,
         harvested: report.harvest.distinct_colorings.len(),
         seeds_run: report.seeds_run,

@@ -239,6 +239,7 @@ fn run_real_stream(
             lexicon,
             truth: None,
             seed_coloring: None,
+            accept_partial_final: false,
         },
         cfg,
     )
@@ -489,7 +490,7 @@ fn run_self_test(seed: u64) -> ExitCode {
         pass_fail(report.prune.passed())
     );
     println!(
-        "  anchor-seed mechanism (oracle {:.3}, truth-seed {}, harvest {}, occupancy {} {}): {}",
+        "  anchor-seed mechanism (oracle {:.3}, midword truth-seed {}, harvest {}, occupancy {} {}): {}",
         report.anchor.oracle_recovery,
         report
             .anchor

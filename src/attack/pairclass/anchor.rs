@@ -16,7 +16,7 @@ pub use pipeline::{
 };
 
 use super::campaign::StreamPrep;
-use super::solve::{Solution, SolveCfg, SolveInput, solve};
+use super::solve::{Solution, SolveCfg, SolveInput, TruthFate, solve};
 use super::ties::tie_targets;
 use super::{Lexicon, PairclassError};
 
@@ -79,6 +79,8 @@ pub struct AnchorHarvestReport {
     pub saturated: bool,
     /// The phrase solve's checked peak-memory estimate.
     pub estimated_mib: usize,
+    /// Truth fate inside the phrase-window harvest, for planted controls.
+    pub truth: Option<TruthFate>,
 }
 
 /// Harvests distinct seed colorings from the two-occurrence anchor window.
@@ -92,6 +94,17 @@ pub fn harvest_anchor_colorings(
     phrase_cfg: &SolveCfg,
     phrase_top: usize,
 ) -> Result<AnchorHarvestReport, PairclassError> {
+    harvest_anchor_colorings_with_truth(prep, lexicon, phrase_cfg, phrase_top, None)
+}
+
+/// Harvests colorings while tracking full-stream truth restricted to the window.
+fn harvest_anchor_colorings_with_truth(
+    prep: &StreamPrep,
+    lexicon: &Lexicon,
+    phrase_cfg: &SolveCfg,
+    phrase_top: usize,
+    truth: Option<&[u8]>,
+) -> Result<AnchorHarvestReport, PairclassError> {
     let window = anchor_window(prep)?;
     let effective_top = effective_phrase_top(phrase_cfg.beam, phrase_top)?;
     let mut cfg = *phrase_cfg;
@@ -104,6 +117,16 @@ pub fn harvest_anchor_colorings(
         .tokens
         .get(window.start..end)
         .ok_or(PairclassError::SpanOutOfRange)?;
+    let truth_window = truth
+        .map(|letters| {
+            letters
+                .get(window.start..end)
+                .ok_or(PairclassError::TruthLengthMismatch {
+                    truth: letters.len(),
+                    tokens: prep.tokens.len(),
+                })
+        })
+        .transpose()?;
     let tie_table = window_ties(window);
     let report = solve(
         &SolveInput {
@@ -111,8 +134,9 @@ pub fn harvest_anchor_colorings(
             n_classes: prep.n_classes,
             tie_to: Some(&tie_table),
             lexicon,
-            truth: None,
+            truth: truth_window,
             seed_coloring: None,
+            accept_partial_final: true,
         },
         &cfg,
     )?;
@@ -130,6 +154,7 @@ pub fn harvest_anchor_colorings(
         max_occupancy: report.max_occupancy,
         saturated,
         estimated_mib: report.estimated_mib,
+        truth: report.truth,
     })
 }
 

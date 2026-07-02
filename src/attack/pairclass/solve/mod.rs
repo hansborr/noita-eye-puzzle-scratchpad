@@ -66,6 +66,12 @@ pub struct SolveInput<'a> {
     pub truth: Option<&'a [u8]>,
     /// Optional 26-slot seed coloring: class per letter, `None` = unpinned.
     pub seed_coloring: Option<&'a [Option<u8>]>,
+    /// Accept final states that end inside a lexicon word.
+    ///
+    /// This is false for full-stream decodes. Phrase harvest windows may end
+    /// mid-word, and only need the induced coloring, so they opt in without
+    /// adding a word-boundary score bonus.
+    pub accept_partial_final: bool,
 }
 
 /// The fate of the true path through the search, when truth was supplied.
@@ -223,10 +229,13 @@ fn finish(
             if state.gap_len > 0 {
                 return Some(state);
             }
-            input.lexicon.word_logp(state.node).map(|word_logp| State {
-                score: state.score + word_logp,
-                ..state
-            })
+            if let Some(word_logp) = input.lexicon.word_logp(state.node) {
+                return Some(State {
+                    score: state.score + word_logp,
+                    ..state
+                });
+            }
+            input.accept_partial_final.then_some(state)
         })
         .collect();
     finals.sort_by(|a, b| {

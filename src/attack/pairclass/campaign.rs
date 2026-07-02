@@ -242,6 +242,7 @@ fn solve_plant(
             lexicon,
             truth: Some(&plant.letters),
             seed_coloring: None,
+            accept_partial_final: false,
         },
         cfg,
     )?;
@@ -301,6 +302,7 @@ pub fn null_gate(
                 lexicon,
                 truth: None,
                 seed_coloring: None,
+                accept_partial_final: false,
             },
             cfg,
         )?;
