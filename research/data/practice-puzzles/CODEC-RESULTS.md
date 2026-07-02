@@ -1064,15 +1064,33 @@ letters-only on every stream. Unconstrained LM decodes are explicitly
 non-candidates (readable-ish word salad, anchor-tie violations on the main
 34-letter repeat).
 
-Why the power is zero, and the next lever (arithmetic, not hope): the channel
+Why the power is zero, and the escalation (arithmetic, not hope): the channel
 preserves H ≈ 1.85 bits/char of the plaintext; an order-3/4 letter LM carries
 ~2.1 bits/char (negative margin — under-determined), while a word-level model
 carries ~1.4-1.6 (positive margin), and the 54-bit coloring key amortizes to
-0.16 bits/char over 348 chars. A joint word-aware decipherment (T9-style
-word-lattice decode under each candidate coloring, anchors as hard tied-letter
-constraints inside the search, controls-first) is in flight; its verdict —
-candidate, negative, or still-underpowered with the measured power — belongs
-here when it lands.
+0.16 bits/char over 348 chars.
+
+### Round 2 (codex): joint word-aware decipherment — STILL UNDERPOWERED (controls-first stop)
+
+Word-pattern lattice decoder with implicit segmentation; beam state carries the
+partial coloring plus live repeated-span letter variables, with the anchor ties
+enforced *during* decoding (phase 0: 59 tie groups removing 96 free positions;
+phase 1: 61/97). Vocab 6,858 words / 132,660 training words from the in-repo
+corpus, char-LM prefilter. **Controls-first result:** on 6 planted 348-letter
+English controls with the anchor topology planted and enforced, mean coloring
+accuracy 0.365 (chance 0.25, best 0.58), mean letter recovery **0.072** (max
+0.103), 0/6 at the ≥0.5 bar — so per the mandated discipline the real streams
+were **never scored** (the tie-topology assertions passed for both phases
+before the stop). Two independent objectives now have measured power ≈ 0 on
+plants at this length; the partial coloring signal exists but the letter-decode
+stage fails. Caveat bounding the verdict: the vocab was small and the beam
+budget fixed — a materially stronger word LM is the one untested classical
+escalation. A round-3 diagnostic is the decisive next split: measure
+**oracle-coloring decode power** (true coloring given) with an upgraded 50k
+frequency-list LM — if even oracle decode fails on plants, the surface is
+*decode-limited* (no coloring search can ever read it out at 348 tokens and the
+honest close is the withheld-snippet external anchor); if oracle decode works,
+the failure is the outer search and stronger search/LM still has room.
 
 ## Provenance
 

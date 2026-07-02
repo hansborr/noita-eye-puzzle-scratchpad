@@ -55,24 +55,27 @@ letter).
 
 ## Ranked next steps
 
-1. **Joint word-aware decipherment** (in flight as codex round 2): outer
-   coloring search, inner T9-style word-lattice decode (letters-only with
-   implicit segmentation; variant with space inside a class), anchors as hard
-   tied-letter constraints inside the search, controls-first (≥6 planted
-   colorings; abort if power < 0.5), order-1 Markov null gate on the real
-   stream. Record the verdict in CODEC-RESULTS.md either way.
-2. If round 2 is underpowered too: crib-pinned Markov null for drop2 (isolate
-   the anchors' share of the above-first-order signal), then a
-   constraint-propagation / dictionary CSP attack that uses the anchor ties +
-   the 34-letter thrice-constrained phrase structure as the backbone instead of
-   annealing.
-3. Instruments to land (golden rule): the periodic-deck phase-consistency scan
+1. ~~Joint word-aware decipherment (codex round 2)~~ **DONE — still
+   underpowered.** Controls-first stop: plant coloring accuracy mean 0.365,
+   plant letter recovery mean 0.072 (0/6 at the ≥0.5 bar) even with anchor ties
+   enforced in-beam; real streams never scored, per the discipline. Verdict in
+   CODEC-RESULTS.md §Round 2.
+2. **Oracle-decode diagnostic (codex round 3, in flight):** measure decode
+   power with the TRUE coloring given (plants only), using an upgraded 50k
+   frequency-list word LM. Decides the campaign: oracle failure ⇒
+   *decode-limited* — no coloring search can read the channel out at 348
+   tokens, external anchor is the honest close; oracle success ⇒
+   *search-limited* — escalate the outer search/LM (Stage B: full pipeline,
+   controls-first, then real streams with an order-1 Markov null gate).
+3. If decode-limited: crib-pinned Markov null for drop2 (isolate the anchors'
+   share of the above-first-order signal) to finish the structural record, then
+   surface the withheld-snippet decision to the maintainer — under the
+   pair-letter model even a ~10-letter crib pins classes directly and the
+   34-letter repeated phrase amplifies it across ~40% of the text.
+4. Instruments to land (golden rule): the periodic-deck phase-consistency scan
    (generalize `groupscan` with a `--max-period`), and a `pairclass` derivation
    + entropy-gate CLI (tokens from any ±1-walk stream, drop-k vs Markov null,
    with planted positive + matched null self-test).
-4. External anchor: if the maintainer can obtain any `two` plaintext snippet,
-   the pair-letter model turns a ~10-letter crib into a large coloring +
-   deck-relation seed (34-letter repeated phrase amplifies it 3×).
 
 Scratch artifacts (job-local, not in repo): token streams, codex briefs +
 FINDINGS.md under the session tmp dir `two-pairclass/`; codex round-1 best
