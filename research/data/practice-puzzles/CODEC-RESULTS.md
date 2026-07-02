@@ -1171,6 +1171,40 @@ close remains the withheld-snippet anchor. Partial data:
 FINDINGS §5b was written — the run died first); RESUME-NOTES.md there records
 the crash forensics.
 
+### The `pairclass` instrument (Rust): the campaign tool, memory-bounded by construction
+
+The round-5 CSP was ported from the discarded scratch Python into a persistent,
+file-driven CLI instrument — `pairclass` (`src/attack/pairclass/`, commit
+`0a9111a`) — so the capability survives and the OOM that killed rounds 5b is
+structurally impossible. The port keeps the same algorithm (residue-walk pair
+tokens → tie anchors → dictionary beam with incremental coloring induction and
+hard tie equalities → truth tracking that reports BEAM-PRUNED vs OUT-SCORED)
+and adds the fix the Python lacked: candidate expansions stream through a
+bounded top-K heap (never more than `beam` survivors) and the solver estimates
+its peak up front and refuses to start past `--max-mem-mib`. The Python
+beam-20k worker that peaked at ~11 GB is a ~6 MiB run here at the same
+expansion count. It self-validates (`pairclass --self-test`: planted positive
+recovery 1.0, matched Markov null, forced-prune instrumentation, walk gate, the
+embedded-`two` regression) and reproduces the campaign result exactly — at a
+small beam the controls fail the 0.4 bar with truth BEAM-PRUNED at the string
+head, and controls-first refuses to score the real stream:
+
+```sh
+# derivation only (embedded two): 348 tokens, marginals [107,51,143,47],
+# the 33-token phase-0 repeat run at token positions 116 == 176
+cargo run -q -- pairclass
+# controls-first power measurement + real solve behind a passing bar:
+cargo run -q -- pairclass --wordlist <freq-list> --plant-text-file <english> \
+  --plants 6 --beam 20000 --null-trials 10 --max-mem-mib 4096
+```
+
+This is the vehicle for the remaining live fork (search-order change): the
+memory bound means a middle-out / constraint-density-first expansion order can
+now be tried at full beam without risking the host. The Rust port is *equal*
+to the Python at left-to-right ordering (same BEAM-PRUNED verdict), so it does
+not by itself reopen the crib-free result — it makes the next experiment safe
+and cheap to run.
+
 ## Provenance
 
 Reproducible commands are embedded in each

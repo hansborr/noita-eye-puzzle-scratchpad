@@ -88,17 +88,28 @@ letter).
    (a) change the SEARCH ORDER, not the width: constraint-density-first /
    middle-out expansion seeded inside the tied spans (the 34-letter repeated
    phrase is doubly constrained; letters pinned there propagate outward), or
-   branch-and-bound over the coloring itself with an admissible bound — run
-   under hard memory caps (ulimit -v, bounded beams) since prior rounds
-   crashed the container; or (b) the honest close: the withheld-snippet
-   external anchor — under the pair-letter model even a ~10-letter crib pins
-   classes directly and the 34-letter repeated phrase amplifies it across
-   ~40% of the text.
-6. Instruments to land (golden rule): the periodic-deck phase-consistency scan
-   (generalize `groupscan` with a `--max-period`), and a `pairclass` derivation
-   + entropy-gate CLI (tokens from any ±1-walk stream, drop-k vs Markov null,
-   with planted positive + matched null self-test).
+   branch-and-bound over the coloring itself with an admissible bound. The
+   `pairclass` instrument (item 6) is now the safe vehicle for this: its
+   memory bound means the experiment can run at full beam without risking the
+   host — the missing piece is the expansion-order change, not the runtime.
+   Or (b) the honest close: the withheld-snippet external anchor — under the
+   pair-letter model even a ~10-letter crib pins classes directly and the
+   34-letter repeated phrase amplifies it across ~40% of the text.
+6. ~~Land the `pairclass` instrument (golden rule)~~ **DONE — commit
+   `0a9111a`.** `src/attack/pairclass/`: derivation (±1-walk → pair tokens) +
+   tie anchors + the dictionary beam solver with incremental coloring
+   induction, hard tie equalities, and BEAM-PRUNED/OUT-SCORED truth tracking,
+   file-driven (`--input-file`/`--stdin` + `--alphabet`), self-validated
+   (`--self-test`: planted positive recovery 1.0, matched Markov null,
+   forced-prune check, walk gate, embedded-`two` regression). Memory bounded
+   by construction (bounded top-K heap + up-front `--max-mem-mib` refusal): the
+   ~11 GB Python worker is ~6 MiB here. It REPRODUCES round 5b exactly
+   (small-beam controls fail the 0.4 bar, truth BEAM-PRUNED at the head,
+   controls-first refuses the real stream). Still to land: the periodic-deck
+   phase-consistency scan (generalize `groupscan` with `--max-period`).
 
 Scratch artifacts (job-local, not in repo): token streams, codex briefs +
 FINDINGS.md under the session tmp dir `two-pairclass/`; codex round-1 best
-colorings and non-candidate decodes are quoted in FINDINGS.md.
+colorings and non-candidate decodes are quoted in FINDINGS.md. The capability
+those scratch scripts prototyped now lives in-repo as the `pairclass`
+instrument (item 6).
