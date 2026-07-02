@@ -84,17 +84,25 @@ letter).
    1-2 truth-states alive, never out-scored, prune position ~independent of
    beam width. Left-to-right beam ordering is excluded; the objective is not.
    Verdict + partial data in CODEC-RESULTS.md §Rounds 5/5b.
-5. **The live fork (needs maintainer sign-off — resource cost is real):**
-   (a) change the SEARCH ORDER, not the width: constraint-density-first /
-   middle-out expansion seeded inside the tied spans (the 34-letter repeated
-   phrase is doubly constrained; letters pinned there propagate outward), or
-   branch-and-bound over the coloring itself with an admissible bound. The
-   `pairclass` instrument (item 6) is now the safe vehicle for this: its
-   memory bound means the experiment can run at full beam without risking the
-   host — the missing piece is the expansion-order change, not the runtime.
-   Or (b) the honest close: the withheld-snippet external anchor — under the
-   pair-letter model even a ~10-letter crib pins classes directly and the
-   34-letter repeated phrase amplifies it across ~40% of the text.
+5. ~~Anchor-seeded search-order fork (codex round 6)~~ **DONE — controls
+   failed in saturated phrase harvest.** The implemented mode harvests
+   distinct colorings from a two-occurrence window spanning the longest token
+   tie, then runs the existing full-stream solver with each harvested coloring
+   pre-pinned. The mechanism self-test passes (`pairclass --self-test`:
+   oracle 1.000, truth seed #1 on the small plant), but the serious embedded
+   `two` power gate did not clear: using a unigram list derived from
+   `research/data/lang/english-corpus-large.txt` (11,419 words; not the
+   calibrated 50k LM), `--phrase-beam 1000000 --phrase-top 5000 --beam 20000
+   --plant-bar 0.5 --max-mem-mib 12288` produced mean plant letter recovery
+   0.064 and mean coloring accuracy 0.268. Truth coloring was not harvested on
+   any of 6 plants, and every phrase harvest saturated at
+   1,000,000/1,000,000 states, so the ladder verdict is
+   score-pruning/LM label-bias in Phase 1. Controls-first refused to score the
+   real stream; the null gate did not run. Verdict in CODEC-RESULTS.md
+   §Round 6. Next crib-free lever, if pursued, is no longer "more phrase
+   beam": harvest seeds by class-signature plus internal repeat pattern across
+   both tied occurrences, or branch-and-bound over colorings with an admissible
+   bound. The honest close remains the withheld-snippet external anchor.
 6. ~~Land the `pairclass` instrument (golden rule)~~ **DONE — commit
    `0a9111a`.** `src/attack/pairclass/`: derivation (±1-walk → pair tokens) +
    tie anchors + the dictionary beam solver with incremental coloring

@@ -1205,6 +1205,82 @@ to the Python at left-to-right ordering (same BEAM-PRUNED verdict), so it does
 not by itself reopen the crib-free result — it makes the next experiment safe
 and cheap to run.
 
+### Round 6 (codex): anchor-seeded two-phase search — controls fail in saturated phrase harvest
+
+The approved search-order fork was implemented in `pairclass` as an
+anchor-seeded two-phase mode:
+
+- Phase 1 harvests distinct 26-slot colorings from a window spanning *both*
+  occurrences of the longest token tie, with the local tie equalities active.
+- Phase 2 runs the existing full-stream solver once per harvested coloring,
+  pre-pinning letter classes through `SolveInput.seed_coloring`.
+- The same library path powers the CLI and tests; `pairclass --self-test` now
+  includes an anchor mechanism leg: truth coloring as a seed reproduces the
+  oracle decode, and the small planted harvest surfaces truth.
+
+Self-test command:
+
+```sh
+cargo run -q -- pairclass --self-test
+```
+
+Headline output:
+
+```text
+anchor-seed mechanism (oracle 1.000, truth-seed #1, harvest 128, occupancy 4096 SATURATED): PASS
+SELF-TEST: PASS
+```
+
+The requested serious control gate was then run with the 12 GiB memory cap,
+phrase beam 1,000,000, phrase top 5,000, and full beam 20,000. This checkout
+does not ship the earlier calibrated ~50k English unigram list. For this run,
+the best available English LM was a temporary unigram list derived from the
+committed public-domain corpus `research/data/lang/english-corpus-large.txt`
+(11,419 unique words), so the numeric bar is not a definitive replacement for
+the round-3 50k-LM calibration:
+
+```sh
+LC_ALL=C tr -cs 'A-Za-z' '\n' < research/data/lang/english-corpus-large.txt \
+  | tr '[:upper:]' '[:lower:]' \
+  | awk 'NF { count[$1]++ } END { for (word in count) print word, count[word] }' \
+  | sort -k2,2nr -k1,1 > /tmp/pairclass-english-unigram.txt
+
+cargo run --release -q -- pairclass --anchor-seed \
+  --wordlist /tmp/pairclass-english-unigram.txt --vocab-cap 50000 \
+  --plant-text-file research/data/lang/english-corpus-large.txt --plants 6 \
+  --phrase-beam 1000000 --phrase-top 5000 --beam 20000 \
+  --plant-bar 0.5 --max-mem-mib 12288 --null-trials 20
+```
+
+The controls failed before any real-stream scoring, as required:
+
+```text
+Controls-first anchor power (6 plants, bar 0.500):
+  plant  0: recovery 0.069  coloring 0.348  truth-seed not-harvested  harvest 381 seeds 381  occupancy 1000000/1000000 SATURATED  truth INFEASIBLE @ pos 0
+  plant  1: recovery 0.014  coloring 0.091  truth-seed not-harvested  harvest 205 seeds 205  occupancy 1000000/1000000 SATURATED  truth INFEASIBLE @ pos 0
+  plant  2: recovery 0.184  coloring 0.360  truth-seed not-harvested  harvest 33 seeds 33  occupancy 1000000/1000000 SATURATED  truth INFEASIBLE @ pos 1
+  plant  3: recovery 0.043  coloring 0.217  truth-seed not-harvested  harvest 145 seeds 145  occupancy 1000000/1000000 SATURATED  truth INFEASIBLE @ pos 1
+  plant  4: recovery 0.032  coloring 0.318  truth-seed not-harvested  harvest 263 seeds 263  occupancy 1000000/1000000 SATURATED  truth INFEASIBLE @ pos 3
+  plant  5: recovery 0.040  coloring 0.273  truth-seed not-harvested  harvest 391 seeds 391  occupancy 1000000/1000000 SATURATED  truth INFEASIBLE @ pos 0
+  mean recovery 0.064  mean coloring 0.268  BELOW BAR
+
+VERDICT: ControlsFailed — mean plant recovery 0.064 < bar 0.500; the real stream was NOT scored (controls-first). ladder: truth was not harvested and phrase beam saturated; score-pruning/LM label-bias.
+```
+
+Interpretation: the two-occurrence window does exploit the tie topology, but a
+score-ranked word-LM beam over that phrase window still does not preserve the
+true coloring under this LM/gap policy, even with a million-state phrase beam.
+This is not evidence for a `two` plaintext; the real stream was not scored and
+the requested null gate therefore did not run. It is evidence against this
+particular anchor-seeded *score-harvest* order as the next crib-free path. The
+next classical lever, if the campaign continues without a withheld snippet, is
+to avoid score-ranking the phrase harvest itself: enumerate or rank seeds by
+class-signature plus internal repeat pattern across both tied occurrences, or
+use a branch-and-bound over colorings with a bound that cannot evict the true
+phrase before constraints arrive. A maintainer-supplied calibrated 50k English
+unigram list is still needed for the definitive round-3-compatible power
+number.
+
 ## Provenance
 
 Reproducible commands are embedded in each
