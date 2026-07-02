@@ -6,7 +6,14 @@
 //! orchestration helpers; this file starts with the harvest primitive so it
 //! can be tested independently.
 
+mod pipeline;
+
 use std::collections::BTreeMap;
+
+pub use pipeline::{
+    AnchorNullCfg, AnchorPlantOutcome, AnchorPowerReport, AnchorSeedReport, AnchorSeededSolution,
+    SeededOutcome, anchor_null_gate, measure_anchor_seed_power, solve_anchor_seeded,
+};
 
 use super::campaign::StreamPrep;
 use super::solve::{Solution, SolveCfg, SolveInput, solve};
