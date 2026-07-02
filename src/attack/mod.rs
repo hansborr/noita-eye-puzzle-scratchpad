@@ -24,6 +24,10 @@
 //! - [`mdlcodec`]: crib-synchronous MDL-like affine running-key codec search for
 //!   `one`'s run-length carrier, with post-selection crib-pinned nulls and a
 //!   candidate-only verdict.
+//! - [`pairclass`]: pair-class decipherment instrument for `±1`-walk carriers
+//!   with a two-symbols-per-letter codec (the `two` rotor-carrier model):
+//!   token derivation, tie anchors, and a memory-bounded dictionary beam
+//!   solver with true-path (BEAM-PRUNED vs OUT-SCORED) instrumentation.
 //! - [`profile`]: ciphertext structural profile (whole-stream and per-period
 //!   index of coincidence, absent letters, per-word column `IoC`, and maximal
 //!   cross-word-boundary repeats) for the practice letter puzzles.
@@ -61,6 +65,7 @@ pub mod keystream;
 pub mod language;
 pub mod maskdecode;
 pub mod mdlcodec;
+pub mod pairclass;
 pub mod profile;
 pub mod quadgram;
 pub mod ragbaby;

@@ -21,6 +21,7 @@ use super::args_cribfit::CribfitArgs;
 use super::args_ctak::CtakscanArgs;
 use super::args_maskdecode::MaskdecodeArgs;
 use super::args_mdlcodec::MdlcodecArgs;
+use super::args_pairclass::PairclassArgs;
 use super::args_predicates::PredscanArgs;
 use super::args_rankcodec::RankcodecArgs;
 use super::args_rlcodec::RlcodecArgs;
@@ -112,6 +113,16 @@ pub(crate) enum Command {
     /// scope, and the output is a candidate, never a decode.
     #[command(name = "mdlcodec")]
     Mdlcodec(MdlcodecArgs),
+    /// Pair-class decipherment for `±1`-walk carriers with a two-symbols-per-letter
+    /// codec (the practice-puzzle-`two` rotor-carrier model). Derives the residue
+    /// walk's direction-bit pair tokens (a public 4-class image of the plaintext),
+    /// finds exact repeated spans as tie anchors, and runs a memory-bounded
+    /// dictionary beam solver with incremental coloring induction and hard tie
+    /// equalities. Planted controls measure search power before any real result is
+    /// trusted; a matched order-1 Markov null gates it. Emits candidates, never
+    /// decodes. With no input flags it runs the embedded practice puzzle `two`.
+    #[command(name = "pairclass")]
+    Pairclass(PairclassArgs),
     /// D4/A4/S4 hidden-group element-order discriminator for the `C3 × H`
     /// hidden-state GAK reading of a deck/rotor cipher. Reads the deck channel's
     /// induced permutation across difference-channel anchors; a verdict is a
