@@ -7,11 +7,14 @@
 //! `word_logp(node).is_some()` is used only as the lexicon word-end predicate.
 
 use std::collections::BTreeMap;
-use std::collections::btree_map::Entry;
 
 mod collector;
+mod frontier;
+mod suffix;
 
 use collector::ColoringCollector;
+use frontier::StateLayer;
+use suffix::SuffixTrie;
 
 use super::super::lexicon::ROOT;
 use super::super::solve::{SolveCfg, estimate_peak_mib, pin_class};
@@ -25,7 +28,7 @@ const ENUMERATE_MIN_PARSE_BUDGET: u64 = 1_000_000;
 /// Parse-budget multiplier applied to `phrase_cfg.beam * window_len`.
 const ENUMERATE_PARSE_BUDGET_FACTOR: u64 = 4;
 /// Layer merge cap for the DP frontier. Saturation is reported as a budget hit.
-const ENUMERATE_LAYER_STATE_BUDGET: usize = 2_000_000;
+const ENUMERATE_LAYER_STATE_BUDGET: usize = 10_000;
 
 const NO_PARENT: u32 = u32::MAX;
 const UNKNOWN_TIE_LETTER: u8 = u8::MAX;
@@ -137,6 +140,7 @@ struct DpKey {
     node: u32,
     gap_len: u8,
     gaps_used: u8,
+    gap_node: u32,
     classes: u64,
     pinned: u32,
     tie_letters: Vec<u8>,
@@ -154,6 +158,7 @@ struct EnumTransition {
     node: u32,
     gap_len: u8,
     gaps_used: u8,
+    gap_node: u32,
     gap: bool,
     segment_start: bool,
 }
@@ -234,11 +239,13 @@ impl EnumArena {
 struct Enumerator<'a> {
     input: HarvestWindowInput<'a>,
     cfg: EnumerateCfg,
+    suffix_trie: SuffixTrie,
     arena: EnumArena,
     collector: ColoringCollector,
     expanded: u64,
     feasible_final: usize,
-    budget_hit: bool,
+    parse_budget_hit: bool,
+    state_budget_hit: bool,
 }
 
 impl<'a> Enumerator<'a> {
@@ -250,11 +257,13 @@ impl<'a> Enumerator<'a> {
         Self {
             input,
             cfg,
+            suffix_trie: SuffixTrie::from_lexicon(input.lexicon, usize::from(cfg.max_gap_len)),
             arena: EnumArena::with_capacity(arena_cap),
             collector: ColoringCollector::new(cfg.limit),
             expanded: 0,
             feasible_final: 0,
-            budget_hit: false,
+            parse_budget_hit: false,
+            state_budget_hit: false,
         }
     }
 
@@ -265,6 +274,7 @@ impl<'a> Enumerator<'a> {
                 node: ROOT,
                 gap_len: 0,
                 gaps_used: 0,
+                gap_node: ROOT,
                 classes: 0,
                 pinned: 0,
                 tie_letters: vec![UNKNOWN_TIE_LETTER; self.input.window.span_len],
@@ -279,16 +289,17 @@ impl<'a> Enumerator<'a> {
             if current.is_empty() {
                 return self.finish(max_retained);
             }
-            let mut next = BTreeMap::new();
+            let mut next = StateLayer::new(self.cfg.layer_state_budget, position + 1);
             for (key, value) in &current {
                 self.expand_state(position, key, *value, &mut next);
-                if self.budget_hit {
+                if self.parse_budget_hit {
                     max_retained = max_retained.max(next.len());
                     return self.finish(max_retained);
                 }
             }
             max_retained = max_retained.max(next.len());
-            current = next;
+            self.state_budget_hit |= next.saturated;
+            current = next.into_states();
         }
         self.collect_finals(current);
         self.finish(max_retained)
@@ -302,7 +313,7 @@ impl<'a> Enumerator<'a> {
             feasible_final: self.feasible_final,
             max_retained,
             cap_hit,
-            budget_hit: self.budget_hit,
+            budget_hit: self.parse_budget_hit || self.state_budget_hit,
             dropped_colorings,
         }
     }
@@ -312,7 +323,7 @@ impl<'a> Enumerator<'a> {
         position: usize,
         key: &DpKey,
         value: DpValue,
-        next: &mut BTreeMap<DpKey, DpValue>,
+        next: &mut StateLayer,
     ) {
         let Some(&token) = self.input.tokens.get(position) else {
             return;
@@ -325,7 +336,7 @@ impl<'a> Enumerator<'a> {
         }
         for letter in 0..N_LETTERS {
             self.try_letter(position, key, value, letter, token, next);
-            if self.budget_hit {
+            if self.parse_budget_hit {
                 break;
             }
         }
@@ -338,7 +349,7 @@ impl<'a> Enumerator<'a> {
         value: DpValue,
         letter: u8,
         token: u8,
-        next: &mut BTreeMap<DpKey, DpValue>,
+        next: &mut StateLayer,
     ) {
         if letter >= N_LETTERS || token >= self.input.n_classes {
             return;
@@ -354,11 +365,17 @@ impl<'a> Enumerator<'a> {
             letter,
         };
         if key.gap_len > 0 {
-            if key.gap_len < self.cfg.max_gap_len {
-                self.emit_gap(&base, (key.gap_len + 1, key.gaps_used), false, next);
-            }
-            if let Some(child) = self.input.lexicon.child(ROOT, letter) {
-                self.emit_word(&base, child, true, next);
+            if value.gap_letters == position {
+                if key.gap_len < self.cfg.max_gap_len
+                    && let Some(child) = self.suffix_trie.child(key.gap_node, letter)
+                {
+                    self.emit_gap(&base, (key.gap_len + 1, key.gaps_used, child), false, next);
+                }
+                if self.suffix_trie.terminal(key.gap_node)
+                    && let Some(child) = self.input.lexicon.child(ROOT, letter)
+                {
+                    self.emit_word(&base, child, true, next);
+                }
             }
             return;
         }
@@ -366,21 +383,21 @@ impl<'a> Enumerator<'a> {
             if let Some(child) = self.input.lexicon.child(ROOT, letter) {
                 self.emit_word(&base, child, true, next);
             }
-            if key.gaps_used < self.cfg.max_gaps {
-                self.emit_gap(&base, (1, key.gaps_used + 1), true, next);
+            if value.gap_letters == position
+                && key.gaps_used < self.cfg.max_gaps
+                && let Some(child) = self.suffix_trie.child(ROOT, letter)
+            {
+                self.emit_gap(&base, (1, key.gaps_used + 1, child), true, next);
             }
             return;
         }
         if let Some(child) = self.input.lexicon.child(key.node, letter) {
             self.emit_word(&base, child, false, next);
         }
-        if self.input.lexicon.word_logp(key.node).is_some() {
-            if let Some(child) = self.input.lexicon.child(ROOT, letter) {
-                self.emit_word(&base, child, true, next);
-            }
-            if key.gaps_used < self.cfg.max_gaps {
-                self.emit_gap(&base, (1, key.gaps_used + 1), true, next);
-            }
+        if self.input.lexicon.word_logp(key.node).is_some()
+            && let Some(child) = self.input.lexicon.child(ROOT, letter)
+        {
+            self.emit_word(&base, child, true, next);
         }
     }
 
@@ -389,7 +406,7 @@ impl<'a> Enumerator<'a> {
         base: &EmitBase<'_>,
         node: u32,
         segment_start: bool,
-        next: &mut BTreeMap<DpKey, DpValue>,
+        next: &mut StateLayer,
     ) {
         self.emit_transition(
             base.position,
@@ -401,6 +418,7 @@ impl<'a> Enumerator<'a> {
                 node,
                 gap_len: 0,
                 gaps_used: base.key.gaps_used,
+                gap_node: ROOT,
                 gap: false,
                 segment_start,
             },
@@ -411,11 +429,11 @@ impl<'a> Enumerator<'a> {
     fn emit_gap(
         &mut self,
         base: &EmitBase<'_>,
-        gap: (u8, u8),
+        gap: (u8, u8, u32),
         segment_start: bool,
-        next: &mut BTreeMap<DpKey, DpValue>,
+        next: &mut StateLayer,
     ) {
-        let (gap_len, gaps_used) = gap;
+        let (gap_len, gaps_used, gap_node) = gap;
         self.emit_transition(
             base.position,
             base.key,
@@ -426,6 +444,7 @@ impl<'a> Enumerator<'a> {
                 node: ROOT,
                 gap_len,
                 gaps_used,
+                gap_node,
                 gap: true,
                 segment_start,
             },
@@ -440,10 +459,10 @@ impl<'a> Enumerator<'a> {
         value: DpValue,
         pins: (u64, u32),
         transition: EnumTransition,
-        next: &mut BTreeMap<DpKey, DpValue>,
+        next: &mut StateLayer,
     ) {
         if self.expanded >= self.cfg.parse_budget {
-            self.budget_hit = true;
+            self.parse_budget_hit = true;
             return;
         }
         let mut tie_letters = self.next_tie_letters(key, position, transition.letter);
@@ -454,6 +473,7 @@ impl<'a> Enumerator<'a> {
             node: transition.node,
             gap_len: transition.gap_len,
             gaps_used: transition.gaps_used,
+            gap_node: transition.gap_node,
             classes: pins.0,
             pinned: pins.1,
             tie_letters,
@@ -467,35 +487,13 @@ impl<'a> Enumerator<'a> {
                 0
             };
         self.expanded += 1;
-        self.merge_state(next, next_key, value.arena, packed, next_gap_letters);
-    }
-
-    fn merge_state(
-        &mut self,
-        next: &mut BTreeMap<DpKey, DpValue>,
-        key: DpKey,
-        parent: u32,
-        packed: u8,
-        gap_letters: usize,
-    ) {
-        let full = next.len() >= self.cfg.layer_state_budget;
-        match next.entry(key) {
-            Entry::Vacant(slot) => {
-                if full {
-                    self.budget_hit = true;
-                    return;
-                }
-                let arena = self.arena.push(parent, packed);
-                let _slot = slot.insert(DpValue { arena, gap_letters });
-            }
-            Entry::Occupied(mut slot) => {
-                let current = *slot.get();
-                if (gap_letters, parent) < (current.gap_letters, current.arena) {
-                    let arena = self.arena.push(parent, packed);
-                    let _old = slot.insert(DpValue { arena, gap_letters });
-                }
-            }
-        }
+        next.offer(
+            next_key,
+            value.arena,
+            packed,
+            next_gap_letters,
+            &mut self.arena,
+        );
     }
 
     fn tied_source_letter(&self, key: &DpKey, src: usize) -> Option<u8> {
@@ -530,7 +528,7 @@ impl<'a> Enumerator<'a> {
 
     fn collect_finals(&mut self, finals: BTreeMap<DpKey, DpValue>) {
         for (key, value) in finals {
-            if !self.accept_final(&key) {
+            if value.gap_letters == self.input.tokens.len() || !self.accept_final(&key) {
                 continue;
             }
             self.feasible_final += 1;
