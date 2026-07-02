@@ -96,14 +96,14 @@ const MIDWORD_REPEAT: CopySpan = CopySpan {
     dst: 10,
     len: 2,
 };
-/// LM-free enumeration regression: window [1,8) starts at "ab" inside "cab".
-const LEADING_MIDWORD_SENTENCE: &str = "cab de cab";
-const LEADING_MIDWORD_WORDLIST: &str = "cab 100\nde 90\n";
-const LEADING_MIDWORD_LEN: usize = 8;
+/// LM-free enumeration regression: window [1,5) starts at "a" inside "za".
+const LEADING_MIDWORD_SENTENCE: &str = "za b za";
+const LEADING_MIDWORD_WORDLIST: &str = "za 100\nb 90\n";
+const LEADING_MIDWORD_LEN: usize = 5;
 const LEADING_MIDWORD_REPEAT: CopySpan = CopySpan {
     src: 1,
-    dst: 6,
-    len: 2,
+    dst: 4,
+    len: 1,
 };
 
 /// The planted-positive leg.

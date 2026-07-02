@@ -93,14 +93,14 @@ fn harvest_keeps_truth_when_window_ends_mid_word() {
 #[test]
 fn enumerate_keeps_truth_when_window_starts_mid_word_and_rejects_bad_coloring() {
     let lexicon =
-        build_lexicon(&parse_wordlist("cab 100\nde 90\n", usize::MAX)).expect("lexicon builds");
+        build_lexicon(&parse_wordlist("za 100\nb 90\n", usize::MAX)).expect("lexicon builds");
     let mut coloring = [0u8; 26];
-    for (ch, class) in [('a', 0), ('b', 1), ('c', 2), ('d', 3), ('e', 0)] {
+    for (ch, class) in [('a', 0), ('b', 1), ('z', 2)] {
         if let Some(slot) = coloring.get_mut(usize::from(ch as u8 - b'a')) {
             *slot = class;
         }
     }
-    let truth = letters("cabdecab");
+    let truth = letters("zabza");
     let tokens: Vec<u8> = truth
         .iter()
         .copied()
@@ -108,8 +108,8 @@ fn enumerate_keeps_truth_when_window_starts_mid_word_and_rejects_bad_coloring() 
         .collect();
     let repeat = CopySpan {
         src: 1,
-        dst: 6,
-        len: 2,
+        dst: 4,
+        len: 1,
     };
     let ties = tie_targets(
         &copy_ties(repeat, tokens.len()).expect("copy ties"),
@@ -132,10 +132,14 @@ fn enumerate_keeps_truth_when_window_starts_mid_word_and_rejects_bad_coloring() 
     )
     .expect("enumeration harvest runs");
     assert_eq!(harvest.window.start, 1);
-    assert_eq!(harvest.window.len, 7, "window starts at ab inside cab");
+    assert_eq!(harvest.window.len, 4, "window starts at a inside za");
     assert!(
         !harvest.distinct_colorings.is_empty(),
-        "positive control must be non-vacuous"
+        "positive control must be non-vacuous: expanded {} max_states {} budget_hit {} cap_hit {}",
+        harvest.expanded,
+        harvest.max_occupancy,
+        harvest.budget_hit,
+        harvest.cap_hit
     );
     let mut truth_coloring = [None; 26];
     for &letter in truth
