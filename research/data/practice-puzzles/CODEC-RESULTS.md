@@ -1106,11 +1106,33 @@ decode-limited and the external-anchor escalation is not yet forced.** Stage B
 above found-coloring scores on the same plants, so the objective *separates*
 true colorings from found ones — the search simply isn't reaching them; and
 ties help the inner decode little (0.534 vs 0.569), so the anchors' value is in
-constraining/scoring the *outer* search. Round 4 (in flight): scale the outer
-search properly (thousands of annealing moves, basin-hopping + structured
-seeding over high-frequency letters, anchor-span LM bonus in the coloring
-objective, controls-first at a ≥0.4 recovery bar, real streams only behind
-passing controls and an order-1 Markov search-null).
+constraining/scoring the *outer* search. Round 4 (below) scaled the outer
+search accordingly.
+
+### Round 4 (codex): scaled coloring search — search-still-failing-at-scale
+
+The outer search was scaled to a real budget: exhaustive 4^8 structured seeding
+over the top-8 letters with greedy completion, 112 restarts × 1000 annealing
+moves, 16 worker processes, score caching, an anchor-span LM bonus in the cheap
+objective, and the round-3 inner decode (20k-word LM, `word_beam=180`) for
+final rescoring (~2h16m wall). **Controls-first stop fired: mean plant letter
+recovery 0.133 (bar ≥0.4; oracle ceiling 0.534), mean coloring accuracy 0.432.
+Real streams were never scored.** Verdict: **search-still-failing-at-scale** —
+more of the same annealing is not a justified path to a candidate.
+
+The per-plant table carries the campaign's sharpest remaining diagnostic: the
+best control reached coloring accuracy **0.730** yet only **0.221** letter
+recovery, versus 0.534 at accuracy 1.0 (round-3 oracle). Decode quality falls
+off a cliff within ~7 wrong letters of the true coloring, so the objective
+gives annealing almost no gradient in exactly the region it must traverse —
+scale alone cannot fix that. What's left classically is a qualitatively
+different searcher (CSP/branch-and-bound over the coloring with word-lattice
+constraint propagation, where the anchor ties prune exactly); failing that, the
+honest close for `two` is the withheld-snippet external anchor (under the
+pair-letter model a ~10-letter crib pins classes directly, and the 34-letter
+repeated phrase amplifies it across ~40% of the text). Round-4 details:
+`round4-results.json` / FINDINGS.md §Round 4 in the scratch dir (see
+`research/handoff/two-pairclass-attack.md`).
 
 ## Provenance
 

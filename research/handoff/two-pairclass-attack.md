@@ -66,18 +66,22 @@ letter).
    tiny budget (16 anneal moves). The wall is localized to the outer coloring
    search; the objective separates true from found colorings. Verdict in
    CODEC-RESULTS.md §Round 3.
-3. **Scale the outer coloring search (codex round 4, in flight):** thousands of
-   annealing moves × 100+ restarts with multiprocessing + score caching,
-   basin-hopping, structured seeding over the top ~8 letters (4^8 enumerable),
-   anchor-span LM bonus in the coloring objective (ties barely help the inner
-   decode — their value is outer constraint). Controls-first at a ≥0.4 plant
-   recovery bar; real streams only behind passing controls, gated on order-1
-   Markov resamples run through the same search.
-4. If round 4's controls still fail at scale: the search needs a qualitatively
-   different algorithm (CSP/branch-and-bound over the coloring with word-lattice
-   propagation), or the honest close is the withheld-snippet external anchor —
-   under the pair-letter model even a ~10-letter crib pins classes directly and
-   the 34-letter repeated phrase amplifies it across ~40% of the text.
+3. ~~Scale the outer coloring search (codex round 4)~~ **DONE —
+   search-still-failing-at-scale.** 4^8 structured seeding + 112 restarts ×
+   1000 anneal moves, 16 workers, anchor-span bonus, ~2h16m: mean plant letter
+   recovery 0.133 (bar ≥0.4, oracle ceiling 0.534), mean coloring accuracy
+   0.432; real streams never scored, per the discipline. Sharpest diagnostic:
+   best plant hit coloring accuracy 0.730 but only 0.221 recovery vs 0.534 at
+   accuracy 1.0 — decode quality cliffs within ~7 wrong letters of truth, so
+   annealing has no gradient where it matters; scale alone cannot fix this.
+   Verdict in CODEC-RESULTS.md §Round 4.
+4. **The live fork:** (a) a qualitatively different searcher —
+   CSP/branch-and-bound over the coloring with word-lattice constraint
+   propagation, where the anchor ties prune exactly rather than merely score
+   (the 0.73→1.0 cliff means exact methods are needed for the last letters);
+   or (b) the honest close: the withheld-snippet external anchor — under the
+   pair-letter model even a ~10-letter crib pins classes directly and the
+   34-letter repeated phrase amplifies it across ~40% of the text.
 5. Instruments to land (golden rule): the periodic-deck phase-consistency scan
    (generalize `groupscan` with a `--max-period`), and a `pairclass` derivation
    + entropy-gate CLI (tokens from any ±1-walk stream, drop-k vs Markov null,
