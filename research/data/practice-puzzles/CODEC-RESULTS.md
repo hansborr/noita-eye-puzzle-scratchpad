@@ -1092,6 +1092,26 @@ frequency-list LM — if even oracle decode fails on plants, the surface is
 honest close is the withheld-snippet external anchor); if oracle decode works,
 the failure is the outer search and stronger search/LM still has room.
 
+### Round 3 (codex): oracle diagnostic — NOT decode-limited; the wall is the coloring search
+
+With the TRUE coloring given and a 50k OpenSubtitles frequency word LM (top 20k
+used), plant letter recovery averages **0.534 with anchor ties** (six plants:
+0.704/0.586/0.537/0.509/0.468/0.397, all tie-consistent) and 0.569 without ties
+(two plants) — above the 0.5 bar, with substantially readable output. **The
+4-class channel at 348 tokens is readable in principle; the campaign is not
+decode-limited and the external-anchor escalation is not yet forced.** Stage B
+(unknown coloring) still failed controls (recovery 0.059, coloring accuracy
+0.302) — but at a visibly tiny budget (10 restarts × 16 anneal moves over a
+4^26 space, narrow beam). Two more calibration facts: oracle scores sit well
+above found-coloring scores on the same plants, so the objective *separates*
+true colorings from found ones — the search simply isn't reaching them; and
+ties help the inner decode little (0.534 vs 0.569), so the anchors' value is in
+constraining/scoring the *outer* search. Round 4 (in flight): scale the outer
+search properly (thousands of annealing moves, basin-hopping + structured
+seeding over high-frequency letters, anchor-span LM bonus in the coloring
+objective, controls-first at a ≥0.4 recovery bar, real streams only behind
+passing controls and an order-1 Markov search-null).
+
 ## Provenance
 
 Reproducible commands are embedded in each

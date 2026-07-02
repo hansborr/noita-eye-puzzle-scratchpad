@@ -60,19 +60,25 @@ letter).
    plant letter recovery mean 0.072 (0/6 at the ≥0.5 bar) even with anchor ties
    enforced in-beam; real streams never scored, per the discipline. Verdict in
    CODEC-RESULTS.md §Round 2.
-2. **Oracle-decode diagnostic (codex round 3, in flight):** measure decode
-   power with the TRUE coloring given (plants only), using an upgraded 50k
-   frequency-list word LM. Decides the campaign: oracle failure ⇒
-   *decode-limited* — no coloring search can read the channel out at 348
-   tokens, external anchor is the honest close; oracle success ⇒
-   *search-limited* — escalate the outer search/LM (Stage B: full pipeline,
-   controls-first, then real streams with an order-1 Markov null gate).
-3. If decode-limited: crib-pinned Markov null for drop2 (isolate the anchors'
-   share of the above-first-order signal) to finish the structural record, then
-   surface the withheld-snippet decision to the maintainer — under the
-   pair-letter model even a ~10-letter crib pins classes directly and the
-   34-letter repeated phrase amplifies it across ~40% of the text.
-4. Instruments to land (golden rule): the periodic-deck phase-consistency scan
+2. ~~Oracle-decode diagnostic (codex round 3)~~ **DONE — NOT decode-limited.**
+   Oracle plant recovery 0.534 mean with the 50k word LM (≥0.5 bar passed,
+   readable output); Stage B (unknown coloring) still failed controls but at a
+   tiny budget (16 anneal moves). The wall is localized to the outer coloring
+   search; the objective separates true from found colorings. Verdict in
+   CODEC-RESULTS.md §Round 3.
+3. **Scale the outer coloring search (codex round 4, in flight):** thousands of
+   annealing moves × 100+ restarts with multiprocessing + score caching,
+   basin-hopping, structured seeding over the top ~8 letters (4^8 enumerable),
+   anchor-span LM bonus in the coloring objective (ties barely help the inner
+   decode — their value is outer constraint). Controls-first at a ≥0.4 plant
+   recovery bar; real streams only behind passing controls, gated on order-1
+   Markov resamples run through the same search.
+4. If round 4's controls still fail at scale: the search needs a qualitatively
+   different algorithm (CSP/branch-and-bound over the coloring with word-lattice
+   propagation), or the honest close is the withheld-snippet external anchor —
+   under the pair-letter model even a ~10-letter crib pins classes directly and
+   the 34-letter repeated phrase amplifies it across ~40% of the text.
+5. Instruments to land (golden rule): the periodic-deck phase-consistency scan
    (generalize `groupscan` with a `--max-period`), and a `pairclass` derivation
    + entropy-gate CLI (tokens from any ±1-walk stream, drop-k vs Markov null,
    with planted positive + matched null self-test).
