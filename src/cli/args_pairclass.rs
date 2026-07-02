@@ -1,9 +1,20 @@
 //! Argument struct for the `pairclass` subcommand (pair-class decipherment).
 
-use clap::Args;
+use clap::{Args, ValueEnum};
 use noita_eye_puzzle::attack::pairclass;
 
 use super::shared::parse_seed;
+
+/// Search order for the pairclass solver.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+pub(crate) enum PairclassSearchOrder {
+    /// Existing left-to-right beam reproduction.
+    #[value(name = "left-to-right")]
+    LeftToRight,
+    /// Anchor-seeded two-phase search.
+    #[value(name = "anchor-seed")]
+    AnchorSeed,
+}
 
 /// `pairclass`: pair-class decipherment for `±1`-walk carriers with a
 /// two-symbols-per-letter codec (the practice-puzzle-`two` rotor-carrier
@@ -58,6 +69,29 @@ pub(crate) struct PairclassArgs {
     /// Number of ranked candidate decodes to print.
     #[arg(long, default_value_t = 5)]
     pub(crate) top: usize,
+    /// Use the anchor-seeded two-phase search order instead of left-to-right.
+    #[arg(
+        long = "anchor-seed",
+        num_args = 0..=1,
+        default_missing_value = "anchor-seed",
+        default_value = "left-to-right"
+    )]
+    pub(crate) search_order: PairclassSearchOrder,
+    /// Phase-1 phrase-harvest beam width for `--anchor-seed`.
+    #[arg(long = "phrase-beam", default_value_t = 250_000)]
+    pub(crate) phrase_beam: usize,
+    /// Distinct harvested colorings to seed into the full solve.
+    #[arg(long = "phrase-top", default_value_t = 2_000)]
+    pub(crate) phrase_top: usize,
+    /// Phase-1 maximum out-of-vocabulary gap segments.
+    #[arg(long = "phrase-max-gaps", default_value_t = 6)]
+    pub(crate) phrase_max_gaps: u8,
+    /// Phase-1 maximum length of one gap segment.
+    #[arg(long = "phrase-max-gap-len", default_value_t = 8)]
+    pub(crate) phrase_max_gap_len: u8,
+    /// Phase-1 per-letter score penalty inside a gap segment.
+    #[arg(long = "phrase-gap-penalty", default_value_t = 3.6)]
+    pub(crate) phrase_gap_penalty: f32,
     /// Refuse to run when the estimated peak memory exceeds this cap (MiB).
     #[arg(long = "max-mem-mib", default_value_t = 2048)]
     pub(crate) max_mem_mib: usize,

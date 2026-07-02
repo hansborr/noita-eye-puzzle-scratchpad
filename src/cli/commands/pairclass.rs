@@ -1,15 +1,22 @@
 //! Handler for the `pairclass` subcommand.
 
+#[path = "pairclass_anchor_report.rs"]
+mod pairclass_anchor_report;
+
 use std::process::ExitCode;
 
 use noita_eye_puzzle::attack::pairclass::{
-    self, Lexicon, NullGate, PlantOutcome, PowerCfg, PowerReport, SolveInput, SolveReport,
-    StreamPrep, TruthFate, WalkViolation, build_lexicon, measure_power, null_gate,
-    pairclass_self_test, parse_wordlist, prepare_stream, solve, solve_cfg,
+    self, AnchorNullCfg, AnchorPowerReport, Lexicon, NullGate, PlantOutcome, PowerCfg, PowerReport,
+    SolveInput, SolveReport, StreamPrep, TruthFate, WalkViolation, anchor_null_gate, build_lexicon,
+    measure_anchor_seed_power, measure_power, null_gate, pairclass_self_test, parse_wordlist,
+    prepare_stream, solve, solve_anchor_seeded, solve_cfg,
 };
 
-use crate::cli::args_pairclass::PairclassArgs;
+use crate::cli::args_pairclass::{PairclassArgs, PairclassSearchOrder};
 use crate::cli::shared::{parse_cli_sequence, resolve_input_text};
+use pairclass_anchor_report::{
+    anchor_ladder, print_anchor_power, print_anchor_solutions, print_anchor_verdict,
+};
 
 /// Dispatches the `pairclass` subcommand.
 pub(crate) fn run_pairclass(args: &PairclassArgs) -> ExitCode {
@@ -79,7 +86,7 @@ fn run_analysis(args: &PairclassArgs) -> Result<ExitCode, String> {
         lexicon.n_nodes(),
         args.vocab_cap
     );
-    let cfg = solve_cfg(
+    let full_cfg = solve_cfg(
         args.beam,
         args.max_gaps,
         args.max_gap_len,
@@ -87,7 +94,18 @@ fn run_analysis(args: &PairclassArgs) -> Result<ExitCode, String> {
         args.top,
         args.max_mem_mib,
     );
-    if let Some(power) = maybe_run_controls(args, &prep, &lexicon, &cfg)? {
+    let phrase_cfg = solve_cfg(
+        args.phrase_beam,
+        args.phrase_max_gaps,
+        args.phrase_max_gap_len,
+        args.phrase_gap_penalty,
+        args.phrase_top,
+        args.max_mem_mib,
+    );
+    if args.search_order == PairclassSearchOrder::AnchorSeed {
+        return run_anchor_analysis(args, &prep, &lexicon, &phrase_cfg, &full_cfg);
+    }
+    if let Some(power) = maybe_run_controls(args, &prep, &lexicon, &full_cfg)? {
         if !power.cleared_bar {
             print_power(args, &power);
             println!();
@@ -100,7 +118,7 @@ fn run_analysis(args: &PairclassArgs) -> Result<ExitCode, String> {
         }
         print_power(args, &power);
     }
-    run_real_stream(args, &prep, &lexicon, &cfg)
+    run_real_stream(args, &prep, &lexicon, &full_cfg)
 }
 
 /// Builds the lexicon from a wordlist file.
@@ -143,6 +161,67 @@ fn maybe_run_controls(
     Ok(Some(power))
 }
 
+/// Runs controls-first anchor-seeded analysis.
+fn run_anchor_analysis(
+    args: &PairclassArgs,
+    prep: &StreamPrep,
+    lexicon: &Lexicon,
+    phrase_cfg: &noita_eye_puzzle::attack::pairclass::SolveCfg,
+    full_cfg: &noita_eye_puzzle::attack::pairclass::SolveCfg,
+) -> Result<ExitCode, String> {
+    if let Some(power) = maybe_run_anchor_controls(args, prep, lexicon, phrase_cfg, full_cfg)? {
+        print_anchor_power(args, &power);
+        if !power.cleared_bar {
+            println!();
+            println!(
+                "VERDICT: ControlsFailed — mean plant recovery {:.3} < bar {:.3}; \
+                 the real stream was NOT scored (controls-first). {}",
+                power.mean_recovery,
+                args.plant_bar,
+                anchor_ladder(&power)
+            );
+            return Ok(ExitCode::SUCCESS);
+        }
+    }
+    run_anchor_stream(args, prep, lexicon, phrase_cfg, full_cfg)
+}
+
+/// Runs the anchor-seeded controls-first power measurement.
+fn maybe_run_anchor_controls(
+    args: &PairclassArgs,
+    prep: &StreamPrep,
+    lexicon: &Lexicon,
+    phrase_cfg: &noita_eye_puzzle::attack::pairclass::SolveCfg,
+    full_cfg: &noita_eye_puzzle::attack::pairclass::SolveCfg,
+) -> Result<Option<AnchorPowerReport>, String> {
+    let Some(plant_path) = args.plant_text_file.as_ref() else {
+        return Ok(None);
+    };
+    let text = std::fs::read_to_string(plant_path).map_err(|error| {
+        format!(
+            "failed to read plant text {}: {error}",
+            plant_path.display()
+        )
+    })?;
+    let power = measure_anchor_seed_power(
+        &text,
+        &PowerCfg {
+            n_plants: args.plants,
+            plant_len: prep.tokens.len(),
+            n_classes: prep.n_classes,
+            longest_tie: prep.longest_tie,
+            bar: args.plant_bar,
+            seed: args.seed,
+        },
+        lexicon,
+        phrase_cfg,
+        full_cfg,
+        args.phrase_top,
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(Some(power))
+}
+
 /// Scores the real stream (behind passing controls) and gates it against the
 /// matched null.
 fn run_real_stream(
@@ -171,6 +250,23 @@ fn run_real_stream(
     Ok(ExitCode::SUCCESS)
 }
 
+/// Scores the real stream with the anchor-seeded pipeline.
+fn run_anchor_stream(
+    args: &PairclassArgs,
+    prep: &StreamPrep,
+    lexicon: &Lexicon,
+    phrase_cfg: &noita_eye_puzzle::attack::pairclass::SolveCfg,
+    full_cfg: &noita_eye_puzzle::attack::pairclass::SolveCfg,
+) -> Result<ExitCode, String> {
+    let report = solve_anchor_seeded(prep, lexicon, phrase_cfg, full_cfg, args.phrase_top, None)
+        .map_err(|error| error.to_string())?;
+    print_anchor_solutions(args, &report);
+    let real_best = report.solutions.first().map(|seeded| seeded.solution.score);
+    let gate = maybe_anchor_null_gate(args, prep, lexicon, phrase_cfg, full_cfg, real_best)?;
+    print_anchor_verdict(&report, gate.as_ref());
+    Ok(ExitCode::SUCCESS)
+}
+
 /// Runs the matched-null gate when `--null-trials > 0`.
 fn maybe_null_gate(
     args: &PairclassArgs,
@@ -190,6 +286,34 @@ fn maybe_null_gate(
         args.null_trials,
         real_best,
         args.seed,
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(Some(gate))
+}
+
+/// Runs the anchor-mode matched-null gate when `--null-trials > 0`.
+fn maybe_anchor_null_gate(
+    args: &PairclassArgs,
+    prep: &StreamPrep,
+    lexicon: &Lexicon,
+    phrase_cfg: &noita_eye_puzzle::attack::pairclass::SolveCfg,
+    full_cfg: &noita_eye_puzzle::attack::pairclass::SolveCfg,
+    real_best: Option<f32>,
+) -> Result<Option<NullGate>, String> {
+    if args.null_trials == 0 {
+        return Ok(None);
+    }
+    let gate = anchor_null_gate(
+        prep,
+        lexicon,
+        phrase_cfg,
+        full_cfg,
+        args.phrase_top,
+        &AnchorNullCfg {
+            null_trials: args.null_trials,
+            real_best,
+            seed: args.seed,
+        },
     )
     .map_err(|error| error.to_string())?;
     Ok(Some(gate))
