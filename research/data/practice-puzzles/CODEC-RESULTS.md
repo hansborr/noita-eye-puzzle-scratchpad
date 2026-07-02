@@ -1247,12 +1247,13 @@ SELF-TEST: PASS
 ```
 
 The requested serious control gate was then run with the 12 GiB memory cap,
-phrase beam 1,000,000, phrase top 5,000, and full beam 20,000. This checkout
-does not ship the earlier calibrated ~50k English unigram list. For this run,
-the best available English LM was a temporary unigram list derived from the
-committed public-domain corpus `research/data/lang/english-corpus-large.txt`
-(11,419 unique words), so the numeric bar is not a definitive replacement for
-the round-3 50k-LM calibration:
+phrase beam 1,000,000, phrase top 5,000, and full beam 20,000. The lexicon was
+derived from the committed public-domain corpus
+`research/data/lang/english-corpus-large.txt`; it contains exactly that corpus's
+11,419 distinct words, so corpus-sourced plant controls have no lexicon-coverage
+confound. A larger downloadable English frequency list would only sharpen a
+future REAL-stream power number; it is not a blocker or a held maintainer
+resource.
 
 ```sh
 LC_ALL=C tr -cs 'A-Za-z' '\n' < research/data/lang/english-corpus-large.txt \
@@ -1291,14 +1292,66 @@ beam (score-pruning/LM label-bias). The real stream was not scored and the
 requested null gate therefore did not run. This is not evidence for a `two`
 plaintext.
 
-The next classical lever is not simply "more phrase beam": first remove the
-coverage failure with the calibrated 50k English unigram list and/or a better
-phrase-window edge/gap policy, then avoid score-ranking the phrase harvest
-itself by enumerating/ranking class-signatures plus internal repeat patterns
-across both tied occurrences, or use branch-and-bound over colorings with a
-bound that cannot evict the true phrase before constraints arrive. A
-maintainer-supplied calibrated 50k English unigram list is still needed for
-the definitive round-3-compatible power number.
+The next classical lever is not simply "more phrase beam": avoid score-ranking
+the phrase harvest itself by enumerating/ranking class-signatures plus internal
+repeat patterns across both tied occurrences, or use branch-and-bound over
+colorings with a bound that cannot evict the true phrase before constraints
+arrive.
+
+### Round 7 (codex): LM-free anchor-window enumeration harvest — budget-saturated miss, real stream NOT scored
+
+The (a') harvest mode was added to `pairclass` as
+`--harvest-mode enumerate`, alongside the existing score-beam harvest. This
+round was harvest-only and controls-first: it stopped after Phase 1, ran no
+Phase-2 seeded solve, did not score the real `two` stream, and ran no null.
+
+The enumerator uses the same anchor window and ties as Round 6, but uses the
+trie for membership only: completed parses are merged by induced 26-slot
+coloring, with no word-LM score used to gate, order, or truncate survivors.
+Both window edges are allowed to be partial; the leading edge is represented by
+a leading gap/partial. Enumeration is confined to the ~68-token window, not
+`4^26`: classes are assigned only to letters reached by parses, the tied
+second occurrence is determined from the first and then verified, distinct
+colorings live in the existing capped map, and parse state is O(window length).
+The old ~11 GB Python OOM mode remains structurally impossible; the live risk
+is time, bounded here by a deterministic 100,000,000-transition parse budget
+per plant and reported when saturated.
+
+Command:
+
+```sh
+LC_ALL=C tr -cs 'A-Za-z' '\n' < research/data/lang/english-corpus-large.txt \
+  | tr '[:upper:]' '[:lower:]' \
+  | awk 'NF { count[$1]++ } END { for (word in count) print word, count[word] }' \
+  | sort -k2,2nr -k1,1 > /tmp/pairclass-english-unigram.txt
+
+cargo run --release --locked -q -- pairclass --anchor-seed \
+  --harvest-mode enumerate --harvest-only \
+  --wordlist /tmp/pairclass-english-unigram.txt --vocab-cap 50000 \
+  --plant-text-file research/data/lang/english-corpus-large.txt --plants 6 \
+  --phrase-beam 1000000 --phrase-top 50000 --beam 20000 \
+  --plant-bar 0.5 --max-mem-mib 12288 --null-trials 20
+```
+
+Result:
+
+| plant | truth retained? | retained rank | distinct colorings | cap hit? | budget hit? |
+|---:|:---:|---:|---:|:---:|:---:|
+| 0 | no | - | 1,017 | no | yes |
+| 1 | no | - | 281 | no | yes |
+| 2 | no | - | 399 | no | yes |
+| 3 | no | - | 141 | no | yes |
+| 4 | no | - | 160 | no | yes |
+| 5 | no | - | 525 | no | yes |
+
+Verdict: `HarvestSaturatedMiss`. Truth was retained on none of the six
+corpus-sourced plants before the deterministic parse budget saturated; no
+plant hit the 50,000-coloring cap. This is a tractability result, not an
+exhaustive anchor-negative: do not claim the 34-letter anchor is too weak from
+this round. The next lever is to reduce the low-value gap explosion before the
+budget, e.g. flanking-context widening or an LM-free marginal-fit/coverage
+selection rule; word-LM score must remain out of the harvest key. The real
+stream was NOT scored and no null ran.
 
 ## Provenance
 
