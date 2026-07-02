@@ -1134,6 +1134,43 @@ repeated phrase amplifies it across ~40% of the text). Round-4 details:
 `round4-results.json` / FINDINGS.md §Round 4 in the scratch dir (see
 `research/handoff/two-pairclass-attack.md`).
 
+### Rounds 5/5b (codex): exact CSP beam search — truth beam-pruned at the string head; left-to-right ordering excluded
+
+The CSP escalation was built as designed: dictionary-propagation search over the
+348 letter positions through a word trie, coloring induced incrementally with
+backtracking on class conflicts, anchor ties as hard letter equalities. Round 5
+ran it at a token budget (beam ≤420, ~1 min/plant) — its negative (recovery
+0.060) was rejected as underpowered, the round-3-Stage-B trap. Round 5b re-ran
+it at the real budget (iterative beams 1k/5k/20k, 1000 candidates/position, 16
+workers) and was **interrupted by host OOM** after 3 of 6 controls (the beam-20k
+stage peaked near ~11 GB RSS and took the container down; ~65-75 min/control).
+
+The three measured controls are nonetheless decisive on the attribution the
+round existed to make: the true path was **BEAM-PRUNED, never out-scored** — at
+positions 10 / 9 / 4 of 348, with only 1-2 truth-consistent states alive at the
+cut, and the prune position essentially does not move with beam width (420 →
+20,000). At the string head there is no accumulated coloring/tie evidence, so
+the truth's prefix ranks below tens of thousands of locally-likelier word
+starts; truth only becomes distinguishable after long-range pins accumulate,
+which a left-to-right beam never survives to see. Beam growth is the wrong
+axis — the required width at the head is plausibly exponential in the ambiguous
+prefix length.
+
+**Crib-free ledger after rounds 1-5b:** score-guided local search over
+colorings fails (objective cliffs near truth, no gradient — round 4);
+left-to-right exact beam fails (truth pruned at the head regardless of width —
+round 5b); the inner decode is NOT the problem (oracle 0.534, readable — round
+3). The one untried classical idea is changing the *search order*:
+constraint-density-first (start inside the tied spans — the 34-letter repeated
+phrase is doubly constrained — and expand outward), or branch-and-bound over
+the coloring with an admissible bound. Resource reality: these runs cost
+multi-hour, ~11 GB attempts on this host and have crashed the container twice;
+further rounds need hard memory caps and maintainer sign-off. The alternative
+close remains the withheld-snippet anchor. Partial data:
+`round5b-results.json` + `round5b-progress.json` in the scratch dir (no
+FINDINGS §5b was written — the run died first); RESUME-NOTES.md there records
+the crash forensics.
+
 ## Provenance
 
 Reproducible commands are embedded in each

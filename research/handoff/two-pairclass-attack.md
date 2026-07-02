@@ -75,14 +75,26 @@ letter).
    accuracy 1.0 — decode quality cliffs within ~7 wrong letters of truth, so
    annealing has no gradient where it matters; scale alone cannot fix this.
    Verdict in CODEC-RESULTS.md §Round 4.
-4. **The live fork:** (a) a qualitatively different searcher —
-   CSP/branch-and-bound over the coloring with word-lattice constraint
-   propagation, where the anchor ties prune exactly rather than merely score
-   (the 0.73→1.0 cliff means exact methods are needed for the last letters);
-   or (b) the honest close: the withheld-snippet external anchor — under the
-   pair-letter model even a ~10-letter crib pins classes directly and the
-   34-letter repeated phrase amplifies it across ~40% of the text.
-5. Instruments to land (golden rule): the periodic-deck phase-consistency scan
+4. ~~CSP with word-lattice propagation (codex rounds 5/5b)~~ **DONE for
+   left-to-right ordering — truth BEAM-PRUNED at the string head.** Round 5
+   (beam ≤420, ~1 min/plant) rejected as underpowered; round 5b at the real
+   budget (beams 1k/5k/20k, 16 workers) was killed by host OOM after 3/6
+   controls (~11 GB peak, ~65-75 min/control, container down twice) but the
+   attribution is decisive: true path pruned at positions 10/9/4 of 348 with
+   1-2 truth-states alive, never out-scored, prune position ~independent of
+   beam width. Left-to-right beam ordering is excluded; the objective is not.
+   Verdict + partial data in CODEC-RESULTS.md §Rounds 5/5b.
+5. **The live fork (needs maintainer sign-off — resource cost is real):**
+   (a) change the SEARCH ORDER, not the width: constraint-density-first /
+   middle-out expansion seeded inside the tied spans (the 34-letter repeated
+   phrase is doubly constrained; letters pinned there propagate outward), or
+   branch-and-bound over the coloring itself with an admissible bound — run
+   under hard memory caps (ulimit -v, bounded beams) since prior rounds
+   crashed the container; or (b) the honest close: the withheld-snippet
+   external anchor — under the pair-letter model even a ~10-letter crib pins
+   classes directly and the 34-letter repeated phrase amplifies it across
+   ~40% of the text.
+6. Instruments to land (golden rule): the periodic-deck phase-consistency scan
    (generalize `groupscan` with a `--max-period`), and a `pairclass` derivation
    + entropy-gate CLI (tokens from any ±1-walk stream, drop-k vs Markov null,
    with planted positive + matched null self-test).
