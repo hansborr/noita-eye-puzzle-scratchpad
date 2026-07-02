@@ -17,7 +17,7 @@ itself.
 | Puzzle | Verdict | Notes |
 | --- | --- | --- |
 | `one` | **SOLVED (2026-07-01)** — `Permutation Representation Destination` | alternating-orientation dihedral GAK over C5 + 7-bit ASCII; verified by an exact 266/266 ciphertext round-trip (`maskdecode`); see § "`one` — SOLVED" below. The prior honest negatives (`rlcodec`, `cribfit`, `rankcodec`, `mdlcodec`, `bigramcodec`) all stand *as scoped* — they attacked direction-blind reductions forced by a hidden-state assumption the actual cipher does not satisfy |
-| `two` | honest negative — gate "survivors" are **transition-law artifacts**, not decodes | exposes a bigram/Fisher-Yates gate blind spot (below) |
+| `two` | honest negative — gate "survivors" are **transition-law artifacts**, not decodes | exposes a bigram/Fisher-Yates gate blind spot (below); live attack surface as of 2026-07-01 — see §"`two` — rotor-carrier campaign" (pair-letter 4-class model) |
 | `six` | honest negative (0 survivors) | base-6, spaces preserved |
 
 ## The structural finding: `one` and `two` are ±1-walk-on-Cn encodings
@@ -108,6 +108,11 @@ plaintext repeats — a crib / known-plaintext anchor to seed a key recovery —
   that makes even positions ~72% "down", odd ~54% "up"), not language — it lacks
   the conditional-entropy drop genuine English projection carries. It is usable as
   a key-free codec *constraint*, not a crack.
+  > **REFINED (2026-07-01):** at the *pair-token* level this caveat does not
+  > hold: non-overlapping eps-pair tokens carry an above-first-order
+  > conditional-entropy drop that survives an order-1 Markov (transition- and
+  > artifact-preserving) null at p = 0.025/0.005 — see §"`two` — rotor-carrier
+  > campaign" below.
 
 ### The instrument
 
@@ -959,9 +964,130 @@ model would be needed too). Until then, codec-search survivors on
 transition-structured ciphers must be read with the rendered text, not the gate
 count alone.
 
+## `two` — rotor-carrier campaign (2026-07-01): deterministic-readout exclusions and the pair-letter 4-class model
+
+> Post-`one`-solve transfer of the process lesson: exhaust cheap deterministic
+> conventions before believing true hidden state, and treat the *transparent*
+> channel as a message carrier in its own right, not only as a crib locator.
+> Everything in this section is scratch-level (Python probes over the derived
+> streams) unless it names an engine instrument; the campaign state and exact
+> derivations live in `research/handoff/two-pairclass-attack.md`.
+
+### Deterministic-readout exclusions (all honest negatives)
+
+The rotor channel `r = symbol mod 3` is a clean ±1 walk on C3 (697 direction
+bits `eps`). Attacks on it as a *direct* bit carrier, all negative:
+
+- **`maskdecode` on the rotor walk** (the literal transfer of the `one` solve):
+  416 cells (mask {static, alternating} × widths 5..8 × offsets × bit order ×
+  polarity × direction) — **Negative**, best cell 57/98 letters. Coverage note:
+  `maskdecode`'s gate is raw-ASCII letters/space, so `A=0..25`-style letter codes
+  at widths 5-6 are structurally invisible to it; a scratch sweep of `A+v` maps
+  (widths 4-8, same axes, plus alternating mask) found no cell above 90% valid
+  either (width-4 "hits" are vacuous — every 4-bit value is < 26).
+- **Morse / data-marker interleaves** of the direction bits (data bit on one
+  parity, letter-boundary marker on the other; 16 conventions): high Morse
+  validity is pareidolia (E/T spam), no language, no convention distinguished.
+- **Fixed pair-token codebooks**: non-overlapping pair-token k-grams (k=2,3, all
+  phases) populate 15-16/16 and 39-42/64 distinct values — no ≤26-value codebook;
+  letters are not rigid 2- or 3-pair-token codes.
+- **Deterministic periodic deck schedules, period ≤ 24** (extends `groupscan`'s
+  constant-K test, which is the p=1 case): under a deterministic deck of period
+  `p`, a full-plaintext repeat at an anchor forces `q_second = K_{phase mod p}
+  (q_first)` — a phase-periodic family of permutation relations. Tested on all
+  231 anchor sample pairs (five verified-exact anchors, below): real consistency
+  is at or *below* a q-shuffled null's mean at **every** p in 1..24 (e.g. p=1:
+  48/231 vs null mean 59; p=2: 45 vs 60). The deck channel has no deterministic
+  schedule relation at the anchors; combined with `groupscan` + `ctakscan`, `q`
+  is either genuinely plaintext-fed hidden state or not message-bearing at all.
+  Scope: assumes the anchor spans repeat the full plaintext (true under the
+  pair-letter model below); instrument not yet landed (scratch probe).
+
+Anchor verification: all five `isoscan` anchors re-checked exact and maximal in
+`eps` (231..298==351..418 len 68, 5..55==555..605 len 51, 352..392==506..546
+len 41, 108..144==572..608 len 37, 22..55==108..141 len 34; extensions fail on
+both sides).
+
+### The structure findings (measured, gate-clearing)
+
+- The eps stream's **only** periodicity is period 2 (phase-bias χ² = 49.6 on
+  1 df; even steps 54.4% up, odd steps 28.2% up; no residual signal at p=3..32
+  beyond period-2 inheritance).
+- Non-overlapping eps *pairs* (348 tokens over {0..3}; phase-0 marginals
+  107/51/143/47, IoC 0.301): within-pair bits are ~independent, but the token
+  sequence carries real sequential structure. Conditional-entropy drops (plug-in):
+  drop1 = 0.083 / drop2 = 0.251 bits (phase 0), 0.043 / 0.256 (phase 1), vs a
+  marginal-preserving token-shuffle null (200 trials) drop1 max 0.065 / drop2 max
+  0.175.
+- **The load-bearing gate:** drop2 survives an order-1 Markov token resample
+  (transition-preserving, 200 trials): **p = 0.025 (phase 0), p = 0.005
+  (phase 1)**. The public 4-class channel carries **above-first-order sequential
+  structure** that a transition-law artifact cannot produce. This supersedes, at
+  the pair level, the earlier isoscan caveat that the free 4-class projection
+  "lacks the conditional-entropy drop genuine English projection carries".
+  Scope: the exact repeated anchor spans contribute to the above-null signal —
+  they are plaintext repeats under any reading, but a crib-pinned Markov null
+  (as in `rlcodec`) has not yet been run to isolate their share.
+- No dedicated space class: reading any one token value as a word separator
+  fails an English word-length fingerprint badly (best χ² ≈ 53 on 12 df, mean
+  "word" length 6.6-7.2).
+
+### The pair-letter model (hypothesis, clearly labeled)
+
+**One plaintext letter per two ciphertext symbols** (~348-349 letters): each
+letter fixes its eps pair (public) and its `q` pair (hidden behind the deck), so
+the token stream is the image of the plaintext under an unknown 4-coloring of
+the alphabet — a 348-letter, 4-class cryptogram attackable with zero deck
+knowledge. Independent consistency points: exact period-2 eps bias =
+letter-internal position statistics; within-pair independence; cross-pair
+dependence = letter bigrams; **all five anchor gaps even** = letter-aligned
+repeats; the Markov-gated drop2 above. The two stagger conventions (boundary
+eps belonging to the preceding vs following letter) are exactly the two token
+phases, so the phase sweep covers both. Under this model the anchors are
+full-plaintext repeats, and the deck's non-repeat there says the deck hides the
+`q` bits — consistent with the eye-wall reading of `groupscan`/`ctakscan`, but
+no longer load-bearing for recovering the message.
+
+### The 4-class cryptogram attack, round 1 (codex): UNDERPOWERED, not negative
+
+Coloring hill-climb (100 restarts, 26- and 27-symbol models) maximizing the
+projected class-4-gram likelihood (English stats from
+`research/data/lang/english-corpus-large.txt`), gated on 50 order-1 Markov token
+resamples. **The planted positive control is the result:** 0/6 held-out
+348-char English plants through random 4-colorings clear p ≤ 0.05 (median z
+0.14; coloring accuracy 0.42-0.66) — the search+gate has **measured power ≈ 0**
+at this length, so the real-stream non-survivals (z: phase0-fwd 1.22, phase1-fwd
+1.36, phase0-rev 0.84, phase1-rev 0.44; all p ≥ 0.137) are **uninformative**,
+not an exclusion. Directional notes for the record: both forward streams score
+above both reversed streams and above the control median; letters+space beats
+letters-only on every stream. Unconstrained LM decodes are explicitly
+non-candidates (readable-ish word salad, anchor-tie violations on the main
+34-letter repeat).
+
+Why the power is zero, and the next lever (arithmetic, not hope): the channel
+preserves H ≈ 1.85 bits/char of the plaintext; an order-3/4 letter LM carries
+~2.1 bits/char (negative margin — under-determined), while a word-level model
+carries ~1.4-1.6 (positive margin), and the 54-bit coloring key amortizes to
+0.16 bits/char over 348 chars. A joint word-aware decipherment (T9-style
+word-lattice decode under each candidate coloring, anchors as hard tied-letter
+constraints inside the search, controls-first) is in flight; its verdict —
+candidate, negative, or still-underpowered with the measured power — belongs
+here when it lands.
+
 ## Provenance
 
 Reproducible commands are embedded in each
 `research/gak-threads/candidates/solve-{one,two,six}-*.md` record. Structural and
 null-control figures above were produced out-of-engine (NumPy-style probes) and
-cross-checked against the engine's own gates.
+cross-checked against the engine's own gates. The 2026-07-01 `two`
+rotor-carrier campaign figures are scratch probes recorded in
+`research/handoff/two-pairclass-attack.md` (with exact stream derivations);
+the `maskdecode` rotor run is engine-reproducible:
+
+```sh
+python3 - <<'EOF'  # derive the rotor stream
+s = open('research/data/practice-puzzles/two').read().strip()
+print(''.join(str((ord(c)-ord('A'))%3) for c in s), end='')
+EOF
+# then: cargo run -q -- maskdecode --input-file <rotor-stream> --alphabet 012
+```
