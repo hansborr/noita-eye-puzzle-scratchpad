@@ -84,25 +84,30 @@ letter).
    1-2 truth-states alive, never out-scored, prune position ~independent of
    beam width. Left-to-right beam ordering is excluded; the objective is not.
    Verdict + partial data in CODEC-RESULTS.md §Rounds 5/5b.
-5. ~~Anchor-seeded search-order fork (codex round 6)~~ **DONE — controls
-   failed in saturated phrase harvest.** The implemented mode harvests
-   distinct colorings from a two-occurrence window spanning the longest token
-   tie, then runs the existing full-stream solver with each harvested coloring
-   pre-pinned. The mechanism self-test passes (`pairclass --self-test`:
-   oracle 1.000, truth seed #1 on the small plant), but the serious embedded
-   `two` power gate did not clear: using a unigram list derived from
-   `research/data/lang/english-corpus-large.txt` (11,419 words; not the
-   calibrated 50k LM), `--phrase-beam 1000000 --phrase-top 5000 --beam 20000
-   --plant-bar 0.5 --max-mem-mib 12288` produced mean plant letter recovery
-   0.064 and mean coloring accuracy 0.268. Truth coloring was not harvested on
-   any of 6 plants, and every phrase harvest saturated at
-   1,000,000/1,000,000 states, so the ladder verdict is
-   score-pruning/LM label-bias in Phase 1. Controls-first refused to score the
-   real stream; the null gate did not run. Verdict in CODEC-RESULTS.md
-   §Round 6. Next crib-free lever, if pursued, is no longer "more phrase
-   beam": harvest seeds by class-signature plus internal repeat pattern across
-   both tied occurrences, or branch-and-bound over colorings with an admissible
-   bound. The honest close remains the withheld-snippet external anchor.
+5. ~~Anchor-seeded search-order fork (codex round 6)~~ **DONE, corrected —
+   controls still fail, but the original verdict was confounded.** A
+   cross-family audit found the first round-6 run hard-dropped truth whenever
+   the harvest window ended inside a lexicon word; the old "not harvested +
+   saturated => label-bias" conclusion is not a finding. The fixed
+   `pairclass` harvest accepts interior final trie nodes only for Phase 1 and
+   now reports truth's phrase-window fate. Self-test passes with an explicit
+   mid-word harvest regression (`oracle 1.000, midword truth seed #1`). The
+   corrected serious gate, using the derived 11,419-word English unigram list
+   from `research/data/lang/english-corpus-large.txt` rather than the missing
+   calibrated 50k LM, still failed controls at `--phrase-beam 1000000
+   --phrase-top 5000 --beam 20000 --plant-bar 0.5 --max-mem-mib 12288`: mean
+   plant letter recovery 0.071, mean coloring accuracy 0.238. Truth coloring
+   was not harvested on any of 6 plants; every phrase harvest saturated; the
+   clean window-fate attribution is mixed — plants 2/3/5 were window
+   INFEASIBLE at positions 5-6 (coverage/gap/lexicon limit), while plants
+   0/1/4 were window BEAM-PRUNED at positions 24/5/6 (score-pruning/LM
+   label-bias). Controls-first refused to score the real stream; the null gate
+   did not run. Verdict in CODEC-RESULTS.md §Round 6. Next crib-free lever:
+   first eliminate the coverage failure with the calibrated 50k LM and/or
+   better phrase-window edge/gap handling, then avoid score-ranked phrase
+   harvest via class-signature/internal-repeat enumeration or branch-and-bound
+   over colorings. The honest close remains the withheld-snippet external
+   anchor.
 6. ~~Land the `pairclass` instrument (golden rule)~~ **DONE — commit
    `0a9111a`.** `src/attack/pairclass/`: derivation (±1-walk → pair tokens) +
    tie anchors + the dictionary beam solver with incremental coloring

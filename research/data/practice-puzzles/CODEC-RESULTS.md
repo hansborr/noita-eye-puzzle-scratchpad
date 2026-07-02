@@ -1205,7 +1205,7 @@ to the Python at left-to-right ordering (same BEAM-PRUNED verdict), so it does
 not by itself reopen the crib-free result — it makes the next experiment safe
 and cheap to run.
 
-### Round 6 (codex): anchor-seeded two-phase search — controls fail in saturated phrase harvest
+### Round 6 (codex): anchor-seeded two-phase search — original verdict corrected after window-boundary bug
 
 The approved search-order fork was implemented in `pairclass` as an
 anchor-seeded two-phase mode:
@@ -1216,7 +1216,22 @@ anchor-seeded two-phase mode:
   pre-pinning letter classes through `SolveInput.seed_coloring`.
 - The same library path powers the CLI and tests; `pairclass --self-test` now
   includes an anchor mechanism leg: truth coloring as a seed reproduces the
-  oracle decode, and the small planted harvest surfaces truth.
+  oracle decode, and a mid-word harvest window surfaces truth.
+
+**Correction:** the first round-6 record was confounded. A cross-family audit
+found that the phrase harvest reused full-stream final-state semantics: a
+harvest window ending inside a word was dropped unless the final state ended a
+gap or a complete lexicon word. That made `truth_seed_rank = None` a possible
+window-boundary artifact, not evidence for score-pruning/LM label-bias. The
+old mean recovery 0.064 / mean coloring 0.268 table is retained only in git
+history; do not use its "saturated + not harvested => label-bias" verdict as a
+finding.
+
+The fix is harvest-only: `SolveInput.accept_partial_final = true` for Phase 1
+accepts interior trie nodes as valid coloring sources without adding a final
+word bonus. Full-stream decodes remain strict. Plant harvests now also track
+truth's *window* fate before Phase 2, distinguishing `BEAM-PRUNED`,
+`INFEASIBLE`, and survived-but-not-harvested cases.
 
 Self-test command:
 
@@ -1227,7 +1242,7 @@ cargo run -q -- pairclass --self-test
 Headline output:
 
 ```text
-anchor-seed mechanism (oracle 1.000, truth-seed #1, harvest 128, occupancy 4096 SATURATED): PASS
+anchor-seed mechanism (oracle 1.000, midword truth-seed #1, harvest 1, occupancy 4 open): PASS
 SELF-TEST: PASS
 ```
 
@@ -1252,34 +1267,38 @@ cargo run --release -q -- pairclass --anchor-seed \
   --plant-bar 0.5 --max-mem-mib 12288 --null-trials 20
 ```
 
-The controls failed before any real-stream scoring, as required:
+The corrected controls failed before any real-stream scoring, as required:
 
 ```text
 Controls-first anchor power (6 plants, bar 0.500):
-  plant  0: recovery 0.069  coloring 0.348  truth-seed not-harvested  harvest 381 seeds 381  occupancy 1000000/1000000 SATURATED  truth INFEASIBLE @ pos 0
-  plant  1: recovery 0.014  coloring 0.091  truth-seed not-harvested  harvest 205 seeds 205  occupancy 1000000/1000000 SATURATED  truth INFEASIBLE @ pos 0
-  plant  2: recovery 0.184  coloring 0.360  truth-seed not-harvested  harvest 33 seeds 33  occupancy 1000000/1000000 SATURATED  truth INFEASIBLE @ pos 1
-  plant  3: recovery 0.043  coloring 0.217  truth-seed not-harvested  harvest 145 seeds 145  occupancy 1000000/1000000 SATURATED  truth INFEASIBLE @ pos 1
-  plant  4: recovery 0.032  coloring 0.318  truth-seed not-harvested  harvest 263 seeds 263  occupancy 1000000/1000000 SATURATED  truth INFEASIBLE @ pos 3
-  plant  5: recovery 0.040  coloring 0.273  truth-seed not-harvested  harvest 391 seeds 391  occupancy 1000000/1000000 SATURATED  truth INFEASIBLE @ pos 0
-  mean recovery 0.064  mean coloring 0.268  BELOW BAR
+  plant  0: recovery 0.069  coloring 0.348  truth-seed not-harvested  window truth BEAM-PRUNED @ pos 24 (-25.9 < cutoff -25.0)  harvest 381 seeds 381  occupancy 1000000/1000000 SATURATED  full truth INFEASIBLE @ pos 0
+  plant  1: recovery 0.037  coloring 0.182  truth-seed not-harvested  window truth BEAM-PRUNED @ pos 5 (-12.6 < cutoff -7.2)  harvest 241 seeds 241  occupancy 1000000/1000000 SATURATED  full truth INFEASIBLE @ pos 0
+  plant  2: recovery 0.190  coloring 0.320  truth-seed not-harvested  window truth INFEASIBLE @ pos 6  harvest 288 seeds 288  occupancy 1000000/1000000 SATURATED  full truth INFEASIBLE @ pos 1
+  plant  3: recovery 0.043  coloring 0.217  truth-seed not-harvested  window truth INFEASIBLE @ pos 5  harvest 137 seeds 137  occupancy 1000000/1000000 SATURATED  full truth INFEASIBLE @ pos 1
+  plant  4: recovery 0.046  coloring 0.091  truth-seed not-harvested  window truth BEAM-PRUNED @ pos 6 (-10.7 < cutoff -7.2)  harvest 261 seeds 261  occupancy 1000000/1000000 SATURATED  full truth INFEASIBLE @ pos 0
+  plant  5: recovery 0.040  coloring 0.273  truth-seed not-harvested  window truth INFEASIBLE @ pos 5  harvest 269 seeds 269  occupancy 1000000/1000000 SATURATED  full truth INFEASIBLE @ pos 0
+  mean recovery 0.071  mean coloring 0.238  BELOW BAR
 
-VERDICT: ControlsFailed — mean plant recovery 0.064 < bar 0.500; the real stream was NOT scored (controls-first). ladder: truth was not harvested and phrase beam saturated; score-pruning/LM label-bias.
+VERDICT: ControlsFailed — mean plant recovery 0.071 < bar 0.500; the real stream was NOT scored (controls-first). ladder: mixed truth-window failures; coverage/gap/lexicon limits and score-pruning/LM label-bias.
 ```
 
-Interpretation: the two-occurrence window does exploit the tie topology, but a
-score-ranked word-LM beam over that phrase window still does not preserve the
-true coloring under this LM/gap policy, even with a million-state phrase beam.
-This is not evidence for a `two` plaintext; the real stream was not scored and
-the requested null gate therefore did not run. It is evidence against this
-particular anchor-seeded *score-harvest* order as the next crib-free path. The
-next classical lever, if the campaign continues without a withheld snippet, is
-to avoid score-ranking the phrase harvest itself: enumerate or rank seeds by
-class-signature plus internal repeat pattern across both tied occurrences, or
-use a branch-and-bound over colorings with a bound that cannot evict the true
-phrase before constraints arrive. A maintainer-supplied calibrated 50k English
-unigram list is still needed for the definitive round-3-compatible power
-number.
+Interpretation: after fixing the trailing window boundary, the two-occurrence
+window is now a fairer test, and it still fails the controls under this
+11,419-word LM/gap policy. The clean attribution is mixed: three plants are
+truth-window infeasible by positions 5-6 (coverage/gap/lexicon limit), and
+three are truth-window beam-pruned despite a saturated million-state phrase
+beam (score-pruning/LM label-bias). The real stream was not scored and the
+requested null gate therefore did not run. This is not evidence for a `two`
+plaintext.
+
+The next classical lever is not simply "more phrase beam": first remove the
+coverage failure with the calibrated 50k English unigram list and/or a better
+phrase-window edge/gap policy, then avoid score-ranking the phrase harvest
+itself by enumerating/ranking class-signatures plus internal repeat patterns
+across both tied occurrences, or use branch-and-bound over colorings with a
+bound that cannot evict the true phrase before constraints arrive. A
+maintainer-supplied calibrated 50k English unigram list is still needed for
+the definitive round-3-compatible power number.
 
 ## Provenance
 
