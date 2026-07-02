@@ -328,7 +328,7 @@ pub(super) fn expand_position(
 }
 
 /// Pins `letter` to `class`, or checks an existing pin. `None` = conflict.
-fn pin(classes: u64, pinned: u32, letter: u8, class: u8) -> Option<(u64, u32)> {
+pub(super) fn pin(classes: u64, pinned: u32, letter: u8, class: u8) -> Option<(u64, u32)> {
     let bit = 1u32 << letter;
     let shift = 2 * u32::from(letter);
     if pinned & bit != 0 {

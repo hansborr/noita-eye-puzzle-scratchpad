@@ -16,6 +16,17 @@ pub(crate) enum PairclassSearchOrder {
     AnchorSeed,
 }
 
+/// Phase-1 anchor harvest strategy.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+pub(crate) enum PairclassHarvestMode {
+    /// Existing word-LM score-beam harvest.
+    #[value(name = "beam")]
+    Beam,
+    /// LM-free hard-constraint window enumeration.
+    #[value(name = "enumerate")]
+    Enumerate,
+}
+
 /// `pairclass`: pair-class decipherment for `±1`-walk carriers with a
 /// two-symbols-per-letter codec (the practice-puzzle-`two` rotor-carrier
 /// model). Derives the residue walk's direction-bit pair tokens (a public
@@ -83,6 +94,12 @@ pub(crate) struct PairclassArgs {
     /// Distinct harvested colorings to seed into the full solve.
     #[arg(long = "phrase-top", default_value_t = 2_000)]
     pub(crate) phrase_top: usize,
+    /// Phase-1 anchor harvest strategy.
+    #[arg(long = "harvest-mode", default_value = "beam")]
+    pub(crate) harvest_mode: PairclassHarvestMode,
+    /// Run only Phase-1 planted harvest retention; never score the real stream.
+    #[arg(long = "harvest-only", action = clap::ArgAction::SetTrue)]
+    pub(crate) harvest_only: Option<bool>,
     /// Phase-1 maximum out-of-vocabulary gap segments.
     #[arg(long = "phrase-max-gaps", default_value_t = 6)]
     pub(crate) phrase_max_gaps: u8,

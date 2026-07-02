@@ -2,7 +2,9 @@
 
 use std::collections::BTreeSet;
 
-use super::{AnchorHarvestReport, AnchorWindow, harvest_anchor_colorings_with_truth};
+use super::{
+    AnchorHarvestMode, AnchorHarvestReport, AnchorWindow, harvest_anchor_colorings_with_truth,
+};
 use crate::attack::pairclass::campaign::{NullGate, PowerCfg, StreamPrep};
 use crate::attack::pairclass::plant::{
     CopySpan, Plant, PlantSpec, copy_ties, markov_resample, plant_from_text,
@@ -81,6 +83,36 @@ pub struct AnchorPlantOutcome {
     pub best_score: Option<f32>,
 }
 
+/// One planted control under the Phase-1-only anchor harvest.
+#[derive(Clone, Debug)]
+pub struct AnchorHarvestPlantOutcome {
+    /// One-based rank at which the true harvest-window coloring appeared.
+    pub truth_seed_rank: Option<usize>,
+    /// Distinct colorings harvested.
+    pub harvested: usize,
+    /// Whether the distinct-coloring cap was hit.
+    pub cap_hit: bool,
+    /// Whether the deterministic parse budget was hit.
+    pub budget_hit: bool,
+    /// Distinct colorings dropped by cap selection.
+    pub dropped_colorings: usize,
+    /// Parse-transition budget for LM-free enumeration.
+    pub parse_budget: Option<u64>,
+}
+
+/// Controls-first Phase-1-only anchor harvest retention report.
+#[derive(Clone, Debug)]
+pub struct AnchorHarvestRetentionReport {
+    /// Per-plant outcomes.
+    pub plants: Vec<AnchorHarvestPlantOutcome>,
+    /// Whether every plant retained the true window coloring.
+    pub all_retained: bool,
+    /// Whether any plant hit the distinct-coloring cap.
+    pub any_cap_hit: bool,
+    /// Whether any plant hit the deterministic parse budget.
+    pub any_budget_hit: bool,
+}
+
 /// Controls-first power report for the anchor-seeded pipeline.
 #[derive(Clone, Debug)]
 pub struct AnchorPowerReport {
@@ -115,10 +147,17 @@ pub fn solve_anchor_seeded(
     phrase_cfg: &SolveCfg,
     full_cfg: &SolveCfg,
     phrase_top: usize,
+    harvest_mode: AnchorHarvestMode,
     truth: Option<&[u8]>,
 ) -> Result<AnchorSeedReport, PairclassError> {
-    let harvest =
-        harvest_anchor_colorings_with_truth(prep, lexicon, phrase_cfg, phrase_top, truth)?;
+    let harvest = harvest_anchor_colorings_with_truth(
+        prep,
+        lexicon,
+        phrase_cfg,
+        phrase_top,
+        harvest_mode,
+        truth,
+    )?;
     let tie_to = (!prep.tie_table.is_empty()).then_some(prep.tie_table.as_slice());
     let mut outcomes = Vec::with_capacity(harvest.distinct_colorings.len());
     let mut collected = Vec::new();
@@ -179,6 +218,7 @@ pub fn measure_anchor_seed_power(
     phrase_cfg: &SolveCfg,
     full_cfg: &SolveCfg,
     phrase_top: usize,
+    harvest_mode: AnchorHarvestMode,
 ) -> Result<AnchorPowerReport, PairclassError> {
     let letters = text_letters(text);
     let copy = tie_to_copy(power.longest_tie, power.plant_len);
@@ -199,7 +239,13 @@ pub fn measure_anchor_seed_power(
         let plant = plant_from_text(&source, &spec, power.seed.wrapping_add(index as u64))?;
         let prep = plant_prep(&plant, copy)?;
         plants.push(solve_anchor_plant(
-            &plant, &prep, lexicon, phrase_cfg, full_cfg, phrase_top,
+            &plant,
+            &prep,
+            lexicon,
+            phrase_cfg,
+            full_cfg,
+            phrase_top,
+            harvest_mode,
         )?);
     }
     let mean_recovery = mean(plants.iter().map(|plant| plant.recovery));
@@ -209,6 +255,64 @@ pub fn measure_anchor_seed_power(
         mean_recovery,
         mean_coloring_accuracy,
         cleared_bar: mean_recovery >= power.bar,
+    })
+}
+
+/// Runs planted controls through Phase 1 only and reports true-coloring retention.
+///
+/// # Errors
+/// Propagates plant construction and harvest errors.
+pub fn measure_anchor_harvest_retention(
+    text: &str,
+    power: &PowerCfg,
+    lexicon: &Lexicon,
+    phrase_cfg: &SolveCfg,
+    phrase_top: usize,
+    harvest_mode: AnchorHarvestMode,
+) -> Result<AnchorHarvestRetentionReport, PairclassError> {
+    let letters = text_letters(text);
+    let copy = tie_to_copy(power.longest_tie, power.plant_len);
+    let mut plants = Vec::with_capacity(power.n_plants);
+    for index in 0..power.n_plants {
+        let start = plant_slice_start(letters.len(), power.plant_len, index, power.n_plants);
+        let source: String = letters
+            .get(start..)
+            .unwrap_or(&[])
+            .iter()
+            .map(|&letter| char::from(b'a' + letter.min(25)))
+            .collect();
+        let spec = PlantSpec {
+            len: power.plant_len,
+            n_classes: power.n_classes,
+            copy,
+        };
+        let plant = plant_from_text(&source, &spec, power.seed.wrapping_add(index as u64))?;
+        let prep = plant_prep(&plant, copy)?;
+        let harvest = harvest_anchor_colorings_with_truth(
+            &prep,
+            lexicon,
+            phrase_cfg,
+            phrase_top,
+            harvest_mode,
+            Some(&plant.letters),
+        )?;
+        plants.push(AnchorHarvestPlantOutcome {
+            truth_seed_rank: truth_seed_rank(&plant, &harvest),
+            harvested: harvest.distinct_colorings.len(),
+            cap_hit: harvest.cap_hit,
+            budget_hit: harvest.budget_hit,
+            dropped_colorings: harvest.dropped_colorings,
+            parse_budget: harvest.parse_budget,
+        });
+    }
+    let all_retained = plants.iter().all(|plant| plant.truth_seed_rank.is_some());
+    let any_cap_hit = plants.iter().any(|plant| plant.cap_hit);
+    let any_budget_hit = plants.iter().any(|plant| plant.budget_hit);
+    Ok(AnchorHarvestRetentionReport {
+        plants,
+        all_retained,
+        any_cap_hit,
+        any_budget_hit,
     })
 }
 
@@ -222,6 +326,7 @@ pub fn anchor_null_gate(
     phrase_cfg: &SolveCfg,
     full_cfg: &SolveCfg,
     phrase_top: usize,
+    harvest_mode: AnchorHarvestMode,
     null_cfg: &AnchorNullCfg,
 ) -> Result<NullGate, PairclassError> {
     let mut null_bests = Vec::with_capacity(null_cfg.null_trials);
@@ -239,8 +344,15 @@ pub fn anchor_null_gate(
             n_tied: prep.n_tied,
             longest_tie: prep.longest_tie,
         };
-        let report =
-            solve_anchor_seeded(&null_prep, lexicon, phrase_cfg, full_cfg, phrase_top, None)?;
+        let report = solve_anchor_seeded(
+            &null_prep,
+            lexicon,
+            phrase_cfg,
+            full_cfg,
+            phrase_top,
+            harvest_mode,
+            None,
+        )?;
         let best = report.solutions.first().map(|seeded| seeded.solution.score);
         if let (Some(null), Some(real)) = (best, null_cfg.real_best)
             && null >= real
@@ -289,6 +401,7 @@ fn solve_anchor_plant(
     phrase_cfg: &SolveCfg,
     full_cfg: &SolveCfg,
     phrase_top: usize,
+    harvest_mode: AnchorHarvestMode,
 ) -> Result<AnchorPlantOutcome, PairclassError> {
     let report = solve_anchor_seeded(
         prep,
@@ -296,6 +409,7 @@ fn solve_anchor_plant(
         phrase_cfg,
         full_cfg,
         phrase_top,
+        harvest_mode,
         Some(&plant.letters),
     )?;
     let truth_seed_rank = truth_seed_rank(plant, &report.harvest);

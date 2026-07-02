@@ -159,6 +159,11 @@ pub fn estimate_peak_mib(n_positions: usize, beam: usize, lexicon_nodes: usize) 
     (arena + beams + lex).div_ceil(1024 * 1024)
 }
 
+/// Pins `letter` to `class`, or checks an existing pin. `None` = conflict.
+pub(super) fn pin_class(classes: u64, pinned: u32, letter: u8, class: u8) -> Option<(u64, u32)> {
+    beam::pin(classes, pinned, letter, class)
+}
+
 /// Runs the beam solve.
 ///
 /// # Errors

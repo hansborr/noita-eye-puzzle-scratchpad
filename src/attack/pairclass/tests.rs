@@ -10,8 +10,8 @@ use super::selftest::{
 use super::solve::{SolveCfg, SolveInput, TruthFate, estimate_peak_mib, solve};
 use super::ties::{TieSpan, maximal_repeats, tie_targets, token_ties};
 use super::{
-    DEFAULT_SEED, PairDerivation, PairclassError, TWO_MODULUS, derive_pair_tokens, embedded_two,
-    measure_anchor_seed_power, validate_tokens,
+    AnchorHarvestMode, DEFAULT_SEED, PairDerivation, PairclassError, TWO_MODULUS,
+    derive_pair_tokens, embedded_two, measure_anchor_seed_power, validate_tokens,
 };
 use crate::core::glyph::Glyph;
 
@@ -505,6 +505,7 @@ fn anchor_seed_power_reports_harvest_diagnostics() {
         &phrase_cfg,
         &full_cfg,
         16,
+        AnchorHarvestMode::ScoreBeam,
     )
     .expect("anchor power runs");
     assert_eq!(power.plants.len(), 1);

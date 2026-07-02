@@ -39,9 +39,11 @@ mod tests_anchor;
 mod ties;
 
 pub use anchor::{
-    AnchorHarvestReport, AnchorNullCfg, AnchorPlantOutcome, AnchorPowerReport, AnchorSeedReport,
-    AnchorSeededSolution, AnchorWindow, HarvestedColoring, MAX_HARVEST_COLORINGS, SeededOutcome,
-    anchor_null_gate, harvest_anchor_colorings, measure_anchor_seed_power, solve_anchor_seeded,
+    AnchorHarvestMode, AnchorHarvestPlantOutcome, AnchorHarvestReport,
+    AnchorHarvestRetentionReport, AnchorNullCfg, AnchorPlantOutcome, AnchorPowerReport,
+    AnchorSeedReport, AnchorSeededSolution, AnchorWindow, HarvestedColoring, MAX_HARVEST_COLORINGS,
+    SeededOutcome, anchor_null_gate, harvest_anchor_colorings, measure_anchor_harvest_retention,
+    measure_anchor_seed_power, solve_anchor_seeded,
 };
 pub use campaign::{
     NullGate, PlantOutcome, PowerCfg, PowerReport, StreamPrep, measure_power, null_gate,

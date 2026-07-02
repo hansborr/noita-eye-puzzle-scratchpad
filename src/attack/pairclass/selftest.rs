@@ -14,8 +14,8 @@ use super::plant::{CopySpan, Plant, PlantSpec, markov_resample, plant_from_text}
 use super::solve::{SolveCfg, SolveInput, TruthFate, solve};
 use super::ties::{TieSpan, maximal_repeats, tie_targets};
 use super::{
-    PairDerivation, PairclassError, TWO_MODULUS, derive_pair_tokens, embedded_two,
-    harvest_anchor_colorings,
+    AnchorHarvestMode, MAX_HARVEST_COLORINGS, PairDerivation, PairclassError, TWO_MODULUS,
+    derive_pair_tokens, embedded_two, harvest_anchor_colorings,
     lexicon::{Lexicon, build_lexicon, parse_wordlist},
 };
 use crate::core::glyph::Glyph;
@@ -96,6 +96,15 @@ const MIDWORD_REPEAT: CopySpan = CopySpan {
     dst: 10,
     len: 2,
 };
+/// LM-free enumeration regression: window [1,8) starts at "ab" inside "cab".
+const LEADING_MIDWORD_SENTENCE: &str = "cab de cab";
+const LEADING_MIDWORD_WORDLIST: &str = "cab 100\nde 90\n";
+const LEADING_MIDWORD_LEN: usize = 8;
+const LEADING_MIDWORD_REPEAT: CopySpan = CopySpan {
+    src: 1,
+    dst: 6,
+    len: 2,
+};
 
 /// The planted-positive leg.
 #[derive(Clone, Debug)]
@@ -159,6 +168,10 @@ pub struct AnchorLeg {
     pub oracle_recovery: f64,
     /// One-based harvest rank of the true coloring in a mid-word window.
     pub harvested_truth_rank: Option<usize>,
+    /// One-based enumeration rank of the true coloring with a leading partial.
+    pub enumerated_truth_rank: Option<usize>,
+    /// The enumeration did not emit a deliberately inconsistent coloring.
+    pub enumerated_rejects_bad_coloring: bool,
     /// Distinct harvested colorings.
     pub harvested: usize,
     /// Phrase-harvest maximum kept-state occupancy.
@@ -171,7 +184,10 @@ impl AnchorLeg {
     /// Passed: seeded oracle recovers the plant and harvest surfaces truth.
     #[must_use]
     pub fn passed(&self) -> bool {
-        self.oracle_recovery >= 0.9 && self.harvested_truth_rank.is_some()
+        self.oracle_recovery >= 0.9
+            && self.harvested_truth_rank.is_some()
+            && self.enumerated_truth_rank.is_some()
+            && self.enumerated_rejects_bad_coloring
     }
 }
 
@@ -374,9 +390,12 @@ fn run_anchor_leg(
         recovery_fraction(&solution.letters, &plant.letters)
     });
     let midword = midword_harvest(seed)?;
+    let enumerated = leading_midword_enumeration(seed)?;
     Ok(AnchorLeg {
         oracle_recovery,
         harvested_truth_rank: midword.harvested_truth_rank,
+        enumerated_truth_rank: enumerated.harvested_truth_rank,
+        enumerated_rejects_bad_coloring: enumerated.enumerated_rejects_bad_coloring,
         harvested: midword.harvested,
         max_occupancy: midword.max_occupancy,
         saturated: midword.saturated,
@@ -412,7 +431,13 @@ fn midword_harvest(seed: u64) -> Result<AnchorLeg, PairclassError> {
         top: 64,
         ..SolveCfg::default()
     };
-    let harvest = harvest_anchor_colorings(&prep, &lexicon, &phrase_cfg, 64)?;
+    let harvest = harvest_anchor_colorings(
+        &prep,
+        &lexicon,
+        &phrase_cfg,
+        64,
+        AnchorHarvestMode::ScoreBeam,
+    )?;
     let truth = truth_window_coloring(&plant, harvest.window.start, harvest.window.len);
     let harvested_truth_rank = harvest
         .distinct_colorings
@@ -422,6 +447,73 @@ fn midword_harvest(seed: u64) -> Result<AnchorLeg, PairclassError> {
     Ok(AnchorLeg {
         oracle_recovery: 1.0,
         harvested_truth_rank,
+        enumerated_truth_rank: None,
+        enumerated_rejects_bad_coloring: false,
+        harvested: harvest.distinct_colorings.len(),
+        max_occupancy: harvest.max_occupancy,
+        saturated: harvest.saturated,
+    })
+}
+
+fn leading_midword_enumeration(seed: u64) -> Result<AnchorLeg, PairclassError> {
+    let lexicon = build_lexicon(&parse_wordlist(LEADING_MIDWORD_WORDLIST, usize::MAX))?;
+    let plant = plant_from_text(
+        LEADING_MIDWORD_SENTENCE,
+        &PlantSpec {
+            len: LEADING_MIDWORD_LEN,
+            n_classes: 4,
+            copy: None,
+        },
+        seed,
+    )?;
+    let ties = tie_targets(
+        &super::plant::copy_ties(LEADING_MIDWORD_REPEAT, LEADING_MIDWORD_LEN)?,
+        LEADING_MIDWORD_LEN,
+    );
+    let prep = StreamPrep {
+        tokens: plant.tokens.clone(),
+        n_classes: 4,
+        tie_table: ties,
+        n_tied: LEADING_MIDWORD_REPEAT.len,
+        longest_tie: Some((
+            LEADING_MIDWORD_REPEAT.src,
+            LEADING_MIDWORD_REPEAT.dst,
+            LEADING_MIDWORD_REPEAT.len,
+        )),
+    };
+    let phrase_cfg = SolveCfg {
+        beam: 4096,
+        max_gaps: 1,
+        max_gap_len: 3,
+        top: 256,
+        ..SolveCfg::default()
+    };
+    let harvest = harvest_anchor_colorings(
+        &prep,
+        &lexicon,
+        &phrase_cfg,
+        MAX_HARVEST_COLORINGS,
+        AnchorHarvestMode::Enumerate,
+    )?;
+    let truth = truth_window_coloring(&plant, harvest.window.start, harvest.window.len);
+    let harvested_truth_rank = harvest
+        .distinct_colorings
+        .iter()
+        .position(|seed| seed.coloring == truth)
+        .map(|index| index + 1);
+    let mut bad = truth;
+    if let Some(slot) = bad.get_mut(0) {
+        *slot = Some(4);
+    }
+    let enumerated_rejects_bad_coloring = !harvest
+        .distinct_colorings
+        .iter()
+        .any(|seed| seed.coloring == bad);
+    Ok(AnchorLeg {
+        oracle_recovery: 1.0,
+        harvested_truth_rank,
+        enumerated_truth_rank: harvested_truth_rank,
+        enumerated_rejects_bad_coloring,
         harvested: harvest.distinct_colorings.len(),
         max_occupancy: harvest.max_occupancy,
         saturated: harvest.saturated,
