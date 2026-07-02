@@ -167,6 +167,7 @@ fn toy_solve_recovers_a_two_word_plant() {
             tie_to: None,
             lexicon: &lexicon,
             truth: Some(&truth),
+            seed_coloring: None,
         },
         &SolveCfg::default(),
     )
@@ -200,6 +201,7 @@ fn higher_frequency_words_outscore_pattern_collisions() {
             tie_to: None,
             lexicon: &lexicon,
             truth: Some(&truth),
+            seed_coloring: None,
         },
         &SolveCfg::default(),
     )
@@ -239,6 +241,7 @@ fn gap_segments_bridge_out_of_vocabulary_spans() {
             tie_to: None,
             lexicon: &lexicon,
             truth: Some(&truth),
+            seed_coloring: None,
         },
         &SolveCfg::default(),
     )
@@ -263,6 +266,7 @@ fn gap_segments_bridge_out_of_vocabulary_spans() {
             tie_to: None,
             lexicon: &lexicon,
             truth: None,
+            seed_coloring: None,
         },
         &SolveCfg {
             max_gaps: 0,
@@ -298,6 +302,7 @@ fn ties_force_letter_equality_across_positions() {
             tie_to: Some(&ties),
             lexicon: &lexicon,
             truth: None,
+            seed_coloring: None,
         },
         &SolveCfg::default(),
     )
@@ -324,6 +329,7 @@ fn memory_cap_refuses_oversized_configurations() {
             tie_to: None,
             lexicon: &lexicon,
             truth: None,
+            seed_coloring: None,
         },
         &SolveCfg {
             beam: 20_000,
@@ -486,6 +492,7 @@ fn null_gate_reports_resample_scores() {
             tie_to: None,
             lexicon: &lexicon,
             truth: None,
+            seed_coloring: None,
         },
         &cfg,
     )

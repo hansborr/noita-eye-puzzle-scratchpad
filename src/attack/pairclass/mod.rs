@@ -113,6 +113,20 @@ pub enum PairclassError {
         /// Token positions to cover.
         tokens: usize,
     },
+    /// A seed coloring did not have one slot per plaintext letter.
+    SeedColoringLength {
+        /// Slots supplied.
+        len: usize,
+    },
+    /// A seed coloring assigned a class outside the stream's class range.
+    SeedColoringClass {
+        /// Letter index (`0..26`).
+        letter: usize,
+        /// Rejected class.
+        class: u8,
+        /// Number of classes in the stream.
+        n_classes: u8,
+    },
     /// A deterministic null-model helper rejected its bound.
     NullModel(String),
     /// The embedded `two` fixture failed to parse (should be unreachable).
@@ -158,6 +172,17 @@ impl std::fmt::Display for PairclassError {
                     "truth has {truth} letters but the stream has {tokens} tokens"
                 )
             }
+            Self::SeedColoringLength { len } => {
+                write!(f, "seed coloring has {len} slots; expected 26")
+            }
+            Self::SeedColoringClass {
+                letter,
+                class,
+                n_classes,
+            } => write!(
+                f,
+                "seed coloring maps letter {letter} to class {class}, outside 0..{n_classes}"
+            ),
             Self::NullModel(detail) => write!(f, "null-model failure: {detail}"),
             Self::Fixture(detail) => write!(f, "embedded fixture failure: {detail}"),
         }

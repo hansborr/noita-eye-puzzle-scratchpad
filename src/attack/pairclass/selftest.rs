@@ -251,6 +251,7 @@ fn run_plant_leg(
             tie_to: Some(ties),
             lexicon,
             truth: Some(&plant.letters),
+            seed_coloring: None,
         },
         &plant_cfg(PLANT_BEAM),
     )?;
@@ -278,6 +279,7 @@ fn run_null_leg(
             tie_to: None,
             lexicon,
             truth: None,
+            seed_coloring: None,
         },
         &plant_cfg(PLANT_BEAM),
     )?;
@@ -299,6 +301,7 @@ fn run_prune_leg(
             tie_to: Some(ties),
             lexicon,
             truth: Some(&plant.letters),
+            seed_coloring: None,
         },
         &plant_cfg(1),
     )?;

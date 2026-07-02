@@ -241,6 +241,7 @@ fn solve_plant(
             tie_to: ties,
             lexicon,
             truth: Some(&plant.letters),
+            seed_coloring: None,
         },
         cfg,
     )?;
@@ -299,6 +300,7 @@ pub fn null_gate(
                 tie_to: None,
                 lexicon,
                 truth: None,
+                seed_coloring: None,
             },
             cfg,
         )?;

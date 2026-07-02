@@ -159,6 +159,7 @@ fn run_real_stream(
             tie_to,
             lexicon,
             truth: None,
+            seed_coloring: None,
         },
         cfg,
     )

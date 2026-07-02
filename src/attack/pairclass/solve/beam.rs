@@ -44,8 +44,8 @@ pub(super) struct State {
 
 impl State {
     /// The pre-stream root state.
-    pub(super) fn root(truth: bool) -> Self {
-        Self {
+    pub(super) fn root(truth: bool, seed_coloring: Option<&[Option<u8>]>) -> Self {
+        let mut state = Self {
             classes: 0,
             pinned: 0,
             node: ROOT,
@@ -54,7 +54,20 @@ impl State {
             truth,
             score: 0.0,
             arena: NO_PARENT,
+        };
+        if let Some(seed) = seed_coloring {
+            for (letter, class) in seed
+                .iter()
+                .enumerate()
+                .filter_map(|(letter, slot)| slot.map(|class| (letter, class)))
+            {
+                let bit = 1u32 << letter;
+                let shift = 2 * letter;
+                state.classes |= u64::from(class) << shift;
+                state.pinned |= bit;
+            }
         }
+        state
     }
 }
 

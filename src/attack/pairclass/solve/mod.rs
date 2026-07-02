@@ -64,6 +64,8 @@ pub struct SolveInput<'a> {
     pub lexicon: &'a Lexicon,
     /// Optional truth letters (`0..26`) for true-path instrumentation.
     pub truth: Option<&'a [u8]>,
+    /// Optional 26-slot seed coloring: class per letter, `None` = unpinned.
+    pub seed_coloring: Option<&'a [Option<u8>]>,
 }
 
 /// The fate of the true path through the search, when truth was supplied.
@@ -127,8 +129,18 @@ pub struct SolveReport {
     pub expanded: u64,
     /// Feasible complete states at the final position.
     pub feasible_final: usize,
+    /// Maximum kept-state occupancy at any position.
+    pub max_occupancy: usize,
     /// The up-front peak-memory estimate that was checked against the cap.
     pub estimated_mib: usize,
+}
+
+/// Driver counters passed into final report assembly.
+#[derive(Clone, Copy)]
+struct DriverStats {
+    expanded: u64,
+    max_occupancy: usize,
+    estimated_mib: usize,
 }
 
 /// Estimates the solver's peak memory in MiB for the given problem size.
@@ -158,9 +170,10 @@ pub fn solve(input: &SolveInput<'_>, cfg: &SolveCfg) -> Result<SolveReport, Pair
         });
     }
     let mut arena = Arena::with_capacity(n.saturating_mul(cfg.beam.min(4096)));
-    let mut states = vec![State::root(input.truth.is_some())];
+    let mut states = vec![State::root(input.truth.is_some(), input.seed_coloring)];
     let mut track = TruthTrack::new(input.truth.is_some());
     let mut expanded = 0u64;
+    let mut max_occupancy = states.len();
     for (position, &token) in input.tokens.iter().enumerate() {
         let step = beam::expand_position(&states, input, cfg, &arena, position, token);
         expanded += step.offered;
@@ -176,6 +189,7 @@ pub fn solve(input: &SolveInput<'_>, cfg: &SolveCfg) -> Result<SolveReport, Pair
                 }
             })
             .collect();
+        max_occupancy = max_occupancy.max(states.len());
         if states.is_empty() {
             break;
         }
@@ -186,8 +200,11 @@ pub fn solve(input: &SolveInput<'_>, cfg: &SolveCfg) -> Result<SolveReport, Pair
         &arena,
         states,
         track,
-        expanded,
-        estimated_mib,
+        DriverStats {
+            expanded,
+            max_occupancy,
+            estimated_mib,
+        },
     ))
 }
 
@@ -198,8 +215,7 @@ fn finish(
     arena: &Arena,
     states: Vec<State>,
     track: TruthTrack,
-    expanded: u64,
-    estimated_mib: usize,
+    metrics: DriverStats,
 ) -> SolveReport {
     let mut finals: Vec<State> = states
         .into_iter()
@@ -241,9 +257,10 @@ fn finish(
     SolveReport {
         solutions,
         truth,
-        expanded,
+        expanded: metrics.expanded,
         feasible_final,
-        estimated_mib,
+        max_occupancy: metrics.max_occupancy,
+        estimated_mib: metrics.estimated_mib,
     }
 }
 
@@ -348,6 +365,24 @@ fn validate(input: &SolveInput<'_>, cfg: &SolveCfg) -> Result<(), PairclassError
         }
         if truth.iter().any(|&letter| letter >= N_LETTERS) {
             return Err(PairclassError::SpanOutOfRange);
+        }
+    }
+    if let Some(seed) = input.seed_coloring {
+        if seed.len() != usize::from(N_LETTERS) {
+            return Err(PairclassError::SeedColoringLength { len: seed.len() });
+        }
+        for (letter, class) in seed
+            .iter()
+            .enumerate()
+            .filter_map(|(letter, slot)| slot.map(|class| (letter, class)))
+        {
+            if class >= input.n_classes {
+                return Err(PairclassError::SeedColoringClass {
+                    letter,
+                    class,
+                    n_classes: input.n_classes,
+                });
+            }
         }
     }
     Ok(())
