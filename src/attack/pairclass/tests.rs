@@ -11,7 +11,7 @@ use super::solve::{SolveCfg, SolveInput, TruthFate, estimate_peak_mib, solve};
 use super::ties::{TieSpan, maximal_repeats, tie_targets, token_ties};
 use super::{
     DEFAULT_SEED, PairDerivation, PairclassError, TWO_MODULUS, derive_pair_tokens, embedded_two,
-    validate_tokens,
+    measure_anchor_seed_power, validate_tokens,
 };
 use crate::core::glyph::Glyph;
 
@@ -477,6 +477,34 @@ fn measure_power_tolerates_non_letter_plant_text() {
     .expect("power measurement runs");
     assert_eq!(power.plants.len(), 2);
     assert!((0.0..=1.0).contains(&power.mean_recovery));
+}
+
+#[test]
+fn anchor_seed_power_reports_harvest_diagnostics() {
+    let lexicon = toy_lexicon("the 100\ncat 90\nsat 80\non 70\nmat 60\nand 50\nrug 40\n");
+    let text = "the cat sat on the mat and the cat sat on the rug";
+    let phrase_cfg = solve_cfg(128, 6, 8, 3.6, 16, 2048);
+    let full_cfg = solve_cfg(128, 2, 8, 3.6, 3, 2048);
+    let power = measure_anchor_seed_power(
+        text,
+        &PowerCfg {
+            n_plants: 1,
+            plant_len: 20,
+            n_classes: 4,
+            longest_tie: Some((0, 6, 6)),
+            bar: 0.4,
+            seed: 7,
+        },
+        &lexicon,
+        &phrase_cfg,
+        &full_cfg,
+        16,
+    )
+    .expect("anchor power runs");
+    assert_eq!(power.plants.len(), 1);
+    let plant = power.plants.first().expect("one plant outcome");
+    assert!(plant.harvested > 0);
+    assert!(plant.max_occupancy > 0);
 }
 
 #[test]

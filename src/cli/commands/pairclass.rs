@@ -488,6 +488,22 @@ fn run_self_test(seed: u64) -> ExitCode {
         "  forced-prune instrumentation: {}",
         pass_fail(report.prune.passed())
     );
+    println!(
+        "  anchor-seed mechanism (oracle {:.3}, truth-seed {}, harvest {}, occupancy {} {}): {}",
+        report.anchor.oracle_recovery,
+        report
+            .anchor
+            .harvested_truth_rank
+            .map_or_else(|| "not-harvested".to_owned(), |rank| format!("#{rank}")),
+        report.anchor.harvested,
+        report.anchor.max_occupancy,
+        if report.anchor.saturated {
+            "SATURATED"
+        } else {
+            "open"
+        },
+        pass_fail(report.anchor.passed())
+    );
     println!("  walk gate control: {}", pass_fail(report.walk_gate));
     println!(
         "  embedded two regression (348 tokens, marginals {:?}): {}",

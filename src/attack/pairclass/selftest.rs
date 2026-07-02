@@ -9,11 +9,13 @@
 //! measured with full-size plants (`--plant-text-file`), per the campaign
 //! discipline.
 
-use super::plant::{CopySpan, PlantSpec, markov_resample, plant_from_text};
+use super::campaign::StreamPrep;
+use super::plant::{CopySpan, Plant, PlantSpec, markov_resample, plant_from_text};
 use super::solve::{SolveCfg, SolveInput, TruthFate, solve};
 use super::ties::{TieSpan, maximal_repeats, tie_targets};
 use super::{
     PairDerivation, PairclassError, TWO_MODULUS, derive_pair_tokens, embedded_two,
+    harvest_anchor_colorings,
     lexicon::{Lexicon, build_lexicon, parse_wordlist},
 };
 use crate::core::glyph::Glyph;
@@ -140,6 +142,29 @@ impl PruneLeg {
     }
 }
 
+/// The anchor-seeded mechanism leg.
+#[derive(Clone, Debug)]
+pub struct AnchorLeg {
+    /// Recovery when the plant's true coloring is pre-seeded.
+    pub oracle_recovery: f64,
+    /// One-based harvest rank of the plant's true window coloring.
+    pub harvested_truth_rank: Option<usize>,
+    /// Distinct harvested colorings.
+    pub harvested: usize,
+    /// Phrase-harvest maximum kept-state occupancy.
+    pub max_occupancy: usize,
+    /// Whether the phrase beam saturated during harvest.
+    pub saturated: bool,
+}
+
+impl AnchorLeg {
+    /// Passed: seeded oracle recovers the plant and harvest surfaces truth.
+    #[must_use]
+    pub fn passed(&self) -> bool {
+        self.oracle_recovery >= 0.9 && self.harvested_truth_rank.is_some()
+    }
+}
+
 /// The embedded-`two` structural regression leg.
 #[derive(Clone, Debug)]
 pub struct TwoRegression {
@@ -170,6 +195,8 @@ pub struct PairclassSelfTest {
     pub null: NullLeg,
     /// Forced-prune instrumentation check.
     pub prune: PruneLeg,
+    /// Anchor-seeded mechanism check.
+    pub anchor: AnchorLeg,
     /// The `±1` walk gate rejected a non-walk stream.
     pub walk_gate: bool,
     /// Embedded-`two` derivation regression.
@@ -183,6 +210,7 @@ impl PairclassSelfTest {
         self.plant.passed()
             && self.null.passed()
             && self.prune.passed()
+            && self.anchor.passed()
             && self.walk_gate
             && self.two.passed()
     }
@@ -208,10 +236,12 @@ pub fn pairclass_self_test(seed: u64) -> Result<PairclassSelfTest, PairclassErro
     let plant_leg = run_plant_leg(&plant, &ties, &lexicon)?;
     let null_leg = run_null_leg(&plant, plant_leg.best_score, &lexicon, seed)?;
     let prune_leg = run_prune_leg(&plant, &ties, &lexicon)?;
+    let anchor_leg = run_anchor_leg(&plant, &ties, &lexicon)?;
     Ok(PairclassSelfTest {
         plant: plant_leg,
         null: null_leg,
         prune: prune_leg,
+        anchor: anchor_leg,
         walk_gate: walk_gate_leg()?,
         two: two_regression_leg()?,
     })
@@ -306,6 +336,71 @@ fn run_prune_leg(
         &plant_cfg(1),
     )?;
     Ok(PruneLeg { fate: report.truth })
+}
+
+fn run_anchor_leg(
+    plant: &super::plant::Plant,
+    ties: &[Option<usize>],
+    lexicon: &Lexicon,
+) -> Result<AnchorLeg, PairclassError> {
+    let truth_seed = truth_seed_coloring(plant);
+    let oracle = solve(
+        &SolveInput {
+            tokens: &plant.tokens,
+            n_classes: 4,
+            tie_to: Some(ties),
+            lexicon,
+            truth: Some(&plant.letters),
+            seed_coloring: Some(&truth_seed),
+        },
+        &plant_cfg(PLANT_BEAM),
+    )?;
+    let oracle_recovery = oracle.solutions.first().map_or(0.0, |solution| {
+        recovery_fraction(&solution.letters, &plant.letters)
+    });
+    let prep = StreamPrep {
+        tokens: plant.tokens.clone(),
+        n_classes: 4,
+        tie_table: ties.to_vec(),
+        n_tied: ties.iter().filter(|slot| slot.is_some()).count(),
+        longest_tie: Some((PLANT_REPEAT.src, PLANT_REPEAT.dst, PLANT_REPEAT.len)),
+    };
+    let phrase_cfg = SolveCfg {
+        beam: 4096,
+        max_gaps: 6,
+        max_gap_len: 8,
+        top: 128,
+        ..SolveCfg::default()
+    };
+    let harvest = harvest_anchor_colorings(&prep, lexicon, &phrase_cfg, 128)?;
+    let truth = truth_window_coloring(plant, harvest.window.start, harvest.window.len);
+    let harvested_truth_rank = harvest
+        .distinct_colorings
+        .iter()
+        .position(|seed| seed.coloring == truth)
+        .map(|index| index + 1);
+    Ok(AnchorLeg {
+        oracle_recovery,
+        harvested_truth_rank,
+        harvested: harvest.distinct_colorings.len(),
+        max_occupancy: harvest.max_occupancy,
+        saturated: harvest.saturated,
+    })
+}
+
+fn truth_seed_coloring(plant: &Plant) -> [Option<u8>; 26] {
+    std::array::from_fn(|index| plant.coloring.get(index).copied())
+}
+
+fn truth_window_coloring(plant: &Plant, start: usize, len: usize) -> [Option<u8>; 26] {
+    let mut coloring = [None; 26];
+    let end = start.saturating_add(len);
+    for &letter in plant.letters.get(start..end).unwrap_or(&[]) {
+        if let Some(slot) = coloring.get_mut(usize::from(letter)) {
+            *slot = plant.coloring.get(usize::from(letter)).copied();
+        }
+    }
+    coloring
 }
 
 /// A repeated residue is the C3 walk violation (`diff 0`).
