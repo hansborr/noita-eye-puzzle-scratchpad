@@ -26,6 +26,7 @@
 //! ([`measure_power`]). The campaign record for the model lives in
 //! `research/data/practice-puzzles/CODEC-RESULTS.md` §"rotor-carrier campaign".
 
+mod anchor;
 mod campaign;
 mod lexicon;
 mod plant;
@@ -35,6 +36,10 @@ mod solve;
 mod tests;
 mod ties;
 
+pub use anchor::{
+    AnchorHarvestReport, AnchorWindow, HarvestedColoring, MAX_HARVEST_COLORINGS,
+    harvest_anchor_colorings,
+};
 pub use campaign::{
     NullGate, PlantOutcome, PowerCfg, PowerReport, StreamPrep, measure_power, null_gate,
     prepare_stream, solve_cfg,
@@ -127,6 +132,17 @@ pub enum PairclassError {
         /// Number of classes in the stream.
         n_classes: u8,
     },
+    /// Anchor-seeded mode was requested without a usable repeated span.
+    AnchorUnavailable,
+    /// The requested harvest size must be at least one.
+    PhraseTopZero,
+    /// The requested harvest size exceeds the fixed safety cap.
+    PhraseTopTooLarge {
+        /// Requested distinct colorings.
+        requested: usize,
+        /// Maximum accepted distinct colorings.
+        cap: usize,
+    },
     /// A deterministic null-model helper rejected its bound.
     NullModel(String),
     /// The embedded `two` fixture failed to parse (should be unreachable).
@@ -183,6 +199,15 @@ impl std::fmt::Display for PairclassError {
                 f,
                 "seed coloring maps letter {letter} to class {class}, outside 0..{n_classes}"
             ),
+            Self::AnchorUnavailable => write!(
+                f,
+                "anchor-seeded mode needs a longest repeated tie span; enable anchors or lower \
+                 --min-anchor-len"
+            ),
+            Self::PhraseTopZero => write!(f, "--phrase-top must be >= 1"),
+            Self::PhraseTopTooLarge { requested, cap } => {
+                write!(f, "--phrase-top {requested} exceeds the safety cap {cap}")
+            }
             Self::NullModel(detail) => write!(f, "null-model failure: {detail}"),
             Self::Fixture(detail) => write!(f, "embedded fixture failure: {detail}"),
         }
