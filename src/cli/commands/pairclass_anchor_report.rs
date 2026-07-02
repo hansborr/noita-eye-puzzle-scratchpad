@@ -54,16 +54,20 @@ pub(super) fn anchor_ladder(power: &AnchorPowerReport) -> String {
         return "ladder: truth was harvested; investigate Phase-2/objective behavior.".to_owned();
     }
     let missed_plants: Vec<&AnchorPlantOutcome> = missed.collect();
-    if missed_plants
+    let has_infeasible = missed_plants
         .iter()
-        .any(|plant| matches!(plant.truth_window_fate, Some(TruthFate::Infeasible { .. })))
-    {
+        .any(|plant| matches!(plant.truth_window_fate, Some(TruthFate::Infeasible { .. })));
+    let has_beam_pruned = missed_plants
+        .iter()
+        .any(|plant| matches!(plant.truth_window_fate, Some(TruthFate::BeamPruned { .. })));
+    if has_infeasible && has_beam_pruned {
+        return "ladder: mixed truth-window failures; coverage/gap/lexicon limits and score-pruning/LM label-bias."
+            .to_owned();
+    }
+    if has_infeasible {
         return "ladder: truth window was infeasible; coverage/gap/lexicon limit.".to_owned();
     }
-    if missed_plants
-        .iter()
-        .any(|plant| matches!(plant.truth_window_fate, Some(TruthFate::BeamPruned { .. })))
-    {
+    if has_beam_pruned {
         return "ladder: truth window was beam-pruned; score-pruning/LM label-bias.".to_owned();
     }
     if missed_plants.iter().any(|plant| {
