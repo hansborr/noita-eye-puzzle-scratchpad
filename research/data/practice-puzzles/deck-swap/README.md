@@ -19,6 +19,7 @@ directory is `codespell`-skipped along with the rest of `practice-puzzles`.
 | `1_swap_ct.txt` | Ciphertexts for the 8 messages at `num_swaps = 1`. |
 | `2_swap_ct.txt` | Ciphertexts at `num_swaps = 2`. |
 | `3_swap_ct.txt` | Ciphertexts at `num_swaps = 3`. |
+| `SWAP-RECOVERY-RESULTS.md` | Task-02 recovery results, controls/nulls, solver stats, and the measured `ns=3` frontier. |
 
 Each ct file is 8 independent messages (labels `1,2,3,4,5,6,8,9`) under **one
 shared 26-letter key**, each encrypted from the identity deck. The three files use
