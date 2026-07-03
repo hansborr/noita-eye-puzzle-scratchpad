@@ -75,6 +75,12 @@ is not prose-only — it refactors code (e.g. the commit on it now extracts
   `#[cfg(test)]` into a `gak` subcommand with a self-test). High value for every future agent: the
   toolbox becomes runnable on arbitrary ciphertext, not frozen to fixtures. Intended for a fresh-context
   agent; independently committable in pieces.
+- `gak-swap-recovery/` — **general GAK deck-cipher known-plaintext swap-recovery instrument**
+  (community-requested 2026-07-03 by Lymm: "a more general GAK attack that can work on larger groups").
+  A 3-task dependency ladder (oracle+differential-test → propagation recovery engine+CLI+controls →
+  generality/shareability/reach) with a vendored challenge corpus at
+  `research/data/practice-puzzles/deck-swap/`. Design is settled (four-way consult + working prototype:
+  ns=1 closed-form-solved, ns≥2 needs the propagation engine). See the folder's `README.md`.
 
 **Tier 1 — harden & publish the eyes frontier (do these first; highest value/effort).**
 - `T00` — refresh `NEXT-STEPS.md` (doc hygiene; unblocks anyone reading the stale ladder).

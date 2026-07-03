@@ -1,0 +1,45 @@
+# `deck-swap` — GAK deck-cipher known-plaintext swap-recovery corpus
+
+External samples from the Noita eye-messages community (author: **Lymm**),
+supplied 2026-07-03 as a request for a *general* GAK deck-cipher attack. Unlike
+the other practice puzzles (which are ciphertext-only), this is a genuine
+**known-plaintext** corpus: the plaintexts are public (below), and the task is to
+recover the secret per-letter permutation key (the "swaps").
+
+Provenance / honesty note: these files are external cipher artifacts —
+transcription-integrity rule applies (`AGENTS.md`); do not alter them. This
+directory is `codespell`-skipped along with the rest of `practice-puzzles`.
+
+## Files
+
+| File | What it is |
+| --- | --- |
+| `noita_test_cipher.py` | Lymm's reference generator (the exact cipher + `generate_random_pt_mapping`). Authoritative spec. |
+| `plaintexts.txt` | The 8 labeled known plaintexts (`"<label>: <PT>"`), extracted verbatim from the generator's `encrypt()` calls. |
+| `1_swap_ct.txt` | Ciphertexts for the 8 messages at `num_swaps = 1`. |
+| `2_swap_ct.txt` | Ciphertexts at `num_swaps = 2`. |
+| `3_swap_ct.txt` | Ciphertexts at `num_swaps = 3`. |
+
+Each ct file is 8 independent messages (labels `1,2,3,4,5,6,8,9`) under **one
+shared 26-letter key**, each encrypted from the identity deck. The three files use
+*different* random keys (one per `num_swaps` level). The keys are **not** recorded
+— recovering them from the known plaintext is the whole exercise.
+
+## The cipher (see `noita_test_cipher.py` for the exact code)
+
+Deck `n = 83`; `ct_alphabet = chr(33+i)` for `i in 0..82`; `pt_alphabet = A..Z`
+(non-letters pass through and do not advance the deck). `base = rotations[26] ∘
+decimations[3]`. Per plaintext letter `L`: `state = compose(perm(L), state)` with
+`compose(p1,p2)=p2[p1]`, then emit `ct_alphabet[state[0]]`. Each `perm(L) = base ∘
+(num_swaps top-transpositions (0,k))`, subject to no-doubles (`perm(L)[0] != 0`,
+distinct across letters).
+
+## Status / how it's used
+
+Attack tooling proposal + delegatable tasks live in
+`research/handoff/gak-swap-recovery/`. Measured so far (Python prototype):
+`num_swaps=1` is closed-form and recovers exactly (all 8 messages re-encrypt
+byte-for-byte); `num_swaps≥2` needs the propagation-first recovery engine
+specified in that handoff (naive search explodes). No result here relaxes the
+project honesty ceiling — a recovered key is a *candidate* until it re-encrypts the
+ciphertext exactly.
