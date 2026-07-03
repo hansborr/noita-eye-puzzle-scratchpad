@@ -9,8 +9,8 @@ mod residual;
 mod selftest;
 
 pub use selftest::{
-    GakSwapSelfTestConfig, GakSwapSelfTestReport, NullControlReport, PositiveControlReport,
-    gak_swap_self_test,
+    GakSwapSelfTestConfig, GakSwapSelfTestReport, NullControlOutcome, NullControlReport,
+    PositiveControlReport, gak_swap_self_test,
 };
 
 use super::{

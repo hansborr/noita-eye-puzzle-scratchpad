@@ -4,9 +4,9 @@ use std::collections::BTreeMap;
 
 use super::{
     GakSwapSelfTestConfig, KnownPlaintextPair, LetterRecoveryVerdict, LymmDeckSpec,
-    SwapRecoveryConfig, TopSwapConstraints, encrypt_lymm_deck, enumerate_top_swap_domains,
-    gak_swap_self_test, generate_random_pt_mapping, parse_known_plaintext_pairs,
-    recover_known_plaintext_swaps,
+    NullControlOutcome, SwapRecoveryConfig, TopSwapConstraints, encrypt_lymm_deck,
+    enumerate_top_swap_domains, gak_swap_self_test, generate_random_pt_mapping,
+    parse_known_plaintext_pairs, recover_known_plaintext_swaps,
 };
 
 #[test]
@@ -180,7 +180,7 @@ fn swap_recovery_self_test_passes_supported_frontier_controls() {
     let report =
         gak_swap_self_test(GakSwapSelfTestConfig::default()).expect("self-test should run");
 
-    assert!(report.passed());
+    assert!(report.passed(), "{report:#?}");
     assert!(report.positive_ns1.exact);
     assert_eq!(
         report.positive_ns1.matched_observed_letters,
@@ -198,9 +198,21 @@ fn swap_recovery_self_test_passes_supported_frontier_controls() {
         report.positive_ns2.observed_letters
     );
     assert!(report.full_permutation_null.failed);
+    assert_eq!(
+        report.full_permutation_null.outcome,
+        NullControlOutcome::CleanFailure
+    );
     assert!(report.over_budget_null.failed);
+    assert_eq!(
+        report.over_budget_null.outcome,
+        NullControlOutcome::CleanFailure
+    );
     assert!(report.over_budget_recovery_exact);
     assert!(report.label_shuffle_null.failed);
+    assert_eq!(
+        report.label_shuffle_null.outcome,
+        NullControlOutcome::CleanFailure
+    );
 }
 
 fn assert_equal_message_5_and_8(pairs: &[KnownPlaintextPair]) {

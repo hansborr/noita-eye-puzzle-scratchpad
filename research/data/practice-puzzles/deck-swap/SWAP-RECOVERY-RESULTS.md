@@ -36,9 +36,12 @@ Validation controls:
   permutation, `1` observed letter remained ambiguous under exact re-encryption
   with the planted permutation present in that letter's reported candidate set,
   `0` ambiguous letters missing the plant, and `0` mismatched unique.
-- Matched nulls all genuinely failed: random full-permutation mapping at the
-  `ns=2` bound, over-budget `ns=2` encrypted text attacked at `ns=1` (while
-  recovering at `ns=2`), and ciphertext-label shuffle at the `ns=2` bound.
+- Matched nulls all concluded with `CleanFailure` under the default
+  `max_nodes=50000` cap: random full-permutation mapping at the `ns=2` bound,
+  over-budget `ns=2` encrypted text attacked at `ns=1` (while recovering at
+  `ns=2`), and ciphertext-symbol label shuffle at the `ns=2` bound. The
+  self-test does not count `SearchCapExceeded` or `SearchTimeExceeded` as a
+  genuine null failure.
 
 The `gak-swap-recover` CLI exposes the same library path used by the tests. A
 request for `--num-swaps 3` currently fails with an explicit measured-frontier

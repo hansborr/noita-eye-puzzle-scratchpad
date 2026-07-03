@@ -61,7 +61,56 @@ pub struct NullControlReport {
     /// Human-readable null label.
     pub label: &'static str,
     /// Whether the null genuinely failed to recover an exact candidate.
+    ///
+    /// This is true only for a clean model failure, not for solver resource
+    /// exhaustion or a control plumbing error.
     pub failed: bool,
+    /// The precise null outcome used to decide whether the failure was genuine.
+    pub outcome: NullControlOutcome,
+    /// Solver nodes reported by the path that reached this outcome, when known.
+    pub nodes: Option<usize>,
+}
+
+/// Matched-null outcome.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NullControlOutcome {
+    /// The recovery model concluded no exact candidate survived.
+    CleanFailure,
+    /// The null unexpectedly recovered an exact candidate.
+    RecoveredExact,
+    /// The solver exhausted its candidate-model cap before reaching a verdict.
+    SearchCapExceeded,
+    /// The solver exhausted its wall-clock budget before reaching a verdict.
+    SearchTimeExceeded,
+    /// The control input or solver plumbing failed for a reason other than a
+    /// clean model contradiction.
+    ControlError,
+}
+
+impl NullControlOutcome {
+    /// Returns true only for a genuine null failure.
+    #[must_use]
+    pub const fn is_clean_failure(self) -> bool {
+        match self {
+            Self::CleanFailure => true,
+            Self::RecoveredExact
+            | Self::SearchCapExceeded
+            | Self::SearchTimeExceeded
+            | Self::ControlError => false,
+        }
+    }
+
+    /// Stable machine-readable label.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::CleanFailure => "clean-failure",
+            Self::RecoveredExact => "recovered-exact",
+            Self::SearchCapExceeded => "search-cap-exceeded",
+            Self::SearchTimeExceeded => "search-time-exceeded",
+            Self::ControlError => "control-error",
+        }
+    }
 }
 
 /// Aggregate self-test report.
@@ -120,7 +169,7 @@ pub fn gak_swap_self_test(
     let full_permutation_null = null_control("full-permutation", &spec, &full_pairs, 2, config);
 
     let over_budget_null = null_control("over-budget", &spec, &ns2_pairs, 1, config);
-    let shuffled_pairs = label_shuffle_pairs(&ns2_pairs, config.seed ^ 0x44)?;
+    let shuffled_pairs = label_shuffle_pairs(&spec, &ns2_pairs, config.seed ^ 0x44)?;
     let label_shuffle_null = null_control("label-shuffle", &spec, &shuffled_pairs, 2, config);
 
     Ok(GakSwapSelfTestReport {
@@ -228,11 +277,36 @@ fn null_control(
     max_swaps: usize,
     config: GakSwapSelfTestConfig,
 ) -> NullControlReport {
-    let recovered = recover_known_plaintext_swaps(spec, pairs, recovery_config(max_swaps, config))
-        .is_ok_and(|report| report.round_trip.exact());
+    let (outcome, nodes) =
+        match recover_known_plaintext_swaps(spec, pairs, recovery_config(max_swaps, config)) {
+            Ok(report) if report.round_trip.exact() => {
+                (NullControlOutcome::RecoveredExact, Some(report.stats.nodes))
+            }
+            Ok(report) => (NullControlOutcome::CleanFailure, Some(report.stats.nodes)),
+            Err(
+                SwapRecoveryError::InconsistentTarget { .. }
+                | SwapRecoveryError::NoCandidateForTarget { .. }
+                | SwapRecoveryError::NoResidualCandidate,
+            ) => (NullControlOutcome::CleanFailure, None),
+            Err(SwapRecoveryError::SearchCapExceeded { nodes }) => {
+                (NullControlOutcome::SearchCapExceeded, Some(nodes))
+            }
+            Err(SwapRecoveryError::SearchTimeExceeded { nodes }) => {
+                (NullControlOutcome::SearchTimeExceeded, Some(nodes))
+            }
+            Err(
+                SwapRecoveryError::LymmDeck(_)
+                | SwapRecoveryError::UnknownCiphertextSymbol { .. }
+                | SwapRecoveryError::PairLengthMismatch { .. }
+                | SwapRecoveryError::UnsupportedBudget { .. }
+                | SwapRecoveryError::SatSolver(_),
+            ) => (NullControlOutcome::ControlError, None),
+        };
     NullControlReport {
         label,
-        failed: !recovered,
+        failed: outcome.is_clean_failure(),
+        outcome,
+        nodes,
     }
 }
 
@@ -279,22 +353,32 @@ fn random_full_mapping(
 }
 
 fn label_shuffle_pairs(
+    spec: &LymmDeckSpec,
     pairs: &[KnownPlaintextPair],
     seed: u64,
 ) -> Result<Vec<KnownPlaintextPair>, SwapRecoveryError> {
     let mut rng = SplitMix64::new(seed);
-    let mut ciphertexts = pairs
+    let mut shuffled_labels = spec.ct_alphabet.clone();
+    fisher_yates(&mut shuffled_labels, &mut rng).map_err(random_bound_error)?;
+    if shuffled_labels == spec.ct_alphabet && shuffled_labels.len() > 1 {
+        shuffled_labels.rotate_left(1);
+    }
+    let relabel = spec
+        .ct_alphabet
         .iter()
-        .map(|pair| pair.ciphertext.clone())
-        .collect::<Vec<_>>();
-    fisher_yates(&mut ciphertexts, &mut rng).map_err(random_bound_error)?;
+        .copied()
+        .zip(shuffled_labels)
+        .collect::<BTreeMap<_, _>>();
     Ok(pairs
         .iter()
-        .zip(ciphertexts)
-        .map(|(pair, ciphertext)| KnownPlaintextPair {
+        .map(|pair| KnownPlaintextPair {
             label: pair.label.clone(),
             plaintext: pair.plaintext.clone(),
-            ciphertext,
+            ciphertext: pair
+                .ciphertext
+                .chars()
+                .map(|ch| relabel.get(&ch).copied().unwrap_or(ch))
+                .collect(),
         })
         .collect())
 }

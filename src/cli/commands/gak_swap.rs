@@ -384,7 +384,13 @@ fn print_positive(label: &str, report: &PositiveControlReport) {
 }
 
 fn print_null(report: &NullControlReport) {
-    println!("  null {}: {}", report.label, pass_fail(report.failed));
+    println!(
+        "  null {}: {} outcome={} nodes={}",
+        report.label,
+        pass_fail(report.failed),
+        report.outcome.as_str(),
+        option_json(report.nodes)
+    );
 }
 
 fn print_json_report(
@@ -488,9 +494,11 @@ fn positive_json(report: &PositiveControlReport) -> String {
 
 fn null_json(report: &NullControlReport) -> String {
     format!(
-        "{{\"label\":\"{}\",\"failed\":{}}}",
+        "{{\"label\":\"{}\",\"failed\":{},\"outcome\":\"{}\",\"nodes\":{}}}",
         json_escape(report.label),
-        report.failed
+        report.failed,
+        report.outcome.as_str(),
+        option_json(report.nodes)
     )
 }
 
