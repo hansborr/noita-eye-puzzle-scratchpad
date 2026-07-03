@@ -1,10 +1,39 @@
-# Handoff — `two` pairclass (a′) LM-free anchor harvest: reformulation pending
+# Handoff — `two` pairclass (a′) LM-free anchor harvest: RESOLVED (bounded-tractability negative)
 
-**Status:** the (a′) line is at a validated but **un-built reformulation**. The
-current recorded result is confounded and must not be treated as a finding. This
-note is self-contained; it supersedes the (a′) portion of
-[`two-pairclass-attack.md`](two-pairclass-attack.md) and any session-local
-scratch drafts.
+**Status: RESOLVED 2026-07-02.** The variant-B + exact-post-filter reformulation
+(§3) was built on `feat/lm-free-window-harvest` (commits `abcf67c`..`51521ed`),
+**independently audited** (all five §6 points PASS; the saturation was confirmed a
+*genuine* bounded-tractability result of a true layer-merge DP, **not** a
+v1-style non-merging-DFS budget artifact), and then **measured**.
+
+**Outcome — the third fork, not §4's two:** the complete, un-beamed DP saturates
+its 100M-transition budget **inside occ1** — saturation position **5–6** of
+`span_len` 33, with **44–86M distinct merged states** already reached (measured
+occ1 layer widths grow ~×10–36 per token: `1, 52, 1867, 41k, 0.6M, 6–9M, …`),
+before occ2 or the tie can ever matter. This is a **computational wall, not a
+cryptographic anchor-negative**: retention is *undecided*, not disproved. Because
+occ1 is free dictionary text in *any* complete formulation (its letters must be
+discovered before occ2 can be tied), **no tie-aware variant and no feasible
+budget avoids this occ1 explosion.** Full measured record: `CODEC-RESULTS.md`
+§Round 7.
+
+**What this closes:** the LM-free anchor-window *harvest method* is exhausted —
+its tractable form (score/coverage beam) **evicts truth** (v2), and its complete
+form (un-beamed enumeration) is **intractable within occ1** (v3, measured). The
+decisive retention question cannot be answered by this route. **Lever reverts** to
+the maintainer's external mapping anchor / withheld snippet, or a *different
+constraint surface* — not a beam and not a word-LM score key (see §Round 7 "Next
+work": flanking-context widening, or LM-free marginal-fit selection over a
+complete superset). **Do not re-run the "pending reformulation" spec below — it is
+built and done;** it is preserved verbatim as the historical design contract.
+
+---
+
+**Historical status (pre-resolution):** the (a′) line is at a validated but
+**un-built reformulation**. The current recorded result is confounded and must
+not be treated as a finding. This note is self-contained; it supersedes the (a′)
+portion of [`two-pairclass-attack.md`](two-pairclass-attack.md) and any
+session-local scratch drafts.
 
 ## 1. Where we are
 
