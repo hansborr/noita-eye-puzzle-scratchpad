@@ -65,12 +65,13 @@ pub use selftest::{
 pub use solve::{Solution, SolveCfg, SolveInput, SolveReport, TruthFate, estimate_peak_mib, solve};
 pub use structured::{
     DEFAULT_STRUCTURED_RANK_BEAM, StructuredCandidateMeta, StructuredConfirmRender,
-    StructuredDecodedCandidate, StructuredFamilyProfile, StructuredGenerationReport,
-    StructuredNegativeReport, StructuredNullCfg, StructuredNullGate, StructuredPlantOutcome,
-    StructuredPowerReport, StructuredRunCfg, StructuredRunReport, StructuredStream,
+    StructuredControlCfg, StructuredDecodedCandidate, StructuredFamilyProfile,
+    StructuredGenerationReport, StructuredNegativeReport, StructuredNullCfg, StructuredNullGate,
+    StructuredPlantOutcome, StructuredPowerReport, StructuredRunCfg, StructuredRunReport,
+    StructuredStream, StructuredVerdict, StructuredVerdictCfg, StructuredVerdictProfile,
     confirm_structured_top_candidates, generate_structured_candidates, measure_structured_power,
     measure_structured_random_negative, run_structured_oracle_decode, structured_null_gate,
-    structured_null_gate_streams,
+    structured_null_gate_streams, structured_verdict,
 };
 pub use ties::{TieSpan, maximal_repeats, tie_targets, token_ties};
 

@@ -18,10 +18,11 @@ pub use enumerate::{
     StructuredGenerationReport, StructuredRunCfg, StructuredStream, generate_structured_candidates,
 };
 pub use pipeline::{
-    StructuredDecodedCandidate, StructuredNegativeReport, StructuredNullCfg, StructuredNullGate,
-    StructuredPlantOutcome, StructuredPowerReport, StructuredRunReport, measure_structured_power,
+    StructuredControlCfg, StructuredDecodedCandidate, StructuredNegativeReport, StructuredNullCfg,
+    StructuredNullGate, StructuredPlantOutcome, StructuredPowerReport, StructuredRunReport,
+    StructuredVerdict, StructuredVerdictCfg, StructuredVerdictProfile, measure_structured_power,
     measure_structured_random_negative, run_structured_oracle_decode, structured_null_gate,
-    structured_null_gate_streams,
+    structured_null_gate_streams, structured_verdict,
 };
 
 #[cfg(test)]

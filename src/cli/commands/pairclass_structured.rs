@@ -3,8 +3,9 @@
 use std::process::ExitCode;
 
 use noita_eye_puzzle::attack::pairclass::{
-    Lexicon, PowerCfg, StreamPrep, StructuredFamilyProfile, StructuredNegativeReport,
-    StructuredNullCfg, StructuredNullGate, StructuredRunCfg, StructuredStream,
+    Lexicon, PowerCfg, StreamPrep, StructuredControlCfg, StructuredFamilyProfile,
+    StructuredNegativeReport, StructuredNullCfg, StructuredPowerReport, StructuredRunCfg,
+    StructuredStream, StructuredVerdictCfg, StructuredVerdictProfile,
     confirm_structured_top_candidates, measure_structured_power,
     measure_structured_random_negative, prepare_stream, run_structured_oracle_decode,
     structured_null_gate_streams,
@@ -17,15 +18,36 @@ use super::pairclass_structured_report::{
     print_structured_solutions, print_structured_verdict,
 };
 
+const CURATED_CONTROL_NULL_TRIALS: usize = 19;
+const CURATED_REAL_NULL_TRIALS: usize = 49;
+const CURATED_NEGATIVE_CONTROLS: usize = 3;
+const BROAD_CONTROL_NULL_TRIALS: usize = 2;
+const BROAD_REAL_NULL_TRIALS: usize = 20;
+const BROAD_NEGATIVE_CONTROLS: usize = 6;
+const TOY_CONTROL_NULL_TRIALS: usize = 2;
+const TOY_REAL_NULL_TRIALS: usize = 2;
+const TOY_NEGATIVE_CONTROLS: usize = 1;
+const CURATED_POSITIVE_ALPHA: f64 = 0.05;
+const CURATED_REAL_ALPHA: f64 = 0.02;
+const CURATED_TRUTH_TOP_RANK: usize = 3;
+
 struct NamedPrep {
     label: String,
     prep: StreamPrep,
 }
 
+#[derive(Clone, Copy)]
+struct StructuredTierRules {
+    verdict_cfg: StructuredVerdictCfg,
+    control_null_trials: usize,
+    real_null_trials: usize,
+    negative_controls: usize,
+    negative_alpha: f64,
+}
+
 struct StructuredControls {
+    positive: StructuredPowerReport,
     negative: StructuredNegativeReport,
-    null: StructuredNullGate,
-    score_floor: f32,
 }
 
 /// Runs Avenue-A structured-coloring enumeration and oracle decode.
@@ -44,26 +66,24 @@ pub(crate) fn run_structured_analysis(
             "--coloring-family requires --plant-text-file for controls-first scoring".to_owned(),
         );
     }
-    if args.null_trials == 0 {
-        return Err(
-            "--coloring-family requires --null-trials > 0 for controls-first scoring".to_owned(),
-        );
-    }
     if args.plants == 0 {
         return Err("--coloring-family requires --plants >= 1 for non-vacuous controls".to_owned());
     }
     let run_cfg = structured_run_cfg(args)?;
+    let rules = structured_tier_rules(args, run_cfg.profile);
     let variants = prepare_structured_variants(values, args)?;
     println!();
     println!(
-        "Structured coloring mode: profile {:?}, rank-beam {}, confirm-beam {}, top {}, extra-decodes {}, full base coverage decoded, marginal-l1 {:.3}, score-margin {:.2}",
+        "Structured coloring mode: profile {:?}, rank-beam {}, confirm-beam {}, top {}, extra-decodes {}, full base coverage ranked, marginal-l1 {:.3}, control-nulls {}, real-nulls {}, negative-controls {}",
         run_cfg.profile,
         run_cfg.rank_beam,
         cfg.beam,
         cfg.top,
         run_cfg.max_decodes,
         run_cfg.marginal_l1,
-        run_cfg.score_margin
+        rules.control_null_trials,
+        rules.real_null_trials,
+        rules.negative_controls
     );
     println!(
         "  controls, nulls, real ranking, and verdict statistics use rank-beam; full-beam confirmation is rendering only."
@@ -71,43 +91,56 @@ pub(crate) fn run_structured_analysis(
     for variant in &variants {
         print_structured_variant(variant);
     }
-    let Some(controls) =
-        run_structured_controls(args, &variants, word_entries, lexicon, cfg, &run_cfg)?
+    let Some(controls) = run_structured_controls(
+        args,
+        &variants,
+        word_entries,
+        lexicon,
+        cfg,
+        &run_cfg,
+        &rules,
+    )?
     else {
         return Ok(ExitCode::SUCCESS);
     };
     let streams = structured_streams(&variants);
     let mut report = run_structured_oracle_decode(&streams, word_entries, lexicon, cfg, &run_cfg)
         .map_err(|error| error.to_string())?;
-    let real_best = report.best_score();
-    let null_ge_real = count_null_ge(controls.null.null_bests.as_slice(), real_best);
-    let null = StructuredNullGate {
-        real_best,
-        null_bests: controls.null.null_bests,
-        null_ge_real,
-        null_ge_floor: controls.null.null_ge_floor,
-    };
+    let prep_variants: Vec<StreamPrep> = variants
+        .iter()
+        .map(|variant| variant.prep.clone())
+        .collect();
+    let real_null = structured_null_gate_streams(
+        &prep_variants,
+        word_entries,
+        lexicon,
+        cfg,
+        &run_cfg,
+        &StructuredNullCfg {
+            null_trials: rules.real_null_trials,
+            observed_best: report.best_score(),
+            seed: args.seed,
+        },
+    )
+    .map_err(|error| error.to_string())?;
     let confirm_error = confirm_structured_top_candidates(&mut report, &streams, lexicon, cfg)
         .err()
         .map(|error| error.to_string());
-    print_structured_solutions(
-        &report,
-        controls.negative.max_score,
-        null.max_score(),
-        run_cfg.rank_beam,
-    );
+    print_structured_solutions(&report, Some(&real_null), run_cfg.rank_beam);
     if let Some(error) = confirm_error {
         println!();
         println!(
             "Confirm-beam rendering unavailable for at least one top candidate ({error}); rank-beam verdict statistics are unchanged."
         );
     }
-    print_structured_null(&null, Some(controls.score_floor), run_cfg.rank_beam);
+    print_structured_null("real stream", &real_null, run_cfg.rank_beam);
     print_structured_verdict(
         &report,
+        &controls.positive,
         &controls.negative,
-        Some(&null),
-        run_cfg.score_margin,
+        &real_null,
+        &rules.verdict_cfg,
+        rules.negative_alpha,
     );
     Ok(ExitCode::SUCCESS)
 }
@@ -119,6 +152,7 @@ fn run_structured_controls(
     lexicon: &Lexicon,
     cfg: &noita_eye_puzzle::attack::pairclass::SolveCfg,
     run_cfg: &StructuredRunCfg,
+    rules: &StructuredTierRules,
 ) -> Result<Option<StructuredControls>, String> {
     let plant_path = args
         .plant_text_file
@@ -133,7 +167,7 @@ fn run_structured_controls(
     let control_prep = variants
         .first()
         .ok_or_else(|| "structured mode prepared no stream variants".to_owned())?;
-    let power_cfg = PowerCfg {
+    let positive_power_cfg = PowerCfg {
         n_plants: args.plants,
         plant_len: control_prep.prep.tokens.len(),
         n_classes: control_prep.prep.n_classes,
@@ -141,78 +175,130 @@ fn run_structured_controls(
         bar: args.plant_bar,
         seed: args.seed,
     };
-    let positive =
-        measure_structured_power(&plant_text, &power_cfg, word_entries, lexicon, cfg, run_cfg)
-            .map_err(|error| error.to_string())?;
-    print_structured_power(args, &positive);
-    let Some(score_floor) = positive.score_floor else {
-        println!();
-        println!(
-            "VERDICT: ControlsFailed — structured positive produced no score floor; the real stream was NOT scored."
-        );
-        return Ok(None);
-    };
-    if !positive.cleared_bar {
-        println!();
-        println!(
-            "VERDICT: ControlsFailed — structured positive did not fire; the real stream was NOT scored."
-        );
-        return Ok(None);
-    }
-    let negative = measure_structured_random_negative(
+    let positive = measure_structured_power(
         &plant_text,
-        &power_cfg,
+        &positive_power_cfg,
         word_entries,
         lexicon,
         cfg,
         run_cfg,
-        Some(score_floor),
+        rules.control_null_trials,
     )
     .map_err(|error| error.to_string())?;
-    print_structured_negative(&negative, run_cfg.rank_beam);
-    if !negative.quiet {
+    print_structured_power(args, &positive, &rules.verdict_cfg);
+    if positive_control_failed(&positive, rules) {
         println!();
         println!(
-            "VERDICT: ControlsFailed — random-coloring negative fired; the real stream was NOT scored."
+            "VERDICT: ControlsFailed - structured positive controls did not validate this scoring surface; the real stream was NOT scored."
         );
         return Ok(None);
     }
-    let prep_variants: Vec<StreamPrep> = variants
-        .iter()
-        .map(|variant| variant.prep.clone())
-        .collect();
-    let pre_null = structured_null_gate_streams(
-        &prep_variants,
+    let negative_power_cfg = PowerCfg {
+        n_plants: rules.negative_controls,
+        ..positive_power_cfg
+    };
+    let negative = measure_structured_random_negative(
+        &plant_text,
+        &negative_power_cfg,
         word_entries,
         lexicon,
         cfg,
         run_cfg,
-        &StructuredNullCfg {
-            null_trials: args.null_trials,
-            real_best: None,
-            score_floor: Some(score_floor),
-            seed: args.seed,
+        &StructuredControlCfg {
+            null_trials: rules.control_null_trials,
+            candidate_alpha: rules.negative_alpha,
         },
     )
     .map_err(|error| error.to_string())?;
-    print_structured_null(&pre_null, Some(score_floor), run_cfg.rank_beam);
-    if pre_null.null_ge_floor > 0 {
+    print_structured_negative(&negative, run_cfg.rank_beam, rules.negative_alpha);
+    if random_negative_failed(&negative, rules) {
         println!();
         println!(
-            "VERDICT: ControlsFailed — matched Markov null reached the positive score floor; the real stream was NOT scored."
+            "VERDICT: ControlsFailed - curated random-coloring negative met the candidate criterion under its own matched null; the real stream was NOT scored."
         );
         return Ok(None);
     }
-    Ok(Some(StructuredControls {
-        negative,
-        null: pre_null,
-        score_floor,
-    }))
+    Ok(Some(StructuredControls { positive, negative }))
+}
+
+fn positive_control_failed(positive: &StructuredPowerReport, rules: &StructuredTierRules) -> bool {
+    match rules.verdict_cfg.profile {
+        StructuredVerdictProfile::Curated => {
+            positive.curated_pass_count(
+                rules.verdict_cfg.plant_bar,
+                rules.verdict_cfg.positive_alpha,
+                rules.verdict_cfg.curated_truth_top_rank,
+            ) != positive.plants.len()
+        }
+        StructuredVerdictProfile::Broad => !positive.cleared_bar,
+    }
+}
+
+fn random_negative_failed(
+    negative: &StructuredNegativeReport,
+    rules: &StructuredTierRules,
+) -> bool {
+    matches!(rules.verdict_cfg.profile, StructuredVerdictProfile::Curated) && !negative.quiet
+}
+
+fn structured_tier_rules(
+    args: &PairclassArgs,
+    profile: StructuredFamilyProfile,
+) -> StructuredTierRules {
+    let (verdict_profile, control_default, real_default, negative_default, real_alpha) =
+        match profile {
+            StructuredFamilyProfile::CoreCurated => (
+                StructuredVerdictProfile::Curated,
+                CURATED_CONTROL_NULL_TRIALS,
+                CURATED_REAL_NULL_TRIALS,
+                CURATED_NEGATIVE_CONTROLS,
+                CURATED_REAL_ALPHA,
+            ),
+            StructuredFamilyProfile::Core => (
+                StructuredVerdictProfile::Broad,
+                BROAD_CONTROL_NULL_TRIALS,
+                BROAD_REAL_NULL_TRIALS,
+                BROAD_NEGATIVE_CONTROLS,
+                f64::NAN,
+            ),
+            StructuredFamilyProfile::Toy => (
+                StructuredVerdictProfile::Broad,
+                TOY_CONTROL_NULL_TRIALS,
+                TOY_REAL_NULL_TRIALS,
+                TOY_NEGATIVE_CONTROLS,
+                f64::NAN,
+            ),
+        };
+    let control_null_trials = default_if_zero(args.control_null_trials, control_default);
+    let real_null_trials = default_if_zero(args.null_trials, real_default);
+    let negative_controls = args.negative_controls.unwrap_or(negative_default);
+    let negative_alpha = match verdict_profile {
+        StructuredVerdictProfile::Curated => CURATED_POSITIVE_ALPHA,
+        StructuredVerdictProfile::Broad => 1.0 / (control_null_trials as f64 + 1.0),
+    };
+    StructuredTierRules {
+        verdict_cfg: StructuredVerdictCfg {
+            profile: verdict_profile,
+            plant_bar: args.plant_bar,
+            positive_alpha: CURATED_POSITIVE_ALPHA,
+            curated_truth_top_rank: CURATED_TRUTH_TOP_RANK,
+            real_alpha,
+        },
+        control_null_trials,
+        real_null_trials,
+        negative_controls,
+        negative_alpha,
+    }
+}
+
+fn default_if_zero(value: usize, default: usize) -> usize {
+    if value == 0 { default } else { value }
 }
 
 fn structured_run_cfg(args: &PairclassArgs) -> Result<StructuredRunCfg, String> {
     let profile = match args.coloring_family {
         Some(PairclassColoringFamily::Core) => StructuredFamilyProfile::Core,
+        Some(PairclassColoringFamily::CoreCurated) => StructuredFamilyProfile::CoreCurated,
         Some(PairclassColoringFamily::Toy) => StructuredFamilyProfile::Toy,
         None => return Err("--coloring-family missing".to_owned()),
     };
@@ -281,14 +367,4 @@ fn print_structured_variant(variant: &NamedPrep) {
         marginals,
         variant.prep.n_tied
     );
-}
-
-fn count_null_ge(null_bests: &[Option<f32>], real_best: Option<f32>) -> usize {
-    let Some(real) = real_best else {
-        return 0;
-    };
-    null_bests
-        .iter()
-        .filter(|score| score.is_some_and(|null| null >= real))
-        .count()
 }

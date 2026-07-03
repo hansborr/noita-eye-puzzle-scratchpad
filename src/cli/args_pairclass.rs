@@ -30,9 +30,12 @@ pub(crate) enum PairclassHarvestMode {
 /// Structured-coloring family profile for Avenue A.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
 pub(crate) enum PairclassColoringFamily {
-    /// Curated Avenue-A deterministic family.
+    /// Broad Avenue-A deterministic family.
     #[value(name = "core")]
     Core,
+    /// Pre-broadening curated core family with lower multiple-testing pressure.
+    #[value(name = "core-curated")]
+    CoreCurated,
     /// Tiny toy family for fast validation and debugging.
     #[value(name = "toy")]
     Toy,
@@ -103,7 +106,7 @@ pub(crate) struct PairclassArgs {
     /// Marginal L1 threshold for relabel-collapse provenance.
     #[arg(long = "structured-marginal-l1", default_value_t = 0.16)]
     pub(crate) structured_marginal_l1: f64,
-    /// Required score margin over random/null baselines for a survivor.
+    /// Deprecated compatibility knob; structured verdicts use matched-null p-values.
     #[arg(long = "structured-score-margin", default_value_t = 0.0)]
     pub(crate) structured_score_margin: f32,
     /// Use the anchor-seeded two-phase search order instead of left-to-right.
@@ -150,13 +153,20 @@ pub(crate) struct PairclassArgs {
     /// Number of planted controls to run (needs `--plant-text-file`).
     #[arg(long = "plants", default_value_t = 6)]
     pub(crate) plants: usize,
+    /// Number of random-coloring negative controls in structured mode.
+    #[arg(long = "negative-controls")]
+    pub(crate) negative_controls: Option<usize>,
     /// Mean plant letter-recovery bar the controls must clear before the real
     /// stream is scored.
     #[arg(long = "plant-bar", default_value_t = 0.4)]
     pub(crate) plant_bar: f64,
     /// Matched order-1 Markov null resamples to gate the real-stream score.
+    /// In structured mode, 0 selects the profile default.
     #[arg(long = "null-trials", default_value_t = 0)]
     pub(crate) null_trials: usize,
+    /// Matched order-1 Markov null resamples for each structured control stream.
+    #[arg(long = "control-null-trials", default_value_t = 0)]
+    pub(crate) control_null_trials: usize,
     /// Deterministic seed (decimal or 0x-hex) for plants and nulls.
     #[arg(long, default_value_t = pairclass::DEFAULT_SEED, value_parser = parse_seed)]
     pub(crate) seed: u64,

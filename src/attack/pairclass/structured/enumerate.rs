@@ -18,9 +18,11 @@ const RELABEL_NEAR_BEST_CHI2_DELTA: f64 = 9.0;
 /// Structured-coloring family to enumerate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StructuredFamilyProfile {
-    /// Curated Avenue-A family covering rank, ASCII, historical, simple, and
-    /// keyword-derived conventions.
+    /// Broad Avenue-A family covering expanded rank, ASCII, historical,
+    /// simple, and keyword-derived conventions.
     Core,
+    /// Pre-broadening curated core family with lower multiple-testing pressure.
+    CoreCurated,
     /// Tiny deterministic family used by tests and self-test.
     Toy,
 }
@@ -50,7 +52,7 @@ pub struct StructuredRunCfg {
     pub rank_beam: usize,
     /// Generous L1 threshold used to collapse class relabelings.
     pub marginal_l1: f64,
-    /// Required score margin over random/null baselines.
+    /// Deprecated compatibility knob; verdicts are matched-null calibrated.
     pub score_margin: f32,
 }
 

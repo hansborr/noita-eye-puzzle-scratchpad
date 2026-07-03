@@ -4,11 +4,17 @@ use crate::attack::pairclass::campaign::{PowerCfg, StreamPrep};
 use crate::attack::pairclass::plant::{
     CopySpan, Plant, PlantSpec, copy_ties, plant_from_text_with_coloring,
 };
-use crate::attack::pairclass::solve::{Solution, SolveCfg, SolveInput, solve};
-use crate::attack::pairclass::structured::confirm::StructuredConfirmRender;
+mod types;
+
+pub use types::{
+    StructuredControlCfg, StructuredDecodedCandidate, StructuredNegativeReport, StructuredNullCfg,
+    StructuredNullGate, StructuredPlantOutcome, StructuredPowerReport, StructuredRunReport,
+    StructuredVerdict, StructuredVerdictCfg, StructuredVerdictProfile, structured_verdict,
+};
+
+use crate::attack::pairclass::solve::{SolveCfg, SolveInput, solve};
 use crate::attack::pairclass::structured::enumerate::{
-    StructuredCandidateMeta, StructuredGenerationReport, StructuredRunCfg, StructuredStream,
-    expanded_family_colorings, generate_structured_candidates,
+    StructuredRunCfg, StructuredStream, expanded_family_colorings, generate_structured_candidates,
 };
 use crate::attack::pairclass::structured::nulls::{markov_resample_with_ties, prep_tie_to};
 use crate::attack::pairclass::structured::random::draw_out_of_family_random_plant;
@@ -17,137 +23,13 @@ use crate::attack::pairclass::{Lexicon, PairclassError};
 use crate::nulls::null::{SplitMix64, mix_seed, random_index_below};
 
 const STRUCTURED_CONTROL_TAG: u64 = 0x7374_7275_6374_0001;
+const STRUCTURED_POSITIVE_NULL_TAG: u64 = 0x7374_7275_706f_736e;
+const STRUCTURED_NEGATIVE_NULL_TAG: u64 = 0x7374_7275_6e65_676e;
 
-/// One structured oracle-decode attempt.
-#[derive(Clone, Debug)]
-pub struct StructuredDecodedCandidate {
-    /// Candidate metadata.
-    pub meta: StructuredCandidateMeta,
-    /// Best rank-beam solution under this candidate, if any full segmentation exists.
-    pub solution: Option<Solution>,
-    /// Optional full-beam rendering for human review. Display-only; verdicts
-    /// and gate statistics stay on the rank-beam solution.
-    pub confirm: Option<StructuredConfirmRender>,
-    /// Candidates offered during the rank-beam solve.
-    pub expanded: u64,
-    /// Feasible final states during the rank-beam solve.
-    pub feasible_final: usize,
-}
-
-impl StructuredDecodedCandidate {
-    /// Best score from this attempt.
-    #[must_use]
-    pub fn best_score(&self) -> Option<f32> {
-        self.solution.as_ref().map(|solution| solution.score)
-    }
-}
-/// Full structured run report.
-#[derive(Clone, Debug)]
-pub struct StructuredRunReport {
-    /// Cheap-generation diagnostics.
-    pub generation: StructuredGenerationReport,
-    /// Every decoded candidate, in candidate-rank order.
-    pub attempts: Vec<StructuredDecodedCandidate>,
-    /// Best distinct successful solutions across all candidates.
-    pub solutions: Vec<StructuredDecodedCandidate>,
-    /// Total solver expansions across decoded candidates.
-    pub total_expanded: u64,
-}
-
-impl StructuredRunReport {
-    /// Best score across all structured candidates.
-    #[must_use]
-    pub fn best_score(&self) -> Option<f32> {
-        self.solutions
-            .first()
-            .and_then(StructuredDecodedCandidate::best_score)
-    }
-}
-/// One structured planted positive or random negative outcome.
-#[derive(Clone, Debug)]
-pub struct StructuredPlantOutcome {
-    /// Best letter recovery against the plant truth.
-    pub recovery: f64,
-    /// One-based candidate rank of the true coloring, if enumerated.
-    pub truth_candidate_rank: Option<usize>,
-    /// Rank-beam score of the true-coloring candidate.
-    pub truth_score: Option<f32>,
-    /// Best score from any structured candidate.
-    pub best_score: Option<f32>,
-    /// Whether this control would fire as an English-looking candidate.
-    pub fired: bool,
-}
-
-/// Structured planted-positive control report.
-#[derive(Clone, Debug)]
-pub struct StructuredPowerReport {
-    /// Per-plant outcomes.
-    pub plants: Vec<StructuredPlantOutcome>,
-    /// Mean recovery across plants.
-    pub mean_recovery: f64,
-    /// Positive-control score floor: weakest true-candidate score.
-    pub score_floor: Option<f32>,
-    /// Whether the structured positive fired; every plant must score truth at rank beam.
-    pub cleared_bar: bool,
-}
-
-/// Random-coloring negative control report.
-#[derive(Clone, Debug)]
-pub struct StructuredNegativeReport {
-    /// Per-plant outcomes.
-    pub plants: Vec<StructuredPlantOutcome>,
-    /// Number of random-coloring negatives that fired.
-    pub fired: usize,
-    /// Maximum random-negative best score.
-    pub max_score: Option<f32>,
-    /// Whether every random-coloring negative stayed quiet.
-    pub quiet: bool,
-}
-
-/// Structured matched-null gate.
-#[derive(Clone, Debug)]
-pub struct StructuredNullGate {
-    /// Real best score.
-    pub real_best: Option<f32>,
-    /// Each null resample's best score.
-    pub null_bests: Vec<Option<f32>>,
-    /// Null scores reaching the real best.
-    pub null_ge_real: usize,
-    /// Null scores reaching the positive-control score floor.
-    pub null_ge_floor: usize,
-}
-
-/// Configuration for structured Markov-null gates.
-#[derive(Clone, Copy, Debug)]
-pub struct StructuredNullCfg {
-    /// Number of Markov resamples.
-    pub null_trials: usize,
-    /// Real best score, when comparing nulls after real scoring.
-    pub real_best: Option<f32>,
-    /// Positive-control score floor, used for pre-real null quiet checks.
-    pub score_floor: Option<f32>,
-    /// Deterministic null seed.
-    pub seed: u64,
-}
-
-impl StructuredNullGate {
-    /// Add-one empirical p-value for `null >= real`.
-    #[must_use]
-    pub fn p_value(&self) -> f64 {
-        if self.null_bests.is_empty() {
-            return f64::NAN;
-        }
-        (self.null_ge_real as f64 + 1.0) / (self.null_bests.len() as f64 + 1.0)
-    }
-
-    /// Maximum null score.
-    #[must_use]
-    pub fn max_score(&self) -> Option<f32> {
-        self.null_bests
-            .iter()
-            .filter_map(|score| *score)
-            .max_by(f32::total_cmp)
-    }
+#[derive(Clone, Copy)]
+struct PlantNullCfg {
+    null_trials: usize,
+    seed: u64,
 }
 
 /// Runs the structured oracle-decode pipeline for the supplied streams.
@@ -215,6 +97,7 @@ pub fn measure_structured_power(
     lexicon: &Lexicon,
     solve_cfg: &SolveCfg,
     run_cfg: &StructuredRunCfg,
+    null_trials: usize,
 ) -> Result<StructuredPowerReport, PairclassError> {
     let letters = text_letters(text);
     let copy = tie_to_copy(power.longest_tie, power.plant_len);
@@ -239,25 +122,22 @@ pub fn measure_structured_power(
             lexicon,
             solve_cfg,
             run_cfg,
-            None,
+            PlantNullCfg {
+                null_trials,
+                seed: mix_seed(
+                    power.seed.wrapping_add(index as u64),
+                    STRUCTURED_POSITIVE_NULL_TAG,
+                ),
+            },
         )?;
         plants.push(outcome);
     }
     let mean_recovery = mean(plants.iter().map(|plant| plant.recovery));
     let all_truth_scored =
         !plants.is_empty() && plants.iter().all(|plant| plant.truth_score.is_some());
-    let score_floor = all_truth_scored
-        .then(|| {
-            plants
-                .iter()
-                .filter_map(|plant| plant.truth_score)
-                .min_by(f32::total_cmp)
-        })
-        .flatten();
     Ok(StructuredPowerReport {
         plants,
         mean_recovery,
-        score_floor,
         cleared_bar: all_truth_scored && mean_recovery >= power.bar,
     })
 }
@@ -273,7 +153,7 @@ pub fn measure_structured_random_negative(
     lexicon: &Lexicon,
     solve_cfg: &SolveCfg,
     run_cfg: &StructuredRunCfg,
-    score_floor: Option<f32>,
+    control_cfg: &StructuredControlCfg,
 ) -> Result<StructuredNegativeReport, PairclassError> {
     let letters = text_letters(text);
     let copy = tie_to_copy(power.longest_tie, power.plant_len);
@@ -296,19 +176,23 @@ pub fn measure_structured_random_negative(
             lexicon,
             solve_cfg,
             run_cfg,
-            score_floor,
+            PlantNullCfg {
+                null_trials: control_cfg.null_trials,
+                seed: mix_seed(
+                    power.seed.wrapping_add(index as u64),
+                    STRUCTURED_NEGATIVE_NULL_TAG,
+                ),
+            },
         )?);
     }
-    let fired = plants.iter().filter(|plant| plant.fired).count();
-    let max_score = plants
+    let false_positive_like = plants
         .iter()
-        .filter_map(|plant| plant.best_score)
-        .max_by(f32::total_cmp);
+        .filter(|plant| plant.null_significant(control_cfg.candidate_alpha))
+        .count();
     Ok(StructuredNegativeReport {
         plants,
-        fired,
-        max_score,
-        quiet: fired == 0,
+        false_positive_like,
+        quiet: false_positive_like == 0,
     })
 }
 
@@ -325,8 +209,7 @@ pub fn structured_null_gate(
     null_cfg: &StructuredNullCfg,
 ) -> Result<StructuredNullGate, PairclassError> {
     let mut null_bests = Vec::with_capacity(null_cfg.null_trials);
-    let mut null_ge_real = 0usize;
-    let mut null_ge_floor = 0usize;
+    let mut null_ge = 0usize;
     for trial in 0..null_cfg.null_trials {
         let tokens = markov_resample_with_ties(prep, null_cfg.seed.wrapping_add(trial as u64))?;
         let stream = StructuredStream {
@@ -338,23 +221,17 @@ pub fn structured_null_gate(
         let report =
             run_structured_oracle_decode(&[stream], word_entries, lexicon, solve_cfg, run_cfg)?;
         let best = report.best_score();
-        if let (Some(null), Some(real)) = (best, null_cfg.real_best)
-            && null >= real
+        if let (Some(null), Some(observed)) = (best, null_cfg.observed_best)
+            && null >= observed
         {
-            null_ge_real += 1;
-        }
-        if let (Some(null), Some(floor)) = (best, null_cfg.score_floor)
-            && null >= floor
-        {
-            null_ge_floor += 1;
+            null_ge += 1;
         }
         null_bests.push(best);
     }
     Ok(StructuredNullGate {
-        real_best: null_cfg.real_best,
+        observed_best: null_cfg.observed_best,
         null_bests,
-        null_ge_real,
-        null_ge_floor,
+        null_ge,
     })
 }
 
@@ -375,8 +252,7 @@ pub fn structured_null_gate_streams(
     null_cfg: &StructuredNullCfg,
 ) -> Result<StructuredNullGate, PairclassError> {
     let mut null_bests = Vec::with_capacity(null_cfg.null_trials);
-    let mut null_ge_real = 0usize;
-    let mut null_ge_floor = 0usize;
+    let mut null_ge = 0usize;
     for trial in 0..null_cfg.null_trials {
         let mut best: Option<f32> = None;
         for (variant, prep) in preps.iter().enumerate() {
@@ -399,23 +275,17 @@ pub fn structured_null_gate_streams(
                 best = Some(score);
             }
         }
-        if let (Some(null), Some(real)) = (best, null_cfg.real_best)
-            && null >= real
+        if let (Some(null), Some(observed)) = (best, null_cfg.observed_best)
+            && null >= observed
         {
-            null_ge_real += 1;
-        }
-        if let (Some(null), Some(floor)) = (best, null_cfg.score_floor)
-            && null >= floor
-        {
-            null_ge_floor += 1;
+            null_ge += 1;
         }
         null_bests.push(best);
     }
     Ok(StructuredNullGate {
-        real_best: null_cfg.real_best,
+        observed_best: null_cfg.observed_best,
         null_bests,
-        null_ge_real,
-        null_ge_floor,
+        null_ge,
     })
 }
 
@@ -426,7 +296,7 @@ fn run_structured_plant(
     lexicon: &Lexicon,
     solve_cfg: &SolveCfg,
     run_cfg: &StructuredRunCfg,
-    score_floor: Option<f32>,
+    null_cfg: PlantNullCfg,
 ) -> Result<StructuredPlantOutcome, PairclassError> {
     let tie_to = (!prep.tie_table.is_empty()).then_some(prep.tie_table.as_slice());
     let stream = StructuredStream {
@@ -444,23 +314,60 @@ fn run_structured_plant(
         .find(|attempt| attempt.meta.coloring == truth);
     let truth_candidate_rank = truth_attempt.map(|attempt| attempt.meta.rank);
     let truth_score = truth_attempt.and_then(StructuredDecodedCandidate::best_score);
+    let truth_score_rank = truth_score_rank(&report, &truth);
     let recovery = truth_attempt
         .and_then(|attempt| attempt.solution.as_ref())
         .map_or(0.0, |solution| {
             letter_recovery(&solution.letters, &plant.letters)
         });
     let best_score = report.best_score();
-    let fired = match (best_score, score_floor) {
-        (Some(score), Some(floor)) => score >= floor + run_cfg.score_margin,
-        _ => false,
+    let truth_is_family_best = truth_score
+        .zip(best_score)
+        .is_some_and(|(truth_score, best_score)| truth_score >= best_score);
+    let null = if null_cfg.null_trials == 0 {
+        None
+    } else {
+        Some(structured_null_gate(
+            prep,
+            word_entries,
+            lexicon,
+            solve_cfg,
+            run_cfg,
+            &StructuredNullCfg {
+                null_trials: null_cfg.null_trials,
+                observed_best: best_score,
+                seed: null_cfg.seed,
+            },
+        )?)
     };
     Ok(StructuredPlantOutcome {
         recovery,
         truth_candidate_rank,
+        truth_score_rank,
         truth_score,
         best_score,
-        fired,
+        truth_is_family_best,
+        null,
     })
+}
+
+fn truth_score_rank(report: &StructuredRunReport, truth: &[Option<u8>; 26]) -> Option<usize> {
+    let mut scored = report
+        .attempts
+        .iter()
+        .filter(|attempt| attempt.best_score().is_some())
+        .collect::<Vec<_>>();
+    scored.sort_by(|a, b| {
+        let a_score = a.best_score().unwrap_or(f32::NEG_INFINITY);
+        let b_score = b.best_score().unwrap_or(f32::NEG_INFINITY);
+        b_score
+            .total_cmp(&a_score)
+            .then_with(|| a.meta.rank.cmp(&b.meta.rank))
+    });
+    scored
+        .iter()
+        .position(|attempt| attempt.meta.coloring == *truth)
+        .map(|index| index + 1)
 }
 
 fn choose_control_coloring(

@@ -45,10 +45,10 @@ pub(crate) fn run_self_test(seed: u64) -> ExitCode {
         pass_fail(report.anchor.passed())
     );
     println!(
-        "  structured coloring (positive {:.3}, random-neg fired {}, null-floor hits {}): {}",
+        "  structured coloring (positive {:.3}, random-neg candidate-like {}, positive-null hits {}): {}",
         report.structured.positive.mean_recovery,
-        report.structured.negative.fired,
-        report.structured.null.null_ge_floor,
+        report.structured.negative.false_positive_like,
+        report.structured.null.null_ge,
         pass_fail(report.structured.passed())
     );
     println!("  walk gate control: {}", pass_fail(report.walk_gate));

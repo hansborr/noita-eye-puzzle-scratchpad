@@ -1,10 +1,10 @@
 //! Structured-coloring self-test leg for `pairclass --self-test`.
 
-use super::campaign::{PowerCfg, StreamPrep};
+use super::campaign::PowerCfg;
 use super::lexicon::{build_lexicon, parse_wordlist};
 use super::structured::{
-    StructuredFamilyProfile, StructuredNegativeReport, StructuredNullCfg, StructuredNullGate,
-    StructuredPowerReport, StructuredRunCfg, structured_null_gate,
+    StructuredControlCfg, StructuredFamilyProfile, StructuredNegativeReport, StructuredNullGate,
+    StructuredPowerReport, StructuredRunCfg,
 };
 use super::{
     PairclassError, SolveCfg, measure_structured_power, measure_structured_random_negative,
@@ -26,10 +26,10 @@ pub struct StructuredLeg {
 }
 
 impl StructuredLeg {
-    /// Passed: the positive fires and both negatives stay quiet.
+    /// Passed: the positive clears its own null and the random negative stays quiet.
     #[must_use]
     pub fn passed(&self) -> bool {
-        self.positive.cleared_bar && self.negative.quiet && self.null.null_ge_floor == 0
+        self.positive.cleared_bar && self.negative.quiet && self.null.null_ge == 0
     }
 }
 
@@ -65,6 +65,7 @@ pub(super) fn run_structured_leg(seed: u64) -> Result<StructuredLeg, PairclassEr
         &lexicon,
         &solve_cfg,
         &run_cfg,
+        2,
     )?;
     let negative = measure_structured_random_negative(
         STRUCTURED_SENTENCE,
@@ -73,33 +74,16 @@ pub(super) fn run_structured_leg(seed: u64) -> Result<StructuredLeg, PairclassEr
         &lexicon,
         &solve_cfg,
         &run_cfg,
-        positive.score_floor,
-    )?;
-    let tokens: Vec<u8> = "catdogcatdog"
-        .bytes()
-        .filter(u8::is_ascii_lowercase)
-        .map(|byte| (byte - b'a') % 4)
-        .collect();
-    let prep = StreamPrep {
-        tokens,
-        n_classes: 4,
-        tie_table: Vec::new(),
-        n_tied: 0,
-        longest_tie: None,
-    };
-    let null = structured_null_gate(
-        &prep,
-        &word_entries,
-        &lexicon,
-        &solve_cfg,
-        &run_cfg,
-        &StructuredNullCfg {
+        &StructuredControlCfg {
             null_trials: 2,
-            real_best: None,
-            score_floor: positive.score_floor,
-            seed,
+            candidate_alpha: 1.0 / 3.0,
         },
     )?;
+    let null = positive
+        .plants
+        .first()
+        .and_then(|plant| plant.null.clone())
+        .ok_or(PairclassError::EmptyInput)?;
     Ok(StructuredLeg {
         positive,
         negative,

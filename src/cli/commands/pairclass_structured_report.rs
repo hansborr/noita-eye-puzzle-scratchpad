@@ -1,89 +1,116 @@
 //! Reporting helpers for structured-coloring `pairclass` mode.
 
 use noita_eye_puzzle::attack::pairclass::{
-    StructuredNegativeReport, StructuredNullGate, StructuredPowerReport, StructuredRunReport,
+    StructuredNegativeReport, StructuredNullGate, StructuredPlantOutcome, StructuredPowerReport,
+    StructuredRunReport, StructuredVerdict, StructuredVerdictCfg, StructuredVerdictProfile,
+    structured_verdict,
 };
 
 use crate::cli::args_pairclass::PairclassArgs;
 
-pub(crate) fn print_structured_power(args: &PairclassArgs, power: &StructuredPowerReport) {
+pub(crate) fn print_structured_power(
+    args: &PairclassArgs,
+    power: &StructuredPowerReport,
+    verdict_cfg: &StructuredVerdictCfg,
+) {
     println!();
     println!(
-        "Structured-coloring positive controls ({} plants, bar {:.3}, rank-beam {}):",
-        args.plants, args.plant_bar, args.structured_rank_beam
+        "Structured-coloring positive controls ({} plants, bar {:.3}, rank-beam {}, control null alpha {:.3}):",
+        args.plants, args.plant_bar, args.structured_rank_beam, verdict_cfg.positive_alpha
     );
     for (index, plant) in power.plants.iter().enumerate() {
         println!(
-            "  plant {:>2}: recovery {:.3}  truth-rank {}  truth-score {}  best-score {}  {}",
+            "  plant {:>2}: recovery {:.3}  truth-gen-rank {}  truth-score-rank {}  truth-score {}  best-score {}  {}  null_ge {}  p_emp {}  null-margin {}",
             index,
             plant.recovery,
             opt_rank(plant.truth_candidate_rank),
+            opt_rank(plant.truth_score_rank),
             opt_score(plant.truth_score),
             opt_score(plant.best_score),
-            truth_status(plant)
+            truth_status(plant),
+            opt_null_ge(plant.null.as_ref()),
+            opt_p(plant.null.as_ref()),
+            opt_null_margin(plant.null.as_ref())
         );
     }
     println!(
-        "  mean recovery {:.3}  score-floor {}  {}",
+        "  mean recovery {:.3}  truth-best {}/{}  truth-top-{} {}/{}  curated-pass {}/{}  {}",
         power.mean_recovery,
-        opt_score(power.score_floor),
+        power.truth_best_count(),
+        power.plants.len(),
+        verdict_cfg.curated_truth_top_rank,
+        power.truth_top_count(verdict_cfg.curated_truth_top_rank),
+        power.plants.len(),
+        power.curated_pass_count(
+            args.plant_bar,
+            verdict_cfg.positive_alpha,
+            verdict_cfg.curated_truth_top_rank
+        ),
+        power.plants.len(),
         if power.cleared_bar {
-            "FIRED"
+            "RECOVERY CLEARED"
         } else {
-            "BELOW BAR"
+            "BELOW RECOVERY BAR"
         }
     );
 }
 
-pub(crate) fn print_structured_negative(negative: &StructuredNegativeReport, rank_beam: usize) {
+pub(crate) fn print_structured_negative(
+    negative: &StructuredNegativeReport,
+    rank_beam: usize,
+    candidate_alpha: f64,
+) {
     println!();
     println!("Random-coloring negative controls (rank-beam {rank_beam}):");
     for (index, plant) in negative.plants.iter().enumerate() {
         println!(
-            "  plant {:>2}: recovery {:.3}  truth-rank {}  best-score {}  {}",
+            "  plant {:>2}: best-score {}  null_ge {}  p_emp {}  null-margin {}  {}",
             index,
-            plant.recovery,
-            opt_rank(plant.truth_candidate_rank),
             opt_score(plant.best_score),
-            if plant.fired { "FIRED" } else { "quiet" }
+            opt_null_ge(plant.null.as_ref()),
+            opt_p(plant.null.as_ref()),
+            opt_null_margin(plant.null.as_ref()),
+            if plant.null_significant(candidate_alpha) {
+                "candidate-like"
+            } else {
+                "quiet"
+            }
         );
     }
     println!(
-        "  max score {}  fired {}/{}  {}",
-        opt_score(negative.max_score),
-        negative.fired,
+        "  candidate-like {}/{} at p_emp <= {:.3}  {}",
+        negative.false_positive_count(candidate_alpha),
         negative.plants.len(),
-        if negative.quiet { "QUIET" } else { "FIRED" }
+        candidate_alpha,
+        if negative.quiet {
+            "QUIET"
+        } else {
+            "MEASURED FP"
+        }
     );
 }
 
-pub(crate) fn print_structured_null(
-    null: &StructuredNullGate,
-    score_floor: Option<f32>,
-    rank_beam: usize,
-) {
+pub(crate) fn print_structured_null(label: &str, null: &StructuredNullGate, rank_beam: usize) {
     println!();
     println!(
-        "Structured Markov null (rank-beam {}): {} trials, {} reached score floor {}, {} reached real best {}, empirical p = {:.3}",
+        "Structured Markov null for {label} (rank-beam {}): {} trials, observed-best {}, null_ge {}, p_emp {:.3}, null-margin {}",
         rank_beam,
         null.null_bests.len(),
-        null.null_ge_floor,
-        opt_score(score_floor),
-        null.null_ge_real,
-        opt_score(null.real_best),
-        null.p_value()
+        opt_score(null.observed_best),
+        null.null_ge,
+        null.p_value(),
+        opt_null_margin(Some(null))
     );
 }
 
 pub(crate) fn print_structured_solutions(
     report: &StructuredRunReport,
-    random_max: Option<f32>,
-    null_max: Option<f32>,
+    real_null: Option<&StructuredNullGate>,
     rank_beam: usize,
 ) {
     println!();
     println!(
-        "Structured oracle candidates (rank-beam {}, base {}, relabels {}, decoded {} = guaranteed {} + extra {}, filter-dropped {}, filter-l1-cut {}, cap-dropped {}, cap-l1-cut {}):",
+        "Structured oracle candidates (rank-beam {}, base {}, relabels {}, ranked {} = guaranteed {} + extra {}, filter-dropped {}, filter-l1-cut {}, cap-dropped {}, cap-l1-cut {}):",
         rank_beam,
         report.generation.base_colorings,
         report.generation.expanded_relabels,
@@ -104,11 +131,10 @@ pub(crate) fn print_structured_solutions(
             continue;
         };
         println!(
-            "  {:>2}. rank-score {:.2}  rand-margin {}  null-margin {}  stream {}  family {}  projection {}  order {}  transform {}  l1 {:.3} chi2 {:.2} {}  \"{}\"",
+            "  {:>2}. rank-score {:.2}  {}  stream {}  family {}  projection {}  order {}  transform {}  l1 {:.3} chi2 {:.2} {}  \"{}\"",
             index + 1,
             solution.score,
-            opt_margin(solution.score, random_max),
-            opt_margin(solution.score, null_max),
+            best_null_stats(index, real_null),
             attempt.meta.stream_label,
             attempt.meta.family,
             attempt.meta.projection,
@@ -145,56 +171,115 @@ pub(crate) fn print_structured_solutions(
 
 pub(crate) fn print_structured_verdict(
     report: &StructuredRunReport,
+    positive: &StructuredPowerReport,
     negative: &StructuredNegativeReport,
-    null: Option<&StructuredNullGate>,
-    score_margin: f32,
+    real_null: &StructuredNullGate,
+    verdict_cfg: &StructuredVerdictCfg,
+    negative_alpha: f64,
 ) {
     println!();
-    let Some(best) = report.solutions.first() else {
-        if clean_family_exclusion(report) {
-            println!(
-                "VERDICT: Negative — these deterministic families produced no survivor under the stated profile/filter/LM settings."
-            );
-        } else {
-            println!(
-                "VERDICT: Inconclusive — no structured survivor was decoded, but {} candidates were cap-dropped and {} relabels were filter-dropped; this is not a clean family exclusion.",
-                report.generation.dropped_by_cap, report.generation.dropped_by_filter
-            );
+    let verdict = structured_verdict(report, positive, negative, real_null, verdict_cfg);
+    match verdict {
+        StructuredVerdict::Candidate => println!(
+            "VERDICT: Candidate - best rank-beam structured candidate clears its matched Markov null (null_ge {}, p_emp {:.3}); confirm-beam text is rendering only; a hypothesis for review, never a decode.",
+            real_null.null_ge,
+            real_null.p_value()
+        ),
+        StructuredVerdict::NoCandidate => print_no_candidate(
+            report,
+            positive,
+            negative,
+            real_null,
+            verdict_cfg,
+            negative_alpha,
+        ),
+        StructuredVerdict::LowPowerNoExclusion => {
+            print_low_power(positive, negative, real_null, negative_alpha);
         }
-        return;
-    };
-    let Some(solution) = best.solution.as_ref() else {
-        if clean_family_exclusion(report) {
-            println!("VERDICT: Negative — no full segmentation; not a candidate.");
-        } else {
-            println!(
-                "VERDICT: Inconclusive — no full segmentation, but cap/filter drops mean this is not a clean family exclusion."
-            );
-        }
-        return;
-    };
-    let random_max = negative.max_score;
-    let null_max = null.and_then(StructuredNullGate::max_score);
-    let clears_random = clears_baseline(solution.score, random_max, score_margin);
-    let clears_null = clears_baseline(solution.score, null_max, score_margin)
-        && null.is_none_or(|gate| gate.null_ge_real == 0);
-    if clears_random && clears_null {
-        println!(
-            "VERDICT: Candidate — best rank-beam structured survivor clears random-coloring and matched-null baselines; confirm-beam text is rendering only; a hypothesis for review, never a decode."
-        );
-    } else {
-        println!(
-            "VERDICT: NullArtifact — best rank-beam structured survivor did not clear the random/null baseline margins; confirm-beam text is rendering only; not a candidate."
-        );
+        StructuredVerdict::ControlsFailed => println!(
+            "VERDICT: ControlsFailed - structured controls did not validate this scoring surface; the real-stream result is not trusted."
+        ),
     }
+}
+
+fn print_no_candidate(
+    report: &StructuredRunReport,
+    positive: &StructuredPowerReport,
+    negative: &StructuredNegativeReport,
+    real_null: &StructuredNullGate,
+    verdict_cfg: &StructuredVerdictCfg,
+    negative_alpha: f64,
+) {
+    let drop_note = drop_accounting_note(report);
+    match verdict_cfg.profile {
+        StructuredVerdictProfile::Curated => println!(
+            "VERDICT: NoCandidate - within the enumerated narrow curated family, using rank-beam scoring and a matched Markov null over the same candidate surface, no real-stream candidate cleared p <= {:.3} (null_ge {}, p_emp {:.3}). The claim is limited to this family, this scoring statistic, this beam, and the measured positive-control power reported here.{}",
+            verdict_cfg.real_alpha,
+            real_null.null_ge,
+            real_null.p_value(),
+            drop_note
+        ),
+        StructuredVerdictProfile::Broad => println!(
+            "VERDICT: NoCandidate - no rank-beam structured candidate in the broad deterministic-coloring family achieved matched-null significance (null_ge {}, p_emp {:.3}). This is a no-candidate result for the tested scoring surface, not an exclusion of the broad family. Planted score power was {}/{} truth-best; random negatives measured {}/{} candidate-like at p_emp <= {:.3}.{}",
+            real_null.null_ge,
+            real_null.p_value(),
+            positive.truth_best_count(),
+            positive.plants.len(),
+            negative.false_positive_count(negative_alpha),
+            negative.plants.len(),
+            negative_alpha,
+            drop_note
+        ),
+    }
+}
+
+fn print_low_power(
+    positive: &StructuredPowerReport,
+    negative: &StructuredNegativeReport,
+    real_null: &StructuredNullGate,
+    negative_alpha: f64,
+) {
+    println!(
+        "VERDICT: LowPowerNoExclusion - no rank-beam structured candidate in the broad deterministic-coloring family achieved matched-null significance (null_ge {}, p_emp {:.3}). This is a no-candidate result for the tested scoring surface, not an exclusion of the broad family. Planted controls recovered truth, but broad-family score power was {}/{} truth-best; random negatives measured {}/{} candidate-like at p_emp <= {:.3}.",
+        real_null.null_ge,
+        real_null.p_value(),
+        positive.truth_best_count(),
+        positive.plants.len(),
+        negative.false_positive_count(negative_alpha),
+        negative.plants.len(),
+        negative_alpha
+    );
+}
+
+fn drop_accounting_note(report: &StructuredRunReport) -> String {
+    if clean_family_exclusion(report) {
+        return String::new();
+    }
+    format!(
+        " Inconclusive drop accounting: {} candidates were cap-dropped and {} relabels were filter-dropped, so this is not a clean family exclusion.",
+        report.generation.dropped_by_cap, report.generation.dropped_by_filter
+    )
 }
 
 fn clean_family_exclusion(report: &StructuredRunReport) -> bool {
     report.generation.dropped_by_cap == 0 && report.generation.dropped_by_filter == 0
 }
 
-fn clears_baseline(score: f32, baseline: Option<f32>, margin: f32) -> bool {
-    baseline.is_none_or(|base| score > base + margin)
+fn best_null_stats(index: usize, real_null: Option<&StructuredNullGate>) -> String {
+    if index != 0 {
+        return "best-null p_emp n/a".to_owned();
+    }
+    real_null.map_or_else(
+        || "best-null p_emp n/a".to_owned(),
+        |null| {
+            format!(
+                "best-null_ge {} p_emp {:.3} null-margin {}",
+                null.null_ge,
+                null.p_value(),
+                opt_null_margin(Some(null))
+            )
+        },
+    )
 }
 
 fn opt_rank(value: Option<usize>) -> String {
@@ -209,16 +294,35 @@ fn opt_f64(value: Option<f64>) -> String {
     value.map_or_else(|| "none".to_owned(), |score| format!("{score:.3}"))
 }
 
-fn opt_margin(score: f32, baseline: Option<f32>) -> String {
-    baseline.map_or_else(|| "n/a".to_owned(), |base| format!("{:.2}", score - base))
+fn opt_p(value: Option<&StructuredNullGate>) -> String {
+    value.map_or_else(
+        || "none".to_owned(),
+        |null| format!("{:.3}", null.p_value()),
+    )
 }
 
-fn truth_status(
-    plant: &noita_eye_puzzle::attack::pairclass::StructuredPlantOutcome,
-) -> &'static str {
-    match (plant.truth_candidate_rank, plant.truth_score) {
-        (Some(_rank), Some(_score)) => "truth decoded at rank-beam",
-        (Some(_rank), None) => "truth dropped at rank-beam",
-        (None, _score) => "truth not enumerated",
+fn opt_null_ge(value: Option<&StructuredNullGate>) -> String {
+    value.map_or_else(
+        || "none".to_owned(),
+        |null| format!("{}/{}", null.null_ge, null.null_bests.len()),
+    )
+}
+
+fn opt_null_margin(value: Option<&StructuredNullGate>) -> String {
+    value
+        .and_then(StructuredNullGate::null_margin)
+        .map_or_else(|| "none".to_owned(), |margin| format!("{margin:.2}"))
+}
+
+fn truth_status(plant: &StructuredPlantOutcome) -> &'static str {
+    match (
+        plant.truth_candidate_rank,
+        plant.truth_score,
+        plant.truth_is_family_best,
+    ) {
+        (Some(_rank), Some(_score), true) => "truth family-best",
+        (Some(_rank), Some(_score), false) => "truth scored",
+        (Some(_rank), None, _) => "truth dropped at rank-beam",
+        (None, _score, _) => "truth not enumerated",
     }
 }

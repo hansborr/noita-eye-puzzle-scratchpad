@@ -4,6 +4,8 @@ use std::collections::BTreeSet;
 
 use super::enumerate::StructuredFamilyProfile;
 
+mod curated;
+
 #[derive(Clone)]
 pub(super) struct BaseColoring {
     pub(super) family: String,
@@ -22,6 +24,7 @@ pub(super) enum LabelMode {
 pub(super) fn base_colorings(profile: StructuredFamilyProfile) -> Vec<BaseColoring> {
     match profile {
         StructuredFamilyProfile::Core => core_base_colorings(),
+        StructuredFamilyProfile::CoreCurated => core_curated_base_colorings(),
         StructuredFamilyProfile::Toy => toy_base_colorings(),
     }
 }
@@ -44,6 +47,17 @@ fn core_base_colorings() -> Vec<BaseColoring> {
     add_historical_bases(&mut out);
     add_simple_bases(&mut out);
     add_keyword_bases(&mut out);
+    dedup_bases(out)
+}
+
+fn core_curated_base_colorings() -> Vec<BaseColoring> {
+    let mut out = Vec::new();
+    curated::add_rank_bases(&mut out);
+    curated::add_rank6_bases(&mut out);
+    curated::add_ascii_bases(&mut out);
+    add_historical_bases(&mut out);
+    add_simple_bases(&mut out);
+    curated::add_keyword_bases(&mut out);
     dedup_bases(out)
 }
 
