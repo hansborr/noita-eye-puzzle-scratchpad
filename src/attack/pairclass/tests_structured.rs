@@ -77,6 +77,21 @@ fn structured_positive_control_fires() {
 }
 
 #[test]
+fn structured_empty_positive_does_not_clear() {
+    let entries = toy_entries();
+    let lexicon = build_lexicon(&entries).expect("lexicon builds");
+    let solve = solve_cfg(128, 0, 0, 3.6, 3, 2048);
+    let mut power = power_cfg();
+    power.n_plants = 0;
+    power.bar = 0.0;
+    let positive = measure_structured_power(TEXT, &power, &entries, &lexicon, &solve, &toy_cfg())
+        .expect("positive runs");
+    assert!(positive.plants.is_empty());
+    assert!(positive.score_floor.is_none());
+    assert!(!positive.cleared_bar, "positive report: {positive:?}");
+}
+
+#[test]
 fn structured_random_coloring_negative_stays_quiet() {
     let entries = toy_entries();
     let lexicon = build_lexicon(&entries).expect("lexicon builds");

@@ -244,11 +244,12 @@ pub fn measure_structured_power(
     let all_truth_enumerated = plants
         .iter()
         .all(|plant| plant.truth_candidate_rank.is_some());
+    let has_nonvacuous_floor = !plants.is_empty() && score_floor.is_some();
     Ok(StructuredPowerReport {
         plants,
         mean_recovery,
         score_floor,
-        cleared_bar: all_truth_enumerated && mean_recovery >= power.bar,
+        cleared_bar: has_nonvacuous_floor && all_truth_enumerated && mean_recovery >= power.bar,
     })
 }
 

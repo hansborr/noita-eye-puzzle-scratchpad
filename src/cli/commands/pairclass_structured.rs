@@ -24,7 +24,7 @@ struct NamedPrep {
 struct StructuredControls {
     negative: StructuredNegativeReport,
     null: StructuredNullGate,
-    score_floor: Option<f32>,
+    score_floor: f32,
 }
 
 /// Runs Avenue-A structured-coloring enumeration and oracle decode.
@@ -47,6 +47,9 @@ pub(crate) fn run_structured_analysis(
         return Err(
             "--coloring-family requires --null-trials > 0 for controls-first scoring".to_owned(),
         );
+    }
+    if args.plants == 0 {
+        return Err("--coloring-family requires --plants >= 1 for non-vacuous controls".to_owned());
     }
     let run_cfg = structured_run_cfg(args)?;
     let variants = prepare_structured_variants(values, args)?;
@@ -75,7 +78,7 @@ pub(crate) fn run_structured_analysis(
         null_ge_floor: controls.null.null_ge_floor,
     };
     print_structured_solutions(&report, controls.negative.max_score, null.max_score());
-    print_structured_null(&null, controls.score_floor);
+    print_structured_null(&null, Some(controls.score_floor));
     print_structured_verdict(
         &report,
         &controls.negative,
@@ -118,6 +121,13 @@ fn run_structured_controls(
         measure_structured_power(&plant_text, &power_cfg, word_entries, lexicon, cfg, run_cfg)
             .map_err(|error| error.to_string())?;
     print_structured_power(args, &positive);
+    let Some(score_floor) = positive.score_floor else {
+        println!();
+        println!(
+            "VERDICT: ControlsFailed — structured positive produced no score floor; the real stream was NOT scored."
+        );
+        return Ok(None);
+    };
     if !positive.cleared_bar {
         println!();
         println!(
@@ -132,7 +142,7 @@ fn run_structured_controls(
         lexicon,
         cfg,
         run_cfg,
-        positive.score_floor,
+        Some(score_floor),
     )
     .map_err(|error| error.to_string())?;
     print_structured_negative(&negative);
@@ -156,12 +166,12 @@ fn run_structured_controls(
         &StructuredNullCfg {
             null_trials: args.null_trials,
             real_best: None,
-            score_floor: positive.score_floor,
+            score_floor: Some(score_floor),
             seed: args.seed,
         },
     )
     .map_err(|error| error.to_string())?;
-    print_structured_null(&pre_null, positive.score_floor);
+    print_structured_null(&pre_null, Some(score_floor));
     if pre_null.null_ge_floor > 0 {
         println!();
         println!(
@@ -172,7 +182,7 @@ fn run_structured_controls(
     Ok(Some(StructuredControls {
         negative,
         null: pre_null,
-        score_floor: positive.score_floor,
+        score_floor,
     }))
 }
 

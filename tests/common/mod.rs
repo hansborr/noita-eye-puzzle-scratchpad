@@ -19,6 +19,10 @@ pub struct CliRun {
 }
 
 /// Runs the compiled `noita-eye` binary and returns standard output.
+#[allow(
+    dead_code,
+    reason = "shared integration-test helper is not used by every CLI test crate"
+)]
 pub fn run_noita_eye(args: &[&str]) -> String {
     let output = Command::new(env!("CARGO_BIN_EXE_noita-eye"))
         .args(args)
