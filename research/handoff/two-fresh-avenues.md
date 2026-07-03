@@ -83,6 +83,11 @@ codec deterministically emits for each letter:
 
 ## Avenue A — structured-coloring enumeration + oracle decode  ⭐ BUILD FIRST
 
+> **STATUS (2026-07-03): BUILT** as `pairclass --coloring-family` (structured
+> mode, two-tier rank/confirm decode, per-stream matched-null gates, curated +
+> broad family tiers). Instrument-hardening history and the definitive-run
+> record live in `research/data/practice-puzzles/CODEC-RESULTS.md` §Round 8.
+
 **Idea.** Enumerate deterministic candidate colorings; oracle-decode each with
 the Round-3 word LM; gate on English. Bypasses the *entire* search wall (no
 `4^26`, no annealing, no left-to-right beam) **iff** truth is structured. Cheap:

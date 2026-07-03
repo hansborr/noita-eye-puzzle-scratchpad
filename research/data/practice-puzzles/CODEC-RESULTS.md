@@ -1425,6 +1425,98 @@ demoted-to-filter moment matcher, an external-solver QAP variant, and the codec
 round-trip as verifier — are laid out with a two-model consult record in
 `research/handoff/two-fresh-avenues.md`.
 
+### Round 8 (codex + claude orchestration, 2026-07-03): Avenue A — structured-coloring enumeration; instrument hardening and the controls redesign
+
+Avenue A from `research/handoff/two-fresh-avenues.md` was built into `pairclass`
+as `--coloring-family` (structured mode): enumerate deterministic 26→4 coloring
+families (rank/Gray/affine bit projections, ASCII variants, historical 5-bit
+codes, simple partitions, keyword-permuted alphabets; ×4 stream variants ×
+relabels), oracle-decode every candidate, controls-first. Getting the instrument
+to an honestly runnable state took three measured failures, each of which is a
+result in its own right:
+
+1. **Two-tier decode (commits `3cfbafd`, `fc3cbb2`).** A full-beam decode of the
+   whole family at every control stage projected to ~200 h. Fix: all gate
+   statistics (positives, random negatives, nulls, real ranking, verdict) are
+   computed on one consistent rank-beam surface (`--structured-rank-beam`,
+   default 400); the full `--beam` (20000) is confirm-rendering only for the
+   top-K. If the rank beam is too weak to surface truth, the positive control
+   fails honestly. A review round hardened the gate: every plant's truth must
+   decode at rank-beam (a silently dropped truth ⇒ `ControlsFailed`).
+   Calibration (`--plants 1 --null-trials 1`, 384 extras): positive fired
+   (recovery 0.635, truth decoded), random negative quiet, real stream best
+   −532.41 vs random-negative best −504.52 ⇒ `NullArtifact`, ~24 min wall.
+2. **Relabel-level coverage hole (commit `15ffaf6`).** The 6-plant run failed
+   with 3/6 planted truths *not enumerated*: plants draw (base, relabel) from
+   the full family, but the decode set guaranteed only each base's best-L1
+   relabel + budget extras, and at N=348 the marginal-L1 ranking of relabels is
+   noise-dominated (measured: winning relabels at L1 0.056–0.148 vs truth at
+   0.116–0.196). Fix: a guaranteed near-best relabel band per base (top
+   marginal-pass relabels + just-over-threshold within `13/N` L1 and +9.0 χ²,
+   calibrated on the failing plants).
+3. **The gate architecture itself was unsound (measured 2026-07-03).** With
+   coverage fixed, all six positives fired by recovery (mean 0.584) — but the
+   random-coloring negative fired 6/6: junk best-of-family scores on truth-free
+   streams (−486..−543) all cleared the positives' cross-stream score floor
+   (−555.62). Two load-bearing findings: (a) **absolute LM scores are not
+   comparable across streams** (each stream has its own junk-fit level), so any
+   positive-floor-vs-other-stream gate is unsound by construction; (b) at the
+   broadened family size (~23k decoded colorings/stream), **the max over junk
+   colorings outscored planted truth within-stream in 3/6 plants** —
+   multiple-comparisons swamping caps score-ranking power at ~50 % at this
+   breadth. (The pre-broadening ~1.5k family had truth best-of-family in the
+   one measured plant.)
+
+**Controls redesign (commits `91c3ba3`, `9ced20a`), two-model consult record:**
+codex (`gpt-5.5` xhigh, resumed instrument session) and Gemini 3.1 Pro (copilot
+consult) independently converged on: remove every cross-stream score
+comparison; judge each stream only against matched order-1 Markov nulls of that
+stream run through the *identical* candidate surface (add-one empirical
+`p_emp = (null_ge+1)/(k+1)`); split the attack into a **curated primary tier**
+(pre-broadening family as `--coloring-family core-curated`; 6 plants ×19 nulls,
+per-plant p ≤ 0.05 + truth top-3 + recovery ≥ bar ⇒ POWERED; 3 negatives ×19;
+real ×49 nulls, `Candidate` iff p ≤ 0.02) and a **broad coverage tier** (`core`,
+~23k surface; 6 plants ×2 nulls as measured-power report, 6 negatives ×2, real
+×20 nulls, `Candidate` iff `null_ge==0`). Verdict vocabulary:
+`Candidate / NoCandidate / LowPowerNoExclusion / ControlsFailed`; a broad
+negative is always reported with its measured power, never as family exclusion.
+A statistical-wiring review caught two P1s before the definitive runs (nulls
+decoding per-variant got a wider extras surface than the observed stream;
+curated low-power short-circuited to `ControlsFailed` instead of scoring the
+real stream and capping the claim at `LowPowerNoExclusion`).
+
+Wordlist derivation and both definitive invocations:
+
+```sh
+LC_ALL=C tr -cs 'A-Za-z' '\n' < research/data/lang/english-corpus-large.txt \
+  | tr '[:upper:]' '[:lower:]' \
+  | awk 'NF { count[$1]++ } END { for (word in count) print word, count[word] }' \
+  | sort -k2,2nr -k1,1 > /tmp/pairclass-english-unigram.txt
+
+# curated primary tier
+cargo run --release --locked -q -- pairclass \
+  --wordlist /tmp/pairclass-english-unigram.txt --vocab-cap 50000 \
+  --plant-text-file research/data/lang/english-corpus-large.txt \
+  --coloring-family core-curated --plants 6 --negative-controls 3 \
+  --control-null-trials 19 --null-trials 49 --plant-bar 0.4 \
+  --structured-rank-beam 400 --structured-marginal-l1 0.16 \
+  --structured-max-decodes 384 --beam 20000 --top 5 --max-mem-mib 12288
+
+# broad coverage tier
+cargo run --release --locked -q -- pairclass \
+  --wordlist /tmp/pairclass-english-unigram.txt --vocab-cap 50000 \
+  --plant-text-file research/data/lang/english-corpus-large.txt \
+  --coloring-family core --plants 6 --negative-controls 6 \
+  --control-null-trials 2 --null-trials 20 --plant-bar 0.4 \
+  --structured-rank-beam 400 --structured-marginal-l1 0.16 \
+  --structured-max-decodes 4096 --beam 20000 --top 5 --max-mem-mib 12288
+```
+
+**Definitive run results: PENDING (runs in flight 2026-07-03).** This entry is
+committed before the verdicts so the instrument-hardening findings survive the
+session; the verdicts and their honest claim ceilings will be appended when the
+runs complete.
+
 ## Provenance
 
 Reproducible commands are embedded in each
