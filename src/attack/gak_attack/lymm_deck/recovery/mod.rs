@@ -6,6 +6,12 @@ use std::time::Duration;
 
 mod propagation;
 mod residual;
+mod selftest;
+
+pub use selftest::{
+    GakSwapSelfTestConfig, GakSwapSelfTestReport, NullControlReport, PositiveControlReport,
+    gak_swap_self_test,
+};
 
 use super::{
     KnownPlaintextPair, LymmDeckError, LymmDeckSpec, TopSwapConstraints, TopSwapDomains,
