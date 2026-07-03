@@ -1413,6 +1413,18 @@ flanking-context widening or LM-free marginal-fit selection after a complete
 superset exists. Do not revive the v2 coverage frontier or word-LM ranking as a
 harvest selector.
 
+**Reframe (2026-07-02) — the search walls may be the wrong problem's difficulty.**
+Rounds 1–7 all measured coloring-*search* difficulty on **random-coloring
+plants**, but the real coloring is a C3-rotor *codec artifact* — a deterministic
+per-letter map that may be simple (the `one` lesson; the wiki's "structured, not
+random" key evidence and its `p = c⁻¹` hand-puzzle convention). If so, the walls
+do not apply: enumerate the convention and oracle-decode (`two` is NOT
+decode-limited). The ranked untried levers — structured-coloring enumeration
+(build first), a repeated-span pattern-crib scan, soft-coloring EM, a
+demoted-to-filter moment matcher, an external-solver QAP variant, and the codec
+round-trip as verifier — are laid out with a two-model consult record in
+`research/handoff/two-fresh-avenues.md`.
+
 ## Provenance
 
 Reproducible commands are embedded in each
