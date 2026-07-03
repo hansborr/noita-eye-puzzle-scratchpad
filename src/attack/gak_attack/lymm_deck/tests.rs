@@ -156,6 +156,24 @@ fn ns1_recovery_recovers_vendored_key_and_reencrypts_exactly() {
     );
 }
 
+#[test]
+fn ns2_recovery_recovers_vendored_key_and_reencrypts_exactly() {
+    let spec = LymmDeckSpec::lymm_default().expect("spec");
+    let pairs = parse_known_plaintext_pairs(
+        &spec,
+        include_str!("../../../../research/data/practice-puzzles/deck-swap/plaintexts.txt"),
+        include_str!("../../../../research/data/practice-puzzles/deck-swap/2_swap_ct.txt"),
+    )
+    .expect("known plaintext pairs");
+
+    let mut config = SwapRecoveryConfig::with_max_swaps(2);
+    config.max_nodes = Some(50_000);
+    let report = recover_known_plaintext_swaps(&spec, &pairs, config).expect("ns=2 recovery");
+
+    assert!(report.round_trip.exact());
+    assert_eq!(report.round_trip.matched, report.round_trip.total);
+}
+
 fn assert_equal_message_5_and_8(pairs: &[KnownPlaintextPair]) {
     let five = pairs
         .iter()
