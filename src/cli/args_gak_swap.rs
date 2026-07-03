@@ -58,9 +58,12 @@ pub(crate) struct GakSwapRecoverArgs {
     /// Initial deck state: `identity` or comma/whitespace integers.
     #[arg(long = "initial-state")]
     pub(crate) initial_state: Option<String>,
-    /// Run the planted positive controls and matched nulls before any recovery.
-    #[arg(long = "run-controls")]
+    /// Run controls only when no files are supplied; controls are default-on for recovery.
+    #[arg(long = "run-controls", conflicts_with = "skip_controls")]
     pub(crate) run_controls: bool,
+    /// Do not gate real-file recovery on the planted controls and matched nulls.
+    #[arg(long = "skip-controls", conflicts_with = "run_controls")]
+    pub(crate) skip_controls: bool,
     /// Deterministic seed for controls.
     #[arg(long, default_value_t = DEFAULT_SWAP_RECOVERY_SEED, value_parser = parse_seed)]
     pub(crate) seed: u64,

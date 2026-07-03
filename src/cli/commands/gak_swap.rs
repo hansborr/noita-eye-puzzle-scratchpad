@@ -21,7 +21,23 @@ pub(crate) fn run_gak_swap_recover(args: &GakSwapRecoverArgs) -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    let controls = if args.run_controls {
+    let has_plaintext = args.plaintext_file.is_some();
+    let has_ciphertext = args.ciphertext_file.is_some();
+    let has_real_files = has_plaintext && has_ciphertext;
+    if has_plaintext != has_ciphertext {
+        eprintln!("gak-swap-recover error: provide both --plaintext-file and --ciphertext-file");
+        return ExitCode::FAILURE;
+    }
+    if !has_real_files && !args.run_controls {
+        eprintln!(
+            "gak-swap-recover error: provide --plaintext-file and --ciphertext-file, or use --run-controls"
+        );
+        return ExitCode::FAILURE;
+    }
+
+    let should_run_controls =
+        controls_required(args.run_controls, args.skip_controls, has_real_files);
+    let controls = if should_run_controls {
         let config = GakSwapSelfTestConfig {
             seed: args.seed,
             max_nodes: args.max_nodes.or(Some(50_000)),
@@ -42,14 +58,12 @@ pub(crate) fn run_gak_swap_recover(args: &GakSwapRecoverArgs) -> ExitCode {
         None
     };
 
-    if args.plaintext_file.is_none() && args.ciphertext_file.is_none() {
+    if !has_real_files {
         if let Some(report) = &controls {
             print_self_test(report, args.output);
             return ExitCode::SUCCESS;
         }
-        eprintln!(
-            "gak-swap-recover error: provide --plaintext-file and --ciphertext-file, or use --run-controls"
-        );
+        eprintln!("gak-swap-recover error: no recovery input and controls were not run");
         return ExitCode::FAILURE;
     }
 
@@ -87,10 +101,28 @@ pub(crate) fn run_gak_swap_recover(args: &GakSwapRecoverArgs) -> ExitCode {
     };
 
     match args.output {
-        GakSwapOutput::Text => print_text_report(&recovery, controls.as_ref(), pairs.len()),
-        GakSwapOutput::Json => print_json_report(&recovery, controls.as_ref(), pairs.len()),
+        GakSwapOutput::Text => {
+            print_text_report(
+                &recovery,
+                controls.as_ref(),
+                args.skip_controls,
+                pairs.len(),
+            );
+        }
+        GakSwapOutput::Json => {
+            print_json_report(
+                &recovery,
+                controls.as_ref(),
+                args.skip_controls,
+                pairs.len(),
+            );
+        }
     }
     ExitCode::SUCCESS
+}
+
+fn controls_required(run_controls: bool, skip_controls: bool, has_real_files: bool) -> bool {
+    run_controls || (has_real_files && !skip_controls)
 }
 
 fn validate_task02_knobs(args: &GakSwapRecoverArgs) -> Result<(), String> {
@@ -246,12 +278,17 @@ fn parse_blank_line_pairs(
 fn print_text_report(
     report: &RecoveryReport,
     controls: Option<&GakSwapSelfTestReport>,
+    controls_skipped: bool,
     pair_count: usize,
 ) {
     if let Some(self_test) = controls {
         print_self_test(self_test, GakSwapOutput::Text);
+    } else if controls_skipped {
+        println!(
+            "gak swap controls: SKIPPED by --skip-controls; real-file output is not control-gated"
+        );
     } else {
-        println!("gak swap controls: not run (pass --run-controls to gate this run)");
+        println!("gak swap controls: not run");
     }
     println!(
         "gak-swap-recover: {pair_count} known-plaintext pairs, n={}, max-swaps={}",
@@ -353,6 +390,7 @@ fn print_null(report: &NullControlReport) {
 fn print_json_report(
     report: &RecoveryReport,
     controls: Option<&GakSwapSelfTestReport>,
+    controls_skipped: bool,
     pair_count: usize,
 ) {
     let mut out = String::new();
@@ -363,6 +401,9 @@ fn print_json_report(
         Some(self_test) => {
             writeln!(&mut out, "  \"controls\": {},", self_test_json(self_test))
                 .expect("write to String");
+        }
+        None if controls_skipped => {
+            writeln!(&mut out, "  \"controls\": \"skipped\",").expect("write to String");
         }
         None => {
             writeln!(&mut out, "  \"controls\": null,").expect("write to String");
@@ -490,4 +531,18 @@ fn json_escape(raw: &str) -> String {
         }
     }
     escaped
+}
+
+#[cfg(test)]
+mod tests {
+    use super::controls_required;
+
+    #[test]
+    fn real_file_recovery_runs_controls_by_default() {
+        assert!(controls_required(false, false, true));
+        assert!(controls_required(true, false, true));
+        assert!(!controls_required(false, true, true));
+        assert!(controls_required(true, false, false));
+        assert!(!controls_required(false, false, false));
+    }
 }
