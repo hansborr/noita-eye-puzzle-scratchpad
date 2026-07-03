@@ -38,7 +38,7 @@ pub use transforms::{
     identity_decrypt, identity_encrypt, incrementing_wheel_decrypt, incrementing_wheel_encrypt,
     transposition_decrypt, transposition_encrypt, vigenere_decrypt, vigenere_encrypt,
 };
-pub(crate) use validation::compose_permutations;
+pub(crate) use validation::{compose_permutations, identity_gak_permutation, validate_permutation};
 
 /// Alphabet size of the accepted eye reading layer, values `0..=82`.
 pub const EYE_READING_ALPHABET_SIZE: usize = 83;

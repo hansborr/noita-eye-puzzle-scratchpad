@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+"""Generate Python reference vectors for the Lymm deck oracle tests.
+
+This is a provenance helper, not the recovery engine. It executes the function
+definitions from Lymm's vendored ``noita_test_cipher.py`` and injects planted
+``pt_mapping`` dictionaries produced by a small SplitMix64 port. The output is a
+plain text fixture consumed by Rust tests; those tests do not require Python.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+import sys
+import types
+
+
+ROOT = Path(__file__).resolve().parent
+SOURCE = ROOT / "noita_test_cipher.py"
+PLAINTEXTS = ROOT / "plaintexts.txt"
+U64_MAX = (1 << 64) - 1
+MASK64 = U64_MAX
+
+
+class Perm:
+    """Minimal numpy-array stand-in for Lymm's permutation code."""
+
+    def __init__(self, values):
+        self.values = list(values)
+
+    def __getitem__(self, key):
+        if isinstance(key, Perm):
+            return Perm(self.values[index] for index in key.values)
+        if isinstance(key, list):
+            return Perm(self.values[index] for index in key)
+        return self.values[key]
+
+    def __iter__(self):
+        return iter(self.values)
+
+    def __len__(self):
+        return len(self.values)
+
+
+class NumpyShim(types.SimpleNamespace):
+    def array(self, values):
+        return Perm(values)
+
+
+class SplitMix64:
+    def __init__(self, seed):
+        self.state = seed & MASK64
+
+    def next_u64(self):
+        self.state = (self.state + 0x9E3779B97F4A7C15) & MASK64
+        value = self.state
+        value = ((value ^ (value >> 30)) * 0xBF58476D1CE4E5B9) & MASK64
+        value = ((value ^ (value >> 27)) * 0x94D049BB133111EB) & MASK64
+        return (value ^ (value >> 31)) & MASK64
+
+
+def random_index_below(bound, rng):
+    if bound <= 0:
+        raise ValueError("bound must be positive")
+    threshold = U64_MAX - (U64_MAX % bound)
+    while True:
+        draw = rng.next_u64()
+        if draw < threshold:
+            return draw % bound
+
+
+def load_lymm_namespace():
+    source = SOURCE.read_text(encoding="utf-8")
+    prefix = source.split("# Plaintext alphabet can be any size", maxsplit=1)[0]
+    namespace = {"np": NumpyShim(), "__name__": "lymm_reference"}
+    sys.modules["numpy"] = namespace["np"]
+    exec(prefix, namespace)
+    return namespace
+
+
+def parse_plaintexts():
+    rows = []
+    for raw in PLAINTEXTS.read_text(encoding="utf-8").splitlines():
+        if not raw.strip():
+            continue
+        label, plaintext = raw.split(":", maxsplit=1)
+        rows.append((label.strip(), plaintext.removeprefix(" ")))
+    return rows
+
+
+def generate_mapping(namespace, base_permutation, num_swaps, seed):
+    rng = SplitMix64(seed)
+    pt_alphabet = namespace["pt_alphabet"]
+    swaps = namespace["swaps"]
+    compose = namespace["compose"]
+    used = set()
+    mapping = {}
+    swap_words = {}
+    for letter in pt_alphabet:
+        attempts = 0
+        while True:
+            attempts += 1
+            perm = base_permutation
+            current_swaps = []
+            for _ in range(num_swaps):
+                swap_index = random_index_below(len(swaps), rng)
+                perm = compose(swaps[swap_index], perm)
+                current_swaps.append(swap_index)
+            target = perm[0]
+            if target != 0 and target not in used:
+                used.add(target)
+                mapping[letter] = perm
+                swap_words[letter] = current_swaps
+                break
+            if attempts > 1000:
+                raise RuntimeError(f"failed to plant {letter}")
+    return mapping, swap_words
+
+
+def emit_vector(namespace, plaintexts, num_swaps, seed):
+    compose = namespace["compose"]
+    rotations = namespace["rotations"]
+    decimations = namespace["decimations"]
+    base_permutation = compose(rotations[26], decimations[3])
+    mapping, swap_words = generate_mapping(namespace, base_permutation, num_swaps, seed)
+    namespace["pt_mapping"] = mapping
+
+    print(f"vector ns={num_swaps} seed=0x{seed:016x}")
+    print("[mapping]")
+    for letter in namespace["pt_alphabet"]:
+        values = ",".join(str(value) for value in mapping[letter])
+        swaps = ",".join(str(value) for value in swap_words[letter])
+        print(f"{letter}|swaps={swaps}: {values}")
+    print("[ciphertexts]")
+    for label, plaintext in plaintexts:
+        print(f"{label}: {namespace['encrypt'](plaintext)}")
+    print("end")
+
+
+def main():
+    namespace = load_lymm_namespace()
+    namespace["pt_alphabet"] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    namespace["ct_alphabet"] = "".join(chr(33 + i) for i in range(83))
+    plaintexts = parse_plaintexts()
+    seeds = (
+        0x51A7000000000001,
+        0x51A7000000010001,
+        0x51A7000000000002,
+        0x51A7000000010002,
+        0x51A7000000000003,
+        0x51A7000000010003,
+    )
+
+    print("# Lymm deck Python differential reference vectors")
+    print("# Generated by:")
+    print(
+        "#   python3 research/data/practice-puzzles/deck-swap/generate_reference_vectors.py "
+        "> research/data/practice-puzzles/deck-swap/python-reference-vectors.txt"
+    )
+    print("# The script executes noita_test_cipher.py's compose/encrypt definitions.")
+    print("# Hand vector documented in Rust: n=5, base identity, A=(0 2), B=(0 3), A!B -> c!d.")
+    for num_swaps, seed in zip((1, 1, 2, 2, 3, 3), seeds, strict=True):
+        emit_vector(namespace, plaintexts, num_swaps, seed)
+
+
+if __name__ == "__main__":
+    main()

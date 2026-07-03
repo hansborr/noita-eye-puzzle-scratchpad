@@ -46,3 +46,21 @@ The recommended path is propagation-first deduction (R-top/R-read) + a CP-SAT
 residual solver (see the handoff), and ns≥2 is **not yet verified end-to-end**. No
 result here relaxes the project honesty ceiling — a recovered key is a *candidate*
 until it re-encrypts the ciphertext exactly.
+
+## Oracle differential fixture
+
+Task 01 of `research/handoff/gak-swap-recovery/` landed a Rust oracle for Lymm's
+deck convention in `attack::gak_attack::lymm_deck`. The committed fixture
+`python-reference-vectors.txt` was generated with:
+
+```sh
+python3 research/data/practice-puzzles/deck-swap/generate_reference_vectors.py > research/data/practice-puzzles/deck-swap/python-reference-vectors.txt
+```
+
+The generator executes Lymm's vendored `compose`/`encrypt` definitions, injects
+SplitMix64-planted mappings for two seeds at each `num_swaps` level 1, 2, and 3,
+and records both mappings and ciphertexts. The Rust test
+`rust_oracle_matches_python_reference_vectors_byte_for_byte` regenerates the
+planted mappings and asserts byte-for-byte ciphertext equality. Inline hand vector:
+with `n=5`, identity base, `A=(0 2)`, `B=(0 3)`, and ciphertext alphabet `abcde`,
+plaintext `A!B` encrypts to `c!d`; `!` passes through and does not advance state.
