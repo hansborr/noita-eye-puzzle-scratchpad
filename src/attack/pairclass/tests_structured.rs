@@ -1,11 +1,14 @@
 //! Tests for structured-coloring Avenue-A mode.
 
+use std::collections::BTreeSet;
+
 use super::campaign::{PowerCfg, StreamPrep, solve_cfg};
 use super::lexicon::{build_lexicon, parse_wordlist};
+use super::plant::{PlantSpec, plant_from_text};
 use super::structured::{
     StructuredFamilyProfile, StructuredNullCfg, StructuredRunCfg, StructuredStream,
-    generate_structured_candidates, measure_structured_power, measure_structured_random_negative,
-    structured_null_gate,
+    draw_out_of_family_random_plant, generate_structured_candidates, measure_structured_power,
+    measure_structured_random_negative, structured_null_gate,
 };
 
 const WORDLIST: &str = "cat 100\ndog 90\nact 3\ntag 2\ncot 1\n";
@@ -156,6 +159,24 @@ fn structured_random_coloring_negative_stays_quiet() {
     )
     .expect("negative runs");
     assert!(negative.quiet, "negative report: {negative:?}");
+}
+
+#[test]
+fn structured_random_negative_redraws_family_collision() {
+    let spec = PlantSpec {
+        len: 12,
+        n_classes: 4,
+        copy: None,
+    };
+    let first = plant_from_text(TEXT, &spec, 99).expect("first draw builds");
+    let mut forbidden = BTreeSet::new();
+    let inserted = forbidden.insert(first.coloring);
+    assert!(inserted);
+    let (second, redraw_count) =
+        draw_out_of_family_random_plant(TEXT, &spec, 99, 0, &forbidden).expect("redraw succeeds");
+    assert_eq!(redraw_count, 1);
+    assert_ne!(second.coloring, first.coloring);
+    assert!(!forbidden.contains(&second.coloring));
 }
 
 #[test]

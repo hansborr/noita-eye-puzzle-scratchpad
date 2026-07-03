@@ -217,6 +217,20 @@ pub fn generate_structured_candidates(
     })
 }
 
+pub(super) fn expanded_family_colorings(profile: StructuredFamilyProfile) -> BTreeSet<[u8; 26]> {
+    let mut out = BTreeSet::new();
+    for base in base_colorings(profile) {
+        let transforms = match base.label_mode {
+            LabelMode::FixedBits => bit_transforms(),
+            LabelMode::Relabel => relabel_transforms(),
+        };
+        for (_name, map) in transforms {
+            let _inserted = out.insert(apply_class_map(&base.coloring, map));
+        }
+    }
+    out
+}
+
 impl MarginalModel {
     fn from_word_entries(entries: &[(String, u64)]) -> Result<Self, PairclassError> {
         let mut counts = [0u64; 26];

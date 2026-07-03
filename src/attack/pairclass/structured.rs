@@ -8,6 +8,7 @@
 mod enumerate;
 mod families;
 mod pipeline;
+mod random;
 
 pub use enumerate::{
     StructuredCandidateMeta, StructuredFamilyProfile, StructuredGenerationReport, StructuredRunCfg,
@@ -19,3 +20,6 @@ pub use pipeline::{
     measure_structured_random_negative, run_structured_oracle_decode, structured_null_gate,
     structured_null_gate_streams,
 };
+
+#[cfg(test)]
+pub(crate) use random::draw_out_of_family_random_plant;

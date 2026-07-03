@@ -2,14 +2,14 @@
 
 use crate::attack::pairclass::campaign::{PowerCfg, StreamPrep};
 use crate::attack::pairclass::plant::{
-    CopySpan, Plant, PlantSpec, copy_ties, markov_resample, plant_from_text,
-    plant_from_text_with_coloring,
+    CopySpan, Plant, PlantSpec, copy_ties, markov_resample, plant_from_text_with_coloring,
 };
 use crate::attack::pairclass::solve::{Solution, SolveCfg, SolveInput, solve};
 use crate::attack::pairclass::structured::enumerate::{
     StructuredCandidateMeta, StructuredGenerationReport, StructuredRunCfg, StructuredStream,
-    generate_structured_candidates,
+    expanded_family_colorings, generate_structured_candidates,
 };
+use crate::attack::pairclass::structured::random::draw_out_of_family_random_plant;
 use crate::attack::pairclass::ties::tie_targets;
 use crate::attack::pairclass::{Lexicon, PairclassError};
 use crate::nulls::null::{SplitMix64, mix_seed, random_index_below};
@@ -268,6 +268,7 @@ pub fn measure_structured_random_negative(
 ) -> Result<StructuredNegativeReport, PairclassError> {
     let letters = text_letters(text);
     let copy = tie_to_copy(power.longest_tie, power.plant_len);
+    let family_colorings = expanded_family_colorings(run_cfg.profile);
     let mut plants = Vec::with_capacity(power.n_plants);
     for index in 0..power.n_plants {
         let source = plant_source(&letters, power.plant_len, index, power.n_plants);
@@ -276,7 +277,8 @@ pub fn measure_structured_random_negative(
             n_classes: power.n_classes,
             copy,
         };
-        let plant = plant_from_text(&source, &spec, power.seed.wrapping_add(index as u64))?;
+        let (plant, _redraws) =
+            draw_out_of_family_random_plant(&source, &spec, power.seed, index, &family_colorings)?;
         let prep = plant_prep(&plant, copy)?;
         plants.push(run_structured_plant(
             &plant,
