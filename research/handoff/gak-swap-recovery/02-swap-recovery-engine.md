@@ -54,18 +54,35 @@ solver.
      `perm(L)=S_prev⁻¹∘S_next`, and a perm known once is known everywhere); the
      `perm(L)=base` off-support prior; the no-doubles/distinct-target filter
      (`perm[0]≠0`, all-different targets); unit-propagate collapsed domains.
+
+   **Partial states are the normal case at ns≥2.** Past the first occurrence of
+   a letter with unpinned off-tops, the walk's states are only partially known
+   (each unresolved support entry blanks one state position, and the blanks move
+   with the walk). Implement the rules over per-position known/unknown (or
+   domain) state entries: R-top fires whenever the ct value's position in the
+   pre-state is among the *known* entries, not only on fully-known states. ns=1
+   is closed-form precisely because its states never degrade; a literal
+   "known pre-state" implementation stalls at the first ambiguous letter and
+   makes propagation look uselessly weak.
 2. **Residual coupling → CP-SAT / SAT** (primary for ns≥2, *not* a hand-rolled
    backtracker). Variables = `perm(L)[i]` one-hot; constraints = permutation
    all-different, small-support (`≤num_swaps+1` indicators with a cardinality bound
    vs `base`), and the emission/state-walk equalities as channelling constraints
    across the whole corpus. Seed it with the R-top/R-read/R-between deductions as
-   unit facts to shrink domains first. A modern CP-SAT propagator supplies the
-   conflict-directed learning + non-chronological backjumping the coupling needs and
-   that forward DFS lacks. (Codex's caution stands: the encoding is heavy, so lead
-   with the deductions and keep the solver behind a clean interface.)
-3. **Accelerators regardless of backend:** anchor on the identity restarts;
-   feed repeated-plaintext-span cribs (msgs 1&4 share `THE…`→`r,n…`; 5≡8) as
-   state-equality constraints — the messages are variations on one paragraph.
+   unit facts to shrink domains first. A conflict-learning (CDCL) core supplies
+   the non-chronological backjumping the coupling needs and that forward DFS
+   lacks; see Notes for the realistic Rust backend options. (Codex's caution
+   stands: the encoding is heavy, so lead with the deductions and keep the
+   solver behind a clean interface.)
+3. **Accelerators regardless of backend:** anchor on the identity restarts. Two
+   distinct crib classes — do not conflate them: (a) *identity-restart shared
+   prefixes* give literal state equality (msgs 1&4 share exactly `THE` → 3 equal
+   leading ct chars, verified in all three files); (b) *interior repeated spans*
+   give only a relative constraint — the same net permutation across both spans,
+   NOT equal states (the pre-states differ). The messages are variations on one
+   paragraph, so both classes are plentiful. Note pt 5 ≡ pt 8 byte-for-byte, so
+   msg 8 adds zero information (ct 5 ≡ ct 8 in every file — verified): it is a
+   free corpus-integrity check, and the effective corpus is 7 distinct messages.
 4. **Accept only on exact re-encryption of every message** — never on a score. On a
    solver timeout, report the bound and what was dropped (`AGENTS.md`).
 
@@ -101,9 +118,13 @@ implement per-letter local search as primary (avalanche objective).
 ## Validation (binding)
 
 - **Positive control:** plant a mapping (seeded `SplitMix64`) at ns ∈ {1,2,3},
-  encrypt known plaintext, recover, assert (a) recovered `perm(L)` == planted
-  `perm(L)` for every appearing letter, and (b) exact re-encryption. **Assert on
-  `perm(L)` and re-encryption, NOT on the swap-word** (non-unique factorization).
+  encrypt known plaintext, recover, assert (a) exact re-encryption, and (b) per
+  appearing letter: `RecoveredUnique` ⇒ recovered `perm(L)` == planted `perm(L)`;
+  `RecoveredAmbiguous` ⇒ the planted perm is in the reported candidate set. Do
+  NOT assert blanket perm equality — rare letters (K appears 2× in the vendored
+  plaintexts) can be legitimately undetermined off-top even when re-encryption
+  is exact, and a correct engine must be allowed to say so. **Never assert on
+  the swap-word** (non-unique factorization).
 - **Matched nulls (must genuinely fail):** (1) replace each `perm(L)` with a full
   *random* permutation (not small-support) → attack at the same bound returns no
   consistent small-support solution (clean failure, not a fabricated mapping);
@@ -124,7 +145,8 @@ the current one is earned:**
    this — it is the warm-up that proves the oracle wiring.)
 3. **ns=2 (the real milestone — EARN it before building the full CLI):** get the
    propagation (R-top/R-read) + CP-SAT residual to recover the vendored
-   `2_swap_ct.txt` key with exact re-encryption of all 8 messages. This is the step
+   `2_swap_ct.txt` key with exact re-encryption of all 8 messages (ambiguity, if
+   any, confined to explicitly flagged undetermined entries). This is the step
    that validates the *chosen algorithm* (forward search is measured to fail here).
    If it does not close, the fix is stronger deduction / a better SAT encoding —
    **not** more forward-search nodes.
@@ -148,6 +170,14 @@ the current one is earned:**
 - Keep the engine oracle-agnostic: it consumes `LymmDeckSpec` so Task 03 can flip
   compose-direction / emission-index / generator-set without touching recovery.
 - Pick the SAT/CP-SAT backend deliberately (a vetted crate; justify it per
-  `AGENTS.md` "minimal dependency surface"). Keep it behind a small trait so a
-  future pure-propagation solver or MITM path can replace it without touching the
-  CLI or the deduction stage.
+  `AGENTS.md` "minimal dependency surface"). Reality check: there is no
+  OR-tools-class pure-Rust CP-SAT crate. The expected path is a pure-Rust CDCL
+  SAT solver — candidates: `varisat` or `batsat` (MIT/Apache) or `splr`
+  (MPL-2.0); all three licenses pass the current `deny.toml` allowlist — plus
+  hand-rolled one-hot / all-different / channelling encodings. The conflict
+  learning comes from the SAT core; the CP-style propagation is the deduction
+  stage you are already building. Native bindings (kissat, OR-tools) are a
+  supply-chain event out of proportion to this instrument — do not add them
+  without explicit sign-off. Keep the backend behind a small trait so a future
+  pure-propagation solver or MITM path can replace it without touching the CLI
+  or the deduction stage.

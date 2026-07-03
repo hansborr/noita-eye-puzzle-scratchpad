@@ -47,8 +47,12 @@ independent messages under **one shared 26-letter key**.
 `base` in at most `num_swaps+1` positions, always chained through position 0, and
 `perm(L)[0] = base[σ_L(0)]` is forced whenever the pre-state is known. Recovery is
 recovering *which few positions moved and where* — a few `log n`-bit choices per
-letter against ~90 occurrences each. It is **over-determined**; the difficulty is
-search *ordering*, not information.
+letter against ~100 occurrences each on average (2,439 letters over 24 used
+letters; J and Z never appear). It is **over-determined in aggregate**; the
+difficulty is search *ordering*, not information. One honest caveat: the tail is
+skewed (K appears 2×, X 8×, Q 15×), so the rarest letters may stay legitimately
+ambiguous off-top even under exact re-encryption — that is `RecoveredAmbiguous`,
+not a bug.
 
 ## Q1 — What existing tooling is appropriate (reuse, don't rebuild)
 
@@ -75,15 +79,18 @@ A new Rust instrument `gak-swap-recover` (do **not** overload `gak solve`), buil
 as a dependency ladder so each task is one coherent, independently-verifiable
 mission. **Rust core, decisively** (performance + the repo's self-validated
 instrument convention + null discipline); community shareability comes from a thin
-reference-Python oracle differential-tested against the vendored files, plus a
+reference-Python oracle differential-tested against the Rust oracle on the
+vendored plaintexts, plus a
 copy-pasteable Python `pt_mapping` dict in the output — Python is never the engine.
 
 1. **[01] Lymm deck oracle + KP corpus plumbing + differential test.** The
    foundation that retires the #1 risk (orientation) *before* any recovery: an
    exact, parameterized `encrypt_lymm_deck`, a seeded mapping generator (plant),
-   the labeled multi-message KP pair parser, and a differential test that
-   reproduces `1_/2_/3_swap_ct.txt` **byte-for-byte**. Also the top-swap candidate
-   enumerator. → `01-lymm-deck-oracle.md`
+   the labeled multi-message KP pair parser, and a **byte-for-byte differential
+   test against the reference Python generator under planted mappings**. (The
+   vendored ct keys are unrecorded, so reproducing `1_/2_/3_swap_ct.txt` itself
+   requires key recovery — that is Task 02's acceptance, not an oracle test.)
+   Also the top-swap candidate enumerator. → `01-lymm-deck-oracle.md`
 2. **[02] Recovery engine + CLI + controls.** The exact forward-propagation CSP
    over per-letter small-support domains (MRV branching, cross-message joint
    forward-checking, accept only on exact re-encryption), the report type, the
@@ -105,6 +112,9 @@ the work (anchored at the 8 identity restarts):
   *reads* an off-top entry: `perm(L)[target_M]=state_prev⁻¹[ct_at_M]`. English
   bigrams follow each `L` by many different `M`, so a handful of reads pins each
   `perm(L)`'s ≤`num_swaps+1` support positions — **deduction, not guessing.**
+  (At ns≥2, states past the first unpinned letter are only *partially* known —
+  the rules run over per-position known/unknown state entries, not full states;
+  see Task 02.)
 Whatever propagation can't deduce (the residual coupling) goes to a **CP-SAT/SAT
 encoding** (variables `perm(L)[i]` one-hot; all-different + small-support
 cardinality + the state-walk emission equalities as channelling constraints), seeded
@@ -140,8 +150,12 @@ state, so the objective is avalanche-heavy and misleading.
 
 ## Validation (binding, `AGENTS.md`)
 
-Planted positive control **assert on `perm(L)` and on exact re-encryption, not on
-the swap-word** (factorization is non-unique). Three matched nulls that must
+Planted positive control: assert on exact re-encryption plus, per letter,
+`RecoveredUnique` ⇒ equals the planted `perm(L)` and `RecoveredAmbiguous` ⇒ the
+planted perm is in the reported candidate set — **never on the swap-word**
+(factorization is non-unique). Blanket perm-equality is too strong: rare letters
+(K appears twice in the whole corpus) can be legitimately undetermined off-top
+even when re-encryption is exact. Three matched nulls that must
 genuinely fail: (1) random *full* permutation mapping → no small-support solution;
 (2) over-budget — encrypt at `b+1`, attack bounded at `b` must fail and `b+1` must
 succeed; (3) label-shuffle the ct → fail. A passing null is a build-breaking bug.
@@ -152,7 +166,8 @@ its result a **candidate** unless re-encryption matches exactly.
 
 1. **Orientation** — `compose` direction, left-vs-right mult, emission index,
    `base∘σ` vs `σ∘base` are all easy to invert. Gate *everything* on the Task-01
-   byte-for-byte differential test before trusting any recovery.
+   byte-for-byte differential test against the Python reference generator
+   (planted mappings) before trusting any recovery.
 2. **Non-unique swap factorization** — assert on `perm(L)` + re-encryption; emit
    swaps only as a flagged canonical minimal word.
 3. **State desync / over-claiming** — require exact round-trip + positive control +

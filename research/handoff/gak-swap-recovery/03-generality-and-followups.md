@@ -42,8 +42,10 @@ Read `research/handoff/gak-swap-recovery/README.md` first. House rules:
    a **thin reference-Python oracle** (encrypt + mapping generator only — not the
    attack) under `research/data/practice-puzzles/deck-swap/` or a `tools/` path,
    with a differential test asserting the Rust oracle reproduces it byte-for-byte
-   on the vendored files. A PyO3 binding is more than this needs; a file-I/O CLI
-   the community can shell out to is enough.
+   on the vendored *plaintexts* under shared planted mappings (the vendored ct
+   keys are unrecorded — matching those bytes is key recovery, i.e. Task 02). A
+   PyO3 binding is more than this needs; a file-I/O CLI the community can shell
+   out to is enough.
 
 5. **Compose-direction / emission-index / secret-initial-state knobs.** Finish
    wiring `--compose-direction left|right` (right = multiply by inverse; math is

@@ -45,16 +45,25 @@ reuse map, risks) and the vendored generator
    `plaintexts.txt` (`"<label>: <PT>"` per line) and the ct files (`"<label>:"`
    then the ciphertext on the next line) into aligned `(pt, ct)` pairs sharing one
    key. Reuse `cli::shared` split/parse helpers where they fit. Assert
-   `count(alpha chars in pt) == len(ct)` per message.
-6. **Differential test (the acceptance gate).** A `#[test]` that, for each of
-   `num_swaps ∈ {1,2,3}`, loads the vendored corpus and asserts the oracle +
-   the parser round-trip cleanly, AND a test that reproduces the exact vendored
-   ciphertext from a known mapping. Since the vendored files were generated with a
-   *random* (unrecorded) mapping, do the byte-for-byte check the reproducible way:
-   plant a mapping with a fixed seed, encrypt `plaintexts.txt`, and assert the
-   library's own encrypt/decrypt/parse are self-consistent and that a
-   hand-verified small vector (documented in the test) matches. (Task 02's
-   recovery test is what proves the oracle against the *actual* vendored ct.)
+   `count(alpha chars in pt) == len(ct)` per message. Labels are arbitrary,
+   non-contiguous strings (this corpus has no message 7) — do not assert
+   contiguity or numeric order. Free integrity check for the parser test:
+   pt 5 ≡ pt 8 byte-for-byte, so ct 5 must equal ct 8 in every vendored file
+   (verified true for all three).
+6. **Differential test (the acceptance gate).** The headline gate is a true
+   Rust-vs-Python differential: inject a *planted* `pt_mapping` (fixed seed) into
+   Lymm's actual generator, encrypt the real `plaintexts.txt` at
+   `num_swaps ∈ {1,2,3}` for a few seeds, and commit the resulting reference
+   vectors (mapping + ct, with the generation command recorded) alongside the
+   corpus. A `#[test]` then asserts the Rust oracle reproduces those vectors
+   **byte-for-byte** — no live Python/numpy dependency in the test itself; the
+   vectors are provenance-carrying reference data, like the corpus. Secondary
+   checks: the KP parser round-trips each vendored file, and one small
+   hand-verified vector is documented inline in the test. Self-consistency alone
+   is NOT a gate — a consistently wrong oracle is self-consistent; only the
+   Python differential catches a global orientation flip. (Reproducing the
+   vendored `1_/2_/3_swap_ct.txt` bytes requires recovering their unrecorded
+   keys — that is Task 02's acceptance, not an oracle test.)
 
 ## Acceptance criteria
 
