@@ -31,11 +31,15 @@ mod campaign;
 mod lexicon;
 mod plant;
 mod selftest;
+mod selftest_structured;
 mod solve;
+mod structured;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod tests_anchor;
+#[cfg(test)]
+mod tests_structured;
 mod ties;
 
 pub use anchor::{
@@ -57,6 +61,14 @@ pub use selftest::{
     TWO_PHASE0_MARGINALS, TwoRegression, pairclass_self_test, recovery_fraction,
 };
 pub use solve::{Solution, SolveCfg, SolveInput, SolveReport, TruthFate, estimate_peak_mib, solve};
+pub use structured::{
+    StructuredCandidateMeta, StructuredDecodedCandidate, StructuredFamilyProfile,
+    StructuredGenerationReport, StructuredNegativeReport, StructuredNullCfg, StructuredNullGate,
+    StructuredPlantOutcome, StructuredPowerReport, StructuredRunCfg, StructuredRunReport,
+    StructuredStream, generate_structured_candidates, measure_structured_power,
+    measure_structured_random_negative, run_structured_oracle_decode, structured_null_gate,
+    structured_null_gate_streams,
+};
 pub use ties::{TieSpan, maximal_repeats, tie_targets, token_ties};
 
 /// Default deterministic seed for plants, nulls, and the self-test.

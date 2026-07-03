@@ -27,6 +27,17 @@ pub(crate) enum PairclassHarvestMode {
     Enumerate,
 }
 
+/// Structured-coloring family profile for Avenue A.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+pub(crate) enum PairclassColoringFamily {
+    /// Curated Avenue-A deterministic family.
+    #[value(name = "core")]
+    Core,
+    /// Tiny toy family for fast validation and debugging.
+    #[value(name = "toy")]
+    Toy,
+}
+
 /// `pairclass`: pair-class decipherment for `±1`-walk carriers with a
 /// two-symbols-per-letter codec (the practice-puzzle-`two` rotor-carrier
 /// model). Derives the residue walk's direction-bit pair tokens (a public
@@ -80,6 +91,18 @@ pub(crate) struct PairclassArgs {
     /// Number of ranked candidate decodes to print.
     #[arg(long, default_value_t = 5)]
     pub(crate) top: usize,
+    /// Enumerate deterministic structured colorings and oracle-decode each.
+    #[arg(long = "coloring-family")]
+    pub(crate) coloring_family: Option<PairclassColoringFamily>,
+    /// Maximum structured-coloring oracle decodes to run.
+    #[arg(long = "structured-max-decodes", default_value_t = 384)]
+    pub(crate) structured_max_decodes: usize,
+    /// Marginal L1 threshold for relabel-collapse provenance.
+    #[arg(long = "structured-marginal-l1", default_value_t = 0.16)]
+    pub(crate) structured_marginal_l1: f64,
+    /// Required score margin over random/null baselines for a survivor.
+    #[arg(long = "structured-score-margin", default_value_t = 0.0)]
+    pub(crate) structured_score_margin: f32,
     /// Use the anchor-seeded two-phase search order instead of left-to-right.
     #[arg(
         long = "anchor-seed",

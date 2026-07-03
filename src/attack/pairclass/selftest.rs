@@ -11,6 +11,7 @@
 
 use super::campaign::StreamPrep;
 use super::plant::{CopySpan, Plant, PlantSpec, markov_resample, plant_from_text};
+use super::selftest_structured::{StructuredLeg, run_structured_leg};
 use super::solve::{SolveCfg, SolveInput, TruthFate, solve};
 use super::ties::{TieSpan, maximal_repeats, tie_targets};
 use super::{
@@ -105,7 +106,6 @@ const LEADING_MIDWORD_REPEAT: CopySpan = CopySpan {
     dst: 4,
     len: 1,
 };
-
 /// The planted-positive leg.
 #[derive(Clone, Debug)]
 pub struct PlantLeg {
@@ -223,6 +223,8 @@ pub struct PairclassSelfTest {
     pub prune: PruneLeg,
     /// Anchor-seeded mechanism check.
     pub anchor: AnchorLeg,
+    /// Structured-coloring oracle enumeration check.
+    pub structured: StructuredLeg,
     /// The `±1` walk gate rejected a non-walk stream.
     pub walk_gate: bool,
     /// Embedded-`two` derivation regression.
@@ -237,6 +239,7 @@ impl PairclassSelfTest {
             && self.null.passed()
             && self.prune.passed()
             && self.anchor.passed()
+            && self.structured.passed()
             && self.walk_gate
             && self.two.passed()
     }
@@ -263,11 +266,13 @@ pub fn pairclass_self_test(seed: u64) -> Result<PairclassSelfTest, PairclassErro
     let null_leg = run_null_leg(&plant, plant_leg.best_score, &lexicon, seed)?;
     let prune_leg = run_prune_leg(&plant, &ties, &lexicon)?;
     let anchor_leg = run_anchor_leg(&plant, &ties, &lexicon, seed)?;
+    let structured_leg = run_structured_leg(seed)?;
     Ok(PairclassSelfTest {
         plant: plant_leg,
         null: null_leg,
         prune: prune_leg,
         anchor: anchor_leg,
+        structured: structured_leg,
         walk_gate: walk_gate_leg()?,
         two: two_regression_leg()?,
     })

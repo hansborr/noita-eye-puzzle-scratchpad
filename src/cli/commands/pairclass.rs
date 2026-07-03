@@ -2,6 +2,12 @@
 
 #[path = "pairclass_anchor_report.rs"]
 mod pairclass_anchor_report;
+#[path = "pairclass_selftest_report.rs"]
+mod pairclass_selftest_report;
+#[path = "pairclass_structured.rs"]
+mod pairclass_structured;
+#[path = "pairclass_structured_report.rs"]
+mod pairclass_structured_report;
 
 use std::process::ExitCode;
 
@@ -10,7 +16,7 @@ use noita_eye_puzzle::attack::pairclass::{
     Lexicon, NullGate, PlantOutcome, PowerCfg, PowerReport, SolveInput, SolveReport, StreamPrep,
     TruthFate, WalkViolation, anchor_null_gate, build_lexicon, harvest_anchor_colorings,
     measure_anchor_harvest_retention, measure_anchor_seed_power, measure_power, null_gate,
-    pairclass_self_test, parse_wordlist, prepare_stream, solve, solve_anchor_seeded, solve_cfg,
+    parse_wordlist, prepare_stream, solve, solve_anchor_seeded, solve_cfg,
 };
 
 use crate::cli::args_pairclass::{PairclassArgs, PairclassHarvestMode, PairclassSearchOrder};
@@ -19,6 +25,8 @@ use pairclass_anchor_report::{
     anchor_ladder, print_anchor_harvest_retention, print_anchor_harvest_verdict,
     print_anchor_harvest_window, print_anchor_power, print_anchor_solutions, print_anchor_verdict,
 };
+use pairclass_selftest_report::run_self_test;
+use pairclass_structured::run_structured_analysis;
 
 /// Dispatches the `pairclass` subcommand.
 pub(crate) fn run_pairclass(args: &PairclassArgs) -> ExitCode {
@@ -81,7 +89,8 @@ fn run_analysis(args: &PairclassArgs) -> Result<ExitCode, String> {
         );
         return Ok(ExitCode::SUCCESS);
     };
-    let lexicon = build_wordlist(wordlist_path, args.vocab_cap)?;
+    let word_entries = read_word_entries(wordlist_path, args.vocab_cap)?;
+    let lexicon = build_wordlist_from_entries(&word_entries)?;
     println!(
         "  lexicon: {} words, {} trie nodes (cap {})",
         lexicon.n_words(),
@@ -107,6 +116,9 @@ fn run_analysis(args: &PairclassArgs) -> Result<ExitCode, String> {
     if harvest_only_enabled(args) && args.search_order != PairclassSearchOrder::AnchorSeed {
         return Err("--harvest-only requires --anchor-seed".to_owned());
     }
+    if args.coloring_family.is_some() {
+        return run_structured_analysis(args, &values, &word_entries, &lexicon, &full_cfg);
+    }
     if args.search_order == PairclassSearchOrder::AnchorSeed {
         return run_anchor_analysis(args, &prep, &lexicon, &phrase_cfg, &full_cfg);
     }
@@ -127,10 +139,15 @@ fn run_analysis(args: &PairclassArgs) -> Result<ExitCode, String> {
 }
 
 /// Builds the lexicon from a wordlist file.
-fn build_wordlist(path: &std::path::Path, cap: usize) -> Result<Lexicon, String> {
+fn read_word_entries(path: &std::path::Path, cap: usize) -> Result<Vec<(String, u64)>, String> {
     let text = std::fs::read_to_string(path)
         .map_err(|error| format!("failed to read wordlist {}: {error}", path.display()))?;
-    build_lexicon(&parse_wordlist(&text, cap)).map_err(|error| error.to_string())
+    Ok(parse_wordlist(&text, cap))
+}
+
+/// Builds the lexicon from parsed word entries.
+fn build_wordlist_from_entries(entries: &[(String, u64)]) -> Result<Lexicon, String> {
+    build_lexicon(entries).map_err(|error| error.to_string())
 }
 
 /// Runs the controls-first power measurement when a plant source is supplied.
@@ -556,65 +573,4 @@ fn print_verdict(report: &SolveReport, gate: Option<&NullGate>) {
             best.rendered
         );
     }
-}
-
-fn run_self_test(seed: u64) -> ExitCode {
-    let report = match pairclass_self_test(seed) {
-        Ok(report) => report,
-        Err(error) => {
-            eprintln!("pairclass self-test error: {error}");
-            return ExitCode::FAILURE;
-        }
-    };
-    println!("pairclass self-test (seed=0x{seed:016x}):");
-    println!(
-        "  planted positive (recovery {:.3}): {}",
-        report.plant.recovery,
-        pass_fail(report.plant.passed())
-    );
-    println!("  matched Markov null: {}", pass_fail(report.null.passed()));
-    println!(
-        "  forced-prune instrumentation: {}",
-        pass_fail(report.prune.passed())
-    );
-    println!(
-        "  anchor-seed mechanism (oracle {:.3}, beam midword {}, enum leading {}, enum rejects-bad {}, harvest {}, occupancy {} {}): {}",
-        report.anchor.oracle_recovery,
-        report
-            .anchor
-            .harvested_truth_rank
-            .map_or_else(|| "not-harvested".to_owned(), |rank| format!("#{rank}")),
-        report
-            .anchor
-            .enumerated_truth_rank
-            .map_or_else(|| "not-retained".to_owned(), |rank| format!("#{rank}")),
-        pass_fail(report.anchor.enumerated_rejects_bad_coloring),
-        report.anchor.harvested,
-        report.anchor.max_occupancy,
-        if report.anchor.saturated {
-            "SATURATED"
-        } else {
-            "open"
-        },
-        pass_fail(report.anchor.passed())
-    );
-    println!("  walk gate control: {}", pass_fail(report.walk_gate));
-    println!(
-        "  embedded two regression (348 tokens, marginals {:?}): {}",
-        report.two.marginals,
-        pass_fail(report.two.passed())
-    );
-    println!(
-        "  SELF-TEST: {}",
-        if report.passed() { "PASS" } else { "FAIL" }
-    );
-    if report.passed() {
-        ExitCode::SUCCESS
-    } else {
-        ExitCode::FAILURE
-    }
-}
-
-fn pass_fail(value: bool) -> &'static str {
-    if value { "PASS" } else { "FAIL" }
 }

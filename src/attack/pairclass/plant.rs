@@ -58,6 +58,66 @@ pub struct Plant {
 /// [`PairclassError::TooManyClasses`] for `n_classes` outside `1..=4`, and
 /// [`PairclassError::NullModel`] if the deterministic RNG rejects its bound.
 pub fn plant_from_text(text: &str, spec: &PlantSpec, seed: u64) -> Result<Plant, PairclassError> {
+    validate_spec(spec)?;
+    let letters = plant_letters(text, spec)?;
+    let mut rng = SplitMix64::new(mix_seed(seed, COLORING_TAG));
+    let mut coloring = [0u8; 26];
+    for slot in &mut coloring {
+        let class = random_index_below(usize::from(spec.n_classes), &mut rng)
+            .map_err(|error| PairclassError::NullModel(format!("bad bound {}", error.bound)))?;
+        *slot = class as u8;
+    }
+    let tokens = letters
+        .iter()
+        .map(|&letter| coloring.get(usize::from(letter)).copied().unwrap_or(0))
+        .collect();
+    Ok(Plant {
+        letters,
+        coloring,
+        tokens,
+    })
+}
+
+/// Builds a plant with an explicit hidden coloring.
+///
+/// This is the structured-coloring control path: the text handling and optional
+/// copy span are identical to [`plant_from_text`], but the 26-letter coloring is
+/// supplied by the caller instead of sampled randomly.
+///
+/// # Errors
+/// Returns the same construction errors as [`plant_from_text`], and rejects any
+/// supplied class outside `0..spec.n_classes`.
+pub fn plant_from_text_with_coloring(
+    text: &str,
+    spec: &PlantSpec,
+    coloring: [u8; 26],
+) -> Result<Plant, PairclassError> {
+    validate_spec(spec)?;
+    if let Some((letter, class)) = coloring
+        .iter()
+        .copied()
+        .enumerate()
+        .find(|&(_letter, class)| class >= spec.n_classes)
+    {
+        return Err(PairclassError::SeedColoringClass {
+            letter,
+            class,
+            n_classes: spec.n_classes,
+        });
+    }
+    let letters = plant_letters(text, spec)?;
+    let tokens = letters
+        .iter()
+        .map(|&letter| coloring.get(usize::from(letter)).copied().unwrap_or(0))
+        .collect();
+    Ok(Plant {
+        letters,
+        coloring,
+        tokens,
+    })
+}
+
+fn validate_spec(spec: &PlantSpec) -> Result<(), PairclassError> {
     if spec.n_classes == 0 || spec.n_classes > MAX_CLASSES {
         return Err(PairclassError::TooManyClasses {
             found: usize::from(spec.n_classes),
@@ -66,6 +126,10 @@ pub fn plant_from_text(text: &str, spec: &PlantSpec, seed: u64) -> Result<Plant,
     if spec.len == 0 {
         return Err(PairclassError::EmptyInput);
     }
+    Ok(())
+}
+
+fn plant_letters(text: &str, spec: &PlantSpec) -> Result<Vec<u8>, PairclassError> {
     let mut letters: Vec<u8> = text
         .chars()
         .filter_map(|ch| {
@@ -83,22 +147,7 @@ pub fn plant_from_text(text: &str, spec: &PlantSpec, seed: u64) -> Result<Plant,
     if let Some(span) = spec.copy {
         apply_copy(&mut letters, span)?;
     }
-    let mut rng = SplitMix64::new(mix_seed(seed, COLORING_TAG));
-    let mut coloring = [0u8; 26];
-    for slot in &mut coloring {
-        let class = random_index_below(usize::from(spec.n_classes), &mut rng)
-            .map_err(|error| PairclassError::NullModel(format!("bad bound {}", error.bound)))?;
-        *slot = class as u8;
-    }
-    let tokens = letters
-        .iter()
-        .map(|&letter| coloring.get(usize::from(letter)).copied().unwrap_or(0))
-        .collect();
-    Ok(Plant {
-        letters,
-        coloring,
-        tokens,
-    })
+    Ok(letters)
 }
 
 /// Applies a copy span (the imposed plaintext repeat).
