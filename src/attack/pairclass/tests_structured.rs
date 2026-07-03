@@ -4,11 +4,12 @@ use std::collections::BTreeSet;
 
 use super::campaign::{PowerCfg, StreamPrep, solve_cfg};
 use super::lexicon::{build_lexicon, parse_wordlist};
-use super::plant::{PlantSpec, plant_from_text};
+use super::plant::{PlantSpec, plant_from_text, plant_from_text_with_coloring};
 use super::structured::{
     StructuredFamilyProfile, StructuredNullCfg, StructuredRunCfg, StructuredStream,
-    draw_out_of_family_random_plant, generate_structured_candidates, measure_structured_power,
-    measure_structured_random_negative, structured_null_gate,
+    confirm_structured_top_candidates, draw_out_of_family_random_plant,
+    generate_structured_candidates, measure_structured_power, measure_structured_random_negative,
+    run_structured_oracle_decode, structured_null_gate,
 };
 
 const WORDLIST: &str = "cat 100\ndog 90\nact 3\ntag 2\ncot 1\n";
@@ -22,6 +23,7 @@ fn toy_cfg() -> StructuredRunCfg {
     StructuredRunCfg {
         profile: StructuredFamilyProfile::Toy,
         max_decodes: 24,
+        rank_beam: 32,
         marginal_l1: 2.0,
         score_margin: 0.0,
     }
@@ -122,6 +124,59 @@ fn structured_positive_control_fires() {
             .plants
             .iter()
             .all(|plant| plant.truth_candidate_rank.is_some())
+    );
+}
+
+#[test]
+fn structured_real_confirm_renders_topk_without_changing_rank_score() {
+    let entries = toy_entries();
+    let lexicon = build_lexicon(&entries).expect("lexicon builds");
+    let solve = solve_cfg(128, 0, 0, 3.6, 2, 2048);
+    let mut cfg = toy_cfg();
+    cfg.rank_beam = 16;
+    let plant = plant_from_text_with_coloring(
+        TEXT,
+        &PlantSpec {
+            len: 12,
+            n_classes: 4,
+            copy: None,
+        },
+        std::array::from_fn(|letter| (letter % 4) as u8),
+    )
+    .expect("toy plant builds");
+    let stream = StructuredStream {
+        label: "toy-real",
+        tokens: &plant.tokens,
+        n_classes: 4,
+        tie_to: None,
+    };
+
+    let mut report = run_structured_oracle_decode(&[stream], &entries, &lexicon, &solve, &cfg)
+        .expect("rank pass runs");
+    let rank_best = report.best_score().expect("rank pass surfaces a best");
+    assert!(
+        report
+            .solutions
+            .iter()
+            .all(|candidate| candidate.confirm.is_none()),
+        "rank pass should not perform confirmation: {report:?}"
+    );
+
+    confirm_structured_top_candidates(&mut report, &[stream], &lexicon, &solve)
+        .expect("confirm pass runs");
+
+    assert_eq!(report.best_score(), Some(rank_best));
+    assert!(report.solutions.len() <= 2);
+    assert!(
+        report.solutions.iter().all(|candidate| {
+            candidate.confirm.as_ref().is_some_and(|confirm| {
+                confirm.beam == solve.beam
+                    && confirm.solution.as_ref().is_some_and(|solution| {
+                        !solution.rendered.is_empty() && solution.score.is_finite()
+                    })
+            })
+        }),
+        "confirm pass should render every top candidate: {report:?}"
     );
 }
 

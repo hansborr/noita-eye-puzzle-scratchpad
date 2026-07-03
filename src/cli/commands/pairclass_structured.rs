@@ -5,8 +5,9 @@ use std::process::ExitCode;
 use noita_eye_puzzle::attack::pairclass::{
     Lexicon, PowerCfg, StreamPrep, StructuredFamilyProfile, StructuredNegativeReport,
     StructuredNullCfg, StructuredNullGate, StructuredRunCfg, StructuredStream,
-    measure_structured_power, measure_structured_random_negative, prepare_stream,
-    run_structured_oracle_decode, structured_null_gate_streams,
+    confirm_structured_top_candidates, measure_structured_power,
+    measure_structured_random_negative, prepare_stream, run_structured_oracle_decode,
+    structured_null_gate_streams,
 };
 
 use crate::cli::args_pairclass::{PairclassArgs, PairclassColoringFamily, PairclassSearchOrder};
@@ -55,8 +56,17 @@ pub(crate) fn run_structured_analysis(
     let variants = prepare_structured_variants(values, args)?;
     println!();
     println!(
-        "Structured coloring mode: profile {:?}, extra-decodes {}, full base coverage decoded, marginal-l1 {:.3}, score-margin {:.2}",
-        run_cfg.profile, run_cfg.max_decodes, run_cfg.marginal_l1, run_cfg.score_margin
+        "Structured coloring mode: profile {:?}, rank-beam {}, confirm-beam {}, top {}, extra-decodes {}, full base coverage decoded, marginal-l1 {:.3}, score-margin {:.2}",
+        run_cfg.profile,
+        run_cfg.rank_beam,
+        cfg.beam,
+        cfg.top,
+        run_cfg.max_decodes,
+        run_cfg.marginal_l1,
+        run_cfg.score_margin
+    );
+    println!(
+        "  controls, nulls, real ranking, and verdict statistics use rank-beam; full-beam confirmation is rendering only."
     );
     for variant in &variants {
         print_structured_variant(variant);
@@ -67,7 +77,7 @@ pub(crate) fn run_structured_analysis(
         return Ok(ExitCode::SUCCESS);
     };
     let streams = structured_streams(&variants);
-    let report = run_structured_oracle_decode(&streams, word_entries, lexicon, cfg, &run_cfg)
+    let mut report = run_structured_oracle_decode(&streams, word_entries, lexicon, cfg, &run_cfg)
         .map_err(|error| error.to_string())?;
     let real_best = report.best_score();
     let null_ge_real = count_null_ge(controls.null.null_bests.as_slice(), real_best);
@@ -77,8 +87,22 @@ pub(crate) fn run_structured_analysis(
         null_ge_real,
         null_ge_floor: controls.null.null_ge_floor,
     };
-    print_structured_solutions(&report, controls.negative.max_score, null.max_score());
-    print_structured_null(&null, Some(controls.score_floor));
+    let confirm_error = confirm_structured_top_candidates(&mut report, &streams, lexicon, cfg)
+        .err()
+        .map(|error| error.to_string());
+    print_structured_solutions(
+        &report,
+        controls.negative.max_score,
+        null.max_score(),
+        run_cfg.rank_beam,
+    );
+    if let Some(error) = confirm_error {
+        println!();
+        println!(
+            "Confirm-beam rendering unavailable for at least one top candidate ({error}); rank-beam verdict statistics are unchanged."
+        );
+    }
+    print_structured_null(&null, Some(controls.score_floor), run_cfg.rank_beam);
     print_structured_verdict(
         &report,
         &controls.negative,
@@ -145,7 +169,7 @@ fn run_structured_controls(
         Some(score_floor),
     )
     .map_err(|error| error.to_string())?;
-    print_structured_negative(&negative);
+    print_structured_negative(&negative, run_cfg.rank_beam);
     if !negative.quiet {
         println!();
         println!(
@@ -171,7 +195,7 @@ fn run_structured_controls(
         },
     )
     .map_err(|error| error.to_string())?;
-    print_structured_null(&pre_null, Some(score_floor));
+    print_structured_null(&pre_null, Some(score_floor), run_cfg.rank_beam);
     if pre_null.null_ge_floor > 0 {
         println!();
         println!(
@@ -192,9 +216,13 @@ fn structured_run_cfg(args: &PairclassArgs) -> Result<StructuredRunCfg, String> 
         Some(PairclassColoringFamily::Toy) => StructuredFamilyProfile::Toy,
         None => return Err("--coloring-family missing".to_owned()),
     };
+    if args.structured_rank_beam == 0 {
+        return Err("--structured-rank-beam must be >= 1".to_owned());
+    }
     Ok(StructuredRunCfg {
         profile,
         max_decodes: args.structured_max_decodes,
+        rank_beam: args.structured_rank_beam,
         marginal_l1: args.structured_marginal_l1,
         score_margin: args.structured_score_margin,
     })

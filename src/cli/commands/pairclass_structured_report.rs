@@ -9,8 +9,8 @@ use crate::cli::args_pairclass::PairclassArgs;
 pub(crate) fn print_structured_power(args: &PairclassArgs, power: &StructuredPowerReport) {
     println!();
     println!(
-        "Structured-coloring positive controls ({} plants, bar {:.3}):",
-        args.plants, args.plant_bar
+        "Structured-coloring positive controls ({} plants, bar {:.3}, rank-beam {}):",
+        args.plants, args.plant_bar, args.structured_rank_beam
     );
     for (index, plant) in power.plants.iter().enumerate() {
         println!(
@@ -34,9 +34,9 @@ pub(crate) fn print_structured_power(args: &PairclassArgs, power: &StructuredPow
     );
 }
 
-pub(crate) fn print_structured_negative(negative: &StructuredNegativeReport) {
+pub(crate) fn print_structured_negative(negative: &StructuredNegativeReport, rank_beam: usize) {
     println!();
-    println!("Random-coloring negative controls:");
+    println!("Random-coloring negative controls (rank-beam {rank_beam}):");
     for (index, plant) in negative.plants.iter().enumerate() {
         println!(
             "  plant {:>2}: recovery {:.3}  truth-rank {}  best-score {}  {}",
@@ -56,10 +56,15 @@ pub(crate) fn print_structured_negative(negative: &StructuredNegativeReport) {
     );
 }
 
-pub(crate) fn print_structured_null(null: &StructuredNullGate, score_floor: Option<f32>) {
+pub(crate) fn print_structured_null(
+    null: &StructuredNullGate,
+    score_floor: Option<f32>,
+    rank_beam: usize,
+) {
     println!();
     println!(
-        "Structured Markov null: {} trials, {} reached score floor {}, {} reached real best {}, empirical p = {:.3}",
+        "Structured Markov null (rank-beam {}): {} trials, {} reached score floor {}, {} reached real best {}, empirical p = {:.3}",
+        rank_beam,
         null.null_bests.len(),
         null.null_ge_floor,
         opt_score(score_floor),
@@ -73,10 +78,12 @@ pub(crate) fn print_structured_solutions(
     report: &StructuredRunReport,
     random_max: Option<f32>,
     null_max: Option<f32>,
+    rank_beam: usize,
 ) {
     println!();
     println!(
-        "Structured oracle candidates (base {}, relabels {}, decoded {} = base-best {} + extra {}, filter-dropped {}, filter-l1-cut {}, cap-dropped {}, cap-l1-cut {}):",
+        "Structured oracle candidates (rank-beam {}, base {}, relabels {}, decoded {} = base-best {} + extra {}, filter-dropped {}, filter-l1-cut {}, cap-dropped {}, cap-l1-cut {}):",
+        rank_beam,
         report.generation.base_colorings,
         report.generation.expanded_relabels,
         report.generation.candidates.len(),
@@ -96,7 +103,7 @@ pub(crate) fn print_structured_solutions(
             continue;
         };
         println!(
-            "  {:>2}. score {:.2}  rand-margin {}  null-margin {}  stream {}  family {}  projection {}  order {}  transform {}  l1 {:.3} chi2 {:.2} {}  \"{}\"",
+            "  {:>2}. rank-score {:.2}  rand-margin {}  null-margin {}  stream {}  family {}  projection {}  order {}  transform {}  l1 {:.3} chi2 {:.2} {}  \"{}\"",
             index + 1,
             solution.score,
             opt_margin(solution.score, random_max),
@@ -115,6 +122,23 @@ pub(crate) fn print_structured_solutions(
             },
             solution.rendered
         );
+        if let Some(confirm) = attempt.confirm.as_ref() {
+            if let Some(solution) = confirm.solution.as_ref() {
+                println!(
+                    "      confirm-beam rendering (beam {}, score {:.2}, expanded {}, feasible {}): \"{}\"",
+                    confirm.beam,
+                    solution.score,
+                    confirm.expanded,
+                    confirm.feasible_final,
+                    solution.rendered
+                );
+            } else {
+                println!(
+                    "      confirm-beam rendering (beam {}, expanded {}, feasible {}): no full segmentation",
+                    confirm.beam, confirm.expanded, confirm.feasible_final
+                );
+            }
+        }
     }
 }
 
@@ -155,11 +179,11 @@ pub(crate) fn print_structured_verdict(
         && null.is_none_or(|gate| gate.null_ge_real == 0);
     if clears_random && clears_null {
         println!(
-            "VERDICT: Candidate — best structured survivor clears random-coloring and matched-null baselines; a hypothesis for review, never a decode."
+            "VERDICT: Candidate — best rank-beam structured survivor clears random-coloring and matched-null baselines; confirm-beam text is rendering only; a hypothesis for review, never a decode."
         );
     } else {
         println!(
-            "VERDICT: NullArtifact — best structured survivor did not clear the random/null baseline margins; not a candidate."
+            "VERDICT: NullArtifact — best rank-beam structured survivor did not clear the random/null baseline margins; confirm-beam text is rendering only; not a candidate."
         );
     }
 }

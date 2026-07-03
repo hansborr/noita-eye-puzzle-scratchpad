@@ -62,10 +62,11 @@ pub use selftest::{
 };
 pub use solve::{Solution, SolveCfg, SolveInput, SolveReport, TruthFate, estimate_peak_mib, solve};
 pub use structured::{
-    StructuredCandidateMeta, StructuredDecodedCandidate, StructuredFamilyProfile,
-    StructuredGenerationReport, StructuredNegativeReport, StructuredNullCfg, StructuredNullGate,
-    StructuredPlantOutcome, StructuredPowerReport, StructuredRunCfg, StructuredRunReport,
-    StructuredStream, generate_structured_candidates, measure_structured_power,
+    DEFAULT_STRUCTURED_RANK_BEAM, StructuredCandidateMeta, StructuredConfirmRender,
+    StructuredDecodedCandidate, StructuredFamilyProfile, StructuredGenerationReport,
+    StructuredNegativeReport, StructuredNullCfg, StructuredNullGate, StructuredPlantOutcome,
+    StructuredPowerReport, StructuredRunCfg, StructuredRunReport, StructuredStream,
+    confirm_structured_top_candidates, generate_structured_candidates, measure_structured_power,
     measure_structured_random_negative, run_structured_oracle_decode, structured_null_gate,
     structured_null_gate_streams,
 };

@@ -39,6 +39,7 @@ pub(super) fn run_structured_leg(seed: u64) -> Result<StructuredLeg, PairclassEr
     let run_cfg = StructuredRunCfg {
         profile: StructuredFamilyProfile::Toy,
         max_decodes: 24,
+        rank_beam: 32,
         marginal_l1: 2.0,
         score_margin: 0.0,
     };

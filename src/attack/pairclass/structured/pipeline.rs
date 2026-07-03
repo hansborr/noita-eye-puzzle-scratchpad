@@ -5,6 +5,7 @@ use crate::attack::pairclass::plant::{
     CopySpan, Plant, PlantSpec, copy_ties, plant_from_text_with_coloring,
 };
 use crate::attack::pairclass::solve::{Solution, SolveCfg, SolveInput, solve};
+use crate::attack::pairclass::structured::confirm::StructuredConfirmRender;
 use crate::attack::pairclass::structured::enumerate::{
     StructuredCandidateMeta, StructuredGenerationReport, StructuredRunCfg, StructuredStream,
     expanded_family_colorings, generate_structured_candidates,
@@ -22,11 +23,14 @@ const STRUCTURED_CONTROL_TAG: u64 = 0x7374_7275_6374_0001;
 pub struct StructuredDecodedCandidate {
     /// Candidate metadata.
     pub meta: StructuredCandidateMeta,
-    /// Best solution under this candidate, if any full segmentation exists.
+    /// Best rank-beam solution under this candidate, if any full segmentation exists.
     pub solution: Option<Solution>,
-    /// Candidates offered during this solve.
+    /// Optional full-beam rendering for human review. Display-only; verdicts
+    /// and gate statistics stay on the rank-beam solution.
+    pub confirm: Option<StructuredConfirmRender>,
+    /// Candidates offered during the rank-beam solve.
     pub expanded: u64,
-    /// Feasible final states during this solve.
+    /// Feasible final states during the rank-beam solve.
     pub feasible_final: usize,
 }
 
@@ -149,7 +153,6 @@ impl StructuredNullGate {
 }
 
 /// Runs the structured oracle-decode pipeline for the supplied streams.
-///
 /// # Errors
 /// Propagates candidate-generation and solver errors.
 pub fn run_structured_oracle_decode(
@@ -160,6 +163,10 @@ pub fn run_structured_oracle_decode(
     run_cfg: &StructuredRunCfg,
 ) -> Result<StructuredRunReport, PairclassError> {
     let generation = generate_structured_candidates(streams, word_entries, run_cfg)?;
+    let rank_cfg = SolveCfg {
+        beam: run_cfg.rank_beam,
+        ..*solve_cfg
+    };
     let mut attempts = Vec::with_capacity(generation.candidates.len());
     let mut total_expanded = 0u64;
     for candidate in &generation.candidates {
@@ -179,12 +186,13 @@ pub fn run_structured_oracle_decode(
                 seed_coloring: Some(&candidate.coloring),
                 accept_partial_final: false,
             },
-            solve_cfg,
+            &rank_cfg,
         )?;
         total_expanded = total_expanded.saturating_add(report.expanded);
         attempts.push(StructuredDecodedCandidate {
             meta: candidate.clone(),
             solution: report.solutions.first().cloned(),
+            confirm: None,
             expanded: report.expanded,
             feasible_final: report.feasible_final,
         });

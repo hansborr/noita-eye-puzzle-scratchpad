@@ -5,15 +5,17 @@
 //! class-label symmetry with a generous marginal filter, and run the existing
 //! solver with each survivor passed as `SolveInput::seed_coloring`.
 
+mod confirm;
 mod enumerate;
 mod families;
 mod nulls;
 mod pipeline;
 mod random;
 
+pub use confirm::{StructuredConfirmRender, confirm_structured_top_candidates};
 pub use enumerate::{
-    StructuredCandidateMeta, StructuredFamilyProfile, StructuredGenerationReport, StructuredRunCfg,
-    StructuredStream, generate_structured_candidates,
+    DEFAULT_STRUCTURED_RANK_BEAM, StructuredCandidateMeta, StructuredFamilyProfile,
+    StructuredGenerationReport, StructuredRunCfg, StructuredStream, generate_structured_candidates,
 };
 pub use pipeline::{
     StructuredDecodedCandidate, StructuredNegativeReport, StructuredNullCfg, StructuredNullGate,

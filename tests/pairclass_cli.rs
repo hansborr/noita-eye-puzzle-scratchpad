@@ -56,3 +56,43 @@ fn structured_mode_rejects_zero_plants_before_real_scoring() {
     );
     let _cleanup = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn structured_mode_rejects_zero_rank_beam() {
+    let dir = temp_dir("zero-rank-beam");
+    let wordlist = dir.join("words.txt");
+    let plant_text = dir.join("plant.txt");
+    std::fs::write(&wordlist, "cat 100\ndog 90\nact 3\n").expect("write wordlist");
+    std::fs::write(&plant_text, "cat dog cat dog").expect("write plant text");
+    let wordlist = wordlist.to_str().expect("wordlist path is UTF-8");
+    let plant_text = plant_text.to_str().expect("plant path is UTF-8");
+
+    let run = run_noita_eye_raw(&[
+        "pairclass",
+        "--wordlist",
+        wordlist,
+        "--coloring-family",
+        "toy",
+        "--structured-rank-beam",
+        "0",
+        "--plant-text-file",
+        plant_text,
+        "--plants",
+        "1",
+        "--null-trials",
+        "1",
+    ]);
+
+    assert!(
+        !run.success,
+        "stdout:\n{}\nstderr:\n{}",
+        run.stdout, run.stderr
+    );
+    assert_contains(&run.stderr, "--structured-rank-beam must be >= 1");
+    assert!(
+        !run.stdout.contains("Structured oracle candidates"),
+        "real scoring should not run:\n{}",
+        run.stdout
+    );
+    let _cleanup = std::fs::remove_dir_all(&dir);
+}

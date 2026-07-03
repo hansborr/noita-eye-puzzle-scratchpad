@@ -97,6 +97,9 @@ pub(crate) struct PairclassArgs {
     /// Extra structured relabel decodes after one best relabel per base.
     #[arg(long = "structured-max-decodes", default_value_t = 384)]
     pub(crate) structured_max_decodes: usize,
+    /// Beam width for ranking every structured coloring before full-beam confirmation.
+    #[arg(long = "structured-rank-beam", default_value_t = pairclass::DEFAULT_STRUCTURED_RANK_BEAM)]
+    pub(crate) structured_rank_beam: usize,
     /// Marginal L1 threshold for relabel-collapse provenance.
     #[arg(long = "structured-marginal-l1", default_value_t = 0.16)]
     pub(crate) structured_marginal_l1: f64,

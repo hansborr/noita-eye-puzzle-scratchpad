@@ -7,6 +7,9 @@ use crate::attack::pairclass::PairclassError;
 
 use super::families::{BaseColoring, LabelMode, base_colorings};
 
+/// Default beam for ranking every structured coloring before confirmation.
+pub const DEFAULT_STRUCTURED_RANK_BEAM: usize = 400;
+
 /// Structured-coloring family to enumerate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StructuredFamilyProfile {
@@ -37,6 +40,9 @@ pub struct StructuredRunCfg {
     pub profile: StructuredFamilyProfile,
     /// Extra fully pinned relabel decodes beyond one best relabel per base.
     pub max_decodes: usize,
+    /// Beam used for the rank surface: every structured coloring is decoded at
+    /// this width for controls, nulls, real ranking, and verdict statistics.
+    pub rank_beam: usize,
     /// Generous L1 threshold used to collapse class relabelings.
     pub marginal_l1: f64,
     /// Required score margin over random/null baselines.
@@ -48,6 +54,7 @@ impl Default for StructuredRunCfg {
         Self {
             profile: StructuredFamilyProfile::Core,
             max_decodes: 384,
+            rank_beam: DEFAULT_STRUCTURED_RANK_BEAM,
             marginal_l1: 0.16,
             score_margin: 0.0,
         }
