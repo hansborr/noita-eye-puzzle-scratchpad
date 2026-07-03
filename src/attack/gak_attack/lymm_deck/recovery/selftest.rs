@@ -39,6 +39,10 @@ pub struct PositiveControlReport {
     pub exact: bool,
     /// Number of recovered observed letters whose final permutation equals the plant.
     pub matched_observed_letters: usize,
+    /// Observed letters recovered exactly but still reported as ambiguous.
+    pub ambiguous_observed_letters: usize,
+    /// Observed letters reported unique but not equal to the planted permutation.
+    pub mismatched_unique_letters: usize,
     /// Number of observed plaintext letters in the control corpus.
     pub observed_letters: usize,
     /// Candidate-model nodes checked by the residual solver.
@@ -81,8 +85,8 @@ impl GakSwapSelfTestReport {
     /// Returns true when every positive and null control passed.
     #[must_use]
     pub const fn passed(&self) -> bool {
-        self.positive_ns1.exact
-            && self.positive_ns2.exact
+        positive_passed(&self.positive_ns1)
+            && positive_passed(&self.positive_ns2)
             && self.full_permutation_null.failed
             && self.over_budget_null.failed
             && self.over_budget_recovery_exact
@@ -137,25 +141,38 @@ fn positive_control(
 ) -> Result<PositiveControlReport, SwapRecoveryError> {
     let report = recover_known_plaintext_swaps(spec, pairs, recovery_config(num_swaps, config))?;
     let mut matched_observed_letters = 0usize;
+    let mut ambiguous_observed_letters = 0usize;
+    let mut mismatched_unique_letters = 0usize;
     let mut observed_letters = 0usize;
     for letter in &report.letters {
         if letter.occurrences == 0 {
             continue;
         }
         observed_letters += 1;
-        if letter.verdict == LetterRecoveryVerdict::RecoveredUnique
-            && letter
-                .permutation
-                .as_ref()
-                .is_some_and(|permutation| planted.get(&letter.letter) == Some(permutation))
-        {
-            matched_observed_letters += 1;
+        match letter.verdict {
+            LetterRecoveryVerdict::RecoveredUnique => {
+                if letter
+                    .permutation
+                    .as_ref()
+                    .is_some_and(|permutation| planted.get(&letter.letter) == Some(permutation))
+                {
+                    matched_observed_letters += 1;
+                } else {
+                    mismatched_unique_letters += 1;
+                }
+            }
+            LetterRecoveryVerdict::RecoveredAmbiguous => {
+                ambiguous_observed_letters += 1;
+            }
+            LetterRecoveryVerdict::Candidate | LetterRecoveryVerdict::NoCandidate => {}
         }
     }
     Ok(positive_report(
         num_swaps,
         &report,
         matched_observed_letters,
+        ambiguous_observed_letters,
+        mismatched_unique_letters,
         observed_letters,
     ))
 }
@@ -164,17 +181,28 @@ fn positive_report(
     num_swaps: usize,
     report: &RecoveryReport,
     matched_observed_letters: usize,
+    ambiguous_observed_letters: usize,
+    mismatched_unique_letters: usize,
     observed_letters: usize,
 ) -> PositiveControlReport {
     PositiveControlReport {
         num_swaps,
         exact: report.round_trip.exact(),
         matched_observed_letters,
+        ambiguous_observed_letters,
+        mismatched_unique_letters,
         observed_letters,
         nodes: report.stats.nodes,
         sat_decisions: report.stats.sat_decisions,
         sat_conflicts: report.stats.sat_conflicts,
     }
+}
+
+const fn positive_passed(report: &PositiveControlReport) -> bool {
+    report.exact
+        && report.mismatched_unique_letters == 0
+        && report.matched_observed_letters + report.ambiguous_observed_letters
+            == report.observed_letters
 }
 
 fn null_control(

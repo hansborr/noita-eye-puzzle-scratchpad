@@ -182,7 +182,19 @@ fn swap_recovery_self_test_passes_supported_frontier_controls() {
 
     assert!(report.passed());
     assert!(report.positive_ns1.exact);
+    assert_eq!(
+        report.positive_ns1.matched_observed_letters,
+        report.positive_ns1.observed_letters
+    );
+    assert_eq!(report.positive_ns1.ambiguous_observed_letters, 0);
+    assert_eq!(report.positive_ns1.mismatched_unique_letters, 0);
     assert!(report.positive_ns2.exact);
+    assert_eq!(report.positive_ns2.mismatched_unique_letters, 0);
+    assert_eq!(
+        report.positive_ns2.matched_observed_letters
+            + report.positive_ns2.ambiguous_observed_letters,
+        report.positive_ns2.observed_letters
+    );
     assert!(report.full_permutation_null.failed);
     assert!(report.over_budget_null.failed);
     assert!(report.over_budget_recovery_exact);

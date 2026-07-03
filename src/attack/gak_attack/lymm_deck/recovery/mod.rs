@@ -189,6 +189,12 @@ pub enum SwapRecoveryError {
         /// Candidate models checked.
         nodes: usize,
     },
+    /// The residual solver exhausted its wall-clock budget before finding an
+    /// exact round-trip.
+    SearchTimeExceeded {
+        /// Candidate models checked before the timeout.
+        nodes: usize,
+    },
     /// The SAT residual became unsatisfiable before any exact round-trip candidate.
     NoResidualCandidate,
     /// The SAT backend returned an internal error.
@@ -235,6 +241,12 @@ impl fmt::Display for SwapRecoveryError {
                 write!(
                     f,
                     "swap recovery reached the residual node cap after {nodes} candidates"
+                )
+            }
+            Self::SearchTimeExceeded { nodes } => {
+                write!(
+                    f,
+                    "swap recovery reached the residual time budget after {nodes} candidates"
                 )
             }
             Self::NoResidualCandidate => write!(f, "SAT residual has no candidate assignment"),

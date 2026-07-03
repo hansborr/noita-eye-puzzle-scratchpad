@@ -1,6 +1,7 @@
 //! SAT-backed residual solver for Lymm swap recovery.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::time::Instant;
 
 use batsat::{BasicSolver, Lit, SolverInterface, lbool};
 
@@ -63,11 +64,17 @@ pub(super) fn recover_with_residual(
 
     add_initial_prefix_clauses(messages, &residual, &vars, &mut solver);
 
+    let started = Instant::now();
     loop {
         if let Some(max_nodes) = config.max_nodes
             && stats.nodes >= max_nodes
         {
             return Err(SwapRecoveryError::SearchCapExceeded { nodes: stats.nodes });
+        }
+        if let Some(time_budget) = config.time_budget
+            && started.elapsed() >= time_budget
+        {
+            return Err(SwapRecoveryError::SearchTimeExceeded { nodes: stats.nodes });
         }
         let sat = solver.solve_limited(&[]);
         if sat == lbool::FALSE {
@@ -412,5 +419,36 @@ fn build_report_from_assignment(
     let round_trip = round_trip_check(spec, &placeholder, &pairs)?;
     let mut report = placeholder;
     report.round_trip = round_trip;
+    classify_exact_residual_report(&mut report);
     Ok(report)
+}
+
+fn classify_exact_residual_report(report: &mut RecoveryReport) {
+    if !report.round_trip.exact() {
+        report.verdict = LetterRecoveryVerdict::Candidate;
+        return;
+    }
+
+    let mut all_unique = true;
+    let mut any_observed = false;
+    for letter in &mut report.letters {
+        if letter.occurrences == 0 {
+            letter.verdict = LetterRecoveryVerdict::NoCandidate;
+            continue;
+        }
+        any_observed = true;
+        if letter.equivalent_count == 1 {
+            letter.verdict = LetterRecoveryVerdict::RecoveredUnique;
+        } else {
+            letter.verdict = LetterRecoveryVerdict::RecoveredAmbiguous;
+            all_unique = false;
+        }
+    }
+    report.verdict = if any_observed && all_unique {
+        LetterRecoveryVerdict::RecoveredUnique
+    } else if any_observed {
+        LetterRecoveryVerdict::RecoveredAmbiguous
+    } else {
+        LetterRecoveryVerdict::NoCandidate
+    };
 }

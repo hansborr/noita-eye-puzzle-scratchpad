@@ -19,6 +19,7 @@ use super::args_bigramcodec::BigramcodecArgs;
 use super::args_codecpower::CodecpowerArgs;
 use super::args_cribfit::CribfitArgs;
 use super::args_ctak::CtakscanArgs;
+use super::args_gak_swap::GakSwapRecoverArgs;
 use super::args_maskdecode::MaskdecodeArgs;
 use super::args_mdlcodec::MdlcodecArgs;
 use super::args_pairclass::PairclassArgs;
@@ -61,6 +62,11 @@ pub(crate) enum Command {
     /// Runs on arbitrary ciphertext; a solve emits a candidate, never a decode.
     #[command(name = "gak")]
     Gak(GakArgs),
+    /// Known-plaintext recovery for Lymm's top-swap deck-cipher mappings.
+    /// Runs on arbitrary labeled `(plaintext, ciphertext)` pairs; exact
+    /// re-encryption is the only verified recovery criterion.
+    #[command(name = "gak-swap-recover")]
+    GakSwapRecover(GakSwapRecoverArgs),
     /// Translate-isomorph (exact repeated-substring) scanner with an order-1
     /// Markov matched null. Locates where a stream repeats — optionally on the
     /// `--delta-mod` difference channel — as a structural candidate, never a decode.
