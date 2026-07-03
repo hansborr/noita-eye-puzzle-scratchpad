@@ -1512,10 +1512,47 @@ cargo run --release --locked -q -- pairclass \
   --structured-max-decodes 4096 --beam 20000 --top 5 --max-mem-mib 12288
 ```
 
-**Definitive run results: PENDING (runs in flight 2026-07-03).** This entry is
-committed before the verdicts so the instrument-hardening findings survive the
-session; the verdicts and their honest claim ceilings will be appended when the
-runs complete.
+One more gate-semantics fix landed before the final runs (commit `1a9670a`):
+the recovery hard gate is mean-over-bar plus a per-plant essentially-no-recovery
+floor (`--plant-floor`, default 0.15); a marginal plant (0.394 vs bar 0.4) no
+longer kills the run, and per-plant `recovery >= bar` counts only toward the
+curated POWERED criterion.
+
+**Curated tier definitive result (2026-07-03): `LowPowerNoExclusion` — no
+candidate.** Key output lines:
+
+```text
+  mean recovery 0.575  min recovery 0.394  truth-best 3/6  truth-top-3 6/6  curated-pass 2/6  RECOVERY GATE CLEARED
+  candidate-like 0/3 at p_emp <= 0.050  QUIET
+Structured Markov null for real stream (rank-beam 400): 49 trials, observed-best -550.39, null_ge 41, p_emp 0.840, null-margin -40.31
+VERDICT: LowPowerNoExclusion - the real stream was scored, but curated controls were not powered enough for a Candidate/NoCandidate call (real null_ge 41, p_emp 0.840).
+```
+
+Summary:
+
+- Positives (6 plants, k=19 nulls each): recovery gate CLEARED (mean 0.575,
+  min 0.394); **truth ranked top-3 by score on 6/6 plants** (family-best 3/6);
+  but per-plant null-anomaly power was weak — only 2/6 plants cleared
+  p_emp ≤ 0.05 — so the run is not POWERED for a formal exclusion.
+- Random negatives (3, k=19 each): 0/3 candidate-like — QUIET.
+- Real stream (374 bases, 1584 ranked candidates over 4 variants, cap-dropped
+  0, filter-dropped 26 968 at L1 cut 0.161; k=49 matched nulls):
+  observed best −550.39, **null_ge 41/49, p_emp 0.840, null-margin −40.31** —
+  the best real-stream structured candidate is *null-typical*. All five
+  confirm-beam top-candidate renders read as dictionary word-salad; none
+  resembles the recognizably-thematic ~0.55–0.65-recovery text that truth
+  renders produce on plants.
+
+Honest claim ceiling: within the curated deterministic-coloring family, under
+this scoring surface (rank-beam 400, this LM/gap policy), no real-stream
+candidate is distinguishable from matched-null junk, and the measured 6/6
+truth-top-3 retention means a family-member truth would very likely have
+surfaced in the top-5 — none did. This is a strong scoped negative for the
+curated family, but NOT a formal family exclusion (anomaly-gate power measured
+2/6); and the relabel filter's 26 968 filter-dropped relabels bound the claim
+to the ranked surface. No candidate cleartext merits logging (p_emp 0.840).
+
+**Broad tier definitive result: PENDING (run in flight 2026-07-03).**
 
 ## Provenance
 
