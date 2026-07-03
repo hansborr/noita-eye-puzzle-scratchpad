@@ -2,13 +2,14 @@
 
 use crate::attack::pairclass::campaign::{PowerCfg, StreamPrep};
 use crate::attack::pairclass::plant::{
-    CopySpan, Plant, PlantSpec, copy_ties, markov_resample, plant_from_text_with_coloring,
+    CopySpan, Plant, PlantSpec, copy_ties, plant_from_text_with_coloring,
 };
 use crate::attack::pairclass::solve::{Solution, SolveCfg, SolveInput, solve};
 use crate::attack::pairclass::structured::enumerate::{
     StructuredCandidateMeta, StructuredGenerationReport, StructuredRunCfg, StructuredStream,
     expanded_family_colorings, generate_structured_candidates,
 };
+use crate::attack::pairclass::structured::nulls::{markov_resample_with_ties, prep_tie_to};
 use crate::attack::pairclass::structured::random::draw_out_of_family_random_plant;
 use crate::attack::pairclass::ties::tie_targets;
 use crate::attack::pairclass::{Lexicon, PairclassError};
@@ -319,16 +320,12 @@ pub fn structured_null_gate(
     let mut null_ge_real = 0usize;
     let mut null_ge_floor = 0usize;
     for trial in 0..null_cfg.null_trials {
-        let tokens = markov_resample(
-            &prep.tokens,
-            prep.n_classes,
-            null_cfg.seed.wrapping_add(trial as u64),
-        )?;
+        let tokens = markov_resample_with_ties(prep, null_cfg.seed.wrapping_add(trial as u64))?;
         let stream = StructuredStream {
             label: "null",
             tokens: &tokens,
             n_classes: prep.n_classes,
-            tie_to: None,
+            tie_to: prep_tie_to(prep),
         };
         let report =
             run_structured_oracle_decode(&[stream], word_entries, lexicon, solve_cfg, run_cfg)?;
@@ -379,12 +376,12 @@ pub fn structured_null_gate_streams(
                 .seed
                 .wrapping_add(trial as u64)
                 .wrapping_add((variant as u64) << 32);
-            let tokens = markov_resample(&prep.tokens, prep.n_classes, trial_seed)?;
+            let tokens = markov_resample_with_ties(prep, trial_seed)?;
             let stream = StructuredStream {
                 label: "null",
                 tokens: &tokens,
                 n_classes: prep.n_classes,
-                tie_to: None,
+                tie_to: prep_tie_to(prep),
             };
             let report =
                 run_structured_oracle_decode(&[stream], word_entries, lexicon, solve_cfg, run_cfg)?;
