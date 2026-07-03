@@ -33,8 +33,9 @@ Validation controls:
 - Planted `ns=1`: exact; `24/24` observed letters matched the planted unique
   permutation, `0` ambiguous, `0` mismatched unique.
 - Planted `ns=2`: exact; `23/24` observed letters matched the planted unique
-  permutation, `1` observed letter remained ambiguous under exact re-encryption,
-  `0` mismatched unique.
+  permutation, `1` observed letter remained ambiguous under exact re-encryption
+  with the planted permutation present in that letter's reported candidate set,
+  `0` ambiguous letters missing the plant, and `0` mismatched unique.
 - Matched nulls all genuinely failed: random full-permutation mapping at the
   `ns=2` bound, over-budget `ns=2` encrypted text attacked at `ns=1` (while
   recovering at `ns=2`), and ciphertext-label shuffle at the `ns=2` bound.

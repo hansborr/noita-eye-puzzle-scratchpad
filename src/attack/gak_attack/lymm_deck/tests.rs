@@ -187,9 +187,11 @@ fn swap_recovery_self_test_passes_supported_frontier_controls() {
         report.positive_ns1.observed_letters
     );
     assert_eq!(report.positive_ns1.ambiguous_observed_letters, 0);
+    assert_eq!(report.positive_ns1.ambiguous_missing_planted_letters, 0);
     assert_eq!(report.positive_ns1.mismatched_unique_letters, 0);
     assert!(report.positive_ns2.exact);
     assert_eq!(report.positive_ns2.mismatched_unique_letters, 0);
+    assert_eq!(report.positive_ns2.ambiguous_missing_planted_letters, 0);
     assert_eq!(
         report.positive_ns2.matched_observed_letters
             + report.positive_ns2.ambiguous_observed_letters,

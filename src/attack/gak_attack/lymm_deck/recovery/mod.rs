@@ -71,6 +71,8 @@ pub struct RecoveredLetter {
     pub support: Vec<usize>,
     /// Final recovered `base o sigma` permutation used for re-encryption.
     pub permutation: Option<Vec<usize>>,
+    /// Final candidate permutations still admitted for this letter.
+    pub candidate_permutations: Vec<Vec<usize>>,
     /// Canonical shortest top-swap word for the reported candidate.
     pub canonical_swaps: Vec<usize>,
     /// Number of equivalent final candidates still admitted for this letter.
@@ -397,6 +399,7 @@ fn recover_ns1(
             None => domains.candidates.first(),
         };
         let permutation = candidate.map(|found| found.permutation(spec));
+        let candidate_permutations = permutation.iter().cloned().collect::<Vec<_>>();
         if let Some(perm) = &permutation {
             let _old = pt_mapping.insert(letter, perm.clone());
         }
@@ -414,6 +417,7 @@ fn recover_ns1(
             target,
             support: candidate.map_or_else(Vec::new, |found| found.support.clone()),
             permutation,
+            candidate_permutations,
             canonical_swaps: candidate.map_or_else(Vec::new, |found| found.canonical_swaps.clone()),
             equivalent_count: usize::from(candidate.is_some()),
             no_doubles,

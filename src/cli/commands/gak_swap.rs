@@ -333,10 +333,11 @@ fn print_self_test(report: &GakSwapSelfTestReport, output: GakSwapOutput) {
 
 fn print_positive(label: &str, report: &PositiveControlReport) {
     println!(
-        "  {label}: {} matched-unique={} ambiguous={} mismatched-unique={} observed={} nodes={} sat-decisions={} sat-conflicts={}",
+        "  {label}: {} matched-unique={} ambiguous-present={} ambiguous-missing={} mismatched-unique={} observed={} nodes={} sat-decisions={} sat-conflicts={}",
         pass_fail(report.exact),
         report.matched_observed_letters,
         report.ambiguous_observed_letters,
+        report.ambiguous_missing_planted_letters,
         report.mismatched_unique_letters,
         report.observed_letters,
         report.nodes,
@@ -430,11 +431,12 @@ fn self_test_json(report: &GakSwapSelfTestReport) -> String {
 
 fn positive_json(report: &PositiveControlReport) -> String {
     format!(
-        "{{\"num_swaps\":{},\"exact\":{},\"matched_observed_letters\":{},\"ambiguous_observed_letters\":{},\"mismatched_unique_letters\":{},\"observed_letters\":{},\"nodes\":{},\"sat_decisions\":{},\"sat_conflicts\":{}}}",
+        "{{\"num_swaps\":{},\"exact\":{},\"matched_observed_letters\":{},\"ambiguous_observed_letters\":{},\"ambiguous_missing_planted_letters\":{},\"mismatched_unique_letters\":{},\"observed_letters\":{},\"nodes\":{},\"sat_decisions\":{},\"sat_conflicts\":{}}}",
         report.num_swaps,
         report.exact,
         report.matched_observed_letters,
         report.ambiguous_observed_letters,
+        report.ambiguous_missing_planted_letters,
         report.mismatched_unique_letters,
         report.observed_letters,
         report.nodes,

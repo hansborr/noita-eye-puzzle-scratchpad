@@ -397,6 +397,17 @@ fn build_report_from_assignment(
             .by_letter
             .get(&letter)
             .map_or(usize::from(candidate.is_some()), Vec::len);
+        let candidate_permutations =
+            residual
+                .by_letter
+                .get(&letter)
+                .map_or_else(Vec::new, |domain| {
+                    domain
+                        .iter()
+                        .filter_map(|&index| residual.candidates.get(index))
+                        .map(|candidate| candidate.perm.clone())
+                        .collect()
+                });
         let verdict = if count == 0 {
             LetterRecoveryVerdict::NoCandidate
         } else {
@@ -408,6 +419,7 @@ fn build_report_from_assignment(
             target,
             support: candidate.map_or_else(Vec::new, |found| found.support.clone()),
             permutation: runtime.map(|found| found.perm.clone()),
+            candidate_permutations,
             canonical_swaps: candidate.map_or_else(Vec::new, |found| found.canonical_swaps.clone()),
             equivalent_count,
             no_doubles,

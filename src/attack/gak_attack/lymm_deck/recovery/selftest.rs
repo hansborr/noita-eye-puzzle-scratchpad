@@ -41,6 +41,8 @@ pub struct PositiveControlReport {
     pub matched_observed_letters: usize,
     /// Observed letters recovered exactly but still reported as ambiguous.
     pub ambiguous_observed_letters: usize,
+    /// Ambiguous observed letters whose candidate set did not contain the plant.
+    pub ambiguous_missing_planted_letters: usize,
     /// Observed letters reported unique but not equal to the planted permutation.
     pub mismatched_unique_letters: usize,
     /// Number of observed plaintext letters in the control corpus.
@@ -142,6 +144,7 @@ fn positive_control(
     let report = recover_known_plaintext_swaps(spec, pairs, recovery_config(num_swaps, config))?;
     let mut matched_observed_letters = 0usize;
     let mut ambiguous_observed_letters = 0usize;
+    let mut ambiguous_missing_planted_letters = 0usize;
     let mut mismatched_unique_letters = 0usize;
     let mut observed_letters = 0usize;
     for letter in &report.letters {
@@ -162,7 +165,16 @@ fn positive_control(
                 }
             }
             LetterRecoveryVerdict::RecoveredAmbiguous => {
-                ambiguous_observed_letters += 1;
+                if planted.get(&letter.letter).is_some_and(|planted_perm| {
+                    letter
+                        .candidate_permutations
+                        .iter()
+                        .any(|candidate| candidate == planted_perm)
+                }) {
+                    ambiguous_observed_letters += 1;
+                } else {
+                    ambiguous_missing_planted_letters += 1;
+                }
             }
             LetterRecoveryVerdict::Candidate | LetterRecoveryVerdict::NoCandidate => {}
         }
@@ -172,6 +184,7 @@ fn positive_control(
         &report,
         matched_observed_letters,
         ambiguous_observed_letters,
+        ambiguous_missing_planted_letters,
         mismatched_unique_letters,
         observed_letters,
     ))
@@ -182,6 +195,7 @@ fn positive_report(
     report: &RecoveryReport,
     matched_observed_letters: usize,
     ambiguous_observed_letters: usize,
+    ambiguous_missing_planted_letters: usize,
     mismatched_unique_letters: usize,
     observed_letters: usize,
 ) -> PositiveControlReport {
@@ -190,6 +204,7 @@ fn positive_report(
         exact: report.round_trip.exact(),
         matched_observed_letters,
         ambiguous_observed_letters,
+        ambiguous_missing_planted_letters,
         mismatched_unique_letters,
         observed_letters,
         nodes: report.stats.nodes,
@@ -201,6 +216,7 @@ fn positive_report(
 const fn positive_passed(report: &PositiveControlReport) -> bool {
     report.exact
         && report.mismatched_unique_letters == 0
+        && report.ambiguous_missing_planted_letters == 0
         && report.matched_observed_letters + report.ambiguous_observed_letters
             == report.observed_letters
 }
