@@ -68,6 +68,10 @@ pub(super) fn harvest_anchor_colorings_enumerate(
         expanded: result.expanded,
         feasible_final: result.feasible_final,
         max_occupancy: result.max_retained,
+        saturation_position: result.saturation_position,
+        saturation_completed_occupancy: result.saturation_completed_occupancy,
+        saturation_partial_occupancy: result.saturation_partial_occupancy,
+        layer_occupancies: result.layer_occupancies,
         saturated: result.budget_hit,
         estimated_mib,
         truth: None,
@@ -155,6 +159,7 @@ struct EnumTransition {
 }
 
 struct EmitBase<'a> {
+    position: usize,
     key: &'a DpKey,
     value: DpValue,
     pins: (u64, u32),
@@ -167,6 +172,10 @@ struct EnumerateResult {
     expanded: u64,
     feasible_final: usize,
     max_retained: usize,
+    saturation_position: Option<usize>,
+    saturation_completed_occupancy: Option<usize>,
+    saturation_partial_occupancy: Option<usize>,
+    layer_occupancies: Vec<usize>,
     cap_hit: bool,
     budget_hit: bool,
     dropped_colorings: usize,
@@ -235,6 +244,10 @@ struct Enumerator<'a> {
     expanded: u64,
     feasible_final: usize,
     parse_budget_hit: bool,
+    saturation_position: Option<usize>,
+    saturation_completed_occupancy: Option<usize>,
+    saturation_partial_occupancy: Option<usize>,
+    layer_occupancies: Vec<usize>,
 }
 
 impl<'a> Enumerator<'a> {
@@ -252,6 +265,10 @@ impl<'a> Enumerator<'a> {
             expanded: 0,
             feasible_final: 0,
             parse_budget_hit: false,
+            saturation_position: None,
+            saturation_completed_occupancy: None,
+            saturation_partial_occupancy: None,
+            layer_occupancies: Vec::with_capacity(input.tokens.len().saturating_add(1)),
         }
     }
 
@@ -272,18 +289,23 @@ impl<'a> Enumerator<'a> {
             },
         );
         let mut max_retained = current.len();
+        self.layer_occupancies.push(current.len());
         for position in 0..self.input.tokens.len() {
             if current.is_empty() {
                 return self.finish(max_retained);
             }
+            let completed_occupancy = current.len();
             let mut next = BTreeMap::new();
             for (key, value) in &current {
                 self.expand_state(position, key, *value, &mut next);
                 if self.parse_budget_hit {
+                    self.saturation_completed_occupancy = Some(completed_occupancy);
+                    self.saturation_partial_occupancy = Some(next.len());
                     return self.finish(max_retained.max(next.len()));
                 }
             }
             max_retained = max_retained.max(next.len());
+            self.layer_occupancies.push(next.len());
             current = next;
         }
         self.collect_finals(current);
@@ -313,6 +335,10 @@ impl<'a> Enumerator<'a> {
             expanded: self.expanded.saturating_add(filter_expanded),
             feasible_final: self.feasible_final,
             max_retained,
+            saturation_position: self.saturation_position,
+            saturation_completed_occupancy: self.saturation_completed_occupancy,
+            saturation_partial_occupancy: self.saturation_partial_occupancy,
+            layer_occupancies: self.layer_occupancies,
             cap_hit: false,
             budget_hit: self.parse_budget_hit || filter_budget_hit,
             dropped_colorings: 0,
@@ -353,6 +379,7 @@ impl<'a> Enumerator<'a> {
             return;
         };
         let base = EmitBase {
+            position,
             key,
             value,
             pins: (classes, pinned),
@@ -403,6 +430,7 @@ impl<'a> Enumerator<'a> {
         next: &mut BTreeMap<DpKey, DpValue>,
     ) {
         self.emit_transition(
+            base.position,
             base.value,
             base.pins,
             EnumTransition {
@@ -427,6 +455,7 @@ impl<'a> Enumerator<'a> {
     ) {
         let (gap_len, gaps_used, gap_node) = gap;
         self.emit_transition(
+            base.position,
             base.value,
             base.pins,
             EnumTransition {
@@ -444,13 +473,14 @@ impl<'a> Enumerator<'a> {
 
     fn emit_transition(
         &mut self,
+        position: usize,
         value: DpValue,
         pins: (u64, u32),
         transition: EnumTransition,
         next: &mut BTreeMap<DpKey, DpValue>,
     ) {
         if self.expanded >= self.cfg.parse_budget {
-            self.parse_budget_hit = true;
+            self.mark_parse_budget_hit(position);
             return;
         }
         let next_key = DpKey {
@@ -478,6 +508,16 @@ impl<'a> Enumerator<'a> {
             next_gap_letters,
             &mut self.arena,
         );
+        if self.expanded >= self.cfg.parse_budget {
+            self.mark_parse_budget_hit(position);
+        }
+    }
+
+    fn mark_parse_budget_hit(&mut self, position: usize) {
+        if !self.parse_budget_hit {
+            self.saturation_position = Some(position);
+        }
+        self.parse_budget_hit = true;
     }
 
     fn collect_finals(&mut self, finals: BTreeMap<DpKey, DpValue>) {

@@ -1,7 +1,10 @@
 //! Anchor-seeded `pairclass` CLI reporting helpers.
 
+use std::fmt::Write as _;
+
 use noita_eye_puzzle::attack::pairclass::{
-    AnchorPlantOutcome, AnchorPowerReport, AnchorSeedReport, NullGate, TruthFate,
+    AnchorHarvestReport, AnchorHarvestRetentionReport, AnchorPlantOutcome, AnchorPowerReport,
+    AnchorSeedReport, NullGate, TruthFate,
 };
 
 use crate::cli::args_pairclass::PairclassArgs;
@@ -39,6 +42,101 @@ pub(super) fn print_anchor_power(args: &PairclassArgs, power: &AnchorPowerReport
             "BELOW BAR"
         }
     );
+}
+
+pub(super) fn print_anchor_harvest_retention(
+    args: &PairclassArgs,
+    power: &AnchorHarvestRetentionReport,
+) {
+    println!();
+    println!(
+        "Controls-first anchor harvest-only retention ({} plants, mode {}, requested {}):",
+        args.plants,
+        harvest_mode_label(args.harvest_mode),
+        args.phrase_top
+    );
+    for (index, plant) in power.plants.iter().enumerate() {
+        println!(
+            "  plant {:>2}: truth {}  harvest {}  window {} span {}  max-occ {}  \
+             sat-pos {}  in-occ1 {}  completed {}  partial {}  cap-hit {}  budget-hit {}{}",
+            index,
+            render_truth_seed(plant.truth_seed_rank),
+            plant.harvested,
+            plant.window_len,
+            plant.span_len,
+            plant.max_occupancy,
+            render_optional_usize(plant.saturation_position),
+            render_occ1_saturation(plant.saturation_position, plant.span_len),
+            render_optional_usize(plant.saturation_completed_occupancy),
+            render_optional_usize(plant.saturation_partial_occupancy),
+            yes_no(plant.cap_hit),
+            yes_no(plant.budget_hit),
+            render_harvest_overflow(plant.dropped_colorings, plant.parse_budget)
+        );
+        println!(
+            "            occ1-widths {}",
+            render_occ1_widths(&plant.layer_occupancies, plant.span_len)
+        );
+    }
+}
+
+pub(super) fn print_anchor_harvest_window(args: &PairclassArgs, harvest: &AnchorHarvestReport) {
+    println!();
+    println!(
+        "Real anchor harvest-only window (mode {}, requested {}):",
+        harvest_mode_label(args.harvest_mode),
+        args.phrase_top
+    );
+    println!(
+        "  harvest {}  window {} span {}  max-occ {}  sat-pos {}  in-occ1 {}  \
+         completed {}  partial {}  cap-hit {}  budget-hit {}{}",
+        harvest.distinct_colorings.len(),
+        harvest.window.len,
+        harvest.window.span_len,
+        harvest.max_occupancy,
+        render_optional_usize(harvest.saturation_position),
+        render_occ1_saturation(harvest.saturation_position, harvest.window.span_len),
+        render_optional_usize(harvest.saturation_completed_occupancy),
+        render_optional_usize(harvest.saturation_partial_occupancy),
+        yes_no(harvest.cap_hit),
+        yes_no(harvest.budget_hit),
+        render_harvest_overflow(harvest.dropped_colorings, harvest.parse_budget)
+    );
+    println!(
+        "  occ1-widths {}",
+        render_occ1_widths(&harvest.layer_occupancies, harvest.window.span_len)
+    );
+    println!();
+    println!(
+        "VERDICT: HarvestWindowOnly — the real stream window was harvested only; no Phase-2 solve \
+         ran and no null ran."
+    );
+}
+
+pub(super) fn print_anchor_harvest_verdict(power: &AnchorHarvestRetentionReport) {
+    println!();
+    if power.all_retained && !power.any_cap_hit && !power.any_budget_hit {
+        println!(
+            "VERDICT: HarvestRetained — truth retained on all plants without cap/budget saturation; \
+             the real stream was NOT scored and no null ran."
+        );
+    } else if power.all_retained {
+        println!(
+            "VERDICT: HarvestRetainedAtSaturation — truth retained on all plants, but at least one \
+             harvest hit the cap/budget; the real stream was NOT scored and no null ran."
+        );
+    } else if power.any_cap_hit || power.any_budget_hit {
+        println!(
+            "VERDICT: HarvestSaturatedMiss — at least one plant's true window coloring was not \
+             retained before cap/budget saturation; this is a tractability result, not an \
+             exhaustive anchor-negative. The real stream was NOT scored and no null ran."
+        );
+    } else {
+        println!(
+            "VERDICT: HarvestMissedTruth — at least one plant's true window coloring was not retained; \
+             the real stream was NOT scored and no null ran."
+        );
+    }
 }
 
 pub(super) fn anchor_ladder(power: &AnchorPowerReport) -> String {
@@ -189,6 +287,53 @@ pub(super) fn print_anchor_verdict(report: &AnchorSeedReport, gate: Option<&Null
 
 fn render_truth_seed(rank: Option<usize>) -> String {
     rank.map_or_else(|| "not-harvested".to_owned(), |rank| format!("#{rank}"))
+}
+
+fn harvest_mode_label(mode: crate::cli::args_pairclass::PairclassHarvestMode) -> &'static str {
+    match mode {
+        crate::cli::args_pairclass::PairclassHarvestMode::Beam => "beam",
+        crate::cli::args_pairclass::PairclassHarvestMode::Enumerate => "enumerate",
+    }
+}
+
+fn yes_no(value: bool) -> &'static str {
+    if value { "yes" } else { "no" }
+}
+
+fn render_optional_usize(value: Option<usize>) -> String {
+    value.map_or_else(|| "-".to_owned(), |value| value.to_string())
+}
+
+fn render_occ1_saturation(position: Option<usize>, span_len: usize) -> &'static str {
+    match position {
+        Some(position) if position < span_len => "yes",
+        Some(_) => "no",
+        None => "-",
+    }
+}
+
+fn render_occ1_widths(widths: &[usize], span_len: usize) -> String {
+    if widths.is_empty() {
+        return "-".to_owned();
+    }
+    let take = widths.len().min(span_len.saturating_add(1));
+    let mut out = String::new();
+    for (index, width) in widths.iter().take(take).enumerate() {
+        if index > 0 {
+            out.push_str(", ");
+        }
+        let _ignored = write!(out, "{index}:{width}");
+    }
+    out
+}
+
+fn render_harvest_overflow(dropped: usize, parse_budget: Option<u64>) -> String {
+    let budget = parse_budget.map_or_else(String::new, |budget| format!("  budget {budget}"));
+    if dropped == 0 {
+        budget
+    } else {
+        format!("  dropped {dropped}{budget}")
+    }
 }
 
 fn render_fate(fate: Option<TruthFate>) -> String {

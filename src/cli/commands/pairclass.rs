@@ -8,15 +8,16 @@ use std::process::ExitCode;
 use noita_eye_puzzle::attack::pairclass::{
     self, AnchorHarvestMode, AnchorHarvestRetentionReport, AnchorNullCfg, AnchorPowerReport,
     Lexicon, NullGate, PlantOutcome, PowerCfg, PowerReport, SolveInput, SolveReport, StreamPrep,
-    TruthFate, WalkViolation, anchor_null_gate, build_lexicon, measure_anchor_harvest_retention,
-    measure_anchor_seed_power, measure_power, null_gate, pairclass_self_test, parse_wordlist,
-    prepare_stream, solve, solve_anchor_seeded, solve_cfg,
+    TruthFate, WalkViolation, anchor_null_gate, build_lexicon, harvest_anchor_colorings,
+    measure_anchor_harvest_retention, measure_anchor_seed_power, measure_power, null_gate,
+    pairclass_self_test, parse_wordlist, prepare_stream, solve, solve_anchor_seeded, solve_cfg,
 };
 
 use crate::cli::args_pairclass::{PairclassArgs, PairclassHarvestMode, PairclassSearchOrder};
 use crate::cli::shared::{parse_cli_sequence, resolve_input_text};
 use pairclass_anchor_report::{
-    anchor_ladder, print_anchor_power, print_anchor_solutions, print_anchor_verdict,
+    anchor_ladder, print_anchor_harvest_retention, print_anchor_harvest_verdict,
+    print_anchor_harvest_window, print_anchor_power, print_anchor_solutions, print_anchor_verdict,
 };
 
 /// Dispatches the `pairclass` subcommand.
@@ -175,12 +176,15 @@ fn run_anchor_analysis(
 ) -> Result<ExitCode, String> {
     let harvest_mode = anchor_harvest_mode(args.harvest_mode);
     if harvest_only_enabled(args) {
-        let Some(power) = maybe_run_anchor_harvest_controls(args, prep, lexicon, phrase_cfg)?
-        else {
-            return Err("--harvest-only requires --plant-text-file".to_owned());
-        };
-        print_anchor_harvest_retention(args, &power);
-        print_anchor_harvest_verdict(&power);
+        if let Some(power) = maybe_run_anchor_harvest_controls(args, prep, lexicon, phrase_cfg)? {
+            print_anchor_harvest_retention(args, &power);
+            print_anchor_harvest_verdict(&power);
+        } else {
+            let harvest =
+                harvest_anchor_colorings(prep, lexicon, phrase_cfg, args.phrase_top, harvest_mode)
+                    .map_err(|error| error.to_string())?;
+            print_anchor_harvest_window(args, &harvest);
+        }
         return Ok(ExitCode::SUCCESS);
     }
     if let Some(power) =
@@ -473,80 +477,6 @@ fn print_power(args: &PairclassArgs, power: &PowerReport) {
             "BELOW BAR"
         }
     );
-}
-
-fn print_anchor_harvest_retention(args: &PairclassArgs, power: &AnchorHarvestRetentionReport) {
-    println!();
-    println!(
-        "Controls-first anchor harvest-only retention ({} plants, mode {}, requested {}):",
-        args.plants,
-        harvest_mode_label(args.harvest_mode),
-        args.phrase_top
-    );
-    for (index, plant) in power.plants.iter().enumerate() {
-        println!(
-            "  plant {:>2}: truth {}  harvest {}  cap-hit {}  budget-hit {}{}",
-            index,
-            render_truth_seed(plant.truth_seed_rank),
-            plant.harvested,
-            yes_no(plant.cap_hit),
-            yes_no(plant.budget_hit),
-            render_harvest_overflow(plant.dropped_colorings, plant.parse_budget)
-        );
-    }
-}
-
-fn print_anchor_harvest_verdict(power: &AnchorHarvestRetentionReport) {
-    println!();
-    if power.all_retained && !power.any_cap_hit && !power.any_budget_hit {
-        println!(
-            "VERDICT: HarvestRetained — truth retained on all plants without cap/budget saturation; \
-             the real stream was NOT scored and no null ran."
-        );
-    } else if power.all_retained {
-        println!(
-            "VERDICT: HarvestRetainedAtSaturation — truth retained on all plants, but at least one \
-             harvest hit the cap/budget; the real stream was NOT scored and no null ran."
-        );
-    } else if power.any_cap_hit || power.any_budget_hit {
-        println!(
-            "VERDICT: HarvestSaturatedMiss — at least one plant's true window coloring was not \
-             retained before cap/budget saturation; this is a tractability result, not an \
-             exhaustive anchor-negative. The real stream was NOT scored and no null ran."
-        );
-    } else {
-        println!(
-            "VERDICT: HarvestMissedTruth — at least one plant's true window coloring was not retained; \
-             the real stream was NOT scored and no null ran."
-        );
-    }
-}
-
-fn harvest_mode_label(mode: PairclassHarvestMode) -> &'static str {
-    match mode {
-        PairclassHarvestMode::Beam => "beam",
-        PairclassHarvestMode::Enumerate => "enumerate",
-    }
-}
-
-fn render_truth_seed(rank: Option<usize>) -> String {
-    rank.map_or_else(
-        || "not-retained".to_owned(),
-        |rank| format!("retained #{rank}"),
-    )
-}
-
-fn yes_no(value: bool) -> &'static str {
-    if value { "yes" } else { "no" }
-}
-
-fn render_harvest_overflow(dropped: usize, parse_budget: Option<u64>) -> String {
-    let budget = parse_budget.map_or_else(String::new, |budget| format!("  budget {budget}"));
-    if dropped == 0 {
-        budget
-    } else {
-        format!("  dropped {dropped}{budget}")
-    }
 }
 
 fn render_fate(plant: &PlantOutcome) -> String {

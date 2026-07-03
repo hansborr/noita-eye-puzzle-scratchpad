@@ -133,6 +133,13 @@ fn enumerate_keeps_truth_when_window_starts_mid_word_and_rejects_bad_coloring() 
     .expect("enumeration harvest runs");
     assert_eq!(harvest.window.start, 1);
     assert_eq!(harvest.window.len, 4, "window starts at a inside za");
+    assert_eq!(harvest.layer_occupancies.first(), Some(&1));
+    assert_eq!(harvest.layer_occupancies.len(), harvest.window.len + 1);
+    assert_eq!(harvest.saturation_position, None);
+    assert_eq!(
+        harvest.max_occupancy,
+        harvest.layer_occupancies.iter().copied().max().unwrap_or(0)
+    );
     assert!(
         !harvest.distinct_colorings.is_empty(),
         "positive control must be non-vacuous: expanded {} max_states {} budget_hit {} cap_hit {}",

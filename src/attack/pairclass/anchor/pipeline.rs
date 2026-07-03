@@ -90,6 +90,20 @@ pub struct AnchorHarvestPlantOutcome {
     pub truth_seed_rank: Option<usize>,
     /// Distinct colorings harvested.
     pub harvested: usize,
+    /// Harvest-window length in tokens.
+    pub window_len: usize,
+    /// Repeated-span length in tokens.
+    pub span_len: usize,
+    /// Phrase-harvest maximum kept-state occupancy.
+    pub max_occupancy: usize,
+    /// Token position where enumeration first reached its budget.
+    pub saturation_position: Option<usize>,
+    /// Width of the last completed layer when the budget was hit.
+    pub saturation_completed_occupancy: Option<usize>,
+    /// Width of the in-progress next layer when the budget was hit.
+    pub saturation_partial_occupancy: Option<usize>,
+    /// Completed layer widths; index = consumed window tokens.
+    pub layer_occupancies: Vec<usize>,
     /// Whether the distinct-coloring cap was hit.
     pub cap_hit: bool,
     /// Whether the deterministic parse budget was hit.
@@ -299,6 +313,13 @@ pub fn measure_anchor_harvest_retention(
         plants.push(AnchorHarvestPlantOutcome {
             truth_seed_rank: truth_seed_rank(&plant, &harvest),
             harvested: harvest.distinct_colorings.len(),
+            window_len: harvest.window.len,
+            span_len: harvest.window.span_len,
+            max_occupancy: harvest.max_occupancy,
+            saturation_position: harvest.saturation_position,
+            saturation_completed_occupancy: harvest.saturation_completed_occupancy,
+            saturation_partial_occupancy: harvest.saturation_partial_occupancy,
+            layer_occupancies: harvest.layer_occupancies.clone(),
             cap_hit: harvest.cap_hit,
             budget_hit: harvest.budget_hit,
             dropped_colorings: harvest.dropped_colorings,

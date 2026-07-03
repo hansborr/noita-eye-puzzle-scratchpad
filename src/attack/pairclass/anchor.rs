@@ -94,6 +94,14 @@ pub struct AnchorHarvestReport {
     pub feasible_final: usize,
     /// Maximum kept-state occupancy in the phrase solve.
     pub max_occupancy: usize,
+    /// Token position where LM-free enumeration first reached its budget.
+    pub saturation_position: Option<usize>,
+    /// Width of the last fully completed layer when the budget was hit.
+    pub saturation_completed_occupancy: Option<usize>,
+    /// Width of the in-progress next layer when the budget was hit.
+    pub saturation_partial_occupancy: Option<usize>,
+    /// Completed layer widths; index = number of consumed window tokens.
+    pub layer_occupancies: Vec<usize>,
     /// Whether the phrase beam filled, proving score-based pruning occurred.
     pub saturated: bool,
     /// The phrase solve's checked peak-memory estimate.
@@ -217,6 +225,10 @@ fn harvest_anchor_colorings_score_beam(
         expanded: report.expanded,
         feasible_final: report.feasible_final,
         max_occupancy: report.max_occupancy,
+        saturation_position: None,
+        saturation_completed_occupancy: None,
+        saturation_partial_occupancy: None,
+        layer_occupancies: Vec::new(),
         saturated,
         estimated_mib: report.estimated_mib,
         truth: report.truth,
