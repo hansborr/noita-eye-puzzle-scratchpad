@@ -26,16 +26,15 @@ Read `research/handoff/gak-swap-recovery/README.md` first. House rules:
      words `|G|^K` with the forced-top prune and MITM split.
    Expose `--generator-set top-swaps | --generator-file`.
 
-3. **Reach for higher `num_swaps` / larger `n`.** Wire the fallbacks:
-   per-letter **meet-in-the-middle** over generator words (`O(|G|^⌈m/2⌉)`), and an
-   optional **SAT / CP-SAT** encoding (variables = `perm(L)[i]` one-hot;
-   constraints = all-different, small-support cardinality vs base, and the
-   state-walk emission equalities as channelling). Keep SAT behind a flag and off
-   the default path — it trades transparency for reach and is only worth it when
-   the propagation frontier is genuinely too wide (ns ≳ 5). Add a **larger-group
-   stress self-test**: plant + recover at a couple of `n` values and a swap sweep,
-   asserting exact recovery and reporting the measured feasibility frontier. Never
-   claim "scales arbitrarily" — publish the measured `(n, num_swaps)` boundary.
+3. **Reach for higher `num_swaps` / larger `n`.** (Note: the CP-SAT residual solver
+   itself is core to ns≥2 and is built in **Task 02**, not here — this rung pushes
+   it further.) Wire per-letter **meet-in-the-middle** over generator words
+   (`O(|G|^⌈m/2⌉)`) for bottleneck letters, harden the SAT encoding for ns≳4 (where
+   the residual domains are widest), and add a **larger-group stress self-test**:
+   plant + recover at a couple of `n` values and a swap sweep, asserting exact
+   recovery and reporting the measured feasibility frontier. Never claim "scales
+   arbitrarily" — publish the measured `(n, num_swaps)` boundary, and remember ns≥2
+   is earned per-level, not assumed cheap.
 
 4. **Shareability surface.** Emit `--output json` (recovered mapping, swap words,
    support, verdict, round-trip) and a copy-pasteable **Python `pt_mapping` dict**

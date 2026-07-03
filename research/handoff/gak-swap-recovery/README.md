@@ -95,31 +95,48 @@ copy-pasteable Python `pt_mapping` dict in the output — Python is never the en
    MITM/beam (and optional SAT) fallbacks for higher `num_swaps`, JSON + Python-dict
    output, and a larger-group stress/self-test. → `03-generality-and-followups.md`
 
-## The recommended algorithm (consensus of all four consults + prototype)
+## The recommended algorithm (consensus + a measured course-correction)
 
-Primary: **exact forward-propagation CSP with small-support domain filtering and
-MRV / best-first branch-and-prune, run jointly over all messages.** Propagation
-does the heavy lifting; bounded search is the fallback, and acceptance is *exact
-re-encryption*, never a score. Fallbacks: per-letter meet-in-the-middle over
-generator words; SAT/CP-SAT only for large `num_swaps` where domains explode
-(codex and opus both rank SAT below the direct domain solver — do **not** make it
-primary). Do **not** use per-letter local search as primary: one wrong permutation
-desyncs all later state, so the objective is avalanche-heavy and misleading.
+Primary: **propagation-first deduction, run jointly over all messages, with a real
+CP-SAT/SAT solver for the residual coupling.** Two exact deduction rules do most of
+the work (anchored at the 8 identity restarts):
+- **R-top** — a known pre-state pins the letter's top: `perm(L)[0]=state_prev⁻¹[ct]`.
+- **R-read** — a known pre-state at `L` followed by a letter `M` whose top is known
+  *reads* an off-top entry: `perm(L)[target_M]=state_prev⁻¹[ct_at_M]`. English
+  bigrams follow each `L` by many different `M`, so a handful of reads pins each
+  `perm(L)`'s ≤`num_swaps+1` support positions — **deduction, not guessing.**
+Whatever propagation can't deduce (the residual coupling) goes to a **CP-SAT/SAT
+encoding** (variables `perm(L)[i]` one-hot; all-different + small-support
+cardinality + the state-walk emission equalities as channelling constraints), seeded
+with the R-deductions as unit facts. Per-letter meet-in-the-middle over generator
+words is a targeted fallback when one letter's domain is the bottleneck. Acceptance
+is **exact re-encryption**, never a score.
 
-**Measured feasibility (prototype, on the real files):**
-- `num_swaps=1`: **closed form, no search** — a single forward sweep recovered all
-  24 used letters, consistent across all 8 messages, exact re-encryption. Verified
-  independently by two consults. `perm(L)[0]` alone determines the whole perm.
-- `num_swaps≥2`: an emission pins only `perm(L)[0]`; off-top entries leak only
-  through delayed effects on future emissions. **Naive/first-occurrence DFS
-  explodes** (two independent probes blew a 2M-node budget on ns=2 and ns=3). This
-  is *why the real engine must be propagation-first with MRV ordering* — search
-  alone is the wrong primary. Propagation handle to use: once the next letter's
-  `perm[0]=q` is known, the consecutive pair reveals an off-top entry
-  `perm(L)[q]=state_prev⁻¹[ct_next]` (q≠0), so residual entries are *deducible*,
-  not only searchable.
-- Frontier: n=83 with ns≤3 comfortable; ns=4 heavy (lean MITM/SAT); ns≥5
-  research-grade. **Report the measured frontier; never claim "scales arbitrarily."**
+**Do NOT build the ns≥2 engine as forward left-to-right search** (simulate from
+identity, branch on each new letter) — that is *measured* to fail (below). It is
+retained only as the ns=1 closed-form fast path and as a verifier. Also do **not**
+use per-letter local search as primary: one wrong permutation desyncs all later
+state, so the objective is avalanche-heavy and misleading.
+
+**Measured feasibility (two independent prototypes, on the real files):**
+- `num_swaps=1`: **closed form, no search — SOLVED.** A single forward sweep
+  recovered all 24 used letters, consistent across all 8 messages, exact
+  re-encryption. Verified independently by two agents. `perm(L)[0]` alone
+  determines the whole perm.
+- `num_swaps≥2`: an emission pins only `perm(L)[0]`; off-top entries are constrained
+  only through *delayed, coupled* effects on future emissions. **Forward search
+  wanders — measured, and this is the load-bearing correction:** not just naive DFS
+  but MRV + full cross-message forward-checking capped without a solution (real ns=2
+  at 3M nodes; real ns=3 at 3M nodes; **and a *planted* ns=2 with the truth in the
+  search space capped at 2M nodes**). A local ct-check passes for wrong off-tops as
+  long as they conspire, and chronological backtracking can't isolate the wrong
+  variable. **More nodes / Rust speed do not fix this — it is an algorithm problem.**
+  Hence propagation-first + CP-SAT (conflict learning + non-chronological
+  backjumping), not forward DFS.
+- Frontier: **ns=1 is delivered/verified; ns≥2 is a validation ladder to *earn* via
+  the propagation + CP-SAT path, not a solved given** — do not assume ns=2/3 are
+  cheap just because ns=1 is. ns≥4 leans harder on MITM/CP-SAT; ns≥5 research-grade.
+  **Report the measured frontier; never claim "scales arbitrarily."**
 
 ## Validation (binding, `AGENTS.md`)
 
@@ -149,8 +166,16 @@ its result a **candidate** unless re-encryption matches exactly.
 ## Consult provenance
 
 Full working notes: this was cross-checked by Sonnet-5 (repo+wiki inventory),
-Opus-4.8 (design, independently reproduced the ns=1 solve and the ns≥2 blow-up),
-Codex/GPT (design + concrete repo symbols), and gemini-3.1-pro (fresh angle). They
-converged on every load-bearing decision above. The only divergence was SAT's role
-(fallback vs de-emphasized) — resolved to "optional escape hatch for high
-`num_swaps`, never primary."
+Opus-4.8 (design, independently reproduced the ns=1 solve and *measured* the ns≥2
+forward-search failure, incl. a planted ns=2), Codex/GPT (design + concrete repo
+symbols), and gemini-3.1-pro (fresh angle). They converged on propagation-first as
+the foundation. The one place the measurement overturned an initial recommendation:
+Codex favored a "direct domain solver" with MRV branching over SAT, and an early
+draft of this handoff followed that — but Opus then *measured* MRV + cross-message
+forward-checking wandering even on a planted ns=2, so the residual solver is now a
+CP-SAT/SAT backend, not hand-rolled MRV-DFS. Codex's caution that the SAT encoding
+is heavy still stands: feed it the R-top/R-read deductions as unit facts first, and
+keep it behind a clean interface so MITM or a stronger propagator can swap in. Net
+honesty note: **ns=1 is verified solved; the ns≥2 propagation+CP-SAT path is
+recommended but not yet verified end-to-end — Task 02's first milestone is to earn
+it on the real ns=2 file before building the full CLI.**

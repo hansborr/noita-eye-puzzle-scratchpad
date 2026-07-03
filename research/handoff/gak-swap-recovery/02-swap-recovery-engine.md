@@ -10,40 +10,72 @@ Depends on **Task 01** (oracle, plant, candidate enumerator, KP parser). Read
 `research/handoff/gak-swap-recovery/README.md` first (algorithm consensus, measured
 feasibility, risks). House rules: `research/handoff/README.md`.
 
-## Algorithm (primary — do not substitute a search-first design)
+## Algorithm — propagation-first deduction + CP-SAT residual (MEASURED)
 
-Exact **forward-propagation CSP** over 26 variables (one `σ_L` each), domain = the
-small-support reachable set, coupled through the deterministic state walk of **all
-messages jointly**:
+**Load-bearing measurement — read before you design anything.** The obvious
+"forward-simulate from identity, branch on each new letter" engine **does not
+work** at ns≥2, and this was measured on two independent prototypes — including a
+*planted* case where the answer is provably in the search space:
 
-1. **Propagate before branching.** Simulate every message from `initial_state`.
-   At each step: if `perm(L)` is known, advance + check ct (conflict ⇒ backtrack);
-   if unknown and the pre-state is fully known, record the forced top
-   `perm(L)[0] = state_prev⁻¹[ct]` and intersect `L`'s domain. Apply:
-   - **R-between:** two consecutive fully-known states pin the letter exactly
-     (`perm(L) = state_prev⁻¹ ∘ state_next`); one perm known once ⇒ known for all
-     its occurrences (shared key);
-   - **consecutive-pair off-top leak:** once the next letter's `perm[0]=q` is
-     known (q≠0), `perm(L)[q] = state_prev⁻¹[ct_next]` — a *deduced* off-top entry;
-   - **no-doubles prune:** `perm[0] != 0` and all-different `perm[0]` across letters;
-   - unit-propagate any letter whose domain collapses to one candidate.
-2. **Branch by MRV** — when propagation stalls, pick the *unresolved letter with
-   the smallest candidate domain* (never simply the first letter in message order;
-   that ordering is what blows up — measured 2M-node exhaustion). Order candidates
-   by lookahead (how much replay/domain reduction each unlocks).
-3. **Forward-check across ALL messages.** A candidate must keep every
-   already-fully-determined step in every message consistent; messages restart at
-   identity so a later message often closes while message 1 is still open, giving
-   early cheap contradictions. Anchor propagation on the identity restarts and on
-   repeated-plaintext-span cribs (the messages are variations on one paragraph).
-4. **Best-first / iterative-deepening with a hard node/time budget.** On
-   exhaustion, report the bound and what was dropped (`AGENTS.md`: a bounded search
-   states its limits). **Accept only on exact re-encryption of every message** —
-   never on a score.
+| case | result | budget |
+|---|---|---|
+| real ns=1 (8 msgs) | SOLVED, exact, re-encrypts all 8 | closed-form sweep |
+| planted ns=1 | SOLVED, exact match | 23 nodes |
+| **planted ns=2** (truth in space) | **CAP, no solution found** | 2,000,000 nodes |
+| real ns=2 (8 msgs), MRV + cross-message forward-check | **CAP** | 3,000,000 nodes |
+| real ns=3 (8 msgs), MRV + cross-message forward-check | **CAP** | 3,000,000 nodes |
 
-Fallbacks (wire as options, not the default path): per-letter meet-in-the-middle
-over generator words for a bottleneck letter; leave a SAT/CP-SAT hook for Task 03.
-Do **not** implement per-letter local search as primary (avalanche objective).
+Root cause: off-top entries are constrained only through *delayed, coupled* effects,
+so a local ct-check passes for wrong off-tops as long as they conspire; chronological
+backtracking can't isolate the wrong variable and explores ≈`n^{#distinct-letters}`
+before a displaced card surfaces. **More nodes / Rust speed will not fix this** — it
+is an algorithm problem. Do **not** build the ns≥2 primary as forward left-to-right
+DFS (naive *or* MRV). Retain forward DFS only as the ns=1 closed-form fast path and
+as a control/verifier.
+
+### The design to build
+
+Exact **propagation-first CSP** over 26 variables (one `σ_L` each, domain = the
+small-support reachable set), coupled through the deterministic state walk of **all
+messages jointly**, with the residual coupling handed to a real conflict-learning
+solver.
+
+1. **Deduce to a fixpoint (no branching), anchored at the 8 identity restarts.**
+   Two exact rules turn off-tops from *guess* into *read*:
+   - **R-top:** known pre-state `S` + emission ⇒ `perm(L)[0] = S⁻¹[ct]` (the letter's
+     *target*).
+   - **R-read (the crucial one):** known pre-state `S` at an occurrence of `L`,
+     immediately followed by letter `M` whose target is known, reads a specific
+     off-top entry: `perm(L)[target_M] = S⁻¹[ct_at_M]`. Generalises to n-grams: a
+     known chain of following targets exposes deeper entries. Because English
+     bigrams follow each `L` by many different `M`, a handful of reads pins each
+     `perm(L)`'s ≤`num_swaps+1` support positions.
+   - Supporting: **R-between** (two consecutive fully-known states ⇒
+     `perm(L)=S_prev⁻¹∘S_next`, and a perm known once is known everywhere); the
+     `perm(L)=base` off-support prior; the no-doubles/distinct-target filter
+     (`perm[0]≠0`, all-different targets); unit-propagate collapsed domains.
+2. **Residual coupling → CP-SAT / SAT** (primary for ns≥2, *not* a hand-rolled
+   backtracker). Variables = `perm(L)[i]` one-hot; constraints = permutation
+   all-different, small-support (`≤num_swaps+1` indicators with a cardinality bound
+   vs `base`), and the emission/state-walk equalities as channelling constraints
+   across the whole corpus. Seed it with the R-top/R-read/R-between deductions as
+   unit facts to shrink domains first. A modern CP-SAT propagator supplies the
+   conflict-directed learning + non-chronological backjumping the coupling needs and
+   that forward DFS lacks. (Codex's caution stands: the encoding is heavy, so lead
+   with the deductions and keep the solver behind a clean interface.)
+3. **Accelerators regardless of backend:** anchor on the identity restarts;
+   feed repeated-plaintext-span cribs (msgs 1&4 share `THE…`→`r,n…`; 5≡8) as
+   state-equality constraints — the messages are variations on one paragraph.
+4. **Accept only on exact re-encryption of every message** — never on a score. On a
+   solver timeout, report the bound and what was dropped (`AGENTS.md`).
+
+Fallback: per-letter **meet-in-the-middle** over generator words when a single
+letter's domain is the bottleneck (`O(|G|^⌈m/2⌉)` vs `O(|G|^m)`). Do **not**
+implement per-letter local search as primary (avalanche objective).
+
+> Honesty: ns=1 is verified solved. The ns≥2 propagation+CP-SAT path is the
+> recommended design but is **not yet verified end-to-end** — see Acceptance: the
+> first milestone is to *earn* ns=2 on the real file before building the full CLI.
 
 ## Deliverables
 
@@ -83,23 +115,39 @@ Do **not** implement per-letter local search as primary (avalanche objective).
 
 ## Acceptance criteria
 
-- `make verify` green.
-- **Recovers the vendored `1_/2_/3_swap_ct.txt` keys and re-encrypts all 8
-  messages of each byte-for-byte** (this is the real-data proof the oracle +
-  engine are correct). ns=1 should be effectively instant (closed form); ns=2/ns=3
-  should close under a modest node budget with the propagation+MRV design.
-- Positive control passes and all three nulls fail, as tests calling the same
-  library fns the CLI uses.
-- A results note under `research/data/practice-puzzles/deck-swap/` (and/or a
-  `research/gak-threads/` entry) recording the recovered support sizes per level,
-  the node/branch counts, and the measured ns frontier — labeled model-conditional.
+Do this as a ladder, in order — **each rung is a gate; don't build the next until
+the current one is earned:**
+
+1. `make verify` green throughout.
+2. **ns=1 (should be closed-form-instant):** recover the vendored `1_swap_ct.txt`
+   key and re-encrypt all 8 messages byte-for-byte. (The prototype already does
+   this — it is the warm-up that proves the oracle wiring.)
+3. **ns=2 (the real milestone — EARN it before building the full CLI):** get the
+   propagation (R-top/R-read) + CP-SAT residual to recover the vendored
+   `2_swap_ct.txt` key with exact re-encryption of all 8 messages. This is the step
+   that validates the *chosen algorithm* (forward search is measured to fail here).
+   If it does not close, the fix is stronger deduction / a better SAT encoding —
+   **not** more forward-search nodes.
+4. **ns=3:** same on `3_swap_ct.txt`.
+5. Positive control passes and all three nulls fail, as tests calling the same
+   library fns the CLI uses.
+6. A results note under `research/data/practice-puzzles/deck-swap/` (and/or a
+   `research/gak-threads/` entry) recording recovered support sizes per level,
+   solver stats (deductions made before the residual, SAT conflicts/decisions), and
+   the measured ns frontier — labeled model-conditional.
 
 ## Notes
 
-- The prototype confirms ns=1 is closed form and that naive DFS explodes at ns≥2 —
-  ship the propagation-first engine, not the naive DFS. If ns=3 does not close
-  under budget, that is a signal the MRV ordering / cross-message forward-checking
-  is under-exploited (the problem is over-determined — ~90 occurrences per letter),
-  not that more search is needed.
+- The prototype confirms ns=1 is closed form **and measured that forward search
+  (naive and MRV + cross-message forward-checking) wanders at ns≥2, including a
+  planted ns=2 with the truth in the search space** — so ship the propagation +
+  CP-SAT engine, not a forward backtracker. The problem is over-determined (~90
+  occurrences per letter): if the residual solver struggles, the deduction stage
+  (R-read n-gram probes, crib equalities) is under-exploited — feed it more before
+  reaching for search.
 - Keep the engine oracle-agnostic: it consumes `LymmDeckSpec` so Task 03 can flip
   compose-direction / emission-index / generator-set without touching recovery.
+- Pick the SAT/CP-SAT backend deliberately (a vetted crate; justify it per
+  `AGENTS.md` "minimal dependency surface"). Keep it behind a small trait so a
+  future pure-propagation solver or MITM path can replace it without touching the
+  CLI or the deduction stage.
