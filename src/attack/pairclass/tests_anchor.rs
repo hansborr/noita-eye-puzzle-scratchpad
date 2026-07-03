@@ -169,3 +169,69 @@ fn enumerate_keeps_truth_when_window_starts_mid_word_and_rejects_bad_coloring() 
         "a token-inconsistent coloring must not be emitted"
     );
 }
+
+#[test]
+fn enumerate_post_filter_rejects_tie_violating_superset_coloring() {
+    let lexicon =
+        build_lexicon(&parse_wordlist("ab 100\ncd 90\n", usize::MAX)).expect("lexicon builds");
+    let mut coloring = [0u8; 26];
+    for (ch, class) in [('a', 0), ('b', 1), ('c', 0), ('d', 1)] {
+        if let Some(slot) = coloring.get_mut(usize::from(ch as u8 - b'a')) {
+            *slot = class;
+        }
+    }
+    let tokens = vec![0, 1, 0, 1];
+    let repeat = CopySpan {
+        src: 0,
+        dst: 2,
+        len: 2,
+    };
+    let ties = tie_targets(
+        &copy_ties(repeat, tokens.len()).expect("copy ties"),
+        tokens.len(),
+    );
+    let prep = StreamPrep {
+        tokens,
+        n_classes: 4,
+        tie_table: ties,
+        n_tied: repeat.len,
+        longest_tie: Some((repeat.src, repeat.dst, repeat.len)),
+    };
+    let phrase_cfg = solve_cfg(512, 0, 0, 3.6, 64, 2048);
+    let harvest = harvest_anchor_colorings(
+        &prep,
+        &lexicon,
+        &phrase_cfg,
+        MAX_HARVEST_COLORINGS,
+        AnchorHarvestMode::Enumerate,
+    )
+    .expect("enumeration harvest runs");
+
+    let mut tied_coloring = [None; 26];
+    for (ch, class) in [('a', 0), ('b', 1)] {
+        if let Some(slot) = tied_coloring.get_mut(usize::from(ch as u8 - b'a')) {
+            *slot = Some(class);
+        }
+    }
+    assert!(
+        harvest
+            .distinct_colorings
+            .iter()
+            .any(|seed| seed.coloring == tied_coloring),
+        "the exact tied coloring should survive"
+    );
+
+    let mut superset_only = tied_coloring;
+    for (ch, class) in [('c', 0), ('d', 1)] {
+        if let Some(slot) = superset_only.get_mut(usize::from(ch as u8 - b'a')) {
+            *slot = Some(class);
+        }
+    }
+    assert!(
+        !harvest
+            .distinct_colorings
+            .iter()
+            .any(|seed| seed.coloring == superset_only),
+        "a coloring requiring occ2 letters different from occ1 must be post-filtered"
+    );
+}

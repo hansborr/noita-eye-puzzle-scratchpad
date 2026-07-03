@@ -8,9 +8,11 @@
 use std::collections::BTreeMap;
 
 mod collector;
+mod filter;
 mod suffix;
 
 use collector::ColoringCollector;
+use filter::{TieFilterCfg, retain_full_tie_colorings};
 use suffix::SuffixTrie;
 
 use super::super::lexicon::ROOT;
@@ -288,15 +290,31 @@ impl<'a> Enumerator<'a> {
         self.finish(max_retained)
     }
 
-    fn finish(self, max_retained: usize) -> EnumerateResult {
-        let distinct_colorings = self.collector.finish();
+    fn finish(mut self, max_retained: usize) -> EnumerateResult {
+        let distinct_colorings =
+            std::mem::replace(&mut self.collector, ColoringCollector::new()).finish();
+        let (distinct_colorings, filter_expanded, filter_budget_hit) = if self.parse_budget_hit {
+            (distinct_colorings, 0, false)
+        } else {
+            let filtered = retain_full_tie_colorings(
+                self.input,
+                TieFilterCfg {
+                    max_gaps: self.cfg.max_gaps,
+                    max_gap_len: self.cfg.max_gap_len,
+                    parse_budget: self.cfg.parse_budget,
+                },
+                &self.suffix_trie,
+                distinct_colorings,
+            );
+            (filtered.colorings, filtered.expanded, filtered.budget_hit)
+        };
         EnumerateResult {
             distinct_colorings,
-            expanded: self.expanded,
+            expanded: self.expanded.saturating_add(filter_expanded),
             feasible_final: self.feasible_final,
             max_retained,
             cap_hit: false,
-            budget_hit: self.parse_budget_hit,
+            budget_hit: self.parse_budget_hit || filter_budget_hit,
             dropped_colorings: 0,
         }
     }
