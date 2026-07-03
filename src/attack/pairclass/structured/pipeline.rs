@@ -41,7 +41,6 @@ impl StructuredDecodedCandidate {
         self.solution.as_ref().map(|solution| solution.score)
     }
 }
-
 /// Full structured run report.
 #[derive(Clone, Debug)]
 pub struct StructuredRunReport {
@@ -64,15 +63,14 @@ impl StructuredRunReport {
             .and_then(StructuredDecodedCandidate::best_score)
     }
 }
-
 /// One structured planted positive or random negative outcome.
 #[derive(Clone, Debug)]
 pub struct StructuredPlantOutcome {
     /// Best letter recovery against the plant truth.
     pub recovery: f64,
-    /// One-based candidate rank of the true coloring, if decoded.
+    /// One-based candidate rank of the true coloring, if enumerated.
     pub truth_candidate_rank: Option<usize>,
-    /// Score of the true-coloring candidate.
+    /// Rank-beam score of the true-coloring candidate.
     pub truth_score: Option<f32>,
     /// Best score from any structured candidate.
     pub best_score: Option<f32>,
@@ -89,7 +87,7 @@ pub struct StructuredPowerReport {
     pub mean_recovery: f64,
     /// Positive-control score floor: weakest true-candidate score.
     pub score_floor: Option<f32>,
-    /// Whether the structured positive fired.
+    /// Whether the structured positive fired; every plant must score truth at rank beam.
     pub cleared_bar: bool,
 }
 
@@ -246,19 +244,21 @@ pub fn measure_structured_power(
         plants.push(outcome);
     }
     let mean_recovery = mean(plants.iter().map(|plant| plant.recovery));
-    let score_floor = plants
-        .iter()
-        .filter_map(|plant| plant.truth_score)
-        .min_by(f32::total_cmp);
-    let all_truth_enumerated = plants
-        .iter()
-        .all(|plant| plant.truth_candidate_rank.is_some());
-    let has_nonvacuous_floor = !plants.is_empty() && score_floor.is_some();
+    let all_truth_scored =
+        !plants.is_empty() && plants.iter().all(|plant| plant.truth_score.is_some());
+    let score_floor = all_truth_scored
+        .then(|| {
+            plants
+                .iter()
+                .filter_map(|plant| plant.truth_score)
+                .min_by(f32::total_cmp)
+        })
+        .flatten();
     Ok(StructuredPowerReport {
         plants,
         mean_recovery,
         score_floor,
-        cleared_bar: has_nonvacuous_floor && all_truth_enumerated && mean_recovery >= power.bar,
+        cleared_bar: all_truth_scored && mean_recovery >= power.bar,
     })
 }
 

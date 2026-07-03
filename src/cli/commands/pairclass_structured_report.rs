@@ -14,12 +14,13 @@ pub(crate) fn print_structured_power(args: &PairclassArgs, power: &StructuredPow
     );
     for (index, plant) in power.plants.iter().enumerate() {
         println!(
-            "  plant {:>2}: recovery {:.3}  truth-rank {}  truth-score {}  best-score {}",
+            "  plant {:>2}: recovery {:.3}  truth-rank {}  truth-score {}  best-score {}  {}",
             index,
             plant.recovery,
             opt_rank(plant.truth_candidate_rank),
             opt_score(plant.truth_score),
-            opt_score(plant.best_score)
+            opt_score(plant.best_score),
+            truth_status(plant)
         );
     }
     println!(
@@ -210,4 +211,14 @@ fn opt_f64(value: Option<f64>) -> String {
 
 fn opt_margin(score: f32, baseline: Option<f32>) -> String {
     baseline.map_or_else(|| "n/a".to_owned(), |base| format!("{:.2}", score - base))
+}
+
+fn truth_status(
+    plant: &noita_eye_puzzle::attack::pairclass::StructuredPlantOutcome,
+) -> &'static str {
+    match (plant.truth_candidate_rank, plant.truth_score) {
+        (Some(_rank), Some(_score)) => "truth decoded at rank-beam",
+        (Some(_rank), None) => "truth dropped at rank-beam",
+        (None, _score) => "truth not enumerated",
+    }
 }

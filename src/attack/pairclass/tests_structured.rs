@@ -128,6 +128,39 @@ fn structured_positive_control_fires() {
 }
 
 #[test]
+fn structured_positive_requires_every_truth_candidate_to_decode() {
+    let entries = toy_entries();
+    let lexicon = build_lexicon(&entries).expect("lexicon builds");
+    let solve = solve_cfg(128, 0, 0, 3.6, 3, 2048);
+    let mut power = power_cfg();
+    power.n_plants = 2;
+    power.bar = 0.4;
+    let positive = measure_structured_power(
+        "catdogcatdogxx",
+        &power,
+        &entries,
+        &lexicon,
+        &solve,
+        &toy_cfg(),
+    )
+    .expect("positive runs");
+
+    assert!(
+        positive
+            .plants
+            .iter()
+            .any(|plant| plant.truth_candidate_rank.is_some() && plant.truth_score.is_none()),
+        "fixture should include a generated truth coloring dropped at rank beam: {positive:?}"
+    );
+    assert!(
+        positive.mean_recovery >= power.bar,
+        "old mean-recovery-only gate would have cleared: {positive:?}"
+    );
+    assert!(positive.score_floor.is_none());
+    assert!(!positive.cleared_bar, "positive report: {positive:?}");
+}
+
+#[test]
 fn structured_real_confirm_renders_topk_without_changing_rank_score() {
     let entries = toy_entries();
     let lexicon = build_lexicon(&entries).expect("lexicon builds");
