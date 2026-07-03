@@ -1298,27 +1298,35 @@ repeat patterns across both tied occurrences, or use branch-and-bound over
 colorings with a bound that cannot evict the true phrase before constraints
 arrive.
 
-### Round 7 (codex, audit-corrected): LM-free anchor-window enumeration harvest — saturated miss, real stream NOT scored
+### Round 7 (codex, audit-corrected): LM-free complete-DP anchor-window harvest — saturated before finals, real stream NOT scored
 
-This replaces the confounded first Round 7 record. An independent audit found
-that the original implementation was still a path-recursive DFS with final-only
-deduplication and gap iterative-deepening, so its zero-retention result was an
-algorithm artifact rather than a tractability finding.
+This replaces the confounded Round 7 record in place. Credit to the independent
+audit: v1 was a non-merging exponential DFS, and v2 was still confounded by
+**both** (1) an exponential `DpKey.tie_letters` augmentation that carried occ1's
+letter sequence through the main DP and (2) a 10k/layer coverage frontier that
+was a beam and could evict truth. Do not cite either earlier Round 7 outcome as
+a retention or tractability finding.
 
 The corrected (a') harvest mode remains `--harvest-mode enumerate`, alongside
-the existing score-beam harvest. This round was harvest-only and
-controls-first: it stopped after Phase 1, ran no Phase-2 seeded solve, did not
-score the real `two` stream, and ran no null.
+the existing score-beam harvest. This run used the reformulation's recommended
+variant B: enumerate the full anchor window with occ2 parsed as ordinary
+dictionary tokens, merge completely on `(node, gap_len, gaps_used, gap_node,
+classes, pinned)`, and then post-filter each surviving coloring against the
+full active tie exactly. The post-filter carries source letters only inside the
+verifier and requires the tied parse to induce the same 26-slot coloring. There
+is no coverage beam and no final coloring cap/eviction in the enumerate
+collector.
 
-The corrected enumerator is a layered DP over the same anchor window and ties.
-The merge key keeps trie/gap state, letter-class pins, and the first-occurrence
-letters needed to force and verify the tied second occurrence; it dedups final
-26-slot colorings only after ties are resolved. The trie is used for membership
-only, never for a score key. Leading partials are constrained as lexicon-word
-suffixes, trailing partials are accepted as trie prefixes, and the run uses an
-LM-free coverage frontier when the merge table saturates. The old ~11 GB Python
-OOM mode remains structurally impossible; the live risk is time/frontier blow-up,
-reported as budget saturation rather than silently treated as exhaustive.
+The trie is used for membership only (`word_logp` is only the word-end
+predicate). Leading partials are constrained as lexicon-word suffixes, trailing
+partials are accepted as trie prefixes, and the run is harvest-only /
+controls-first: no Phase-2 seeded solve, no real `two` scoring, no null. This is
+still a bounded instrument: if the complete DP hits its deterministic transition
+budget, the result is saturation, not an exhaustive anchor-negative. The
+enumeration is over one ~68-token window, not `4^26`; classes are assigned only
+through lexicon-compatible letters, and the control plants are corpus-sourced
+and fully in-vocab (the 11,419-word lexicon is the full corpus vocabulary; there
+is no maintainer-held 50k list).
 
 Command:
 
@@ -1340,22 +1348,26 @@ Result:
 
 | plant | truth retained? | retained rank | distinct colorings | cap hit? | budget hit? |
 |---:|:---:|---:|---:|:---:|:---:|
-| 0 | no | - | 13 | no | yes |
-| 1 | no | - | 52 | no | yes |
-| 2 | no | - | 48 | no | yes |
-| 3 | no | - | 48 | no | yes |
-| 4 | no | - | 33 | no | yes |
-| 5 | no | - | 68 | no | yes |
+| 0 | no | - | 0 | no | yes |
+| 1 | no | - | 0 | no | yes |
+| 2 | no | - | 0 | no | yes |
+| 3 | no | - | 0 | no | yes |
+| 4 | no | - | 0 | no | yes |
+| 5 | no | - | 0 | no | yes |
 
-Verdict: `HarvestSaturatedMiss`, but not the old DFS artifact and still not an
-exhaustive anchor-negative. Truth was retained on none of the six
-corpus-sourced plants under the corrected merged-DP harvest before the
-deterministic frontier/transition budget saturated; no plant hit the
-50,000-coloring cap. This rules out the original Round 7 claim that exhaustive
-enumeration had failed, but it does not prove the 34-letter anchor is too weak.
-The next lever is the already-flagged blow-up path: wider flanking context or an
-LM-free marginal-fit/coverage selector, never a word-LM score key. The real
-stream was NOT scored and no null ran.
+Verdict: `HarvestSaturatedMiss`, specifically **complete-DP transition
+saturation before finals**, not a decisive retention fork and not a genuine
+anchor-negative. All six controls hit the 100,000,000-transition budget before
+the complete un-beamed enumeration produced final colorings for the exact
+post-filter to retain or reject. Therefore "truth not retained" here means
+"truth not reached before honest saturation," not "truth absent from the
+complete tied coloring set." The real stream was NOT scored and no null ran.
+
+Next work, if (a') remains worth pursuing: reduce the complete DP's state volume
+without reintroducing a beam or score key, or change the hard-constraint surface
+(for example flanking-context widening / LM-free marginal-fit selection after a
+complete superset exists). Do not revive the v2 coverage frontier or word-LM
+ranking as a harvest selector.
 
 ## Provenance
 

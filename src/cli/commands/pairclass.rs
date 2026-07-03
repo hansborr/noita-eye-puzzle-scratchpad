@@ -478,7 +478,7 @@ fn print_power(args: &PairclassArgs, power: &PowerReport) {
 fn print_anchor_harvest_retention(args: &PairclassArgs, power: &AnchorHarvestRetentionReport) {
     println!();
     println!(
-        "Controls-first anchor harvest-only retention ({} plants, mode {}, cap {}):",
+        "Controls-first anchor harvest-only retention ({} plants, mode {}, requested {}):",
         args.plants,
         harvest_mode_label(args.harvest_mode),
         args.phrase_top
