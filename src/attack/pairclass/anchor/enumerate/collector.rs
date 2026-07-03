@@ -1,74 +1,55 @@
 use std::cmp::Reverse;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use super::super::HarvestedColoring;
 
 type CoverageKey = (usize, Reverse<usize>, Reverse<usize>, [Option<u8>; 26]);
 
-/// Distinct-coloring collector with LM-free coverage cap selection.
+/// Distinct-coloring collector with no cap or eviction.
 pub(super) struct ColoringCollector {
-    limit: usize,
     by_coloring: BTreeMap<[Option<u8>; 26], HarvestedColoring>,
-    retained: BTreeSet<CoverageKey>,
-    cap_hit: bool,
-    dropped_colorings: usize,
 }
 
 impl ColoringCollector {
-    pub(super) fn new(limit: usize) -> Self {
+    pub(super) fn new() -> Self {
         Self {
-            limit,
             by_coloring: BTreeMap::new(),
-            retained: BTreeSet::new(),
-            cap_hit: false,
-            dropped_colorings: 0,
         }
     }
 
     pub(super) fn offer(&mut self, candidate: HarvestedColoring) {
-        let key = coverage_key(&candidate);
-        if let Some(existing) = self.by_coloring.get(&candidate.coloring) {
-            let old_key = coverage_key(existing);
-            if key > old_key {
-                let _removed = self.retained.remove(&old_key);
-                let _inserted = self.retained.insert(key);
-                let _old = self.by_coloring.insert(candidate.coloring, candidate);
-            }
-            return;
-        }
-        if self.by_coloring.len() < self.limit {
-            let _inserted = self.retained.insert(key);
-            let _old = self.by_coloring.insert(candidate.coloring, candidate);
-            return;
-        }
-        self.cap_hit = true;
-        if let Some(&worst_key) = self.retained.iter().next()
-            && key > worst_key
-        {
-            let evicted = worst_key.3;
-            let _removed = self.retained.remove(&worst_key);
-            let _old = self.by_coloring.remove(&evicted);
-            let _inserted = self.retained.insert(key);
-            let _old = self.by_coloring.insert(candidate.coloring, candidate);
-        }
-        self.dropped_colorings = self.dropped_colorings.saturating_add(1);
+        let _entry = self
+            .by_coloring
+            .entry(candidate.coloring)
+            .and_modify(|existing| {
+                if better_representative(&candidate, existing) {
+                    *existing = candidate.clone();
+                }
+            })
+            .or_insert(candidate);
     }
 
-    pub(super) fn finish(self) -> (Vec<HarvestedColoring>, bool, usize) {
+    pub(super) fn finish(self) -> Vec<HarvestedColoring> {
         let mut out: Vec<HarvestedColoring> = self.by_coloring.into_values().collect();
         out.sort_by(|a, b| {
-            b.pinned
-                .cmp(&a.pinned)
-                .then_with(|| a.gaps_used.cmp(&b.gaps_used))
-                .then_with(|| a.gap_letters.cmp(&b.gap_letters))
-                .then_with(|| a.coloring.cmp(&b.coloring))
+            coverage_key(b)
+                .cmp(&coverage_key(a))
                 .then_with(|| a.rendered.cmp(&b.rendered))
         });
         for (index, coloring) in out.iter_mut().enumerate() {
             coloring.rank = index + 1;
         }
-        (out, self.cap_hit, self.dropped_colorings)
+        out
     }
+}
+
+fn better_representative(candidate: &HarvestedColoring, existing: &HarvestedColoring) -> bool {
+    candidate
+        .gaps_used
+        .cmp(&existing.gaps_used)
+        .then_with(|| candidate.gap_letters.cmp(&existing.gap_letters))
+        .then_with(|| candidate.rendered.cmp(&existing.rendered))
+        .is_lt()
 }
 
 fn coverage_key(candidate: &HarvestedColoring) -> CoverageKey {

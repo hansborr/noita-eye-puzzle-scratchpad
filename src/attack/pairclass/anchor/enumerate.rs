@@ -2,18 +2,15 @@
 //!
 //! This is a layered DAG dynamic program over parse state. The merge key keeps
 //! exactly the future-relevant hard constraints: trie/gap state, gap count,
-//! letter-class pins, and the first-occurrence letters still needed to verify
-//! the tied second occurrence. Scores are never read for ordering or pruning;
+//! and letter-class pins. Scores are never read for ordering or pruning;
 //! `word_logp(node).is_some()` is used only as the lexicon word-end predicate.
 
 use std::collections::BTreeMap;
 
 mod collector;
-mod frontier;
 mod suffix;
 
 use collector::ColoringCollector;
-use frontier::StateLayer;
 use suffix::SuffixTrie;
 
 use super::super::lexicon::ROOT;
@@ -27,11 +24,8 @@ const ENUMERATE_MAX_PARSE_BUDGET: u64 = 100_000_000;
 const ENUMERATE_MIN_PARSE_BUDGET: u64 = 1_000_000;
 /// Parse-budget multiplier applied to `phrase_cfg.beam * window_len`.
 const ENUMERATE_PARSE_BUDGET_FACTOR: u64 = 4;
-/// Layer merge cap for the DP frontier. Saturation is reported as a budget hit.
-const ENUMERATE_LAYER_STATE_BUDGET: usize = 10_000;
 
 const NO_PARENT: u32 = u32::MAX;
-const UNKNOWN_TIE_LETTER: u8 = u8::MAX;
 const LETTER_MASK: u8 = 0x1f;
 const FLAG_SEGMENT_START: u8 = 1 << 5;
 const FLAG_GAP: u8 = 1 << 6;
@@ -59,9 +53,7 @@ pub(super) fn harvest_anchor_colorings_enumerate(
         max_gap_len: phrase_cfg
             .max_gap_len
             .max(input.window.len.min(usize::from(u8::MAX)) as u8),
-        limit: input.effective_top,
         parse_budget,
-        layer_state_budget: ENUMERATE_LAYER_STATE_BUDGET,
     };
     let result = Enumerator::new(input, enum_cfg).run();
     Ok(AnchorHarvestReport {
@@ -74,7 +66,7 @@ pub(super) fn harvest_anchor_colorings_enumerate(
         expanded: result.expanded,
         feasible_final: result.feasible_final,
         max_occupancy: result.max_retained,
-        saturated: result.cap_hit || result.budget_hit,
+        saturated: result.budget_hit,
         estimated_mib,
         truth: None,
         cap_hit: result.cap_hit,
@@ -129,13 +121,11 @@ fn enumerate_parse_budget(phrase_beam: usize, window_len: usize) -> u64 {
 struct EnumerateCfg {
     max_gaps: u8,
     max_gap_len: u8,
-    limit: usize,
     parse_budget: u64,
-    layer_state_budget: usize,
 }
 
 /// Future-relevant DP state. Representative diagnostics live in `DpValue`.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 struct DpKey {
     node: u32,
     gap_len: u8,
@@ -143,7 +133,6 @@ struct DpKey {
     gap_node: u32,
     classes: u64,
     pinned: u32,
-    tie_letters: Vec<u8>,
 }
 
 #[derive(Clone, Copy)]
@@ -164,7 +153,6 @@ struct EnumTransition {
 }
 
 struct EmitBase<'a> {
-    position: usize,
     key: &'a DpKey,
     value: DpValue,
     pins: (u64, u32),
@@ -245,7 +233,6 @@ struct Enumerator<'a> {
     expanded: u64,
     feasible_final: usize,
     parse_budget_hit: bool,
-    state_budget_hit: bool,
 }
 
 impl<'a> Enumerator<'a> {
@@ -259,11 +246,10 @@ impl<'a> Enumerator<'a> {
             cfg,
             suffix_trie: SuffixTrie::from_lexicon(input.lexicon, usize::from(cfg.max_gap_len)),
             arena: EnumArena::with_capacity(arena_cap),
-            collector: ColoringCollector::new(cfg.limit),
+            collector: ColoringCollector::new(),
             expanded: 0,
             feasible_final: 0,
             parse_budget_hit: false,
-            state_budget_hit: false,
         }
     }
 
@@ -277,7 +263,6 @@ impl<'a> Enumerator<'a> {
                 gap_node: ROOT,
                 classes: 0,
                 pinned: 0,
-                tie_letters: vec![UNKNOWN_TIE_LETTER; self.input.window.span_len],
             },
             DpValue {
                 arena: NO_PARENT,
@@ -289,32 +274,30 @@ impl<'a> Enumerator<'a> {
             if current.is_empty() {
                 return self.finish(max_retained);
             }
-            let mut next = StateLayer::new(self.cfg.layer_state_budget, position + 1);
+            let mut next = BTreeMap::new();
             for (key, value) in &current {
                 self.expand_state(position, key, *value, &mut next);
                 if self.parse_budget_hit {
-                    max_retained = max_retained.max(next.len());
-                    return self.finish(max_retained);
+                    return self.finish(max_retained.max(next.len()));
                 }
             }
             max_retained = max_retained.max(next.len());
-            self.state_budget_hit |= next.saturated;
-            current = next.into_states();
+            current = next;
         }
         self.collect_finals(current);
         self.finish(max_retained)
     }
 
     fn finish(self, max_retained: usize) -> EnumerateResult {
-        let (distinct_colorings, cap_hit, dropped_colorings) = self.collector.finish();
+        let distinct_colorings = self.collector.finish();
         EnumerateResult {
             distinct_colorings,
             expanded: self.expanded,
             feasible_final: self.feasible_final,
             max_retained,
-            cap_hit,
-            budget_hit: self.parse_budget_hit || self.state_budget_hit,
-            dropped_colorings,
+            cap_hit: false,
+            budget_hit: self.parse_budget_hit,
+            dropped_colorings: 0,
         }
     }
 
@@ -323,17 +306,11 @@ impl<'a> Enumerator<'a> {
         position: usize,
         key: &DpKey,
         value: DpValue,
-        next: &mut StateLayer,
+        next: &mut BTreeMap<DpKey, DpValue>,
     ) {
         let Some(&token) = self.input.tokens.get(position) else {
             return;
         };
-        if let Some(src) = self.input.tie_table.get(position).copied().flatten() {
-            if let Some(letter) = self.tied_source_letter(key, src) {
-                self.try_letter(position, key, value, letter, token, next);
-            }
-            return;
-        }
         for letter in 0..N_LETTERS {
             self.try_letter(position, key, value, letter, token, next);
             if self.parse_budget_hit {
@@ -349,7 +326,7 @@ impl<'a> Enumerator<'a> {
         value: DpValue,
         letter: u8,
         token: u8,
-        next: &mut StateLayer,
+        next: &mut BTreeMap<DpKey, DpValue>,
     ) {
         if letter >= N_LETTERS || token >= self.input.n_classes {
             return;
@@ -358,7 +335,6 @@ impl<'a> Enumerator<'a> {
             return;
         };
         let base = EmitBase {
-            position,
             key,
             value,
             pins: (classes, pinned),
@@ -406,11 +382,9 @@ impl<'a> Enumerator<'a> {
         base: &EmitBase<'_>,
         node: u32,
         segment_start: bool,
-        next: &mut StateLayer,
+        next: &mut BTreeMap<DpKey, DpValue>,
     ) {
         self.emit_transition(
-            base.position,
-            base.key,
             base.value,
             base.pins,
             EnumTransition {
@@ -431,12 +405,10 @@ impl<'a> Enumerator<'a> {
         base: &EmitBase<'_>,
         gap: (u8, u8, u32),
         segment_start: bool,
-        next: &mut StateLayer,
+        next: &mut BTreeMap<DpKey, DpValue>,
     ) {
         let (gap_len, gaps_used, gap_node) = gap;
         self.emit_transition(
-            base.position,
-            base.key,
             base.value,
             base.pins,
             EnumTransition {
@@ -454,20 +426,14 @@ impl<'a> Enumerator<'a> {
 
     fn emit_transition(
         &mut self,
-        position: usize,
-        key: &DpKey,
         value: DpValue,
         pins: (u64, u32),
         transition: EnumTransition,
-        next: &mut StateLayer,
+        next: &mut BTreeMap<DpKey, DpValue>,
     ) {
         if self.expanded >= self.cfg.parse_budget {
             self.parse_budget_hit = true;
             return;
-        }
-        let mut tie_letters = self.next_tie_letters(key, position, transition.letter);
-        if self.can_drop_tie_letters(position + 1) {
-            tie_letters.clear();
         }
         let next_key = DpKey {
             node: transition.node,
@@ -476,7 +442,6 @@ impl<'a> Enumerator<'a> {
             gap_node: transition.gap_node,
             classes: pins.0,
             pinned: pins.1,
-            tie_letters,
         };
         let next_gap_letters = value.gap_letters + usize::from(transition.gap);
         let packed = transition.letter
@@ -487,43 +452,14 @@ impl<'a> Enumerator<'a> {
                 0
             };
         self.expanded += 1;
-        next.offer(
+        offer_state(
+            next,
             next_key,
             value.arena,
             packed,
             next_gap_letters,
             &mut self.arena,
         );
-    }
-
-    fn tied_source_letter(&self, key: &DpKey, src: usize) -> Option<u8> {
-        let offset = src.checked_sub(self.input.window.first_offset)?;
-        key.tie_letters
-            .get(offset)
-            .copied()
-            .filter(|&letter| letter != UNKNOWN_TIE_LETTER)
-    }
-
-    fn next_tie_letters(&self, key: &DpKey, position: usize, letter: u8) -> Vec<u8> {
-        let mut tie_letters = key.tie_letters.clone();
-        let first_start = self.input.window.first_offset;
-        let first_end = first_start.saturating_add(self.input.window.span_len);
-        if (first_start..first_end).contains(&position) {
-            let offset = position - first_start;
-            if let Some(slot) = tie_letters.get_mut(offset) {
-                *slot = letter;
-            }
-        }
-        tie_letters
-    }
-
-    fn can_drop_tie_letters(&self, next_position: usize) -> bool {
-        let second_end = self
-            .input
-            .window
-            .second_offset
-            .saturating_add(self.input.window.span_len);
-        next_position >= second_end
     }
 
     fn collect_finals(&mut self, finals: BTreeMap<DpKey, DpValue>) {
@@ -547,6 +483,29 @@ impl<'a> Enumerator<'a> {
     fn accept_final(&self, key: &DpKey) -> bool {
         key.gap_len > 0 || self.input.lexicon.word_logp(key.node).is_some() || key.node != ROOT
     }
+}
+
+fn offer_state(
+    states: &mut BTreeMap<DpKey, DpValue>,
+    key: DpKey,
+    parent: u32,
+    packed: u8,
+    gap_letters: usize,
+    arena: &mut EnumArena,
+) {
+    if let Some(current) = states.get(&key).copied()
+        && (gap_letters, parent) >= (current.gap_letters, current.arena)
+    {
+        return;
+    }
+    let arena_index = arena.push(parent, packed);
+    let _old = states.insert(
+        key,
+        DpValue {
+            arena: arena_index,
+            gap_letters,
+        },
+    );
 }
 
 /// Builds the 26-slot coloring from packed pin state.
