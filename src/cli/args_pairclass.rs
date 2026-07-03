@@ -160,6 +160,10 @@ pub(crate) struct PairclassArgs {
     /// stream is scored.
     #[arg(long = "plant-bar", default_value_t = 0.4)]
     pub(crate) plant_bar: f64,
+    /// Per-plant recovery floor for structured controls; any plant below this
+    /// floor blocks real-stream scoring as essentially unrecovered.
+    #[arg(long = "plant-floor", default_value_t = 0.15)]
+    pub(crate) plant_floor: f64,
     /// Matched order-1 Markov null resamples to gate the real-stream score.
     /// In structured mode, 0 selects the profile default.
     #[arg(long = "null-trials", default_value_t = 0)]

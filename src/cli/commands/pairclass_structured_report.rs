@@ -16,12 +16,16 @@ pub(crate) fn print_structured_power(
     println!();
     match verdict_cfg.profile {
         StructuredVerdictProfile::Curated => println!(
-            "Structured-coloring positive controls ({} plants, bar {:.3}, rank-beam {}, control null alpha {:.3}):",
-            args.plants, args.plant_bar, args.structured_rank_beam, verdict_cfg.positive_alpha
+            "Structured-coloring positive controls ({} plants, bar {:.3}, floor {:.3}, rank-beam {}, control null alpha {:.3}):",
+            args.plants,
+            args.plant_bar,
+            verdict_cfg.plant_floor,
+            args.structured_rank_beam,
+            verdict_cfg.positive_alpha
         ),
         StructuredVerdictProfile::Broad => println!(
-            "Structured-coloring positive controls ({} plants, bar {:.3}, rank-beam {}, measured power):",
-            args.plants, args.plant_bar, args.structured_rank_beam
+            "Structured-coloring positive controls ({} plants, bar {:.3}, floor {:.3}, rank-beam {}, measured power):",
+            args.plants, args.plant_bar, verdict_cfg.plant_floor, args.structured_rank_beam
         ),
     }
     for (index, plant) in power.plants.iter().enumerate() {
@@ -41,8 +45,9 @@ pub(crate) fn print_structured_power(
     }
     match verdict_cfg.profile {
         StructuredVerdictProfile::Curated => println!(
-            "  mean recovery {:.3}  truth-best {}/{}  truth-top-{} {}/{}  curated-pass {}/{}  {}",
+            "  mean recovery {:.3}  min recovery {}  truth-best {}/{}  truth-top-{} {}/{}  curated-pass {}/{}  {}",
             power.mean_recovery,
+            opt_f64(power.min_recovery()),
             power.truth_best_count(),
             power.plants.len(),
             verdict_cfg.curated_truth_top_rank,
@@ -54,21 +59,22 @@ pub(crate) fn print_structured_power(
                 verdict_cfg.curated_truth_top_rank
             ),
             power.plants.len(),
-            if power.all_recovery_at_bar(args.plant_bar) {
-                "RECOVERY CLEARED"
+            if power.recovery_gate_cleared(args.plant_bar, verdict_cfg.plant_floor) {
+                "RECOVERY GATE CLEARED"
             } else {
-                "BELOW RECOVERY BAR"
+                "BELOW RECOVERY GATE"
             }
         ),
         StructuredVerdictProfile::Broad => println!(
-            "  mean recovery {:.3}  measured power truth-best {}/{}  {}",
+            "  mean recovery {:.3}  min recovery {}  measured power truth-best {}/{}  {}",
             power.mean_recovery,
+            opt_f64(power.min_recovery()),
             power.truth_best_count(),
             power.plants.len(),
-            if power.cleared_bar {
-                "RECOVERY CLEARED"
+            if power.recovery_gate_cleared(args.plant_bar, verdict_cfg.plant_floor) {
+                "RECOVERY GATE CLEARED"
             } else {
-                "BELOW RECOVERY BAR"
+                "BELOW RECOVERY GATE"
             }
         ),
     }

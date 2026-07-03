@@ -121,8 +121,10 @@ pub enum StructuredVerdict {
 pub struct StructuredVerdictCfg {
     /// Tier-specific rule set.
     pub profile: StructuredVerdictProfile,
-    /// Required planted recovery bar.
+    /// Required mean planted recovery bar.
     pub plant_bar: f64,
+    /// Hard per-plant recovery floor.
+    pub plant_floor: f64,
     /// Positive/null alpha for curated planted controls.
     pub positive_alpha: f64,
     /// Maximum truth score rank accepted by curated planted controls.
@@ -243,6 +245,31 @@ impl StructuredPowerReport {
                 .all(|plant| plant.recovery >= recovery_bar)
     }
 
+    /// Lowest per-plant recovery, if any plants were measured.
+    #[must_use]
+    pub fn min_recovery(&self) -> Option<f64> {
+        self.plants
+            .iter()
+            .map(|plant| plant.recovery)
+            .min_by(f64::total_cmp)
+    }
+
+    /// Whether any plant fell below the hard recovery floor.
+    #[must_use]
+    pub fn any_recovery_below(&self, recovery_floor: f64) -> bool {
+        self.plants
+            .iter()
+            .any(|plant| plant.recovery < recovery_floor)
+    }
+
+    /// Shared recovery hard gate for structured controls.
+    #[must_use]
+    pub fn recovery_gate_cleared(&self, recovery_bar: f64, recovery_floor: f64) -> bool {
+        !self.plants.is_empty()
+            && self.mean_recovery >= recovery_bar
+            && !self.any_recovery_below(recovery_floor)
+    }
+
     /// Curated-tier per-plant power pass count.
     #[must_use]
     pub fn curated_pass_count(&self, recovery_bar: f64, alpha: f64, top_limit: usize) -> usize {
@@ -311,10 +338,7 @@ fn hard_positive_controls_failed(
     if !positive.all_truth_decoded() {
         return true;
     }
-    match cfg.profile {
-        StructuredVerdictProfile::Curated => !positive.all_recovery_at_bar(cfg.plant_bar),
-        StructuredVerdictProfile::Broad => !positive.cleared_bar,
-    }
+    !positive.recovery_gate_cleared(cfg.plant_bar, cfg.plant_floor)
 }
 
 fn curated_controls_powered(

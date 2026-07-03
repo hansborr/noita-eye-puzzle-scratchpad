@@ -189,7 +189,7 @@ fn run_structured_controls(
     if positive_controls_hard_failed(&positive, rules) {
         println!();
         println!(
-            "VERDICT: ControlsFailed - structured positive controls did not decode truth and clear the recovery bar; the real stream was NOT scored."
+            "VERDICT: ControlsFailed - structured positive controls did not decode truth or clear the recovery gate (mean >= --plant-bar and no plant below --plant-floor); the real stream was NOT scored."
         );
         return Ok(None);
     }
@@ -221,12 +221,7 @@ fn positive_controls_hard_failed(
     if !positive.all_truth_decoded() {
         return true;
     }
-    match rules.verdict_cfg.profile {
-        StructuredVerdictProfile::Curated => {
-            !positive.all_recovery_at_bar(rules.verdict_cfg.plant_bar)
-        }
-        StructuredVerdictProfile::Broad => !positive.cleared_bar,
-    }
+    !positive.recovery_gate_cleared(rules.verdict_cfg.plant_bar, rules.verdict_cfg.plant_floor)
 }
 
 fn structured_tier_rules(
@@ -268,6 +263,7 @@ fn structured_tier_rules(
         verdict_cfg: StructuredVerdictCfg {
             profile: verdict_profile,
             plant_bar: args.plant_bar,
+            plant_floor: args.plant_floor,
             positive_alpha: CURATED_POSITIVE_ALPHA,
             curated_truth_top_rank: CURATED_TRUTH_TOP_RANK,
             real_alpha,
