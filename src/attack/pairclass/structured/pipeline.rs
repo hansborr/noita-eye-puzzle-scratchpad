@@ -209,6 +209,7 @@ pub fn structured_null_gate(
     null_cfg: &StructuredNullCfg,
 ) -> Result<StructuredNullGate, PairclassError> {
     let mut null_bests = Vec::with_capacity(null_cfg.null_trials);
+    let mut null_candidate_counts = Vec::with_capacity(null_cfg.null_trials);
     let mut null_ge = 0usize;
     for trial in 0..null_cfg.null_trials {
         let tokens = markov_resample_with_ties(prep, null_cfg.seed.wrapping_add(trial as u64))?;
@@ -220,6 +221,7 @@ pub fn structured_null_gate(
         };
         let report =
             run_structured_oracle_decode(&[stream], word_entries, lexicon, solve_cfg, run_cfg)?;
+        null_candidate_counts.push(report.generation.candidates.len());
         let best = report.best_score();
         if let (Some(null), Some(observed)) = (best, null_cfg.observed_best)
             && null >= observed
@@ -231,6 +233,7 @@ pub fn structured_null_gate(
     Ok(StructuredNullGate {
         observed_best: null_cfg.observed_best,
         null_bests,
+        null_candidate_counts,
         null_ge,
     })
 }
@@ -252,29 +255,34 @@ pub fn structured_null_gate_streams(
     null_cfg: &StructuredNullCfg,
 ) -> Result<StructuredNullGate, PairclassError> {
     let mut null_bests = Vec::with_capacity(null_cfg.null_trials);
+    let mut null_candidate_counts = Vec::with_capacity(null_cfg.null_trials);
     let mut null_ge = 0usize;
     for trial in 0..null_cfg.null_trials {
-        let mut best: Option<f32> = None;
+        let mut token_variants = Vec::with_capacity(preps.len());
+        let mut labels = Vec::with_capacity(preps.len());
         for (variant, prep) in preps.iter().enumerate() {
             let trial_seed = null_cfg
                 .seed
                 .wrapping_add(trial as u64)
                 .wrapping_add((variant as u64) << 32);
-            let tokens = markov_resample_with_ties(prep, trial_seed)?;
-            let stream = StructuredStream {
-                label: "null",
-                tokens: &tokens,
+            token_variants.push(markov_resample_with_ties(prep, trial_seed)?);
+            labels.push(format!("null-{variant}"));
+        }
+        let streams = token_variants
+            .iter()
+            .zip(labels.iter())
+            .zip(preps)
+            .map(|((tokens, label), prep)| StructuredStream {
+                label: label.as_str(),
+                tokens,
                 n_classes: prep.n_classes,
                 tie_to: prep_tie_to(prep),
-            };
-            let report =
-                run_structured_oracle_decode(&[stream], word_entries, lexicon, solve_cfg, run_cfg)?;
-            if let Some(score) = report.best_score()
-                && best.is_none_or(|current| score > current)
-            {
-                best = Some(score);
-            }
-        }
+            })
+            .collect::<Vec<_>>();
+        let report =
+            run_structured_oracle_decode(&streams, word_entries, lexicon, solve_cfg, run_cfg)?;
+        null_candidate_counts.push(report.generation.candidates.len());
+        let best = report.best_score();
         if let (Some(null), Some(observed)) = (best, null_cfg.observed_best)
             && null >= observed
         {
@@ -285,6 +293,7 @@ pub fn structured_null_gate_streams(
     Ok(StructuredNullGate {
         observed_best: null_cfg.observed_best,
         null_bests,
+        null_candidate_counts,
         null_ge,
     })
 }

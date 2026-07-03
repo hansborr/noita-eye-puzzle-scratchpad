@@ -186,10 +186,10 @@ fn run_structured_controls(
     )
     .map_err(|error| error.to_string())?;
     print_structured_power(args, &positive, &rules.verdict_cfg);
-    if positive_control_failed(&positive, rules) {
+    if positive_controls_hard_failed(&positive, rules) {
         println!();
         println!(
-            "VERDICT: ControlsFailed - structured positive controls did not validate this scoring surface; the real stream was NOT scored."
+            "VERDICT: ControlsFailed - structured positive controls did not decode truth and clear the recovery bar; the real stream was NOT scored."
         );
         return Ok(None);
     }
@@ -211,34 +211,22 @@ fn run_structured_controls(
     )
     .map_err(|error| error.to_string())?;
     print_structured_negative(&negative, run_cfg.rank_beam, rules.negative_alpha);
-    if random_negative_failed(&negative, rules) {
-        println!();
-        println!(
-            "VERDICT: ControlsFailed - curated random-coloring negative met the candidate criterion under its own matched null; the real stream was NOT scored."
-        );
-        return Ok(None);
-    }
     Ok(Some(StructuredControls { positive, negative }))
 }
 
-fn positive_control_failed(positive: &StructuredPowerReport, rules: &StructuredTierRules) -> bool {
+fn positive_controls_hard_failed(
+    positive: &StructuredPowerReport,
+    rules: &StructuredTierRules,
+) -> bool {
+    if !positive.all_truth_decoded() {
+        return true;
+    }
     match rules.verdict_cfg.profile {
         StructuredVerdictProfile::Curated => {
-            positive.curated_pass_count(
-                rules.verdict_cfg.plant_bar,
-                rules.verdict_cfg.positive_alpha,
-                rules.verdict_cfg.curated_truth_top_rank,
-            ) != positive.plants.len()
+            !positive.all_recovery_at_bar(rules.verdict_cfg.plant_bar)
         }
         StructuredVerdictProfile::Broad => !positive.cleared_bar,
     }
-}
-
-fn random_negative_failed(
-    negative: &StructuredNegativeReport,
-    rules: &StructuredTierRules,
-) -> bool {
-    matches!(rules.verdict_cfg.profile, StructuredVerdictProfile::Curated) && !negative.quiet
 }
 
 fn structured_tier_rules(

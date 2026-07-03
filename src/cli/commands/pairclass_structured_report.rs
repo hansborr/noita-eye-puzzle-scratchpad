@@ -14,10 +14,16 @@ pub(crate) fn print_structured_power(
     verdict_cfg: &StructuredVerdictCfg,
 ) {
     println!();
-    println!(
-        "Structured-coloring positive controls ({} plants, bar {:.3}, rank-beam {}, control null alpha {:.3}):",
-        args.plants, args.plant_bar, args.structured_rank_beam, verdict_cfg.positive_alpha
-    );
+    match verdict_cfg.profile {
+        StructuredVerdictProfile::Curated => println!(
+            "Structured-coloring positive controls ({} plants, bar {:.3}, rank-beam {}, control null alpha {:.3}):",
+            args.plants, args.plant_bar, args.structured_rank_beam, verdict_cfg.positive_alpha
+        ),
+        StructuredVerdictProfile::Broad => println!(
+            "Structured-coloring positive controls ({} plants, bar {:.3}, rank-beam {}, measured power):",
+            args.plants, args.plant_bar, args.structured_rank_beam
+        ),
+    }
     for (index, plant) in power.plants.iter().enumerate() {
         println!(
             "  plant {:>2}: recovery {:.3}  truth-gen-rank {}  truth-score-rank {}  truth-score {}  best-score {}  {}  null_ge {}  p_emp {}  null-margin {}",
@@ -33,26 +39,39 @@ pub(crate) fn print_structured_power(
             opt_null_margin(plant.null.as_ref())
         );
     }
-    println!(
-        "  mean recovery {:.3}  truth-best {}/{}  truth-top-{} {}/{}  curated-pass {}/{}  {}",
-        power.mean_recovery,
-        power.truth_best_count(),
-        power.plants.len(),
-        verdict_cfg.curated_truth_top_rank,
-        power.truth_top_count(verdict_cfg.curated_truth_top_rank),
-        power.plants.len(),
-        power.curated_pass_count(
-            args.plant_bar,
-            verdict_cfg.positive_alpha,
-            verdict_cfg.curated_truth_top_rank
+    match verdict_cfg.profile {
+        StructuredVerdictProfile::Curated => println!(
+            "  mean recovery {:.3}  truth-best {}/{}  truth-top-{} {}/{}  curated-pass {}/{}  {}",
+            power.mean_recovery,
+            power.truth_best_count(),
+            power.plants.len(),
+            verdict_cfg.curated_truth_top_rank,
+            power.truth_top_count(verdict_cfg.curated_truth_top_rank),
+            power.plants.len(),
+            power.curated_pass_count(
+                args.plant_bar,
+                verdict_cfg.positive_alpha,
+                verdict_cfg.curated_truth_top_rank
+            ),
+            power.plants.len(),
+            if power.all_recovery_at_bar(args.plant_bar) {
+                "RECOVERY CLEARED"
+            } else {
+                "BELOW RECOVERY BAR"
+            }
         ),
-        power.plants.len(),
-        if power.cleared_bar {
-            "RECOVERY CLEARED"
-        } else {
-            "BELOW RECOVERY BAR"
-        }
-    );
+        StructuredVerdictProfile::Broad => println!(
+            "  mean recovery {:.3}  measured power truth-best {}/{}  {}",
+            power.mean_recovery,
+            power.truth_best_count(),
+            power.plants.len(),
+            if power.cleared_bar {
+                "RECOVERY CLEARED"
+            } else {
+                "BELOW RECOVERY BAR"
+            }
+        ),
+    }
 }
 
 pub(crate) fn print_structured_negative(
@@ -194,7 +213,7 @@ pub(crate) fn print_structured_verdict(
             negative_alpha,
         ),
         StructuredVerdict::LowPowerNoExclusion => {
-            print_low_power(positive, negative, real_null, negative_alpha);
+            print_low_power(positive, negative, real_null, verdict_cfg, negative_alpha);
         }
         StructuredVerdict::ControlsFailed => println!(
             "VERDICT: ControlsFailed - structured controls did not validate this scoring surface; the real-stream result is not trusted."
@@ -237,18 +256,38 @@ fn print_low_power(
     positive: &StructuredPowerReport,
     negative: &StructuredNegativeReport,
     real_null: &StructuredNullGate,
+    verdict_cfg: &StructuredVerdictCfg,
     negative_alpha: f64,
 ) {
-    println!(
-        "VERDICT: LowPowerNoExclusion - no rank-beam structured candidate in the broad deterministic-coloring family achieved matched-null significance (null_ge {}, p_emp {:.3}). This is a no-candidate result for the tested scoring surface, not an exclusion of the broad family. Planted controls recovered truth, but broad-family score power was {}/{} truth-best; random negatives measured {}/{} candidate-like at p_emp <= {:.3}.",
-        real_null.null_ge,
-        real_null.p_value(),
-        positive.truth_best_count(),
-        positive.plants.len(),
-        negative.false_positive_count(negative_alpha),
-        negative.plants.len(),
-        negative_alpha
-    );
+    match verdict_cfg.profile {
+        StructuredVerdictProfile::Curated => println!(
+            "VERDICT: LowPowerNoExclusion - the real stream was scored, but curated controls were not powered enough for a Candidate/NoCandidate call (real null_ge {}, p_emp {:.3}). Positive controls passed {}/{} plants at recovery >= {:.3}, truth-score-rank <= {}, and p_emp <= {:.3}; random negatives measured {}/{} candidate-like at p_emp <= {:.3}.",
+            real_null.null_ge,
+            real_null.p_value(),
+            positive.curated_pass_count(
+                verdict_cfg.plant_bar,
+                verdict_cfg.positive_alpha,
+                verdict_cfg.curated_truth_top_rank
+            ),
+            positive.plants.len(),
+            verdict_cfg.plant_bar,
+            verdict_cfg.curated_truth_top_rank,
+            verdict_cfg.positive_alpha,
+            negative.false_positive_count(negative_alpha),
+            negative.plants.len(),
+            negative_alpha
+        ),
+        StructuredVerdictProfile::Broad => println!(
+            "VERDICT: LowPowerNoExclusion - no rank-beam structured candidate in the broad deterministic-coloring family achieved matched-null significance (null_ge {}, p_emp {:.3}). This is a no-candidate result for the tested scoring surface, not an exclusion of the broad family. Planted controls recovered truth, but broad-family score power was {}/{} truth-best; random negatives measured {}/{} candidate-like at p_emp <= {:.3}.",
+            real_null.null_ge,
+            real_null.p_value(),
+            positive.truth_best_count(),
+            positive.plants.len(),
+            negative.false_positive_count(negative_alpha),
+            negative.plants.len(),
+            negative_alpha
+        ),
+    }
 }
 
 fn drop_accounting_note(report: &StructuredRunReport) -> String {

@@ -147,6 +147,8 @@ pub struct StructuredNullGate {
     pub observed_best: Option<f32>,
     /// Each null resample's best score.
     pub null_bests: Vec<Option<f32>>,
+    /// Candidate-surface size decoded for each null resample.
+    pub null_candidate_counts: Vec<usize>,
     /// Null scores reaching the observed best.
     pub null_ge: usize,
 }
@@ -231,6 +233,16 @@ impl StructuredPowerReport {
             .count()
     }
 
+    /// Whether every plant reached the configured recovery bar.
+    #[must_use]
+    pub fn all_recovery_at_bar(&self, recovery_bar: f64) -> bool {
+        !self.plants.is_empty()
+            && self
+                .plants
+                .iter()
+                .all(|plant| plant.recovery >= recovery_bar)
+    }
+
     /// Curated-tier per-plant power pass count.
     #[must_use]
     pub fn curated_pass_count(&self, recovery_bar: f64, alpha: f64, top_limit: usize) -> usize {
@@ -265,29 +277,21 @@ pub fn structured_verdict(
     real_null: &StructuredNullGate,
     cfg: &StructuredVerdictCfg,
 ) -> StructuredVerdict {
-    if !positive.all_truth_decoded() {
+    if hard_positive_controls_failed(positive, cfg) {
         return StructuredVerdict::ControlsFailed;
     }
     match cfg.profile {
         StructuredVerdictProfile::Curated => {
-            let powered = positive.curated_pass_count(
-                cfg.plant_bar,
-                cfg.positive_alpha,
-                cfg.curated_truth_top_rank,
-            ) == positive.plants.len();
-            if !powered || !negative.quiet {
-                return StructuredVerdict::ControlsFailed;
-            }
-            if real_candidate(report, real_null, cfg.real_alpha) {
+            let powered = curated_controls_powered(positive, negative, cfg);
+            if powered && real_candidate(report, real_null, cfg.real_alpha) {
                 StructuredVerdict::Candidate
-            } else {
+            } else if powered {
                 StructuredVerdict::NoCandidate
+            } else {
+                StructuredVerdict::LowPowerNoExclusion
             }
         }
         StructuredVerdictProfile::Broad => {
-            if !positive.cleared_bar {
-                return StructuredVerdict::ControlsFailed;
-            }
             if real_candidate_by_zero_null(report, real_null) {
                 return StructuredVerdict::Candidate;
             }
@@ -298,6 +302,32 @@ pub fn structured_verdict(
             }
         }
     }
+}
+
+fn hard_positive_controls_failed(
+    positive: &StructuredPowerReport,
+    cfg: &StructuredVerdictCfg,
+) -> bool {
+    if !positive.all_truth_decoded() {
+        return true;
+    }
+    match cfg.profile {
+        StructuredVerdictProfile::Curated => !positive.all_recovery_at_bar(cfg.plant_bar),
+        StructuredVerdictProfile::Broad => !positive.cleared_bar,
+    }
+}
+
+fn curated_controls_powered(
+    positive: &StructuredPowerReport,
+    negative: &StructuredNegativeReport,
+    cfg: &StructuredVerdictCfg,
+) -> bool {
+    positive.curated_pass_count(
+        cfg.plant_bar,
+        cfg.positive_alpha,
+        cfg.curated_truth_top_rank,
+    ) == positive.plants.len()
+        && negative.quiet
 }
 
 fn real_candidate(

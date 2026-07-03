@@ -4,14 +4,14 @@ use std::collections::BTreeSet;
 
 use super::campaign::{PowerCfg, StreamPrep, solve_cfg};
 use super::lexicon::{build_lexicon, parse_wordlist};
-use super::plant::{PlantSpec, plant_from_text, plant_from_text_with_coloring};
+use super::plant::{PlantSpec, markov_resample, plant_from_text, plant_from_text_with_coloring};
 use super::structured::{
     StructuredControlCfg, StructuredFamilyProfile, StructuredGenerationReport, StructuredNullCfg,
-    StructuredNullGate, StructuredRunCfg, StructuredRunReport, StructuredStream,
+    StructuredNullGate, StructuredRunCfg, StructuredRunReport, StructuredStream, StructuredVerdict,
     StructuredVerdictCfg, StructuredVerdictProfile, confirm_structured_top_candidates,
     draw_out_of_family_random_plant, generate_structured_candidates, measure_structured_power,
     measure_structured_random_negative, run_structured_oracle_decode, structured_null_gate,
-    structured_verdict,
+    structured_null_gate_streams, structured_verdict,
 };
 
 const WORDLIST: &str = "cat 100\ndog 90\nact 3\ntag 2\ncot 1\n";
@@ -338,6 +338,88 @@ fn structured_null_gate_stays_quiet() {
 }
 
 #[test]
+fn structured_stream_null_gate_uses_one_combined_candidate_surface() {
+    let entries = toy_entries();
+    let lexicon = build_lexicon(&entries).expect("lexicon builds");
+    let solve = solve_cfg(128, 0, 0, 3.6, 3, 2048);
+    let mut cfg = toy_cfg();
+    cfg.max_decodes = 1;
+    cfg.marginal_l1 = 2.0;
+    let prep_a = StreamPrep {
+        tokens: [0u8, 1, 2, 3].repeat(4),
+        n_classes: 4,
+        tie_table: Vec::new(),
+        n_tied: 0,
+        longest_tie: None,
+    };
+    let prep_b = StreamPrep {
+        tokens: [3u8, 2, 1, 0].repeat(4),
+        n_classes: 4,
+        tie_table: Vec::new(),
+        n_tied: 0,
+        longest_tie: None,
+    };
+    let preps = vec![prep_a.clone(), prep_b.clone()];
+    let seed = 17;
+    let gate = structured_null_gate_streams(
+        &preps,
+        &entries,
+        &lexicon,
+        &solve,
+        &cfg,
+        &StructuredNullCfg {
+            null_trials: 1,
+            observed_best: None,
+            seed,
+        },
+    )
+    .expect("multi-stream null runs");
+
+    let tokens_a =
+        markov_resample(&prep_a.tokens, prep_a.n_classes, seed).expect("first resample runs");
+    let tokens_b = markov_resample(
+        &prep_b.tokens,
+        prep_b.n_classes,
+        seed.wrapping_add(1u64 << 32),
+    )
+    .expect("second resample runs");
+    let stream_a = StructuredStream {
+        label: "null-0",
+        tokens: &tokens_a,
+        n_classes: prep_a.n_classes,
+        tie_to: None,
+    };
+    let stream_b = StructuredStream {
+        label: "null-1",
+        tokens: &tokens_b,
+        n_classes: prep_b.n_classes,
+        tie_to: None,
+    };
+    let combined =
+        run_structured_oracle_decode(&[stream_a, stream_b], &entries, &lexicon, &solve, &cfg)
+            .expect("combined surface runs");
+    let separate_a = run_structured_oracle_decode(&[stream_a], &entries, &lexicon, &solve, &cfg)
+        .expect("separate first surface runs");
+    let separate_b = run_structured_oracle_decode(&[stream_b], &entries, &lexicon, &solve, &cfg)
+        .expect("separate second surface runs");
+
+    assert_eq!(
+        gate.null_candidate_counts,
+        vec![combined.generation.candidates.len()]
+    );
+    assert_eq!(gate.null_bests, vec![combined.best_score()]);
+    assert!(
+        combined.generation.candidates.len()
+            < separate_a
+                .generation
+                .candidates
+                .len()
+                .saturating_add(separate_b.generation.candidates.len()),
+        "fixture should expose per-variant cap reset: combined {combined:?}, separate {separate_a:?} {separate_b:?}"
+    );
+}
+
+#[test]
 fn structured_core_curated_profile_has_pre_broadening_base_count() {
     let entries = toy_entries();
     let tokens = [0u8, 1, 2, 3].repeat(8);
@@ -355,6 +437,72 @@ fn structured_core_curated_profile_has_pre_broadening_base_count() {
         generate_structured_candidates(&[stream], &entries, &cfg).expect("generation runs");
 
     assert_eq!(generated.base_colorings, 374);
+}
+
+#[test]
+fn curated_low_power_controls_return_low_power_no_exclusion() {
+    let entries = toy_entries();
+    let lexicon = build_lexicon(&entries).expect("lexicon builds");
+    let solve = solve_cfg(128, 0, 0, 3.6, 3, 2048);
+    let positive = measure_structured_power(
+        TEXT,
+        &power_cfg(),
+        &entries,
+        &lexicon,
+        &solve,
+        &toy_cfg(),
+        2,
+    )
+    .expect("positive runs");
+    let negative = measure_structured_random_negative(
+        TEXT,
+        &power_cfg(),
+        &entries,
+        &lexicon,
+        &solve,
+        &toy_cfg(),
+        &StructuredControlCfg {
+            null_trials: 2,
+            candidate_alpha: 1.0 / 3.0,
+        },
+    )
+    .expect("negative runs");
+    let verdict_cfg = StructuredVerdictCfg {
+        profile: StructuredVerdictProfile::Curated,
+        plant_bar: 0.8,
+        positive_alpha: 0.05,
+        curated_truth_top_rank: 3,
+        real_alpha: 0.02,
+    };
+    assert!(
+        positive.all_truth_decoded(),
+        "positive report: {positive:?}"
+    );
+    assert!(
+        positive.all_recovery_at_bar(verdict_cfg.plant_bar),
+        "positive report: {positive:?}"
+    );
+    assert_ne!(
+        positive.curated_pass_count(
+            verdict_cfg.plant_bar,
+            verdict_cfg.positive_alpha,
+            verdict_cfg.curated_truth_top_rank
+        ),
+        positive.plants.len(),
+        "fixture must be statistically underpowered at curated alpha: {positive:?}"
+    );
+    let report = empty_structured_report();
+    let real_null = StructuredNullGate {
+        observed_best: None,
+        null_bests: vec![Some(0.0), Some(1.0)],
+        null_candidate_counts: vec![0, 0],
+        null_ge: 0,
+    };
+
+    assert_eq!(
+        structured_verdict(&report, &positive, &negative, &real_null, &verdict_cfg),
+        StructuredVerdict::LowPowerNoExclusion
+    );
 }
 
 #[test]
@@ -389,6 +537,7 @@ fn structured_verdict_ignores_unrelated_negative_raw_score_shift() {
     let real_null = StructuredNullGate {
         observed_best: None,
         null_bests: vec![Some(0.0), Some(1.0)],
+        null_candidate_counts: vec![0, 0],
         null_ge: 0,
     };
     let verdict_cfg = StructuredVerdictCfg {
