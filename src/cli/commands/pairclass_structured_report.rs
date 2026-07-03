@@ -76,10 +76,14 @@ pub(crate) fn print_structured_solutions(
 ) {
     println!();
     println!(
-        "Structured oracle candidates (base {}, relabels {}, decoded {}, cap-dropped {}, l1-cut {}):",
+        "Structured oracle candidates (base {}, relabels {}, decoded {} = base-best {} + extra {}, filter-dropped {}, filter-l1-cut {}, cap-dropped {}, cap-l1-cut {}):",
         report.generation.base_colorings,
         report.generation.expanded_relabels,
         report.generation.candidates.len(),
+        report.generation.guaranteed_candidates,
+        report.generation.extra_candidates,
+        report.generation.dropped_by_filter,
+        opt_f64(report.generation.l1_at_filter_cut),
         report.generation.dropped_by_cap,
         opt_f64(report.generation.l1_at_cut)
     );
@@ -122,20 +126,26 @@ pub(crate) fn print_structured_verdict(
 ) {
     println!();
     let Some(best) = report.solutions.first() else {
-        if report.generation.dropped_by_cap > 0 {
+        if clean_family_exclusion(report) {
             println!(
-                "VERDICT: Inconclusive — no structured survivor was decoded, but {} candidates were cap-dropped; this is not a clean family exclusion.",
-                report.generation.dropped_by_cap
+                "VERDICT: Negative — these deterministic families produced no survivor under the stated profile/filter/LM settings."
             );
         } else {
             println!(
-                "VERDICT: Negative — these deterministic families produced no survivor under the stated profile/filter/LM settings."
+                "VERDICT: Inconclusive — no structured survivor was decoded, but {} candidates were cap-dropped and {} relabels were filter-dropped; this is not a clean family exclusion.",
+                report.generation.dropped_by_cap, report.generation.dropped_by_filter
             );
         }
         return;
     };
     let Some(solution) = best.solution.as_ref() else {
-        println!("VERDICT: Negative — no full segmentation; not a candidate.");
+        if clean_family_exclusion(report) {
+            println!("VERDICT: Negative — no full segmentation; not a candidate.");
+        } else {
+            println!(
+                "VERDICT: Inconclusive — no full segmentation, but cap/filter drops mean this is not a clean family exclusion."
+            );
+        }
         return;
     };
     let random_max = negative.max_score;
@@ -152,6 +162,10 @@ pub(crate) fn print_structured_verdict(
             "VERDICT: NullArtifact — best structured survivor did not clear the random/null baseline margins; not a candidate."
         );
     }
+}
+
+fn clean_family_exclusion(report: &StructuredRunReport) -> bool {
+    report.generation.dropped_by_cap == 0 && report.generation.dropped_by_filter == 0
 }
 
 fn clears_baseline(score: f32, baseline: Option<f32>, margin: f32) -> bool {

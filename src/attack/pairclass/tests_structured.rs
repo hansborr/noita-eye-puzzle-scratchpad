@@ -59,6 +59,52 @@ fn structured_family_enumerates_known_rank_projection() {
 }
 
 #[test]
+fn structured_generation_keeps_base_best_when_extra_budget_is_zero() {
+    let entries = toy_entries();
+    let tokens = [0u8, 1, 2, 3];
+    let stream = StructuredStream {
+        label: "toy",
+        tokens: &tokens,
+        n_classes: 4,
+        tie_to: None,
+    };
+    let mut cfg = toy_cfg();
+    cfg.max_decodes = 0;
+    cfg.marginal_l1 = 2.0;
+    let generated =
+        generate_structured_candidates(&[stream], &entries, &cfg).expect("generation runs");
+    assert_eq!(generated.base_colorings, 1);
+    assert_eq!(generated.guaranteed_candidates, 1);
+    assert_eq!(generated.extra_candidates, 0);
+    assert_eq!(generated.candidates.len(), 1);
+    assert!(generated.dropped_by_cap > 0, "report: {generated:?}");
+    assert_eq!(generated.dropped_by_filter, 0, "report: {generated:?}");
+}
+
+#[test]
+fn structured_generation_reports_filter_drops() {
+    let entries = toy_entries();
+    let tokens = [0u8, 1, 2, 3];
+    let stream = StructuredStream {
+        label: "toy",
+        tokens: &tokens,
+        n_classes: 4,
+        tie_to: None,
+    };
+    let mut cfg = toy_cfg();
+    cfg.max_decodes = 24;
+    cfg.marginal_l1 = 0.0;
+    let generated =
+        generate_structured_candidates(&[stream], &entries, &cfg).expect("generation runs");
+    assert_eq!(generated.guaranteed_candidates, 1);
+    assert!(generated.dropped_by_filter > 0, "report: {generated:?}");
+    assert!(
+        generated.l1_at_filter_cut.is_some(),
+        "report: {generated:?}"
+    );
+}
+
+#[test]
 fn structured_positive_control_fires() {
     let entries = toy_entries();
     let lexicon = build_lexicon(&entries).expect("lexicon builds");

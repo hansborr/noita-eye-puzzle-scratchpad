@@ -1,5 +1,6 @@
 //! Candidate-family enumeration for structured pairclass colorings.
 
+use std::cmp::Ordering;
 use std::collections::BTreeSet;
 
 use crate::attack::pairclass::PairclassError;
@@ -34,7 +35,7 @@ pub struct StructuredStream<'a> {
 pub struct StructuredRunCfg {
     /// Family profile to enumerate.
     pub profile: StructuredFamilyProfile,
-    /// Maximum fully pinned oracle decodes to run.
+    /// Extra fully pinned relabel decodes beyond one best relabel per base.
     pub max_decodes: usize,
     /// Generous L1 threshold used to collapse class relabelings.
     pub marginal_l1: f64,
@@ -87,6 +88,14 @@ pub struct StructuredGenerationReport {
     pub expanded_relabels: usize,
     /// Candidates kept for oracle decode.
     pub candidates: Vec<StructuredCandidateMeta>,
+    /// Unique guaranteed best-relabel candidates retained before extras.
+    pub guaranteed_candidates: usize,
+    /// Unique additional marginal-passing relabel candidates retained.
+    pub extra_candidates: usize,
+    /// Relabels dropped by the marginal filter after each base kept its best.
+    pub dropped_by_filter: usize,
+    /// Lowest L1 among relabels dropped by the marginal filter.
+    pub l1_at_filter_cut: Option<f64>,
     /// Candidates dropped only because `max_decodes` capped the expensive stage.
     pub dropped_by_cap: usize,
     /// L1 value at the cap boundary, when a cap dropped candidates.
@@ -106,6 +115,14 @@ struct CandidateDraft {
     marginal_pass: bool,
 }
 
+struct RelabelSelection {
+    best: CandidateDraft,
+    extras: Vec<CandidateDraft>,
+    evaluated: usize,
+    dropped_by_filter: usize,
+    l1_at_filter_cut: Option<f64>,
+}
+
 #[derive(Clone, Copy)]
 struct MarginalModel {
     letter: [f64; 26],
@@ -114,8 +131,10 @@ struct MarginalModel {
 /// Generates structured candidates for every supplied stream.
 ///
 /// The marginal filter is applied per base coloring only to collapse its class
-/// relabelings; every base keeps at least its best relabel. If the final cap
-/// drops candidates, the report records that explicitly.
+/// relabelings; every base keeps at least its best relabel before any cap is
+/// applied. `StructuredRunCfg::max_decodes` budgets only additional
+/// marginal-passing relabels. If the filter or cap drops relabels, the report
+/// records that explicitly.
 ///
 /// # Errors
 /// Returns [`PairclassError::EmptyLexicon`] when the word entries cannot
@@ -128,34 +147,48 @@ pub fn generate_structured_candidates(
     let bases = base_colorings(cfg.profile);
     let model = MarginalModel::from_word_entries(word_entries)?;
     let mut expanded_relabels = 0usize;
-    let mut drafts = Vec::new();
-    let mut seen = BTreeSet::new();
+    let mut guaranteed = Vec::new();
+    let mut extras = Vec::new();
+    let mut dropped_by_filter = 0usize;
+    let mut l1_at_filter_cut: Option<f64> = None;
     for stream in streams {
         let observed = observed_marginals(stream.tokens);
         for base in &bases {
-            let relabels = relabel_candidates(base, stream, &observed, &model, cfg.marginal_l1);
-            expanded_relabels = expanded_relabels.saturating_add(relabels.len());
-            for draft in relabels {
-                if seen.insert((draft.stream_label.clone(), draft.coloring)) {
-                    drafts.push(draft);
-                }
-            }
+            let selection = relabel_candidates(base, stream, &observed, &model, cfg.marginal_l1);
+            expanded_relabels = expanded_relabels.saturating_add(selection.evaluated);
+            dropped_by_filter = dropped_by_filter.saturating_add(selection.dropped_by_filter);
+            l1_at_filter_cut = min_option(l1_at_filter_cut, selection.l1_at_filter_cut);
+            guaranteed.push(selection.best);
+            extras.extend(selection.extras);
         }
     }
-    drafts.sort_by(|a, b| {
-        b.marginal_pass
-            .cmp(&a.marginal_pass)
-            .then_with(|| a.marginal_l1.total_cmp(&b.marginal_l1))
-            .then_with(|| a.stream_label.cmp(&b.stream_label))
-            .then_with(|| a.family.cmp(&b.family))
-            .then_with(|| a.order.cmp(&b.order))
-            .then_with(|| a.projection.cmp(&b.projection))
-            .then_with(|| a.transform.cmp(&b.transform))
-    });
-    let l1_at_cut = drafts.get(cfg.max_decodes).map(|draft| draft.marginal_l1);
-    let dropped_by_cap = drafts.len().saturating_sub(cfg.max_decodes);
-    drafts.truncate(cfg.max_decodes);
-    let candidates = drafts
+    sort_drafts(&mut guaranteed);
+    sort_drafts(&mut extras);
+
+    let mut seen = BTreeSet::new();
+    let mut selected = Vec::new();
+    for draft in guaranteed {
+        if seen.insert((draft.stream_label.clone(), draft.coloring)) {
+            selected.push(draft);
+        }
+    }
+    let guaranteed_candidates = selected.len();
+
+    let mut unique_extras = Vec::new();
+    for draft in extras {
+        if seen.insert((draft.stream_label.clone(), draft.coloring)) {
+            unique_extras.push(draft);
+        }
+    }
+    let l1_at_cut = unique_extras
+        .get(cfg.max_decodes)
+        .map(|draft| draft.marginal_l1);
+    let dropped_by_cap = unique_extras.len().saturating_sub(cfg.max_decodes);
+    selected.extend(unique_extras.into_iter().take(cfg.max_decodes));
+    let extra_candidates = selected.len().saturating_sub(guaranteed_candidates);
+    sort_drafts(&mut selected);
+
+    let candidates = selected
         .into_iter()
         .enumerate()
         .map(|(index, draft)| StructuredCandidateMeta {
@@ -175,6 +208,10 @@ pub fn generate_structured_candidates(
         base_colorings: bases.len(),
         expanded_relabels,
         candidates,
+        guaranteed_candidates,
+        extra_candidates,
+        dropped_by_filter,
+        l1_at_filter_cut,
         dropped_by_cap,
         l1_at_cut,
     })
@@ -212,17 +249,16 @@ fn relabel_candidates(
     observed: &[usize; 4],
     model: &MarginalModel,
     threshold: f64,
-) -> Vec<CandidateDraft> {
+) -> RelabelSelection {
     let transforms = match base.label_mode {
         LabelMode::FixedBits => bit_transforms(),
         LabelMode::Relabel => relabel_transforms(),
     };
-    let mut passed = Vec::new();
-    let mut best: Option<CandidateDraft> = None;
+    let mut drafts = Vec::with_capacity(transforms.len());
     for (name, map) in transforms {
         let coloring = apply_class_map(&base.coloring, map);
         let fit = marginal_fit(&coloring, observed, model, stream.tokens.len());
-        let draft = CandidateDraft {
+        drafts.push(CandidateDraft {
             stream_label: stream.label.to_owned(),
             family: base.family.clone(),
             projection: base.projection.clone(),
@@ -232,21 +268,75 @@ fn relabel_candidates(
             marginal_l1: fit.0,
             marginal_chi2: fit.1,
             marginal_pass: fit.0 <= threshold,
-        };
-        if draft.marginal_pass {
-            passed.push(draft.clone());
+        });
+    }
+    let evaluated = drafts.len();
+    let best_index = drafts
+        .iter()
+        .enumerate()
+        .min_by(|(_, a), (_, b)| compare_drafts(a, b))
+        .map_or(0, |(index, _)| index);
+    let best = drafts
+        .get(best_index)
+        .cloned()
+        .unwrap_or_else(|| empty_draft(base, stream));
+    let mut extras = Vec::new();
+    let mut dropped_by_filter = 0usize;
+    let mut l1_at_filter_cut = None;
+    for (index, draft) in drafts.into_iter().enumerate() {
+        if index == best_index {
+            continue;
         }
-        if best
-            .as_ref()
-            .is_none_or(|existing| draft.marginal_l1 < existing.marginal_l1)
-        {
-            best = Some(draft);
+        if draft.marginal_pass {
+            extras.push(draft);
+        } else {
+            dropped_by_filter = dropped_by_filter.saturating_add(1);
+            l1_at_filter_cut = min_option(l1_at_filter_cut, Some(draft.marginal_l1));
         }
     }
-    if passed.is_empty() {
-        best.into_iter().collect()
-    } else {
-        passed
+    RelabelSelection {
+        best,
+        extras,
+        evaluated,
+        dropped_by_filter,
+        l1_at_filter_cut,
+    }
+}
+
+fn sort_drafts(drafts: &mut [CandidateDraft]) {
+    drafts.sort_by(compare_drafts);
+}
+
+fn compare_drafts(a: &CandidateDraft, b: &CandidateDraft) -> Ordering {
+    b.marginal_pass
+        .cmp(&a.marginal_pass)
+        .then_with(|| a.marginal_l1.total_cmp(&b.marginal_l1))
+        .then_with(|| a.stream_label.cmp(&b.stream_label))
+        .then_with(|| a.family.cmp(&b.family))
+        .then_with(|| a.order.cmp(&b.order))
+        .then_with(|| a.projection.cmp(&b.projection))
+        .then_with(|| a.transform.cmp(&b.transform))
+}
+
+fn empty_draft(base: &BaseColoring, stream: &StructuredStream<'_>) -> CandidateDraft {
+    CandidateDraft {
+        stream_label: stream.label.to_owned(),
+        family: base.family.clone(),
+        projection: base.projection.clone(),
+        order: base.order.clone(),
+        transform: "identity".to_owned(),
+        coloring: base.coloring.map(Some),
+        marginal_l1: f64::INFINITY,
+        marginal_chi2: f64::INFINITY,
+        marginal_pass: false,
+    }
+}
+
+fn min_option(left: Option<f64>, right: Option<f64>) -> Option<f64> {
+    match (left, right) {
+        (Some(a), Some(b)) => Some(a.min(b)),
+        (Some(value), None) | (None, Some(value)) => Some(value),
+        (None, None) => None,
     }
 }
 

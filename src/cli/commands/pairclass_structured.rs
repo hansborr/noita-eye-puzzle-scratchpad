@@ -55,7 +55,7 @@ pub(crate) fn run_structured_analysis(
     let variants = prepare_structured_variants(values, args)?;
     println!();
     println!(
-        "Structured coloring mode: profile {:?}, max-decodes {}, marginal-l1 {:.3}, score-margin {:.2}",
+        "Structured coloring mode: profile {:?}, extra-decodes {}, full base coverage decoded, marginal-l1 {:.3}, score-margin {:.2}",
         run_cfg.profile, run_cfg.max_decodes, run_cfg.marginal_l1, run_cfg.score_margin
     );
     for variant in &variants {
@@ -187,9 +187,6 @@ fn run_structured_controls(
 }
 
 fn structured_run_cfg(args: &PairclassArgs) -> Result<StructuredRunCfg, String> {
-    if args.structured_max_decodes == 0 {
-        return Err("--structured-max-decodes must be >= 1".to_owned());
-    }
     let profile = match args.coloring_family {
         Some(PairclassColoringFamily::Core) => StructuredFamilyProfile::Core,
         Some(PairclassColoringFamily::Toy) => StructuredFamilyProfile::Toy,

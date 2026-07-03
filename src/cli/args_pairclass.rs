@@ -94,7 +94,7 @@ pub(crate) struct PairclassArgs {
     /// Enumerate deterministic structured colorings and oracle-decode each.
     #[arg(long = "coloring-family")]
     pub(crate) coloring_family: Option<PairclassColoringFamily>,
-    /// Maximum structured-coloring oracle decodes to run.
+    /// Extra structured relabel decodes after one best relabel per base.
     #[arg(long = "structured-max-decodes", default_value_t = 384)]
     pub(crate) structured_max_decodes: usize,
     /// Marginal L1 threshold for relabel-collapse provenance.
