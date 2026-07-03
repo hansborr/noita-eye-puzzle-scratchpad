@@ -1298,7 +1298,7 @@ repeat patterns across both tied occurrences, or use branch-and-bound over
 colorings with a bound that cannot evict the true phrase before constraints
 arrive.
 
-### Round 7 (codex, audit-corrected): LM-free complete-DP anchor-window harvest — saturated before finals, real stream NOT scored
+### Round 7 (codex, audit-corrected): LM-free complete-DP anchor-window harvest — measured occ1 saturation, real stream NOT scored
 
 This replaces the confounded Round 7 record in place. Credit to the independent
 audit: v1 was a non-merging exponential DFS, and v2 was still confounded by
@@ -1323,10 +1323,16 @@ partials are accepted as trie prefixes, and the run is harvest-only /
 controls-first: no Phase-2 seeded solve, no real `two` scoring, no null. This is
 still a bounded instrument: if the complete DP hits its deterministic transition
 budget, the result is saturation, not an exhaustive anchor-negative. The
-enumeration is over one ~68-token window, not `4^26`; classes are assigned only
+enumeration is over one anchor window, not `4^26`; classes are assigned only
 through lexicon-compatible letters, and the control plants are corpus-sourced
 and fully in-vocab (the 11,419-word lexicon is the full corpus vocabulary; there
 is no maintainer-held 50k list).
+
+The 2026-07-02 measurement instrument records `max_occupancy`,
+`saturation_position`, the last completed layer width at saturation, the partial
+next-layer width already built when the parse budget was first hit, and the
+observed occ1 layer widths. `saturation_position < span_len` means the complete
+DP saturated during occ1, before occ2 and before the active tie can matter.
 
 Command:
 
@@ -1342,32 +1348,70 @@ cargo run --release --locked -q -- pairclass --anchor-seed \
   --plant-text-file research/data/lang/english-corpus-large.txt --plants 6 \
   --phrase-beam 1000000 --phrase-top 50000 --beam 20000 \
   --plant-bar 0.5 --max-mem-mib 12288 --null-trials 20
+
+cargo run --release --locked -q -- pairclass --anchor-seed \
+  --harvest-mode enumerate --harvest-only \
+  --wordlist /tmp/pairclass-english-unigram.txt --vocab-cap 50000 \
+  --phrase-beam 1000000 --phrase-top 50000 --beam 20000 \
+  --plant-bar 0.5 --max-mem-mib 12288 --null-trials 20
 ```
 
-Result:
+Controls-first retention measurement:
 
-| plant | truth retained? | retained rank | distinct colorings | cap hit? | budget hit? |
-|---:|:---:|---:|---:|:---:|:---:|
-| 0 | no | - | 0 | no | yes |
-| 1 | no | - | 0 | no | yes |
-| 2 | no | - | 0 | no | yes |
-| 3 | no | - | 0 | no | yes |
-| 4 | no | - | 0 | no | yes |
-| 5 | no | - | 0 | no | yes |
+| plant | truth retained? | finals | window | span | saturation position | in occ1? | max occupancy | completed width | partial width | cap hit? | budget hit? |
+|---:|:---:|---:|---:|---:|---:|:---:|---:|---:|---:|:---:|:---:|
+| 0 | no | 0 | 149 | 33 | 5 | yes | 44,588,006 | 6,266,925 | 44,588,006 | no | yes |
+| 1 | no | 0 | 149 | 33 | 5 | yes | 71,298,092 | 9,368,690 | 71,298,092 | no | yes |
+| 2 | no | 0 | 149 | 33 | 5 | yes | 49,654,147 | 7,277,930 | 49,654,147 | no | yes |
+| 3 | no | 0 | 149 | 33 | 5 | yes | 49,766,212 | 7,357,363 | 49,766,212 | no | yes |
+| 4 | no | 0 | 149 | 33 | 6 | yes | 47,303,303 | 47,303,303 | 9,514,561 | no | yes |
+| 5 | no | 0 | 149 | 33 | 5 | yes | 64,178,437 | 8,831,754 | 64,178,437 | no | yes |
+
+Observed occ1 layer widths before saturation:
+
+| case | widths |
+|---:|---|
+| plant 0 | 0:1, 1:52, 2:1,867, 3:41,252, 4:603,185, 5:6,266,925 |
+| plant 1 | 0:1, 1:52, 2:1,867, 3:41,043, 4:568,670, 5:9,368,690 |
+| plant 2 | 0:1, 1:52, 2:1,867, 3:41,043, 4:594,197, 5:7,277,930 |
+| plant 3 | 0:1, 1:52, 2:1,867, 3:41,252, 4:615,142, 5:7,357,363 |
+| plant 4 | 0:1, 1:52, 2:1,938, 3:30,570, 4:308,334, 5:4,085,324, 6:47,303,303 |
+| plant 5 | 0:1, 1:52, 2:1,938, 3:29,792, 4:488,363, 5:8,831,754 |
+
+Real `two` harvest-only measurement:
+
+| case | finals | window | span | saturation position | in occ1? | max occupancy | completed width | partial width | cap hit? | budget hit? |
+|---|---:|---:|---:|---:|:---:|---:|---:|---:|:---:|:---:|
+| real two | 0 | 93 | 33 | 5 | yes | 86,172,847 | 8,987,580 | 86,172,847 | no | yes |
+
+Observed real occ1 layer widths before saturation: 0:1, 1:52, 2:1,867,
+3:41,043, 4:568,670, 5:8,987,580.
 
 Verdict: `HarvestSaturatedMiss`, specifically **complete-DP transition
-saturation before finals**, not a decisive retention fork and not a genuine
-anchor-negative. All six controls hit the 100,000,000-transition budget before
-the complete un-beamed enumeration produced final colorings for the exact
-post-filter to retain or reject. Therefore "truth not retained" here means
-"truth not reached before honest saturation," not "truth absent from the
-complete tied coloring set." The real stream was NOT scored and no null ran.
+saturation inside occ1 before finals**, not a decisive retention fork and not a
+genuine anchor-negative. All six controls and the real `two` window hit the
+100,000,000-transition budget before the complete un-beamed enumeration produced
+final colorings for the exact post-filter to retain or reject. Therefore "truth
+not retained" here means "truth not reached before honest saturation," not
+"truth absent from the complete tied coloring set."
 
-Next work, if (a') remains worth pursuing: reduce the complete DP's state volume
-without reintroducing a beam or score key, or change the hard-constraint surface
-(for example flanking-context widening / LM-free marginal-fit selection after a
-complete superset exists). Do not revive the v2 coverage frontier or word-LM
-ranking as a harvest selector.
+The dispositive number is the saturation position: 5 for five controls and the
+real window, 6 for the remaining control, with `span_len = 33` in every case.
+The observed peak layer width is already inside occ1; for plant 4 the completed
+position-6 layer itself is the peak, and for the others the partial position-5
+next layer is the peak seen at budget exhaustion. Occ1 is free dictionary text
+in any complete formulation because its letters must be discovered before occ2
+can be tied or verified. This generalizes the bounded-tractability result beyond
+variant B: a tie-aware formulation cannot avoid the measured occ1 state-space
+explosion, and a modestly larger budget will not reach the end of the
+33-token free span. The real stream was harvested only; it was NOT scored and no
+null ran.
+
+Next work, if (a') remains worth pursuing: change the hard-constraint surface or
+selection goal without reintroducing a beam or score key, for example
+flanking-context widening or LM-free marginal-fit selection after a complete
+superset exists. Do not revive the v2 coverage frontier or word-LM ranking as a
+harvest selector.
 
 ## Provenance
 
