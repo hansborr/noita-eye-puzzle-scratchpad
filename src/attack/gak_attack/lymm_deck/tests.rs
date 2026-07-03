@@ -3,8 +3,9 @@
 use std::collections::BTreeMap;
 
 use super::{
-    KnownPlaintextPair, LymmDeckSpec, TopSwapConstraints, encrypt_lymm_deck,
-    enumerate_top_swap_domains, generate_random_pt_mapping, parse_known_plaintext_pairs,
+    KnownPlaintextPair, LetterRecoveryVerdict, LymmDeckSpec, SwapRecoveryConfig,
+    TopSwapConstraints, encrypt_lymm_deck, enumerate_top_swap_domains, generate_random_pt_mapping,
+    parse_known_plaintext_pairs, recover_known_plaintext_swaps,
 };
 
 #[test]
@@ -124,6 +125,34 @@ fn rust_oracle_matches_python_reference_vectors_byte_for_byte() {
         by_num_swaps,
         BTreeMap::from([(1, 2), (2, 2), (3, 2)]),
         "reference vectors must cover two seeds at each num_swaps level"
+    );
+}
+
+#[test]
+fn ns1_recovery_recovers_vendored_key_and_reencrypts_exactly() {
+    let spec = LymmDeckSpec::lymm_default().expect("spec");
+    let pairs = parse_known_plaintext_pairs(
+        &spec,
+        include_str!("../../../../research/data/practice-puzzles/deck-swap/plaintexts.txt"),
+        include_str!("../../../../research/data/practice-puzzles/deck-swap/1_swap_ct.txt"),
+    )
+    .expect("known plaintext pairs");
+
+    let report =
+        recover_known_plaintext_swaps(&spec, &pairs, SwapRecoveryConfig::with_max_swaps(1))
+            .expect("ns=1 recovery");
+
+    assert_eq!(report.verdict, LetterRecoveryVerdict::RecoveredUnique);
+    assert!(report.round_trip.exact());
+    assert_eq!(report.round_trip.matched, report.round_trip.total);
+    assert_eq!(
+        report
+            .letters
+            .iter()
+            .filter(|letter| letter.occurrences > 0)
+            .filter(|letter| letter.verdict == LetterRecoveryVerdict::RecoveredUnique)
+            .count(),
+        24
     );
 }
 
