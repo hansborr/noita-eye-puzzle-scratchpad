@@ -94,7 +94,7 @@ pub(crate) struct PairclassArgs {
     /// Enumerate deterministic structured colorings and oracle-decode each.
     #[arg(long = "coloring-family")]
     pub(crate) coloring_family: Option<PairclassColoringFamily>,
-    /// Extra structured relabel decodes after one best relabel per base.
+    /// Extra structured relabel decodes after the guaranteed relabel band.
     #[arg(long = "structured-max-decodes", default_value_t = 384)]
     pub(crate) structured_max_decodes: usize,
     /// Beam width for ranking every structured coloring before full-beam confirmation.

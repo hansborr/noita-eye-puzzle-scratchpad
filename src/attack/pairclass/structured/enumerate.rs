@@ -9,6 +9,11 @@ use super::families::{BaseColoring, LabelMode, base_colorings};
 
 /// Default beam for ranking every structured coloring before confirmation.
 pub const DEFAULT_STRUCTURED_RANK_BEAM: usize = 400;
+// Calibrated on the definitive 348-token structured positives: this keeps the
+// three previously dropped truth relabels while bounding the per-stream set.
+const GUARANTEED_PASS_RELABELS_PER_BASE: usize = 4;
+const RELABEL_EDGE_L1_UNITS: f64 = 13.0;
+const RELABEL_NEAR_BEST_CHI2_DELTA: f64 = 9.0;
 
 /// Structured-coloring family to enumerate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -38,7 +43,7 @@ pub struct StructuredStream<'a> {
 pub struct StructuredRunCfg {
     /// Family profile to enumerate.
     pub profile: StructuredFamilyProfile,
-    /// Extra fully pinned relabel decodes beyond one best relabel per base.
+    /// Extra fully pinned relabel decodes beyond the guaranteed relabel band.
     pub max_decodes: usize,
     /// Beam used for the rank surface: every structured coloring is decoded at
     /// this width for controls, nulls, real ranking, and verdict statistics.
@@ -95,7 +100,7 @@ pub struct StructuredGenerationReport {
     pub expanded_relabels: usize,
     /// Candidates kept for oracle decode.
     pub candidates: Vec<StructuredCandidateMeta>,
-    /// Unique guaranteed best-relabel candidates retained before extras.
+    /// Unique guaranteed near-best relabel candidates retained before extras.
     pub guaranteed_candidates: usize,
     /// Unique additional marginal-passing relabel candidates retained.
     pub extra_candidates: usize,
@@ -123,7 +128,7 @@ struct CandidateDraft {
 }
 
 struct RelabelSelection {
-    best: CandidateDraft,
+    guaranteed: Vec<CandidateDraft>,
     extras: Vec<CandidateDraft>,
     evaluated: usize,
     dropped_by_filter: usize,
@@ -139,9 +144,11 @@ struct MarginalModel {
 ///
 /// The marginal filter is applied per base coloring only to collapse its class
 /// relabelings; every base keeps at least its best relabel before any cap is
-/// applied. `StructuredRunCfg::max_decodes` budgets only additional
-/// marginal-passing relabels. If the filter or cap drops relabels, the report
-/// records that explicitly.
+/// applied. The top marginal-passing relabels and just-over-threshold relabels
+/// that remain close to the best chi-square fit are retained to cover
+/// finite-sample relabel instability; `StructuredRunCfg::max_decodes` budgets
+/// only additional marginal-passing relabels. If the filter or cap drops
+/// relabels, the report records that explicitly.
 ///
 /// # Errors
 /// Returns [`PairclassError::EmptyLexicon`] when the word entries cannot
@@ -165,7 +172,7 @@ pub fn generate_structured_candidates(
             expanded_relabels = expanded_relabels.saturating_add(selection.evaluated);
             dropped_by_filter = dropped_by_filter.saturating_add(selection.dropped_by_filter);
             l1_at_filter_cut = min_option(l1_at_filter_cut, selection.l1_at_filter_cut);
-            guaranteed.push(selection.best);
+            guaranteed.extend(selection.guaranteed);
             extras.extend(selection.extras);
         }
     }
@@ -291,37 +298,59 @@ fn relabel_candidates(
             marginal_pass: fit.0 <= threshold,
         });
     }
+    sort_drafts(&mut drafts);
     let evaluated = drafts.len();
-    let best_index = drafts
-        .iter()
-        .enumerate()
-        .min_by(|(_, a), (_, b)| compare_drafts(a, b))
-        .map_or(0, |(index, _)| index);
-    let best = drafts
-        .get(best_index)
+    let fallback = drafts
+        .first()
         .cloned()
         .unwrap_or_else(|| empty_draft(base, stream));
+    let near_best_chi2 = drafts
+        .iter()
+        .map(|draft| draft.marginal_chi2)
+        .min_by(f64::total_cmp)
+        .unwrap_or(fallback.marginal_chi2)
+        + RELABEL_NEAR_BEST_CHI2_DELTA;
+    let mut guaranteed = Vec::new();
     let mut extras = Vec::new();
     let mut dropped_by_filter = 0usize;
     let mut l1_at_filter_cut = None;
+    let edge_l1 = threshold + relabel_edge_l1_epsilon(stream.tokens.len());
+    let filter_disabled = threshold >= 2.0;
+    let mut guaranteed_pass_relabels = 0usize;
     for (index, draft) in drafts.into_iter().enumerate() {
-        if index == best_index {
-            continue;
-        }
-        if draft.marginal_pass {
+        let keep_pass = !filter_disabled
+            && draft.marginal_pass
+            && guaranteed_pass_relabels < GUARANTEED_PASS_RELABELS_PER_BASE;
+        let keep_edge = !filter_disabled
+            && !draft.marginal_pass
+            && draft.marginal_l1 <= edge_l1
+            && draft.marginal_chi2 <= near_best_chi2;
+        if index == 0 || keep_pass || keep_edge {
+            if draft.marginal_pass {
+                guaranteed_pass_relabels = guaranteed_pass_relabels.saturating_add(1);
+            }
+            guaranteed.push(draft);
+        } else if draft.marginal_pass {
             extras.push(draft);
         } else {
             dropped_by_filter = dropped_by_filter.saturating_add(1);
             l1_at_filter_cut = min_option(l1_at_filter_cut, Some(draft.marginal_l1));
         }
     }
+    if guaranteed.is_empty() {
+        guaranteed.push(fallback);
+    }
     RelabelSelection {
-        best,
+        guaranteed,
         extras,
         evaluated,
         dropped_by_filter,
         l1_at_filter_cut,
     }
+}
+
+fn relabel_edge_l1_epsilon(token_len: usize) -> f64 {
+    RELABEL_EDGE_L1_UNITS / token_len.max(1) as f64
 }
 
 fn sort_drafts(drafts: &mut [CandidateDraft]) {

@@ -40,6 +40,8 @@ mod tests;
 mod tests_anchor;
 #[cfg(test)]
 mod tests_structured;
+#[cfg(test)]
+mod tests_structured_relabel;
 mod ties;
 
 pub use anchor::{

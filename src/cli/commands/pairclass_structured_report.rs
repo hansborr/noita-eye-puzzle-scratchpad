@@ -83,7 +83,7 @@ pub(crate) fn print_structured_solutions(
 ) {
     println!();
     println!(
-        "Structured oracle candidates (rank-beam {}, base {}, relabels {}, decoded {} = base-best {} + extra {}, filter-dropped {}, filter-l1-cut {}, cap-dropped {}, cap-l1-cut {}):",
+        "Structured oracle candidates (rank-beam {}, base {}, relabels {}, decoded {} = guaranteed {} + extra {}, filter-dropped {}, filter-l1-cut {}, cap-dropped {}, cap-l1-cut {}):",
         rank_beam,
         report.generation.base_colorings,
         report.generation.expanded_relabels,
@@ -119,7 +119,7 @@ pub(crate) fn print_structured_solutions(
             if attempt.meta.marginal_pass {
                 "marginal-pass"
             } else {
-                "best-relabel"
+                "near-best-relabel"
             },
             solution.rendered
         );
