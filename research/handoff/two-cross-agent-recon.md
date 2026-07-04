@@ -267,16 +267,24 @@ across two scripts (consolidate ours).
    >
    > **STATUS (2026-07-04): stage (ii) DONE — the `shadowsearch` instrument**
    > (`src/analysis/shadow_search/`, CLI `shadowsearch`, commits
-   > `98d7399..47d8fbe`). File-driven + self-validating (`--self-test`: planted
+   > `98d7399..a443f6e`). File-driven + self-validating (`--self-test`: planted
    > hidden-state positive through the production scan/search path, dirty
    > untrimmed-anchor failure routed through the production path, and order-1
-   > Markov no-basis null). On real `two`, it verifies the previously reported
-   > stage-(ii) counts from raw ciphertext alone: key space `3,145,728`; the 7
+   > Markov no-basis null). Adversarially reviewed; one P1 (pass-1 early-abort
+   > lacked mutation coverage) fixed in `a443f6e`: the positive control now
+   > asserts pass 1 genuinely filters, a first-anchor-only negative dies in
+   > pass 1, and the real-`two` regression pins the pass-1 survivor count.
+   > On real `two`, it verifies the previously reported
+   > stage-(ii) counts from raw ciphertext alone: key space `3,145,728`;
+   > pass-1 survivors `835,520`; the 7
    > trimmed hard-anchor set listed above; `104,096` deduped survivor q-index
    > sequences with key multiplicities retained; max soft score `12/17` reached by
    > `96` sequences; `24` canonical first-occurrence relabel classes. Output is
    > explicitly a quotient-candidate list under the order-48 closure shadow; the
-   > order-96 caveat remains load-bearing for any true-key claim.
+   > order-96 caveat remains load-bearing for any true-key claim. Runtime ~15 s
+   > (release); the `--output` JSON (canonical patterns + representative keys)
+   > is the stage-(iii) hand-off artifact. Next: stage (iii), the crib-free
+   > finish over the 24-class × 8! residual.
 2. **Community-request relevance:** nothing here touches the `gak-swap-recover`
    ns=3 cost wall (that engine is known-plaintext, known group). But column-map
    closure is a **ciphertext-only group-reconstruction** technique — exactly
