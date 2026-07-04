@@ -44,6 +44,36 @@ sections are retained for design rationale and guardrails.
   deterministic clauses for the real-file rejection family. Per the process note
   below, get a cross-lineage design consult before spending that implementation
   burn.
+- **Gemini-3.1-pro consult, 2026-07-04.** The consult split the wall into a
+  structural and an artifact component: the real-file 5-literal target floor is
+  likely structural/information-theoretic at `n=83`, while the `7.0`
+  checks/rejection cost was an extraction-order artifact from testing doomed
+  singleton/focused candidates before the full tracked core. Its ranked levers
+  were: first, fix replay ordering; second, pull finer-than-target/partial
+  transition literals forward; third, partial-slice DPLL(T) so deterministic
+  propagation rejects target prefixes before full assignments are proposed; and
+  fourth, candidate-feature conflicts only after target slices start being
+  accepted. Its warning was that chasing smaller target-only reasons may livelock
+  the solver in a huge 5-target tuple space because the `(letter = target)`
+  vocabulary is too coarse.
+- **Lever 1a landed after the consult.** The deterministic reason replay order is
+  now adaptive: controls stay quality-first and keep singleton clauses, but once
+  a run has demonstrated a multi-literal floor the real-file path skips singleton
+  probes and tries non-singleton tracked reasons first. Anchored controls still
+  hold at `4/15/18` target rejections with replay checks `5/22/25` and replay
+  literals `4/15/18`.
+- **Lever 1a real-file probe measured the livelock risk.** A cap-60 production
+  probe learned `60` deterministic target clauses from `60` target rejections in
+  `1856.190s` elapsed (`wall=1856.466s`), with `target_replay_checks=66`
+  (`1.10` checks/rejection), `target_replay_literals=300`, and clause-length
+  distribution `60 x len=5`. All learned reasons were the recurring `E/H/S/T/Y`
+  family (`T=67` throughout), no target slice was accepted, `candidate_clauses=0`,
+  and there was no exact `2439/2439` round trip. Targeted residual sizes showed
+  no narrowing trend: `153896` entries on `55/60` assignments and `157136` on
+  `5/60`, max domain `6562` throughout. This supports the Gemini livelock warning
+  over the earlier "stronger target reasons suffice" read; next design work
+  should pressure-test finer-than-target or partial-slice theory propagation, not
+  spend a blind implementation burn searching for sub-5 target-only clauses.
 
 ## The resolved architecture (two-tier CDCL(T)) — do not regress it
 
