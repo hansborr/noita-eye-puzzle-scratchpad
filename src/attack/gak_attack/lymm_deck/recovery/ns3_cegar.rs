@@ -8,8 +8,8 @@ use super::learning::{TruthTracker, add_outer_stats};
 use super::propagation::{PropagationOptions, propagate_partial_states};
 use super::residual::{ResidualDomains, recover_with_residual_domains, restrict_to_targets};
 use super::target_conflict::{
-    broad_residual_rejects_target_choices, measure_truth_target_residual,
-    minimize_deterministic_target_conflict,
+    broad_residual_rejects_target_choices, extract_deterministic_target_conflict,
+    measure_truth_target_residual,
 };
 use super::target_solver::TargetAssignmentSolver;
 use super::{
@@ -206,8 +206,7 @@ fn learn_no_residual_target_clause(
     truth: Option<&TruthTracker>,
     stats: &mut SwapRecoveryStats,
 ) -> Result<(), SwapRecoveryError> {
-    let conflict =
-        minimize_deterministic_target_conflict(spec, messages, residual, targets, stats)?;
+    let conflict = extract_deterministic_target_conflict(spec, messages, residual, targets, stats)?;
     if let Some(core) = conflict {
         if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_some() {
             eprintln!(

@@ -11,6 +11,6 @@
 src/attack/gak_attack/tests.rs             1702  # extracted GCTAK gate tests (synthetic fixtures); split by stage only if it grows
 src/attack/gak_attack/eyes/heldout.rs      826   # indivisible held-out scoring core (embargoed-consensus scoring + matched-null tail + synthetic positive control share HeldOutScore/EyeMessageEvidence private internals); splits by stage only if it grows
 src/attack/gak_attack/solver/mod.rs        797   # residual: cohesive indivisible GCTAK solve core (permutation-recovery + chain-link path tightly coupled); deck substrate already split into deck_fixture/deck_attack/deck_sweep siblings
-src/attack/gak_attack/lymm_deck/recovery/propagation.rs 904 # ns=3 swap-recovery propagation rules; split state/read/arc rules before adding more
+src/attack/gak_attack/lymm_deck/recovery/propagation.rs 624 # ns=3 swap-recovery state propagation; target/read/arc pruning split into sibling modules
 src/ciphers/tests.rs                       992   # extracted candidate-cipher unit tests (exact round-trip controls)
 src/attack/solve/tests.rs                  2186  # extracted solve-pipeline tests (unit + 8 include_str! corpus pipelines); +12 for the SolveRunIdentity params-struct call sites (drops log_solve_run's too_many_arguments allow); +14 for the Project-codec CodecSearch fields (try_binary_move/try_fractionation) added to its literals; +120 for the binary-move plant positive control (proves the gate fires through the Project path); split into tests_unit/tests_pipeline if it grows

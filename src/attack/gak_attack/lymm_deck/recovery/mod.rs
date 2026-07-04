@@ -12,12 +12,15 @@ mod ns3_cegar;
 #[cfg(test)]
 mod ns3_control;
 mod propagation;
+mod propagation_pruning;
+mod propagation_target_pruning;
 mod reach;
 mod residual;
 mod sat_encoding;
 mod selftest;
 mod state;
 mod target_conflict;
+mod target_reason;
 mod target_solver;
 
 pub use error::SwapRecoveryError;

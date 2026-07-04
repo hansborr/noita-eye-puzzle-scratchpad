@@ -3,8 +3,11 @@
 use std::collections::BTreeMap;
 
 use super::learning::TruthTracker;
-use super::propagation::{PropagationOptions, propagate_partial_states};
+use super::propagation::{
+    PropagationOptions, propagate_partial_states, propagate_partial_states_with_target_reasons,
+};
 use super::residual::{ResidualDomains, residual_formula_is_unsat, restrict_to_targets};
+use super::target_reason::TargetReasonTracker;
 use super::{AlignedMessage, SwapRecoveryError, SwapRecoveryStats};
 use crate::attack::gak_attack::lymm_deck::LymmDeckSpec;
 
@@ -55,35 +58,110 @@ pub(super) fn measure_truth_target_residual(
     Ok(())
 }
 
-pub(super) fn minimize_deterministic_target_conflict(
+pub(super) fn extract_deterministic_target_conflict(
     spec: &LymmDeckSpec,
     messages: &[AlignedMessage],
     broad_baseline: &ResidualDomains,
     targets: &BTreeMap<char, usize>,
     stats: &mut SwapRecoveryStats,
 ) -> Result<Option<Vec<(char, usize)>>, SwapRecoveryError> {
-    let mut core = targets
+    let assignment_choices = targets
         .iter()
         .map(|(&letter, &target)| (letter, target))
         .collect::<Vec<_>>();
-    if !deterministic_rejects(spec, messages, broad_baseline, &core, stats)? {
-        return Ok(None);
-    }
-
-    let mut index = 0usize;
-    while index < core.len() {
-        let mut trial = core.clone();
-        let _removed = trial.remove(index);
-        if !trial.is_empty()
-            && deterministic_rejects(spec, messages, broad_baseline, &trial, stats)?
-        {
-            core = trial;
-        } else {
-            index += 1;
+    let mut probe = broad_baseline.clone();
+    match restrict_to_targets(&mut probe, targets) {
+        Ok(()) => {}
+        Err(SwapRecoveryError::NoResidualCandidate) => {
+            if deterministic_rejects(spec, messages, broad_baseline, &assignment_choices, stats)? {
+                stats.target_replay_literals = stats
+                    .target_replay_literals
+                    .saturating_add(assignment_choices.len());
+                return Ok(Some(assignment_choices));
+            }
+            return Ok(None);
         }
+        Err(error) => return Err(error),
     }
-    stats.target_replay_literals = stats.target_replay_literals.saturating_add(core.len());
-    Ok(Some(core))
+    let mut probe_stats = SwapRecoveryStats {
+        enumerated_candidates: probe.candidates.len(),
+        ..SwapRecoveryStats::default()
+    };
+    let mut tracker = None;
+    match propagate_partial_states_with_target_reasons(
+        spec,
+        messages,
+        &mut probe,
+        &mut probe_stats,
+        PropagationOptions {
+            max_passes: 2,
+            exhaustive_arc: false,
+        },
+        targets,
+        &mut tracker,
+    ) {
+        Ok(_) => Ok(None),
+        Err(SwapRecoveryError::NoResidualCandidate) => {
+            let Some(tracker) = tracker else {
+                return Err(SwapRecoveryError::SatSolver(
+                    "deterministic target rejection produced no tracked reason".to_owned(),
+                ));
+            };
+            let Some(full_core) = tracker.conflict_choices() else {
+                return Err(SwapRecoveryError::SatSolver(
+                    "deterministic target rejection produced no tracked reason".to_owned(),
+                ));
+            };
+            let candidates = deterministic_reason_candidates(&tracker, full_core)?;
+            for core in candidates {
+                if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_some() {
+                    eprintln!("cegar: tracked deterministic reason candidate {core:?}");
+                }
+                if deterministic_rejects(spec, messages, broad_baseline, &core, stats)? {
+                    if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_some() {
+                        eprintln!("cegar: tracked deterministic reason {core:?}");
+                    }
+                    stats.target_replay_literals =
+                        stats.target_replay_literals.saturating_add(core.len());
+                    return Ok(Some(core));
+                }
+            }
+            Err(SwapRecoveryError::SatSolver(
+                "tracked deterministic target reason failed broad-baseline replay".to_owned(),
+            ))
+        }
+        Err(error) => Err(error),
+    }
+}
+
+fn deterministic_reason_candidates(
+    tracker: &TargetReasonTracker,
+    full_core: Vec<(char, usize)>,
+) -> Result<Vec<Vec<(char, usize)>>, SwapRecoveryError> {
+    let mut candidates = Vec::new();
+    if let Some(focused) = tracker.focused_conflict_choices() {
+        for &choice in focused.iter().rev() {
+            push_unique_core(&mut candidates, vec![choice]);
+        }
+        push_unique_core(&mut candidates, focused);
+    }
+    for &choice in full_core.iter().rev() {
+        push_unique_core(&mut candidates, vec![choice]);
+    }
+    push_unique_core(&mut candidates, full_core);
+    candidates.retain(|core| !core.is_empty());
+    if candidates.is_empty() {
+        return Err(SwapRecoveryError::SatSolver(
+            "deterministic target rejection produced an empty tracked reason".to_owned(),
+        ));
+    }
+    Ok(candidates)
+}
+
+fn push_unique_core(candidates: &mut Vec<Vec<(char, usize)>>, core: Vec<(char, usize)>) {
+    if !candidates.iter().any(|candidate| candidate == &core) {
+        candidates.push(core);
+    }
 }
 
 pub(super) fn broad_residual_rejects_target_choices(
