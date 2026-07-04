@@ -5,3 +5,5 @@
 # Register only suppressions that silence one of the safety-gated lints checked
 # by scripts/check-suppressions.sh. The current src/ tree has no such
 # suppressions, so this register is intentionally empty below this header.
+src/analysis/shadow_search/engine.rs:379:clippy::indexing_slicing # hot loop over prevalidated dense tables; checked construction owns bounds
+src/analysis/shadow_search/engine.rs:416:clippy::indexing_slicing # hot loop over prevalidated dense tables; checked construction owns bounds
