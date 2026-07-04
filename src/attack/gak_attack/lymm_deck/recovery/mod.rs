@@ -201,6 +201,8 @@ pub struct SwapRecoveryStats {
     pub target_replay_checks: usize,
     /// Sum of learned target-clause literal counts after replay minimization.
     pub target_replay_literals: usize,
+    /// Full-assignment fallbacks taken after floor-mode reason candidates failed.
+    pub target_floor_full_assignment_fallbacks: usize,
     /// Learned candidate-tuple clauses added after failed exact re-encryption.
     pub candidate_clauses_learned: usize,
     /// Learned clauses checked against planted truth by observational controls.
