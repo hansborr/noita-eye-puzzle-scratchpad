@@ -102,17 +102,17 @@ pub(super) fn extract_deterministic_target_conflict(
     ) {
         Ok(_) => Ok(None),
         Err(SwapRecoveryError::NoResidualCandidate) => {
+            // Ok(None) tells the caller to use its broad-checked full-assignment
+            // fallback when no compact extracted reason survives broad replay.
             let Some(tracker) = tracker else {
-                return Err(SwapRecoveryError::SatSolver(
-                    "deterministic target rejection produced no tracked reason".to_owned(),
-                ));
+                trace_reason_fallback("produced no tracker");
+                return Ok(None);
             };
             let Some(full_core) = tracker.conflict_choices() else {
-                return Err(SwapRecoveryError::SatSolver(
-                    "deterministic target rejection produced no tracked reason".to_owned(),
-                ));
+                trace_reason_fallback("produced no tracked reason");
+                return Ok(None);
             };
-            let candidates = deterministic_reason_candidates(&tracker, full_core)?;
+            let candidates = deterministic_reason_candidates(&tracker, full_core);
             for core in candidates {
                 if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_some() {
                     eprintln!("cegar: tracked deterministic reason candidate {core:?}");
@@ -126,9 +126,8 @@ pub(super) fn extract_deterministic_target_conflict(
                     return Ok(Some(core));
                 }
             }
-            Err(SwapRecoveryError::SatSolver(
-                "tracked deterministic target reason failed broad-baseline replay".to_owned(),
-            ))
+            trace_reason_fallback("had no compact candidate pass broad replay");
+            Ok(None)
         }
         Err(error) => Err(error),
     }
@@ -137,7 +136,7 @@ pub(super) fn extract_deterministic_target_conflict(
 fn deterministic_reason_candidates(
     tracker: &TargetReasonTracker,
     full_core: Vec<(char, usize)>,
-) -> Result<Vec<Vec<(char, usize)>>, SwapRecoveryError> {
+) -> Vec<Vec<(char, usize)>> {
     let mut candidates = Vec::new();
     if let Some(focused) = tracker.focused_conflict_choices() {
         for &choice in focused.iter().rev() {
@@ -150,17 +149,18 @@ fn deterministic_reason_candidates(
     }
     push_unique_core(&mut candidates, full_core);
     candidates.retain(|core| !core.is_empty());
-    if candidates.is_empty() {
-        return Err(SwapRecoveryError::SatSolver(
-            "deterministic target rejection produced an empty tracked reason".to_owned(),
-        ));
-    }
-    Ok(candidates)
+    candidates
 }
 
 fn push_unique_core(candidates: &mut Vec<Vec<(char, usize)>>, core: Vec<(char, usize)>) {
     if !candidates.iter().any(|candidate| candidate == &core) {
         candidates.push(core);
+    }
+}
+
+fn trace_reason_fallback(reason: &str) {
+    if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_some() {
+        eprintln!("cegar: deterministic target reason fallback to full assignment: {reason}");
     }
 }
 
