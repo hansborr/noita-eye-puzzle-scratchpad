@@ -47,6 +47,36 @@ The `gak-swap-recover` CLI exposes the same library path used by the tests for
 the supported frontier. A request for `--num-swaps 3` currently fails with an
 explicit measured-frontier message rather than emitting a candidate.
 
+## Rerun commands
+
+Stable supported-frontier checks:
+
+```sh
+cargo test --locked ns1_recovery_recovers_vendored_key_and_reencrypts_exactly -- --nocapture
+cargo test --locked ns2_recovery_recovers_vendored_key_and_reencrypts_exactly -- --nocapture
+cargo test --locked swap_recovery_self_test_passes_supported_frontier_controls -- --nocapture
+cargo test --locked ns3_planted_truth_survives_target_cegar_pruning -- --nocapture
+```
+
+Stable CLI checks:
+
+```sh
+cargo run --locked --bin noita-eye -- gak-swap-recover \
+  --plaintext-file research/data/practice-puzzles/deck-swap/plaintexts.txt \
+  --ciphertext-file research/data/practice-puzzles/deck-swap/1_swap_ct.txt \
+  --num-swaps 1
+
+cargo run --locked --bin noita-eye -- gak-swap-recover \
+  --plaintext-file research/data/practice-puzzles/deck-swap/plaintexts.txt \
+  --ciphertext-file research/data/practice-puzzles/deck-swap/3_swap_ct.txt \
+  --num-swaps 3
+```
+
+The `ns=3` planted test is a soundness control, not a real-file recovery claim:
+it exercises the same `ns=3` broad propagation, target pre-solver, targeted
+deterministic propagation, and exact planted-assignment verification that could
+otherwise prune the truth invisibly.
+
 ## ns=3 wall
 
 The current ns=2 success does not scale automatically to ns=3. The structural
@@ -68,6 +98,14 @@ Measured attempts before landing the bounded frontier:
 | Shadow target seeding, top-16 | Seed domains by intersecting with top shadow targets before exact residual. | Initial domain surface about `1932632` entries; max domain `104992`. | Too large and heuristic. It reduces the surface but does not make exact SAT practical. |
 | Shadow target seeding, top-4 | More aggressive top shadow intersection. | Initial domain surface about `531604`; max domain `26248`; some letters collapsed strongly (`A/E/R/S` to `16`, `L` to `96`), many remained at `26248`; still ran past `120s` without closing. | Too large and heuristic. Still no exact proof, and many letters retain broad domains. |
 | Shadow target seeding, top-1 | Force the single best shadow target per letter. | About `62s`, then `NoResidualCandidate`. | Unsound. The simplification globally fixed each letter to one shadow target; at least one true `ns=3` target was outside that top-1 set, so the true solution was dropped. |
+
+The table above is a scratch-trace diagnosis from development runs, not a stable
+golden fixture. The real-file `ns=3` CEGAR traces used temporary library entry
+points and internal env flags such as `NOITA_SWAP_TRACE_ONLY=1`,
+`NOITA_SWAP_TRACE_PHASE=target`, `NOITA_SWAP_TRACE_PASSES=1`, and
+`NOITA_SWAP_CEGAR_TRACE=1` before the landed CLI guard was restored. The stable
+rerunnable commands are the supported-frontier tests, the CLI checks, and the
+scaled `ns=3` truth-preservation control listed above.
 
 The original `ns=3` wall diagnosis was that the candidate SAT model had too
 little eager structure. The landed residual SAT model is now stronger than that:
@@ -110,6 +148,9 @@ Follow-up ns=3 attack pass, 2026-07-03:
   because the first wrong slices consistently contradicted at message 1's `THE`
   prefix (`E` transition). It added about `75s` of target-solver construction time
   and left the first target model unchanged, so it was dropped.
+
+These follow-up measurements are likewise scratch trace observations unless they
+are covered by the stable commands above.
 
 Current diagnosis: the new propagation buys useful target-restricted pruning but
 does not close the target-assignment problem. The wall is now specifically that
