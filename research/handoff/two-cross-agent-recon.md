@@ -264,6 +264,19 @@ across two scripts (consolidate ours).
    > histogram `{1:1,2:15,3:32}`, transitive, mod-3 blocks preserved,
    > stabilizer 4. The small-index supergroup probe is an explicitly marked
    > stage-1b seam. Next: stage (ii).
+   >
+   > **STATUS (2026-07-04): stage (ii) DONE — the `shadowsearch` instrument**
+   > (`src/analysis/shadow_search/`, CLI `shadowsearch`, commits
+   > `98d7399..47d8fbe`). File-driven + self-validating (`--self-test`: planted
+   > hidden-state positive through the production scan/search path, dirty
+   > untrimmed-anchor failure routed through the production path, and order-1
+   > Markov no-basis null). On real `two`, it verifies the previously reported
+   > stage-(ii) counts from raw ciphertext alone: key space `3,145,728`; the 7
+   > trimmed hard-anchor set listed above; `104,096` deduped survivor q-index
+   > sequences with key multiplicities retained; max soft score `12/17` reached by
+   > `96` sequences; `24` canonical first-occurrence relabel classes. Output is
+   > explicitly a quotient-candidate list under the order-48 closure shadow; the
+   > order-96 caveat remains load-bearing for any true-key claim.
 2. **Community-request relevance:** nothing here touches the `gak-swap-recover`
    ns=3 cost wall (that engine is known-plaintext, known group). But column-map
    closure is a **ciphertext-only group-reconstruction** technique — exactly
