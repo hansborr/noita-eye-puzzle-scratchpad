@@ -10,8 +10,7 @@ use crate::core::glyph::Glyph;
 use crate::nulls::null::{SplitMix64, mix_seed, random_index_below};
 
 use super::{
-    DEFAULT_CLOSURE_CAP, DEFAULT_TRIM, IsoMapError, MapKind, PatternSpan, close_full_maps,
-    extract_column_map, isomorph_map_scan,
+    DEFAULT_CLOSURE_CAP, DEFAULT_TRIM, IsoMapError, MapKind, close_full_maps, isomorph_map_scan,
 };
 
 const S3_SIZE: usize = 6;
@@ -21,6 +20,10 @@ const POSITIVE_TOP_K: usize = 16;
 const SELF_TEST_NULL_TRIALS: usize = 64;
 const DIRTY_ALPHABET: usize = 8;
 const DIRTY_CORE_LEN: usize = 40;
+const DIRTY_SPAN_LEN: usize = DIRTY_CORE_LEN + DEFAULT_TRIM * 2;
+const DIRTY_TOP_K: usize = 12;
+const DIRTY_NULL_TRIALS: usize = 32;
+const DIRTY_SCAN_SEED: u64 = 0x6469_7274_795f_6264;
 
 /// Outcome of `isomap --self-test`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -297,20 +300,164 @@ fn invert_permutation(permutation: &[usize]) -> Result<Vec<usize>, IsoMapError> 
 }
 
 fn dirty_boundary_control() -> Result<bool, IsoMapError> {
-    let mut stream = vec![0u16; 180];
-    let first = 30usize;
-    let second = 120usize;
-    let mut source_window = Vec::with_capacity(DIRTY_CORE_LEN + 2);
-    let mut target_window = Vec::with_capacity(DIRTY_CORE_LEN + 2);
-    source_window.push(7);
-    target_window.push(0);
+    let mut rng = SplitMix64::new(DIRTY_SCAN_SEED);
+    let mut stream = random_dirty_stream(&mut rng)?;
+
+    // This span must recover a full map only through the production trim path.
+    let full_first = 24usize;
+    let full_second = 96usize;
+    let full_permutation = [2usize, 4, 6, 1, 3, 5, 7, 0];
+    let full_source = dirty_full_source_window();
+    let full_target = relabel_window(&full_source, &full_permutation);
+    write_window_pair(
+        &mut stream,
+        full_first,
+        full_second,
+        &full_source,
+        &full_target,
+    );
+    let (left_source, left_target, right_source, right_target) =
+        window_edges(&full_source, &full_target)?;
+    guard_span_edges(
+        &mut stream,
+        full_first,
+        full_second,
+        left_source,
+        left_target,
+        right_source,
+        right_target,
+    );
+
+    // This span becomes a fake full map if the scan-level trim is forced to 0.
+    let partial_first = 160usize;
+    let partial_second = 232usize;
+    let partial_source = dirty_partial_source_window();
+    let partial_target = dirty_partial_target_window();
+    write_window_pair(
+        &mut stream,
+        partial_first,
+        partial_second,
+        &partial_source,
+        &partial_target,
+    );
+    let (left_source, left_target, right_source, right_target) =
+        window_edges(&partial_source, &partial_target)?;
+    guard_span_edges(
+        &mut stream,
+        partial_first,
+        partial_second,
+        left_source,
+        left_target,
+        right_source,
+        right_target,
+    );
+
+    let trimmed = isomorph_map_scan(
+        &stream,
+        DIRTY_ALPHABET,
+        DIRTY_SPAN_LEN,
+        DEFAULT_TRIM,
+        DIRTY_TOP_K,
+        DIRTY_NULL_TRIALS,
+        mix_seed(DIRTY_SCAN_SEED, 0x01),
+    )?;
+    let untrimmed = isomorph_map_scan(
+        &stream,
+        DIRTY_ALPHABET,
+        DIRTY_SPAN_LEN,
+        0,
+        DIRTY_TOP_K,
+        DIRTY_NULL_TRIALS,
+        mix_seed(DIRTY_SCAN_SEED, 0x02),
+    )?;
+    let fake_boundary_permutation = [1usize, 2, 3, 4, 5, 6, 7, 0];
+
+    let trimmed_full = trimmed.maps.iter().any(|map| {
+        map.span.gap == full_second - full_first
+            && map.kind == MapKind::Full
+            && map.boundary_positions_dropped == DEFAULT_TRIM * 2
+            && map.permutation.as_deref() == Some(full_permutation.as_slice())
+    });
+    let trimmed_blocks_fake_full = trimmed.maps.iter().any(|map| {
+        map.span.gap == partial_second - partial_first
+            && map.kind == MapKind::Partial
+            && map.boundary_positions_dropped == DEFAULT_TRIM * 2
+            && map.mapping.get(7) == Some(&None)
+    });
+    let untrimmed_degrades = untrimmed.maps.iter().any(|map| {
+        map.span.gap == partial_second - partial_first
+            && map.kind == MapKind::Full
+            && map.boundary_positions_dropped == 0
+            && map.permutation.as_deref() == Some(fake_boundary_permutation.as_slice())
+    });
+
+    Ok(trimmed.significant
+        && untrimmed.significant
+        && trimmed_full
+        && trimmed_blocks_fake_full
+        && untrimmed_degrades)
+}
+
+fn random_dirty_stream(rng: &mut SplitMix64) -> Result<Vec<u16>, IsoMapError> {
+    let mut stream = Vec::with_capacity(300);
+    while stream.len() < stream.capacity() {
+        stream.push(u16::try_from(random_index_below(DIRTY_ALPHABET, rng)?).unwrap_or(0));
+    }
+    Ok(stream)
+}
+
+fn dirty_full_source_window() -> Vec<u16> {
+    let mut window = Vec::with_capacity(DIRTY_SPAN_LEN);
+    window.extend([6, 7]);
+    for offset in 0..DIRTY_CORE_LEN {
+        window.push(u16::try_from(offset % DIRTY_ALPHABET).unwrap_or(0));
+    }
+    window.extend([4, 5]);
+    window
+}
+
+fn relabel_window(source: &[u16], permutation: &[usize]) -> Vec<u16> {
+    source
+        .iter()
+        .map(|&symbol| {
+            permutation
+                .get(usize::from(symbol))
+                .copied()
+                .and_then(|value| u16::try_from(value).ok())
+                .unwrap_or(0)
+        })
+        .collect()
+}
+
+fn dirty_partial_source_window() -> Vec<u16> {
+    let mut window = Vec::with_capacity(DIRTY_SPAN_LEN);
+    window.extend([7, 7]);
     for offset in 0..DIRTY_CORE_LEN {
         let source = offset % (DIRTY_ALPHABET - 1);
-        source_window.push(u16::try_from(source).unwrap_or(0));
-        target_window.push(u16::try_from(source + 1).unwrap_or(0));
+        window.push(u16::try_from(source).unwrap_or(0));
     }
-    source_window.push(7);
-    target_window.push(0);
+    window.extend([7, 7]);
+    window
+}
+
+fn dirty_partial_target_window() -> Vec<u16> {
+    let mut window = Vec::with_capacity(DIRTY_SPAN_LEN);
+    window.extend([0, 0]);
+    for offset in 0..DIRTY_CORE_LEN {
+        let source = offset % (DIRTY_ALPHABET - 1);
+        window.push(u16::try_from(source + 1).unwrap_or(0));
+    }
+    window.extend([0, 0]);
+    window
+}
+
+fn write_window_pair(
+    stream: &mut [u16],
+    first: usize,
+    second: usize,
+    source_window: &[u16],
+    target_window: &[u16],
+) {
     for (offset, &value) in source_window.iter().enumerate() {
         if let Some(slot) = stream.get_mut(first + offset) {
             *slot = value;
@@ -321,17 +468,50 @@ fn dirty_boundary_control() -> Result<bool, IsoMapError> {
             *slot = value;
         }
     }
+}
 
-    let span = PatternSpan {
-        length: DIRTY_CORE_LEN + 2,
-        first,
-        second,
-        gap: second - first,
+fn window_edges(
+    source_window: &[u16],
+    target_window: &[u16],
+) -> Result<(u16, u16, u16, u16), IsoMapError> {
+    let (Some(&left_source), Some(&left_target), Some(&right_source), Some(&right_target)) = (
+        source_window.first(),
+        target_window.first(),
+        source_window.last(),
+        target_window.last(),
+    ) else {
+        return Err(IsoMapError::Permutation(
+            crate::ciphers::CipherError::InternalInvariant {
+                context: "dirty-boundary window edge",
+            },
+        ));
     };
-    let untrimmed = extract_column_map(&stream, DIRTY_ALPHABET, span, 0)?;
-    let trimmed = extract_column_map(&stream, DIRTY_ALPHABET, span, 1)?;
-    Ok(untrimmed.kind == MapKind::Full
-        && trimmed.kind == MapKind::Partial
-        && trimmed.boundary_positions_dropped == 2
-        && trimmed.mapping.get(7).copied().flatten().is_none())
+    Ok((left_source, left_target, right_source, right_target))
+}
+
+fn guard_span_edges(
+    stream: &mut [u16],
+    first: usize,
+    second: usize,
+    left_source: u16,
+    left_target: u16,
+    right_source: u16,
+    right_target: u16,
+) {
+    let bad_left_target = (left_target + 1) % u16::try_from(DIRTY_ALPHABET).unwrap_or(1);
+    for back in 1..=DEFAULT_TRIM {
+        if let Some(slot) = stream.get_mut(first.saturating_sub(back)) {
+            *slot = left_source;
+        }
+        if let Some(slot) = stream.get_mut(second.saturating_sub(back)) {
+            *slot = bad_left_target;
+        }
+    }
+    let bad_right_target = (right_target + 1) % u16::try_from(DIRTY_ALPHABET).unwrap_or(1);
+    if let Some(slot) = stream.get_mut(first + DIRTY_SPAN_LEN) {
+        *slot = right_source;
+    }
+    if let Some(slot) = stream.get_mut(second + DIRTY_SPAN_LEN) {
+        *slot = bad_right_target;
+    }
 }
