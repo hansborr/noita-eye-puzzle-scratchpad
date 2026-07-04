@@ -111,6 +111,9 @@ pub(super) fn add_outer_stats(stats: &mut SwapRecoveryStats, outer: &SwapRecover
     stats.target_clauses_learned = stats
         .target_clauses_learned
         .saturating_add(outer.target_clauses_learned);
+    stats.target_rejections = stats
+        .target_rejections
+        .saturating_add(outer.target_rejections);
     stats.target_replay_checks = stats
         .target_replay_checks
         .saturating_add(outer.target_replay_checks);

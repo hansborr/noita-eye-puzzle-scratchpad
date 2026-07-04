@@ -74,10 +74,7 @@ pub(super) fn recover_ns3_with_target_cegar(
             messages,
             (*config).clone(),
             targeted,
-            PropagationOptions {
-                max_passes: 2,
-                exhaustive_arc: false,
-            },
+            ns3_targeted_propagation_options(),
             Some(&targets),
             truth.as_ref(),
         ) {
@@ -103,6 +100,7 @@ pub(super) fn recover_ns3_with_target_cegar(
                     },
                     &mut stats,
                 )?;
+                stats.target_rejections = stats.target_rejections.saturating_add(1);
             }
             Err(SwapRecoveryError::NoResidualCandidate) => {
                 learn_no_residual_target_clause(
@@ -114,12 +112,20 @@ pub(super) fn recover_ns3_with_target_cegar(
                     truth.as_ref(),
                     &mut stats,
                 )?;
+                stats.target_rejections = stats.target_rejections.saturating_add(1);
             }
             Err(error) => {
                 trace_stats("target abort", &stats);
                 return Err(error);
             }
         }
+    }
+}
+
+const fn ns3_targeted_propagation_options() -> PropagationOptions {
+    PropagationOptions {
+        max_passes: 2,
+        exhaustive_arc: false,
     }
 }
 

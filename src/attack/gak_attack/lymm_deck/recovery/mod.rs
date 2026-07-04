@@ -190,6 +190,8 @@ pub struct SwapRecoveryStats {
     pub sat_conflicts: usize,
     /// Candidate/domain branches dropped by an optional beam fallback.
     pub beam_drops: usize,
+    /// Target assignments rejected by target-level CEGAR.
+    pub target_rejections: usize,
     /// Learned target-tuple clauses added by target-level CEGAR.
     pub target_clauses_learned: usize,
     /// Replay checks used to minimize deterministic target conflicts.

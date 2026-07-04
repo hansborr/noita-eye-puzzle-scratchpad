@@ -34,6 +34,10 @@ fn ns3_planted_control_recovers_through_production_path() {
                 .saturating_add(report.stats.candidate_clauses_learned),
         "every learned clause in the planted control must pass truth tracking"
     );
+    assert_eq!(
+        report.stats.target_rejections, report.stats.target_clauses_learned,
+        "each rejected target assignment should learn one target clause"
+    );
     assert!(
         !report.stats.measured_target_domain_entries.is_empty(),
         "planted ns=3 control must record the target-slice residual measurement"

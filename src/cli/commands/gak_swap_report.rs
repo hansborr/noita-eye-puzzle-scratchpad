@@ -181,7 +181,7 @@ fn print_recovery_details(report: &RecoveryReport, pair_count: usize) {
         );
     }
     println!(
-        "  stats: candidates={} pruned={} deductions={} nodes={} sat-decisions={} sat-conflicts={} beam-drops={} target-clauses={} target-replay-checks={} target-replay-literals={} candidate-clauses={} truth-checks={}",
+        "  stats: candidates={} pruned={} deductions={} nodes={} sat-decisions={} sat-conflicts={} beam-drops={} target-rejections={} target-clauses={} target-replay-checks={} target-replay-literals={} candidate-clauses={} truth-checks={}",
         report.stats.enumerated_candidates,
         report.stats.domains_pruned,
         report.stats.deductions,
@@ -189,6 +189,7 @@ fn print_recovery_details(report: &RecoveryReport, pair_count: usize) {
         report.stats.sat_decisions,
         report.stats.sat_conflicts,
         report.stats.beam_drops,
+        report.stats.target_rejections,
         report.stats.target_clauses_learned,
         report.stats.target_replay_checks,
         report.stats.target_replay_literals,
@@ -389,7 +390,7 @@ fn append_recovery_json_body(out: &mut String, report: &RecoveryReport, indent: 
     .expect("write to String");
     writeln!(
         out,
-        "{indent}\"stats\": {{\"candidates\": {}, \"domains_pruned\": {}, \"deductions\": {}, \"nodes\": {}, \"sat_decisions\": {}, \"sat_conflicts\": {}, \"beam_drops\": {}, \"target_clauses_learned\": {}, \"target_replay_checks\": {}, \"target_replay_literals\": {}, \"candidate_clauses_learned\": {}, \"truth_preservation_checks\": {}, \"measured_target_total_entries\": {}, \"measured_target_max_domain\": {}, \"measured_target_domain_entries\": {}}},",
+        "{indent}\"stats\": {{\"candidates\": {}, \"domains_pruned\": {}, \"deductions\": {}, \"nodes\": {}, \"sat_decisions\": {}, \"sat_conflicts\": {}, \"beam_drops\": {}, \"target_rejections\": {}, \"target_clauses_learned\": {}, \"target_replay_checks\": {}, \"target_replay_literals\": {}, \"candidate_clauses_learned\": {}, \"truth_preservation_checks\": {}, \"measured_target_total_entries\": {}, \"measured_target_max_domain\": {}, \"measured_target_domain_entries\": {}}},",
         report.stats.enumerated_candidates,
         report.stats.domains_pruned,
         report.stats.deductions,
@@ -397,6 +398,7 @@ fn append_recovery_json_body(out: &mut String, report: &RecoveryReport, indent: 
         report.stats.sat_decisions,
         report.stats.sat_conflicts,
         report.stats.beam_drops,
+        report.stats.target_rejections,
         report.stats.target_clauses_learned,
         report.stats.target_replay_checks,
         report.stats.target_replay_literals,
