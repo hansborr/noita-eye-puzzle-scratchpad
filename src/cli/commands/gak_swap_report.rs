@@ -195,6 +195,14 @@ fn print_recovery_details(report: &RecoveryReport, pair_count: usize) {
         report.stats.candidate_clauses_learned,
         report.stats.truth_preservation_checks
     );
+    if !report.stats.measured_target_domain_entries.is_empty() {
+        println!(
+            "  measured target-slice residual: total={} max-domain={} per-letter={}",
+            report.stats.measured_target_total_entries,
+            report.stats.measured_target_max_domain,
+            format_char_usize_pairs(&report.stats.measured_target_domain_entries)
+        );
+    }
     println!("  per-message:");
     for (label, matched, total) in &report.round_trip.per_message {
         println!("    {label}: {matched}/{total}");
@@ -381,7 +389,7 @@ fn append_recovery_json_body(out: &mut String, report: &RecoveryReport, indent: 
     .expect("write to String");
     writeln!(
         out,
-        "{indent}\"stats\": {{\"candidates\": {}, \"domains_pruned\": {}, \"deductions\": {}, \"nodes\": {}, \"sat_decisions\": {}, \"sat_conflicts\": {}, \"beam_drops\": {}, \"target_clauses_learned\": {}, \"target_replay_checks\": {}, \"target_replay_literals\": {}, \"candidate_clauses_learned\": {}, \"truth_preservation_checks\": {}}},",
+        "{indent}\"stats\": {{\"candidates\": {}, \"domains_pruned\": {}, \"deductions\": {}, \"nodes\": {}, \"sat_decisions\": {}, \"sat_conflicts\": {}, \"beam_drops\": {}, \"target_clauses_learned\": {}, \"target_replay_checks\": {}, \"target_replay_literals\": {}, \"candidate_clauses_learned\": {}, \"truth_preservation_checks\": {}, \"measured_target_total_entries\": {}, \"measured_target_max_domain\": {}, \"measured_target_domain_entries\": {}}},",
         report.stats.enumerated_candidates,
         report.stats.domains_pruned,
         report.stats.deductions,
@@ -393,7 +401,10 @@ fn append_recovery_json_body(out: &mut String, report: &RecoveryReport, indent: 
         report.stats.target_replay_checks,
         report.stats.target_replay_literals,
         report.stats.candidate_clauses_learned,
-        report.stats.truth_preservation_checks
+        report.stats.truth_preservation_checks,
+        report.stats.measured_target_total_entries,
+        report.stats.measured_target_max_domain,
+        char_usize_pairs_json(&report.stats.measured_target_domain_entries)
     )
     .expect("write to String");
     writeln!(out, "{indent}\"letters\": [").expect("write to String");
@@ -538,6 +549,14 @@ fn format_usize_slice(values: &[usize]) -> String {
         .join(",")
 }
 
+fn format_char_usize_pairs(values: &[(char, usize)]) -> String {
+    values
+        .iter()
+        .map(|(letter, count)| format!("{letter}:{count}"))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
 fn option_json(value: Option<usize>) -> String {
     value.map_or_else(|| "null".to_owned(), |found| found.to_string())
 }
@@ -548,6 +567,15 @@ fn usize_slice_json(values: &[usize]) -> String {
 
 fn optional_usize_slice_json(values: Option<&[usize]>) -> String {
     values.map_or_else(|| "null".to_owned(), usize_slice_json)
+}
+
+fn char_usize_pairs_json(values: &[(char, usize)]) -> String {
+    let entries = values
+        .iter()
+        .map(|(letter, count)| format!("[\"{}\",{}]", json_escape(&letter.to_string()), count))
+        .collect::<Vec<_>>()
+        .join(",");
+    format!("[{entries}]")
 }
 
 fn json_escape(raw: &str) -> String {

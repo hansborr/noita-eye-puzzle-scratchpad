@@ -33,6 +33,25 @@ fn ns3_planted_control_recovers_through_production_path() {
                 .saturating_add(report.stats.candidate_clauses_learned),
         "every learned clause in the planted control must pass truth tracking"
     );
+    assert!(
+        !report.stats.measured_target_domain_entries.is_empty(),
+        "planted ns=3 control must record the target-slice residual measurement"
+    );
+    assert_eq!(
+        report.stats.measured_target_total_entries,
+        report
+            .stats
+            .measured_target_domain_entries
+            .iter()
+            .map(|&(_letter, count)| count)
+            .sum()
+    );
+    eprintln!(
+        "small ns=3 target-slice residual: total={} max={} per-letter={:?}",
+        report.stats.measured_target_total_entries,
+        report.stats.measured_target_max_domain,
+        report.stats.measured_target_domain_entries
+    );
     assert_report_preserves_planted_membership(&report, &planted);
 }
 

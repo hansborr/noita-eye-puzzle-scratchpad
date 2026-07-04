@@ -8,6 +8,7 @@ mod error;
 mod inference;
 mod instrumentation;
 mod learning;
+mod ns3_cegar;
 #[cfg(test)]
 mod ns3_control;
 mod propagation;
@@ -199,6 +200,12 @@ pub struct SwapRecoveryStats {
     pub candidate_clauses_learned: usize,
     /// Learned clauses checked against planted truth by observational controls.
     pub truth_preservation_checks: usize,
+    /// Total residual entries after applying planted targets and full propagation.
+    pub measured_target_total_entries: usize,
+    /// Maximum per-letter residual size after applying planted targets.
+    pub measured_target_max_domain: usize,
+    /// Per-letter residual sizes after applying planted targets.
+    pub measured_target_domain_entries: Vec<(char, usize)>,
 }
 
 /// Full recovery report returned by [`recover_known_plaintext_swaps`].

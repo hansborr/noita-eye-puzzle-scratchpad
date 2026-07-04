@@ -8,12 +8,11 @@ use batsat::{BasicSolver, Lit, SolverInterface, lbool};
 use super::super::{LymmComposeDirection, LymmDeckSpec, TopSwapDomains};
 pub(super) use super::domain_build::build_residual_domains;
 use super::instrumentation::trace_residual;
-use super::learning::{LearnedClause, TruthTracker, add_outer_stats, learn_sat_clause};
+use super::learning::{LearnedClause, TruthTracker, learn_sat_clause};
+use super::ns3_cegar::recover_ns3_with_target_cegar;
 use super::propagation::{PropagationOptions, propagate_partial_states};
 use super::sat_encoding::{add_adjacent_transition_clauses, add_top_image_channel_clauses};
 use super::state::apply_recovered_permutation;
-use super::target_conflict::minimize_deterministic_target_conflict;
-use super::target_solver::TargetAssignmentSolver;
 use super::{
     AlignedMessage, LetterRecoveryVerdict, RecoveredLetter, RecoveryReport, SwapRecoveryConfig,
     SwapRecoveryError, SwapRecoveryStats, occurrence_counts, pairs_from_messages, report_shell,
@@ -87,113 +86,7 @@ pub(super) fn recover_with_residual(
     )
 }
 
-fn recover_ns3_with_target_cegar(
-    spec: &LymmDeckSpec,
-    messages: &[AlignedMessage],
-    config: &SwapRecoveryConfig,
-) -> Result<RecoveryReport, SwapRecoveryError> {
-    let truth = config.planted_truth().cloned().map(TruthTracker::new);
-    let mut residual = build_residual_domains(spec, messages, config)?;
-    let mut stats = SwapRecoveryStats {
-        enumerated_candidates: residual.candidates.len(),
-        ..SwapRecoveryStats::default()
-    };
-    let propagation = propagate_partial_states(
-        spec,
-        messages,
-        &mut residual,
-        &mut stats,
-        PropagationOptions::ns3_broad(),
-    )?;
-    if trace_residual("target", config.max_swaps, &residual, &stats) {
-        return Err(SwapRecoveryError::SearchCapExceeded { nodes: 0 });
-    }
-    if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_some() {
-        eprintln!("cegar: building target solver");
-    }
-    let mut target_solver =
-        TargetAssignmentSolver::new(spec, messages, &propagation.state_domains, &residual);
-    if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_some() {
-        eprintln!("cegar: target solver built");
-    }
-    let mut target_nodes = 0usize;
-    loop {
-        if let Some(max_nodes) = config.max_nodes
-            && target_nodes >= max_nodes
-        {
-            return Err(SwapRecoveryError::SearchCapExceeded {
-                nodes: target_nodes,
-            });
-        }
-        let Some(targets) = target_solver.next_assignment()? else {
-            return Err(SwapRecoveryError::NoResidualCandidate);
-        };
-        target_nodes = target_nodes.saturating_add(1);
-        if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_some() {
-            eprintln!("cegar: target assignment {target_nodes}: {targets:?}");
-        }
-        let mut targeted = residual.clone();
-        restrict_to_targets(&mut targeted, &targets)?;
-        if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_some() {
-            let total = targeted
-                .by_letter
-                .values()
-                .map(std::vec::Vec::len)
-                .sum::<usize>();
-            let max = targeted
-                .by_letter
-                .values()
-                .map(std::vec::Vec::len)
-                .max()
-                .unwrap_or(0);
-            eprintln!("cegar: targeted entries={total} max_domain={max}");
-        }
-        match recover_with_residual_domains(
-            spec,
-            messages,
-            (*config).clone(),
-            targeted,
-            PropagationOptions::ns2_default(),
-            Some(&targets),
-            truth.as_ref(),
-        ) {
-            Ok(mut report) => {
-                add_outer_stats(&mut report.stats, &stats);
-                report.stats.nodes = report.stats.nodes.saturating_add(target_nodes);
-                return Ok(report);
-            }
-            Err(SwapRecoveryError::TargetUnsatCore { choices }) => {
-                if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_some() {
-                    eprintln!("cegar: learned target core size={}", choices.len());
-                }
-                if choices.is_empty() {
-                    target_solver.learn_assignment_clause(&targets, truth.as_ref(), &mut stats)?;
-                } else {
-                    target_solver.learn_core_clause(&choices, truth.as_ref(), &mut stats)?;
-                }
-            }
-            Err(SwapRecoveryError::NoResidualCandidate) => {
-                let conflict = minimize_deterministic_target_conflict(
-                    spec, messages, &residual, &targets, &mut stats,
-                )?;
-                if let Some(core) = conflict {
-                    if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_some() {
-                        eprintln!(
-                            "cegar: learned deterministic target core size={}",
-                            core.len()
-                        );
-                    }
-                    target_solver.learn_core_clause(&core, truth.as_ref(), &mut stats)?;
-                } else {
-                    target_solver.learn_assignment_clause(&targets, truth.as_ref(), &mut stats)?;
-                }
-            }
-            Err(error) => return Err(error),
-        }
-    }
-}
-
-fn recover_with_residual_domains(
+pub(super) fn recover_with_residual_domains(
     spec: &LymmDeckSpec,
     messages: &[AlignedMessage],
     config: SwapRecoveryConfig,

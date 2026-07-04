@@ -2,10 +2,55 @@
 
 use std::collections::BTreeMap;
 
+use super::learning::TruthTracker;
 use super::propagation::{PropagationOptions, propagate_partial_states};
 use super::residual::{ResidualDomains, restrict_to_targets};
 use super::{AlignedMessage, SwapRecoveryError, SwapRecoveryStats};
 use crate::attack::gak_attack::lymm_deck::LymmDeckSpec;
+
+pub(super) fn measure_truth_target_residual(
+    spec: &LymmDeckSpec,
+    messages: &[AlignedMessage],
+    broad_baseline: &ResidualDomains,
+    truth: &TruthTracker,
+    stats: &mut SwapRecoveryStats,
+) -> Result<(), SwapRecoveryError> {
+    let targets = truth.targets_for_letters(&broad_baseline.letters);
+    let mut residual = broad_baseline.clone();
+    restrict_to_targets(&mut residual, &targets)?;
+    let mut measure_stats = SwapRecoveryStats {
+        enumerated_candidates: residual.candidates.len(),
+        ..SwapRecoveryStats::default()
+    };
+    let _propagation = propagate_partial_states(
+        spec,
+        messages,
+        &mut residual,
+        &mut measure_stats,
+        PropagationOptions::ns2_default(),
+    )?;
+    let entries = residual
+        .letters
+        .iter()
+        .map(|&letter| {
+            (
+                letter,
+                residual
+                    .by_letter
+                    .get(&letter)
+                    .map_or(0, std::vec::Vec::len),
+            )
+        })
+        .collect::<Vec<_>>();
+    stats.measured_target_total_entries = entries.iter().map(|&(_letter, count)| count).sum();
+    stats.measured_target_max_domain = entries
+        .iter()
+        .map(|&(_letter, count)| count)
+        .max()
+        .unwrap_or(0);
+    stats.measured_target_domain_entries = entries;
+    Ok(())
+}
 
 pub(super) fn minimize_deterministic_target_conflict(
     spec: &LymmDeckSpec,

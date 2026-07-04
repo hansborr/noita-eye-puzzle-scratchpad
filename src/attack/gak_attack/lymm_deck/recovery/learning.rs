@@ -32,6 +32,18 @@ impl TruthTracker {
         }
     }
 
+    pub(super) fn targets_for_letters(&self, letters: &[char]) -> BTreeMap<char, usize> {
+        letters
+            .iter()
+            .filter_map(|&letter| {
+                self.targets
+                    .get(&letter)
+                    .copied()
+                    .map(|target| (letter, target))
+            })
+            .collect()
+    }
+
     fn assert_preserved(&self, clause: &LearnedClause) -> Result<(), SwapRecoveryError> {
         let preserved = match clause {
             LearnedClause::Target(choices) => choices
@@ -108,4 +120,11 @@ pub(super) fn add_outer_stats(stats: &mut SwapRecoveryStats, outer: &SwapRecover
     stats.truth_preservation_checks = stats
         .truth_preservation_checks
         .saturating_add(outer.truth_preservation_checks);
+    if !outer.measured_target_domain_entries.is_empty() {
+        stats.measured_target_total_entries = outer.measured_target_total_entries;
+        stats.measured_target_max_domain = outer.measured_target_max_domain;
+        stats
+            .measured_target_domain_entries
+            .clone_from(&outer.measured_target_domain_entries);
+    }
 }
