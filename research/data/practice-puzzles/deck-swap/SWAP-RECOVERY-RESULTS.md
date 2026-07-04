@@ -484,8 +484,11 @@ checks and `334.67s` on its first learned rejection (`25.0` checks/rejection).
 The reason-tracked cap-8 probe spent `56` replay checks across `8` learned
 rejections (`7.0` checks/rejection, about `216.15s` elapsed per learned
 rejection). That is a material cost reduction, but the real file remains walled:
-the learned reasons are consistently 5-literal clauses and the target solver was
-still rejecting deterministic slices when the cap was reached.
+the learned reasons are consistently 5-literal clauses. The `7.0`
+checks/rejection figure means the singleton/focused sub-reason candidates are
+failing broad verification on the real file, and each rejection runs until the
+full 5-literal tracked core verifies. The target solver was still rejecting
+deterministic slices when the cap was reached.
 
 ## Likely next levers
 
