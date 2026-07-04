@@ -11,6 +11,9 @@ use super::target_reason::TargetReasonTracker;
 use super::{AlignedMessage, SwapRecoveryError, SwapRecoveryStats};
 use crate::attack::gak_attack::lymm_deck::LymmDeckSpec;
 
+const FULL_CORE_FIRST_LITERAL_FLOOR: usize = 4;
+const FULL_CORE_FIRST_REPLAY_FLOOR: usize = 3;
+
 pub(super) fn measure_truth_target_residual(
     spec: &LymmDeckSpec,
     messages: &[AlignedMessage],
@@ -112,7 +115,7 @@ pub(super) fn extract_deterministic_target_conflict(
                 trace_reason_fallback("produced no tracked reason");
                 return Ok(None);
             };
-            let candidates = deterministic_reason_candidates(&tracker, full_core);
+            let candidates = deterministic_reason_candidates(&tracker, full_core, stats);
             for core in candidates {
                 if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_some() {
                     eprintln!("cegar: tracked deterministic reason candidate {core:?}");
@@ -136,9 +139,25 @@ pub(super) fn extract_deterministic_target_conflict(
 fn deterministic_reason_candidates(
     tracker: &TargetReasonTracker,
     full_core: Vec<(char, usize)>,
+    stats: &SwapRecoveryStats,
+) -> Vec<Vec<(char, usize)>> {
+    deterministic_reason_candidates_from_parts(
+        tracker.focused_conflict_choices(),
+        full_core,
+        prefer_full_core_first(stats),
+    )
+}
+
+fn deterministic_reason_candidates_from_parts(
+    focused: Option<Vec<(char, usize)>>,
+    full_core: Vec<(char, usize)>,
+    full_core_first: bool,
 ) -> Vec<Vec<(char, usize)>> {
     let mut candidates = Vec::new();
-    if let Some(focused) = tracker.focused_conflict_choices() {
+    if full_core_first {
+        push_unique_core(&mut candidates, full_core.clone());
+    }
+    if let Some(focused) = focused {
         for &choice in focused.iter().rev() {
             push_unique_core(&mut candidates, vec![choice]);
         }
@@ -150,6 +169,18 @@ fn deterministic_reason_candidates(
     push_unique_core(&mut candidates, full_core);
     candidates.retain(|core| !core.is_empty());
     candidates
+}
+
+fn prefer_full_core_first(stats: &SwapRecoveryStats) -> bool {
+    stats.target_clauses_learned > 0
+        && stats.target_replay_literals
+            >= stats
+                .target_clauses_learned
+                .saturating_mul(FULL_CORE_FIRST_LITERAL_FLOOR)
+        && stats.target_replay_checks
+            >= stats
+                .target_clauses_learned
+                .saturating_mul(FULL_CORE_FIRST_REPLAY_FLOOR)
 }
 
 fn push_unique_core(candidates: &mut Vec<Vec<(char, usize)>>, core: Vec<(char, usize)>) {
@@ -230,5 +261,71 @@ fn deterministic_rejects(
         Ok(_) => Ok(false),
         Err(SwapRecoveryError::NoResidualCandidate) => Ok(true),
         Err(error) => Err(error),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        SwapRecoveryStats, deterministic_reason_candidates_from_parts, prefer_full_core_first,
+    };
+
+    #[test]
+    fn reason_candidates_stay_quality_first_before_multiliteral_floor() {
+        let focused = vec![('A', 1), ('B', 2)];
+        let full = vec![('A', 1), ('B', 2), ('C', 3)];
+        let candidates = deterministic_reason_candidates_from_parts(Some(focused), full, false);
+
+        assert_eq!(
+            candidates,
+            vec![
+                vec![('B', 2)],
+                vec![('A', 1)],
+                vec![('A', 1), ('B', 2)],
+                vec![('C', 3)],
+                vec![('A', 1), ('B', 2), ('C', 3)]
+            ]
+        );
+    }
+
+    #[test]
+    fn reason_candidates_try_full_core_first_after_multiliteral_floor() {
+        let focused = vec![('A', 1), ('B', 2)];
+        let full = vec![('A', 1), ('B', 2), ('C', 3)];
+        let candidates = deterministic_reason_candidates_from_parts(Some(focused), full, true);
+
+        assert_eq!(
+            candidates.first(),
+            Some(&vec![('A', 1), ('B', 2), ('C', 3)])
+        );
+        assert_eq!(
+            candidates,
+            vec![
+                vec![('A', 1), ('B', 2), ('C', 3)],
+                vec![('B', 2)],
+                vec![('A', 1)],
+                vec![('A', 1), ('B', 2)],
+                vec![('C', 3)]
+            ]
+        );
+    }
+
+    #[test]
+    fn full_core_first_heuristic_ignores_singleton_control_history() {
+        let control_like = SwapRecoveryStats {
+            target_clauses_learned: 4,
+            target_replay_checks: 5,
+            target_replay_literals: 4,
+            ..SwapRecoveryStats::default()
+        };
+        let real_file_like = SwapRecoveryStats {
+            target_clauses_learned: 1,
+            target_replay_checks: 7,
+            target_replay_literals: 5,
+            ..SwapRecoveryStats::default()
+        };
+
+        assert!(!prefer_full_core_first(&control_like));
+        assert!(prefer_full_core_first(&real_file_like));
     }
 }
