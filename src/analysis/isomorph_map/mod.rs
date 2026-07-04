@@ -20,8 +20,14 @@ use crate::analysis::translate_isomorph::{IsoScanError, markov_resample};
 use crate::ciphers::{CipherError, validate_permutation};
 use crate::nulls::null::{RandomBoundError, SplitMix64, add_one_p_value};
 
+mod group;
 #[cfg(test)]
 mod tests;
+
+pub use group::{
+    BlockSystem, ChainValidation, ChainViolation, GroupClosure, close_full_maps,
+    compose_partial_maps, validate_chains,
+};
 
 /// Default number of Markov matched-null trials.
 pub const DEFAULT_NULL_TRIALS: usize = 200;
@@ -31,6 +37,9 @@ pub const DEFAULT_TOP_K: usize = 64;
 pub const DEFAULT_TRIM: usize = 2;
 /// Default floor on the raw equality-pattern span length.
 pub const DEFAULT_MIN_SPAN_LEN: usize = 8;
+/// Default closure cap. Exceeding this means the generated group is no longer a
+/// cheap stage-1 structural lower bound.
+pub const DEFAULT_CLOSURE_CAP: usize = 100_000;
 /// Default deterministic seed for the matched null and controls.
 pub const DEFAULT_SEED: u64 = 0x6973_6f6d_6170_0001;
 
@@ -69,6 +78,11 @@ pub enum IsoMapError {
     },
     /// Permutation validation failed while closing full maps.
     Permutation(CipherError),
+    /// The generated closure exceeded the configured cap.
+    ClosureCapExceeded {
+        /// Configured cap.
+        cap: usize,
+    },
 }
 
 impl From<RandomBoundError> for IsoMapError {
@@ -122,6 +136,9 @@ impl fmt::Display for IsoMapError {
             ),
             Self::RandomBound { bound } => write!(f, "random draw rejected bound {bound}"),
             Self::Permutation(error) => write!(f, "permutation error: {error}"),
+            Self::ClosureCapExceeded { cap } => {
+                write!(f, "generated permutation closure exceeded cap {cap}")
+            }
         }
     }
 }
