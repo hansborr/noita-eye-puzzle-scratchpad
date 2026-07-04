@@ -313,8 +313,9 @@ First target-level conflict-learning milestone, 2026-07-04:
   ns=3-targeted deterministic tier (`R-top`/generalized `R-read`/state-domain,
   no exhaustive candidate arc), the correct planted target slice leaves residual
   candidate freedom: `total=4`, `max=2`, per-letter `A:1,B:2,C:1`. This is the
-  pivotal measurement for the scaled plant: candidate-tier learning is
-  load-bearing, not merely a confirm. The vendored `3_swap_ct.txt` key is not
+  pivotal measurement for the scaled plant: the candidate witness tier has real
+  work after target acceptance, not merely a confirm. It does not prove that
+  learned candidate clauses fired. The vendored `3_swap_ct.txt` key is not
   recorded, so the same correct-target residual-freedom measurement cannot be
   made for the real file unless the solver first recovers the real exact key.
 - The first real `3_swap_ct.txt` production-path probe used the ignored rerunnable
