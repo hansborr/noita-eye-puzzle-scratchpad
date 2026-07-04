@@ -299,6 +299,7 @@ fn null_control(
                 | SwapRecoveryError::UnknownCiphertextSymbol { .. }
                 | SwapRecoveryError::PairLengthMismatch { .. }
                 | SwapRecoveryError::UnsupportedBudget { .. }
+                | SwapRecoveryError::TargetUnsatCore { .. }
                 | SwapRecoveryError::SatSolver(_),
             ) => (NullControlOutcome::ControlError, None),
         };

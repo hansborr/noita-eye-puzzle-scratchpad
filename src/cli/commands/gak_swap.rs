@@ -126,6 +126,12 @@ fn controls_required(run_controls: bool, skip_controls: bool, has_real_files: bo
 }
 
 fn validate_task02_knobs(args: &GakSwapRecoverArgs) -> Result<(), String> {
+    if matches!(args.num_swaps.or(args.max_swaps), Some(3)) {
+        return Err(
+            "unsupported top-swap budget 3; measured Task-02 frontier is currently ns<=2, and ns=3 remains a recorded wall"
+                .to_owned(),
+        );
+    }
     if args.beam.is_some() {
         return Err("--beam is reserved for a Task-03 fallback and is not implemented".to_owned());
     }

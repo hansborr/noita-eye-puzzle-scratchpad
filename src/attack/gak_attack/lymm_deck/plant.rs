@@ -1,4 +1,9 @@
 //! Seeded planted mappings for Lymm's top-swap deck family.
+//!
+//! The rejection-sampling invariant matches Lymm's Python reference generator
+//! (`research/data/practice-puzzles/deck-swap/noita_test_cipher.py`,
+//! `generate_random_pt_mapping`): each plaintext letter is sampled until
+//! `perm[0]` is nonzero and no earlier plaintext letter used that target.
 
 use std::collections::{BTreeMap, BTreeSet};
 
