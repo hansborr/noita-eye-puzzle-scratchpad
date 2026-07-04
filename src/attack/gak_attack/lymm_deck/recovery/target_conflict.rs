@@ -114,7 +114,8 @@ pub(super) fn extract_deterministic_target_conflict(
                 trace_reason_fallback("produced no tracked reason");
                 return Ok(None);
             };
-            let candidates = deterministic_reason_candidates(&tracker, full_core, stats);
+            let full_core_first = prefer_full_core_first(stats);
+            let candidates = deterministic_reason_candidates(&tracker, full_core, full_core_first);
             for core in candidates {
                 if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_some() {
                     eprintln!("cegar: tracked deterministic reason candidate {core:?}");
@@ -129,6 +130,11 @@ pub(super) fn extract_deterministic_target_conflict(
                 }
             }
             trace_reason_fallback("had no compact candidate pass broad replay");
+            if full_core_first {
+                stats.target_floor_full_assignment_fallbacks = stats
+                    .target_floor_full_assignment_fallbacks
+                    .saturating_add(1);
+            }
             Ok(None)
         }
         Err(error) => Err(error),
@@ -138,12 +144,12 @@ pub(super) fn extract_deterministic_target_conflict(
 fn deterministic_reason_candidates(
     tracker: &TargetReasonTracker,
     full_core: Vec<(char, usize)>,
-    stats: &SwapRecoveryStats,
+    full_core_first: bool,
 ) -> Vec<Vec<(char, usize)>> {
     deterministic_reason_candidates_from_parts(
         tracker.focused_conflict_choices(),
         full_core,
-        prefer_full_core_first(stats),
+        full_core_first,
     )
 }
 

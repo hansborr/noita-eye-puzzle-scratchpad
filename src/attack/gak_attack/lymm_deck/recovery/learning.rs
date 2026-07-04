@@ -120,6 +120,9 @@ pub(super) fn add_outer_stats(stats: &mut SwapRecoveryStats, outer: &SwapRecover
     stats.target_replay_literals = stats
         .target_replay_literals
         .saturating_add(outer.target_replay_literals);
+    stats.target_floor_full_assignment_fallbacks = stats
+        .target_floor_full_assignment_fallbacks
+        .saturating_add(outer.target_floor_full_assignment_fallbacks);
     stats.truth_preservation_checks = stats
         .truth_preservation_checks
         .saturating_add(outer.truth_preservation_checks);

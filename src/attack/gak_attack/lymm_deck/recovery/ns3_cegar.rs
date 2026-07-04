@@ -1,6 +1,6 @@
 //! Two-tier ns=3 target CEGAR driver.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::domain_build::build_residual_domains;
 use super::instrumentation::{trace_residual, trace_stats};
@@ -16,6 +16,8 @@ use super::{
     AlignedMessage, RecoveryReport, SwapRecoveryConfig, SwapRecoveryError, SwapRecoveryStats,
 };
 use crate::attack::gak_attack::lymm_deck::LymmDeckSpec;
+
+const PROJECTION_LETTERS: [char; 5] = ['E', 'H', 'S', 'T', 'Y'];
 
 pub(super) fn recover_ns3_with_target_cegar(
     spec: &LymmDeckSpec,
@@ -49,6 +51,7 @@ pub(super) fn recover_ns3_with_target_cegar(
     if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_some() {
         eprintln!("cegar: target solver built");
     }
+    let mut projection_tracker = TargetProjectionTracker::new(&target_solver);
     let mut target_nodes = 0usize;
     loop {
         if let Some(max_nodes) = config.max_nodes
@@ -68,7 +71,7 @@ pub(super) fn recover_ns3_with_target_cegar(
         }
         let mut targeted = residual.clone();
         restrict_to_targets(&mut targeted, &targets)?;
-        trace_targeted_entries(&targeted);
+        let targeted_projection = trace_targeted_entries(&targeted);
         match recover_with_residual_domains(
             spec,
             messages,
@@ -113,6 +116,7 @@ pub(super) fn recover_ns3_with_target_cegar(
                     &mut stats,
                 )?;
                 stats.target_rejections = stats.target_rejections.saturating_add(1);
+                projection_tracker.record_rejection(target_nodes, &targets, targeted_projection);
             }
             Err(error) => {
                 trace_stats("target abort", &stats);
@@ -179,10 +183,7 @@ pub(super) fn learn_sat_unsat_core_target_clause(
     target_solver.learn_core_clause(&assignment_choices, core.truth, stats)
 }
 
-fn trace_targeted_entries(residual: &ResidualDomains) {
-    if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_none() {
-        return;
-    }
+fn trace_targeted_entries(residual: &ResidualDomains) -> TargetedProjection {
     let total = residual
         .by_letter
         .values()
@@ -194,7 +195,151 @@ fn trace_targeted_entries(residual: &ResidualDomains) {
         .map(std::vec::Vec::len)
         .max()
         .unwrap_or(0);
-    eprintln!("cegar: targeted entries={total} max_domain={max}");
+    if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_some() {
+        eprintln!("cegar: targeted entries={total} max_domain={max}");
+    }
+    TargetedProjection {
+        entries: total,
+        max_domain: max,
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct TargetedProjection {
+    entries: usize,
+    max_domain: usize,
+}
+
+#[derive(Debug)]
+struct TargetProjectionTracker {
+    domains: BTreeMap<char, Vec<usize>>,
+    seen: BTreeSet<[usize; PROJECTION_LETTERS.len()]>,
+    seen_by_t: BTreeMap<usize, usize>,
+    totals_by_t: BTreeMap<usize, usize>,
+    last_t: Option<usize>,
+}
+
+impl TargetProjectionTracker {
+    fn new(target_solver: &TargetAssignmentSolver) -> Self {
+        let domains = PROJECTION_LETTERS
+            .into_iter()
+            .map(|letter| (letter, target_solver.letter_target_values(letter)))
+            .collect();
+        Self {
+            domains,
+            seen: BTreeSet::new(),
+            seen_by_t: BTreeMap::new(),
+            totals_by_t: BTreeMap::new(),
+            last_t: None,
+        }
+    }
+
+    fn record_rejection(
+        &mut self,
+        node: usize,
+        targets: &BTreeMap<char, usize>,
+        targeted: TargetedProjection,
+    ) {
+        if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_none() {
+            return;
+        }
+        let Some(tuple) = projected_tuple(targets) else {
+            return;
+        };
+        let target_t = tuple[3];
+        let is_new = self.seen.insert(tuple);
+        if is_new {
+            let entry = self.seen_by_t.entry(target_t).or_insert(0);
+            *entry = entry.saturating_add(1);
+        }
+        let unique_for_t = self.seen_by_t.get(&target_t).copied().unwrap_or(0);
+        let total_for_t = self.total_for_t(target_t);
+        let remaining_for_t = total_for_t.saturating_sub(unique_for_t);
+        let t_change = match self.last_t.replace(target_t) {
+            None => "initial".to_owned(),
+            Some(previous) if previous == target_t => "same".to_owned(),
+            Some(previous) => format!("{previous}->{target_t}"),
+        };
+        eprintln!(
+            "cegar: projected target rejection node={node} E={} H={} S={} T={} Y={} new={} unique_projected={} unique_for_t={} projected_total_for_t={} projected_remaining_for_t={} targeted_entries={} targeted_max_domain={} t_change={}",
+            tuple[0],
+            tuple[1],
+            tuple[2],
+            tuple[3],
+            tuple[4],
+            is_new,
+            self.seen.len(),
+            unique_for_t,
+            total_for_t,
+            remaining_for_t,
+            targeted.entries,
+            targeted.max_domain,
+            t_change
+        );
+    }
+
+    fn total_for_t(&mut self, target_t: usize) -> usize {
+        if let Some(&total) = self.totals_by_t.get(&target_t) {
+            return total;
+        }
+        let total = count_projected_total_for_t(&self.domains, target_t);
+        let _old = self.totals_by_t.insert(target_t, total);
+        total
+    }
+}
+
+fn projected_tuple(targets: &BTreeMap<char, usize>) -> Option<[usize; PROJECTION_LETTERS.len()]> {
+    let mut tuple = [0usize; PROJECTION_LETTERS.len()];
+    for (index, letter) in PROJECTION_LETTERS.iter().enumerate() {
+        let slot = tuple.get_mut(index)?;
+        *slot = *targets.get(letter)?;
+    }
+    Some(tuple)
+}
+
+fn count_projected_total_for_t(domains: &BTreeMap<char, Vec<usize>>, target_t: usize) -> usize {
+    if target_t == 0
+        || domains
+            .get(&'T')
+            .is_none_or(|targets| targets.binary_search(&target_t).is_err())
+    {
+        return 0;
+    }
+    let Some(e_values) = domains.get(&'E') else {
+        return 0;
+    };
+    let Some(h_values) = domains.get(&'H') else {
+        return 0;
+    };
+    let Some(s_values) = domains.get(&'S') else {
+        return 0;
+    };
+    let Some(y_values) = domains.get(&'Y') else {
+        return 0;
+    };
+    let mut total = 0usize;
+    for &e in e_values {
+        if e == 0 || e == target_t {
+            continue;
+        }
+        for &h in h_values {
+            if h == 0 || h == target_t || h == e {
+                continue;
+            }
+            for &s in s_values {
+                if s == 0 || s == target_t || s == e || s == h {
+                    continue;
+                }
+                for &y in y_values {
+                    if y == 0 || y == target_t || y == e || y == h || y == s {
+                        continue;
+                    }
+                    total = total.saturating_add(1);
+                }
+            }
+        }
+    }
+    total
 }
 
 fn learn_no_residual_target_clause(

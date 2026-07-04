@@ -8,7 +8,7 @@ pub(super) fn trace_stats(label: &str, stats: &SwapRecoveryStats) {
         return;
     }
     eprintln!(
-        "cegar: {label} stats candidates={} pruned={} deductions={} nodes={} sat_decisions={} sat_conflicts={} target_rejections={} target_clauses={} target_replay_checks={} target_replay_literals={} candidate_clauses={} truth_checks={}",
+        "cegar: {label} stats candidates={} pruned={} deductions={} nodes={} sat_decisions={} sat_conflicts={} target_rejections={} target_clauses={} target_replay_checks={} target_replay_literals={} target_floor_full_assignment_fallbacks={} candidate_clauses={} truth_checks={}",
         stats.enumerated_candidates,
         stats.domains_pruned,
         stats.deductions,
@@ -19,6 +19,7 @@ pub(super) fn trace_stats(label: &str, stats: &SwapRecoveryStats) {
         stats.target_clauses_learned,
         stats.target_replay_checks,
         stats.target_replay_literals,
+        stats.target_floor_full_assignment_fallbacks,
         stats.candidate_clauses_learned,
         stats.truth_preservation_checks
     );

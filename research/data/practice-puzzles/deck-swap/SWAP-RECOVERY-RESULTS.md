@@ -490,32 +490,124 @@ failing broad verification on the real file, and each rejection runs until the
 full 5-literal tracked core verifies. The target solver was still rejecting
 deterministic slices when the cap was reached.
 
+Lever-1a adaptive reason replay ordering, 2026-07-04:
+
+- Added run-adaptive candidate ordering for deterministic target reasons. The
+  extractor keeps the quality-first singleton ordering until learned target
+  clauses demonstrate a multi-literal floor, then tries non-singleton tracked
+  cores first and skips singleton probes. Every learned clause still passes the
+  same broad-baseline replay before `learn_sat_clause`.
+- Control quality held after the change: the anchored rejection controls remain
+  at `4/15/18` target rejections for `n=7/11/17`, with replay checks
+  `5/22/25` and replay literals `4/15/18`. The controls still learn singleton
+  target clauses.
+
+Real `3_swap_ct.txt` cap-60 probe after lever 1a:
+
+```sh
+TIMEFORMAT='wall=%3R s'; { time env NOITA_SWAP_CEGAR_TRACE=1 \
+  NOITA_SWAP_NS3_PROBE_SECONDS=2700 \
+  NOITA_SWAP_NS3_PROBE_MAX_NODES=60 \
+  cargo test --locked ns3_real_file_production_path_frontier_probe -- --ignored --nocapture; } 2>&1 \
+  | tee /tmp/ns3-probe-lever1a-final-cap60.log
+```
+
+Result: still no recovery claim and no accepted target slice. The probe stopped
+cleanly at `SearchCapExceeded { nodes: 60 }` after `1856.190s` test elapsed
+(`wall=1856.466s`). It learned `60` deterministic target clauses from `60`
+target rejections, with `target_replay_checks=66`,
+`target_replay_literals=300`, `candidate_clauses=0`, `truth_checks=0`,
+`candidates=541406`, `pruned=659692`, and `deductions=257083`. Clause-length
+distribution was `60 x len=5`; all learned target reasons were the recurring
+`E/H/S/T/Y` family, with `T=67` throughout and the other values swept.
+
+Cost comparison: lever 1a cuts the real-file deterministic rejection cost from
+`7.0` to `1.10` broad replay checks/rejection. Wall-clock cost drops from about
+`216.15s`/rejection at cap 8 to about `30.94s`/rejection at cap 60. The extra
+six replay checks are the first rejection's floor-discovery cost; after that the
+probe mostly pays one broad replay per learned 5-literal clause.
+
+Livelock read: the cap-60 probe shows no visible convergence pressure, but by
+itself does not distinguish true target-layer livelock from slow local
+convergence inside the recurring `E/H/S/T/Y` subspace. There was no accepted
+slice, no candidate-tier handoff, and no exact `2439/2439` round trip. The
+targeted residual-size trace stayed broad: `targeted entries=153896,
+max_domain=6562` on `55/60` assignments and `targeted entries=157136,
+max_domain=6562` on `5/60`; it oscillated between broad regions rather than
+shrinking. One reading is true livelock in a too-coarse target vocabulary;
+another is finite but slow enumeration of a local projected pocket. A projected
+`E/H/S/T/Y` measurement is needed before committing to the next major lever.
+
+Projected `E/H/S/T/Y` adjudication probe, 2026-07-04:
+
+```sh
+TIMEFORMAT='wall=%3R s'; { time env NOITA_SWAP_CEGAR_TRACE=1 \
+  NOITA_SWAP_NS3_PROBE_MAX_NODES=60 \
+  cargo test --locked ns3_real_file_production_path_frontier_probe -- --ignored --nocapture; } 2>&1 \
+  | tee /tmp/ns3-projection-cap60.log
+```
+
+Result: still no recovery claim, no accepted target slice, no candidate-tier
+handoff, and no exact `2439/2439` round trip. The probe stopped cleanly at
+`SearchCapExceeded { nodes: 60 }` after `2327.300s` test elapsed
+(`wall=2327.536s`). It learned `60` deterministic target clauses from `60`
+target rejections, with `target_replay_checks=66` (`1.10` checks/rejection),
+`target_replay_literals=300`, and `target_floor_full_assignment_fallbacks=0`.
+Clause-length distribution was `60 x len=5`; all learned clauses were the
+tracked `E/H/S/T/Y` reason family. Cap-wide wall cost was `38.79s` per learned
+rejection and `35.27s` per broad replay; the first rejection still pays the
+floor-discovery sequence, while subsequent rejections mostly pay one broad
+replay each.
+
+Projection-space measurement: every rejected projected tuple was new
+(`unique_projected=60`), every one remained in the same `T=67` slab
+(`t_change=initial` once, then `same` `59` times), and the static distinct
+projected space under `T=67` stayed `34,234,200` throughout. The final line was
+`unique_for_t=60`, `projected_remaining_for_t=34,234,140`: only `60` of
+`34,234,200` projected tuples were eliminated. Targeted residual entries again
+showed no narrowing trend: `153896` entries on `55/60` rejections and `157136`
+on `5/60`, with `targeted_max_domain=6562` throughout. The run touched
+`7` distinct `E` values, `6` distinct `H` values, `13` distinct `S` values, and
+`8` distinct `Y` values, but did not move `T`.
+
+Verdict: this adjudicates the livelock question toward true target-layer
+livelock at the current `(letter = target)` vocabulary. The solver is not
+measurably exhausting a finite local projected pocket; it is enumerating fresh
+5-target tuples inside a huge flat `T=67` slab. The next major lever should not
+be more target-only singleton chasing. It should bring finer-than-target /
+partial-transition literals or partial-slice theory propagation forward.
+
 ## Likely next levers
 
 Ranked hypotheses for closing `ns=3`:
 
-1. Strengthen real-file target reasons. Confidence: medium/high. Cost: high. The
-   lever-1 implementation cuts broad replay checks, but the real probe still
-   learns 5-literal target clauses and remains in deterministic rejection after
-   eight learned clauses. The next reason-quality step should target smaller
-   broad-valid reasons for the recurring `E/H/S/T/Y` family rather than only
-   cheaper validation of the current reason.
-2. Feature-level candidate CEGAR conflicts instead of whole-prefix nogoods.
-   Confidence: medium/high. Cost: medium. Failed exact re-encryptions should learn
-   local incompatible letter/candidate features where possible, not only a full
-   prefix assignment.
-3. Incremental solving with assumptions and reusable learned clauses across
+1. Finer-than-target deterministic clauses / partial transition literals.
+   Confidence: medium/high. Cost: high. Lever 1a made 5-literal target clauses
+   cheap, but cap 60 still stayed in deterministic target rejection. The next
+   useful vocabulary likely has to explain transition or candidate features
+   below `(letter = target)`, with the same broad-replay soundness rule.
+2. Partial-slice target DPLL(T). Confidence: medium/high. Cost: medium/high.
+   The cap-60 probe shows the target solver proposing full assignments that are
+   rejected by small repeated target families. Driving deterministic propagation
+   on partial target assignments could reject these before 20+ irrelevant target
+   choices are fixed.
+3. Feature-level candidate CEGAR conflicts instead of whole-prefix nogoods.
+   Confidence: medium/high after an accepted slice, low for the current wall.
+   Failed exact re-encryptions should learn local incompatible letter/candidate
+   features where possible, but the real file still has not reached the
+   candidate tier.
+4. Incremental solving with assumptions and reusable learned clauses across
    target slices. Confidence: medium. Cost: medium. This pairs naturally with
    target-level cores and avoids rebuilding similar candidate residuals.
-4. Dependency-tracked longer n-gram target/candidate clauses. Confidence: medium.
+5. Dependency-tracked longer n-gram target/candidate clauses. Confidence: medium.
    Cost: medium/high. The spent bounded four-event target experiment was too
    blunt, but a compact encoding that can explain failures may still help.
-5. Per-letter meet-in-the-middle for hard residual domains. Confidence: medium.
+6. Per-letter meet-in-the-middle for hard residual domains. Confidence: medium.
    Cost: medium/high. Useful where one letter is the bottleneck, but it does not
    by itself encode cross-letter state coupling.
-6. Crib equalities from shared identity prefixes and repeated spans. Confidence:
+7. Crib equalities from shared identity prefixes and repeated spans. Confidence:
    medium. Cost: low/medium. These should reduce residual domains but are unlikely
    to close `ns=3` alone.
-7. More aggressive shadow seeding. Confidence: low. Cost: low. The top-1 run was
+8. More aggressive shadow seeding. Confidence: low. Cost: low. The top-1 run was
    unsound, and top-4/top-16 remained too large; use only as a diagnostic, not as
    a recovery proof.
