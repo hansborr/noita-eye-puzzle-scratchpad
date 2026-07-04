@@ -428,16 +428,75 @@ load-bearing: this does not make `n=83` cheap. The real-file wall still includes
 large per-rejection broad replay cost, which is exactly why lever 1 targets
 reason extraction / cheaper sound target reasons.
 
+Lever-1 target-reason extraction, 2026-07-04:
+
+- Replaced the deterministic `NoResidualCandidate` path's full target-assignment
+  greedy minimization with target-level reason tracking inside deterministic
+  propagation. The learned reason is still replayed from the broad residual
+  before it can reach `learn_sat_clause`.
+- Ambiguous tracked reasons are validated only over literals present in the
+  extracted implication reason, not over the whole target assignment. On the
+  planted controls this preserves the greedy rejection counts exactly while
+  cutting replay checks.
+
+Control quality gate, greedy baseline vs. implication-tracked reasons:
+
+| control | greedy target rejections | reason target rejections | greedy replay checks | reason replay checks | checks/rejection before | checks/rejection after | result |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `n=7`, anchored width-4 `ABC` | `4` | `4` | `13` | `5` | `3.25` | `1.25` | Holds. |
+| `n=11`, anchored width-4 `ABC` | `15` | `15` | `52` | `22` | `3.47` | `1.47` | Holds. |
+| `n=17`, anchored width-4 `ABC` | `18` | `18` | `61` | `25` | `3.39` | `1.39` | Holds. |
+
+Latest warm-run control command:
+
+```sh
+cargo test --locked ns3_top_swap_rejection_control -- --include-ignored --nocapture
+```
+
+Latest reason-tracked control measurements:
+
+| control | target rejections | target clauses | replay checks | replay literals | candidate clauses | test body |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `n=7`, anchored width-4 `ABC` | `4` | `4` | `5` | `4` | `0` | `621.085ms` |
+| `n=11`, anchored width-4 `ABC` | `15` | `15` | `22` | `15` | `129` | `3.498s` |
+| `n=17`, anchored width-4 `ABC` | `18` | `18` | `25` | `18` | `106` | `1.411s` |
+
+Real `3_swap_ct.txt` probe after lever 1:
+
+```sh
+TIMEFORMAT='wall=%3R s'; { time env NOITA_SWAP_CEGAR_TRACE=1 \
+  NOITA_SWAP_NS3_PROBE_SECONDS=1800 \
+  NOITA_SWAP_NS3_PROBE_MAX_NODES=8 \
+  cargo test --locked ns3_real_file_production_path_frontier_probe -- --ignored --nocapture; } 2>&1 \
+  | tee /tmp/ns3-probe-after-cap8.log
+```
+
+Result: still no recovery claim. The probe stopped cleanly at
+`SearchCapExceeded { nodes: 8 }` after `1729.216s` test elapsed
+(`wall=1729.461s`). It learned `8` deterministic target clauses from `8`
+target rejections, with `target_replay_checks=56`, `target_replay_literals=40`,
+`candidate_clauses=0`, `truth_checks=0`, `candidates=541406`,
+`pruned=659692`, and `deductions=257083`. No target slice was accepted, no
+candidate witness tier fired, and there is no exact `2439/2439` re-encryption.
+
+Real-file cost comparison: the previous greedy probe spent `25` broad replay
+checks and `334.67s` on its first learned rejection (`25.0` checks/rejection).
+The reason-tracked cap-8 probe spent `56` replay checks across `8` learned
+rejections (`7.0` checks/rejection, about `216.15s` elapsed per learned
+rejection). That is a material cost reduction, but the real file remains walled:
+the learned reasons are consistently 5-literal clauses and the target solver was
+still rejecting deterministic slices when the cap was reached.
+
 ## Likely next levers
 
 Ranked hypotheses for closing `ns=3`:
 
-1. Instrumented target-level implication tracking inside deterministic
-   propagation. Confidence: high. Cost: high. Replay minimization is sound but too
-   expensive on real `n=83`: the first clause alone took `25` broad-baseline
-   replays and `334.67s`. The next version needs to return a compact reason from
-   the propagation step that found the contradiction, while preserving the
-   per-clause planted-truth invariant.
+1. Strengthen real-file target reasons. Confidence: medium/high. Cost: high. The
+   lever-1 implementation cuts broad replay checks, but the real probe still
+   learns 5-literal target clauses and remains in deterministic rejection after
+   eight learned clauses. The next reason-quality step should target smaller
+   broad-valid reasons for the recurring `E/H/S/T/Y` family rather than only
+   cheaper validation of the current reason.
 2. Feature-level candidate CEGAR conflicts instead of whole-prefix nogoods.
    Confidence: medium/high. Cost: medium. Failed exact re-encryptions should learn
    local incompatible letter/candidate features where possible, not only a full
