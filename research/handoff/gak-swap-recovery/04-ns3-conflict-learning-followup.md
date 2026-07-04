@@ -56,6 +56,22 @@ residual-freedom measurement then confirmed the acceptance branch has real work.
   falsifies ≥1 conjunct **before** insertion. Raw static-encoding inserts go
   through `add_static_encoding_clause` (renamed, with `debug_assert` + comment) so a
   future edit can't route a learned clause around the check. Keep that boundary.
+- **A learned *target* clause must be valid against the *broad* baseline, restricted
+  to only that clause's own literals** — not against a formula already narrowed to the
+  other targets. Truth-preservation (above) is a no-op on the real (plant-free) file, so
+  on the real file target-clause soundness rests *entirely* on this. The deterministic
+  path earns it by construction: `target_conflict.rs::deterministic_rejects` re-runs
+  broad propagation on exactly the candidate subset. The SAT `TargetUnsatCore` path
+  (`residual.rs`) does **not** — its core is extracted from a formula whose domains were
+  physically `restrict_to_targets`-narrowed to the *full* target assignment, so the
+  channelling clauses bake in the off-core targets and an unsat core over a subset of
+  target-assumption literals is not a proven broad-residual nogood. This is a latent
+  soundness gap in landed code (planted controls can't catch it: truth-preservation only
+  fires when the bad core excludes *the* plant, and the controls have unique solutions —
+  the exact "unsound-but-passing control" the process notes warn about). Any new reason
+  mechanism (lever 1) inherits the obligation. Close it with a one-shot broad-baseline
+  recheck of the returned core before `learn_sat_clause`, or by assumption-guarding the
+  target restriction instead of physically applying it.
 - **Controls route through the production acceptance path** (`ns3_control.rs` calls
   `recover_known_plaintext_swaps`), truth tracking is observational/labeling only.
 - **Measured frontier, never "scales arbitrarily."** A walled level is a reportable
@@ -63,28 +79,76 @@ residual-freedom measurement then confirmed the acceptance branch has real work.
 
 ## The next lever (ranked; full list in the results note)
 
-Primary target: make the real `n=83` ns=3 node cost tractable. Two paired moves,
-both in `SWAP-RECOVERY-RESULTS.md` → "Likely next levers":
+Primary target: make the real `n=83` ns=3 node cost tractable — but "cost" is two
+numbers, not one. **Convergence = (target rejections to close) × (cost per rejection).**
+The measured 334s is only the *second* factor; the first is unmeasured. Optimize both,
+and gate the burn on the first.
 
 1. **Instrumented target-level implication tracking** (results-note lever 1, high
-   confidence / high cost). Replace the 25-replay greedy minimization with a compact
-   *reason* returned directly from the propagation step that found the contradiction
-   (implication-graph / unsat-core), preserving the per-clause truth invariant. This
-   attacks the 334s/clause cost head-on.
-2. **Incremental solving with reusable learned clauses across target slices**
-   (results-note lever 3, medium). Today the candidate `BasicSolver` is rebuilt per
-   accepted slice and its learned clauses are discarded between outer iterations, so
-   identical candidate collisions are re-learned repeatedly — a flagged cost driver.
-   Persist candidate learning across slices (assumptions-based incremental solving).
+   confidence / high cost) — the primary. Replace the 25-replay greedy minimization
+   with a compact *reason* returned directly from the propagation step that found the
+   contradiction (implication graph / 1-UIP-style core). Three binding conditions:
+   - **Verify every extracted reason** with one broad-baseline `deterministic_rejects`
+     replay before learning it (1 replay vs 25). This is empirical self-consistency —
+     cheap insurance against buggy reason extraction, not a proof the propagator itself
+     is sound — and it keeps the broad-baseline soundness property the greedy path had
+     for free (see the target-clause invariant above), which truth-preservation cannot
+     provide on the plant-free real file.
+   - **Watch clause quality, not just clause speed.** The greedy path yields a tight
+     4-literal core; a reason read off one pass can be larger/weaker, which *grows* the
+     rejection count even as per-rejection cost falls. A cheaper-but-weaker clause can be
+     a net loss — the whole point of factor one above.
+   - **Scope precisely.** Only the `NoResidualCandidate` (deterministic-rejection) path
+     is the 334s path. The `TargetUnsatCore` path already returns a core cheaply — but
+     that core is *not* currently a sound broad-residual nogood (target-clause invariant
+     above), so it needs the same recheck. The design fork — instrument the strong
+     deterministic propagator vs. make the target SAT strong enough to surface these
+     contradictions as sound assumption-guarded cores — resolves toward instrumenting
+     the propagator (a witness-level target SAT would explode the encoding). But
+     assumption-guarding the *restriction* alone (not the witness dynamics) is the
+     cheaper half and independently closes the existing core-soundness gap.
 
-**ns=4 direction (deferred until ns=3 real-file closes).** ns=3 already materializes
-~541k candidates/letter; ns=4 over `n=83` cannot be built on `Vec<candidate_index>`.
-Replace `build_residual_domains` with an implicit `LetterDomainOracle` backed by the
-per-letter MITM over generator words (`lymm_deck/generators.rs`, already built)
-reshaped to answer projection/existence queries (`image_mask` / `preimage_mask` /
-`transition_possible` / `witness`) instead of returning full candidate sets, and
-expose **finer-than-target literals** (transition arcs / `(letter,input_pos)=output_pos`)
-so failures are explainable without discarding the whole target assignment.
+   **Gate the burn on a calibration first.** Measure target rejections-to-convergence as
+   a function of `n` on *new* mid-size top-swap ns=3 planted controls (an n=11/17
+   analogue of the n=7 `ns3_control`). The existing n∈{11,17} stress plants do **not**
+   exercise the CEGAR loop — they run explicit rotation generators through the word/MITM
+   path (`reach.rs`), not `recover_ns3_with_target_cegar`. And `stats.nodes` is overloaded
+   (residual nodes; ns=3 also folds target assignments in on success, `ns3_cegar.rs`), so
+   add a dedicated target-rejection counter before drawing the curve. If rejection count
+   scales badly, the lever is *stronger* clauses, not cheaper ones — stop and re-plan
+   rather than build cheap-and-weak.
+
+2. **Feature-level candidate CEGAR conflicts** (results-note lever 2, medium/high) —
+   sequenced after lever 1 produces accepted slices. Candidate learning today is a
+   whole-prefix no-good over the first-seen letters before the failed event
+   (`residual.rs::add_prefix_conflict_clause`); a failed re-encryption should learn the
+   local incompatible letter/candidate features where it can. It does not touch the first
+   deterministic wall, but once slices are accepted it is more direct firepower than
+   solver reuse — and the results note ranks it above lever 3.
+
+3. **Incremental solving with reusable learned clauses across target slices**
+   (results-note lever 3, medium) — strictly later-stage, gated behind lever 1. Today the
+   candidate `BasicSolver` is rebuilt per accepted slice and its learned clauses are
+   discarded between outer iterations. But on the measured real file the run dies in
+   *deterministic target rejection* before the candidate tier ever fires
+   (`candidate_clauses=0`), so this optimizes a path the current wall prevents reaching.
+   The target solver is *already* incremental across the loop (`ns3_cegar.rs`); only the
+   candidate solver is rebuilt. Payoff is on the planted control and post-lever-1 stages,
+   not the current n=83 wall.
+
+**ns=4 direction (deferred until ns=3 real-file closes — design the seam now, defer the
+rewrite).** ns=3 already materializes ~541k candidates/letter; ns=4 over `n=83` cannot be
+built on `Vec<candidate_index>`. The eventual move is an implicit `LetterDomainOracle`
+backed by the per-letter MITM over generator words (`lymm_deck/generators.rs`, already
+built) answering projection/existence queries (`image_mask` / `preimage_mask` /
+`transition_possible` / `witness`) instead of returning full candidate sets, exposing
+**finer-than-target literals** (transition arcs / `(letter,input_pos)=output_pos`) so
+failures are explainable without discarding the whole target assignment. This is a
+*re-architecture of every consumer*, not a one-function swap: `propagation.rs`,
+`target_solver.rs`, `sat_encoding.rs`, and `residual.rs` all index the materialized
+candidate `Vec`s pervasively. **Write down the required oracle operations now; defer the
+rewrite** — landing the trait boundary concurrently with lever 1's propagation
+instrumentation would churn every hot path before ns=3 is even closed.
 
 ## Process notes (cheap, high-leverage — repeat them)
 
