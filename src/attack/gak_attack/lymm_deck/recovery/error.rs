@@ -80,6 +80,13 @@ pub enum SwapRecoveryError {
         /// Target choices sufficient for the candidate residual contradiction.
         choices: Vec<(char, usize)>,
     },
+    /// A learned clause would exclude the planted truth in an observational control.
+    TruthPreservationViolated {
+        /// Learned-clause tier.
+        clause_kind: &'static str,
+        /// Number of literals in the learned clause.
+        literals: usize,
+    },
     /// The SAT backend returned an internal error.
     SatSolver(String),
 }
@@ -147,6 +154,13 @@ impl fmt::Display for SwapRecoveryError {
                     choices.len()
                 )
             }
+            Self::TruthPreservationViolated {
+                clause_kind,
+                literals,
+            } => write!(
+                f,
+                "{clause_kind} learned clause with {literals} literals would exclude the planted truth"
+            ),
             Self::SatSolver(error) => write!(f, "SAT residual solver error: {error}"),
         }
     }

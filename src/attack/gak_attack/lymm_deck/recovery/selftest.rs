@@ -317,6 +317,7 @@ pub(super) fn classify_null_recovery(
             | SwapRecoveryError::UnsupportedBudget { .. }
             | SwapRecoveryError::InvalidInferenceRange { .. }
             | SwapRecoveryError::TargetUnsatCore { .. }
+            | SwapRecoveryError::TruthPreservationViolated { .. }
             | SwapRecoveryError::SatSolver(_),
         ) => (NullControlOutcome::ControlError, None),
     }

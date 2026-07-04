@@ -6,6 +6,8 @@ use std::time::Duration;
 mod domain_build;
 mod error;
 mod inference;
+mod instrumentation;
+mod learning;
 #[cfg(test)]
 mod ns3_control;
 mod propagation;
@@ -14,6 +16,7 @@ mod residual;
 mod sat_encoding;
 mod selftest;
 mod state;
+mod target_conflict;
 mod target_solver;
 
 pub use error::SwapRecoveryError;
@@ -70,6 +73,7 @@ pub struct SwapRecoveryConfig {
     pub max_nodes: Option<usize>,
     /// Optional wall-clock budget for the residual solver.
     pub time_budget: Option<Duration>,
+    planted_truth: Option<BTreeMap<char, Vec<usize>>>,
 }
 
 impl SwapRecoveryConfig {
@@ -81,6 +85,7 @@ impl SwapRecoveryConfig {
             generator_set: RecoveryGeneratorSet::TopSwaps,
             max_nodes: None,
             time_budget: None,
+            planted_truth: None,
         }
     }
 
@@ -89,6 +94,19 @@ impl SwapRecoveryConfig {
     pub fn with_generator_set(mut self, generator_set: RecoveryGeneratorSet) -> Self {
         self.generator_set = generator_set;
         self
+    }
+
+    /// Adds observational planted truth for production-path soundness controls.
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) fn with_planted_truth(mut self, planted_truth: BTreeMap<char, Vec<usize>>) -> Self {
+        self.planted_truth = Some(planted_truth);
+        self
+    }
+
+    /// Returns observational planted truth for internal controls.
+    pub(super) fn planted_truth(&self) -> Option<&BTreeMap<char, Vec<usize>>> {
+        self.planted_truth.as_ref()
     }
 }
 
@@ -171,6 +189,16 @@ pub struct SwapRecoveryStats {
     pub sat_conflicts: usize,
     /// Candidate/domain branches dropped by an optional beam fallback.
     pub beam_drops: usize,
+    /// Learned target-tuple clauses added by target-level CEGAR.
+    pub target_clauses_learned: usize,
+    /// Replay checks used to minimize deterministic target conflicts.
+    pub target_replay_checks: usize,
+    /// Sum of learned target-clause literal counts after replay minimization.
+    pub target_replay_literals: usize,
+    /// Learned candidate-tuple clauses added after failed exact re-encryption.
+    pub candidate_clauses_learned: usize,
+    /// Learned clauses checked against planted truth by observational controls.
+    pub truth_preservation_checks: usize,
 }
 
 /// Full recovery report returned by [`recover_known_plaintext_swaps`].

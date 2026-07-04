@@ -6,8 +6,9 @@ use std::collections::BTreeMap;
 use batsat::{BasicSolver, Lit, SolverInterface, lbool};
 
 use super::super::{LymmDeckSpec, TopSwapCandidate};
+use super::learning::{LearnedClause, TruthTracker, learn_sat_clause};
 use super::residual::ResidualDomains;
-use super::{AlignedMessage, SwapRecoveryError};
+use super::{AlignedMessage, SwapRecoveryError, SwapRecoveryStats};
 
 const MAX_TARGET_READ_POSITIONS: u32 = 8;
 
@@ -58,22 +59,46 @@ impl TargetAssignmentSolver {
         }
     }
 
-    pub(super) fn forbid_assignment(&mut self, assignment: &BTreeMap<char, usize>) {
-        let clause = assignment
+    pub(super) fn learn_assignment_clause(
+        &mut self,
+        assignment: &BTreeMap<char, usize>,
+        truth: Option<&TruthTracker>,
+        stats: &mut SwapRecoveryStats,
+    ) -> Result<(), SwapRecoveryError> {
+        let choices = assignment
             .iter()
-            .filter_map(|(&letter, &target)| self.vars.get(&(letter, target)).copied())
-            .map(|literal| !literal)
+            .map(|(&letter, &target)| (letter, target))
             .collect::<Vec<_>>();
-        add_sat_clause(&mut self.solver, &clause);
+        self.learn_target_clause(&choices, truth, stats)
     }
 
-    pub(super) fn forbid_core(&mut self, choices: &[(char, usize)]) {
+    pub(super) fn learn_core_clause(
+        &mut self,
+        choices: &[(char, usize)],
+        truth: Option<&TruthTracker>,
+        stats: &mut SwapRecoveryStats,
+    ) -> Result<(), SwapRecoveryError> {
+        self.learn_target_clause(choices, truth, stats)
+    }
+
+    fn learn_target_clause(
+        &mut self,
+        choices: &[(char, usize)],
+        truth: Option<&TruthTracker>,
+        stats: &mut SwapRecoveryStats,
+    ) -> Result<(), SwapRecoveryError> {
         let clause = choices
             .iter()
             .filter_map(|&(letter, target)| self.vars.get(&(letter, target)).copied())
             .map(|literal| !literal)
             .collect::<Vec<_>>();
-        add_sat_clause(&mut self.solver, &clause);
+        learn_sat_clause(
+            &mut self.solver,
+            &clause,
+            &LearnedClause::Target(choices.to_vec()),
+            truth,
+            stats,
+        )
     }
 
     #[cfg(test)]

@@ -7,9 +7,12 @@ use batsat::{BasicSolver, Lit, SolverInterface, lbool};
 
 use super::super::{LymmComposeDirection, LymmDeckSpec, TopSwapDomains};
 pub(super) use super::domain_build::build_residual_domains;
+use super::instrumentation::trace_residual;
+use super::learning::{LearnedClause, TruthTracker, add_outer_stats, learn_sat_clause};
 use super::propagation::{PropagationOptions, propagate_partial_states};
 use super::sat_encoding::{add_adjacent_transition_clauses, add_top_image_channel_clauses};
 use super::state::apply_recovered_permutation;
+use super::target_conflict::minimize_deterministic_target_conflict;
 use super::target_solver::TargetAssignmentSolver;
 use super::{
     AlignedMessage, LetterRecoveryVerdict, RecoveredLetter, RecoveryReport, SwapRecoveryConfig,
@@ -43,6 +46,14 @@ struct TargetAssumptionLits {
     assumptions: Vec<Lit>,
 }
 
+struct CandidateConflictContext<'a> {
+    messages: &'a [AlignedMessage],
+    residual: &'a ResidualDomains,
+    vars: &'a BTreeMap<(char, usize), Lit>,
+    assignment: &'a BTreeMap<char, usize>,
+    failure: &'a VerificationFailure,
+}
+
 pub(super) fn recover_with_residual(
     spec: &LymmDeckSpec,
     messages: &[AlignedMessage],
@@ -64,7 +75,16 @@ pub(super) fn recover_with_residual(
             exhaustive_arc: false,
         },
     };
-    recover_with_residual_domains(spec, messages, config, residual, propagation_options, None)
+    let truth = config.planted_truth().cloned().map(TruthTracker::new);
+    recover_with_residual_domains(
+        spec,
+        messages,
+        config,
+        residual,
+        propagation_options,
+        None,
+        truth.as_ref(),
+    )
 }
 
 fn recover_ns3_with_target_cegar(
@@ -72,6 +92,7 @@ fn recover_ns3_with_target_cegar(
     messages: &[AlignedMessage],
     config: &SwapRecoveryConfig,
 ) -> Result<RecoveryReport, SwapRecoveryError> {
+    let truth = config.planted_truth().cloned().map(TruthTracker::new);
     let mut residual = build_residual_domains(spec, messages, config)?;
     let mut stats = SwapRecoveryStats {
         enumerated_candidates: residual.candidates.len(),
@@ -134,8 +155,10 @@ fn recover_ns3_with_target_cegar(
             targeted,
             PropagationOptions::ns2_default(),
             Some(&targets),
+            truth.as_ref(),
         ) {
             Ok(mut report) => {
+                add_outer_stats(&mut report.stats, &stats);
                 report.stats.nodes = report.stats.nodes.saturating_add(target_nodes);
                 return Ok(report);
             }
@@ -144,13 +167,26 @@ fn recover_ns3_with_target_cegar(
                     eprintln!("cegar: learned target core size={}", choices.len());
                 }
                 if choices.is_empty() {
-                    target_solver.forbid_assignment(&targets);
+                    target_solver.learn_assignment_clause(&targets, truth.as_ref(), &mut stats)?;
                 } else {
-                    target_solver.forbid_core(&choices);
+                    target_solver.learn_core_clause(&choices, truth.as_ref(), &mut stats)?;
                 }
             }
             Err(SwapRecoveryError::NoResidualCandidate) => {
-                target_solver.forbid_assignment(&targets);
+                let conflict = minimize_deterministic_target_conflict(
+                    spec, messages, &residual, &targets, &mut stats,
+                )?;
+                if let Some(core) = conflict {
+                    if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_some() {
+                        eprintln!(
+                            "cegar: learned deterministic target core size={}",
+                            core.len()
+                        );
+                    }
+                    target_solver.learn_core_clause(&core, truth.as_ref(), &mut stats)?;
+                } else {
+                    target_solver.learn_assignment_clause(&targets, truth.as_ref(), &mut stats)?;
+                }
             }
             Err(error) => return Err(error),
         }
@@ -164,6 +200,7 @@ fn recover_with_residual_domains(
     mut residual: ResidualDomains,
     options: PropagationOptions,
     target_assumptions: Option<&BTreeMap<char, usize>>,
+    truth: Option<&TruthTracker>,
 ) -> Result<RecoveryReport, SwapRecoveryError> {
     let mut stats = SwapRecoveryStats {
         enumerated_candidates: residual.candidates.len(),
@@ -255,13 +292,17 @@ fn recover_with_residual_domains(
             Err(failure) => {
                 stats.sat_conflicts += 1;
                 add_prefix_conflict_clause(
-                    messages,
-                    &residual,
-                    &vars,
-                    &assignment,
-                    &failure,
+                    &CandidateConflictContext {
+                        messages,
+                        residual: &residual,
+                        vars: &vars,
+                        assignment: &assignment,
+                        failure: &failure,
+                    },
                     &mut solver,
-                );
+                    truth,
+                    &mut stats,
+                )?;
             }
         }
     }
@@ -292,43 +333,6 @@ pub(super) fn restrict_to_targets(
         let _old = residual.by_letter.insert(letter, filtered);
     }
     Ok(())
-}
-
-fn trace_residual(
-    label: &str,
-    max_swaps: usize,
-    residual: &ResidualDomains,
-    stats: &SwapRecoveryStats,
-) -> bool {
-    if std::env::var_os("NOITA_SWAP_TRACE_ONLY").is_none() {
-        return false;
-    }
-    if let Ok(phase) = std::env::var("NOITA_SWAP_TRACE_PHASE")
-        && phase != label
-    {
-        return false;
-    }
-    let total = residual
-        .by_letter
-        .values()
-        .map(std::vec::Vec::len)
-        .sum::<usize>();
-    let max = residual
-        .by_letter
-        .values()
-        .map(std::vec::Vec::len)
-        .max()
-        .unwrap_or(0);
-    eprintln!(
-        "trace {label} max_swaps={max_swaps} candidates={} total_domain_entries={total} max_domain={max} pruned={} deductions={}",
-        residual.candidates.len(),
-        stats.domains_pruned,
-        stats.deductions
-    );
-    for (&letter, domain) in &residual.by_letter {
-        eprintln!("trace {label} letter {letter}: {}", domain.len());
-    }
-    true
 }
 
 fn build_target_assumptions(
@@ -438,43 +442,53 @@ pub(super) fn verify_candidate_assignment(
 }
 
 fn add_prefix_conflict_clause(
-    messages: &[AlignedMessage],
-    residual: &ResidualDomains,
-    vars: &BTreeMap<(char, usize), Lit>,
-    assignment: &BTreeMap<char, usize>,
-    failure: &VerificationFailure,
+    context: &CandidateConflictContext<'_>,
     solver: &mut BasicSolver,
-) {
-    let Some(message) = messages.get(failure.message_index) else {
-        return;
+    truth: Option<&TruthTracker>,
+    stats: &mut SwapRecoveryStats,
+) -> Result<(), SwapRecoveryError> {
+    let Some(message) = context.messages.get(context.failure.message_index) else {
+        return Ok(());
     };
     let mut seen = BTreeSet::new();
     let mut clause = Vec::new();
+    let mut choices = Vec::new();
     for event in message
         .events
         .iter()
-        .take(failure.event_index.saturating_add(1))
+        .take(context.failure.event_index.saturating_add(1))
     {
         if !seen.insert(event.letter) {
             continue;
         }
-        let Some(&candidate_index) = assignment.get(&event.letter) else {
+        let Some(&candidate_index) = context.assignment.get(&event.letter) else {
             continue;
         };
-        if !residual
+        if !context
+            .residual
             .by_letter
             .get(&event.letter)
             .is_some_and(|domain| domain.contains(&candidate_index))
         {
             continue;
         }
-        if let Some(&literal) = vars.get(&(event.letter, candidate_index)) {
+        if let Some(&literal) = context.vars.get(&(event.letter, candidate_index))
+            && let Some(candidate) = context.residual.candidates.get(candidate_index)
+        {
             clause.push(!literal);
+            choices.push((event.letter, candidate.perm.clone()));
         }
     }
     if !clause.is_empty() {
-        add_sat_clause(solver, &clause);
+        learn_sat_clause(
+            solver,
+            &clause,
+            &LearnedClause::Candidate(choices),
+            truth,
+            stats,
+        )?;
     }
+    Ok(())
 }
 
 fn add_sat_clause(solver: &mut BasicSolver, literals: &[Lit]) {

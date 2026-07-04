@@ -228,6 +228,7 @@ fn recoverable_attempt_error(error: &SwapRecoveryError) -> Option<SwapInferenceO
         | SwapRecoveryError::UnsupportedBudget { .. }
         | SwapRecoveryError::InvalidInferenceRange { .. }
         | SwapRecoveryError::TargetUnsatCore { .. }
+        | SwapRecoveryError::TruthPreservationViolated { .. }
         | SwapRecoveryError::SatSolver(_) => None,
     }
 }
