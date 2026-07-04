@@ -290,6 +290,40 @@ pub fn run_shadow_search(
     alphabet_size: usize,
     config: ShadowSearchConfig,
 ) -> Result<ShadowSearchReport, ShadowSearchError> {
+    run_shadow_search_inner(values, alphabet_size, config, FirstAnchorMode::Enforce)
+}
+
+#[cfg(test)]
+fn run_shadow_search_first_anchor_only_for_test(
+    values: &[u16],
+    alphabet_size: usize,
+    config: ShadowSearchConfig,
+) -> Result<ShadowSearchReport, ShadowSearchError> {
+    run_shadow_search_inner(
+        values,
+        alphabet_size,
+        config,
+        FirstAnchorMode::FirstOnlyForTest,
+    )
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FirstAnchorMode {
+    Enforce,
+    #[cfg(test)]
+    FirstOnlyForTest,
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "top-level production orchestration keeps the stage ordering explicit"
+)]
+fn run_shadow_search_inner(
+    values: &[u16],
+    alphabet_size: usize,
+    config: ShadowSearchConfig,
+    first_anchor_mode: FirstAnchorMode,
+) -> Result<ShadowSearchReport, ShadowSearchError> {
     validate_input(values, alphabet_size)?;
     let isomap = isomorph_map::isomorph_map_scan(
         values,
@@ -382,7 +416,12 @@ pub fn run_shadow_search(
         });
     }
 
-    let search = engine::search(values, &prepared, &hard_anchors, &soft_anchors, config)?;
+    let search_anchors = match first_anchor_mode {
+        FirstAnchorMode::Enforce => hard_anchors.as_slice(),
+        #[cfg(test)]
+        FirstAnchorMode::FirstOnlyForTest => hard_anchors.get(..1).unwrap_or(&[]),
+    };
+    let search = engine::search(values, &prepared, search_anchors, &soft_anchors, config)?;
     Ok(ShadowSearchReport {
         input_len: values.len(),
         alphabet_size,

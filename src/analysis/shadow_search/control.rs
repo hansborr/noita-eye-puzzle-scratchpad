@@ -26,10 +26,18 @@ const DIRTY_CORE_LEN: usize = 28;
 pub struct ShadowSearchSelfTest {
     /// The planted hidden-state positive survived all hard filters.
     pub positive_truth_survived: bool,
+    /// The planted truth key reached the pass-1 survivor set.
+    pub positive_truth_in_pass1_survivors: bool,
+    /// The positive pass-1 survivor set is a strict subset of the key space.
+    pub positive_pass1_filtered: bool,
     /// The positive truth sequence reached the maximum soft score.
     pub positive_truth_at_max_soft: bool,
     /// Closure order recovered in the positive control.
     pub positive_closure_order: usize,
+    /// Positive-control key-space size.
+    pub positive_key_space: u128,
+    /// Positive-control pass-1 survivor key count.
+    pub positive_pass1_survivor_keys: u64,
     /// Maximum soft score in the positive control.
     pub positive_max_soft_score: usize,
     /// Truth soft score in the positive control.
@@ -61,6 +69,12 @@ pub fn shadow_search_self_test(seed: u64) -> Result<ShadowSearchSelfTest, Shadow
     let positive_truth_soft_score = truth_soft_score(&positive_report, &positive.truth_q_indices);
     let positive_max_soft_score = max_soft_score(&positive_report);
     let positive_truth_survived = positive_truth_soft_score.is_some();
+    let positive_truth_in_pass1_survivors = positive_truth_survived
+        && satisfies_first_anchor(&positive_report, &positive.truth_q_indices);
+    let positive_key_space = positive_report.key_space.unwrap_or(0);
+    let positive_pass1_survivor_keys = pass1_survivor_keys(&positive_report);
+    let positive_pass1_filtered =
+        positive_key_space > 0 && u128::from(positive_pass1_survivor_keys) < positive_key_space;
     let positive_truth_at_max_soft =
         positive_truth_soft_score == Some(positive_max_soft_score) && positive_max_soft_score > 0;
     let positive_closure_order = positive_report
@@ -98,6 +112,8 @@ pub fn shadow_search_self_test(seed: u64) -> Result<ShadowSearchSelfTest, Shadow
         markov_null_reason == Some(NoBasisReason::NoSignificantIsomorphStructure);
 
     let passed = positive_truth_survived
+        && positive_truth_in_pass1_survivors
+        && positive_pass1_filtered
         && positive_truth_at_max_soft
         && positive_closure_order == 6
         && untrimmed_anchor_killed_truth
@@ -105,8 +121,12 @@ pub fn shadow_search_self_test(seed: u64) -> Result<ShadowSearchSelfTest, Shadow
         && markov_null_no_basis;
     Ok(ShadowSearchSelfTest {
         positive_truth_survived,
+        positive_truth_in_pass1_survivors,
+        positive_pass1_filtered,
         positive_truth_at_max_soft,
         positive_closure_order,
+        positive_key_space,
+        positive_pass1_survivor_keys,
         positive_max_soft_score,
         positive_truth_soft_score: positive_truth_soft_score.unwrap_or(0),
         untrimmed_anchor_killed_truth,
@@ -115,6 +135,17 @@ pub fn shadow_search_self_test(seed: u64) -> Result<ShadowSearchSelfTest, Shadow
         markov_null_reason,
         passed,
     })
+}
+
+#[cfg(test)]
+pub(super) fn control_config_for_test(seed: u64) -> ShadowSearchConfig {
+    control_config(seed)
+}
+
+#[cfg(test)]
+pub(super) fn first_anchor_negative_fixture_for_test() -> (Vec<u16>, usize) {
+    let fixture = first_anchor_negative_fixture();
+    (fixture.ciphertext, fixture.alphabet_size)
 }
 
 fn control_config(seed: u64) -> ShadowSearchConfig {
@@ -187,6 +218,36 @@ fn dirty_fixture() -> Fixture {
     builder.append(&[1, 2]);
     builder.append(&[2, 1, 1, 2, 1, 2, 2]);
     fixture_from_q_values(&builder.q_values)
+}
+
+#[cfg(test)]
+fn first_anchor_negative_fixture() -> Fixture {
+    let long = random_q_block(112, 0x6669_7273_742d_0001);
+    let short = random_q_block(96, 0x6669_7273_742d_0002);
+    let mut builder = QBuilder::new();
+    builder.bridge_to(&[0, 1, 2]);
+    builder.append(&long);
+    builder.bridge_to(&[1, 0, 2]);
+    builder.append(&long);
+    builder.bridge_to(&[0, 1, 2]);
+    builder.append(&short);
+    builder.bridge_to(&[2, 1, 0]);
+    builder.append(&short);
+    fixture_from_q_values(&builder.q_values)
+}
+
+#[cfg(test)]
+fn random_q_block(len: usize, seed: u64) -> Vec<usize> {
+    let mut rng = SplitMix64::new(seed);
+    (0..len)
+        .map(|_| {
+            if rng.next_u64().is_multiple_of(2) {
+                1
+            } else {
+                2
+            }
+        })
+        .collect()
 }
 
 fn patterned_block(len: usize, phase: usize) -> Vec<usize> {
@@ -307,6 +368,26 @@ fn max_soft_score(report: &super::ShadowSearchReport) -> usize {
     match &report.outcome {
         ShadowSearchOutcome::NoBasis { .. } => 0,
         ShadowSearchOutcome::Searched { summary, .. } => summary.max_soft_score,
+    }
+}
+
+fn satisfies_first_anchor(report: &super::ShadowSearchReport, sequence: &[u16]) -> bool {
+    report
+        .hard_anchors
+        .first()
+        .is_some_and(|anchor| spans_equal(sequence, anchor))
+}
+
+fn spans_equal(sequence: &[u16], anchor: &super::Anchor) -> bool {
+    let left = sequence.get(anchor.first..anchor.first + anchor.length);
+    let right = sequence.get(anchor.second..anchor.second + anchor.length);
+    left.zip(right).is_some_and(|(left, right)| left == right)
+}
+
+fn pass1_survivor_keys(report: &super::ShadowSearchReport) -> u64 {
+    match &report.outcome {
+        ShadowSearchOutcome::NoBasis { .. } => 0,
+        ShadowSearchOutcome::Searched { summary, .. } => summary.pass1_survivor_keys,
     }
 }
 

@@ -106,9 +106,16 @@ fn run_scan(args: &ShadowsearchArgs) -> ExitCode {
 fn print_self_test(seed: u64, report: &ShadowSearchSelfTest) {
     println!("shadowsearch self-test (seed=0x{seed:016x}):");
     println!(
-        "  hidden-state positive:   {} (closure order {}, truth soft {}/{})",
-        pass_fail(report.positive_truth_survived && report.positive_truth_at_max_soft),
+        "  hidden-state positive:   {} (closure order {}, pass1 {}/{}, truth soft {}/{})",
+        pass_fail(
+            report.positive_truth_survived
+                && report.positive_truth_in_pass1_survivors
+                && report.positive_pass1_filtered
+                && report.positive_truth_at_max_soft
+        ),
         report.positive_closure_order,
+        report.positive_pass1_survivor_keys,
+        report.positive_key_space,
         report.positive_truth_soft_score,
         report.positive_max_soft_score
     );

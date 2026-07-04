@@ -216,6 +216,38 @@ pub(super) fn search(
     })
 }
 
+#[cfg(test)]
+pub(super) fn first_anchor_rejection_witness_for_test(
+    values: &[u16],
+    basis: &PreparedBasis,
+    anchor: &Anchor,
+) -> Option<Vec<u16>> {
+    let symbols: Vec<usize> = values.iter().map(|&value| usize::from(value)).collect();
+    let mut choices = vec![0usize; basis.legal_readouts.len()];
+    let mut q_history = Vec::new();
+    let mut q_prefix = Vec::new();
+    loop {
+        for initial_state_index in 0..basis.elements.len() {
+            let key = KeySpec {
+                initial_state_index,
+                fiber_choices: choices.clone(),
+            };
+            let Some(sequence) = full_q_history(&symbols, basis, &key, &mut q_history, &[]) else {
+                continue;
+            };
+            if !spans_equal(&sequence, anchor)
+                && !survives_first_anchor(&symbols, basis, &key, anchor, &mut q_prefix)
+            {
+                return Some(sequence);
+            }
+        }
+        if !increment_choices(&mut choices, &basis.fibers) {
+            break;
+        }
+    }
+    None
+}
+
 fn empty_search_result(total_keys: u128, soft_anchor_count: usize) -> KeySearchResult {
     KeySearchResult {
         summary: SearchSummary {
