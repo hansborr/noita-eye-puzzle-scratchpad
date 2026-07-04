@@ -69,13 +69,17 @@ Measured attempts before landing the bounded frontier:
 | Shadow target seeding, top-4 | More aggressive top shadow intersection. | Initial domain surface about `531604`; max domain `26248`; some letters collapsed strongly (`A/E/R/S` to `16`, `L` to `96`), many remained at `26248`; still ran past `120s` without closing. | Too large and heuristic. Still no exact proof, and many letters retain broad domains. |
 | Shadow target seeding, top-1 | Force the single best shadow target per letter. | About `62s`, then `NoResidualCandidate`. | Unsound. The simplification globally fixed each letter to one shadow target; at least one true `ns=3` target was outside that top-1 set, so the true solution was dropped. |
 
-The independent read of the landed SAT model matches the measurements: the eager
-SAT clauses are essentially the per-letter exactly-one constraints plus
-start-bigram links for each message's first two events. The remaining state walk is
-enforced lazily through whole-prefix nogoods from failed exact re-encryptions. That
-is enough after `ns=2` propagation has collapsed every observed letter, but it is
-combinatorially weak when `ns=3` leaves hundreds of thousands of candidates per
-hard letter.
+The original `ns=3` wall diagnosis was that the candidate SAT model had too
+little eager structure. The landed residual SAT model is now stronger than that:
+it has per-letter exactly-one constraints, top-image channelling, and
+all-consecutive adjacent transition clauses over propagated partial states. The
+separate `ns=3` target pre-solver also enforces one distinct nonzero target per
+observed letter and adds adjacent plus bounded two-step target clauses. The
+remaining gap is not missing first-order adjacency; it is that deterministic
+target-restricted propagation can reject a wrong full target assignment without
+returning a small learned target-level reason. Whole-assignment target nogoods are
+still combinatorially weak when `ns=3` leaves hundreds of thousands of candidates
+per hard letter.
 
 Follow-up ns=3 attack pass, 2026-07-03:
 
@@ -112,26 +116,33 @@ does not close the target-assignment problem. The wall is now specifically that
 deterministic propagation can reject wrong full target assignments, but the engine
 does not yet learn a small sound target-level reason from that rejection. Whole
 assignment nogoods continue to enumerate nearby target permutations too slowly.
+The all-consecutive channelling and stronger deterministic R-read levers have
+therefore been implemented and spent as standalone closing hypotheses.
 
 ## Likely next levers
 
 Ranked hypotheses for closing `ns=3`:
 
-1. Generalize start-bigram channelling to all consecutive events over propagated
-   partial states. Confidence: high. Cost: medium/high. This gives CDCL real unit
-   propagation across the corpus instead of waiting for whole-prefix failures.
-2. Strengthen deterministic R-read beyond message starts, including longer
-   n-gram reads and partial-state entry domains. Confidence: high. Cost: medium.
-   The ns=2 result says deductions are decisive when they fire.
-3. Feature-level CEGAR conflicts instead of whole-prefix nogoods. Confidence:
-   medium. Cost: medium. Failed re-encryptions should learn a local incompatible
-   subset of letter/candidate choices rather than banning a full prefix assignment.
-4. Per-letter meet-in-the-middle for hard residual domains. Confidence: medium.
+1. Target-level conflict learning from deterministic propagation failures.
+   Confidence: high. Cost: medium/high. The current engine can reject wrong target
+   slices, but it needs dependency tracking or a replayable explanation to learn a
+   small incompatible subset instead of banning one full target assignment.
+2. Feature-level candidate CEGAR conflicts instead of whole-prefix nogoods.
+   Confidence: medium/high. Cost: medium. Failed exact re-encryptions should learn
+   local incompatible letter/candidate features where possible, not only a full
+   prefix assignment.
+3. Incremental solving with assumptions and reusable learned clauses across
+   target slices. Confidence: medium. Cost: medium. This pairs naturally with
+   target-level cores and avoids rebuilding similar candidate residuals.
+4. Dependency-tracked longer n-gram target/candidate clauses. Confidence: medium.
+   Cost: medium/high. The spent bounded four-event target experiment was too
+   blunt, but a compact encoding that can explain failures may still help.
+5. Per-letter meet-in-the-middle for hard residual domains. Confidence: medium.
    Cost: medium/high. Useful where one letter is the bottleneck, but it does not
    by itself encode cross-letter state coupling.
-5. Crib equalities from shared identity prefixes and repeated spans. Confidence:
+6. Crib equalities from shared identity prefixes and repeated spans. Confidence:
    medium. Cost: low/medium. These should reduce residual domains but are unlikely
    to close `ns=3` alone.
-6. More aggressive shadow seeding. Confidence: low. Cost: low. The top-1 run was
+7. More aggressive shadow seeding. Confidence: low. Cost: low. The top-1 run was
    unsound, and top-4/top-16 remained too large; use only as a diagnostic, not as
    a recovery proof.
