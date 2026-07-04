@@ -148,14 +148,15 @@ first *because* it is cheap and falsifiable, not because it is certain.
 > **STATUS (2026-07-04): RUN — scoped honest negative.** Built as
 > `pairclass --pattern-crib-scan` (commit `0b05f78`): the phase-0 repeated
 > token anchor at positions 116 and 176, length 33, is scanned directly against
-> corpus spans by the 26→4 coloring-consistency predicate. Planted positives
-> fired and matched/null negatives stayed quiet on all three committed language
-> files (`english-corpus-large.txt`, `english.txt`, `finnish.txt`; each
-> 0/49 Markov null candidate-like + 0/1 random negative). Real scans returned
-> **0 surviving spans** in all three corpora. Claim ceiling: no literal span in
-> those committed corpora matches this fixed anchor/static-coloring model; this
-> does not exclude custom plaintext, an unscanned phrase source, another phase,
-> or a stateful codec. Full record: `research/data/practice-puzzles/CODEC-RESULTS.md`
+> normalized a..z corpus windows by the 26→4 coloring-consistency predicate
+> (ASCII letters, plus Finnish `ä/å → a`, `ö → o`). Planted positives fired and
+> matched/null negatives stayed quiet on all three committed language files
+> (`english-corpus-large.txt`, `english.txt`, `finnish.txt`; each 0/49 Markov
+> null candidate-like + 0/1 random negative). Real scans returned **0 surviving
+> spans** in all three normalized corpora. Claim ceiling: no normalized a..z
+> window in those committed corpora matches this fixed anchor/static-coloring
+> model; this does not exclude custom plaintext, an unscanned phrase source,
+> another phase, or a stateful codec. Full record: `research/data/practice-puzzles/CODEC-RESULTS.md`
 > §Round 9.
 
 **Idea.** Attack the doubly-occurring ~34-letter repeated phrase *directly*,

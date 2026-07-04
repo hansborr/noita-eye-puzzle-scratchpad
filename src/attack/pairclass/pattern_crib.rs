@@ -1,9 +1,9 @@
 //! Avenue G repeated-span pattern-crib scan for practice puzzle `two`.
 //!
 //! The scan is intentionally narrower than the pairclass dictionary solver: it
-//! tests only whether a candidate plaintext span from a corpus can induce one
-//! consistent 26-to-4 coloring against the repeated anchor's class pattern. A
-//! surviving span is a candidate crib, never a decode.
+//! tests only whether a candidate plaintext span from the normalized a..z corpus
+//! stream can induce one consistent 26-to-4 coloring against the repeated
+//! anchor's class pattern. A surviving span is a candidate crib, never a decode.
 
 use super::plant::markov_resample;
 use super::{MAX_CLASSES, PairclassError};
@@ -60,7 +60,7 @@ impl Default for PatternCribConfig {
 pub struct PatternCribHit {
     /// Start offset in normalized letters, not bytes.
     pub letter_start: usize,
-    /// Normalized lowercase letters of the surviving span.
+    /// Normalized a..z letters of the surviving span.
     pub text: String,
     /// Number of distinct plaintext letters used by this span.
     pub distinct_letters: usize,
@@ -73,7 +73,7 @@ pub struct PatternCribHit {
 /// Result of scanning one corpus against one token pattern.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PatternCribScan {
-    /// Number of normalized letters in the scanned corpus.
+    /// Number of normalized a..z letters in the scanned corpus.
     pub corpus_letters: usize,
     /// Number of fixed-length windows tested.
     pub windows_scanned: usize,
@@ -309,10 +309,7 @@ impl LetterCorpus {
     fn from_text(text: &str) -> Self {
         let letters = text
             .chars()
-            .filter_map(|ch| {
-                let lower = ch.to_ascii_lowercase();
-                lower.is_ascii_lowercase().then(|| lower as u8 - b'a')
-            })
+            .filter_map(normalize_plaintext_letter)
             .collect();
         Self { letters }
     }
@@ -351,6 +348,18 @@ impl LetterCorpus {
             },
             tracked_hits,
         }
+    }
+}
+
+fn normalize_plaintext_letter(ch: char) -> Option<u8> {
+    let lower = ch.to_ascii_lowercase();
+    if lower.is_ascii_lowercase() {
+        return Some(lower as u8 - b'a');
+    }
+    match ch {
+        'Ä' | 'ä' | 'Å' | 'å' => Some(0),
+        'Ö' | 'ö' => Some(b'o' - b'a'),
+        _ => None,
     }
 }
 

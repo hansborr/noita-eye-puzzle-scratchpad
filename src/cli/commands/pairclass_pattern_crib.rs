@@ -107,9 +107,9 @@ fn print_report(
             println!();
             println!(
                 "VERDICT: NoCandidate -- no span in this corpus survived the class-isomorph \
-                 constraint. Claim ceiling: this excludes only literal spans present in the \
-                 scanned corpus under the fixed phase/anchor/static-coloring model; it does not \
-                 exclude custom plaintext, another corpus, or a stateful codec."
+                 constraint. Claim ceiling: this excludes only normalized a..z spans produced \
+                 from the scanned corpus under the fixed phase/anchor/static-coloring model; it \
+                 does not exclude custom plaintext, another corpus, or a stateful codec."
             );
         }
     }
@@ -166,7 +166,7 @@ fn print_negative_group(label: &str, trials: &[PatternCribNegativeControl]) {
 fn print_real_scan(scan: &PatternCribScan) {
     println!();
     println!(
-        "Real scan: {} normalized letters, {} windows, {} surviving spans",
+        "Real scan: {} normalized a..z letters, {} windows, {} surviving spans",
         scan.corpus_letters, scan.windows_scanned, scan.hit_count
     );
     for (index, hit) in scan.hits.iter().enumerate() {

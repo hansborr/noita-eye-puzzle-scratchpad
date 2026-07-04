@@ -53,6 +53,14 @@ fn corpus_scan_counts_surviving_spans_without_requiring_a_solver() {
 }
 
 #[test]
+fn corpus_scan_transliterates_finnish_letters_into_plain_a_to_z() {
+    let scan = scan_pattern_crib_corpus("Ää Öå", &[0, 0, 1, 0], 2).expect("scan runs");
+    assert_eq!(scan.corpus_letters, 4);
+    assert_eq!(scan.hit_count, 1);
+    assert_eq!(scan.hits.first().map(|hit| hit.text.as_str()), Some("aaoa"));
+}
+
+#[test]
 fn pattern_crib_run_controls_then_reports_a_real_candidate() {
     let corpus = "abracadabracadabra qqqqqqqqqqqqqqqqqqqqqqqqqq abracadabracadabra";
     let positive_text = "abracadabracadabra abracadabracadabra";

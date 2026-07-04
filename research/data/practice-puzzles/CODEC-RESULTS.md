@@ -1594,9 +1594,12 @@ letter-to-class isomorph constraint:
 - a repeated candidate plaintext letter must carry the same observed class, and
 - two different observed classes cannot be the same plaintext letter.
 
-This induces a partial 26→4 coloring for any surviving corpus span. It is not a
-dictionary decode and does not score English; a survivor would be a **candidate
-crib**, never a decode. The observed real anchor class pattern was:
+Before windowing, corpus text is normalized into the a..z plaintext model:
+ASCII letters are case-folded, and Finnish `ä/å` are transliterated to `a` while
+`ö` is transliterated to `o`; other non-a..z characters are separators/dropped.
+This induces a partial 26→4 coloring for any surviving normalized corpus span.
+It is not a dictionary decode and does not score English; a survivor would be a
+**candidate crib**, never a decode. The observed real anchor class pattern was:
 
 ```text
 211032222022333030220123020030000
@@ -1604,9 +1607,9 @@ crib**, never a decode. The observed real anchor class pattern was:
 
 The instrument self-validates before the real anchor is scanned:
 
-- A structured planted positive is drawn from the same normalized corpus length
-  and pushed through a seed-deterministic random 26→4 coloring; the scanner must
-  recover the planted span.
+- A structured planted positive is drawn from the same normalized/transliterated
+  corpus stream and pushed through a seed-deterministic random 26→4 coloring;
+  the scanner must recover the planted span.
 - Matched negatives are full-stream order-1 Markov resamples of the real
   pairclass token stream, sliced at the same anchor start; every one must produce
   zero corpus hits.
@@ -1636,26 +1639,27 @@ cargo run --release --locked -q -- pairclass \
 
 Results:
 
-| Corpus | Normalized letters | Windows | Planted positive | Matched null | Random negative | Real survivors |
+| Corpus | Normalized a..z letters | Windows | Planted positive | Matched null | Random negative | Real survivors |
 | --- | ---: | ---: | --- | --- | --- | ---: |
 | `english-corpus-large.txt` | 1 121 917 | 1 121 885 | FIRED (1 planted hit / 1 total hit) | 0/49 candidate-like | 0/1 candidate-like | 0 |
 | `english.txt` | 2 442 | 2 410 | FIRED (1 planted hit / 1 total hit) | 0/49 candidate-like | 0/1 candidate-like | 0 |
-| `finnish.txt` | 1 577 | 1 545 | FIRED (1 planted hit / 1 total hit) | 0/49 candidate-like | 0/1 candidate-like | 0 |
+| `finnish.txt` | 1 642 | 1 610 | FIRED (1 planted hit / 1 total hit) | 0/49 candidate-like | 0/1 candidate-like | 0 |
 
 The primary large-corpus positive span was
 `ersheexpectedeverymomentthatsomeo` (start 366771; 15 distinct letters, 18
 repeated positions). The two small-corpus positives were
 `rdsandbookshelveshereandthereshes` (English small, start 1796) and
-`nvipunenkuolilemminkinenleikkilih` (Finnish, start 1171). These are control
-fixtures, not proposed plaintext.
+`enotaseyeglyphdatamieleniminuntek` (Finnish transliterated rerun, start 246).
+These are control fixtures, not proposed plaintext.
 
 **Verdict: `NoCandidate` — no corpus span survived.** Claim ceiling: under the
 fixed phase-0 anchor (`116 == 176`, len 33), static 26→4 coloring model, and the
-three committed language files above, there is no literal corpus span compatible
-with the observed class pattern. This is an honest negative for the scanned
-corpus material only. It does **not** exclude a custom phrase, an unscanned
-source, another anchor/phase convention, or a stateful/non-static codec. No
-candidate cleartext emerged, so no hypothesis file was written under
+three committed language files above, there is no normalized a..z corpus window
+compatible with the observed class pattern. This is an honest negative for the
+scanned normalized/transliterated corpus material only. It does **not** exclude a
+custom phrase, an unscanned source, another anchor/phase convention, or a
+stateful/non-static codec. No candidate cleartext emerged, so no hypothesis file
+was written under
 `research/gak-threads/candidates/`.
 
 ## Provenance
