@@ -20,6 +20,7 @@ use super::args_codecpower::CodecpowerArgs;
 use super::args_cribfit::CribfitArgs;
 use super::args_ctak::CtakscanArgs;
 use super::args_gak_swap::GakSwapRecoverArgs;
+use super::args_isomap::IsomapArgs;
 use super::args_maskdecode::MaskdecodeArgs;
 use super::args_mdlcodec::MdlcodecArgs;
 use super::args_pairclass::PairclassArgs;
@@ -72,6 +73,10 @@ pub(crate) enum Command {
     /// `--delta-mod` difference channel — as a structural candidate, never a decode.
     #[command(name = "isoscan")]
     Isoscan(IsoscanArgs),
+    /// Equality-pattern isomorph column-map extraction plus closure of full
+    /// maps. Reports a reconstructed state-group lower bound, never a decode.
+    #[command(name = "isomap")]
+    Isomap(IsomapArgs),
     /// Run-length codec battery for `±1`-walk puzzles. Derives the direction-blind
     /// run-length magnitude carrier, censuses its exact repeats, and gates a family
     /// of codecs against a matched Markov-resampled-`M` null. A near-English codec
