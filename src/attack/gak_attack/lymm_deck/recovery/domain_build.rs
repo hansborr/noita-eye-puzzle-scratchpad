@@ -7,8 +7,10 @@ use super::state::{ForcedObservation, forced_observation};
 use super::{
     AlignedMessage, RecoveryGeneratorSet, SwapRecoveryConfig, SwapRecoveryError, occurrence_counts,
 };
+use crate::attack::gak_attack::lymm_deck::generators::enumerate_generator_domains_for_entry_target;
 use crate::attack::gak_attack::lymm_deck::{
-    LymmDeckSpec, TopSwapConstraints, enumerate_generator_domains, enumerate_top_swap_domains,
+    GeneratorBranchStrategy, LymmDeckSpec, LymmGeneratorSet, TopSwapCandidate, TopSwapConstraints,
+    TopSwapDomains, enumerate_generator_domains, enumerate_top_swap_domains,
 };
 
 pub(super) fn build_residual_domains(
@@ -23,32 +25,131 @@ pub(super) fn build_residual_domains(
     observed.sort_unstable();
 
     let restart_observations = restart_forced_observations(spec, messages)?;
-    let constraints =
-        explicit_generator_constraints(config, spec, &observed, &restart_observations);
-    let domains = match &config.generator_set {
+    match &config.generator_set {
         RecoveryGeneratorSet::TopSwaps => {
-            enumerate_top_swap_domains(spec, &TopSwapConstraints::up_to(config.max_swaps))?
+            build_top_swap_domains(spec, config, &observed, &restart_observations)
         }
-        RecoveryGeneratorSet::Explicit(generator_set) => {
-            enumerate_generator_domains(spec, generator_set, &constraints)?
+        RecoveryGeneratorSet::Explicit(generator_set) => build_explicit_generator_domains(
+            spec,
+            generator_set,
+            config,
+            &observed,
+            &restart_observations,
+        ),
+    }
+}
+
+fn build_top_swap_domains(
+    spec: &LymmDeckSpec,
+    config: &SwapRecoveryConfig,
+    observed: &[char],
+    restart_observations: &BTreeMap<char, ForcedObservation>,
+) -> Result<ResidualDomains, SwapRecoveryError> {
+    let domains = enumerate_top_swap_domains(spec, &TopSwapConstraints::up_to(config.max_swaps))?;
+    let candidates = runtime_candidates(spec, &domains);
+    validate_distinct_nonzero_target_assumption(&candidates, spec, observed, restart_observations)?;
+    let by_letter = build_filtered_letters(&candidates, &domains, observed, restart_observations)?;
+    Ok(ResidualDomains {
+        domains,
+        candidates,
+        by_letter,
+        letters: observed.to_vec(),
+    })
+}
+
+fn build_explicit_generator_domains(
+    spec: &LymmDeckSpec,
+    generator_set: &LymmGeneratorSet,
+    config: &SwapRecoveryConfig,
+    observed: &[char],
+    restart_observations: &BTreeMap<char, ForcedObservation>,
+) -> Result<ResidualDomains, SwapRecoveryError> {
+    let constraints = TopSwapConstraints::up_to(config.max_swaps);
+    let mut full_domains = None;
+    let mut candidates = Vec::new();
+    let mut domain_candidates = Vec::new();
+    let mut index_by_perm = BTreeMap::<Vec<usize>, usize>::new();
+    let mut by_letter = BTreeMap::new();
+    let mut branch_strategy = None;
+
+    for &letter in observed {
+        let letter_domains = if let Some(observation) = restart_observations.get(&letter).copied() {
+            enumerate_generator_domains_for_entry_target(
+                spec,
+                generator_set,
+                &constraints,
+                observation.entry,
+                observation.target,
+            )?
+        } else {
+            full_domains
+                .get_or_insert(enumerate_generator_domains(
+                    spec,
+                    generator_set,
+                    &constraints,
+                )?)
+                .clone()
+        };
+        branch_strategy = Some(letter_domains.branch_strategy.clone());
+        let mut domain = Vec::new();
+        for candidate in letter_domains.candidates {
+            let perm = candidate.permutation(spec);
+            let index = if let Some(index) = index_by_perm.get(&perm).copied() {
+                index
+            } else {
+                let index = candidates.len();
+                let _old = index_by_perm.insert(perm.clone(), index);
+                candidates.push(CandidateRuntime { perm });
+                domain_candidates.push(candidate);
+                index
+            };
+            domain.push(index);
         }
-    };
-    let candidates = domains
+        if domain.is_empty() {
+            return Err(SwapRecoveryError::NoCandidateForTarget {
+                letter,
+                target: restart_observations
+                    .get(&letter)
+                    .map_or(usize::MAX, |observation| observation.target),
+            });
+        }
+        domain.sort_unstable();
+        domain.dedup();
+        let _old = by_letter.insert(letter, domain);
+    }
+
+    let domains = domains_from_candidates(
+        domain_candidates,
+        branch_strategy.unwrap_or(GeneratorBranchStrategy::WordMitm { split: 0 }),
+    );
+    validate_distinct_nonzero_target_assumption(&candidates, spec, observed, restart_observations)?;
+
+    Ok(ResidualDomains {
+        domains,
+        candidates,
+        by_letter,
+        letters: observed.to_vec(),
+    })
+}
+
+fn runtime_candidates(spec: &LymmDeckSpec, domains: &TopSwapDomains) -> Vec<CandidateRuntime> {
+    domains
         .candidates
         .iter()
         .map(|candidate| CandidateRuntime {
             perm: candidate.permutation(spec),
         })
-        .collect::<Vec<_>>();
-    validate_distinct_nonzero_target_assumption(
-        &candidates,
-        spec,
-        &observed,
-        &restart_observations,
-    )?;
+        .collect()
+}
 
+fn build_filtered_letters(
+    candidates: &[CandidateRuntime],
+    domains: &TopSwapDomains,
+    observed: &[char],
+    restart_observations: &BTreeMap<char, ForcedObservation>,
+) -> Result<BTreeMap<char, Vec<usize>>, SwapRecoveryError> {
     let mut by_letter = BTreeMap::new();
-    for &letter in &observed {
+    for &letter in observed {
         let domain: Vec<usize> = match restart_observations.get(&letter).copied() {
             Some(observation) => candidates
                 .iter()
@@ -73,38 +174,31 @@ pub(super) fn build_residual_domains(
         }
         let _old = by_letter.insert(letter, domain);
     }
-
-    Ok(ResidualDomains {
-        domains,
-        candidates,
-        by_letter,
-        letters: observed,
-    })
+    Ok(by_letter)
 }
 
-fn explicit_generator_constraints(
-    config: &SwapRecoveryConfig,
-    spec: &LymmDeckSpec,
-    observed: &[char],
-    restart_observations: &BTreeMap<char, ForcedObservation>,
-) -> TopSwapConstraints {
-    let constraints = TopSwapConstraints::up_to(config.max_swaps);
-    if config.generator_set.is_top_swaps()
-        || !observed
-            .iter()
-            .all(|letter| restart_observations.contains_key(letter))
-        || restart_observations
-            .values()
-            .any(|observation| observation.entry != spec.emit_index)
-    {
-        return constraints;
+fn domains_from_candidates(
+    candidates: Vec<TopSwapCandidate>,
+    branch_strategy: GeneratorBranchStrategy,
+) -> TopSwapDomains {
+    let mut by_top_image: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    let mut by_support: BTreeMap<Vec<usize>, Vec<usize>> = BTreeMap::new();
+    for (index, candidate) in candidates.iter().enumerate() {
+        by_top_image
+            .entry(candidate.top_image)
+            .or_default()
+            .push(index);
+        by_support
+            .entry(candidate.support.clone())
+            .or_default()
+            .push(index);
     }
-    constraints.with_top_images(
-        restart_observations
-            .values()
-            .map(|observation| observation.target)
-            .collect(),
-    )
+    TopSwapDomains {
+        candidates,
+        by_top_image,
+        by_support,
+        branch_strategy,
+    }
 }
 
 fn validate_distinct_nonzero_target_assumption(

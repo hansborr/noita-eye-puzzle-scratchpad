@@ -196,6 +196,51 @@ pub fn enumerate_generator_domains(
     domains_from_canonical_words(spec, constraints, canonical_words, strategy)
 }
 
+/// Enumerates candidates whose final `base o sigma` maps `entry` to `target`.
+pub(crate) fn enumerate_generator_domains_for_entry_target(
+    spec: &LymmDeckSpec,
+    generator_set: &LymmGeneratorSet,
+    constraints: &TopSwapConstraints,
+    entry: usize,
+    target: usize,
+) -> Result<TopSwapDomains, LymmDeckError> {
+    if entry >= spec.n {
+        return Err(LymmDeckError::EmitIndexOutOfRange {
+            emit_index: entry,
+            n: spec.n,
+        });
+    }
+    let target_source = spec.base.iter().position(|&image| image == target).ok_or(
+        LymmDeckError::EmitIndexOutOfRange {
+            emit_index: target,
+            n: spec.n,
+        },
+    )?;
+    if generator_set.n() != spec.n {
+        return Err(LymmDeckError::GeneratorDeckSize {
+            generator_n: generator_set.n(),
+            spec_n: spec.n,
+        });
+    }
+    let strategy = generator_set.branch_strategy(constraints.max_swaps);
+    let canonical_words = match strategy {
+        GeneratorBranchStrategy::TopSwapSupport => BTreeMap::new(),
+        GeneratorBranchStrategy::SmallTranspositionSupport => {
+            enumerate_generator_words_by_support(generator_set, constraints.max_swaps)?
+        }
+        GeneratorBranchStrategy::WordMitm { split } => enumerate_generator_words_mitm_entry_target(
+            generator_set,
+            constraints.max_swaps,
+            split,
+            entry,
+            target_source,
+        )?,
+    };
+    let constraints = TopSwapConstraints::up_to(constraints.max_swaps);
+    let domains = domains_from_canonical_words(spec, &constraints, canonical_words, strategy)?;
+    Ok(filter_entry_target_domains(spec, domains, entry, target))
+}
+
 fn domains_from_canonical_words(
     spec: &LymmDeckSpec,
     constraints: &TopSwapConstraints,
@@ -330,6 +375,50 @@ fn enumerate_generator_words_mitm(
     Ok(canonical_words)
 }
 
+fn enumerate_generator_words_mitm_entry_target(
+    generator_set: &LymmGeneratorSet,
+    max_word_len: usize,
+    split: usize,
+    entry: usize,
+    target_source: usize,
+) -> Result<CanonicalWords, LymmDeckError> {
+    let prefixes = enumerate_word_states(generator_set, split)?;
+    let suffixes = enumerate_word_states(generator_set, max_word_len.saturating_sub(split))?;
+    let mut prefixes_by_input: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    for (index, prefix) in prefixes.iter().enumerate() {
+        if let Some(input) = prefix
+            .sigma
+            .iter()
+            .position(|&image| image == target_source)
+        {
+            prefixes_by_input.entry(input).or_default().push(index);
+        }
+    }
+
+    let mut canonical_words = BTreeMap::new();
+    for suffix in &suffixes {
+        let Some(&input) = suffix.sigma.get(entry) else {
+            continue;
+        };
+        let Some(prefix_indexes) = prefixes_by_input.get(&input) else {
+            continue;
+        };
+        for &prefix_index in prefix_indexes {
+            let Some(prefix) = prefixes.get(prefix_index) else {
+                continue;
+            };
+            if prefix.word.len().saturating_add(suffix.word.len()) > max_word_len {
+                continue;
+            }
+            let sigma = compose_lymm(&suffix.sigma, &prefix.sigma)?;
+            let mut word = prefix.word.clone();
+            word.extend_from_slice(&suffix.word);
+            record_canonical(&sigma, &word, &mut canonical_words);
+        }
+    }
+    Ok(canonical_words)
+}
+
 fn enumerate_word_states(
     generator_set: &LymmGeneratorSet,
     max_word_len: usize,
@@ -402,6 +491,48 @@ fn top_image_allowed(constraints: &TopSwapConstraints, top_image: usize) -> bool
         .required_top_images
         .as_ref()
         .is_none_or(|values| values.contains(&top_image))
+}
+fn filter_entry_target_domains(
+    spec: &LymmDeckSpec,
+    domains: TopSwapDomains,
+    entry: usize,
+    target: usize,
+) -> TopSwapDomains {
+    let candidates = domains
+        .candidates
+        .into_iter()
+        .filter(|candidate| {
+            candidate
+                .permutation(spec)
+                .get(entry)
+                .is_some_and(|&image| image == target)
+        })
+        .collect::<Vec<_>>();
+    domains_from_candidates(candidates, domains.branch_strategy)
+}
+
+fn domains_from_candidates(
+    candidates: Vec<TopSwapCandidate>,
+    branch_strategy: GeneratorBranchStrategy,
+) -> TopSwapDomains {
+    let mut by_top_image: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    let mut by_support: BTreeMap<Vec<usize>, Vec<usize>> = BTreeMap::new();
+    for (index, candidate) in candidates.iter().enumerate() {
+        by_top_image
+            .entry(candidate.top_image)
+            .or_default()
+            .push(index);
+        by_support
+            .entry(candidate.support.clone())
+            .or_default()
+            .push(index);
+    }
+    TopSwapDomains {
+        candidates,
+        by_top_image,
+        by_support,
+        branch_strategy,
+    }
 }
 
 fn record_canonical(sigma: &[usize], word: &[usize], canonical_words: &mut CanonicalWords) {

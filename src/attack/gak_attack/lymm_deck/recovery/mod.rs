@@ -9,6 +9,7 @@ mod inference;
 #[cfg(test)]
 mod ns3_control;
 mod propagation;
+mod reach;
 mod residual;
 mod sat_encoding;
 mod selftest;
@@ -20,6 +21,10 @@ pub use inference::{
     SUPPORTED_SWAP_RECOVERY_FRONTIER, SWAP_RECOVERY_FRONTIER_MESSAGE, SwapInferenceAttempt,
     SwapInferenceOutcome, SwapInferenceRange, SwapInferenceReport,
     infer_known_plaintext_swap_budget,
+};
+pub use reach::{
+    GakSwapReachStressCase, GakSwapReachStressConfig, GakSwapReachStressReport,
+    gak_swap_reach_stress_self_test,
 };
 pub use selftest::{
     GakSwapSelfTestConfig, GakSwapSelfTestReport, NullControlOutcome, NullControlReport,

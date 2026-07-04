@@ -187,6 +187,29 @@ at `perm(L)[emit_index]`; when the configured direction/start forces a different
 first-read entry, that bootstrap entry is checked as well. Violating surfaces are
 model rejections, not candidate recoveries.
 
+Task-03 item 3 adds the first measured reach rung for explicit full-support
+generator sets. The domain builder now uses per-letter meet-in-the-middle
+enumeration when a restart pins a forced `(entry, target)`: for word-based
+generators, prefix states are indexed by the input that maps to the target source,
+and suffix states join only against that input. This keeps the old top-swap path
+unchanged while narrowing explicit-generator residual domains before they reach
+the SAT layer.
+
+Validation added for this surface:
+
+- A larger-group stress self-test plants full-support rotation-generator mappings
+  and recovers exactly for `n in {11,17}` and `max-swaps in {1,2,3}`.
+- Every stress case includes a matched null using the same ciphertexts but a
+  generator surface that cannot realize the planted targets.
+- The test asserts the measured passing boundary `(n=17, max-swaps=3)` and records
+  per-case candidate counts/nodes in the `GakSwapReachStressReport`.
+
+Bounded-search note: this does not change the public real-file frontier. The
+CLI still rejects direct `--num-swaps` / `--max-swaps >= 3` requests with the
+measured-frontier message, and the vendored S83 `ns=3` ciphertext remains in the
+wall section below. The new stress boundary is model-conditional on the explicit
+rotation-generator surface and planted controls.
+
 ## ns=3 wall
 
 The current ns=2 success does not scale automatically to ns=3. The structural

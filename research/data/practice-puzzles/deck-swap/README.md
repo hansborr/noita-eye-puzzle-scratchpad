@@ -156,3 +156,20 @@ surfaces or restarts that violate those assumptions are rejected as model
 violations. The measured direct frontier is unchanged: the CLI still refuses
 `--num-swaps` / `--max-swaps >= 3`, and the right-compose path currently uses
 exact verification without the left-compose transition-pruning rules.
+
+## Reach stress self-test
+
+Task-03 item 3 adds a targeted per-letter meet-in-the-middle path for explicit
+full-support generator sets. When an identity/restart observation pins a letter's
+forced `(entry, target)`, the word MITM joins only prefix/suffix halves that can
+realize that target instead of first materializing every reachable word and
+filtering afterward. The resulting narrowed domains are the SAT-facing hardening:
+the residual solver receives the per-letter candidate surface already cut to the
+forced generator target.
+
+The landed stress self-test is deliberately bounded. It plants rotation-generator
+mappings and recovers them exactly for `n in {11,17}` and `max-swaps in {1,2,3}`,
+with a matched null that removes the generator surface needed for the planted
+targets. The measured boundary reported by the test is `(n=17, max-swaps=3)`.
+This is a regression/stress measurement, not a claim that the engine scales
+arbitrarily or that the vendored S83 `ns=3` wall is solved.

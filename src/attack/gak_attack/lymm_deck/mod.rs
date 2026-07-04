@@ -32,12 +32,13 @@ pub use generators::{LymmGeneratorSet, enumerate_generator_domains};
 pub use oracle::encrypt_lymm_deck;
 pub use plant::{PlantedLymmMapping, generate_random_pt_mapping};
 pub use recovery::{
-    DEFAULT_SWAP_RECOVERY_SEED, GakSwapSelfTestConfig, GakSwapSelfTestReport,
-    LetterRecoveryVerdict, NullControlOutcome, NullControlReport, PositiveControlReport,
-    RecoveredLetter, RecoveryGeneratorSet, RecoveryReport, RoundTripReport,
-    SUPPORTED_SWAP_RECOVERY_FRONTIER, SWAP_RECOVERY_FRONTIER_MESSAGE, SwapInferenceAttempt,
-    SwapInferenceOutcome, SwapInferenceRange, SwapInferenceReport, SwapRecoveryConfig,
-    SwapRecoveryError, SwapRecoveryStats, gak_swap_self_test, infer_known_plaintext_swap_budget,
+    DEFAULT_SWAP_RECOVERY_SEED, GakSwapReachStressCase, GakSwapReachStressConfig,
+    GakSwapReachStressReport, GakSwapSelfTestConfig, GakSwapSelfTestReport, LetterRecoveryVerdict,
+    NullControlOutcome, NullControlReport, PositiveControlReport, RecoveredLetter,
+    RecoveryGeneratorSet, RecoveryReport, RoundTripReport, SUPPORTED_SWAP_RECOVERY_FRONTIER,
+    SWAP_RECOVERY_FRONTIER_MESSAGE, SwapInferenceAttempt, SwapInferenceOutcome, SwapInferenceRange,
+    SwapInferenceReport, SwapRecoveryConfig, SwapRecoveryError, SwapRecoveryStats,
+    gak_swap_reach_stress_self_test, gak_swap_self_test, infer_known_plaintext_swap_budget,
     recover_known_plaintext_swaps, round_trip_check,
 };
 pub use share::python_pt_mapping_literal;

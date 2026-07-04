@@ -3,9 +3,10 @@
 use std::collections::BTreeMap;
 
 use super::{
-    GakSwapSelfTestConfig, KnownPlaintextPair, LYMM_DEFAULT_PT_ALPHABET, LetterRecoveryVerdict,
-    LymmDeckSpec, NullControlOutcome, SwapInferenceOutcome, SwapInferenceRange, SwapRecoveryConfig,
-    SwapRecoveryError, TopSwapConstraints, encrypt_lymm_deck, enumerate_top_swap_domains,
+    GakSwapReachStressConfig, GakSwapSelfTestConfig, KnownPlaintextPair, LYMM_DEFAULT_PT_ALPHABET,
+    LetterRecoveryVerdict, LymmDeckSpec, NullControlOutcome, SwapInferenceOutcome,
+    SwapInferenceRange, SwapRecoveryConfig, SwapRecoveryError, TopSwapConstraints,
+    encrypt_lymm_deck, enumerate_top_swap_domains, gak_swap_reach_stress_self_test,
     gak_swap_self_test, generate_random_pt_mapping, infer_known_plaintext_swap_budget,
     lymm_default_ct_alphabet, parse_known_plaintext_pairs, python_pt_mapping_literal,
     recover_known_plaintext_swaps,
@@ -370,6 +371,21 @@ fn swap_recovery_self_test_passes_supported_frontier_controls() {
         report.label_shuffle_null.outcome,
         NullControlOutcome::CleanFailure
     );
+}
+
+#[test]
+fn reach_stress_self_test_reports_measured_boundary() {
+    let report = gak_swap_reach_stress_self_test(GakSwapReachStressConfig::default())
+        .expect("reach stress self-test");
+
+    assert!(report.passed(), "{report:#?}");
+    assert_eq!(report.cases.len(), 6);
+    assert_eq!(report.measured_boundary, Some((17, 3)));
+    assert!(report.cases.iter().all(|case| {
+        case.enumerated_candidates <= case.observed_letters
+            && case.exact_recovery
+            && case.matched_null_failed
+    }));
 }
 
 fn assert_equal_message_5_and_8(pairs: &[KnownPlaintextPair]) {

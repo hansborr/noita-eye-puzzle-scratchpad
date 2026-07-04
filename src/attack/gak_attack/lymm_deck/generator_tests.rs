@@ -52,10 +52,7 @@ swap02: 2 1 0 3 4 5 6
             .with_generator_set(RecoveryGeneratorSet::Explicit(bad_generator_set)),
     )
     .expect_err("matched null must fail when the generator surface lacks no-doubles targets");
-    assert!(matches!(
-        err,
-        SwapRecoveryError::TargetAssumptionViolated { .. }
-    ));
+    assert!(matched_null_error(&err));
 }
 
 #[test]
