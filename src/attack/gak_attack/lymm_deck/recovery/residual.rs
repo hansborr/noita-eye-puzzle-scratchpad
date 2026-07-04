@@ -264,7 +264,7 @@ fn add_exactly_one_guarded(solver: &mut BasicSolver, literals: &[Lit], guard: Op
         at_least_one.push(!guard);
     }
     at_least_one.extend_from_slice(literals);
-    add_sat_clause(solver, &at_least_one);
+    add_static_encoding_clause(solver, &at_least_one);
     if literals.len() <= 1 {
         return;
     }
@@ -274,17 +274,17 @@ fn add_exactly_one_guarded(solver: &mut BasicSolver, literals: &[Lit], guard: Op
         match (index, is_last, previous_aux) {
             (0, false, None) => {
                 let aux = Lit::new(solver.new_var_default(), true);
-                add_sat_clause(solver, &[!literal, aux]);
+                add_static_encoding_clause(solver, &[!literal, aux]);
                 previous_aux = Some(aux);
             }
             (_, true, Some(prev)) => {
-                add_sat_clause(solver, &[!literal, !prev]);
+                add_static_encoding_clause(solver, &[!literal, !prev]);
             }
             (_, false, Some(prev)) => {
                 let aux = Lit::new(solver.new_var_default(), true);
-                add_sat_clause(solver, &[!literal, aux]);
-                add_sat_clause(solver, &[!prev, aux]);
-                add_sat_clause(solver, &[!literal, !prev]);
+                add_static_encoding_clause(solver, &[!literal, aux]);
+                add_static_encoding_clause(solver, &[!prev, aux]);
+                add_static_encoding_clause(solver, &[!literal, !prev]);
                 previous_aux = Some(aux);
             }
             _ => {}
@@ -396,7 +396,10 @@ fn add_prefix_conflict_clause(
     Ok(())
 }
 
-fn add_sat_clause(solver: &mut BasicSolver, literals: &[Lit]) {
+fn add_static_encoding_clause(solver: &mut BasicSolver, literals: &[Lit]) {
+    debug_assert!(!literals.is_empty());
+    // Static residual-encoding clauses only. Learned candidate clauses must go
+    // through learn_sat_clause so truth-preservation checks and stats run.
     let mut clause = literals.to_vec();
     let _still_satisfiable = solver.add_clause_reuse(&mut clause);
 }

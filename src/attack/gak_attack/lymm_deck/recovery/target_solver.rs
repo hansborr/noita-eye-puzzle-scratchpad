@@ -231,10 +231,10 @@ fn add_exactly_one_target_clauses(
                 (candidate_letter == letter).then_some(literal)
             })
             .collect::<Vec<_>>();
-        add_sat_clause(solver, &literals);
+        add_static_encoding_clause(solver, &literals);
         for (left_index, &left) in literals.iter().enumerate() {
             for &right in literals.iter().skip(left_index.saturating_add(1)) {
-                add_sat_clause(solver, &[!left, !right]);
+                add_static_encoding_clause(solver, &[!left, !right]);
             }
         }
     }
@@ -248,7 +248,7 @@ fn add_distinct_target_clauses(
 ) {
     for &letter in &residual.letters {
         if let Some(&zero_top) = vars.get(&(letter, 0)) {
-            add_sat_clause(solver, &[!zero_top]);
+            add_static_encoding_clause(solver, &[!zero_top]);
         }
     }
     for target in 0..spec.n {
@@ -258,7 +258,7 @@ fn add_distinct_target_clauses(
             };
             for &right in residual.letters.iter().skip(left_index.saturating_add(1)) {
                 if let Some(&right_literal) = vars.get(&(right, target)) {
-                    add_sat_clause(solver, &[!left_literal, !right_literal]);
+                    add_static_encoding_clause(solver, &[!left_literal, !right_literal]);
                 }
             }
         }
@@ -324,7 +324,7 @@ fn add_transition_target_clauses(
                     ) else {
                         continue;
                     };
-                    add_sat_clause(solver, &[!left, !right]);
+                    add_static_encoding_clause(solver, &[!left, !right]);
                 }
             }
         }
@@ -415,7 +415,10 @@ fn add_two_step_target_clauses(
                         else {
                             continue;
                         };
-                        add_sat_clause(solver, &[!first_literal, !second_literal, !third_literal]);
+                        add_static_encoding_clause(
+                            solver,
+                            &[!first_literal, !second_literal, !third_literal],
+                        );
                     }
                 }
             }
@@ -543,7 +546,10 @@ fn candidate_preimage_mask(
     mask
 }
 
-fn add_sat_clause(solver: &mut BasicSolver, literals: &[Lit]) {
+fn add_static_encoding_clause(solver: &mut BasicSolver, literals: &[Lit]) {
+    debug_assert!(!literals.is_empty());
+    // Static target-encoding clauses only. Learned target clauses must go
+    // through learn_sat_clause so truth-preservation checks and stats run.
     let mut clause = literals.to_vec();
     let _still_satisfiable = solver.add_clause_reuse(&mut clause);
 }
