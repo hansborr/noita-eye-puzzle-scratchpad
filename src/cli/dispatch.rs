@@ -20,10 +20,10 @@ use super::args::{Cli, Command};
 use super::commands::{
     run_bigramcodec, run_chaining, run_chaining_graph, run_codecpower, run_controls, run_crcscan,
     run_cribfit, run_ctakscan, run_demo, run_gak, run_gak_swap_recover, run_grouping,
-    run_groupscan, run_isomorphimperf, run_isomorphnull, run_isoscan, run_keydiff, run_keystream,
-    run_leakceiling, run_maskdecode, run_mdlcodec, run_orders, run_pairclass, run_perfectiso,
-    run_pipelinenull, run_predscan, run_profile, run_ragbaby, run_rankcodec, run_rlcodec,
-    run_solve, run_stats,
+    run_groupscan, run_isomap, run_isomorphimperf, run_isomorphnull, run_isoscan, run_keydiff,
+    run_keystream, run_leakceiling, run_maskdecode, run_mdlcodec, run_orders, run_pairclass,
+    run_perfectiso, run_pipelinenull, run_predscan, run_profile, run_ragbaby, run_rankcodec,
+    run_rlcodec, run_solve, run_stats,
 };
 
 /// Outcome of one experiment run, ready for the thin CLI to emit.
@@ -93,6 +93,7 @@ pub(crate) fn run() -> ExitCode {
         Command::Gak(args) => run_gak(&args),
         Command::GakSwapRecover(args) => run_gak_swap_recover(&args),
         Command::Isoscan(args) => run_isoscan(&args),
+        Command::Isomap(args) => run_isomap(&args),
         Command::Rlcodec(args) => run_rlcodec(&args),
         Command::Bigramcodec(args) => run_bigramcodec(&args),
         Command::Codecpower(args) => run_codecpower(&args),

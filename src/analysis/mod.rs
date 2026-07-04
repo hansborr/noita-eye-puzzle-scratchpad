@@ -27,6 +27,8 @@
 //!   test over physical row-pair coordinates.
 //! - [`isomorph`]: first-occurrence repeated-pattern detection used by the
 //!   isomorph experiments and controls.
+//! - [`isomorph_map`]: equality-pattern isomorph column-map extraction and
+//!   group-closure reporting over raw symbol streams.
 //! - [`key_difference`]: Thread B isomorph key-difference discriminator — recovers
 //!   the additive realisation `Δ` of the isomorph relabelling and classifies it by
 //!   finite-difference order (identical / constant-additive / linear / irregular).
@@ -58,6 +60,7 @@ pub mod grouping;
 pub mod honeycomb;
 pub mod isomorph;
 pub mod isomorph_imperfection;
+pub mod isomorph_map;
 pub mod key_difference;
 pub mod leak_ceiling;
 pub mod orders;

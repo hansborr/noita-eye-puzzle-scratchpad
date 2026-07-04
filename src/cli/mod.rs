@@ -14,6 +14,7 @@ mod args_codecpower;
 mod args_cribfit;
 mod args_ctak;
 mod args_gak_swap;
+mod args_isomap;
 mod args_maskdecode;
 mod args_mdlcodec;
 mod args_pairclass;
