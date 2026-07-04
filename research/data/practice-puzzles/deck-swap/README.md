@@ -170,6 +170,9 @@ forced generator target.
 The landed stress self-test is deliberately bounded. It plants rotation-generator
 mappings and recovers them exactly for `n in {11,17}` and `max-swaps in {1,2,3}`,
 with a matched null that removes the generator surface needed for the planted
-targets. The measured boundary reported by the test is `(n=17, max-swaps=3)`.
-This is a regression/stress measurement, not a claim that the engine scales
-arbitrarily or that the vendored S83 `ns=3` wall is solved.
+targets. The null run is classified with the same outcome table as the supported
+frontier self-test: only `clean-failure` earns a passing null, while caps,
+timeouts, and plumbing errors make the stress report fail. The measured boundary
+reported by the test is `(n=17, max-swaps=3)`. This is a regression/stress
+measurement, not a claim that the engine scales arbitrarily or that the vendored
+S83 `ns=3` wall is solved.

@@ -277,39 +277,48 @@ fn null_control(
     max_swaps: usize,
     config: GakSwapSelfTestConfig,
 ) -> NullControlReport {
-    let (outcome, nodes) =
-        match recover_known_plaintext_swaps(spec, pairs, recovery_config(max_swaps, config)) {
-            Ok(report) if report.round_trip.exact() => {
-                (NullControlOutcome::RecoveredExact, Some(report.stats.nodes))
-            }
-            Ok(report) => (NullControlOutcome::CleanFailure, Some(report.stats.nodes)),
-            Err(
-                SwapRecoveryError::InconsistentTarget { .. }
-                | SwapRecoveryError::NoCandidateForTarget { .. }
-                | SwapRecoveryError::TargetAssumptionViolated { .. }
-                | SwapRecoveryError::NoResidualCandidate,
-            ) => (NullControlOutcome::CleanFailure, None),
-            Err(SwapRecoveryError::SearchCapExceeded { nodes }) => {
-                (NullControlOutcome::SearchCapExceeded, Some(nodes))
-            }
-            Err(SwapRecoveryError::SearchTimeExceeded { nodes }) => {
-                (NullControlOutcome::SearchTimeExceeded, Some(nodes))
-            }
-            Err(
-                SwapRecoveryError::LymmDeck(_)
-                | SwapRecoveryError::UnknownCiphertextSymbol { .. }
-                | SwapRecoveryError::PairLengthMismatch { .. }
-                | SwapRecoveryError::UnsupportedBudget { .. }
-                | SwapRecoveryError::InvalidInferenceRange { .. }
-                | SwapRecoveryError::TargetUnsatCore { .. }
-                | SwapRecoveryError::SatSolver(_),
-            ) => (NullControlOutcome::ControlError, None),
-        };
+    let (outcome, nodes) = classify_null_recovery(recover_known_plaintext_swaps(
+        spec,
+        pairs,
+        recovery_config(max_swaps, config),
+    ));
     NullControlReport {
         label,
         failed: outcome.is_clean_failure(),
         outcome,
         nodes,
+    }
+}
+
+pub(super) fn classify_null_recovery(
+    result: Result<RecoveryReport, SwapRecoveryError>,
+) -> (NullControlOutcome, Option<usize>) {
+    match result {
+        Ok(report) if report.round_trip.exact() => {
+            (NullControlOutcome::RecoveredExact, Some(report.stats.nodes))
+        }
+        Ok(report) => (NullControlOutcome::CleanFailure, Some(report.stats.nodes)),
+        Err(
+            SwapRecoveryError::InconsistentTarget { .. }
+            | SwapRecoveryError::NoCandidateForTarget { .. }
+            | SwapRecoveryError::TargetAssumptionViolated { .. }
+            | SwapRecoveryError::NoResidualCandidate,
+        ) => (NullControlOutcome::CleanFailure, None),
+        Err(SwapRecoveryError::SearchCapExceeded { nodes }) => {
+            (NullControlOutcome::SearchCapExceeded, Some(nodes))
+        }
+        Err(SwapRecoveryError::SearchTimeExceeded { nodes }) => {
+            (NullControlOutcome::SearchTimeExceeded, Some(nodes))
+        }
+        Err(
+            SwapRecoveryError::LymmDeck(_)
+            | SwapRecoveryError::UnknownCiphertextSymbol { .. }
+            | SwapRecoveryError::PairLengthMismatch { .. }
+            | SwapRecoveryError::UnsupportedBudget { .. }
+            | SwapRecoveryError::InvalidInferenceRange { .. }
+            | SwapRecoveryError::TargetUnsatCore { .. }
+            | SwapRecoveryError::SatSolver(_),
+        ) => (NullControlOutcome::ControlError, None),
     }
 }
 

@@ -3,13 +3,13 @@
 use std::collections::BTreeMap;
 
 use super::{
-    GakSwapReachStressConfig, GakSwapSelfTestConfig, KnownPlaintextPair, LYMM_DEFAULT_PT_ALPHABET,
-    LetterRecoveryVerdict, LymmDeckSpec, NullControlOutcome, SwapInferenceOutcome,
-    SwapInferenceRange, SwapRecoveryConfig, SwapRecoveryError, TopSwapConstraints,
-    encrypt_lymm_deck, enumerate_top_swap_domains, gak_swap_reach_stress_self_test,
-    gak_swap_self_test, generate_random_pt_mapping, infer_known_plaintext_swap_budget,
-    lymm_default_ct_alphabet, parse_known_plaintext_pairs, python_pt_mapping_literal,
-    recover_known_plaintext_swaps,
+    GakSwapReachStressCase, GakSwapReachStressConfig, GakSwapReachStressReport,
+    GakSwapSelfTestConfig, KnownPlaintextPair, LYMM_DEFAULT_PT_ALPHABET, LetterRecoveryVerdict,
+    LymmDeckSpec, NullControlOutcome, SwapInferenceOutcome, SwapInferenceRange, SwapRecoveryConfig,
+    SwapRecoveryError, TopSwapConstraints, encrypt_lymm_deck, enumerate_top_swap_domains,
+    gak_swap_reach_stress_self_test, gak_swap_self_test, generate_random_pt_mapping,
+    infer_known_plaintext_swap_budget, lymm_default_ct_alphabet, parse_known_plaintext_pairs,
+    python_pt_mapping_literal, recover_known_plaintext_swaps,
 };
 
 #[test]
@@ -384,8 +384,27 @@ fn reach_stress_self_test_reports_measured_boundary() {
     assert!(report.cases.iter().all(|case| {
         case.enumerated_candidates <= case.observed_letters
             && case.exact_recovery
-            && case.matched_null_failed
+            && case.matched_null_outcome == NullControlOutcome::CleanFailure
     }));
+}
+
+#[test]
+fn reach_stress_report_rejects_capped_null_as_passing() {
+    let report = GakSwapReachStressReport {
+        cases: vec![GakSwapReachStressCase {
+            n: 17,
+            max_swaps: 3,
+            exact_recovery: true,
+            matched_null_outcome: NullControlOutcome::SearchCapExceeded,
+            matched_null_nodes: Some(50_000),
+            observed_letters: 5,
+            enumerated_candidates: 5,
+            nodes: 5,
+        }],
+        measured_boundary: None,
+    };
+
+    assert!(!report.passed());
 }
 
 fn assert_equal_message_5_and_8(pairs: &[KnownPlaintextPair]) {

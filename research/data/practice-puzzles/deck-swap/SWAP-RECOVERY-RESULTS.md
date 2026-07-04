@@ -200,7 +200,9 @@ Validation added for this surface:
 - A larger-group stress self-test plants full-support rotation-generator mappings
   and recovers exactly for `n in {11,17}` and `max-swaps in {1,2,3}`.
 - Every stress case includes a matched null using the same ciphertexts but a
-  generator surface that cannot realize the planted targets.
+  generator surface that cannot realize the planted targets. The null outcome is
+  classified; only a clean model failure counts as a passing null, not a solver
+  cap, timeout, or plumbing error.
 - The test asserts the measured passing boundary `(n=17, max-swaps=3)` and records
   per-case candidate counts/nodes in the `GakSwapReachStressReport`.
 

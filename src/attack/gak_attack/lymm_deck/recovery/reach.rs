@@ -5,9 +5,10 @@ use std::collections::BTreeMap;
 use super::super::{
     KnownPlaintextPair, LymmDeckSpec, LymmGeneratorSet, encrypt_lymm_deck, lymm_default_ct_alphabet,
 };
+use super::selftest::classify_null_recovery;
 use super::{
-    LetterRecoveryVerdict, RecoveryGeneratorSet, SwapRecoveryConfig, SwapRecoveryError,
-    recover_known_plaintext_swaps,
+    LetterRecoveryVerdict, NullControlOutcome, RecoveryGeneratorSet, SwapRecoveryConfig,
+    SwapRecoveryError, recover_known_plaintext_swaps,
 };
 
 /// Configuration for the generalized-reach stress self-test.
@@ -34,8 +35,11 @@ pub struct GakSwapReachStressCase {
     pub max_swaps: usize,
     /// Whether exact recovery succeeded and matched the planted permutations.
     pub exact_recovery: bool,
-    /// Whether the matched null failed cleanly.
-    pub matched_null_failed: bool,
+    /// Classified matched-null outcome; only [`NullControlOutcome::CleanFailure`]
+    /// earns a passing null.
+    pub matched_null_outcome: NullControlOutcome,
+    /// Solver nodes reported by the matched-null run, when known.
+    pub matched_null_nodes: Option<usize>,
     /// Number of observed plaintext letters.
     pub observed_letters: usize,
     /// Candidate permutations admitted after targeted domain construction.
@@ -60,7 +64,7 @@ impl GakSwapReachStressReport {
     pub fn passed(&self) -> bool {
         self.cases
             .iter()
-            .all(|case| case.exact_recovery && case.matched_null_failed)
+            .all(|case| case.exact_recovery && case.matched_null_outcome.is_clean_failure())
     }
 }
 
@@ -84,7 +88,7 @@ pub fn gak_swap_reach_stress_self_test(
     }
     let measured_boundary = cases
         .iter()
-        .filter(|case| case.exact_recovery && case.matched_null_failed)
+        .filter(|case| case.exact_recovery && case.matched_null_outcome.is_clean_failure())
         .map(|case| (case.n, case.max_swaps))
         .max();
     Ok(GakSwapReachStressReport {
@@ -122,14 +126,15 @@ fn run_stress_case(
     let mut null_config = SwapRecoveryConfig::with_max_swaps(max_swaps)
         .with_generator_set(RecoveryGeneratorSet::Explicit(bad_generator_set));
     null_config.max_nodes = config.max_nodes;
-    let matched_null_failed = recover_known_plaintext_swaps(&spec, &pairs, null_config)
-        .map_or(true, |null_report| !null_report.round_trip.exact());
+    let (matched_null_outcome, matched_null_nodes) =
+        classify_null_recovery(recover_known_plaintext_swaps(&spec, &pairs, null_config));
 
     Ok(GakSwapReachStressCase {
         n,
         max_swaps,
         exact_recovery,
-        matched_null_failed,
+        matched_null_outcome,
+        matched_null_nodes,
         observed_letters: alphabet.chars().count(),
         enumerated_candidates: report.stats.enumerated_candidates,
         nodes: report.stats.nodes,
