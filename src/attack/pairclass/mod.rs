@@ -29,6 +29,7 @@
 mod anchor;
 mod campaign;
 mod lexicon;
+mod pattern_crib;
 mod plant;
 mod selftest;
 mod selftest_structured;
@@ -38,6 +39,8 @@ mod structured;
 mod tests;
 #[cfg(test)]
 mod tests_anchor;
+#[cfg(test)]
+mod tests_pattern_crib;
 #[cfg(test)]
 mod tests_structured;
 #[cfg(test)]
@@ -59,6 +62,13 @@ pub use campaign::{
 };
 
 pub use lexicon::{Lexicon, build_lexicon, parse_wordlist};
+pub use pattern_crib::{
+    DEFAULT_PATTERN_CRIB_NULL_TRIALS, DEFAULT_PATTERN_CRIB_RANDOM_NEGATIVES,
+    DEFAULT_PATTERN_CRIB_TOP, PatternCribAnchor, PatternCribConfig, PatternCribControls,
+    PatternCribHit, PatternCribNegativeControl, PatternCribPositiveControl, PatternCribRunReport,
+    PatternCribScan, PatternCribVerdict, pattern_crib_span_fits, run_pattern_crib_scan,
+    scan_pattern_crib_corpus,
+};
 pub use plant::{CopySpan, Plant, PlantSpec, copy_ties, markov_resample, plant_from_text};
 pub use selftest::{
     NullLeg, PairclassSelfTest, PlantLeg, PruneLeg, TWO_ANCHOR_MIN_LEN, TWO_ANCHORS,

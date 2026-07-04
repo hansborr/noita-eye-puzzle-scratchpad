@@ -2,6 +2,8 @@
 
 #[path = "pairclass_anchor_report.rs"]
 mod pairclass_anchor_report;
+#[path = "pairclass_pattern_crib.rs"]
+mod pairclass_pattern_crib;
 #[path = "pairclass_selftest_report.rs"]
 mod pairclass_selftest_report;
 #[path = "pairclass_structured.rs"]
@@ -25,6 +27,7 @@ use pairclass_anchor_report::{
     anchor_ladder, print_anchor_harvest_retention, print_anchor_harvest_verdict,
     print_anchor_harvest_window, print_anchor_power, print_anchor_solutions, print_anchor_verdict,
 };
+use pairclass_pattern_crib::run_pattern_crib_analysis;
 use pairclass_selftest_report::run_self_test;
 use pairclass_structured::run_structured_analysis;
 
@@ -82,6 +85,9 @@ fn run_analysis(args: &PairclassArgs) -> Result<ExitCode, String> {
         }
     };
     print_derivation(args, &prep);
+    if args.pattern_crib_scan.unwrap_or(false) {
+        return run_pattern_crib_analysis(args, &prep);
+    }
     let Some(wordlist_path) = args.wordlist.as_ref() else {
         println!();
         println!(

@@ -1512,10 +1512,155 @@ cargo run --release --locked -q -- pairclass \
   --structured-max-decodes 4096 --beam 20000 --top 5 --max-mem-mib 12288
 ```
 
-**Definitive run results: PENDING (runs in flight 2026-07-03).** This entry is
-committed before the verdicts so the instrument-hardening findings survive the
-session; the verdicts and their honest claim ceilings will be appended when the
-runs complete.
+One more gate-semantics fix landed before the final runs (commit `1a9670a`):
+the recovery hard gate is mean-over-bar plus a per-plant essentially-no-recovery
+floor (`--plant-floor`, default 0.15); a marginal plant (0.394 vs bar 0.4) no
+longer kills the run, and per-plant `recovery >= bar` counts only toward the
+curated POWERED criterion.
+
+**Curated tier definitive result (2026-07-03): `LowPowerNoExclusion` — no
+candidate.** Key output lines:
+
+```text
+  mean recovery 0.575  min recovery 0.394  truth-best 3/6  truth-top-3 6/6  curated-pass 2/6  RECOVERY GATE CLEARED
+  candidate-like 0/3 at p_emp <= 0.050  QUIET
+Structured Markov null for real stream (rank-beam 400): 49 trials, observed-best -550.39, null_ge 41, p_emp 0.840, null-margin -40.31
+VERDICT: LowPowerNoExclusion - the real stream was scored, but curated controls were not powered enough for a Candidate/NoCandidate call (real null_ge 41, p_emp 0.840).
+```
+
+Summary:
+
+- Positives (6 plants, k=19 nulls each): recovery gate CLEARED (mean 0.575,
+  min 0.394); **truth ranked top-3 by score on 6/6 plants** (family-best 3/6);
+  but per-plant null-anomaly power was weak — only 2/6 plants cleared
+  p_emp ≤ 0.05 — so the run is not POWERED for a formal exclusion.
+- Random negatives (3, k=19 each): 0/3 candidate-like — QUIET.
+- Real stream (374 bases, 1584 ranked candidates over 4 variants, cap-dropped
+  0, filter-dropped 26 968 at L1 cut 0.161; k=49 matched nulls):
+  observed best −550.39, **null_ge 41/49, p_emp 0.840, null-margin −40.31** —
+  the best real-stream structured candidate is *null-typical*. All five
+  confirm-beam top-candidate renders read as dictionary word-salad; none
+  resembles the recognizably-thematic ~0.55–0.65-recovery text that truth
+  renders produce on plants.
+
+Honest claim ceiling: within the curated deterministic-coloring family, under
+this scoring surface (rank-beam 400, this LM/gap policy), no real-stream
+candidate is distinguishable from matched-null junk, and the measured 6/6
+truth-top-3 retention means a family-member truth would very likely have
+surfaced in the top-5 — none did. This is a strong scoped negative for the
+curated family, but NOT a formal family exclusion (anomaly-gate power measured
+2/6); and the relabel filter's 26 968 filter-dropped relabels bound the claim
+to the ranked surface. No candidate cleartext merits logging (p_emp 0.840).
+
+**Broad tier definitive result (2026-07-03): `LowPowerNoExclusion` — no
+candidate.** Key output lines:
+
+```text
+  mean recovery 0.584  measured power truth-best 3/6  RECOVERY CLEARED
+  candidate-like 2/6 at p_emp <= 0.333  MEASURED FP
+Structured oracle candidates (rank-beam 400, base 10398, relabels 992448, ranked 27576 = guaranteed 27576 + extra 0, filter-dropped 933072, filter-l1-cut 0.160, cap-dropped 0, cap-l1-cut none):
+Structured Markov null for real stream (rank-beam 400): 20 trials, observed-best -532.41, null_ge 20, p_emp 1.000, null-margin -28.19
+VERDICT: LowPowerNoExclusion - no rank-beam structured candidate in the broad deterministic-coloring family achieved matched-null significance (null_ge 20, p_emp 1.000).
+```
+
+- Positives: recovery cleared (mean 0.584); all truths decoded; truth-score-rank
+  per plant #1/#2/#6/#2/#1/#1 (family-best 3/6 = the measured score power at
+  this breadth). Random negatives: 2/6 candidate-like at the coarse k=2
+  resolution (p ≤ 0.333) — the honestly measured false-positive floor.
+- Real stream: 27 576 ranked candidates (the guaranteed relabel band covered
+  everything; cap-dropped 0; 933 072 filter-dropped at L1 0.160 bound the
+  surface). Observed best −532.41: **all 20 matched nulls beat it**
+  (p_emp 1.000, null-margin −28.19). Top-5 renders are word-salad.
+
+**Round 8 combined conclusion.** Both tiers converge: the real `two` eps-pair
+stream shows *no* structured-coloring signal — its best family decode is
+null-typical (curated p_emp 0.840) to null-inferior (broad p_emp 1.000), while
+the same instrument retains planted truths at top-3 (curated 6/6) / top-6
+(broad 6/6) and renders them at 0.52–0.65 recovery. Scoped honest negative:
+*these deterministic coloring families, under this scoring surface, produced no
+candidate* — NOT "deterministic coloring excluded" (anomaly-gate power 2/6
+curated; relabel-filter drops bound both surfaces). Avenue A is spent as built;
+the remaining Avenue-A-adjacent levers are a widened family set, a
+higher-power real-stream statistic, or moving on to Avenues G (repeated-span
+pattern-crib scan) and F (soft-EM) per the handoff ranking.
+
+### Round 9 (codex, 2026-07-04): Avenue G — repeated-span pattern-crib scan
+
+Avenue G from `research/handoff/two-fresh-avenues.md` was built into
+`pairclass` as `--pattern-crib-scan` (commit `0b05f78`). It attacks only the
+phase-0 repeated token anchor (`116..149 == 176..209`, length 33) with the
+letter-to-class isomorph constraint:
+
+- a repeated candidate plaintext letter must carry the same observed class, and
+- two different observed classes cannot be the same plaintext letter.
+
+Before windowing, corpus text is normalized into the a..z plaintext model:
+ASCII letters are case-folded, and Finnish `ä/å` are transliterated to `a` while
+`ö` is transliterated to `o`; other non-a..z characters are separators/dropped.
+This induces a partial 26→4 coloring for any surviving normalized corpus span.
+It is not a dictionary decode and does not score English; a survivor would be a
+**candidate crib**, never a decode. The observed real anchor class pattern was:
+
+```text
+211032222022333030220123020030000
+```
+
+The instrument self-validates before the real anchor is scanned:
+
+- A structured planted positive is drawn from the same normalized/transliterated
+  corpus stream and pushed through a seed-deterministic random 26→4 coloring;
+  the scanner must recover the planted span.
+- Matched negatives are full-stream order-1 Markov resamples of the real
+  pairclass token stream, sliced at the same anchor start; every one must produce
+  zero corpus hits.
+- One uniform random negative token pattern must also stay quiet.
+
+Definitive invocations:
+
+```sh
+cargo run --release --locked -q -- pairclass \
+  --pattern-crib-scan \
+  --crib-corpus-file research/data/lang/english-corpus-large.txt \
+  --plant-text-file research/data/lang/english-corpus-large.txt \
+  --crib-null-trials 49 --crib-random-negatives 1 --crib-top 20
+
+cargo run --release --locked -q -- pairclass \
+  --pattern-crib-scan \
+  --crib-corpus-file research/data/lang/english.txt \
+  --plant-text-file research/data/lang/english.txt \
+  --crib-null-trials 49 --crib-random-negatives 1 --crib-top 20
+
+cargo run --release --locked -q -- pairclass \
+  --pattern-crib-scan \
+  --crib-corpus-file research/data/lang/finnish.txt \
+  --plant-text-file research/data/lang/finnish.txt \
+  --crib-null-trials 49 --crib-random-negatives 1 --crib-top 20
+```
+
+Results:
+
+| Corpus | Normalized a..z letters | Windows | Planted positive | Matched null | Random negative | Real survivors |
+| --- | ---: | ---: | --- | --- | --- | ---: |
+| `english-corpus-large.txt` | 1 121 917 | 1 121 885 | FIRED (1 planted hit / 1 total hit) | 0/49 candidate-like | 0/1 candidate-like | 0 |
+| `english.txt` | 2 442 | 2 410 | FIRED (1 planted hit / 1 total hit) | 0/49 candidate-like | 0/1 candidate-like | 0 |
+| `finnish.txt` | 1 642 | 1 610 | FIRED (1 planted hit / 1 total hit) | 0/49 candidate-like | 0/1 candidate-like | 0 |
+
+The primary large-corpus positive span was
+`ersheexpectedeverymomentthatsomeo` (start 366771; 15 distinct letters, 18
+repeated positions). The two small-corpus positives were
+`rdsandbookshelveshereandthereshes` (English small, start 1796) and
+`enotaseyeglyphdatamieleniminuntek` (Finnish transliterated rerun, start 246).
+These are control fixtures, not proposed plaintext.
+
+**Verdict: `NoCandidate` — no corpus span survived.** Claim ceiling: under the
+fixed phase-0 anchor (`116 == 176`, len 33), static 26→4 coloring model, and the
+three committed language files above, there is no normalized a..z corpus window
+compatible with the observed class pattern. This is an honest negative for the
+scanned normalized/transliterated corpus material only. It does **not** exclude a
+custom phrase, an unscanned source, another anchor/phase convention, or a
+stateful/non-static codec. No candidate cleartext emerged, so no hypothesis file
+was written under
+`research/gak-threads/candidates/`.
 
 ## Provenance
 
