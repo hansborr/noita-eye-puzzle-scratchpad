@@ -79,9 +79,13 @@ pub(crate) struct GakSwapRecoverArgs {
     /// Reserved Task-03 generator-set knob. Only `top-swaps` is supported here.
     #[arg(long = "generator-set")]
     pub(crate) generator_set: Option<String>,
-    /// Reserved Task-03 swap-budget inference knob.
-    #[arg(long = "infer-swaps")]
-    pub(crate) infer_swaps: bool,
+    /// Infer the smallest exact top-swap budget in an inclusive `A..B` range.
+    #[arg(
+        long = "infer-swaps",
+        value_name = "A..B",
+        conflicts_with_all = ["num_swaps", "max_swaps"]
+    )]
+    pub(crate) infer_swaps: Option<String>,
 }
 
 /// Known-plaintext pair file layout.

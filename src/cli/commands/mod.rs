@@ -10,6 +10,7 @@ mod cribfit;
 mod ctakscan;
 mod gak;
 mod gak_swap;
+mod gak_swap_report;
 mod groupscan;
 mod isoscan;
 mod keydiff;

@@ -3,10 +3,11 @@
 use std::collections::BTreeMap;
 
 use super::{
-    GakSwapSelfTestConfig, KnownPlaintextPair, LetterRecoveryVerdict, LymmDeckSpec,
-    NullControlOutcome, SwapRecoveryConfig, TopSwapConstraints, encrypt_lymm_deck,
-    enumerate_top_swap_domains, gak_swap_self_test, generate_random_pt_mapping,
-    parse_known_plaintext_pairs, recover_known_plaintext_swaps,
+    GakSwapSelfTestConfig, KnownPlaintextPair, LYMM_DEFAULT_PT_ALPHABET, LetterRecoveryVerdict,
+    LymmDeckSpec, NullControlOutcome, SwapInferenceOutcome, SwapInferenceRange, SwapRecoveryConfig,
+    SwapRecoveryError, TopSwapConstraints, encrypt_lymm_deck, enumerate_top_swap_domains,
+    gak_swap_self_test, generate_random_pt_mapping, infer_known_plaintext_swap_budget,
+    lymm_default_ct_alphabet, parse_known_plaintext_pairs, recover_known_plaintext_swaps,
 };
 
 #[test]
@@ -176,6 +177,120 @@ fn ns2_recovery_recovers_vendored_key_and_reencrypts_exactly() {
 }
 
 #[test]
+fn infer_swaps_ns1_reports_final_support_not_swap_word_length() {
+    let spec = LymmDeckSpec::lymm_default().expect("spec");
+    let pairs = parse_known_plaintext_pairs(
+        &spec,
+        include_str!("../../../../research/data/practice-puzzles/deck-swap/plaintexts.txt"),
+        include_str!("../../../../research/data/practice-puzzles/deck-swap/1_swap_ct.txt"),
+    )
+    .expect("known plaintext pairs");
+
+    let report = infer_known_plaintext_swap_budget(
+        &spec,
+        &pairs,
+        SwapInferenceRange::new(1, 2),
+        SwapRecoveryConfig::with_max_swaps(1),
+    )
+    .expect("swap inference");
+    let selected = report.selected.as_ref().expect("selected budget");
+
+    assert_eq!(report.inferred_max_swaps(), Some(1));
+    assert_eq!(report.inferred_support_size(), Some(2));
+    assert_eq!(report.attempts.len(), 1);
+    assert_eq!(
+        report.attempts.first().map(|attempt| attempt.outcome),
+        Some(SwapInferenceOutcome::ExactRoundTrip)
+    );
+    assert_eq!(
+        selected
+            .letters
+            .iter()
+            .filter(|letter| letter.occurrences > 0)
+            .map(|letter| letter.canonical_swaps.len())
+            .max(),
+        Some(1),
+        "the inferred summary must report support size 2, not one-swap word length"
+    );
+}
+
+#[test]
+fn infer_swaps_planted_budget_two_closes_at_upper_bound() {
+    let spec = LymmDeckSpec::from_shift_decimation(
+        29,
+        LYMM_DEFAULT_PT_ALPHABET,
+        &lymm_default_ct_alphabet(29),
+        7,
+        3,
+    )
+    .expect("spec");
+    let planted =
+        generate_random_pt_mapping(&spec, 2, 0x51a7_0000_0000_0002).expect("planted mapping");
+    let pairs = encrypted_plaintext_pairs(&spec, &planted.pt_mapping);
+    let mut config = SwapRecoveryConfig::with_max_swaps(1);
+    config.max_nodes = Some(50_000);
+
+    let report =
+        infer_known_plaintext_swap_budget(&spec, &pairs, SwapInferenceRange::new(1, 2), config)
+            .expect("swap inference");
+
+    assert_eq!(report.inferred_max_swaps(), Some(2));
+    assert_eq!(report.attempts.len(), 2);
+    assert_ne!(
+        report.attempts.first().map(|attempt| attempt.outcome),
+        Some(SwapInferenceOutcome::ExactRoundTrip)
+    );
+    assert_eq!(
+        report.attempts.get(1).map(|attempt| attempt.outcome),
+        Some(SwapInferenceOutcome::ExactRoundTrip)
+    );
+    assert!(report.exact());
+
+    let under_budget =
+        infer_known_plaintext_swap_budget(&spec, &pairs, SwapInferenceRange::new(1, 1), config)
+            .expect("under-budget inference");
+    assert!(under_budget.selected.is_none());
+    assert_ne!(
+        under_budget.attempts.first().map(|attempt| attempt.outcome),
+        Some(SwapInferenceOutcome::ExactRoundTrip)
+    );
+}
+
+#[test]
+fn infer_swaps_caps_requested_range_at_measured_frontier() {
+    let spec = LymmDeckSpec::lymm_default().expect("spec");
+    let pairs = parse_known_plaintext_pairs(
+        &spec,
+        include_str!("../../../../research/data/practice-puzzles/deck-swap/plaintexts.txt"),
+        include_str!("../../../../research/data/practice-puzzles/deck-swap/1_swap_ct.txt"),
+    )
+    .expect("known plaintext pairs");
+
+    let report = infer_known_plaintext_swap_budget(
+        &spec,
+        &pairs,
+        SwapInferenceRange::new(1, 3),
+        SwapRecoveryConfig::with_max_swaps(1),
+    )
+    .expect("frontier-capped inference");
+    assert!(report.frontier_capped);
+    assert_eq!(report.attempted, SwapInferenceRange::new(1, 2));
+    assert_eq!(report.inferred_max_swaps(), Some(1));
+
+    let unsupported = infer_known_plaintext_swap_budget(
+        &spec,
+        &pairs,
+        SwapInferenceRange::new(3, 4),
+        SwapRecoveryConfig::with_max_swaps(3),
+    )
+    .expect_err("range starting past the frontier must not run");
+    assert!(matches!(
+        unsupported,
+        SwapRecoveryError::UnsupportedBudget { max_swaps: 3 }
+    ));
+}
+
+#[test]
 fn swap_recovery_self_test_passes_supported_frontier_controls() {
     let report =
         gak_swap_self_test(GakSwapSelfTestConfig::default()).expect("self-test should run");
@@ -316,4 +431,27 @@ fn parse_plaintext_rows(raw: &str) -> BTreeMap<String, String> {
             )
         })
         .collect()
+}
+
+fn encrypted_plaintext_pairs(
+    spec: &LymmDeckSpec,
+    mapping: &BTreeMap<char, Vec<usize>>,
+) -> Vec<KnownPlaintextPair> {
+    parse_plaintext_rows(include_str!(
+        "../../../../research/data/practice-puzzles/deck-swap/plaintexts.txt"
+    ))
+    .into_iter()
+    .map(|(label, plaintext)| {
+        let ciphertext = encrypt_lymm_deck(spec, mapping, &plaintext)
+            .expect("planted ciphertext")
+            .chars()
+            .filter(|ch| spec.ct_alphabet.contains(ch))
+            .collect();
+        KnownPlaintextPair {
+            label,
+            plaintext,
+            ciphertext,
+        }
+    })
+    .collect()
 }

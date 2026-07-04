@@ -28,8 +28,11 @@ pub use plant::{PlantedLymmMapping, generate_random_pt_mapping};
 pub use recovery::{
     DEFAULT_SWAP_RECOVERY_SEED, GakSwapSelfTestConfig, GakSwapSelfTestReport,
     LetterRecoveryVerdict, NullControlOutcome, NullControlReport, PositiveControlReport,
-    RecoveredLetter, RecoveryReport, RoundTripReport, SwapRecoveryConfig, SwapRecoveryError,
-    SwapRecoveryStats, gak_swap_self_test, recover_known_plaintext_swaps, round_trip_check,
+    RecoveredLetter, RecoveryReport, RoundTripReport, SUPPORTED_SWAP_RECOVERY_FRONTIER,
+    SWAP_RECOVERY_FRONTIER_MESSAGE, SwapInferenceAttempt, SwapInferenceOutcome, SwapInferenceRange,
+    SwapInferenceReport, SwapRecoveryConfig, SwapRecoveryError, SwapRecoveryStats,
+    gak_swap_self_test, infer_known_plaintext_swap_budget, recover_known_plaintext_swaps,
+    round_trip_check,
 };
 pub use spec::{
     LYMM_DEFAULT_DECIMATION, LYMM_DEFAULT_N, LYMM_DEFAULT_PT_ALPHABET, LYMM_DEFAULT_SHIFT,
