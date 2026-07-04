@@ -538,6 +538,45 @@ shrinking. One reading is true livelock in a too-coarse target vocabulary;
 another is finite but slow enumeration of a local projected pocket. A projected
 `E/H/S/T/Y` measurement is needed before committing to the next major lever.
 
+Projected `E/H/S/T/Y` adjudication probe, 2026-07-04:
+
+```sh
+TIMEFORMAT='wall=%3R s'; { time env NOITA_SWAP_CEGAR_TRACE=1 \
+  NOITA_SWAP_NS3_PROBE_MAX_NODES=60 \
+  cargo test --locked ns3_real_file_production_path_frontier_probe -- --ignored --nocapture; } 2>&1 \
+  | tee /tmp/ns3-projection-cap60.log
+```
+
+Result: still no recovery claim, no accepted target slice, no candidate-tier
+handoff, and no exact `2439/2439` round trip. The probe stopped cleanly at
+`SearchCapExceeded { nodes: 60 }` after `2327.300s` test elapsed
+(`wall=2327.536s`). It learned `60` deterministic target clauses from `60`
+target rejections, with `target_replay_checks=66` (`1.10` checks/rejection),
+`target_replay_literals=300`, and `target_floor_full_assignment_fallbacks=0`.
+Clause-length distribution was `60 x len=5`; all learned clauses were the
+tracked `E/H/S/T/Y` reason family. Cap-wide wall cost was `38.79s` per learned
+rejection and `35.27s` per broad replay; the first rejection still pays the
+floor-discovery sequence, while subsequent rejections mostly pay one broad
+replay each.
+
+Projection-space measurement: every rejected projected tuple was new
+(`unique_projected=60`), every one remained in the same `T=67` slab
+(`t_change=initial` once, then `same` `59` times), and the static distinct
+projected space under `T=67` stayed `34,234,200` throughout. The final line was
+`unique_for_t=60`, `projected_remaining_for_t=34,234,140`: only `60` of
+`34,234,200` projected tuples were eliminated. Targeted residual entries again
+showed no narrowing trend: `153896` entries on `55/60` rejections and `157136`
+on `5/60`, with `targeted_max_domain=6562` throughout. The run touched
+`7` distinct `E` values, `6` distinct `H` values, `13` distinct `S` values, and
+`8` distinct `Y` values, but did not move `T`.
+
+Verdict: this adjudicates the livelock question toward true target-layer
+livelock at the current `(letter = target)` vocabulary. The solver is not
+measurably exhausting a finite local projected pocket; it is enumerating fresh
+5-target tuples inside a huge flat `T=67` slab. The next major lever should not
+be more target-only singleton chasing. It should bring finer-than-target /
+partial-transition literals or partial-slice theory propagation forward.
+
 ## Likely next levers
 
 Ranked hypotheses for closing `ns=3`:
