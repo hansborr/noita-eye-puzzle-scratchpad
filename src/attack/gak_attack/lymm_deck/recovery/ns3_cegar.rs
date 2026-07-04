@@ -8,7 +8,8 @@ use super::learning::{TruthTracker, add_outer_stats};
 use super::propagation::{PropagationOptions, propagate_partial_states};
 use super::residual::{ResidualDomains, recover_with_residual_domains, restrict_to_targets};
 use super::target_conflict::{
-    measure_truth_target_residual, minimize_deterministic_target_conflict,
+    broad_residual_rejects_target_choices, measure_truth_target_residual,
+    minimize_deterministic_target_conflict,
 };
 use super::target_solver::TargetAssignmentSolver;
 use super::{
@@ -90,11 +91,18 @@ pub(super) fn recover_ns3_with_target_cegar(
                 if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_some() {
                     eprintln!("cegar: learned target core size={}", choices.len());
                 }
-                if choices.is_empty() {
-                    target_solver.learn_assignment_clause(&targets, truth.as_ref(), &mut stats)?;
-                } else {
-                    target_solver.learn_core_clause(&choices, truth.as_ref(), &mut stats)?;
-                }
+                learn_sat_unsat_core_target_clause(
+                    &mut target_solver,
+                    SatTargetCoreClause {
+                        spec,
+                        messages,
+                        residual: &residual,
+                        targets: &targets,
+                        choices: &choices,
+                        truth: truth.as_ref(),
+                    },
+                    &mut stats,
+                )?;
             }
             Err(SwapRecoveryError::NoResidualCandidate) => {
                 learn_no_residual_target_clause(
@@ -113,6 +121,56 @@ pub(super) fn recover_ns3_with_target_cegar(
             }
         }
     }
+}
+
+#[derive(Clone, Copy)]
+pub(super) struct SatTargetCoreClause<'a> {
+    pub(super) spec: &'a LymmDeckSpec,
+    pub(super) messages: &'a [AlignedMessage],
+    pub(super) residual: &'a ResidualDomains,
+    pub(super) targets: &'a BTreeMap<char, usize>,
+    pub(super) choices: &'a [(char, usize)],
+    pub(super) truth: Option<&'a TruthTracker>,
+}
+
+pub(super) fn learn_sat_unsat_core_target_clause(
+    target_solver: &mut TargetAssignmentSolver,
+    core: SatTargetCoreClause<'_>,
+    stats: &mut SwapRecoveryStats,
+) -> Result<(), SwapRecoveryError> {
+    if !core.choices.is_empty()
+        && broad_residual_rejects_target_choices(
+            core.spec,
+            core.messages,
+            core.residual,
+            core.choices,
+        )?
+    {
+        return target_solver.learn_core_clause(core.choices, core.truth, stats);
+    }
+
+    let assignment_choices = core
+        .targets
+        .iter()
+        .map(|(&letter, &target)| (letter, target))
+        .collect::<Vec<_>>();
+    if !broad_residual_rejects_target_choices(
+        core.spec,
+        core.messages,
+        core.residual,
+        &assignment_choices,
+    )? {
+        return Err(SwapRecoveryError::SatSolver(
+            "target UNSAT core failed broad-baseline replay".to_owned(),
+        ));
+    }
+    if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_some() && !core.choices.is_empty() {
+        eprintln!(
+            "cegar: target core failed broad replay; learned full assignment size={}",
+            assignment_choices.len()
+        );
+    }
+    target_solver.learn_core_clause(&assignment_choices, core.truth, stats)
 }
 
 fn trace_targeted_entries(residual: &ResidualDomains) {

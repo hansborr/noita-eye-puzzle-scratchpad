@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use super::learning::TruthTracker;
 use super::propagation::{PropagationOptions, propagate_partial_states};
-use super::residual::{ResidualDomains, restrict_to_targets};
+use super::residual::{ResidualDomains, residual_formula_is_unsat, restrict_to_targets};
 use super::{AlignedMessage, SwapRecoveryError, SwapRecoveryStats};
 use crate::attack::gak_attack::lymm_deck::LymmDeckSpec;
 
@@ -84,6 +84,40 @@ pub(super) fn minimize_deterministic_target_conflict(
     }
     stats.target_replay_literals = stats.target_replay_literals.saturating_add(core.len());
     Ok(Some(core))
+}
+
+pub(super) fn broad_residual_rejects_target_choices(
+    spec: &LymmDeckSpec,
+    messages: &[AlignedMessage],
+    broad_baseline: &ResidualDomains,
+    choices: &[(char, usize)],
+) -> Result<bool, SwapRecoveryError> {
+    let targets = choices.iter().copied().collect::<BTreeMap<_, _>>();
+    let mut probe = broad_baseline.clone();
+    match restrict_to_targets(&mut probe, &targets) {
+        Ok(()) => {}
+        Err(SwapRecoveryError::NoResidualCandidate) => return Ok(true),
+        Err(error) => return Err(error),
+    }
+    let mut probe_stats = SwapRecoveryStats {
+        enumerated_candidates: probe.candidates.len(),
+        ..SwapRecoveryStats::default()
+    };
+    let propagation = match propagate_partial_states(
+        spec,
+        messages,
+        &mut probe,
+        &mut probe_stats,
+        PropagationOptions {
+            max_passes: 2,
+            exhaustive_arc: false,
+        },
+    ) {
+        Ok(propagation) => propagation,
+        Err(SwapRecoveryError::NoResidualCandidate) => return Ok(true),
+        Err(error) => return Err(error),
+    };
+    residual_formula_is_unsat(spec, messages, &probe, &propagation.state_domains, None)
 }
 
 fn deterministic_rejects(

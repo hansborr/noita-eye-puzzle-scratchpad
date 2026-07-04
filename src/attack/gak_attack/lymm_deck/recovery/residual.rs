@@ -53,6 +53,12 @@ struct CandidateConflictContext<'a> {
     failure: &'a VerificationFailure,
 }
 
+struct ResidualSatProblem {
+    solver: BasicSolver,
+    vars: BTreeMap<(char, usize), Lit>,
+    target_lits: TargetAssumptionLits,
+}
+
 pub(super) fn recover_with_residual(
     spec: &LymmDeckSpec,
     messages: &[AlignedMessage],
@@ -103,6 +109,105 @@ pub(super) fn recover_with_residual_domains(
     if trace_residual("candidate", config.max_swaps, &residual, &stats) {
         return Err(SwapRecoveryError::SearchCapExceeded { nodes: stats.nodes });
     }
+    let mut problem = build_residual_sat_problem(
+        spec,
+        messages,
+        &propagation.state_domains,
+        &residual,
+        target_assumptions,
+    );
+
+    let started = Instant::now();
+    loop {
+        enforce_candidate_budget(&config, &stats, started)?;
+        let sat = problem
+            .solver
+            .solve_limited(&problem.target_lits.assumptions);
+        if sat == lbool::FALSE {
+            trace_stats("candidate unsat", &stats);
+            if target_assumptions.is_some() {
+                let mut choices = problem
+                    .solver
+                    .unsat_core()
+                    .iter()
+                    .filter_map(|literal| problem.target_lits.lookup.get(literal).copied())
+                    .collect::<Vec<_>>();
+                choices.sort_unstable();
+                choices.dedup();
+                return Err(SwapRecoveryError::TargetUnsatCore { choices });
+            }
+            return Err(SwapRecoveryError::NoResidualCandidate);
+        }
+        if sat == lbool::UNDEF {
+            return Err(SwapRecoveryError::SatSolver(
+                "Batsat returned an indeterminate result".to_owned(),
+            ));
+        }
+
+        stats.nodes += 1;
+        stats.sat_decisions = usize::try_from(problem.solver.num_decisions()).unwrap_or(usize::MAX);
+        stats.sat_conflicts = usize::try_from(problem.solver.num_conflicts()).unwrap_or(usize::MAX);
+        let assignment = extract_assignment(&problem.solver, &residual, &problem.vars)?;
+        match verify_candidate_assignment(spec, messages, &residual, &assignment)? {
+            Ok(()) => {
+                return build_report_from_assignment(
+                    spec,
+                    messages,
+                    config,
+                    &residual,
+                    &assignment,
+                    stats,
+                );
+            }
+            Err(failure) => {
+                stats.sat_conflicts += 1;
+                add_prefix_conflict_clause(
+                    &CandidateConflictContext {
+                        messages,
+                        residual: &residual,
+                        vars: &problem.vars,
+                        assignment: &assignment,
+                        failure: &failure,
+                    },
+                    &mut problem.solver,
+                    truth,
+                    &mut stats,
+                )?;
+            }
+        }
+    }
+}
+
+pub(super) fn residual_formula_is_unsat(
+    spec: &LymmDeckSpec,
+    messages: &[AlignedMessage],
+    residual: &ResidualDomains,
+    state_domains: &[Vec<Vec<u128>>],
+    target_assumptions: Option<&BTreeMap<char, usize>>,
+) -> Result<bool, SwapRecoveryError> {
+    let mut problem =
+        build_residual_sat_problem(spec, messages, state_domains, residual, target_assumptions);
+    let sat = problem
+        .solver
+        .solve_limited(&problem.target_lits.assumptions);
+    if sat == lbool::FALSE {
+        Ok(true)
+    } else if sat == lbool::TRUE {
+        Ok(false)
+    } else {
+        Err(SwapRecoveryError::SatSolver(
+            "Batsat returned an indeterminate result".to_owned(),
+        ))
+    }
+}
+
+fn build_residual_sat_problem(
+    spec: &LymmDeckSpec,
+    messages: &[AlignedMessage],
+    state_domains: &[Vec<Vec<u128>>],
+    residual: &ResidualDomains,
+    target_assumptions: Option<&BTreeMap<char, usize>>,
+) -> ResidualSatProblem {
     let mut solver = BasicSolver::default();
     let mut vars: BTreeMap<(char, usize), Lit> = BTreeMap::new();
     let target_lits = build_target_assumptions(target_assumptions, &mut solver);
@@ -124,72 +229,21 @@ pub(super) fn recover_with_residual_domains(
         );
     }
 
-    let top_vars = add_top_image_channel_clauses(spec, &residual, &vars, &mut solver);
+    let top_vars = add_top_image_channel_clauses(spec, residual, &vars, &mut solver);
     add_adjacent_transition_clauses(
         spec,
         messages,
-        &propagation.state_domains,
-        &residual,
+        state_domains,
+        residual,
         &vars,
         &top_vars,
         &mut solver,
     );
 
-    let started = Instant::now();
-    loop {
-        enforce_candidate_budget(&config, &stats, started)?;
-        let sat = solver.solve_limited(&target_lits.assumptions);
-        if sat == lbool::FALSE {
-            trace_stats("candidate unsat", &stats);
-            if target_assumptions.is_some() {
-                let mut choices = solver
-                    .unsat_core()
-                    .iter()
-                    .filter_map(|literal| target_lits.lookup.get(literal).copied())
-                    .collect::<Vec<_>>();
-                choices.sort_unstable();
-                choices.dedup();
-                return Err(SwapRecoveryError::TargetUnsatCore { choices });
-            }
-            return Err(SwapRecoveryError::NoResidualCandidate);
-        }
-        if sat == lbool::UNDEF {
-            return Err(SwapRecoveryError::SatSolver(
-                "Batsat returned an indeterminate result".to_owned(),
-            ));
-        }
-
-        stats.nodes += 1;
-        stats.sat_decisions = usize::try_from(solver.num_decisions()).unwrap_or(usize::MAX);
-        stats.sat_conflicts = usize::try_from(solver.num_conflicts()).unwrap_or(usize::MAX);
-        let assignment = extract_assignment(&solver, &residual, &vars)?;
-        match verify_candidate_assignment(spec, messages, &residual, &assignment)? {
-            Ok(()) => {
-                return build_report_from_assignment(
-                    spec,
-                    messages,
-                    config,
-                    &residual,
-                    &assignment,
-                    stats,
-                );
-            }
-            Err(failure) => {
-                stats.sat_conflicts += 1;
-                add_prefix_conflict_clause(
-                    &CandidateConflictContext {
-                        messages,
-                        residual: &residual,
-                        vars: &vars,
-                        assignment: &assignment,
-                        failure: &failure,
-                    },
-                    &mut solver,
-                    truth,
-                    &mut stats,
-                )?;
-            }
-        }
+    ResidualSatProblem {
+        solver,
+        vars,
+        target_lits,
     }
 }
 

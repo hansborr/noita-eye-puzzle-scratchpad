@@ -4,6 +4,7 @@ use super::super::{
     KnownPlaintextPair, LymmDeckSpec, encrypt_lymm_deck, generate_random_pt_mapping,
     lymm_default_ct_alphabet,
 };
+use super::ns3_cegar::{SatTargetCoreClause, learn_sat_unsat_core_target_clause};
 use super::propagation::{PropagationOptions, propagate_partial_states};
 use super::residual::{
     ResidualDomains, build_residual_domains, restrict_to_targets, verify_candidate_assignment,
@@ -119,6 +120,63 @@ fn ns3_planted_truth_survives_target_cegar_pruning() {
     assert!(
         domain_entry_count(&targeted) <= broad_entries,
         "targeted ns=3 propagation should not grow residual domains"
+    );
+}
+
+#[test]
+fn ns3_sat_target_core_learning_rechecks_broad_residual() {
+    let (spec, planted, pairs) = small_ns3_control();
+    let messages = align_pairs(&spec, &pairs).expect("aligned pairs");
+    let config = SwapRecoveryConfig::with_max_swaps(3);
+    let mut residual = build_residual_domains(&spec, &messages, &config).expect("ns=3 residual");
+    let mut broad_stats = SwapRecoveryStats {
+        enumerated_candidates: residual.candidates.len(),
+        ..SwapRecoveryStats::default()
+    };
+    let broad = propagate_partial_states(
+        &spec,
+        &messages,
+        &mut residual,
+        &mut broad_stats,
+        PropagationOptions::ns3_broad(),
+    )
+    .expect("broad ns=3 propagation must preserve truth");
+    let planted_targets = planted_targets(&residual, &planted);
+    let mut target_solver =
+        TargetAssignmentSolver::new(&spec, &messages, &broad.state_domains, &residual);
+    assert!(
+        target_solver
+            .assignment_is_satisfiable(&planted_targets)
+            .expect("planted target assignment check before learning")
+    );
+
+    let (&first_letter, &first_target) = planted_targets.iter().next().expect("planted target");
+    let narrowed_only_core = vec![(first_letter, first_target)];
+    let mut stats = SwapRecoveryStats::default();
+
+    let error = learn_sat_unsat_core_target_clause(
+        &mut target_solver,
+        SatTargetCoreClause {
+            spec: &spec,
+            messages: &messages,
+            residual: &residual,
+            targets: &planted_targets,
+            choices: &narrowed_only_core,
+            truth: None,
+        },
+        &mut stats,
+    )
+    .expect_err("broad-admitted target cores must not be learned");
+    assert!(
+        matches!(error, SwapRecoveryError::SatSolver(_)),
+        "unexpected broad-recheck failure: {error:?}"
+    );
+
+    assert!(
+        target_solver
+            .assignment_is_satisfiable(&planted_targets)
+            .expect("planted target assignment check after learning"),
+        "plant-free SAT-core learning must not learn a broad-admitted target sub-core"
     );
 }
 
