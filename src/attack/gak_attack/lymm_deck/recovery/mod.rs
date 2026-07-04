@@ -3,6 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 
+mod domain_build;
 mod error;
 mod inference;
 #[cfg(test)]
@@ -25,19 +26,39 @@ pub use selftest::{
 };
 
 use super::{
-    KnownPlaintextPair, LymmDeckError, LymmDeckSpec, TopSwapConstraints, TopSwapDomains,
-    compose_lymm, encrypt_lymm_deck, enumerate_top_swap_domains,
+    KnownPlaintextPair, LymmDeckError, LymmDeckSpec, LymmGeneratorSet, TopSwapConstraints,
+    TopSwapDomains, compose_lymm, encrypt_lymm_deck, enumerate_top_swap_domains,
 };
 use residual::recover_with_residual;
 
 /// Default deterministic seed for the swap-recovery controls.
 pub const DEFAULT_SWAP_RECOVERY_SEED: u64 = 0x5a17_0200_0000_0002;
 
+/// Generator family admitted by [`recover_known_plaintext_swaps`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RecoveryGeneratorSet {
+    /// Lymm's original top-swap generator family `{(0 k)}`.
+    TopSwaps,
+    /// Explicit generator-file family. Words are reported as generator row
+    /// indexes rather than top-swap positions.
+    Explicit(LymmGeneratorSet),
+}
+
+impl RecoveryGeneratorSet {
+    /// Returns true for the specialized top-swap family.
+    #[must_use]
+    pub const fn is_top_swaps(&self) -> bool {
+        matches!(self, Self::TopSwaps)
+    }
+}
+
 /// Search controls for [`recover_known_plaintext_swaps`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SwapRecoveryConfig {
-    /// Maximum top-swap budget to admit into each per-letter domain.
+    /// Maximum generator-word budget to admit into each per-letter domain.
     pub max_swaps: usize,
+    /// Generator family used to build per-letter domains.
+    pub generator_set: RecoveryGeneratorSet,
     /// Optional cap for residual-solver candidate models.
     pub max_nodes: Option<usize>,
     /// Optional wall-clock budget for the residual solver.
@@ -50,9 +71,17 @@ impl SwapRecoveryConfig {
     pub const fn with_max_swaps(max_swaps: usize) -> Self {
         Self {
             max_swaps,
+            generator_set: RecoveryGeneratorSet::TopSwaps,
             max_nodes: None,
             time_budget: None,
         }
+    }
+
+    /// Replaces the generator family.
+    #[must_use]
+    pub fn with_generator_set(mut self, generator_set: RecoveryGeneratorSet) -> Self {
+        self.generator_set = generator_set;
+        self
     }
 }
 
@@ -84,7 +113,9 @@ pub struct RecoveredLetter {
     pub permutation: Option<Vec<usize>>,
     /// Final candidate permutations still admitted for this letter.
     pub candidate_permutations: Vec<Vec<usize>>,
-    /// Canonical shortest top-swap word for the reported candidate.
+    /// Canonical shortest word for the reported candidate. For top-swaps these
+    /// entries are swap positions; for explicit generator sets they are
+    /// generator row indexes.
     pub canonical_swaps: Vec<usize>,
     /// Number of equivalent final candidates still admitted for this letter.
     pub equivalent_count: usize,
@@ -178,9 +209,9 @@ pub fn recover_known_plaintext_swaps(
     config: SwapRecoveryConfig,
 ) -> Result<RecoveryReport, SwapRecoveryError> {
     let aligned = align_pairs(spec, pairs)?;
-    if config.max_swaps == 1 {
+    if config.max_swaps == 1 && config.generator_set.is_top_swaps() {
         recover_ns1(spec, &aligned, config)
-    } else if config.max_swaps == 2 || config.max_swaps == 3 {
+    } else if (1..=3).contains(&config.max_swaps) {
         recover_with_residual(spec, &aligned, config)
     } else {
         Err(SwapRecoveryError::UnsupportedBudget {

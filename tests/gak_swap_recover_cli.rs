@@ -2,7 +2,13 @@
 
 mod common;
 
+use std::collections::BTreeMap;
+use std::fs;
+
 use common::{assert_contains, run_noita_eye, run_noita_eye_failure};
+use noita_eye_puzzle::attack::gak_attack::lymm_deck::{
+    LymmDeckSpec, encrypt_lymm_deck, lymm_default_ct_alphabet,
+};
 
 const PLAINTEXTS: &str = "research/data/practice-puzzles/deck-swap/plaintexts.txt";
 const NS1_CIPHERTEXTS: &str = "research/data/practice-puzzles/deck-swap/1_swap_ct.txt";
@@ -117,4 +123,81 @@ fn gak_swap_recover_cli_json_includes_shareable_mapping_surface() {
     assert_contains(&stdout, "\"support_size\": 2");
     assert_contains(&stdout, "\"swap_word\": [");
     assert_contains(&stdout, "\"permutation\": [");
+}
+
+#[test]
+fn gak_swap_recover_cli_accepts_explicit_generator_file() {
+    let spec = LymmDeckSpec::from_base(7, "AB", &lymm_default_ct_alphabet(7), (0..7).collect())
+        .expect("spec");
+    let mapping = BTreeMap::from([('A', rotation(7, 1)), ('B', rotation(7, 2))]);
+    let plaintexts = ["ABBAAB", "BABAAB"];
+    let ciphertexts = plaintexts
+        .iter()
+        .map(|plaintext| encrypt_lymm_deck(&spec, &mapping, plaintext).expect("encrypt"))
+        .collect::<Vec<_>>();
+
+    let plaintext_path = write_temp_file("pt", &plaintexts.join("\n\n"));
+    let ciphertext_path = write_temp_file("ct", &ciphertexts.join("\n\n"));
+    let base_path = write_temp_file("base", "0 1 2 3 4 5 6\n");
+    let generator_path = write_temp_file(
+        "generators",
+        "\
+rot1: 1 2 3 4 5 6 0
+rot2: 2 3 4 5 6 0 1
+",
+    );
+
+    let plaintext_path_str = plaintext_path.display().to_string();
+    let ciphertext_path_str = ciphertext_path.display().to_string();
+    let base_path_str = base_path.display().to_string();
+    let generator_path_str = generator_path.display().to_string();
+    let stdout = run_noita_eye(&[
+        "gak-swap-recover",
+        "--plaintext-file",
+        &plaintext_path_str,
+        "--ciphertext-file",
+        &ciphertext_path_str,
+        "--pair-format",
+        "blank-lines",
+        "--pt-alphabet",
+        "AB",
+        "--n",
+        "7",
+        "--base-file",
+        &base_path_str,
+        "--generator-file",
+        &generator_path_str,
+        "--max-swaps",
+        "1",
+        "--skip-controls",
+    ]);
+
+    assert_contains(&stdout, "VERIFIED RECOVERY (exact re-encryption)");
+    assert_contains(&stdout, "gak-swap-recover: 2 known-plaintext pairs, n=7");
+    assert_contains(&stdout, "stats: candidates=2");
+
+    for path in [plaintext_path, ciphertext_path, base_path, generator_path] {
+        let _ignored = fs::remove_file(path);
+    }
+}
+
+fn write_temp_file(label: &str, contents: &str) -> std::path::PathBuf {
+    let path = std::env::temp_dir().join(format!(
+        "noita-eye-gak-swap-{label}-{}-{}.txt",
+        std::process::id(),
+        unique_suffix()
+    ));
+    fs::write(&path, contents).expect("write temp file");
+    path
+}
+
+fn unique_suffix() -> u128 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("system time")
+        .as_nanos()
+}
+
+fn rotation(n: usize, shift: usize) -> Vec<usize> {
+    (0..n).map(|index| (index + shift) % n).collect()
 }

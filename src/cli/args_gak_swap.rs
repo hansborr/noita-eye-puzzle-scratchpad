@@ -76,9 +76,12 @@ pub(crate) struct GakSwapRecoverArgs {
     /// Reserved Task-03 emit-index knob. Only `0` is supported here.
     #[arg(long = "emit-index")]
     pub(crate) emit_index: Option<usize>,
-    /// Reserved Task-03 generator-set knob. Only `top-swaps` is supported here.
-    #[arg(long = "generator-set")]
+    /// Built-in generator family.
+    #[arg(long = "generator-set", conflicts_with = "generator_file")]
     pub(crate) generator_set: Option<String>,
+    /// File containing one explicit generator permutation per non-comment line.
+    #[arg(long = "generator-file", conflicts_with = "generator_set")]
+    pub(crate) generator_file: Option<std::path::PathBuf>,
     /// Infer the smallest exact top-swap budget in an inclusive `A..B` range.
     #[arg(
         long = "infer-swaps",

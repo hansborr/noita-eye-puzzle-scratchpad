@@ -268,9 +268,13 @@ fn infer_swaps_planted_budget_two_closes_at_upper_bound() {
     let mut config = SwapRecoveryConfig::with_max_swaps(1);
     config.max_nodes = Some(50_000);
 
-    let report =
-        infer_known_plaintext_swap_budget(&spec, &pairs, SwapInferenceRange::new(1, 2), config)
-            .expect("swap inference");
+    let report = infer_known_plaintext_swap_budget(
+        &spec,
+        &pairs,
+        SwapInferenceRange::new(1, 2),
+        config.clone(),
+    )
+    .expect("swap inference");
 
     assert_eq!(report.inferred_max_swaps(), Some(2));
     assert_eq!(report.attempts.len(), 2);

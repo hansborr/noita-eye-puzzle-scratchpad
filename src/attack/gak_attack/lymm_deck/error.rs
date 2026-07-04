@@ -56,6 +56,22 @@ pub enum LymmDeckError {
         /// Number of attempts tried.
         attempts: usize,
     },
+    /// A generator-file line was malformed.
+    GeneratorLine {
+        /// 1-based line number.
+        line: usize,
+        /// Short diagnostic.
+        reason: &'static str,
+    },
+    /// The explicit generator set did not contain any generators.
+    GeneratorSetEmpty,
+    /// The explicit generator set was built for a different deck size.
+    GeneratorDeckSize {
+        /// Deck size attached to the generator set.
+        generator_n: usize,
+        /// Deck size required by the recovery spec.
+        spec_n: usize,
+    },
     /// A random draw bound was zero or too large.
     RandomBoundTooLarge {
         /// Requested exclusive upper bound.
@@ -126,6 +142,17 @@ impl fmt::Display for LymmDeckError {
             Self::PlantAttemptsExceeded { letter, attempts } => write!(
                 f,
                 "failed to plant reversible mapping for {letter:?} after {attempts} attempts"
+            ),
+            Self::GeneratorLine { line, reason } => {
+                write!(f, "malformed Lymm generator line {line}: {reason}")
+            }
+            Self::GeneratorSetEmpty => write!(f, "Lymm generator set has no generators"),
+            Self::GeneratorDeckSize {
+                generator_n,
+                spec_n,
+            } => write!(
+                f,
+                "Lymm generator set deck size n={generator_n} does not match recovery deck size n={spec_n}"
             ),
             Self::RandomBoundTooLarge { bound } => {
                 write!(f, "random draw bound {bound} is invalid")

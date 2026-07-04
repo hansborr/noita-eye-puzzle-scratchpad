@@ -286,6 +286,7 @@ fn null_control(
             Err(
                 SwapRecoveryError::InconsistentTarget { .. }
                 | SwapRecoveryError::NoCandidateForTarget { .. }
+                | SwapRecoveryError::TargetAssumptionViolated { .. }
                 | SwapRecoveryError::NoResidualCandidate,
             ) => (NullControlOutcome::CleanFailure, None),
             Err(SwapRecoveryError::SearchCapExceeded { nodes }) => {

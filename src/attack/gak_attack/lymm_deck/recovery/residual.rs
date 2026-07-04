@@ -5,10 +5,8 @@ use std::time::Instant;
 
 use batsat::{BasicSolver, Lit, SolverInterface, lbool};
 
-use super::super::{
-    LymmDeckError, LymmDeckSpec, TopSwapConstraints, TopSwapDomains, compose_lymm,
-    enumerate_top_swap_domains,
-};
+use super::super::{LymmDeckError, LymmDeckSpec, TopSwapDomains, compose_lymm};
+pub(super) use super::domain_build::build_residual_domains;
 use super::propagation::{PropagationOptions, propagate_partial_states};
 use super::sat_encoding::{add_adjacent_transition_clauses, add_top_image_channel_clauses};
 use super::target_solver::TargetAssignmentSolver;
@@ -50,9 +48,9 @@ pub(super) fn recover_with_residual(
     config: SwapRecoveryConfig,
 ) -> Result<RecoveryReport, SwapRecoveryError> {
     if config.max_swaps == 3 {
-        return recover_ns3_with_target_cegar(spec, messages, config);
+        return recover_ns3_with_target_cegar(spec, messages, &config);
     }
-    let residual = build_residual_domains(spec, messages, config.max_swaps)?;
+    let residual = build_residual_domains(spec, messages, &config)?;
     recover_with_residual_domains(
         spec,
         messages,
@@ -66,9 +64,9 @@ pub(super) fn recover_with_residual(
 fn recover_ns3_with_target_cegar(
     spec: &LymmDeckSpec,
     messages: &[AlignedMessage],
-    config: SwapRecoveryConfig,
+    config: &SwapRecoveryConfig,
 ) -> Result<RecoveryReport, SwapRecoveryError> {
-    let mut residual = build_residual_domains(spec, messages, config.max_swaps)?;
+    let mut residual = build_residual_domains(spec, messages, config)?;
     let mut stats = SwapRecoveryStats {
         enumerated_candidates: residual.candidates.len(),
         ..SwapRecoveryStats::default()
@@ -126,7 +124,7 @@ fn recover_ns3_with_target_cegar(
         match recover_with_residual_domains(
             spec,
             messages,
-            config,
+            (*config).clone(),
             targeted,
             PropagationOptions::ns2_default(),
             Some(&targets),
@@ -263,53 +261,6 @@ fn recover_with_residual_domains(
     }
 }
 
-pub(super) fn build_residual_domains(
-    spec: &LymmDeckSpec,
-    messages: &[AlignedMessage],
-    max_swaps: usize,
-) -> Result<ResidualDomains, SwapRecoveryError> {
-    let domains = enumerate_top_swap_domains(spec, &TopSwapConstraints::up_to(max_swaps))?;
-    let candidates = domains
-        .candidates
-        .iter()
-        .map(|candidate| CandidateRuntime {
-            perm: candidate.permutation(spec),
-        })
-        .collect::<Vec<_>>();
-    let mut observed = occurrence_counts(spec, messages)
-        .into_iter()
-        .filter_map(|(letter, count)| (count > 0).then_some(letter))
-        .collect::<Vec<_>>();
-    observed.sort_unstable();
-
-    let initial_targets = identity_restart_targets(messages);
-    let mut by_letter = BTreeMap::new();
-    for &letter in &observed {
-        let domain = match initial_targets.get(&letter).copied() {
-            Some(target) => domains
-                .by_top_image
-                .get(&target)
-                .cloned()
-                .unwrap_or_default(),
-            None => (0..domains.candidates.len()).collect(),
-        };
-        if domain.is_empty() {
-            return Err(SwapRecoveryError::NoCandidateForTarget {
-                letter,
-                target: initial_targets.get(&letter).copied().unwrap_or(usize::MAX),
-            });
-        }
-        let _old = by_letter.insert(letter, domain);
-    }
-
-    Ok(ResidualDomains {
-        domains,
-        candidates,
-        by_letter,
-        letters: observed,
-    })
-}
-
 pub(super) fn restrict_to_targets(
     residual: &mut ResidualDomains,
     targets: &BTreeMap<char, usize>,
@@ -372,16 +323,6 @@ fn trace_residual(
         eprintln!("trace {label} letter {letter}: {}", domain.len());
     }
     true
-}
-
-fn identity_restart_targets(messages: &[AlignedMessage]) -> BTreeMap<char, usize> {
-    let mut targets = BTreeMap::new();
-    for message in messages {
-        if let Some(event) = message.events.first() {
-            let _old = targets.entry(event.letter).or_insert(event.ct_value);
-        }
-    }
-    targets
 }
 
 fn build_target_assumptions(

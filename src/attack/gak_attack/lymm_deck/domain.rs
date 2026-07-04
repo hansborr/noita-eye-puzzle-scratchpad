@@ -1,27 +1,46 @@
-//! Top-swap domain enumeration for Lymm deck mappings.
+//! Top-swap domain enumeration and shared generator-domain structs.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::{LymmDeckError, LymmDeckSpec};
 
-/// Constraints for enumerating top-swap candidates.
+/// Representation selected for a generator-domain enumeration.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum GeneratorBranchStrategy {
+    /// Specialized top-swap support enumeration used for Lymm's vendored S83
+    /// generator family.
+    TopSwapSupport,
+    /// Support-based branch over sparse transposition effects.
+    SmallTranspositionSupport,
+    /// Word-based branch over generator words, split for meet-in-the-middle
+    /// composition.
+    WordMitm {
+        /// Prefix word length used for the MITM split.
+        split: usize,
+    },
+}
+
+/// Constraints for enumerating generator candidates.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TopSwapConstraints {
-    /// Maximum number of top swaps in the generator word.
+    /// Maximum number of generators in the word.
     pub max_swaps: usize,
     /// Optional required final `perm[0]` value after composing with the spec base.
     pub required_top_image: Option<usize>,
-    /// Optional exact support of the final top-swap permutation.
+    /// Optional allowed set of final `perm[0]` values.
+    pub required_top_images: Option<BTreeSet<usize>>,
+    /// Optional exact support of the final generator-word permutation.
     pub required_support: Option<Vec<usize>>,
 }
 
 impl TopSwapConstraints {
-    /// Enumerates every candidate reachable by at most `max_swaps` top swaps.
+    /// Enumerates every candidate reachable by at most `max_swaps` generators.
     #[must_use]
     pub const fn up_to(max_swaps: usize) -> Self {
         Self {
             max_swaps,
             required_top_image: None,
+            required_top_images: None,
             required_support: None,
         }
     }
@@ -30,6 +49,13 @@ impl TopSwapConstraints {
     #[must_use]
     pub const fn with_top_image(mut self, top_image: usize) -> Self {
         self.required_top_image = Some(top_image);
+        self
+    }
+
+    /// Restricts candidates to one of the supplied final `perm[0]` images.
+    #[must_use]
+    pub fn with_top_images(mut self, top_images: BTreeSet<usize>) -> Self {
+        self.required_top_images = Some(top_images);
         self
     }
 
@@ -43,10 +69,12 @@ impl TopSwapConstraints {
     }
 }
 
-/// One reachable final top-swap candidate.
+/// One reachable final generator-word candidate.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TopSwapCandidate {
-    /// Canonical shortest, lexicographically first top-swap word.
+    /// Canonical shortest, lexicographically first word. For top-swaps this is
+    /// the sequence of top-swap indices; for explicit generator files it is the
+    /// sequence of generator-file row indexes.
     pub canonical_swaps: Vec<usize>,
     /// Final `perm[0]` after composing the candidate `sigma` with `spec.base`.
     pub top_image: usize,
@@ -83,15 +111,17 @@ impl TopSwapCandidate {
     }
 }
 
-/// A de-duplicated top-swap domain plus indexes for solver lookup.
+/// A de-duplicated generator domain plus indexes for solver lookup.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TopSwapDomains {
-    /// Final candidates after repeat and identity swaps are collapsed.
+    /// Final candidates after repeat and identity words are collapsed.
     pub candidates: Vec<TopSwapCandidate>,
     /// Candidate indexes grouped by final `perm[0]`.
     pub by_top_image: BTreeMap<usize, Vec<usize>>,
     /// Candidate indexes grouped by exact final support.
     pub by_support: BTreeMap<Vec<usize>, Vec<usize>>,
+    /// Branch representation selected for this enumeration.
+    pub branch_strategy: GeneratorBranchStrategy,
 }
 
 impl TopSwapDomains {
@@ -133,9 +163,8 @@ pub fn enumerate_top_swap_domains(
     spec: &LymmDeckSpec,
     constraints: &TopSwapConstraints,
 ) -> Result<TopSwapDomains, LymmDeckError> {
-    let identity = (0..spec.n).collect::<Vec<_>>();
     let mut canonical_words: BTreeMap<Vec<(usize, usize)>, Vec<usize>> = BTreeMap::new();
-    let mut sigma = identity.clone();
+    let mut sigma = (0..spec.n).collect::<Vec<_>>();
     let mut word = Vec::with_capacity(constraints.max_swaps);
     enumerate_words(
         spec.n,
@@ -144,7 +173,20 @@ pub fn enumerate_top_swap_domains(
         &mut word,
         &mut canonical_words,
     );
+    domains_from_canonical_words(
+        spec,
+        constraints,
+        canonical_words,
+        GeneratorBranchStrategy::TopSwapSupport,
+    )
+}
 
+fn domains_from_canonical_words(
+    spec: &LymmDeckSpec,
+    constraints: &TopSwapConstraints,
+    canonical_words: BTreeMap<Vec<(usize, usize)>, Vec<usize>>,
+    branch_strategy: GeneratorBranchStrategy,
+) -> Result<TopSwapDomains, LymmDeckError> {
     let mut candidates = Vec::new();
     for (sparse, canonical_swaps) in canonical_words {
         let support = sparse
@@ -164,10 +206,7 @@ pub fn enumerate_top_swap_domains(
                     emit_index: top_source,
                     n: spec.n,
                 })?;
-        if constraints
-            .required_top_image
-            .is_some_and(|value| value != top_image)
-        {
+        if !top_image_allowed(constraints, top_image) {
             continue;
         }
         if constraints
@@ -206,7 +245,21 @@ pub fn enumerate_top_swap_domains(
         candidates,
         by_top_image,
         by_support,
+        branch_strategy,
     })
+}
+
+fn top_image_allowed(constraints: &TopSwapConstraints, top_image: usize) -> bool {
+    if constraints
+        .required_top_image
+        .is_some_and(|value| value != top_image)
+    {
+        return false;
+    }
+    constraints
+        .required_top_images
+        .as_ref()
+        .is_none_or(|values| values.contains(&top_image))
 }
 
 fn enumerate_words(
@@ -216,13 +269,7 @@ fn enumerate_words(
     word: &mut Vec<usize>,
     canonical_words: &mut BTreeMap<Vec<(usize, usize)>, Vec<usize>>,
 ) {
-    let sparse = sparse_key(sigma);
-    let replace = canonical_words.get(&sparse).is_none_or(|existing| {
-        word.len() < existing.len() || word.as_slice() < existing.as_slice()
-    });
-    if replace {
-        let _old = canonical_words.insert(sparse, word.clone());
-    }
+    record_canonical(sigma, word, canonical_words);
     if word.len() == max_swaps {
         return;
     }
@@ -232,6 +279,20 @@ fn enumerate_words(
         enumerate_words(n, max_swaps, sigma, word, canonical_words);
         let _popped = word.pop();
         sigma.swap(0, swap_index);
+    }
+}
+
+fn record_canonical(
+    sigma: &[usize],
+    word: &[usize],
+    canonical_words: &mut BTreeMap<Vec<(usize, usize)>, Vec<usize>>,
+) {
+    let sparse = sparse_key(sigma);
+    let replace = canonical_words
+        .get(&sparse)
+        .is_none_or(|existing| word.len() < existing.len() || word < existing.as_slice());
+    if replace {
+        let _old = canonical_words.insert(sparse, word.to_vec());
     }
 }
 

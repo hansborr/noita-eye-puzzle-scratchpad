@@ -94,3 +94,35 @@ No Python recovery code is involved: `generate_reference_vectors.py` remains the
 thin shellable Python reference oracle/generator (encrypt + planted mapping
 generation only), and the Rust-vs-Python differential test above is the oracle
 compatibility check.
+
+## Explicit generator files
+
+Task-03 item 2 generalizes the recovery domain from only Lymm's built-in
+top-swaps to `perm(L) = base o word(G)` for an explicit generator set:
+
+```sh
+cargo run --locked --bin noita-eye -- gak-swap-recover \
+  --plaintext-file plaintexts.txt \
+  --ciphertext-file ciphertexts.txt \
+  --generator-file generators.txt \
+  --max-swaps 1
+```
+
+`generators.txt` contains one full permutation per non-empty line, using comma,
+semicolon, or whitespace separated integers. `#` starts a comment, and an optional
+`label:` prefix names the row without changing the generator index used in the
+reported canonical word. The default `--generator-set top-swaps` path remains the
+specialized S83 top-swap engine.
+
+The generalized engine chooses a sparse transposition-support path when every
+explicit generator is a small-support transposition. Otherwise it enumerates
+generator words with a meet-in-the-middle split and applies the forced-top prune
+when every observed letter has an identity-restart target. The landed CLI keeps
+the same measured direct frontier as the top-swap path (`--num-swaps` /
+`--max-swaps` below 3); larger reach is a separate measured item, not implied by
+the generator-file knob.
+
+The no-doubles model assumption still applies: observed plaintext letters must be
+assignable to distinct nonzero `perm(L)[0]` targets. Explicit generator surfaces
+that cannot supply enough such targets, or identity restarts that pin duplicate
+or zero targets, are rejected instead of silently producing a recovered key.

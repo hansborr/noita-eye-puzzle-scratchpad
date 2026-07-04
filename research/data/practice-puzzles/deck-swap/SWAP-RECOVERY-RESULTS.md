@@ -107,6 +107,42 @@ Lymm's `noita_test_cipher.py`. The reference-Python side remains the existing
 thin `generate_reference_vectors.py` oracle/generator; no Python attack logic was
 added.
 
+Task-03 item 2 adds explicit generator sets:
+
+```sh
+cargo run --locked --bin noita-eye -- gak-swap-recover \
+  --plaintext-file plaintexts.txt \
+  --ciphertext-file ciphertexts.txt \
+  --generator-file generators.txt \
+  --max-swaps 1
+```
+
+The generator file is one full permutation per non-comment line, optionally
+prefixed with `label:`. The recovery model is `perm(L) = base o word(G)` with
+word length `<= max-swaps`; reported `swap_word` entries are generator row indexes
+for explicit files. The engine keeps the built-in top-swap support enumerator
+unchanged for `--generator-set top-swaps`, uses a sparse transposition-support
+path when every explicit generator is a small-support transposition, and uses a
+word meet-in-the-middle path otherwise. The word path applies the forced-top prune
+when all observed letters are pinned by identity restarts.
+
+Validation added for this surface:
+
+- Planted explicit small-transposition control at `n=7`, `max-swaps=1`, exact
+  recovery, plus a matched null whose generator surface lacks enough distinct
+  nonzero targets.
+- Planted full-support rotation control at `n=7`, `max-swaps=1`, exact recovery
+  through the word/MITM branch, plus a ciphertext-label null.
+- A CLI integration test that writes plaintext, ciphertext, base, and generator
+  files and recovers through `--generator-file`.
+
+Bounded-search note: direct CLI recovery still rejects `--num-swaps` /
+`--max-swaps >= 3` with the measured-frontier message. The generator-set
+generality does not claim larger reach by itself; higher budgets and larger-group
+stress frontiers are Task-03 item 3. The distinct nonzero target/no-doubles
+assumption remains load-bearing for generalized generator sets, and violating it
+is reported as a model rejection rather than a candidate recovery.
+
 The `ns=3` planted test is a soundness control, not a real-file recovery claim:
 it exercises the same `ns=3` broad propagation, target pre-solver, targeted
 deterministic propagation, and exact planted-assignment verification that could

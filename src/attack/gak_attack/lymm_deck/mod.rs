@@ -10,6 +10,7 @@
 mod corpus;
 mod domain;
 mod error;
+mod generators;
 mod oracle;
 mod plant;
 mod recovery;
@@ -17,23 +18,27 @@ mod share;
 mod spec;
 
 #[cfg(test)]
+mod generator_tests;
+#[cfg(test)]
 mod tests;
 
 pub use corpus::{KnownPlaintextPair, parse_known_plaintext_pairs};
 pub use domain::{
-    TopSwapCandidate, TopSwapConstraints, TopSwapDomains, enumerate_top_swap_domains,
+    GeneratorBranchStrategy, TopSwapCandidate, TopSwapConstraints, TopSwapDomains,
+    enumerate_top_swap_domains,
 };
 pub use error::LymmDeckError;
+pub use generators::{LymmGeneratorSet, enumerate_generator_domains};
 pub use oracle::encrypt_lymm_deck;
 pub use plant::{PlantedLymmMapping, generate_random_pt_mapping};
 pub use recovery::{
     DEFAULT_SWAP_RECOVERY_SEED, GakSwapSelfTestConfig, GakSwapSelfTestReport,
     LetterRecoveryVerdict, NullControlOutcome, NullControlReport, PositiveControlReport,
-    RecoveredLetter, RecoveryReport, RoundTripReport, SUPPORTED_SWAP_RECOVERY_FRONTIER,
-    SWAP_RECOVERY_FRONTIER_MESSAGE, SwapInferenceAttempt, SwapInferenceOutcome, SwapInferenceRange,
-    SwapInferenceReport, SwapRecoveryConfig, SwapRecoveryError, SwapRecoveryStats,
-    gak_swap_self_test, infer_known_plaintext_swap_budget, recover_known_plaintext_swaps,
-    round_trip_check,
+    RecoveredLetter, RecoveryGeneratorSet, RecoveryReport, RoundTripReport,
+    SUPPORTED_SWAP_RECOVERY_FRONTIER, SWAP_RECOVERY_FRONTIER_MESSAGE, SwapInferenceAttempt,
+    SwapInferenceOutcome, SwapInferenceRange, SwapInferenceReport, SwapRecoveryConfig,
+    SwapRecoveryError, SwapRecoveryStats, gak_swap_self_test, infer_known_plaintext_swap_budget,
+    recover_known_plaintext_swaps, round_trip_check,
 };
 pub use share::python_pt_mapping_literal;
 pub use spec::{

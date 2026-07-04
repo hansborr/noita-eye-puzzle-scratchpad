@@ -43,6 +43,12 @@ pub enum SwapRecoveryError {
         /// Required `perm[0]` image.
         target: usize,
     },
+    /// The distinct nonzero target assumption is impossible under this run's
+    /// observed starts or generator surface.
+    TargetAssumptionViolated {
+        /// Human-readable reason.
+        detail: String,
+    },
     /// Recovery for this swap budget is not implemented yet.
     UnsupportedBudget {
         /// Requested swap budget.
@@ -105,8 +111,11 @@ impl fmt::Display for SwapRecoveryError {
             Self::NoCandidateForTarget { letter, target } => {
                 write!(
                     f,
-                    "no top-swap candidate for {letter:?} with target {target}"
+                    "no generator candidate for {letter:?} with target {target}"
                 )
+            }
+            Self::TargetAssumptionViolated { detail } => {
+                write!(f, "distinct nonzero target assumption violated: {detail}")
             }
             Self::UnsupportedBudget { max_swaps } => {
                 write!(

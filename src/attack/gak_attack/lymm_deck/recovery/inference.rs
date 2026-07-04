@@ -152,7 +152,7 @@ pub fn infer_known_plaintext_swap_budget(
 
     for max_swaps in attempted.start..=attempted.end {
         config.max_swaps = max_swaps;
-        match recover_known_plaintext_swaps(spec, pairs, config) {
+        match recover_known_plaintext_swaps(spec, pairs, config.clone()) {
             Ok(report) => {
                 let exact = report.round_trip.exact();
                 let attempt = attempt_from_report(max_swaps, &report);
@@ -214,6 +214,7 @@ fn recoverable_attempt_error(error: &SwapRecoveryError) -> Option<SwapInferenceO
     match error {
         SwapRecoveryError::InconsistentTarget { .. }
         | SwapRecoveryError::NoCandidateForTarget { .. }
+        | SwapRecoveryError::TargetAssumptionViolated { .. }
         | SwapRecoveryError::NoResidualCandidate => Some(SwapInferenceOutcome::ModelRejected),
         SwapRecoveryError::SearchCapExceeded { .. } => {
             Some(SwapInferenceOutcome::SearchCapExceeded)

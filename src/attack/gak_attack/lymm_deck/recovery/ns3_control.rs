@@ -9,7 +9,7 @@ use super::residual::{
     ResidualDomains, build_residual_domains, restrict_to_targets, verify_candidate_assignment,
 };
 use super::target_solver::TargetAssignmentSolver;
-use super::{SwapRecoveryError, SwapRecoveryStats, align_pairs};
+use super::{SwapRecoveryConfig, SwapRecoveryError, SwapRecoveryStats, align_pairs};
 
 #[test]
 fn ns3_planted_truth_survives_target_cegar_pruning() {
@@ -29,7 +29,8 @@ fn ns3_planted_truth_survives_target_cegar_pruning() {
     .expect("encrypted pairs");
     let messages = align_pairs(&spec, &pairs).expect("aligned pairs");
 
-    let mut residual = build_residual_domains(&spec, &messages, 3).expect("ns=3 residual");
+    let config = SwapRecoveryConfig::with_max_swaps(3);
+    let mut residual = build_residual_domains(&spec, &messages, &config).expect("ns=3 residual");
     let mut broad_stats = SwapRecoveryStats {
         enumerated_candidates: residual.candidates.len(),
         ..SwapRecoveryStats::default()

@@ -5,9 +5,10 @@ use std::time::Duration;
 
 use noita_eye_puzzle::attack::gak_attack::lymm_deck::{
     GakSwapSelfTestConfig, GakSwapSelfTestReport, KnownPlaintextPair, LYMM_DEFAULT_DECIMATION,
-    LYMM_DEFAULT_SHIFT, LymmDeckSpec, SWAP_RECOVERY_FRONTIER_MESSAGE, SwapInferenceRange,
-    SwapRecoveryConfig, SwapRecoveryError, gak_swap_self_test, infer_known_plaintext_swap_budget,
-    lymm_default_ct_alphabet, parse_known_plaintext_pairs, recover_known_plaintext_swaps,
+    LYMM_DEFAULT_SHIFT, LymmDeckSpec, LymmGeneratorSet, RecoveryGeneratorSet,
+    SWAP_RECOVERY_FRONTIER_MESSAGE, SwapInferenceRange, SwapRecoveryConfig, SwapRecoveryError,
+    gak_swap_self_test, infer_known_plaintext_swap_budget, lymm_default_ct_alphabet,
+    parse_known_plaintext_pairs, recover_known_plaintext_swaps,
 };
 
 use super::gak_swap_report::{print_inference_report, print_recovery_report, print_self_test};
@@ -54,10 +55,13 @@ pub(crate) fn run_gak_swap_recover(args: &GakSwapRecoverArgs) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let mut config =
-        SwapRecoveryConfig::with_max_swaps(args.num_swaps.or(args.max_swaps).unwrap_or(2));
-    config.max_nodes = args.max_nodes;
-    config.time_budget = args.time_budget_secs.map(Duration::from_secs);
+    let config = match build_recovery_config(&spec, args) {
+        Ok(config) => config,
+        Err(error) => {
+            eprintln!("gak-swap-recover config error: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
 
     if let Some(raw_range) = &args.infer_swaps {
         let range = match parse_infer_range(raw_range) {
@@ -189,7 +193,7 @@ fn validate_task02_knobs(args: &GakSwapRecoverArgs) -> Result<(), String> {
     if let Some(generator_set) = &args.generator_set
         && generator_set != "top-swaps"
     {
-        return Err("--generator-set currently supports only 'top-swaps'".to_owned());
+        return Err("--generator-set supports only 'top-swaps' or use --generator-file".to_owned());
     }
     Ok(())
 }
@@ -249,6 +253,24 @@ fn build_spec(args: &GakSwapRecoverArgs) -> Result<LymmDeckSpec, String> {
             .map_err(|error| error.to_string())?;
     }
     Ok(spec)
+}
+
+fn build_recovery_config(
+    spec: &LymmDeckSpec,
+    args: &GakSwapRecoverArgs,
+) -> Result<SwapRecoveryConfig, String> {
+    let mut config =
+        SwapRecoveryConfig::with_max_swaps(args.num_swaps.or(args.max_swaps).unwrap_or(2));
+    config.max_nodes = args.max_nodes;
+    config.time_budget = args.time_budget_secs.map(Duration::from_secs);
+    if let Some(path) = &args.generator_file {
+        let text = std::fs::read_to_string(path)
+            .map_err(|error| format!("failed to read --generator-file: {error}"))?;
+        let generator_set = LymmGeneratorSet::parse_permutation_file(spec.n, &text)
+            .map_err(|error| format!("failed to parse --generator-file: {error}"))?;
+        config = config.with_generator_set(RecoveryGeneratorSet::Explicit(generator_set));
+    }
+    Ok(config)
 }
 
 fn parse_affine_base(raw: &str) -> Result<(usize, usize), String> {
