@@ -4,6 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::time::Duration;
 
+#[cfg(test)]
+mod ns3_control;
 mod propagation;
 mod residual;
 mod sat_encoding;

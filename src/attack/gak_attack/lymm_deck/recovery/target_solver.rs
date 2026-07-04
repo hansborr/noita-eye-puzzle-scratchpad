@@ -76,6 +76,32 @@ impl TargetAssignmentSolver {
         add_sat_clause(&mut self.solver, &clause);
     }
 
+    #[cfg(test)]
+    pub(super) fn assignment_is_satisfiable(
+        &mut self,
+        assignment: &BTreeMap<char, usize>,
+    ) -> Result<bool, SwapRecoveryError> {
+        let assumptions = assignment
+            .iter()
+            .map(|(&letter, &target)| {
+                self.vars
+                    .get(&(letter, target))
+                    .copied()
+                    .ok_or(SwapRecoveryError::NoResidualCandidate)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let sat = self.solver.solve_limited(&assumptions);
+        if sat == lbool::TRUE {
+            Ok(true)
+        } else if sat == lbool::FALSE {
+            Ok(false)
+        } else {
+            Err(SwapRecoveryError::SatSolver(
+                "target solver returned an indeterminate result".to_owned(),
+            ))
+        }
+    }
+
     fn extract_assignment(&self) -> Result<BTreeMap<char, usize>, SwapRecoveryError> {
         let mut assignment = BTreeMap::new();
         for &letter in &self.letters {

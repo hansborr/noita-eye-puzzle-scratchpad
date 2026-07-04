@@ -32,7 +32,7 @@ pub(super) struct ResidualDomains {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct VerificationFailure {
+pub(super) struct VerificationFailure {
     message_index: usize,
     event_index: usize,
 }
@@ -263,7 +263,7 @@ fn recover_with_residual_domains(
     }
 }
 
-fn build_residual_domains(
+pub(super) fn build_residual_domains(
     spec: &LymmDeckSpec,
     messages: &[AlignedMessage],
     max_swaps: usize,
@@ -310,7 +310,7 @@ fn build_residual_domains(
     })
 }
 
-fn restrict_to_targets(
+pub(super) fn restrict_to_targets(
     residual: &mut ResidualDomains,
     targets: &BTreeMap<char, usize>,
 ) -> Result<(), SwapRecoveryError> {
@@ -459,7 +459,7 @@ fn extract_assignment(
     Ok(assignment)
 }
 
-fn verify_candidate_assignment(
+pub(super) fn verify_candidate_assignment(
     spec: &LymmDeckSpec,
     messages: &[AlignedMessage],
     residual: &ResidualDomains,
