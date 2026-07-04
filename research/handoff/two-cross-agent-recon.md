@@ -146,6 +146,77 @@ the only acceptance (`Avenue E` verifier discipline). Whether that closes it
 is **unmeasured** — their scoring surface was quadgrams; ours would have to be
 genuinely stronger.
 
+## Stage-2 mechanics (second firewalled extraction, 2026-07-04 — all [R])
+
+Design-level mechanics of their key-search/ranking stages, extracted for the
+stage-(ii) build (codex session `019f2ee2` range; same firewall — no
+plaintext/crib/key was read out).
+
+**Key parameterization (confirms the stabilizer-fiber hypothesis).** With
+`G48` the order-48 closure and `QLIST = [1,2,4,5,7,8,10,11]`, a key is
+`(u_-1, c_0..c_7)`: an initial state `u_-1 ∈ G48` (the factor 48 — the
+initial state, *not* a relabel class) plus, per legal q value, a 2-bit choice
+`c_j` of one of the 4 elements in the fiber `F_q = {g ∈ G48 : g[0] = q}`.
+Evolution (their convention `compose(p,q)[x] = q[p[x]]`):
+
+```text
+u = u_-1
+for ciphertext symbol S_i:
+    r_i = inv(u)[S_i]          # must lie in QLIST (legality across the FULL stream)
+    gamma_i = chosen element of F_{r_i}
+    u = compose(gamma_i, u)
+```
+
+The length-698 **q sequence** is `index_of(r_i in QLIST)` — the
+current-state readout of each symbol, *not* the raw adjacent delta.
+
+**Search scope caveat.** The whole concrete pipeline runs inside the order-48
+shadow; the order-96/supergroup work stayed exploratory (`lockstep`-style
+two-span evolution; fiber size would be 8 at order 96). A 48-shadow survivor
+is a **quotient candidate, not a true-group key** — a lift/supergroup check
+is required before any true-group recovery claim.
+
+**Anchor hard-filtering.** A key survives a trimmed anchor `(a,b,L)` iff its
+induced q-index spans agree: `q[a..a+L) == q[b..b+L)`. Trim 2/side, drop
+trimmed length < 8 (the raw len-7 identical repeat at 389/561 trims out).
+Trimmed hard anchors, in application order: `(25,111,29), (9,559,45),
+(234,508,38), (235,355,61), (355,509,37), (111,575,29), (330,488,13)`.
+Two-pass evaluation: pass 1 evolves all 3,145,728 keys incrementally checking
+only the first trimmed pair (streaming early-abort); pass 2 builds full
+698-position q histories for pass-1 survivors and applies the remaining
+anchors as full-span equality tests.
+
+**Survivors.** The persisted 104,096 rows are **deduplicated length-698
+q-index sequences** (multiple keys can induce the same q stream on this
+ciphertext; their v2 artifact discarded the multiplicities — ours should
+retain `nkeys` + one representative key per sequence for audit).
+
+**Soft ranking.** 17 short identical-ciphertext repeats (lengths 5–7,
+including the trimmed-out 389/561 len-7), each trimmed 1/side, each
+contributing 0/1 if the q spans also agree — no length weighting. Measured:
+max score 12/17, achieved by 96 sequences, collapsing to **24 canonical
+classes** under first-occurrence relabeling of the 8 q symbols (quotients
+global S8 digit naming; 24 is an observed count, not a group order). Soft
+anchors: `(27,404,5), (86,688,5), (100,492,5), (148,576,5), (212,458,5),
+(253,459,5), (270,298,5), (272,349,5), (337,693,5), (343,389,5), (391,423,5),
+(398,419,5), (620,629,5), (627,645,5), (242,372,6), (342,388,6), (389,561,7)`.
+
+**Validity/finish stage (context for stage (iii)).** Patterns read as 349
+two-octal-digit pairs; enumerate label→digit permutations (8!) × digit order
+HL/LH × charset tables (`ascii32/64/96`, a six-bit table); validity = every
+used 6-bit value inside a strict/loose allowed set; then average-log-quadgram
+scoring. **Crib-free resolution failed here** — validity + quadgrams did not
+uniquely select the value/table/digit interpretation (no crib-free truth
+rank was preserved in their artifacts).
+
+**Their stage-specific pitfalls** (encode as controls): untrimmed hard
+anchors killed all keys including truth; keep key multiplicities; enforce q
+legality across the full stream explicitly; treat G48 output as shadow
+candidate; their exploratory supergroup count omitted a generator once (do
+not trust it unrechecked); their `rank_soft` comment/code mismatch (pair-IC
+mentioned, never used); their finish enumeration was split inconsistently
+across two scripts (consolidate ours).
+
 ## Their kill list (overlaps ours, no contradictions; extensions recorded)
 
 **[R]** Failed approaches in their scratch, with why:
