@@ -20,6 +20,31 @@ then this. House rules: `research/handoff/README.md`, `AGENTS.md`.
   wanders / is unsound" (the pre-Task-02 state) to "per-node cost at scale."
 - CLI still refuses `--num-swaps 3`; no exact `2439/2439` claim is made anywhere.
 
+## Status update — 2026-07-04
+
+This block supersedes the open-task state in the planning text below; the older
+sections are retained for design rationale and guardrails.
+
+- **Stage 1 is done and adversarially reviewed.** The `TargetUnsatCore`
+  target-clause soundness gap was closed with a broad-baseline recheck before
+  learning; a dedicated `target_rejections` counter was added; and the
+  production-path wrong-first target controls now exercise deterministic
+  rejection at `n=7/11/17`. Calibration measured `4/15/18` target rejections to
+  convergence, so the rejection-scaling gate passed with no explosion.
+- **Lever 1 landed and was adversarially reviewed.** The deterministic
+  `NoResidualCandidate` path now tracks target-level implication reasons and
+  broad-replays every extracted reason before it can reach `learn_sat_clause`.
+  Anchored controls held at `4/15/18` target rejections. The real `n=83` cap-8
+  probe remains walled: `8` learned target rejections, `56` replay checks,
+  `7.0` checks/rejection, about `216s` per learned rejection, no accepted target
+  slice, and no exact `2439/2439` round trip.
+- **Next-lever read from review.** Lever 2, feature-level candidate CEGAR
+  conflicts, is premature until the search accepts at least one target slice.
+  The recommended emphasis is stronger target reasons: smaller broad-valid
+  deterministic clauses for the real-file rejection family. Per the process note
+  below, get a cross-lineage design consult before spending that implementation
+  burn.
+
 ## The resolved architecture (two-tier CDCL(T)) — do not regress it
 
 Recovery at ns≥3 is a target-level lazy-SMT / CDCL(T) loop over one-hot
@@ -62,16 +87,15 @@ residual-freedom measurement then confirmed the acceptance branch has real work.
   on the real file target-clause soundness rests *entirely* on this. The deterministic
   path earns it by construction: `target_conflict.rs::deterministic_rejects` re-runs
   broad propagation on exactly the candidate subset. The SAT `TargetUnsatCore` path
-  (`residual.rs`) does **not** — its core is extracted from a formula whose domains were
-  physically `restrict_to_targets`-narrowed to the *full* target assignment, so the
-  channelling clauses bake in the off-core targets and an unsat core over a subset of
-  target-assumption literals is not a proven broad-residual nogood. This is a latent
-  soundness gap in landed code (planted controls can't catch it: truth-preservation only
-  fires when the bad core excludes *the* plant, and the controls have unique solutions —
-  the exact "unsound-but-passing control" the process notes warn about). Any new reason
-  mechanism (lever 1) inherits the obligation. Close it with a one-shot broad-baseline
-  recheck of the returned core before `learn_sat_clause`, or by assumption-guarding the
-  target restriction instead of physically applying it.
+  (`residual.rs`) originally did **not**: its core was extracted from a formula whose
+  domains were physically `restrict_to_targets`-narrowed to the *full* target assignment,
+  so the channelling clauses baked in the off-core targets and an unsat core over a
+  subset of target-assumption literals was not a proven broad-residual nogood. That
+  landed gap is now closed by a one-shot broad-baseline recheck before
+  `learn_sat_clause`; keep that recheck in place. Planted controls cannot catch this
+  class by themselves because truth-preservation only fires when a bad core excludes
+  *the* plant, and the controls have unique solutions — the exact
+  "unsound-but-passing control" the process notes warn about.
 - **Controls route through the production acceptance path** (`ns3_control.rs` calls
   `recover_known_plaintext_swaps`), truth tracking is observational/labeling only.
 - **Measured frontier, never "scales arbitrarily."** A walled level is a reportable
