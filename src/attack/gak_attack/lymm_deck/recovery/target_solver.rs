@@ -59,6 +59,15 @@ impl TargetAssignmentSolver {
         }
     }
 
+    pub(super) fn letter_target_values(&self, letter: char) -> Vec<usize> {
+        self.vars
+            .keys()
+            .filter_map(|&(candidate_letter, target)| {
+                (candidate_letter == letter).then_some(target)
+            })
+            .collect()
+    }
+
     pub(super) fn learn_assignment_clause(
         &mut self,
         assignment: &BTreeMap<char, usize>,
