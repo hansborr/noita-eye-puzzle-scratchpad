@@ -4,7 +4,7 @@ use std::fmt::Write as _;
 
 use noita_eye_puzzle::attack::gak_attack::lymm_deck::{
     GakSwapSelfTestReport, NullControlReport, PositiveControlReport, RecoveryReport,
-    SWAP_RECOVERY_FRONTIER_MESSAGE, SwapInferenceReport,
+    SWAP_RECOVERY_FRONTIER_MESSAGE, SwapInferenceReport, python_pt_mapping_literal,
 };
 
 use crate::cli::args_gak_swap::GakSwapOutput;
@@ -208,6 +208,8 @@ fn print_recovery_details(report: &RecoveryReport, pair_count: usize) {
             letter.verdict
         );
     }
+    println!("  python pt_mapping (copy into noita_test_cipher.py after numpy import):");
+    print!("{}", python_pt_mapping_literal(&report.pt_mapping));
 }
 
 fn print_positive(label: &str, report: &PositiveControlReport) {
@@ -363,10 +365,13 @@ fn recovery_json_prefix(
 
 fn append_recovery_json_body(out: &mut String, report: &RecoveryReport, indent: &str) {
     writeln!(out, "{indent}\"exact\": {},", report.round_trip.exact()).expect("write to String");
+    writeln!(out, "{indent}\"verdict\": \"{:?}\",", report.verdict).expect("write to String");
+    writeln!(out, "{indent}\"round_trip\": {},", round_trip_json(report)).expect("write to String");
+    writeln!(out, "{indent}\"pt_mapping\": {},", pt_mapping_json(report)).expect("write to String");
     writeln!(
         out,
-        "{indent}\"round_trip\": {{\"matched\": {}, \"total\": {}}},",
-        report.round_trip.matched, report.round_trip.total
+        "{indent}\"python_pt_mapping\": \"{}\",",
+        json_escape(&python_pt_mapping_literal(&report.pt_mapping))
     )
     .expect("write to String");
     writeln!(
@@ -390,12 +395,15 @@ fn append_recovery_json_body(out: &mut String, report: &RecoveryReport, indent: 
         };
         writeln!(
             out,
-            "{indent}  {{\"letter\": \"{}\", \"occurrences\": {}, \"target\": {}, \"support\": {}, \"swaps\": {}, \"equivalent_count\": {}, \"no_doubles\": {}, \"verdict\": \"{:?}\"}}{}",
+            "{indent}  {{\"letter\": \"{}\", \"occurrences\": {}, \"target\": {}, \"support\": {}, \"support_size\": {}, \"swap_word\": {}, \"swaps\": {}, \"permutation\": {}, \"equivalent_count\": {}, \"no_doubles\": {}, \"verdict\": \"{:?}\"}}{}",
             json_escape(&letter.letter.to_string()),
             letter.occurrences,
             option_json(letter.target),
             usize_slice_json(&letter.support),
+            letter.support.len(),
             usize_slice_json(&letter.canonical_swaps),
+            usize_slice_json(&letter.canonical_swaps),
+            optional_usize_slice_json(letter.permutation.as_deref()),
             letter.equivalent_count,
             letter.no_doubles,
             letter.verdict,
@@ -404,6 +412,64 @@ fn append_recovery_json_body(out: &mut String, report: &RecoveryReport, indent: 
         .expect("write to String");
     }
     writeln!(out, "{indent}]").expect("write to String");
+}
+
+fn round_trip_json(report: &RecoveryReport) -> String {
+    format!(
+        "{{\"matched\": {}, \"total\": {}, \"exact\": {}, \"per_message\": {}, \"first_divergence\": {}}}",
+        report.round_trip.matched,
+        report.round_trip.total,
+        report.round_trip.exact(),
+        per_message_json(report),
+        first_divergence_json(report)
+    )
+}
+
+fn per_message_json(report: &RecoveryReport) -> String {
+    let rows = report
+        .round_trip
+        .per_message
+        .iter()
+        .map(|(label, matched, total)| {
+            format!(
+                "{{\"label\": \"{}\", \"matched\": {}, \"total\": {}}}",
+                json_escape(label),
+                matched,
+                total
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rows.join(", "))
+}
+
+fn first_divergence_json(report: &RecoveryReport) -> String {
+    report.round_trip.first_divergence.as_ref().map_or_else(
+        || "null".to_owned(),
+        |(label, index, expected, actual)| {
+            format!(
+                "{{\"label\": \"{}\", \"index\": {}, \"expected\": \"{}\", \"actual\": \"{}\"}}",
+                json_escape(label),
+                index,
+                json_escape(&expected.to_string()),
+                json_escape(&actual.to_string())
+            )
+        },
+    )
+}
+
+fn pt_mapping_json(report: &RecoveryReport) -> String {
+    let rows = report
+        .pt_mapping
+        .iter()
+        .map(|(letter, permutation)| {
+            format!(
+                "\"{}\": {}",
+                json_escape(&letter.to_string()),
+                usize_slice_json(permutation)
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("{{{}}}", rows.join(", "))
 }
 
 fn self_test_json(report: &GakSwapSelfTestReport) -> String {
@@ -468,6 +534,10 @@ fn option_json(value: Option<usize>) -> String {
 
 fn usize_slice_json(values: &[usize]) -> String {
     format!("[{}]", format_usize_slice(values))
+}
+
+fn optional_usize_slice_json(values: Option<&[usize]>) -> String {
+    values.map_or_else(|| "null".to_owned(), usize_slice_json)
 }
 
 fn json_escape(raw: &str) -> String {

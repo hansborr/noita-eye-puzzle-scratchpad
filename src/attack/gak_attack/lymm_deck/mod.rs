@@ -13,6 +13,7 @@ mod error;
 mod oracle;
 mod plant;
 mod recovery;
+mod share;
 mod spec;
 
 #[cfg(test)]
@@ -34,6 +35,7 @@ pub use recovery::{
     gak_swap_self_test, infer_known_plaintext_swap_budget, recover_known_plaintext_swaps,
     round_trip_check,
 };
+pub use share::python_pt_mapping_literal;
 pub use spec::{
     LYMM_DEFAULT_DECIMATION, LYMM_DEFAULT_N, LYMM_DEFAULT_PT_ALPHABET, LYMM_DEFAULT_SHIFT,
     LymmComposeDirection, LymmDeckSpec, lymm_default_ct_alphabet,
