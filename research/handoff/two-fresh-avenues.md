@@ -83,10 +83,15 @@ codec deterministically emits for each letter:
 
 ## Avenue A — structured-coloring enumeration + oracle decode  ⭐ BUILD FIRST
 
-> **STATUS (2026-07-03): BUILT** as `pairclass --coloring-family` (structured
-> mode, two-tier rank/confirm decode, per-stream matched-null gates, curated +
-> broad family tiers). Instrument-hardening history and the definitive-run
-> record live in `research/data/practice-puzzles/CODEC-RESULTS.md` §Round 8.
+> **STATUS (2026-07-03): RUN — scoped honest negative.** Built as
+> `pairclass --coloring-family` (two-tier rank/confirm decode, per-stream
+> matched-null gates, curated + broad family tiers); both definitive runs
+> returned `LowPowerNoExclusion` with the real stream null-typical (curated
+> p_emp 0.840, broad p_emp 1.000) while planted truths retain top-3/top-6
+> rank 6/6. *These deterministic families produced no candidate* — not a
+> family-space exclusion. Full record:
+> `research/data/practice-puzzles/CODEC-RESULTS.md` §Round 8. Next levers per
+> the ranking below: G, then F (seeded from marginal-consistent colorings).
 
 **Idea.** Enumerate deterministic candidate colorings; oracle-decode each with
 the Round-3 word LM; gate on English. Bypasses the *entire* search wall (no
@@ -139,6 +144,20 @@ first *because* it is cheap and falsifiable, not because it is certain.
 ---
 
 ## Avenue G — repeated-span pattern-crib scan  ⭐ BUILD SECOND (codex)
+
+> **STATUS (2026-07-04): RUN — scoped honest negative.** Built as
+> `pairclass --pattern-crib-scan` (commit `0b05f78`): the phase-0 repeated
+> token anchor at positions 116 and 176, length 33, is scanned directly against
+> normalized a..z corpus windows by the 26→4 coloring-consistency predicate
+> (ASCII letters, plus Finnish `ä/å → a`, `ö → o`). Planted positives fired and
+> matched/null negatives stayed quiet on all three committed language files
+> (`english-corpus-large.txt`, `english.txt`, `finnish.txt`; each 0/49 Markov
+> null candidate-like + 0/1 random negative). Real scans returned **0 surviving
+> spans** in all three normalized corpora. Claim ceiling: no normalized a..z
+> window in those committed corpora matches this fixed anchor/static-coloring
+> model; this does not exclude custom plaintext, an unscanned phrase source,
+> another phase, or a stateful codec. Full record: `research/data/practice-puzzles/CODEC-RESULTS.md`
+> §Round 9.
 
 **Idea.** Attack the doubly-occurring ~34-letter repeated phrase *directly*,
 without dictionary DP or a score-ranked harvest (so it cannot hit the occ1

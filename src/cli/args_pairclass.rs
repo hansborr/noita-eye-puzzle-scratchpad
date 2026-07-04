@@ -94,6 +94,21 @@ pub(crate) struct PairclassArgs {
     /// Number of ranked candidate decodes to print.
     #[arg(long, default_value_t = 5)]
     pub(crate) top: usize,
+    /// Run Avenue G: scan corpus spans against the repeated-anchor class pattern.
+    #[arg(long = "pattern-crib-scan", action = clap::ArgAction::SetTrue)]
+    pub(crate) pattern_crib_scan: Option<bool>,
+    /// Corpus or phrase-list text for `--pattern-crib-scan`.
+    #[arg(long = "crib-corpus-file")]
+    pub(crate) crib_corpus_file: Option<std::path::PathBuf>,
+    /// Retain at most this many surviving crib spans in the report.
+    #[arg(long = "crib-top", default_value_t = pairclass::DEFAULT_PATTERN_CRIB_TOP)]
+    pub(crate) crib_top: usize,
+    /// Matched Markov-null spans to scan before the real crib span.
+    #[arg(long = "crib-null-trials", default_value_t = pairclass::DEFAULT_PATTERN_CRIB_NULL_TRIALS)]
+    pub(crate) crib_null_trials: usize,
+    /// Uniform random negative token patterns to scan before the real crib span.
+    #[arg(long = "crib-random-negatives", default_value_t = pairclass::DEFAULT_PATTERN_CRIB_RANDOM_NEGATIVES)]
+    pub(crate) crib_random_negatives: usize,
     /// Enumerate deterministic structured colorings and oracle-decode each.
     #[arg(long = "coloring-family")]
     pub(crate) coloring_family: Option<PairclassColoringFamily>,
