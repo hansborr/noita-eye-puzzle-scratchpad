@@ -21,6 +21,9 @@ path = "src/lib.rs"
 # `cargo-deny`, and lockfile changes must be deliberate. The in-crate
 # `SplitMix64` PRNG remains for reproducible null models, not because crates.io
 # is unavailable.
+# Pure-Rust CDCL backend for the GAK swap-recovery residual CSP; kept behind a
+# small module boundary so Task-03 can replace it with MITM or a stronger solver.
+batsat = { version = "0.6.0", default-features = false }
 clap = { version = "4.5.4", default-features = false, features = ["std", "derive", "help", "usage", "error-context"] }
 statrs = { version = "0.18.0", default-features = false }
 

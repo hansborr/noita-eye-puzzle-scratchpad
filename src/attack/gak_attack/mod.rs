@@ -82,6 +82,7 @@ pub(crate) mod generator;
 pub mod hidden_state_solver;
 #[cfg(test)]
 mod known_answer; // Thread G1: known-answer validation on practice puzzles.
+pub mod lymm_deck;
 pub(crate) mod marginalization;
 pub(crate) mod solver;
 

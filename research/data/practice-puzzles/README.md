@@ -37,6 +37,7 @@ the sole honest-negative.
 | `five`  | 281 | letters + space `!` `,` `.` `?`, 7 lines | multi-sentence, spaces + punctuation preserved | not mono, not periodic ≤40 → **aperiodic polyalphabetic / position-keyed**; see `profile` |
 | `six`   | 417 | 6 digits `{1..6}` + **spaces**, 3 data lines | word boundaries preserved; `H1≈2.582/2.585` (not a pure walk) | base-6 **digit-grouping codec** (pairs → ≤36 ≥ 26) → needs codec |
 | `seven` | 164 | letters + `#` + space `,` `?`, 5 lines | word structure preserved; `#` used as a symbol | not mono, not periodic ≤40 → **aperiodic polyalphabetic** (`#` = symbol/Alberti index?); see `profile` |
+| `deck-swap/` | 8 msgs × {1,2,3} swaps | ct `!`..`s` (83), pt `A..Z` | **known-plaintext** GAK deck cipher (S₈₃); `perm(L)=base∘(num_swaps top-swaps)`; plaintexts public | **KP swap-recovery** (Lymm request): ns=1 closed-form/solved, ns≥2 needs propagation engine — see `research/handoff/gak-swap-recovery/` |
 
 Notes:
 - `one` was previously referred to as `/tmp/gak_cipher_example`; `two` as
