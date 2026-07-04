@@ -217,6 +217,15 @@ fn learn_no_residual_target_clause(
         }
         target_solver.learn_core_clause(&core, truth, stats)?;
     } else {
+        let assignment_choices = targets
+            .iter()
+            .map(|(&letter, &target)| (letter, target))
+            .collect::<Vec<_>>();
+        if !broad_residual_rejects_target_choices(spec, messages, residual, &assignment_choices)? {
+            return Err(SwapRecoveryError::SatSolver(
+                "deterministic target rejection failed broad-baseline replay".to_owned(),
+            ));
+        }
         target_solver.learn_assignment_clause(targets, truth, stats)?;
     }
     Ok(())
