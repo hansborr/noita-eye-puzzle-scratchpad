@@ -20,10 +20,12 @@ use crate::analysis::translate_isomorph::{IsoScanError, markov_resample};
 use crate::ciphers::{CipherError, validate_permutation};
 use crate::nulls::null::{RandomBoundError, SplitMix64, add_one_p_value};
 
+mod control;
 mod group;
 #[cfg(test)]
 mod tests;
 
+pub use control::{IsoMapSelfTest, isomorph_map_self_test};
 pub use group::{
     BlockSystem, ChainValidation, ChainViolation, GroupClosure, close_full_maps,
     compose_partial_maps, validate_chains,

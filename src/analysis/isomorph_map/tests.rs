@@ -149,6 +149,17 @@ fn planted_pattern_clears_markov_null_and_extracts_full_map() {
     );
 }
 
+#[test]
+fn self_test_controls_pass() {
+    let result = super::isomorph_map_self_test(DEFAULT_SEED).expect("self-test runs");
+    assert!(result.gak_positive_passed, "{result:?}");
+    assert_eq!(result.positive_group_order, 6);
+    assert!(result.null_rejected, "{result:?}");
+    assert_eq!(result.null_group_order, 1);
+    assert!(result.dirty_boundary_passed, "{result:?}");
+    assert!(result.passed, "{result:?}");
+}
+
 fn full_column_map(first: usize, second: usize, permutation: Vec<usize>) -> ColumnMap {
     ColumnMap {
         span: PatternSpan {
