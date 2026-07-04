@@ -62,18 +62,24 @@ sections are retained for design rationale and guardrails.
   probes and tries non-singleton tracked reasons first. Anchored controls still
   hold at `4/15/18` target rejections with replay checks `5/22/25` and replay
   literals `4/15/18`.
-- **Lever 1a real-file probe measured the livelock risk.** A cap-60 production
-  probe learned `60` deterministic target clauses from `60` target rejections in
-  `1856.190s` elapsed (`wall=1856.466s`), with `target_replay_checks=66`
-  (`1.10` checks/rejection), `target_replay_literals=300`, and clause-length
-  distribution `60 x len=5`. All learned reasons were the recurring `E/H/S/T/Y`
-  family (`T=67` throughout), no target slice was accepted, `candidate_clauses=0`,
-  and there was no exact `2439/2439` round trip. Targeted residual sizes showed
-  no narrowing trend: `153896` entries on `55/60` assignments and `157136` on
-  `5/60`, max domain `6562` throughout. This supports the Gemini livelock warning
-  over the earlier "stronger target reasons suffice" read; next design work
-  should pressure-test finer-than-target or partial-slice theory propagation, not
-  spend a blind implementation burn searching for sub-5 target-only clauses.
+- **Lever 1a real-file probes measured the livelock risk.** The first cap-60
+  production probe learned `60` deterministic target clauses from `60` target
+  rejections in `1856.190s` elapsed (`wall=1856.466s`), with
+  `target_replay_checks=66` (`1.10` checks/rejection), `target_replay_literals=300`,
+  and clause-length distribution `60 x len=5`. A follow-up adjudicating cap-60
+  probe instrumented the projected `E/H/S/T/Y` space and again learned `60`
+  deterministic clauses with `target_floor_full_assignment_fallbacks=0`; it ran
+  `2327.300s` elapsed (`wall=2327.536s`) and still accepted no target slice,
+  reached no candidate-tier handoff, and made no exact `2439/2439` round trip.
+  The projection measurement was decisive: all `60` rejected projected tuples
+  were new, all stayed in the same `T=67` slab, and the static distinct projected
+  space under that slab remained `34,234,200` with `34,234,140` still remaining
+  at cap. Targeted residual sizes also showed no narrowing trend:
+  `153896` entries on `55/60` assignments and `157136` on `5/60`, max domain
+  `6562` throughout. This supports the Gemini livelock warning over the earlier
+  "stronger target reasons suffice" read; next design work should pressure-test
+  finer-than-target or partial-slice theory propagation, not spend a blind
+  implementation burn searching for sub-5 target-only clauses.
 
 ## The resolved architecture (two-tier CDCL(T)) — do not regress it
 
