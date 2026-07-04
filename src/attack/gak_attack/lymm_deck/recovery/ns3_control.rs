@@ -100,7 +100,10 @@ fn ns3_planted_truth_survives_target_cegar_pruning() {
         &messages,
         &mut targeted,
         &mut targeted_stats,
-        PropagationOptions::ns2_default(),
+        PropagationOptions {
+            max_passes: 2,
+            exhaustive_arc: false,
+        },
     )
     .expect("targeted deterministic propagation must preserve truth");
     assert_planted_candidates_survive("targeted", &targeted, &planted);

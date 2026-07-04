@@ -56,6 +56,10 @@ cargo test --locked ns1_recovery_recovers_vendored_key_and_reencrypts_exactly --
 cargo test --locked ns2_recovery_recovers_vendored_key_and_reencrypts_exactly -- --nocapture
 cargo test --locked swap_recovery_self_test_passes_supported_frontier_controls -- --nocapture
 cargo test --locked ns3_planted_truth_survives_target_cegar_pruning -- --nocapture
+cargo test --locked ns3_planted_control_recovers_through_production_path -- --nocapture
+NOITA_SWAP_CEGAR_TRACE=1 NOITA_SWAP_TRACE_PASSES=1 NOITA_SWAP_TRACE_MAX_PASSES=2 \
+  NOITA_SWAP_NS3_PROBE_MAX_NODES=1 \
+  cargo test --locked ns3_real_file_production_path_frontier_probe -- --ignored --nocapture
 ```
 
 Stable CLI checks:
@@ -295,14 +299,53 @@ assignment nogoods continue to enumerate nearby target permutations too slowly.
 The all-consecutive channelling and stronger deterministic R-read levers have
 therefore been implemented and spent as standalone closing hypotheses.
 
+First target-level conflict-learning milestone, 2026-07-04:
+
+- Landed the two-tiered production path. Deterministic target-slice rejections
+  learn target-tuple clauses through the same `learn_sat_clause` truth-preserving
+  path as candidate witness failures. Accepted target slices still run the
+  candidate residual; exact re-encryption remains the only success oracle, and a
+  bad witness learns a candidate-level clause rather than banning the target
+  slice.
+- The planted `ns=3` positive control now exercises the production `max_swaps=3`
+  library path with planted-truth tracking. It recovers exactly, and every learned
+  clause would fail immediately if it excluded the planted truth. With the
+  ns=3-targeted deterministic tier (`R-top`/generalized `R-read`/state-domain,
+  no exhaustive candidate arc), the correct planted target slice leaves residual
+  candidate freedom: `total=4`, `max=2`, per-letter `A:1,B:2,C:1`. This is the
+  pivotal measurement for the scaled plant: candidate-tier learning is
+  load-bearing, not merely a confirm. The vendored `3_swap_ct.txt` key is not
+  recorded, so the same correct-target residual-freedom measurement cannot be
+  made for the real file unless the solver first recovers the real exact key.
+- The first real `3_swap_ct.txt` production-path probe used the ignored rerunnable
+  command listed above. It used `max_nodes=1` to bound the attempt after one
+  target assignment. The first target model had `153896` target-restricted
+  candidate entries, max domain `6562`; deterministic replay minimization learned
+  one target clause with a minimal core of `4` target literals after `25` fresh
+  replay checks. The run stopped at `SearchCapExceeded { nodes: 1 }` after
+  `334.67s`, with outer stats `candidates=541406`, broad `pruned=659692`,
+  broad `deductions=257081`, `target_clauses=1`,
+  `target_replay_checks=25`, `target_replay_literals=4`,
+  `candidate_clauses=0`, `truth_checks=0`.
+- A prior unbounded version of the same probe, before the ns=3-targeted no-arc
+  split, reached the first target model and then spent more than ten minutes
+  inside the exhaustive candidate-arc propagation for that single slice before
+  being interrupted. That arc is now deliberately excluded from the target tier;
+  the retained candidate SAT residual is the witness tier.
+- This does not earn the real `ns=3` recovery rung. There is no exact
+  `2439/2439` re-encryption for `3_swap_ct.txt`, the CLI remains capped at the
+  measured `ns=2` frontier, and `--num-swaps 3` still fails by design.
+
 ## Likely next levers
 
 Ranked hypotheses for closing `ns=3`:
 
-1. Target-level conflict learning from deterministic propagation failures.
-   Confidence: high. Cost: medium/high. The current engine can reject wrong target
-   slices, but it needs dependency tracking or a replayable explanation to learn a
-   small incompatible subset instead of banning one full target assignment.
+1. Instrumented target-level implication tracking inside deterministic
+   propagation. Confidence: high. Cost: high. Replay minimization is sound but too
+   expensive on real `n=83`: the first clause alone took `25` broad-baseline
+   replays and `334.67s`. The next version needs to return a compact reason from
+   the propagation step that found the contradiction, while preserving the
+   per-clause planted-truth invariant.
 2. Feature-level candidate CEGAR conflicts instead of whole-prefix nogoods.
    Confidence: medium/high. Cost: medium. Failed exact re-encryptions should learn
    local incompatible letter/candidate features where possible, not only a full

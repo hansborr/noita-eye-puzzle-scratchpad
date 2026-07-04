@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use super::domain_build::build_residual_domains;
-use super::instrumentation::trace_residual;
+use super::instrumentation::{trace_residual, trace_stats};
 use super::learning::{TruthTracker, add_outer_stats};
 use super::propagation::{PropagationOptions, propagate_partial_states};
 use super::residual::{ResidualDomains, recover_with_residual_domains, restrict_to_targets};
@@ -53,6 +53,7 @@ pub(super) fn recover_ns3_with_target_cegar(
         if let Some(max_nodes) = config.max_nodes
             && target_nodes >= max_nodes
         {
+            trace_stats("target cap", &stats);
             return Err(SwapRecoveryError::SearchCapExceeded {
                 nodes: target_nodes,
             });
@@ -66,30 +67,21 @@ pub(super) fn recover_ns3_with_target_cegar(
         }
         let mut targeted = residual.clone();
         restrict_to_targets(&mut targeted, &targets)?;
-        if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_some() {
-            let total = targeted
-                .by_letter
-                .values()
-                .map(std::vec::Vec::len)
-                .sum::<usize>();
-            let max = targeted
-                .by_letter
-                .values()
-                .map(std::vec::Vec::len)
-                .max()
-                .unwrap_or(0);
-            eprintln!("cegar: targeted entries={total} max_domain={max}");
-        }
+        trace_targeted_entries(&targeted);
         match recover_with_residual_domains(
             spec,
             messages,
             (*config).clone(),
             targeted,
-            PropagationOptions::ns2_default(),
+            PropagationOptions {
+                max_passes: 2,
+                exhaustive_arc: false,
+            },
             Some(&targets),
             truth.as_ref(),
         ) {
             Ok(mut report) => {
+                trace_stats("target success outer", &stats);
                 add_outer_stats(&mut report.stats, &stats);
                 report.stats.nodes = report.stats.nodes.saturating_add(target_nodes);
                 return Ok(report);
@@ -115,9 +107,30 @@ pub(super) fn recover_ns3_with_target_cegar(
                     &mut stats,
                 )?;
             }
-            Err(error) => return Err(error),
+            Err(error) => {
+                trace_stats("target abort", &stats);
+                return Err(error);
+            }
         }
     }
+}
+
+fn trace_targeted_entries(residual: &ResidualDomains) {
+    if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_none() {
+        return;
+    }
+    let total = residual
+        .by_letter
+        .values()
+        .map(std::vec::Vec::len)
+        .sum::<usize>();
+    let max = residual
+        .by_letter
+        .values()
+        .map(std::vec::Vec::len)
+        .max()
+        .unwrap_or(0);
+    eprintln!("cegar: targeted entries={total} max_domain={max}");
 }
 
 fn learn_no_residual_target_clause(

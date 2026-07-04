@@ -7,7 +7,7 @@ use batsat::{BasicSolver, Lit, SolverInterface, lbool};
 
 use super::super::{LymmComposeDirection, LymmDeckSpec, TopSwapDomains};
 pub(super) use super::domain_build::build_residual_domains;
-use super::instrumentation::trace_residual;
+use super::instrumentation::{trace_residual, trace_stats};
 use super::learning::{LearnedClause, TruthTracker, learn_sat_clause};
 use super::ns3_cegar::recover_ns3_with_target_cegar;
 use super::propagation::{PropagationOptions, propagate_partial_states};
@@ -137,18 +137,10 @@ pub(super) fn recover_with_residual_domains(
 
     let started = Instant::now();
     loop {
-        if let Some(max_nodes) = config.max_nodes
-            && stats.nodes >= max_nodes
-        {
-            return Err(SwapRecoveryError::SearchCapExceeded { nodes: stats.nodes });
-        }
-        if let Some(time_budget) = config.time_budget
-            && started.elapsed() >= time_budget
-        {
-            return Err(SwapRecoveryError::SearchTimeExceeded { nodes: stats.nodes });
-        }
+        enforce_candidate_budget(&config, &stats, started)?;
         let sat = solver.solve_limited(&target_lits.assumptions);
         if sat == lbool::FALSE {
+            trace_stats("candidate unsat", &stats);
             if target_assumptions.is_some() {
                 let mut choices = solver
                     .unsat_core()
@@ -199,6 +191,26 @@ pub(super) fn recover_with_residual_domains(
             }
         }
     }
+}
+
+fn enforce_candidate_budget(
+    config: &SwapRecoveryConfig,
+    stats: &SwapRecoveryStats,
+    started: Instant,
+) -> Result<(), SwapRecoveryError> {
+    if let Some(max_nodes) = config.max_nodes
+        && stats.nodes >= max_nodes
+    {
+        trace_stats("candidate cap", stats);
+        return Err(SwapRecoveryError::SearchCapExceeded { nodes: stats.nodes });
+    }
+    if let Some(time_budget) = config.time_budget
+        && started.elapsed() >= time_budget
+    {
+        trace_stats("candidate timeout", stats);
+        return Err(SwapRecoveryError::SearchTimeExceeded { nodes: stats.nodes });
+    }
+    Ok(())
 }
 
 pub(super) fn restrict_to_targets(

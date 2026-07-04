@@ -27,7 +27,10 @@ pub(super) fn measure_truth_target_residual(
         messages,
         &mut residual,
         &mut measure_stats,
-        PropagationOptions::ns2_default(),
+        PropagationOptions {
+            max_passes: 2,
+            exhaustive_arc: false,
+        },
     )?;
     let entries = residual
         .letters
@@ -107,7 +110,10 @@ fn deterministic_rejects(
         messages,
         &mut probe,
         &mut probe_stats,
-        PropagationOptions::ns2_default(),
+        PropagationOptions {
+            max_passes: 2,
+            exhaustive_arc: false,
+        },
     ) {
         Ok(_) => Ok(false),
         Err(SwapRecoveryError::NoResidualCandidate) => Ok(true),
