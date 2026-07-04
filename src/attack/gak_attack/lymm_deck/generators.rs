@@ -211,8 +211,8 @@ fn domains_from_canonical_words(
         let sigma_images = sparse.iter().map(|(_position, image)| *image).collect();
         let top_source = sparse
             .iter()
-            .find_map(|(position, image)| (*position == 0).then_some(*image))
-            .unwrap_or(0);
+            .find_map(|(position, image)| (*position == spec.emit_index).then_some(*image))
+            .unwrap_or(spec.emit_index);
         let top_image =
             spec.base
                 .get(top_source)

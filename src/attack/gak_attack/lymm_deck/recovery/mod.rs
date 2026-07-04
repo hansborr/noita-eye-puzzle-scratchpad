@@ -12,6 +12,7 @@ mod propagation;
 mod residual;
 mod sat_encoding;
 mod selftest;
+mod state;
 mod target_solver;
 
 pub use error::SwapRecoveryError;
@@ -26,10 +27,11 @@ pub use selftest::{
 };
 
 use super::{
-    KnownPlaintextPair, LymmDeckError, LymmDeckSpec, LymmGeneratorSet, TopSwapConstraints,
-    TopSwapDomains, compose_lymm, encrypt_lymm_deck, enumerate_top_swap_domains,
+    KnownPlaintextPair, LymmDeckSpec, LymmGeneratorSet, TopSwapConstraints, TopSwapDomains,
+    encrypt_lymm_deck, enumerate_top_swap_domains,
 };
 use residual::recover_with_residual;
+use state::{ForcedObservation, apply_recovered_permutation, forced_observation};
 
 /// Default deterministic seed for the swap-recovery controls.
 pub const DEFAULT_SWAP_RECOVERY_SEED: u64 = 0x5a17_0200_0000_0002;
@@ -105,7 +107,7 @@ pub struct RecoveredLetter {
     pub letter: char,
     /// Number of occurrences in the known-plaintext corpus.
     pub occurrences: usize,
-    /// Recovered `perm(letter)[0]`, when the corpus constrains it.
+    /// Recovered `perm(letter)[emit_index]`, when the corpus constrains it.
     pub target: Option<usize>,
     /// Positions where the final candidate differs from the public base.
     pub support: Vec<usize>,
@@ -209,7 +211,8 @@ pub fn recover_known_plaintext_swaps(
     config: SwapRecoveryConfig,
 ) -> Result<RecoveryReport, SwapRecoveryError> {
     let aligned = align_pairs(spec, pairs)?;
-    if config.max_swaps == 1 && config.generator_set.is_top_swaps() {
+    if config.max_swaps == 1 && config.generator_set.is_top_swaps() && can_use_ns1_closed_form(spec)
+    {
         recover_ns1(spec, &aligned, config)
     } else if (1..=3).contains(&config.max_swaps) {
         recover_with_residual(spec, &aligned, config)
@@ -218,6 +221,10 @@ pub fn recover_known_plaintext_swaps(
             max_swaps: config.max_swaps,
         })
     }
+}
+
+fn can_use_ns1_closed_form(spec: &LymmDeckSpec) -> bool {
+    spec.compose_dir == super::LymmComposeDirection::Left && spec.emit_index == 0
 }
 
 /// Re-encrypts known plaintext with `report.pt_mapping` and checks the compressed
@@ -284,13 +291,13 @@ fn recover_ns1(
     for message in messages {
         let mut deck_state = spec.initial_state.clone();
         for event in &message.events {
-            let observed = inverse_position(&deck_state, event.ct_value)?;
-            match inferred_targets.insert(event.letter, observed) {
-                Some(previous) if previous != observed => {
+            let observation = forced_observation(spec, &deck_state, event.ct_value)?;
+            match inferred_targets.insert(event.letter, observation.target) {
+                Some(previous) if previous != observation.target => {
                     return Err(SwapRecoveryError::InconsistentTarget {
                         letter: event.letter,
                         previous,
-                        observed,
+                        observed: observation.target,
                     });
                 }
                 Some(previous) => {
@@ -300,9 +307,10 @@ fn recover_ns1(
                     stats.deductions += 1;
                 }
             }
-            let candidate = unique_candidate_for_target(&domains, event.letter, observed)?;
-            deck_state = compose_lymm(&candidate.permutation(spec), &deck_state)
-                .map_err(LymmDeckError::from)?;
+            let candidate =
+                unique_candidate_for_observation(&domains, spec, event.letter, observation)?;
+            deck_state =
+                apply_recovered_permutation(spec, &candidate.permutation(spec), &deck_state)?;
         }
     }
 
@@ -313,7 +321,15 @@ fn recover_ns1(
         let count = occurrences.remove(&letter).unwrap_or(0);
         let target = inferred_targets.get(&letter).copied();
         let candidate = match target {
-            Some(value) => Some(unique_candidate_for_target(&domains, letter, value)?),
+            Some(value) => Some(unique_candidate_for_observation(
+                &domains,
+                spec,
+                letter,
+                ForcedObservation {
+                    entry: spec.emit_index,
+                    target: value,
+                },
+            )?),
             None => domains.candidates.first(),
         };
         let permutation = candidate.map(|found| found.permutation(spec));
@@ -465,25 +481,28 @@ pub(super) fn occurrence_counts(
     counts
 }
 
-fn unique_candidate_for_target(
-    domains: &TopSwapDomains,
+fn unique_candidate_for_observation<'a>(
+    domains: &'a TopSwapDomains,
+    spec: &LymmDeckSpec,
     letter: char,
-    target: usize,
-) -> Result<&super::TopSwapCandidate, SwapRecoveryError> {
-    let candidates = domains.candidates_with_top_image(target);
-    candidates
+    observation: ForcedObservation,
+) -> Result<&'a super::TopSwapCandidate, SwapRecoveryError> {
+    let matches = domains
+        .candidates
+        .iter()
+        .filter(|candidate| {
+            candidate
+                .permutation(spec)
+                .get(observation.entry)
+                .is_some_and(|&image| image == observation.target)
+        })
+        .collect::<Vec<_>>();
+    matches
         .into_iter()
         .next()
-        .ok_or(SwapRecoveryError::NoCandidateForTarget { letter, target })
-}
-
-fn inverse_position(state: &[usize], value: usize) -> Result<usize, LymmDeckError> {
-    state
-        .iter()
-        .position(|&candidate| candidate == value)
-        .ok_or(LymmDeckError::EmitIndexOutOfRange {
-            emit_index: value,
-            n: state.len(),
+        .ok_or(SwapRecoveryError::NoCandidateForTarget {
+            letter,
+            target: observation.target,
         })
 }
 

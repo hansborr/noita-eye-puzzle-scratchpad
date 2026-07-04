@@ -25,9 +25,10 @@ pub enum GeneratorBranchStrategy {
 pub struct TopSwapConstraints {
     /// Maximum number of generators in the word.
     pub max_swaps: usize,
-    /// Optional required final `perm[0]` value after composing with the spec base.
+    /// Optional required final `perm[emit_index]` value after composing with the
+    /// spec base.
     pub required_top_image: Option<usize>,
-    /// Optional allowed set of final `perm[0]` values.
+    /// Optional allowed set of final `perm[emit_index]` values.
     pub required_top_images: Option<BTreeSet<usize>>,
     /// Optional exact support of the final generator-word permutation.
     pub required_support: Option<Vec<usize>>,
@@ -45,14 +46,14 @@ impl TopSwapConstraints {
         }
     }
 
-    /// Restricts candidates to a specific final `perm[0]` image.
+    /// Restricts candidates to a specific final `perm[emit_index]` image.
     #[must_use]
     pub const fn with_top_image(mut self, top_image: usize) -> Self {
         self.required_top_image = Some(top_image);
         self
     }
 
-    /// Restricts candidates to one of the supplied final `perm[0]` images.
+    /// Restricts candidates to one of the supplied final `perm[emit_index]` images.
     #[must_use]
     pub fn with_top_images(mut self, top_images: BTreeSet<usize>) -> Self {
         self.required_top_images = Some(top_images);
@@ -76,7 +77,8 @@ pub struct TopSwapCandidate {
     /// the sequence of top-swap indices; for explicit generator files it is the
     /// sequence of generator-file row indexes.
     pub canonical_swaps: Vec<usize>,
-    /// Final `perm[0]` after composing the candidate `sigma` with `spec.base`.
+    /// Final `perm[emit_index]` after composing the candidate `sigma` with
+    /// `spec.base`.
     pub top_image: usize,
     /// Positions moved by the final `sigma`.
     pub support: Vec<usize>,
@@ -116,7 +118,7 @@ impl TopSwapCandidate {
 pub struct TopSwapDomains {
     /// Final candidates after repeat and identity words are collapsed.
     pub candidates: Vec<TopSwapCandidate>,
-    /// Candidate indexes grouped by final `perm[0]`.
+    /// Candidate indexes grouped by final `perm[emit_index]`.
     pub by_top_image: BTreeMap<usize, Vec<usize>>,
     /// Candidate indexes grouped by exact final support.
     pub by_support: BTreeMap<Vec<usize>, Vec<usize>>,
@@ -125,7 +127,7 @@ pub struct TopSwapDomains {
 }
 
 impl TopSwapDomains {
-    /// Returns candidates whose final `perm[0]` equals `top_image`.
+    /// Returns candidates whose final `perm[emit_index]` equals `top_image`.
     #[must_use]
     pub fn candidates_with_top_image(&self, top_image: usize) -> Vec<&TopSwapCandidate> {
         self.by_top_image
@@ -196,8 +198,8 @@ fn domains_from_canonical_words(
         let sigma_images = sparse.iter().map(|(_position, image)| *image).collect();
         let top_source = sparse
             .iter()
-            .find_map(|(position, image)| (*position == 0).then_some(*image))
-            .unwrap_or(0);
+            .find_map(|(position, image)| (*position == spec.emit_index).then_some(*image))
+            .unwrap_or(spec.emit_index);
         let top_image =
             spec.base
                 .get(top_source)

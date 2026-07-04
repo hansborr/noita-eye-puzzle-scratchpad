@@ -5,10 +5,11 @@ use std::time::Instant;
 
 use batsat::{BasicSolver, Lit, SolverInterface, lbool};
 
-use super::super::{LymmDeckError, LymmDeckSpec, TopSwapDomains, compose_lymm};
+use super::super::{LymmComposeDirection, LymmDeckSpec, TopSwapDomains};
 pub(super) use super::domain_build::build_residual_domains;
 use super::propagation::{PropagationOptions, propagate_partial_states};
 use super::sat_encoding::{add_adjacent_transition_clauses, add_top_image_channel_clauses};
+use super::state::apply_recovered_permutation;
 use super::target_solver::TargetAssignmentSolver;
 use super::{
     AlignedMessage, LetterRecoveryVerdict, RecoveredLetter, RecoveryReport, SwapRecoveryConfig,
@@ -48,17 +49,22 @@ pub(super) fn recover_with_residual(
     config: SwapRecoveryConfig,
 ) -> Result<RecoveryReport, SwapRecoveryError> {
     if config.max_swaps == 3 {
+        if spec.compose_dir != LymmComposeDirection::Left {
+            return Err(SwapRecoveryError::UnsupportedBudget {
+                max_swaps: config.max_swaps,
+            });
+        }
         return recover_ns3_with_target_cegar(spec, messages, &config);
     }
     let residual = build_residual_domains(spec, messages, &config)?;
-    recover_with_residual_domains(
-        spec,
-        messages,
-        config,
-        residual,
-        PropagationOptions::ns2_default(),
-        None,
-    )
+    let propagation_options = match spec.compose_dir {
+        LymmComposeDirection::Left => PropagationOptions::ns2_default(),
+        LymmComposeDirection::Right => PropagationOptions {
+            max_passes: 0,
+            exhaustive_arc: false,
+        },
+    };
+    recover_with_residual_domains(spec, messages, config, residual, propagation_options, None)
 }
 
 fn recover_ns3_with_target_cegar(
@@ -419,7 +425,7 @@ pub(super) fn verify_candidate_assignment(
                 .candidates
                 .get(candidate_index)
                 .ok_or(SwapRecoveryError::NoResidualCandidate)?;
-            state = compose_lymm(&candidate.perm, &state).map_err(LymmDeckError::from)?;
+            state = apply_recovered_permutation(spec, &candidate.perm, &state)?;
             if state.get(spec.emit_index).copied() != Some(event.ct_value) {
                 return Ok(Err(VerificationFailure {
                     message_index,

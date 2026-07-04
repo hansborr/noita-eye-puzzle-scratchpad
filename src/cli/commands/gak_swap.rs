@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use noita_eye_puzzle::attack::gak_attack::lymm_deck::{
     GakSwapSelfTestConfig, GakSwapSelfTestReport, KnownPlaintextPair, LYMM_DEFAULT_DECIMATION,
-    LYMM_DEFAULT_SHIFT, LymmDeckSpec, LymmGeneratorSet, RecoveryGeneratorSet,
+    LYMM_DEFAULT_SHIFT, LymmComposeDirection, LymmDeckSpec, LymmGeneratorSet, RecoveryGeneratorSet,
     SWAP_RECOVERY_FRONTIER_MESSAGE, SwapInferenceRange, SwapRecoveryConfig, SwapRecoveryError,
     gak_swap_self_test, infer_known_plaintext_swap_budget, lymm_default_ct_alphabet,
     parse_known_plaintext_pairs, recover_known_plaintext_swaps,
@@ -180,15 +180,8 @@ fn validate_task02_knobs(args: &GakSwapRecoverArgs) -> Result<(), String> {
     if args.beam.is_some() {
         return Err("--beam is reserved for a Task-03 fallback and is not implemented".to_owned());
     }
-    if let Some(direction) = &args.compose_direction
-        && direction != "left"
-    {
-        return Err("--compose-direction currently supports only 'left'".to_owned());
-    }
-    if let Some(emit_index) = args.emit_index
-        && emit_index != 0
-    {
-        return Err("--emit-index currently supports only 0".to_owned());
+    if let Some(direction) = &args.compose_direction {
+        let _parsed = parse_compose_direction(direction)?;
     }
     if let Some(generator_set) = &args.generator_set
         && generator_set != "top-swaps"
@@ -252,6 +245,14 @@ fn build_spec(args: &GakSwapRecoverArgs) -> Result<LymmDeckSpec, String> {
             .with_initial_state(parse_usize_list(initial_state)?)
             .map_err(|error| error.to_string())?;
     }
+    if let Some(direction) = &args.compose_direction {
+        spec = spec.with_compose_dir(parse_compose_direction(direction)?);
+    }
+    if let Some(emit_index) = args.emit_index {
+        spec = spec
+            .with_emit_index(emit_index)
+            .map_err(|error| error.to_string())?;
+    }
     Ok(spec)
 }
 
@@ -296,6 +297,16 @@ fn parse_affine_base(raw: &str) -> Result<(usize, usize), String> {
         shift.unwrap_or(LYMM_DEFAULT_SHIFT),
         decimation.unwrap_or(LYMM_DEFAULT_DECIMATION),
     ))
+}
+
+fn parse_compose_direction(raw: &str) -> Result<LymmComposeDirection, String> {
+    match raw {
+        "left" => Ok(LymmComposeDirection::Left),
+        "right" => Ok(LymmComposeDirection::Right),
+        other => Err(format!(
+            "unsupported --compose-direction {other:?}; expected 'left' or 'right'"
+        )),
+    }
 }
 
 fn parse_usize_list(raw: &str) -> Result<Vec<usize>, String> {

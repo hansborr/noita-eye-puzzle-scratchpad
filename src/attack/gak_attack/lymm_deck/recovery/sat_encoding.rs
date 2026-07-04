@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use batsat::{BasicSolver, Lit, SolverInterface};
 
-use super::super::{LymmDeckSpec, TopSwapCandidate};
+use super::super::{LymmComposeDirection, LymmDeckSpec, TopSwapCandidate};
 use super::AlignedMessage;
 use super::residual::ResidualDomains;
 
@@ -56,6 +56,9 @@ pub(super) fn add_adjacent_transition_clauses(
     top_vars: &TopVars,
     solver: &mut BasicSolver,
 ) {
+    if spec.compose_dir != LymmComposeDirection::Left {
+        return;
+    }
     let full = full_mask(spec.n);
     let base_inverse = base_inverse(spec);
     let target_masks = build_target_masks(residual);

@@ -126,3 +126,33 @@ The no-doubles model assumption still applies: observed plaintext letters must b
 assignable to distinct nonzero `perm(L)[0]` targets. Explicit generator surfaces
 that cannot supply enough such targets, or identity restarts that pin duplicate
 or zero targets, are rejected instead of silently producing a recovered key.
+
+## Compose direction and emit index
+
+The default CLI spec remains Lymm's vendored convention:
+`--compose-direction left --emit-index 0` with identity restarts. Task-03 item 5
+wires the previously reserved knobs:
+
+```sh
+cargo run --locked --bin noita-eye -- gak-swap-recover \
+  --plaintext-file plaintexts.txt \
+  --ciphertext-file ciphertexts.txt \
+  --generator-file generators.txt \
+  --max-swaps 1 \
+  --compose-direction right \
+  --emit-index 1
+```
+
+For left composition the forced first-emission deduction is
+`perm(L)[emit_index] = state_prev^-1[ct]`. For right composition it is
+`perm(L)[state_prev[emit_index]] = ct`; with an identity restart that is the same
+`perm(L)[emit_index]` entry. An explicit `--initial-state` is supported and is
+used by the recovery core; a secret/unknown initial state is still out of scope.
+
+The no-doubles assumption generalizes to distinct nonzero
+`perm(L)[emit_index]` targets. If the configured direction/start also creates a
+different forced first-read entry, that bootstrap entry is checked too. Generator
+surfaces or restarts that violate those assumptions are rejected as model
+violations. The measured direct frontier is unchanged: the CLI still refuses
+`--num-swaps` / `--max-swaps >= 3`, and the right-compose path currently uses
+exact verification without the left-compose transition-pruning rules.

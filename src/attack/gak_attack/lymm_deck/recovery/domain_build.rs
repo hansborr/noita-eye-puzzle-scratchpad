@@ -3,12 +3,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::residual::{CandidateRuntime, ResidualDomains};
+use super::state::{ForcedObservation, forced_observation};
 use super::{
     AlignedMessage, RecoveryGeneratorSet, SwapRecoveryConfig, SwapRecoveryError, occurrence_counts,
 };
 use crate::attack::gak_attack::lymm_deck::{
-    LymmDeckSpec, TopSwapConstraints, TopSwapDomains, enumerate_generator_domains,
-    enumerate_top_swap_domains,
+    LymmDeckSpec, TopSwapConstraints, enumerate_generator_domains, enumerate_top_swap_domains,
 };
 
 pub(super) fn build_residual_domains(
@@ -22,8 +22,9 @@ pub(super) fn build_residual_domains(
         .collect::<Vec<_>>();
     observed.sort_unstable();
 
-    let initial_targets = identity_restart_targets(messages);
-    let constraints = explicit_generator_constraints(config, &observed, &initial_targets);
+    let restart_observations = restart_forced_observations(spec, messages)?;
+    let constraints =
+        explicit_generator_constraints(config, spec, &observed, &restart_observations);
     let domains = match &config.generator_set {
         RecoveryGeneratorSet::TopSwaps => {
             enumerate_top_swap_domains(spec, &TopSwapConstraints::up_to(config.max_swaps))?
@@ -32,8 +33,6 @@ pub(super) fn build_residual_domains(
             enumerate_generator_domains(spec, generator_set, &constraints)?
         }
     };
-    validate_distinct_nonzero_target_assumption(&domains, &observed, &initial_targets)?;
-
     let candidates = domains
         .candidates
         .iter()
@@ -41,21 +40,35 @@ pub(super) fn build_residual_domains(
             perm: candidate.permutation(spec),
         })
         .collect::<Vec<_>>();
+    validate_distinct_nonzero_target_assumption(
+        &candidates,
+        spec,
+        &observed,
+        &restart_observations,
+    )?;
 
     let mut by_letter = BTreeMap::new();
     for &letter in &observed {
-        let domain = match initial_targets.get(&letter).copied() {
-            Some(target) => domains
-                .by_top_image
-                .get(&target)
-                .cloned()
-                .unwrap_or_default(),
+        let domain: Vec<usize> = match restart_observations.get(&letter).copied() {
+            Some(observation) => candidates
+                .iter()
+                .enumerate()
+                .filter_map(|(index, candidate)| {
+                    candidate
+                        .perm
+                        .get(observation.entry)
+                        .is_some_and(|&image| image == observation.target)
+                        .then_some(index)
+                })
+                .collect(),
             None => (0..domains.candidates.len()).collect(),
         };
         if domain.is_empty() {
             return Err(SwapRecoveryError::NoCandidateForTarget {
                 letter,
-                target: initial_targets.get(&letter).copied().unwrap_or(usize::MAX),
+                target: restart_observations
+                    .get(&letter)
+                    .map_or(usize::MAX, |observation| observation.target),
             });
         }
         let _old = by_letter.insert(letter, domain);
@@ -71,34 +84,53 @@ pub(super) fn build_residual_domains(
 
 fn explicit_generator_constraints(
     config: &SwapRecoveryConfig,
+    spec: &LymmDeckSpec,
     observed: &[char],
-    initial_targets: &BTreeMap<char, usize>,
+    restart_observations: &BTreeMap<char, ForcedObservation>,
 ) -> TopSwapConstraints {
     let constraints = TopSwapConstraints::up_to(config.max_swaps);
     if config.generator_set.is_top_swaps()
         || !observed
             .iter()
-            .all(|letter| initial_targets.contains_key(letter))
+            .all(|letter| restart_observations.contains_key(letter))
+        || restart_observations
+            .values()
+            .any(|observation| observation.entry != spec.emit_index)
     {
         return constraints;
     }
-    constraints.with_top_images(initial_targets.values().copied().collect())
+    constraints.with_top_images(
+        restart_observations
+            .values()
+            .map(|observation| observation.target)
+            .collect(),
+    )
 }
 
 fn validate_distinct_nonzero_target_assumption(
-    domains: &TopSwapDomains,
+    candidates: &[CandidateRuntime],
+    spec: &LymmDeckSpec,
     observed: &[char],
-    initial_targets: &BTreeMap<char, usize>,
+    restart_observations: &BTreeMap<char, ForcedObservation>,
 ) -> Result<(), SwapRecoveryError> {
-    let available_nonzero_targets = domains
-        .by_top_image
-        .keys()
-        .filter(|&&target| target != 0)
-        .count();
-    if available_nonzero_targets < observed.len() {
+    let mut required_entries = restart_observations
+        .values()
+        .map(|observation| observation.entry)
+        .collect::<BTreeSet<_>>();
+    let _inserted = required_entries.insert(spec.emit_index);
+    for entry in required_entries {
+        let available_nonzero_targets = candidates
+            .iter()
+            .filter_map(|candidate| candidate.perm.get(entry).copied())
+            .filter(|&target| target != 0)
+            .collect::<BTreeSet<_>>()
+            .len();
+        if available_nonzero_targets >= observed.len() {
+            continue;
+        }
         return Err(SwapRecoveryError::TargetAssumptionViolated {
             detail: format!(
-                "generator surface exposes {available_nonzero_targets} nonzero targets for {} observed letters",
+                "generator surface exposes {available_nonzero_targets} nonzero targets at entry {entry} for {} observed letters",
                 observed.len()
             ),
         });
@@ -106,19 +138,20 @@ fn validate_distinct_nonzero_target_assumption(
 
     let observed_set = observed.iter().copied().collect::<BTreeSet<_>>();
     let mut seen = BTreeMap::new();
-    for (&letter, &target) in initial_targets {
+    for (&letter, &observation) in restart_observations {
         if !observed_set.contains(&letter) {
             continue;
         }
-        if target == 0 {
+        if observation.target == 0 {
             return Err(SwapRecoveryError::TargetAssumptionViolated {
                 detail: format!("identity restart pins {letter:?} to forbidden target 0"),
             });
         }
-        if let Some(previous) = seen.insert(target, letter) {
+        if let Some(previous) = seen.insert(observation.target, letter) {
             return Err(SwapRecoveryError::TargetAssumptionViolated {
                 detail: format!(
-                    "identity restarts pin both {previous:?} and {letter:?} to target {target}"
+                    "identity restarts pin both {previous:?} and {letter:?} to target {}",
+                    observation.target
                 ),
             });
         }
@@ -126,12 +159,28 @@ fn validate_distinct_nonzero_target_assumption(
     Ok(())
 }
 
-fn identity_restart_targets(messages: &[AlignedMessage]) -> BTreeMap<char, usize> {
-    let mut targets = BTreeMap::new();
+fn restart_forced_observations(
+    spec: &LymmDeckSpec,
+    messages: &[AlignedMessage],
+) -> Result<BTreeMap<char, ForcedObservation>, SwapRecoveryError> {
+    let mut observations = BTreeMap::new();
     for message in messages {
         if let Some(event) = message.events.first() {
-            let _old = targets.entry(event.letter).or_insert(event.ct_value);
+            let observation = forced_observation(spec, &spec.initial_state, event.ct_value)?;
+            match observations.insert(event.letter, observation) {
+                Some(previous) if previous != observation => {
+                    return Err(SwapRecoveryError::InconsistentTarget {
+                        letter: event.letter,
+                        previous: previous.target,
+                        observed: observation.target,
+                    });
+                }
+                Some(previous) => {
+                    let _old = observations.insert(event.letter, previous);
+                }
+                None => {}
+            }
         }
     }
-    targets
+    Ok(observations)
 }

@@ -148,6 +148,45 @@ it exercises the same `ns=3` broad propagation, target pre-solver, targeted
 deterministic propagation, and exact planted-assignment verification that could
 otherwise prune the truth invisibly.
 
+Task-03 item 5 wires compose direction and emission index:
+
+```sh
+cargo run --locked --bin noita-eye -- gak-swap-recover \
+  --plaintext-file plaintexts.txt \
+  --ciphertext-file ciphertexts.txt \
+  --generator-file generators.txt \
+  --max-swaps 1 \
+  --compose-direction right \
+  --emit-index 1
+```
+
+The default vendored top-swap behavior remains the same (`left`, `emit-index 0`,
+identity restarts). Generalized runs use the configured forced entry:
+left-compose constrains `perm(L)[emit_index]`, while right-compose constrains
+`perm(L)[state_prev[emit_index]]` and therefore matches `perm(L)[emit_index]`
+under identity restarts. Explicit non-identity `--initial-state` values are used
+by both the domain bootstrap and partial-state initialization; unknown/secret
+initial states are not modeled.
+
+Validation added for this surface:
+
+- Planted full-support rotation control at `n=7`, `max-swaps=1`, left compose,
+  `emit-index=1`, and a non-identity initial state, exact recovery plus a
+  ciphertext-label null.
+- Planted full-support rotation control at `n=7`, `max-swaps=1`, right compose
+  and `emit-index=1`, exact recovery plus a ciphertext-label null.
+- A CLI integration test that writes plaintext, ciphertext, base, and generator
+  files and recovers through `--compose-direction right --emit-index 1`.
+
+Bounded-search note: this item does not extend the real-file frontier. The CLI
+still rejects `--num-swaps` / `--max-swaps >= 3` with the measured-frontier
+message, and right-compose residual recovery bypasses the left-compose
+transition-pruning clauses rather than claiming those deductions are symmetric.
+The distinct nonzero target/no-doubles assumption remains documented and enforced
+at `perm(L)[emit_index]`; when the configured direction/start forces a different
+first-read entry, that bootstrap entry is checked as well. Violating surfaces are
+model rejections, not candidate recoveries.
+
 ## ns=3 wall
 
 The current ns=2 success does not scale automatically to ns=3. The structural

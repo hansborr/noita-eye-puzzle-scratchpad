@@ -3,9 +3,9 @@
 use std::collections::BTreeMap;
 
 use super::{
-    GeneratorBranchStrategy, KnownPlaintextPair, LymmDeckSpec, LymmGeneratorSet,
-    RecoveryGeneratorSet, SwapRecoveryConfig, SwapRecoveryError, TopSwapConstraints,
-    encrypt_lymm_deck, enumerate_generator_domains, lymm_default_ct_alphabet,
+    GeneratorBranchStrategy, KnownPlaintextPair, LymmComposeDirection, LymmDeckSpec,
+    LymmGeneratorSet, RecoveryGeneratorSet, SwapRecoveryConfig, SwapRecoveryError,
+    TopSwapConstraints, encrypt_lymm_deck, enumerate_generator_domains, lymm_default_ct_alphabet,
     recover_known_plaintext_swaps,
 };
 
@@ -56,6 +56,71 @@ swap02: 2 1 0 3 4 5 6
         err,
         SwapRecoveryError::TargetAssumptionViolated { .. }
     ));
+}
+
+#[test]
+fn emit_index_and_initial_state_recover_control_and_reject_null() {
+    let spec = identity_spec(7, "AB")
+        .with_emit_index(1)
+        .expect("emit index")
+        .with_initial_state(rotation(7, 3))
+        .expect("initial state");
+    let generator_set = rotation_generator_set(spec.n);
+    let planted = BTreeMap::from([('A', rotation(7, 1)), ('B', rotation(7, 2))]);
+    let pairs = encrypted_pairs(&spec, &planted, &[("a", "ABBAAB"), ("b", "BABAAB")]);
+
+    let report = recover_known_plaintext_swaps(
+        &spec,
+        &pairs,
+        SwapRecoveryConfig::with_max_swaps(1)
+            .with_generator_set(RecoveryGeneratorSet::Explicit(generator_set.clone())),
+    )
+    .expect("emit-index recovery");
+
+    assert!(report.round_trip.exact());
+    assert_eq!(report.pt_mapping.get(&'A'), planted.get(&'A'));
+    assert_eq!(report.pt_mapping.get(&'B'), planted.get(&'B'));
+
+    let err = recover_known_plaintext_swaps(
+        &spec,
+        &relabel_ciphertext(&spec, &pairs),
+        SwapRecoveryConfig::with_max_swaps(1)
+            .with_generator_set(RecoveryGeneratorSet::Explicit(generator_set)),
+    )
+    .expect_err("ciphertext-label null must not recover");
+    assert!(matched_null_error(&err));
+}
+
+#[test]
+fn right_compose_recover_control_and_reject_null() {
+    let spec = identity_spec(7, "AB")
+        .with_compose_dir(LymmComposeDirection::Right)
+        .with_emit_index(1)
+        .expect("emit index");
+    let generator_set = rotation_generator_set(spec.n);
+    let planted = BTreeMap::from([('A', rotation(7, 1)), ('B', rotation(7, 2))]);
+    let pairs = encrypted_pairs(&spec, &planted, &[("a", "ABBAAB"), ("b", "BABAAB")]);
+
+    let report = recover_known_plaintext_swaps(
+        &spec,
+        &pairs,
+        SwapRecoveryConfig::with_max_swaps(1)
+            .with_generator_set(RecoveryGeneratorSet::Explicit(generator_set.clone())),
+    )
+    .expect("right-compose recovery");
+
+    assert!(report.round_trip.exact());
+    assert_eq!(report.pt_mapping.get(&'A'), planted.get(&'A'));
+    assert_eq!(report.pt_mapping.get(&'B'), planted.get(&'B'));
+
+    let err = recover_known_plaintext_swaps(
+        &spec,
+        &relabel_ciphertext(&spec, &pairs),
+        SwapRecoveryConfig::with_max_swaps(1)
+            .with_generator_set(RecoveryGeneratorSet::Explicit(generator_set)),
+    )
+    .expect_err("ciphertext-label null must not recover");
+    assert!(matched_null_error(&err));
 }
 
 #[test]
@@ -116,6 +181,27 @@ rot2: 2 3 4 5 6 0 1
             | SwapRecoveryError::TargetAssumptionViolated { .. }
             | SwapRecoveryError::NoResidualCandidate
     ));
+}
+
+fn rotation_generator_set(n: usize) -> LymmGeneratorSet {
+    LymmGeneratorSet::parse_permutation_file(
+        n,
+        "\
+rot1: 1 2 3 4 5 6 0
+rot2: 2 3 4 5 6 0 1
+",
+    )
+    .expect("generator file")
+}
+
+fn matched_null_error(error: &SwapRecoveryError) -> bool {
+    matches!(
+        error,
+        SwapRecoveryError::NoCandidateForTarget { .. }
+            | SwapRecoveryError::TargetAssumptionViolated { .. }
+            | SwapRecoveryError::NoResidualCandidate
+            | SwapRecoveryError::InconsistentTarget { .. }
+    )
 }
 
 fn identity_spec(n: usize, pt_alphabet: &str) -> LymmDeckSpec {

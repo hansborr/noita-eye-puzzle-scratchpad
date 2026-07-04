@@ -36,11 +36,11 @@ pub enum SwapRecoveryError {
         /// Newly inferred target.
         observed: usize,
     },
-    /// No top-swap candidate can realize the inferred target.
+    /// No generator candidate can realize the inferred target.
     NoCandidateForTarget {
         /// Plaintext letter.
         letter: char,
-        /// Required `perm[0]` image.
+        /// Required forced-entry image.
         target: usize,
     },
     /// The distinct nonzero target assumption is impossible under this run's

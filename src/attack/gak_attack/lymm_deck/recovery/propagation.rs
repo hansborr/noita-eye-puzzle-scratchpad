@@ -208,12 +208,12 @@ fn initial_state_domains(
         .iter()
         .map(|message| {
             let mut message_states = vec![vec![full; spec.n]; message.events.len() + 1];
-            for value in 0..spec.n {
+            for (position, &value) in spec.initial_state.iter().enumerate() {
                 if let Some(slot) = message_states
                     .get_mut(0)
                     .and_then(|state| state.get_mut(value))
                 {
-                    *slot = bit(value);
+                    *slot = bit(position);
                 }
             }
             for (index, event) in message.events.iter().enumerate() {

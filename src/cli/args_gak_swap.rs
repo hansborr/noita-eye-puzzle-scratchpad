@@ -70,10 +70,10 @@ pub(crate) struct GakSwapRecoverArgs {
     /// Output format.
     #[arg(long = "output", value_enum, default_value_t = GakSwapOutput::Text)]
     pub(crate) output: GakSwapOutput,
-    /// Reserved Task-03 compose-direction knob. Only `left` is supported here.
+    /// State composition direction: `left` or `right`.
     #[arg(long = "compose-direction")]
     pub(crate) compose_direction: Option<String>,
-    /// Reserved Task-03 emit-index knob. Only `0` is supported here.
+    /// Deck position read after each state update.
     #[arg(long = "emit-index")]
     pub(crate) emit_index: Option<usize>,
     /// Built-in generator family.

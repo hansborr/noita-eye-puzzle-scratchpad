@@ -7,7 +7,7 @@ use std::fs;
 
 use common::{assert_contains, run_noita_eye, run_noita_eye_failure};
 use noita_eye_puzzle::attack::gak_attack::lymm_deck::{
-    LymmDeckSpec, encrypt_lymm_deck, lymm_default_ct_alphabet,
+    LymmComposeDirection, LymmDeckSpec, encrypt_lymm_deck, lymm_default_ct_alphabet,
 };
 
 const PLAINTEXTS: &str = "research/data/practice-puzzles/deck-swap/plaintexts.txt";
@@ -168,6 +168,69 @@ rot2: 2 3 4 5 6 0 1
         "--generator-file",
         &generator_path_str,
         "--max-swaps",
+        "1",
+        "--skip-controls",
+    ]);
+
+    assert_contains(&stdout, "VERIFIED RECOVERY (exact re-encryption)");
+    assert_contains(&stdout, "gak-swap-recover: 2 known-plaintext pairs, n=7");
+    assert_contains(&stdout, "stats: candidates=2");
+
+    for path in [plaintext_path, ciphertext_path, base_path, generator_path] {
+        let _ignored = fs::remove_file(path);
+    }
+}
+
+#[test]
+fn gak_swap_recover_cli_accepts_compose_direction_and_emit_index() {
+    let spec = LymmDeckSpec::from_base(7, "AB", &lymm_default_ct_alphabet(7), (0..7).collect())
+        .expect("spec")
+        .with_compose_dir(LymmComposeDirection::Right)
+        .with_emit_index(1)
+        .expect("emit index");
+    let mapping = BTreeMap::from([('A', rotation(7, 1)), ('B', rotation(7, 2))]);
+    let plaintexts = ["ABBAAB", "BABAAB"];
+    let ciphertexts = plaintexts
+        .iter()
+        .map(|plaintext| encrypt_lymm_deck(&spec, &mapping, plaintext).expect("encrypt"))
+        .collect::<Vec<_>>();
+
+    let plaintext_path = write_temp_file("right-pt", &plaintexts.join("\n\n"));
+    let ciphertext_path = write_temp_file("right-ct", &ciphertexts.join("\n\n"));
+    let base_path = write_temp_file("right-base", "0 1 2 3 4 5 6\n");
+    let generator_path = write_temp_file(
+        "right-generators",
+        "\
+rot1: 1 2 3 4 5 6 0
+rot2: 2 3 4 5 6 0 1
+",
+    );
+
+    let plaintext_path_str = plaintext_path.display().to_string();
+    let ciphertext_path_str = ciphertext_path.display().to_string();
+    let base_path_str = base_path.display().to_string();
+    let generator_path_str = generator_path.display().to_string();
+    let stdout = run_noita_eye(&[
+        "gak-swap-recover",
+        "--plaintext-file",
+        &plaintext_path_str,
+        "--ciphertext-file",
+        &ciphertext_path_str,
+        "--pair-format",
+        "blank-lines",
+        "--pt-alphabet",
+        "AB",
+        "--n",
+        "7",
+        "--base-file",
+        &base_path_str,
+        "--generator-file",
+        &generator_path_str,
+        "--max-swaps",
+        "1",
+        "--compose-direction",
+        "right",
+        "--emit-index",
         "1",
         "--skip-controls",
     ]);
