@@ -198,7 +198,7 @@ pub fn scan_pattern_crib_corpus(
         return Err(PairclassError::EmptyInput);
     }
     let corpus = LetterCorpus::from_text(corpus_text);
-    Ok(corpus.scan(pattern, max_hits, None))
+    Ok(corpus.scan(pattern, max_hits, None).scan)
 }
 
 /// Runs the controls-first Avenue G pattern-crib scan.
@@ -244,7 +244,7 @@ pub fn run_pattern_crib_scan(
             verdict: PatternCribVerdict::ControlsFailed,
         });
     }
-    let real_scan = corpus.scan(&observed_pattern, cfg.max_hits, None);
+    let real_scan = corpus.scan(&observed_pattern, cfg.max_hits, None).scan;
     let verdict = if real_scan.hit_count > 0 {
         PatternCribVerdict::Candidate
     } else {
@@ -299,6 +299,12 @@ struct LetterCorpus {
     letters: Vec<u8>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct CorpusScan {
+    scan: PatternCribScan,
+    tracked_hits: usize,
+}
+
 impl LetterCorpus {
     fn from_text(text: &str) -> Self {
         let letters = text
@@ -311,7 +317,7 @@ impl LetterCorpus {
         Self { letters }
     }
 
-    fn scan(&self, pattern: &[u8], max_hits: usize, needle: Option<&[u8]>) -> PatternCribScan {
+    fn scan(&self, pattern: &[u8], max_hits: usize, tracked_start: Option<usize>) -> CorpusScan {
         let span_len = pattern.len();
         let windows_scanned = self
             .letters
@@ -319,6 +325,7 @@ impl LetterCorpus {
             .checked_sub(span_len)
             .map_or(0, |remaining| remaining + 1);
         let mut hit_count = 0usize;
+        let mut tracked_hits = 0usize;
         let mut hits = Vec::new();
         for start in 0..windows_scanned {
             let Some(window) = self.letters.get(start..start + span_len) else {
@@ -328,39 +335,22 @@ impl LetterCorpus {
                 continue;
             };
             hit_count += 1;
+            if tracked_start == Some(start) {
+                tracked_hits += 1;
+            }
             if hits.len() < max_hits {
                 hits.push(hit_from_window(start, window, coloring));
             }
         }
-        let needle_hits = needle.map_or(0, |needle| self.needle_hits(pattern, needle));
-        PatternCribScan {
-            corpus_letters: self.letters.len(),
-            windows_scanned,
-            hit_count: hit_count.max(needle_hits),
-            hits,
+        CorpusScan {
+            scan: PatternCribScan {
+                corpus_letters: self.letters.len(),
+                windows_scanned,
+                hit_count,
+                hits,
+            },
+            tracked_hits,
         }
-    }
-
-    fn needle_hits(&self, pattern: &[u8], needle: &[u8]) -> usize {
-        if needle.len() != pattern.len() {
-            return 0;
-        }
-        let span_len = pattern.len();
-        let windows_scanned = self
-            .letters
-            .len()
-            .checked_sub(span_len)
-            .map_or(0, |remaining| remaining + 1);
-        let mut hits = 0usize;
-        for start in 0..windows_scanned {
-            let Some(window) = self.letters.get(start..start + span_len) else {
-                continue;
-            };
-            if window == needle && pattern_crib_span_fits(window, pattern).is_some() {
-                hits += 1;
-            }
-        }
-        hits
     }
 }
 
@@ -397,15 +387,15 @@ fn positive_control(
         })
         .collect();
     let planted_text = letters_to_string(planted);
-    let scan = corpus.scan(&pattern, cfg.max_hits, Some(planted));
-    let planted_hits = corpus.needle_hits(&pattern, planted);
+    let scan = corpus.scan(&pattern, cfg.max_hits, Some(planted_start));
+    let planted_hits = scan.tracked_hits;
     Ok(PatternCribPositiveControl {
         planted_start,
         planted_text,
         distinct_letters: distinct_letters(planted),
         repeated_positions: repeated_positions(planted),
         fired: planted_hits > 0,
-        scan,
+        scan: scan.scan,
         planted_hits,
     })
 }
@@ -470,7 +460,7 @@ fn matched_null_controls(
         let seed = mix_seed(cfg.seed.wrapping_add(trial as u64), MATCHED_NULL_TAG);
         let resampled = markov_resample(tokens, n_classes, seed)?;
         let pattern = token_span(&resampled, anchor.first, anchor.len)?;
-        let scan = corpus.scan(pattern, 1, None);
+        let scan = corpus.scan(pattern, 1, None).scan;
         trials.push(PatternCribNegativeControl {
             trial,
             hit_count: scan.hit_count,
@@ -498,7 +488,7 @@ fn random_negative_controls(
                 .map_err(|error| PairclassError::NullModel(format!("bad bound {}", error.bound)))?;
             pattern.push(class as u8);
         }
-        let scan = corpus.scan(&pattern, 1, None);
+        let scan = corpus.scan(&pattern, 1, None).scan;
         trials.push(PatternCribNegativeControl {
             trial,
             hit_count: scan.hit_count,
