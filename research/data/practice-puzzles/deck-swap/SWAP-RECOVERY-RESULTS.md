@@ -17,7 +17,7 @@ Inputs: `plaintexts.txt` paired with `1_swap_ct.txt`, `2_swap_ct.txt`, and
 | --- | --- | --- | --- |
 | `ns=1` | recovered | `2439/2439` | `candidates=83`, `pruned=0`, `deductions=24`, `nodes=0`, `sat_decisions=0`, `sat_conflicts=0` |
 | `ns=2` | recovered | `2439/2439` | `candidates=6725`, `pruned=134804`, `deductions=925549`, `nodes=1`, `sat_decisions=0`, `sat_conflicts=0` |
-| `ns=3` | not recovered by current engine | not claimed | unsupported in landed CLI; measured scratch frontier below |
+| `ns=3` | not recovered by current engine | not claimed | unsupported in landed CLI; strengthened propagation frontier below |
 
 Support-size summary for the recovered levels:
 
@@ -43,9 +43,9 @@ Validation controls:
   self-test does not count `SearchCapExceeded` or `SearchTimeExceeded` as a
   genuine null failure.
 
-The `gak-swap-recover` CLI exposes the same library path used by the tests. A
-request for `--num-swaps 3` currently fails with an explicit measured-frontier
-message rather than emitting a candidate.
+The `gak-swap-recover` CLI exposes the same library path used by the tests for
+the supported frontier. A request for `--num-swaps 3` currently fails with an
+explicit measured-frontier message rather than emitting a candidate.
 
 ## ns=3 wall
 
@@ -76,6 +76,42 @@ enforced lazily through whole-prefix nogoods from failed exact re-encryptions. T
 is enough after `ns=2` propagation has collapsed every observed letter, but it is
 combinatorially weak when `ns=3` leaves hundreds of thousands of candidates per
 hard letter.
+
+Follow-up ns=3 attack pass, 2026-07-03:
+
+- Added complete local permutation-domain propagation inside each partial state
+  (singleton value positions remove that position from other values, and positions
+  with one supporting value become singleton assignments). This increased state
+  deductions on the real `3_swap_ct.txt` broad pass from about `8,367` to
+  `257,083`, but did not by itself reduce broad candidate-domain entries.
+- Added all-consecutive adjacent channelling plus a sound two-step R-read arc
+  (`L M N`: constrain `perm(L)[perm(M)[target_N]]` against the propagated
+  pre-state domain). On the broad ns=3 residual this leaves `10,194,676` total
+  domain entries, max domain `508,596`, with `659,692` entries pruned. The two-step
+  rule only removes two additional broad entries because target domains are still
+  wide.
+- On a target-restricted CEGAR slice, the same rules are much stronger: the first
+  traced slice started at `153,896` entries, then pass 1 reduced it to about
+  `94,929` entries (`58,967` pruned) before later deterministic transition
+  propagation rejected the wrong target slice. That is a real residual reduction,
+  but it does not solve target assignment.
+- Exhaustive broad candidate-arc pruning was re-tested with the stronger state
+  domains and still failed the cost test: no first-pass trace line after more than
+  `210s`, so it was dropped.
+- A guarded-assumption target-core CEGAR experiment was tried. With only one
+  deterministic pass, the first wrong target slice hit the residual node cap after
+  `20` candidate models rather than producing a useful SAT unsat core; with the
+  stronger deterministic pass, wrong slices fail before SAT can return a core.
+- A bounded four-event target clause pass for identity-start windows was tried
+  because the first wrong slices consistently contradicted at message 1's `THE`
+  prefix (`E` transition). It added about `75s` of target-solver construction time
+  and left the first target model unchanged, so it was dropped.
+
+Current diagnosis: the new propagation buys useful target-restricted pruning but
+does not close the target-assignment problem. The wall is now specifically that
+deterministic propagation can reject wrong full target assignments, but the engine
+does not yet learn a small sound target-level reason from that rejection. Whole
+assignment nogoods continue to enumerate nearby target permutations too slowly.
 
 ## Likely next levers
 

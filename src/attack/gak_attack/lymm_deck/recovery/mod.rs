@@ -6,7 +6,9 @@ use std::time::Duration;
 
 mod propagation;
 mod residual;
+mod sat_encoding;
 mod selftest;
+mod target_solver;
 
 pub use selftest::{
     GakSwapSelfTestConfig, GakSwapSelfTestReport, NullControlOutcome, NullControlReport,
@@ -199,6 +201,11 @@ pub enum SwapRecoveryError {
     },
     /// The SAT residual became unsatisfiable before any exact round-trip candidate.
     NoResidualCandidate,
+    /// Internal ns=3 CEGAR signal carrying a target-choice unsat core.
+    TargetUnsatCore {
+        /// Target choices sufficient for the candidate residual contradiction.
+        choices: Vec<(char, usize)>,
+    },
     /// The SAT backend returned an internal error.
     SatSolver(String),
 }
@@ -252,6 +259,13 @@ impl fmt::Display for SwapRecoveryError {
                 )
             }
             Self::NoResidualCandidate => write!(f, "SAT residual has no candidate assignment"),
+            Self::TargetUnsatCore { choices } => {
+                write!(
+                    f,
+                    "SAT residual rejected a target core with {} choices",
+                    choices.len()
+                )
+            }
             Self::SatSolver(error) => write!(f, "SAT residual solver error: {error}"),
         }
     }
@@ -293,7 +307,7 @@ pub fn recover_known_plaintext_swaps(
     let aligned = align_pairs(spec, pairs)?;
     if config.max_swaps == 1 {
         recover_ns1(spec, &aligned, config)
-    } else if config.max_swaps == 2 {
+    } else if config.max_swaps == 2 || config.max_swaps == 3 {
         recover_with_residual(spec, &aligned, config)
     } else {
         Err(SwapRecoveryError::UnsupportedBudget {

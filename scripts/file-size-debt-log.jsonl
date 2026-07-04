@@ -3,3 +3,5 @@
 {"path":"src/attack/gak_attack/solver/mod.rs","old_cap":null,"new_cap":797,"reason":"baseline pin: cohesive indivisible GCTAK solve core; deck substrate already split into siblings"}
 {"path":"src/ciphers/tests.rs","old_cap":null,"new_cap":992,"reason":"baseline pin: extracted candidate-cipher unit tests (exact round-trip controls)"}
 {"path":"src/attack/solve/tests.rs","old_cap":null,"new_cap":2186,"reason":"baseline pin: extracted solve-pipeline tests plus planted positive-control coverage; split into focused test modules if it grows"}
+{"path":"src/attack/gak_attack/lymm_deck/recovery/propagation.rs","old_cap":null,"new_cap":904,"reason":"ns=3 swap-recovery propagation rules grew for state permutation domains plus two-step R-read; split state/read/arc rules before adding more"}
+{"path":"src/attack/gak_attack/lymm_deck/recovery/residual.rs","old_cap":null,"new_cap":639,"reason":"ns=3 swap-recovery residual CEGAR wiring grew while preserving measured frontier; split candidate solver before adding more"}
