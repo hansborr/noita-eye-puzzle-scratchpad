@@ -32,6 +32,8 @@
 //! - [`key_difference`]: Thread B isomorph key-difference discriminator — recovers
 //!   the additive realisation `Δ` of the isomorph relabelling and classifies it by
 //!   finite-difference order (identical / constant-additive / linear / irregular).
+//! - [`shadow_search`]: closure-shadow hidden-state key search over derived
+//!   isomorph-map groups; emits quotient candidates only.
 //! - [`isomorph_imperfection`]: Thread G2 forward isomorph-imperfection
 //!   disproof — extended-window violation push, loose-candidate-class matched
 //!   null, word-boundary discount, and a generative imperfectly-isomorphic
@@ -66,4 +68,5 @@ pub mod leak_ceiling;
 pub mod orders;
 pub mod perfect_isomorphism;
 pub mod predicates;
+pub mod shadow_search;
 pub mod translate_isomorph;
