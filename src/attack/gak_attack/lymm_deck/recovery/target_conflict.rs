@@ -154,19 +154,27 @@ fn deterministic_reason_candidates_from_parts(
     full_core_first: bool,
 ) -> Vec<Vec<(char, usize)>> {
     let mut candidates = Vec::new();
-    if full_core_first {
+    if full_core_first && full_core.len() > 1 {
         push_unique_core(&mut candidates, full_core.clone());
     }
     if let Some(focused) = focused {
-        for &choice in focused.iter().rev() {
+        if !full_core_first {
+            for &choice in focused.iter().rev() {
+                push_unique_core(&mut candidates, vec![choice]);
+            }
+        }
+        if focused.len() > 1 {
+            push_unique_core(&mut candidates, focused);
+        }
+    }
+    if !full_core_first {
+        for &choice in full_core.iter().rev() {
             push_unique_core(&mut candidates, vec![choice]);
         }
-        push_unique_core(&mut candidates, focused);
     }
-    for &choice in full_core.iter().rev() {
-        push_unique_core(&mut candidates, vec![choice]);
+    if full_core.len() > 1 {
+        push_unique_core(&mut candidates, full_core);
     }
-    push_unique_core(&mut candidates, full_core);
     candidates.retain(|core| !core.is_empty());
     candidates
 }
@@ -289,7 +297,7 @@ mod tests {
     }
 
     #[test]
-    fn reason_candidates_try_full_core_first_after_multiliteral_floor() {
+    fn reason_candidates_skip_singletons_after_multiliteral_floor() {
         let focused = vec![('A', 1), ('B', 2)];
         let full = vec![('A', 1), ('B', 2), ('C', 3)];
         let candidates = deterministic_reason_candidates_from_parts(Some(focused), full, true);
@@ -300,14 +308,17 @@ mod tests {
         );
         assert_eq!(
             candidates,
-            vec![
-                vec![('A', 1), ('B', 2), ('C', 3)],
-                vec![('B', 2)],
-                vec![('A', 1)],
-                vec![('A', 1), ('B', 2)],
-                vec![('C', 3)]
-            ]
+            vec![vec![('A', 1), ('B', 2), ('C', 3)], vec![('A', 1), ('B', 2)]]
         );
+    }
+
+    #[test]
+    fn floor_mode_drops_singleton_full_core() {
+        let focused = vec![('A', 1), ('B', 2)];
+        let full = vec![('C', 3)];
+        let candidates = deterministic_reason_candidates_from_parts(Some(focused), full, true);
+
+        assert_eq!(candidates, vec![vec![('A', 1), ('B', 2)]]);
     }
 
     #[test]
