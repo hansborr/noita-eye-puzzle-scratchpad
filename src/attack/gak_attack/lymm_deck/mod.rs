@@ -26,9 +26,10 @@ pub use error::LymmDeckError;
 pub use oracle::encrypt_lymm_deck;
 pub use plant::{PlantedLymmMapping, generate_random_pt_mapping};
 pub use recovery::{
-    DEFAULT_SWAP_RECOVERY_SEED, LetterRecoveryVerdict, RecoveredLetter, RecoveryReport,
-    RoundTripReport, SwapRecoveryConfig, SwapRecoveryError, SwapRecoveryStats,
-    recover_known_plaintext_swaps, round_trip_check,
+    DEFAULT_SWAP_RECOVERY_SEED, GakSwapSelfTestConfig, GakSwapSelfTestReport,
+    LetterRecoveryVerdict, NullControlOutcome, NullControlReport, PositiveControlReport,
+    RecoveredLetter, RecoveryReport, RoundTripReport, SwapRecoveryConfig, SwapRecoveryError,
+    SwapRecoveryStats, gak_swap_self_test, recover_known_plaintext_swaps, round_trip_check,
 };
 pub use spec::{
     LYMM_DEFAULT_DECIMATION, LYMM_DEFAULT_N, LYMM_DEFAULT_PT_ALPHABET, LYMM_DEFAULT_SHIFT,

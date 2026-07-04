@@ -4,10 +4,20 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::time::Duration;
 
+mod propagation;
+mod residual;
+mod selftest;
+
+pub use selftest::{
+    GakSwapSelfTestConfig, GakSwapSelfTestReport, NullControlOutcome, NullControlReport,
+    PositiveControlReport, gak_swap_self_test,
+};
+
 use super::{
     KnownPlaintextPair, LymmDeckError, LymmDeckSpec, TopSwapConstraints, TopSwapDomains,
     compose_lymm, encrypt_lymm_deck, enumerate_top_swap_domains,
 };
+use residual::recover_with_residual;
 
 /// Default deterministic seed for the swap-recovery controls.
 pub const DEFAULT_SWAP_RECOVERY_SEED: u64 = 0x5a17_0200_0000_0002;
@@ -61,6 +71,8 @@ pub struct RecoveredLetter {
     pub support: Vec<usize>,
     /// Final recovered `base o sigma` permutation used for re-encryption.
     pub permutation: Option<Vec<usize>>,
+    /// Final candidate permutations still admitted for this letter.
+    pub candidate_permutations: Vec<Vec<usize>>,
     /// Canonical shortest top-swap word for the reported candidate.
     pub canonical_swaps: Vec<usize>,
     /// Number of equivalent final candidates still admitted for this letter.
@@ -173,6 +185,22 @@ pub enum SwapRecoveryError {
         /// Requested swap budget.
         max_swaps: usize,
     },
+    /// The residual solver exhausted its candidate-model cap before finding an
+    /// exact round-trip.
+    SearchCapExceeded {
+        /// Candidate models checked.
+        nodes: usize,
+    },
+    /// The residual solver exhausted its wall-clock budget before finding an
+    /// exact round-trip.
+    SearchTimeExceeded {
+        /// Candidate models checked before the timeout.
+        nodes: usize,
+    },
+    /// The SAT residual became unsatisfiable before any exact round-trip candidate.
+    NoResidualCandidate,
+    /// The SAT backend returned an internal error.
+    SatSolver(String),
 }
 
 impl fmt::Display for SwapRecoveryError {
@@ -211,6 +239,20 @@ impl fmt::Display for SwapRecoveryError {
                     "swap recovery for max_swaps={max_swaps} requires the residual solver"
                 )
             }
+            Self::SearchCapExceeded { nodes } => {
+                write!(
+                    f,
+                    "swap recovery reached the residual node cap after {nodes} candidates"
+                )
+            }
+            Self::SearchTimeExceeded { nodes } => {
+                write!(
+                    f,
+                    "swap recovery reached the residual time budget after {nodes} candidates"
+                )
+            }
+            Self::NoResidualCandidate => write!(f, "SAT residual has no candidate assignment"),
+            Self::SatSolver(error) => write!(f, "SAT residual solver error: {error}"),
         }
     }
 }
@@ -224,17 +266,17 @@ impl From<LymmDeckError> for SwapRecoveryError {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct AlignedMessage {
-    label: String,
-    plaintext: String,
-    events: Vec<AlignedEvent>,
+pub(super) struct AlignedMessage {
+    pub(super) label: String,
+    pub(super) plaintext: String,
+    pub(super) events: Vec<AlignedEvent>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct AlignedEvent {
-    letter: char,
-    ct_value: usize,
-    ct_char: char,
+pub(super) struct AlignedEvent {
+    pub(super) letter: char,
+    pub(super) ct_value: usize,
+    pub(super) ct_char: char,
 }
 
 /// Recovers Lymm top-swap plaintext mappings from known plaintext/ciphertext pairs.
@@ -251,6 +293,8 @@ pub fn recover_known_plaintext_swaps(
     let aligned = align_pairs(spec, pairs)?;
     if config.max_swaps == 1 {
         recover_ns1(spec, &aligned, config)
+    } else if config.max_swaps == 2 {
+        recover_with_residual(spec, &aligned, config)
     } else {
         Err(SwapRecoveryError::UnsupportedBudget {
             max_swaps: config.max_swaps,
@@ -355,6 +399,7 @@ fn recover_ns1(
             None => domains.candidates.first(),
         };
         let permutation = candidate.map(|found| found.permutation(spec));
+        let candidate_permutations = permutation.iter().cloned().collect::<Vec<_>>();
         if let Some(perm) = &permutation {
             let _old = pt_mapping.insert(letter, perm.clone());
         }
@@ -372,6 +417,7 @@ fn recover_ns1(
             target,
             support: candidate.map_or_else(Vec::new, |found| found.support.clone()),
             permutation,
+            candidate_permutations,
             canonical_swaps: candidate.map_or_else(Vec::new, |found| found.canonical_swaps.clone()),
             equivalent_count: usize::from(candidate.is_some()),
             no_doubles,
@@ -379,7 +425,26 @@ fn recover_ns1(
         });
     }
 
-    let placeholder = RecoveryReport {
+    let placeholder = report_shell(config, letters, pt_mapping, stats);
+    let pairs = pairs_from_messages(messages);
+    let round_trip = round_trip_check(spec, &placeholder, &pairs)?;
+    let mut report = placeholder;
+    report.round_trip = round_trip;
+    report.verdict = if report.round_trip.exact() {
+        LetterRecoveryVerdict::RecoveredUnique
+    } else {
+        LetterRecoveryVerdict::Candidate
+    };
+    Ok(report)
+}
+
+pub(super) fn report_shell(
+    config: SwapRecoveryConfig,
+    letters: Vec<RecoveredLetter>,
+    pt_mapping: BTreeMap<char, Vec<usize>>,
+    stats: SwapRecoveryStats,
+) -> RecoveryReport {
+    RecoveryReport {
         config,
         letters,
         pt_mapping,
@@ -391,24 +456,18 @@ fn recover_ns1(
         },
         stats,
         verdict: LetterRecoveryVerdict::Candidate,
-    };
-    let pairs = messages
+    }
+}
+
+pub(super) fn pairs_from_messages(messages: &[AlignedMessage]) -> Vec<KnownPlaintextPair> {
+    messages
         .iter()
         .map(|message| KnownPlaintextPair {
             label: message.label.clone(),
             plaintext: message.plaintext.clone(),
             ciphertext: message.events.iter().map(|event| event.ct_char).collect(),
         })
-        .collect::<Vec<_>>();
-    let round_trip = round_trip_check(spec, &placeholder, &pairs)?;
-    let mut report = placeholder;
-    report.round_trip = round_trip;
-    report.verdict = if report.round_trip.exact() {
-        LetterRecoveryVerdict::RecoveredUnique
-    } else {
-        LetterRecoveryVerdict::Candidate
-    };
-    Ok(report)
+        .collect()
 }
 
 fn align_pairs(
@@ -470,7 +529,10 @@ fn align_pairs(
     Ok(messages)
 }
 
-fn occurrence_counts(spec: &LymmDeckSpec, messages: &[AlignedMessage]) -> BTreeMap<char, usize> {
+pub(super) fn occurrence_counts(
+    spec: &LymmDeckSpec,
+    messages: &[AlignedMessage],
+) -> BTreeMap<char, usize> {
     let mut counts = spec
         .pt_alphabet
         .iter()

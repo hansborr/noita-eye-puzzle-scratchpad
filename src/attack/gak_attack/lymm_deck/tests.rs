@@ -3,8 +3,9 @@
 use std::collections::BTreeMap;
 
 use super::{
-    KnownPlaintextPair, LetterRecoveryVerdict, LymmDeckSpec, SwapRecoveryConfig,
-    TopSwapConstraints, encrypt_lymm_deck, enumerate_top_swap_domains, generate_random_pt_mapping,
+    GakSwapSelfTestConfig, KnownPlaintextPair, LetterRecoveryVerdict, LymmDeckSpec,
+    NullControlOutcome, SwapRecoveryConfig, TopSwapConstraints, encrypt_lymm_deck,
+    enumerate_top_swap_domains, gak_swap_self_test, generate_random_pt_mapping,
     parse_known_plaintext_pairs, recover_known_plaintext_swaps,
 };
 
@@ -153,6 +154,64 @@ fn ns1_recovery_recovers_vendored_key_and_reencrypts_exactly() {
             .filter(|letter| letter.verdict == LetterRecoveryVerdict::RecoveredUnique)
             .count(),
         24
+    );
+}
+
+#[test]
+fn ns2_recovery_recovers_vendored_key_and_reencrypts_exactly() {
+    let spec = LymmDeckSpec::lymm_default().expect("spec");
+    let pairs = parse_known_plaintext_pairs(
+        &spec,
+        include_str!("../../../../research/data/practice-puzzles/deck-swap/plaintexts.txt"),
+        include_str!("../../../../research/data/practice-puzzles/deck-swap/2_swap_ct.txt"),
+    )
+    .expect("known plaintext pairs");
+
+    let mut config = SwapRecoveryConfig::with_max_swaps(2);
+    config.max_nodes = Some(50_000);
+    let report = recover_known_plaintext_swaps(&spec, &pairs, config).expect("ns=2 recovery");
+
+    assert!(report.round_trip.exact());
+    assert_eq!(report.round_trip.matched, report.round_trip.total);
+}
+
+#[test]
+fn swap_recovery_self_test_passes_supported_frontier_controls() {
+    let report =
+        gak_swap_self_test(GakSwapSelfTestConfig::default()).expect("self-test should run");
+
+    assert!(report.passed(), "{report:#?}");
+    assert!(report.positive_ns1.exact);
+    assert_eq!(
+        report.positive_ns1.matched_observed_letters,
+        report.positive_ns1.observed_letters
+    );
+    assert_eq!(report.positive_ns1.ambiguous_observed_letters, 0);
+    assert_eq!(report.positive_ns1.ambiguous_missing_planted_letters, 0);
+    assert_eq!(report.positive_ns1.mismatched_unique_letters, 0);
+    assert!(report.positive_ns2.exact);
+    assert_eq!(report.positive_ns2.mismatched_unique_letters, 0);
+    assert_eq!(report.positive_ns2.ambiguous_missing_planted_letters, 0);
+    assert_eq!(
+        report.positive_ns2.matched_observed_letters
+            + report.positive_ns2.ambiguous_observed_letters,
+        report.positive_ns2.observed_letters
+    );
+    assert!(report.full_permutation_null.failed);
+    assert_eq!(
+        report.full_permutation_null.outcome,
+        NullControlOutcome::CleanFailure
+    );
+    assert!(report.over_budget_null.failed);
+    assert_eq!(
+        report.over_budget_null.outcome,
+        NullControlOutcome::CleanFailure
+    );
+    assert!(report.over_budget_recovery_exact);
+    assert!(report.label_shuffle_null.failed);
+    assert_eq!(
+        report.label_shuffle_null.outcome,
+        NullControlOutcome::CleanFailure
     );
 }
 
