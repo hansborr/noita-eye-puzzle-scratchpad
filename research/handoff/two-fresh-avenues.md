@@ -83,10 +83,15 @@ codec deterministically emits for each letter:
 
 ## Avenue A — structured-coloring enumeration + oracle decode  ⭐ BUILD FIRST
 
-> **STATUS (2026-07-03): BUILT** as `pairclass --coloring-family` (structured
-> mode, two-tier rank/confirm decode, per-stream matched-null gates, curated +
-> broad family tiers). Instrument-hardening history and the definitive-run
-> record live in `research/data/practice-puzzles/CODEC-RESULTS.md` §Round 8.
+> **STATUS (2026-07-03): RUN — scoped honest negative.** Built as
+> `pairclass --coloring-family` (two-tier rank/confirm decode, per-stream
+> matched-null gates, curated + broad family tiers); both definitive runs
+> returned `LowPowerNoExclusion` with the real stream null-typical (curated
+> p_emp 0.840, broad p_emp 1.000) while planted truths retain top-3/top-6
+> rank 6/6. *These deterministic families produced no candidate* — not a
+> family-space exclusion. Full record:
+> `research/data/practice-puzzles/CODEC-RESULTS.md` §Round 8. Next levers per
+> the ranking below: G, then F (seeded from marginal-consistent colorings).
 
 **Idea.** Enumerate deterministic candidate colorings; oracle-decode each with
 the Round-3 word LM; gate on English. Bypasses the *entire* search wall (no

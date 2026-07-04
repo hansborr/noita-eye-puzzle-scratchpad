@@ -1552,7 +1552,37 @@ curated family, but NOT a formal family exclusion (anomaly-gate power measured
 2/6); and the relabel filter's 26 968 filter-dropped relabels bound the claim
 to the ranked surface. No candidate cleartext merits logging (p_emp 0.840).
 
-**Broad tier definitive result: PENDING (run in flight 2026-07-03).**
+**Broad tier definitive result (2026-07-03): `LowPowerNoExclusion` — no
+candidate.** Key output lines:
+
+```text
+  mean recovery 0.584  measured power truth-best 3/6  RECOVERY CLEARED
+  candidate-like 2/6 at p_emp <= 0.333  MEASURED FP
+Structured oracle candidates (rank-beam 400, base 10398, relabels 992448, ranked 27576 = guaranteed 27576 + extra 0, filter-dropped 933072, filter-l1-cut 0.160, cap-dropped 0, cap-l1-cut none):
+Structured Markov null for real stream (rank-beam 400): 20 trials, observed-best -532.41, null_ge 20, p_emp 1.000, null-margin -28.19
+VERDICT: LowPowerNoExclusion - no rank-beam structured candidate in the broad deterministic-coloring family achieved matched-null significance (null_ge 20, p_emp 1.000).
+```
+
+- Positives: recovery cleared (mean 0.584); all truths decoded; truth-score-rank
+  per plant #1/#2/#6/#2/#1/#1 (family-best 3/6 = the measured score power at
+  this breadth). Random negatives: 2/6 candidate-like at the coarse k=2
+  resolution (p ≤ 0.333) — the honestly measured false-positive floor.
+- Real stream: 27 576 ranked candidates (the guaranteed relabel band covered
+  everything; cap-dropped 0; 933 072 filter-dropped at L1 0.160 bound the
+  surface). Observed best −532.41: **all 20 matched nulls beat it**
+  (p_emp 1.000, null-margin −28.19). Top-5 renders are word-salad.
+
+**Round 8 combined conclusion.** Both tiers converge: the real `two` eps-pair
+stream shows *no* structured-coloring signal — its best family decode is
+null-typical (curated p_emp 0.840) to null-inferior (broad p_emp 1.000), while
+the same instrument retains planted truths at top-3 (curated 6/6) / top-6
+(broad 6/6) and renders them at 0.52–0.65 recovery. Scoped honest negative:
+*these deterministic coloring families, under this scoring surface, produced no
+candidate* — NOT "deterministic coloring excluded" (anomaly-gate power 2/6
+curated; relabel-filter drops bound both surfaces). Avenue A is spent as built;
+the remaining Avenue-A-adjacent levers are a widened family set, a
+higher-power real-stream statistic, or moving on to Avenues G (repeated-span
+pattern-crib scan) and F (soft-EM) per the handoff ranking.
 
 ## Provenance
 
