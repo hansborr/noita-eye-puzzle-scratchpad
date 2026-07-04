@@ -145,6 +145,19 @@ first *because* it is cheap and falsifiable, not because it is certain.
 
 ## Avenue G — repeated-span pattern-crib scan  ⭐ BUILD SECOND (codex)
 
+> **STATUS (2026-07-04): RUN — scoped honest negative.** Built as
+> `pairclass --pattern-crib-scan` (commit `0b05f78`): the phase-0 repeated
+> token anchor at positions 116 and 176, length 33, is scanned directly against
+> corpus spans by the 26→4 coloring-consistency predicate. Planted positives
+> fired and matched/null negatives stayed quiet on all three committed language
+> files (`english-corpus-large.txt`, `english.txt`, `finnish.txt`; each
+> 0/49 Markov null candidate-like + 0/1 random negative). Real scans returned
+> **0 surviving spans** in all three corpora. Claim ceiling: no literal span in
+> those committed corpora matches this fixed anchor/static-coloring model; this
+> does not exclude custom plaintext, an unscanned phrase source, another phase,
+> or a stateful codec. Full record: `research/data/practice-puzzles/CODEC-RESULTS.md`
+> §Round 9.
+
 **Idea.** Attack the doubly-occurring ~34-letter repeated phrase *directly*,
 without dictionary DP or a score-ranked harvest (so it cannot hit the occ1
 explosion). For any candidate English span of the right length, require the
