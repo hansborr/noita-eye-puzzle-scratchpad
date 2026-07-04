@@ -98,6 +98,11 @@ is not prose-only — it refactors code (e.g. the commit on it now extracts
 - `T07` — proving-ground status + remaining low-value classical leads. Note: `one`/`six`/`two`
   codec runs are already logged honest-negatives; the rest is low-value, non-transferring,
   and must be split before starting. This is a menu, not a must-do.
+- `two-post-avenue-a-handoff.md` — **pickup point for practice puzzle `two`**
+  after Avenue A closed (scoped honest negative, 2026-07-03). Carries the open
+  route decision (run Avenue G / pivot eyes-side / stop) and the ruling that the
+  merged `gak-swap-recovery` engine does not supersede the `two` route. Start
+  here if continuing `two` or deciding its priority.
 
 > Optional confirmatory one-off (no task file): if GAP becomes available, run
 > `NrTransitiveGroups(83)` to machine-cross-check the 6-group count — the one
