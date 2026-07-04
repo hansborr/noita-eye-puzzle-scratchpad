@@ -72,6 +72,23 @@ cargo run --locked --bin noita-eye -- gak-swap-recover \
   --num-swaps 3
 ```
 
+Task-03 item 1 adds supported-budget inference. It runs increasing budgets only
+through the measured frontier and reports the maximum final-permutation support
+size, not canonical swap-word length:
+
+```sh
+cargo run --locked --bin noita-eye -- gak-swap-recover \
+  --plaintext-file research/data/practice-puzzles/deck-swap/plaintexts.txt \
+  --ciphertext-file research/data/practice-puzzles/deck-swap/2_swap_ct.txt \
+  --infer-swaps 1..3
+```
+
+For the vendored `2_swap_ct.txt` file, this caps the requested `1..3` range to
+the supported `1..2` range, rejects `s=1`, and reports `s=2` with exact
+`2439/2439` re-encryption and maximum observed support size `3`. A range that
+starts at `3` (for example `--infer-swaps 3..4`) fails with the same measured
+frontier message as `--num-swaps 3`.
+
 The `ns=3` planted test is a soundness control, not a real-file recovery claim:
 it exercises the same `ns=3` broad propagation, target pre-solver, targeted
 deterministic propagation, and exact planted-assignment verification that could

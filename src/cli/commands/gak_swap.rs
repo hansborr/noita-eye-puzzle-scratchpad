@@ -1,17 +1,17 @@
 //! Handler for the `gak-swap-recover` known-plaintext recovery command.
 
-use std::fmt::Write as _;
 use std::process::ExitCode;
 use std::time::Duration;
 
 use noita_eye_puzzle::attack::gak_attack::lymm_deck::{
     GakSwapSelfTestConfig, GakSwapSelfTestReport, KnownPlaintextPair, LYMM_DEFAULT_DECIMATION,
-    LYMM_DEFAULT_SHIFT, LymmDeckSpec, NullControlReport, PositiveControlReport, RecoveryReport,
-    SwapRecoveryConfig, SwapRecoveryError, gak_swap_self_test, lymm_default_ct_alphabet,
-    parse_known_plaintext_pairs, recover_known_plaintext_swaps,
+    LYMM_DEFAULT_SHIFT, LymmDeckSpec, SWAP_RECOVERY_FRONTIER_MESSAGE, SwapInferenceRange,
+    SwapRecoveryConfig, SwapRecoveryError, gak_swap_self_test, infer_known_plaintext_swap_budget,
+    lymm_default_ct_alphabet, parse_known_plaintext_pairs, recover_known_plaintext_swaps,
 };
 
-use crate::cli::args_gak_swap::{GakSwapOutput, GakSwapPairFormat, GakSwapRecoverArgs};
+use super::gak_swap_report::{print_inference_report, print_recovery_report, print_self_test};
+use crate::cli::args_gak_swap::{GakSwapPairFormat, GakSwapRecoverArgs};
 use crate::cli::shared::split_blank_line_messages;
 
 /// Dispatches the `gak-swap-recover` subcommand.
@@ -21,41 +21,14 @@ pub(crate) fn run_gak_swap_recover(args: &GakSwapRecoverArgs) -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    let has_plaintext = args.plaintext_file.is_some();
-    let has_ciphertext = args.ciphertext_file.is_some();
-    let has_real_files = has_plaintext && has_ciphertext;
-    if has_plaintext != has_ciphertext {
-        eprintln!("gak-swap-recover error: provide both --plaintext-file and --ciphertext-file");
-        return ExitCode::FAILURE;
-    }
-    if !has_real_files && !args.run_controls {
-        eprintln!(
-            "gak-swap-recover error: provide --plaintext-file and --ciphertext-file, or use --run-controls"
-        );
-        return ExitCode::FAILURE;
-    }
+    let has_real_files = match validate_input_presence(args) {
+        Ok(has_real_files) => has_real_files,
+        Err(exit_code) => return exit_code,
+    };
 
-    let should_run_controls =
-        controls_required(args.run_controls, args.skip_controls, has_real_files);
-    let controls = if should_run_controls {
-        let config = GakSwapSelfTestConfig {
-            seed: args.seed,
-            max_nodes: args.max_nodes.or(Some(50_000)),
-        };
-        match gak_swap_self_test(config) {
-            Ok(report) if report.passed() => Some(report),
-            Ok(report) => {
-                print_self_test(&report, args.output);
-                eprintln!("gak-swap-recover error: planted controls or matched nulls failed");
-                return ExitCode::FAILURE;
-            }
-            Err(error) => {
-                eprintln!("gak-swap-recover control error: {error}");
-                return ExitCode::FAILURE;
-            }
-        }
-    } else {
-        None
+    let controls = match run_controls_if_needed(args, has_real_files) {
+        Ok(report) => report,
+        Err(exit_code) => return exit_code,
     };
 
     if !has_real_files {
@@ -81,16 +54,52 @@ pub(crate) fn run_gak_swap_recover(args: &GakSwapRecoverArgs) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let max_swaps = args.num_swaps.or(args.max_swaps).unwrap_or(2);
-    let mut config = SwapRecoveryConfig::with_max_swaps(max_swaps);
+    let mut config =
+        SwapRecoveryConfig::with_max_swaps(args.num_swaps.or(args.max_swaps).unwrap_or(2));
     config.max_nodes = args.max_nodes;
     config.time_budget = args.time_budget_secs.map(Duration::from_secs);
+
+    if let Some(raw_range) = &args.infer_swaps {
+        let range = match parse_infer_range(raw_range) {
+            Ok(range) => range,
+            Err(error) => {
+                eprintln!("gak-swap-recover error: {error}");
+                return ExitCode::FAILURE;
+            }
+        };
+        let inference = match infer_known_plaintext_swap_budget(&spec, &pairs, range, config) {
+            Ok(report) => report,
+            Err(SwapRecoveryError::UnsupportedBudget { max_swaps }) => {
+                eprintln!(
+                    "gak-swap-recover error: unsupported top-swap budget {max_swaps}; {SWAP_RECOVERY_FRONTIER_MESSAGE}"
+                );
+                return ExitCode::FAILURE;
+            }
+            Err(error) => {
+                eprintln!("gak-swap-recover inference error: {error}");
+                return ExitCode::FAILURE;
+            }
+        };
+        print_inference_report(
+            &inference,
+            controls.as_ref(),
+            args.skip_controls,
+            pairs.len(),
+            spec.n,
+            args.output,
+        );
+        return if inference.exact() {
+            ExitCode::SUCCESS
+        } else {
+            ExitCode::FAILURE
+        };
+    }
 
     let recovery = match recover_known_plaintext_swaps(&spec, &pairs, config) {
         Ok(report) => report,
         Err(SwapRecoveryError::UnsupportedBudget { max_swaps }) => {
             eprintln!(
-                "gak-swap-recover error: unsupported top-swap budget {max_swaps}; measured Task-02 frontier is currently ns<=2, and ns=3 remains a recorded wall"
+                "gak-swap-recover error: unsupported top-swap budget {max_swaps}; {SWAP_RECOVERY_FRONTIER_MESSAGE}"
             );
             return ExitCode::FAILURE;
         }
@@ -100,24 +109,13 @@ pub(crate) fn run_gak_swap_recover(args: &GakSwapRecoverArgs) -> ExitCode {
         }
     };
 
-    match args.output {
-        GakSwapOutput::Text => {
-            print_text_report(
-                &recovery,
-                controls.as_ref(),
-                args.skip_controls,
-                pairs.len(),
-            );
-        }
-        GakSwapOutput::Json => {
-            print_json_report(
-                &recovery,
-                controls.as_ref(),
-                args.skip_controls,
-                pairs.len(),
-            );
-        }
-    }
+    print_recovery_report(
+        &recovery,
+        controls.as_ref(),
+        args.skip_controls,
+        pairs.len(),
+        args.output,
+    );
     ExitCode::SUCCESS
 }
 
@@ -125,18 +123,58 @@ fn controls_required(run_controls: bool, skip_controls: bool, has_real_files: bo
     run_controls || (has_real_files && !skip_controls)
 }
 
-fn validate_task02_knobs(args: &GakSwapRecoverArgs) -> Result<(), String> {
-    if matches!(args.num_swaps.or(args.max_swaps), Some(3)) {
-        return Err(
-            "unsupported top-swap budget 3; measured Task-02 frontier is currently ns<=2, and ns=3 remains a recorded wall"
-                .to_owned(),
+fn validate_input_presence(args: &GakSwapRecoverArgs) -> Result<bool, ExitCode> {
+    let has_plaintext = args.plaintext_file.is_some();
+    let has_ciphertext = args.ciphertext_file.is_some();
+    let has_real_files = has_plaintext && has_ciphertext;
+    if has_plaintext != has_ciphertext {
+        eprintln!("gak-swap-recover error: provide both --plaintext-file and --ciphertext-file");
+        return Err(ExitCode::FAILURE);
+    }
+    if !has_real_files && !args.run_controls {
+        eprintln!(
+            "gak-swap-recover error: provide --plaintext-file and --ciphertext-file, or use --run-controls"
         );
+        return Err(ExitCode::FAILURE);
+    }
+    Ok(has_real_files)
+}
+
+fn run_controls_if_needed(
+    args: &GakSwapRecoverArgs,
+    has_real_files: bool,
+) -> Result<Option<GakSwapSelfTestReport>, ExitCode> {
+    if !controls_required(args.run_controls, args.skip_controls, has_real_files) {
+        return Ok(None);
+    }
+    let config = GakSwapSelfTestConfig {
+        seed: args.seed,
+        max_nodes: args.max_nodes.or(Some(50_000)),
+    };
+    match gak_swap_self_test(config) {
+        Ok(report) if report.passed() => Ok(Some(report)),
+        Ok(report) => {
+            print_self_test(&report, args.output);
+            eprintln!("gak-swap-recover error: planted controls or matched nulls failed");
+            Err(ExitCode::FAILURE)
+        }
+        Err(error) => {
+            eprintln!("gak-swap-recover control error: {error}");
+            Err(ExitCode::FAILURE)
+        }
+    }
+}
+
+fn validate_task02_knobs(args: &GakSwapRecoverArgs) -> Result<(), String> {
+    if let Some(max_swaps) = args.num_swaps.or(args.max_swaps)
+        && max_swaps >= 3
+    {
+        return Err(format!(
+            "unsupported top-swap budget {max_swaps}; {SWAP_RECOVERY_FRONTIER_MESSAGE}"
+        ));
     }
     if args.beam.is_some() {
         return Err("--beam is reserved for a Task-03 fallback and is not implemented".to_owned());
-    }
-    if args.infer_swaps {
-        return Err("--infer-swaps is reserved for Task-03".to_owned());
     }
     if let Some(direction) = &args.compose_direction
         && direction != "left"
@@ -154,6 +192,27 @@ fn validate_task02_knobs(args: &GakSwapRecoverArgs) -> Result<(), String> {
         return Err("--generator-set currently supports only 'top-swaps'".to_owned());
     }
     Ok(())
+}
+
+fn parse_infer_range(raw: &str) -> Result<SwapInferenceRange, String> {
+    let (start, end) = raw
+        .split_once("..")
+        .ok_or_else(|| "expected --infer-swaps range A..B".to_owned())?;
+    if end.contains("..") {
+        return Err("expected --infer-swaps range A..B".to_owned());
+    }
+    let start = start
+        .parse::<usize>()
+        .map_err(|error| format!("invalid --infer-swaps start {start:?}: {error}"))?;
+    let end = end
+        .parse::<usize>()
+        .map_err(|error| format!("invalid --infer-swaps end {end:?}: {error}"))?;
+    if start == 0 || start > end {
+        return Err(format!(
+            "invalid --infer-swaps range {start}..{end}; expected 1 <= start <= end"
+        ));
+    }
+    Ok(SwapInferenceRange::new(start, end))
 }
 
 fn build_spec(args: &GakSwapRecoverArgs) -> Result<LymmDeckSpec, String> {
@@ -279,272 +338,6 @@ fn parse_blank_line_pairs(
                 .collect(),
         })
         .collect())
-}
-
-fn print_text_report(
-    report: &RecoveryReport,
-    controls: Option<&GakSwapSelfTestReport>,
-    controls_skipped: bool,
-    pair_count: usize,
-) {
-    if let Some(self_test) = controls {
-        print_self_test(self_test, GakSwapOutput::Text);
-    } else if controls_skipped {
-        println!(
-            "gak swap controls: SKIPPED by --skip-controls; real-file output is not control-gated"
-        );
-    } else {
-        println!("gak swap controls: not run");
-    }
-    println!(
-        "gak-swap-recover: {pair_count} known-plaintext pairs, n={}, max-swaps={}",
-        report.pt_mapping.values().next().map_or(0, Vec::len),
-        report.config.max_swaps
-    );
-    let exact = report.round_trip.exact();
-    println!(
-        "  verdict: {}",
-        if exact {
-            "VERIFIED RECOVERY (exact re-encryption)"
-        } else {
-            "CANDIDATE (not exact)"
-        }
-    );
-    println!(
-        "  round-trip: {}/{} ciphertext symbols matched",
-        report.round_trip.matched, report.round_trip.total
-    );
-    if let Some((label, index, expected, actual)) = &report.round_trip.first_divergence {
-        println!(
-            "  first divergence: message {label} at ct index {index}: expected {expected:?}, got {actual:?}"
-        );
-    }
-    println!(
-        "  stats: candidates={} pruned={} deductions={} nodes={} sat-decisions={} sat-conflicts={} beam-drops={}",
-        report.stats.enumerated_candidates,
-        report.stats.domains_pruned,
-        report.stats.deductions,
-        report.stats.nodes,
-        report.stats.sat_decisions,
-        report.stats.sat_conflicts,
-        report.stats.beam_drops
-    );
-    println!("  per-message:");
-    for (label, matched, total) in &report.round_trip.per_message {
-        println!("    {label}: {matched}/{total}");
-    }
-    println!("  per-letter:");
-    for letter in &report.letters {
-        println!(
-            "    {} occ={} target={} support={} swaps={} equiv={} no-doubles={} verdict={:?}",
-            letter.letter,
-            letter.occurrences,
-            format_option_usize(letter.target),
-            format_usize_slice(&letter.support),
-            format_usize_slice(&letter.canonical_swaps),
-            letter.equivalent_count,
-            letter.no_doubles,
-            letter.verdict
-        );
-    }
-}
-
-fn print_self_test(report: &GakSwapSelfTestReport, output: GakSwapOutput) {
-    if output == GakSwapOutput::Json {
-        println!("{}", self_test_json(report));
-        return;
-    }
-    println!(
-        "gak swap self-test (seed=0x{:016x}, max-nodes={}):",
-        report.config.seed,
-        report
-            .config
-            .max_nodes
-            .map_or_else(|| "none".to_owned(), |nodes| nodes.to_string())
-    );
-    print_positive("positive ns=1", &report.positive_ns1);
-    print_positive("positive ns=2", &report.positive_ns2);
-    print_null(&report.full_permutation_null);
-    print_null(&report.over_budget_null);
-    println!(
-        "  over-budget recovery at supported bound: {}",
-        pass_fail(report.over_budget_recovery_exact)
-    );
-    print_null(&report.label_shuffle_null);
-    println!("  SELF-TEST: {}", pass_fail(report.passed()));
-}
-
-fn print_positive(label: &str, report: &PositiveControlReport) {
-    println!(
-        "  {label}: {} matched-unique={} ambiguous-present={} ambiguous-missing={} mismatched-unique={} observed={} nodes={} sat-decisions={} sat-conflicts={}",
-        pass_fail(report.exact),
-        report.matched_observed_letters,
-        report.ambiguous_observed_letters,
-        report.ambiguous_missing_planted_letters,
-        report.mismatched_unique_letters,
-        report.observed_letters,
-        report.nodes,
-        report.sat_decisions,
-        report.sat_conflicts
-    );
-}
-
-fn print_null(report: &NullControlReport) {
-    println!(
-        "  null {}: {} outcome={} nodes={}",
-        report.label,
-        pass_fail(report.failed),
-        report.outcome.as_str(),
-        option_json(report.nodes)
-    );
-}
-
-fn print_json_report(
-    report: &RecoveryReport,
-    controls: Option<&GakSwapSelfTestReport>,
-    controls_skipped: bool,
-    pair_count: usize,
-) {
-    let mut out = String::new();
-    writeln!(&mut out, "{{").expect("write to String");
-    writeln!(&mut out, "  \"tool\": \"gak-swap-recover\",").expect("write to String");
-    writeln!(&mut out, "  \"pair_count\": {pair_count},").expect("write to String");
-    match controls {
-        Some(self_test) => {
-            writeln!(&mut out, "  \"controls\": {},", self_test_json(self_test))
-                .expect("write to String");
-        }
-        None if controls_skipped => {
-            writeln!(&mut out, "  \"controls\": \"skipped\",").expect("write to String");
-        }
-        None => {
-            writeln!(&mut out, "  \"controls\": null,").expect("write to String");
-        }
-    }
-    writeln!(&mut out, "  \"max_swaps\": {},", report.config.max_swaps).expect("write to String");
-    writeln!(&mut out, "  \"exact\": {},", report.round_trip.exact()).expect("write to String");
-    writeln!(
-        &mut out,
-        "  \"round_trip\": {{\"matched\": {}, \"total\": {}}},",
-        report.round_trip.matched, report.round_trip.total
-    )
-    .expect("write to String");
-    writeln!(
-        &mut out,
-        "  \"stats\": {{\"candidates\": {}, \"domains_pruned\": {}, \"deductions\": {}, \"nodes\": {}, \"sat_decisions\": {}, \"sat_conflicts\": {}, \"beam_drops\": {}}},",
-        report.stats.enumerated_candidates,
-        report.stats.domains_pruned,
-        report.stats.deductions,
-        report.stats.nodes,
-        report.stats.sat_decisions,
-        report.stats.sat_conflicts,
-        report.stats.beam_drops
-    )
-    .expect("write to String");
-    writeln!(&mut out, "  \"letters\": [").expect("write to String");
-    for (index, letter) in report.letters.iter().enumerate() {
-        let comma = if index + 1 == report.letters.len() {
-            ""
-        } else {
-            ","
-        };
-        writeln!(
-            &mut out,
-            "    {{\"letter\": \"{}\", \"occurrences\": {}, \"target\": {}, \"support\": {}, \"swaps\": {}, \"equivalent_count\": {}, \"no_doubles\": {}, \"verdict\": \"{:?}\"}}{}",
-            json_escape(&letter.letter.to_string()),
-            letter.occurrences,
-            option_json(letter.target),
-            usize_slice_json(&letter.support),
-            usize_slice_json(&letter.canonical_swaps),
-            letter.equivalent_count,
-            letter.no_doubles,
-            letter.verdict,
-            comma
-        )
-        .expect("write to String");
-    }
-    writeln!(&mut out, "  ]").expect("write to String");
-    writeln!(&mut out, "}}").expect("write to String");
-    print!("{out}");
-}
-
-fn self_test_json(report: &GakSwapSelfTestReport) -> String {
-    format!(
-        "{{\"seed\":\"0x{:016x}\",\"passed\":{},\"positive_ns1\":{},\"positive_ns2\":{},\"full_permutation_null\":{},\"over_budget_null\":{},\"over_budget_recovery_exact\":{},\"label_shuffle_null\":{}}}",
-        report.config.seed,
-        report.passed(),
-        positive_json(&report.positive_ns1),
-        positive_json(&report.positive_ns2),
-        null_json(&report.full_permutation_null),
-        null_json(&report.over_budget_null),
-        report.over_budget_recovery_exact,
-        null_json(&report.label_shuffle_null)
-    )
-}
-
-fn positive_json(report: &PositiveControlReport) -> String {
-    format!(
-        "{{\"num_swaps\":{},\"exact\":{},\"matched_observed_letters\":{},\"ambiguous_observed_letters\":{},\"ambiguous_missing_planted_letters\":{},\"mismatched_unique_letters\":{},\"observed_letters\":{},\"nodes\":{},\"sat_decisions\":{},\"sat_conflicts\":{}}}",
-        report.num_swaps,
-        report.exact,
-        report.matched_observed_letters,
-        report.ambiguous_observed_letters,
-        report.ambiguous_missing_planted_letters,
-        report.mismatched_unique_letters,
-        report.observed_letters,
-        report.nodes,
-        report.sat_decisions,
-        report.sat_conflicts
-    )
-}
-
-fn null_json(report: &NullControlReport) -> String {
-    format!(
-        "{{\"label\":\"{}\",\"failed\":{},\"outcome\":\"{}\",\"nodes\":{}}}",
-        json_escape(report.label),
-        report.failed,
-        report.outcome.as_str(),
-        option_json(report.nodes)
-    )
-}
-
-fn pass_fail(ok: bool) -> &'static str {
-    if ok { "PASS" } else { "FAIL" }
-}
-
-fn format_option_usize(value: Option<usize>) -> String {
-    value.map_or_else(|| "-".to_owned(), |found| found.to_string())
-}
-
-fn format_usize_slice(values: &[usize]) -> String {
-    values
-        .iter()
-        .map(usize::to_string)
-        .collect::<Vec<_>>()
-        .join(",")
-}
-
-fn option_json(value: Option<usize>) -> String {
-    value.map_or_else(|| "null".to_owned(), |found| found.to_string())
-}
-
-fn usize_slice_json(values: &[usize]) -> String {
-    format!("[{}]", format_usize_slice(values))
-}
-
-fn json_escape(raw: &str) -> String {
-    let mut escaped = String::new();
-    for ch in raw.chars() {
-        match ch {
-            '"' => escaped.push_str("\\\""),
-            '\\' => escaped.push_str("\\\\"),
-            '\n' => escaped.push_str("\\n"),
-            '\r' => escaped.push_str("\\r"),
-            '\t' => escaped.push_str("\\t"),
-            other => escaped.push(other),
-        }
-    }
-    escaped
 }
 
 #[cfg(test)]

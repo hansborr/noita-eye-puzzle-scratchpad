@@ -6,6 +6,7 @@ use common::{assert_contains, run_noita_eye, run_noita_eye_failure};
 
 const PLAINTEXTS: &str = "research/data/practice-puzzles/deck-swap/plaintexts.txt";
 const NS1_CIPHERTEXTS: &str = "research/data/practice-puzzles/deck-swap/1_swap_ct.txt";
+const NS2_CIPHERTEXTS: &str = "research/data/practice-puzzles/deck-swap/2_swap_ct.txt";
 const NS3_CIPHERTEXTS: &str = "research/data/practice-puzzles/deck-swap/3_swap_ct.txt";
 
 #[test]
@@ -38,6 +39,48 @@ fn gak_swap_recover_cli_reports_ns3_frontier_not_recovery() {
         NS3_CIPHERTEXTS,
         "--num-swaps",
         "3",
+        "--skip-controls",
+    ]);
+
+    assert_contains(&stderr, "unsupported top-swap budget 3");
+    assert_contains(&stderr, "ns=3 remains a recorded wall");
+}
+
+#[test]
+fn gak_swap_recover_cli_infers_ns2_with_frontier_cap() {
+    let stdout = run_noita_eye(&[
+        "gak-swap-recover",
+        "--plaintext-file",
+        PLAINTEXTS,
+        "--ciphertext-file",
+        NS2_CIPHERTEXTS,
+        "--infer-swaps",
+        "1..3",
+        "--max-nodes",
+        "50000",
+        "--skip-controls",
+    ]);
+
+    assert_contains(&stdout, "gak-swap-recover infer-swaps");
+    assert_contains(&stdout, "requested=1..3, attempted=1..2");
+    assert_contains(&stdout, "frontier: capped at ns=2");
+    assert_contains(&stdout, "ns=3 remains a recorded wall");
+    assert_contains(&stdout, "inferred max-swaps: 2");
+    assert_contains(&stdout, "support-size: 3 (max final-perm support");
+    assert_contains(&stdout, "s=1 outcome=");
+    assert_contains(&stdout, "s=2 outcome=exact-round-trip");
+}
+
+#[test]
+fn gak_swap_recover_cli_rejects_infer_range_past_frontier() {
+    let stderr = run_noita_eye_failure(&[
+        "gak-swap-recover",
+        "--plaintext-file",
+        PLAINTEXTS,
+        "--ciphertext-file",
+        NS3_CIPHERTEXTS,
+        "--infer-swaps",
+        "3..4",
         "--skip-controls",
     ]);
 
