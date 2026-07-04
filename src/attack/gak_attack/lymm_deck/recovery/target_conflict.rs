@@ -12,7 +12,6 @@ use super::{AlignedMessage, SwapRecoveryError, SwapRecoveryStats};
 use crate::attack::gak_attack::lymm_deck::LymmDeckSpec;
 
 const FULL_CORE_FIRST_LITERAL_FLOOR: usize = 4;
-const FULL_CORE_FIRST_REPLAY_FLOOR: usize = 3;
 
 pub(super) fn measure_truth_target_residual(
     spec: &LymmDeckSpec,
@@ -185,10 +184,6 @@ fn prefer_full_core_first(stats: &SwapRecoveryStats) -> bool {
             >= stats
                 .target_clauses_learned
                 .saturating_mul(FULL_CORE_FIRST_LITERAL_FLOOR)
-        && stats.target_replay_checks
-            >= stats
-                .target_clauses_learned
-                .saturating_mul(FULL_CORE_FIRST_REPLAY_FLOOR)
 }
 
 fn push_unique_core(candidates: &mut Vec<Vec<(char, usize)>>, core: Vec<(char, usize)>) {
@@ -335,8 +330,15 @@ mod tests {
             target_replay_literals: 5,
             ..SwapRecoveryStats::default()
         };
+        let real_file_after_cheap_replays = SwapRecoveryStats {
+            target_clauses_learned: 4,
+            target_replay_checks: 10,
+            target_replay_literals: 20,
+            ..SwapRecoveryStats::default()
+        };
 
         assert!(!prefer_full_core_first(&control_like));
         assert!(prefer_full_core_first(&real_file_like));
+        assert!(prefer_full_core_first(&real_file_after_cheap_replays));
     }
 }
