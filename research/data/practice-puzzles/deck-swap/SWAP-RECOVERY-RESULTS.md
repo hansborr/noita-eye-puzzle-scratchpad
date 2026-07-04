@@ -344,6 +344,9 @@ Stage-1 planted ns=3 calibration controls, 2026-07-04:
   once from the broad residual with only that core's literals before it can reach
   `learn_sat_clause`. If the core is not a broad residual nogood, the engine falls
   back to the full target assignment only after the same broad replay.
+- Hardened the deterministic `NoResidualCandidate` fallback as well: if future
+  code reaches the full-assignment fallback, that target clause is learned only
+  after broad residual replay proves the full assignment is a broad nogood.
 - Added `SwapRecoveryStats::target_rejections` so target assignments rejected by
   ns=3 CEGAR are counted separately from residual candidate-model `nodes`.
 - Added ignored mid-size top-swap planted controls for `n=11` and `n=17`. These
@@ -352,7 +355,7 @@ Stage-1 planted ns=3 calibration controls, 2026-07-04:
   plants. The mid-size controls use exhaustive width-4 `ABC` context rows and
   planted seeds `0x5a17_0200_0000_1133` / `0x5a17_0200_0000_1733`.
 
-Calibration commands (Bash `time`; `/usr/bin/time` was unavailable in this
+Initial smoke-test commands (Bash `time`; `/usr/bin/time` was unavailable in this
 environment):
 
 ```sh
@@ -366,7 +369,7 @@ TIMEFORMAT='wall=%3R s'; time \
   cargo test --locked ns3_top_swap_planted_control_n17_recovers_through_target_cegar -- --ignored --nocapture
 ```
 
-Warm-run measurements from this worktree:
+Initial warm-run measurements from this worktree:
 
 | control | production path | target rejections | target clauses | candidate clauses | wall-clock | notes |
 | --- | --- | ---: | ---: | ---: | ---: | --- |
@@ -374,13 +377,56 @@ Warm-run measurements from this worktree:
 | `n=11`, `ABC`, ignored mid-size control | `recover_ns3_with_target_cegar` | `0` | `0` | `0` | `60.542ms` test body / `0.224s` command wall | Targeted planted residual collapsed to `total=3`, max domain `1`; residual `nodes=2`. |
 | `n=17`, `ABC`, ignored mid-size control | `recover_ns3_with_target_cegar` | `0` | `0` | `345` | `223.281ms` test body / `0.303s` command wall | First target assignment accepted; candidate witness tier did the work (`nodes=347`, target residual `total=137`, max domain `125`). |
 
-Interpretation: on these planted controls, target rejections-to-convergence is
-flat at zero through `n=17`; there is no observed rejection-count blow-up and thus
-this calibration does not trip the "stronger clauses, stop and re-plan" trigger
-for lever 1. The caveat is important: these controls validate the production
-ns=3 path and the new counter, but they do not recreate the real-file deterministic
-target-rejection wall. The growth visible here is in the candidate witness tier
-for `n=17`, not in target-level rejection count.
+Interpretation of the initial smoke tests: these numbers are **not** a pass of
+the handoff's rejection-scaling gate. They are useful as production-path and
+counter smoke tests, but every target-rejection count is `0`, so the deterministic
+target-rejection branch that walled the real `n=83` file was never exercised.
+
+Actual target-rejection calibration controls:
+
+- Added planted top-swap ns=3 controls using anchored width-4 `ABC` rows. Each
+  message starts with `A` and then appends an exhaustive width-4 `ABC` suffix.
+  This deliberately avoids pinning every letter's target from an identity restart:
+  the earlier rows started independent messages with `A`, `B`, and `C`, so broad
+  R-top propagation pinned all three target literals before the target solver
+  could propose a wrong slice.
+- Fixture discovery: scan SplitMix64 planted seeds from
+  `0x5a17_0200_0100_0000` upward under the anchored width-4 rows, keeping the
+  first production-path recovery with exact planted `pt_mapping`, exact
+  re-encryption, `target_rejections > 0`, `target_clauses_learned > 0`, and
+  `target_replay_checks > 0`. First hits were `n=7` and `n=11` at offset `2`
+  (`0x5a17_0200_0100_0002`), and `n=17` at offset `0`
+  (`0x5a17_0200_0100_0000`).
+
+Rerunnable commands:
+
+```sh
+TIMEFORMAT='wall=%3R s'; time \
+  cargo test --locked ns3_top_swap_rejection_control_n7_recovers_after_target_rejections -- --nocapture
+
+TIMEFORMAT='wall=%3R s'; time \
+  cargo test --locked ns3_top_swap_rejection_control_n11_recovers_after_target_rejections -- --ignored --nocapture
+
+TIMEFORMAT='wall=%3R s'; time \
+  cargo test --locked ns3_top_swap_rejection_control_n17_recovers_after_target_rejections -- --ignored --nocapture
+```
+
+Warm-run measurements from this worktree:
+
+| control | production path | target rejections | target clauses | replay checks | candidate clauses | wall-clock | notes |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `n=7`, anchored width-4 `ABC` | `recover_ns3_with_target_cegar` | `4` | `4` | `13` | `0` | `370.205ms` test body / `0.450s` command wall | Exact planted mapping recovered; residual `nodes=6`, target residual `total=5`, max domain `3`. |
+| `n=11`, anchored width-4 `ABC` | `recover_ns3_with_target_cegar` | `15` | `15` | `52` | `129` | `3.190s` test body / `3.265s` command wall | Exact planted mapping recovered; residual `nodes=146`, target residual `total=37`, max domain `30`. |
+| `n=17`, anchored width-4 `ABC` | `recover_ns3_with_target_cegar` | `18` | `18` | `61` | `106` | `1.393s` test body / `1.472s` command wall | Exact planted mapping recovered; residual `nodes=126`, target residual `total=160`, max domain `147`. |
+
+Interpretation of the actual gate data: these controls now exercise the
+deterministic target-rejection branch, and the count rises from `4` at `n=7` to
+`15`/`18` at `n=11`/`n=17`. That is a real increase, but not an observed
+explosion on this three-letter planted family; the handoff's "stronger clauses,
+stop and re-plan" trigger is not tripped by this calibration. The caveat remains
+load-bearing: this does not make `n=83` cheap. The real-file wall still includes
+large per-rejection broad replay cost, which is exactly why lever 1 targets
+reason extraction / cheaper sound target reasons.
 
 ## Likely next levers
 

@@ -186,6 +186,11 @@ fn ns3_sat_target_core_learning_rechecks_broad_residual() {
 }
 
 #[test]
+fn ns3_top_swap_rejection_control_n7_recovers_after_target_rejections() {
+    run_rejection_ns3_control(7, 2, 3, 0x5a17_0200_0100_0002);
+}
+
+#[test]
 #[ignore = "mid-size ns=3 top-swap CEGAR calibration; run explicitly"]
 fn ns3_top_swap_planted_control_n11_recovers_through_target_cegar() {
     run_mid_size_ns3_control(11, 3, 2, 0x5a17_0200_0000_1133);
@@ -195,6 +200,60 @@ fn ns3_top_swap_planted_control_n11_recovers_through_target_cegar() {
 #[ignore = "mid-size ns=3 top-swap CEGAR calibration; run explicitly"]
 fn ns3_top_swap_planted_control_n17_recovers_through_target_cegar() {
     run_mid_size_ns3_control(17, 5, 3, 0x5a17_0200_0000_1733);
+}
+
+#[test]
+#[ignore = "mid-size ns=3 target-rejection CEGAR calibration; run explicitly"]
+fn ns3_top_swap_rejection_control_n11_recovers_after_target_rejections() {
+    run_rejection_ns3_control(11, 3, 2, 0x5a17_0200_0100_0002);
+}
+
+#[test]
+#[ignore = "mid-size ns=3 target-rejection CEGAR calibration; run explicitly"]
+fn ns3_top_swap_rejection_control_n17_recovers_after_target_rejections() {
+    run_rejection_ns3_control(17, 5, 3, 0x5a17_0200_0100_0000);
+}
+
+fn run_rejection_ns3_control(n: usize, shift: usize, decimation: usize, seed: u64) {
+    let rows = anchored_abc_rows(4);
+    let (spec, planted, pairs) = mid_size_ns3_control_with_rows(n, shift, decimation, seed, &rows);
+    let mut config = SwapRecoveryConfig::with_max_swaps(3).with_planted_truth(planted.clone());
+    config.max_nodes = Some(env_usize("NOITA_SWAP_NS3_CONTROL_MAX_NODES").unwrap_or(200_000));
+
+    let started = Instant::now();
+    let report = recover_known_plaintext_swaps(&spec, &pairs, config)
+        .expect("rejection ns=3 control must recover through production path");
+    let elapsed = started.elapsed();
+
+    assert!(report.round_trip.exact());
+    assert_eq!(report.round_trip.matched, report.round_trip.total);
+    assert_eq!(
+        report.pt_mapping, planted,
+        "rejection ns=3 control must recover the planted exact mapping"
+    );
+    assert!(
+        report.stats.target_rejections > 0,
+        "rejection controls must exercise at least one rejected target slice"
+    );
+    assert_eq!(
+        report.stats.target_rejections, report.stats.target_clauses_learned,
+        "each rejected target assignment should learn one target clause"
+    );
+    assert!(
+        report.stats.target_replay_checks > 0 && report.stats.target_replay_literals > 0,
+        "rejection controls must exercise deterministic broad-replay learning"
+    );
+    assert_report_preserves_planted_membership(&report, &planted);
+    eprintln!(
+        "rejection ns=3 top-swap control n={n}: elapsed={elapsed:?} target_rejections={} nodes={} target_clauses={} replay_checks={} replay_literals={} candidate_clauses={} stats={:?}",
+        report.stats.target_rejections,
+        report.stats.nodes,
+        report.stats.target_clauses_learned,
+        report.stats.target_replay_checks,
+        report.stats.target_replay_literals,
+        report.stats.candidate_clauses_learned,
+        report.stats
+    );
 }
 
 fn small_ns3_control() -> (
@@ -268,20 +327,59 @@ fn mid_size_ns3_control(
     )
     .expect("mid-size Lymm spec");
     let planted = generate_random_pt_mapping(&spec, 3, seed).expect("mid-size ns=3 plant");
-    let rows = exhaustive_abc_rows();
-    let pairs =
-        encrypted_control_pair_strings(&spec, &planted.pt_mapping, &rows).expect("encrypted pairs");
+    let pairs = encrypted_control_pair_strings(&spec, &planted.pt_mapping, &exhaustive_abc_rows())
+        .expect("encrypted pairs");
     (spec, planted.pt_mapping, pairs)
 }
 
 fn exhaustive_abc_rows() -> Vec<(String, String)> {
+    exhaustive_abc_rows_with_width(4)
+}
+
+fn exhaustive_abc_rows_with_width(width: usize) -> Vec<(String, String)> {
     let alphabet = ['A', 'B', 'C'];
     (0..4)
         .map(|offset| {
             (
                 (offset + 1).to_string(),
-                exhaustive_word_sequence(&alphabet, 4, offset),
+                exhaustive_word_sequence(&alphabet, width, offset),
             )
+        })
+        .collect()
+}
+
+fn mid_size_ns3_control_with_rows(
+    n: usize,
+    shift: usize,
+    decimation: usize,
+    seed: u64,
+    rows: &[(String, String)],
+) -> (
+    LymmDeckSpec,
+    BTreeMap<char, Vec<usize>>,
+    Vec<KnownPlaintextPair>,
+) {
+    let spec = LymmDeckSpec::from_shift_decimation(
+        n,
+        "ABC",
+        &lymm_default_ct_alphabet(n),
+        shift,
+        decimation,
+    )
+    .expect("mid-size Lymm spec");
+    let planted = generate_random_pt_mapping(&spec, 3, seed).expect("mid-size ns=3 plant");
+    let pairs =
+        encrypted_control_pair_strings(&spec, &planted.pt_mapping, rows).expect("encrypted pairs");
+    (spec, planted.pt_mapping, pairs)
+}
+
+fn anchored_abc_rows(width: usize) -> Vec<(String, String)> {
+    let alphabet = ['A', 'B', 'C'];
+    (0..4)
+        .map(|offset| {
+            let mut plaintext = String::from("A");
+            plaintext.push_str(&exhaustive_word_sequence(&alphabet, width, offset));
+            ((offset + 1).to_string(), plaintext)
         })
         .collect()
 }
