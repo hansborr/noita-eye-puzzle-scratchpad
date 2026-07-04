@@ -527,14 +527,16 @@ Cost comparison: lever 1a cuts the real-file deterministic rejection cost from
 six replay checks are the first rejection's floor-discovery cost; after that the
 probe mostly pays one broad replay per learned 5-literal clause.
 
-Livelock read: the cap-60 probe supports the target-layer livelock warning more
-than the "stronger target reasons suffice" read. There was no accepted slice, no
-candidate-tier handoff, and no exact `2439/2439` round trip. The targeted
-residual-size trace showed no convergence pressure: `targeted entries=153896,
+Livelock read: the cap-60 probe shows no visible convergence pressure, but by
+itself does not distinguish true target-layer livelock from slow local
+convergence inside the recurring `E/H/S/T/Y` subspace. There was no accepted
+slice, no candidate-tier handoff, and no exact `2439/2439` round trip. The
+targeted residual-size trace stayed broad: `targeted entries=153896,
 max_domain=6562` on `55/60` assignments and `targeted entries=157136,
 max_domain=6562` on `5/60`; it oscillated between broad regions rather than
-shrinking. The solver is cheaply learning many sibling 5-target tuple clauses,
-but those clauses are not visibly collapsing the target space.
+shrinking. One reading is true livelock in a too-coarse target vocabulary;
+another is finite but slow enumeration of a local projected pocket. A projected
+`E/H/S/T/Y` measurement is needed before committing to the next major lever.
 
 ## Likely next levers
 
