@@ -179,6 +179,20 @@ genuinely stronger.
    ~10^6 residual attacked crib-free per above. Avenues A/G's negatives stand
    as scoped records; their *framing* (static 26→4 coloring of a transparent
    C3 channel) is superseded.
+
+   > **STATUS (2026-07-04): stage (i) DONE — the `isomap` instrument**
+   > (`src/analysis/isomorph_map/`, CLI `isomap`, commits
+   > `cfcbf32..283feb1`). File-driven + self-validating (`--self-test`: full
+   > production-path GAK positive, order-1-Markov matched null, and a
+   > dirty-boundary control routed through the production scan so deleting
+   > the trim-2 discipline genuinely fails it — adversarially reviewed, one
+   > P1 found and fixed). On real `two` it reproduces this doc's verified
+   > known answer from raw ciphertext alone: longest raw pattern-isomorph
+   > span 65 (null ceiling 15, p 0.005), 8 surviving span pairs matching the
+   > cross-agent anchor list, 4 full column maps, closure = order 48,
+   > histogram `{1:1,2:15,3:32}`, transitive, mod-3 blocks preserved,
+   > stabilizer 4. The small-index supergroup probe is an explicitly marked
+   > stage-1b seam. Next: stage (ii).
 2. **Community-request relevance:** nothing here touches the `gak-swap-recover`
    ns=3 cost wall (that engine is known-plaintext, known group). But column-map
    closure is a **ciphertext-only group-reconstruction** technique — exactly
