@@ -23,7 +23,7 @@ use super::commands::{
     run_groupscan, run_isomap, run_isomorphimperf, run_isomorphnull, run_isoscan, run_keydiff,
     run_keystream, run_leakceiling, run_maskdecode, run_mdlcodec, run_orders, run_pairclass,
     run_perfectiso, run_pipelinenull, run_predscan, run_profile, run_ragbaby, run_rankcodec,
-    run_rlcodec, run_solve, run_stats,
+    run_rlcodec, run_shadowsearch, run_solve, run_stats,
 };
 
 /// Outcome of one experiment run, ready for the thin CLI to emit.
@@ -94,6 +94,7 @@ pub(crate) fn run() -> ExitCode {
         Command::GakSwapRecover(args) => run_gak_swap_recover(&args),
         Command::Isoscan(args) => run_isoscan(&args),
         Command::Isomap(args) => run_isomap(&args),
+        Command::Shadowsearch(args) => run_shadowsearch(&args),
         Command::Rlcodec(args) => run_rlcodec(&args),
         Command::Bigramcodec(args) => run_bigramcodec(&args),
         Command::Codecpower(args) => run_codecpower(&args),
