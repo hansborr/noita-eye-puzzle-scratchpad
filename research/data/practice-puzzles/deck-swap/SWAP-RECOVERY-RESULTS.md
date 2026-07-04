@@ -89,6 +89,24 @@ the supported `1..2` range, rejects `s=1`, and reports `s=2` with exact
 starts at `3` (for example `--infer-swaps 3..4`) fails with the same measured
 frontier message as `--num-swaps 3`.
 
+Task-03 item 4 adds shareable output:
+
+```sh
+cargo run --locked --bin noita-eye -- gak-swap-recover \
+  --plaintext-file research/data/practice-puzzles/deck-swap/plaintexts.txt \
+  --ciphertext-file research/data/practice-puzzles/deck-swap/1_swap_ct.txt \
+  --num-swaps 1 \
+  --output json
+```
+
+The JSON report includes the full recovered `pt_mapping`, per-letter
+`support`/`support_size`/canonical `swap_word`, aggregate and per-letter verdicts,
+and `round_trip.exact`. It also includes `python_pt_mapping`, the same
+copy-pasteable `pt_mapping = {...}` dict printed by text output for direct use in
+Lymm's `noita_test_cipher.py`. The reference-Python side remains the existing
+thin `generate_reference_vectors.py` oracle/generator; no Python attack logic was
+added.
+
 The `ns=3` planted test is a soundness control, not a real-file recovery claim:
 it exercises the same `ns=3` broad propagation, target pre-solver, targeted
 deterministic propagation, and exact planted-assignment verification that could

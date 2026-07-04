@@ -27,6 +27,9 @@ fn gak_swap_recover_cli_recovers_ns1_exactly() {
     assert_contains(&stdout, "VERIFIED RECOVERY (exact re-encryption)");
     assert_contains(&stdout, "round-trip: 2439/2439 ciphertext symbols matched");
     assert_contains(&stdout, "stats: candidates=83");
+    assert_contains(&stdout, "python pt_mapping (copy into noita_test_cipher.py");
+    assert_contains(&stdout, "pt_mapping = {");
+    assert_contains(&stdout, "\"A\": np.array([");
 }
 
 #[test]
@@ -86,4 +89,32 @@ fn gak_swap_recover_cli_rejects_infer_range_past_frontier() {
 
     assert_contains(&stderr, "unsupported top-swap budget 3");
     assert_contains(&stderr, "ns=3 remains a recorded wall");
+}
+
+#[test]
+fn gak_swap_recover_cli_json_includes_shareable_mapping_surface() {
+    let stdout = run_noita_eye(&[
+        "gak-swap-recover",
+        "--plaintext-file",
+        PLAINTEXTS,
+        "--ciphertext-file",
+        NS1_CIPHERTEXTS,
+        "--num-swaps",
+        "1",
+        "--output",
+        "json",
+        "--skip-controls",
+    ]);
+
+    assert_contains(&stdout, "\"verdict\": \"RecoveredUnique\"");
+    assert_contains(
+        &stdout,
+        "\"round_trip\": {\"matched\": 2439, \"total\": 2439, \"exact\": true",
+    );
+    assert_contains(&stdout, "\"pt_mapping\": {");
+    assert_contains(&stdout, "\"A\": [");
+    assert_contains(&stdout, "\"python_pt_mapping\": \"pt_mapping = {\\n");
+    assert_contains(&stdout, "\"support_size\": 2");
+    assert_contains(&stdout, "\"swap_word\": [");
+    assert_contains(&stdout, "\"permutation\": [");
 }

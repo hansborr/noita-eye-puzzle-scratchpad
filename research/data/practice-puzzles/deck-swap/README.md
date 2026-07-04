@@ -65,3 +65,32 @@ and records both mappings and ciphertexts. The Rust test
 planted mappings and asserts byte-for-byte ciphertext equality. Inline hand vector:
 with `n=5`, identity base, `A=(0 2)`, `B=(0 3)`, and ciphertext alphabet `abcde`,
 plaintext `A!B` encrypts to `c!d`; `!` passes through and does not advance state.
+
+## Shareable recovered-key output
+
+The Rust `gak-swap-recover` command can emit a recovered candidate key in two
+community-friendly forms:
+
+```sh
+cargo run --locked --bin noita-eye -- gak-swap-recover \
+  --plaintext-file research/data/practice-puzzles/deck-swap/plaintexts.txt \
+  --ciphertext-file research/data/practice-puzzles/deck-swap/1_swap_ct.txt \
+  --num-swaps 1 \
+  --output json
+```
+
+JSON includes:
+
+- `pt_mapping`: the recovered full permutation mapping as plain arrays.
+- `letters[*].support`, `letters[*].support_size`, and `letters[*].swap_word`:
+  the final support and canonical top-swap word for each letter.
+- `verdict` and `round_trip.exact`: the exact re-encryption status.
+- `python_pt_mapping`: a copy-pasteable `pt_mapping = {...}` dict using
+  `np.array(..., dtype=int)`, suitable for pasting into `noita_test_cipher.py`
+  after its `numpy as np` import.
+
+Plain text output also prints the same Python dict after the per-letter table.
+No Python recovery code is involved: `generate_reference_vectors.py` remains the
+thin shellable Python reference oracle/generator (encrypt + planted mapping
+generation only), and the Rust-vs-Python differential test above is the oracle
+compatibility check.
