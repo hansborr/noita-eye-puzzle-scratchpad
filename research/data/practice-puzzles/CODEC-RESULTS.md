@@ -47,6 +47,16 @@ substitution/anagram into English):
 
 ## The transparent rotor channel and crib anchors (`isoscan`)
 
+> **MODEL SUPERSEDED (2026-07-04):** the `C3 × H` direct-product reading this
+> section (and `groupscan` below) is built on is superseded by cross-agent
+> evidence — the reconstructed state group acting on the 12 labels has order
+> 48 = `(C2^4):C3` (verified from recovered generators), reported true order
+> 96, neither containing nor contained in `C3 × S4` = 72. The **mod-3 law and
+> every anchor position below survive** (they are model-free measurements);
+> the "transparent channel leaks 1/3 of the plaintext key-free" reading is
+> direct-product-conditional and should not be relied on for `two`. See
+> `research/handoff/two-cross-agent-recon.md`.
+
 The C3 walk above is not just structure — in the hidden-state GAK reading it is a
 **transparent channel that leaks plaintext with no key**, and it carries exact
 repeated spans that locate where the plaintext repeats.

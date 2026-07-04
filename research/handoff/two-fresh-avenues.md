@@ -1,5 +1,13 @@
 # `two` — fresh attack avenues (2026-07-02)
 
+> **SUPERSEDED IN PART (2026-07-04):** an independent agent's crib-assisted
+> solve shows the live information is on the **full 12-symbol surface**
+> (isomorph column-maps → group closure), not this doc's deck-free 4-class
+> coloring surface, and the underlying `C3 × H` direct-product reading is
+> superseded (order-96 state group, order-48 observable shadow). Avenues A and
+> G stand as scoped honest negatives; the *framing* below does not. Route
+> forward: `two-cross-agent-recon.md`.
+
 **Thesis: the campaign measured the wrong problem's difficulty.** Rounds 1–7
 proved a chain of negatives about *searching* the 26→4 coloring, but every
 difficulty number was measured on **random-coloring plants**. The real coloring

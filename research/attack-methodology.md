@@ -72,3 +72,36 @@ Corollary: sweep **zero-parameter self-reading codecs first** (fixed codes + exa
 re-encode round-trip) — at lengths where matched-null gates are measured-underpowered
 (`codecpower`), a round-trip verdict is decisive in both directions and costs nothing.
 Demonstrated: `data/practice-puzzles/CODEC-RESULTS.md` § "`one` — SOLVED".
+
+## 8. Trim isomorph anchors before using them as hard filters
+
+Equality-pattern isomorph detection overextends by 1–2 positions per boundary
+(the surrounding pattern can agree by chance). Used raw as hard equality
+constraints, the anchors excluded **the true key** (0 survivors over a 3.1M-key
+space); trimming every hard anchor 2 positions per side recovered a truthful
+survivor set. The failure is invisible to a planted positive control whose
+anchor boundaries are clean — plant *dirty-boundary* anchors, or keep short
+repeats as soft scores only. Demonstrated (independent agent, reconciled):
+`handoff/two-cross-agent-recon.md`.
+
+## 9. A group closed from observed evidence is a lower bound
+
+Closing isomorph column-maps under composition reconstructs a subgroup of the
+state group — but *sampling parity in the evidence* can trap the closure in a
+proper subgroup (on `two`, all strong anchors had even gaps, so the closure
+exposed only an index-2, order-48 shadow of the order-96 group). Before
+trusting a reconstructed group's order, enumerate and test small-index
+supergroups consistent with the same invariants. Demonstrated:
+`handoff/two-cross-agent-recon.md`.
+
+## 10. Quotient surfaces discard the algebra — keep a full-symbol attack in the ladder
+
+A projection chosen for tractability (`two`'s deck-free 4-class eps-pair
+stream) can delete exactly the structure that carries the solve: the raw
+12-symbol isomorph alignments induce symbol bijections that reconstruct the
+state group, and no 4-class attack could ever see them. Two scoped honest
+negatives (Avenues A and G) were run on the quotient before an independent
+solve showed the live information was upstream. Before concluding anything
+family-level from quotient-surface negatives, ask what the projection
+provably preserves — and schedule at least one attack on the unprojected
+stream. Demonstrated: `handoff/two-cross-agent-recon.md`.

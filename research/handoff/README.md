@@ -103,6 +103,13 @@ is not prose-only — it refactors code (e.g. the commit on it now extracts
   route decision (run Avenue G / pivot eyes-side / stop) and the ruling that the
   merged `gak-swap-recovery` engine does not supersede the `two` route. Start
   here if continuing `two` or deciding its priority.
+- `two-cross-agent-recon.md` — **2026-07-04 route reset for `two`**: a
+  spoiler-firewalled reconciliation with an independent agent's crib-assisted
+  solve. The live surface is the full 12-symbol stream (isomorph column-maps →
+  group closure, order-48 shadow of a reported order-96 group); the `C3 × S4`
+  reading and the 4-class coloring framing are superseded. Read this before
+  any further `two` work; new methodology lessons #8–10 in
+  `../attack-methodology.md`.
 
 > Optional confirmatory one-off (no task file): if GAP becomes available, run
 > `NrTransitiveGroups(83)` to machine-cross-check the 6-group count — the one
