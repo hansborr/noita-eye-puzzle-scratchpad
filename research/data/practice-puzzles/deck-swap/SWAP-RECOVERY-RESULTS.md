@@ -337,6 +337,51 @@ First target-level conflict-learning milestone, 2026-07-04:
   `2439/2439` re-encryption for `3_swap_ct.txt`, the CLI remains capped at the
   measured `ns=2` frontier, and `--num-swaps 3` still fails by design.
 
+Stage-1 planted ns=3 calibration controls, 2026-07-04:
+
+- Closed the SAT `TargetUnsatCore` target-clause soundness gap before running this:
+  a core returned from a physically target-restricted residual is now replayed
+  once from the broad residual with only that core's literals before it can reach
+  `learn_sat_clause`. If the core is not a broad residual nogood, the engine falls
+  back to the full target assignment only after the same broad replay.
+- Added `SwapRecoveryStats::target_rejections` so target assignments rejected by
+  ns=3 CEGAR are counted separately from residual candidate-model `nodes`.
+- Added ignored mid-size top-swap planted controls for `n=11` and `n=17`. These
+  call `recover_known_plaintext_swaps` with `max_swaps=3`, so they route through
+  `recover_ns3_with_target_cegar`; they are not the `reach.rs` word/MITM stress
+  plants. The mid-size controls use exhaustive width-4 `ABC` context rows and
+  planted seeds `0x5a17_0200_0000_1133` / `0x5a17_0200_0000_1733`.
+
+Calibration commands (Bash `time`; `/usr/bin/time` was unavailable in this
+environment):
+
+```sh
+TIMEFORMAT='wall=%3R s'; time env NOITA_SWAP_CEGAR_TRACE=1 \
+  cargo test --locked ns3_planted_control_recovers_through_production_path -- --nocapture
+
+TIMEFORMAT='wall=%3R s'; time \
+  cargo test --locked ns3_top_swap_planted_control_n11_recovers_through_target_cegar -- --ignored --nocapture
+
+TIMEFORMAT='wall=%3R s'; time \
+  cargo test --locked ns3_top_swap_planted_control_n17_recovers_through_target_cegar -- --ignored --nocapture
+```
+
+Warm-run measurements from this worktree:
+
+| control | production path | target rejections | target clauses | candidate clauses | wall-clock | notes |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `n=7`, `ABC`, original small control | `recover_ns3_with_target_cegar` | `0` | `0` | `0` | `0.080s` command wall | First target assignment accepted; targeted residual `total=4`, max domain `2`. |
+| `n=11`, `ABC`, ignored mid-size control | `recover_ns3_with_target_cegar` | `0` | `0` | `0` | `60.542ms` test body / `0.224s` command wall | Targeted planted residual collapsed to `total=3`, max domain `1`; residual `nodes=2`. |
+| `n=17`, `ABC`, ignored mid-size control | `recover_ns3_with_target_cegar` | `0` | `0` | `345` | `223.281ms` test body / `0.303s` command wall | First target assignment accepted; candidate witness tier did the work (`nodes=347`, target residual `total=137`, max domain `125`). |
+
+Interpretation: on these planted controls, target rejections-to-convergence is
+flat at zero through `n=17`; there is no observed rejection-count blow-up and thus
+this calibration does not trip the "stronger clauses, stop and re-plan" trigger
+for lever 1. The caveat is important: these controls validate the production
+ns=3 path and the new counter, but they do not recreate the real-file deterministic
+target-rejection wall. The growth visible here is in the candidate witness tier
+for `n=17`, not in target-level rejection count.
+
 ## Likely next levers
 
 Ranked hypotheses for closing `ns=3`:
