@@ -293,31 +293,42 @@ across two scripts (consolidate ours).
    > stream → shadow-key encryption → full production finish ladder; wrong
    > plaintext negative; planted truth rank measured across the full 8! surface).
    > Control result: planted positive PASS (truth rank 1, margin vs junk max
-   > +7.7443); wrong-plaintext negative PASS.
+   > +7.7443); vacuity control PASS (alternate interpretation also replayed);
+   > wrong-plaintext sanity PASS.
    >
    > Real `two` run (release, `target/two-shadowsearch.json` regenerated from
    > committed `two`; wordlist derived in-process from
    > `research/data/lang/english-corpus-large.txt`): covered the external
    > agent's reported phase-0 surface `24 classes × 40320 label→digit
    > permutations × 2 digit orders × 7 built-in tables = 13,547,520`
-   > interpretations; phase-0 dropped 0 q-symbols. Tables covered:
+   > interpretations; phase-0 dropped 0 q-symbols. The 7-table count is table
+   > objects; `ascii32` and `ascii96` share byte decoding for 6-bit values
+   > 0..63, so distinct byte readouts are fewer than 7 on that slice. Tables
+   > covered:
    > `ascii32`, `ascii64`, `ascii96`, `sixbit-lower-space`,
    > `sixbit-upper-space`, `sixbit-base64`, `sixbit-base64url`. Tier A visited
    > 13,547,520 interpretations, retained 12,288 (= 24 × top-K 512), rejected
    > 897,120 by loose printable/value sanity, saw 66,808 strict-pass
-   > interpretations, and dropped 12,638,112 by the explicit top-K bound. Tier B
-   > top interpretation exactly re-encoded the full 698-symbol visible
-   > ciphertext through its representative shadow key (class 14, `ascii32`,
-   > phase0, HL), but the calibration run was intentionally reported as
-   > **low power**: 2 matched decoy q-pattern nulls, observed best −1.9417,
-   > null_ge 0/2, add-one `p_emp = 0.3333`, margin vs null max +3.5773. Because
-   > 2 nulls cannot attain `alpha = 0.05`, verdict is
+   > interpretations, and dropped 12,638,112 by the explicit top-K bound. All
+   > in-range phase-0 interpretations exactly re-encode the full 698-symbol
+   > visible ciphertext through the replayed representative shadow key; this is
+   > a vacuous invariant of the co-searched bijective table/permutation/order
+   > surface, so it does **not** select class 14, `ascii32`, phase0, HL. That
+   > row was only the top language-scored interpretation. The only
+   > discriminating channel was language/null calibration, and it was
+   > intentionally reported as **low power**: 2 matched decoy q-pattern nulls,
+   > observed best −1.9417, null_ge 0/2, add-one `p_emp = 0.3333`, margin vs
+   > null max +3.5773. The matched-null scope was decoy q-pattern label
+   > shuffles of the artifact's retained max-soft shadowsearch classes; it did
+   > not replay stage-(ii) survivor/non-max selection over the full 104,096
+   > survivors. Because 2 nulls cannot attain `alpha = 0.05`, verdict is
    > **`LowPowerNoExclusion`**, not `RoundTripDecode` and not `NoCandidate`.
-   > Runtime for the 2-null real run, including self-test, was 2m30s release.
+   > Runtime for the corrected 2-null real run, including self-test, was 1m55s
+   > release.
    > A 20-null alpha-resolution run was attempted first and stopped after
    > several minutes as currently impractical for this unoptimized implementation;
    > that is a runtime/power limitation to fix before making a stronger call.
-   > The round-trip plaintext hypothesis was logged, not promoted:
+   > The low-power plaintext hypothesis was logged, not promoted:
    > `research/gak-threads/candidates/shadowfinish-two-shadowfinish-null2-seed-736861646f776603.md`.
 2. **Community-request relevance:** nothing here touches the `gak-swap-recover`
    ns=3 cost wall (that engine is known-plaintext, known group). But column-map

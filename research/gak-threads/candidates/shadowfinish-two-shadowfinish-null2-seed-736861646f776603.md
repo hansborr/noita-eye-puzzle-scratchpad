@@ -6,8 +6,13 @@ Stable label: label=two-shadowfinish-null2 seed=0x736861646f776603
 
 **LowPowerNoExclusion — logged as a HYPOTHESIS, not a verified decode.**
 
-Exact visible-ciphertext round-trip: true
+Round-trip invariant satisfied: true. Vacuous on this surface: every in-range
+phase-0 bijective table/permutation/order interpretation re-encodes through the
+replayed representative shadow key, so this is not evidence for this plaintext.
 Matched-null p_emp: 0.333333 (null_ge 0/2)
+Matched-null scope: decoy q-pattern label shuffles of the artifact's retained
+max-soft shadowsearch classes; does not replay stage-ii survivor or non-max
+selection
 Surface: 13547520 interpretations; Tier-A retained 12288; top-K dropped 12638112
 
 ## Candidate Metadata

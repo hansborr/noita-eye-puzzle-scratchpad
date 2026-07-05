@@ -105,3 +105,20 @@ solve showed the live information was upstream. Before concluding anything
 family-level from quotient-surface negatives, ask what the projection
 provably preserves — and schedule at least one attack on the unprojected
 stream. Demonstrated: `handoff/two-cross-agent-recon.md`.
+
+## 11. Re-encode acceptance is decisive only when the readout codec is fixed
+
+Exact re-encode is vacuous when plaintext-to-symbol interpretation is co-searched
+over a bijective table/permutation/order: decode any in-range symbol stream under
+one such codec, then encode it back under the same fitted codec, and the original
+symbol stream is recovered by construction. In that setting, round-trip is an
+internal invariant for catching implementation bugs, not evidence that one
+interpretation is plaintext. Acceptance needs an independent channel, such as a
+powered language/null margin or an external anchor.
+
+This is the opposite of `one`'s fixed `maskdecode` setting, where the readout
+mapping was not fitted to the candidate and byte-for-byte re-encode was decisive.
+For eyes/community GAK work, a "decode" that re-encodes to the ciphertext is not
+verified if the readout codec was selected from the attack surface; it still needs
+external anchoring or calibrated language power. Demonstrated:
+`handoff/two-cross-agent-recon.md`.
