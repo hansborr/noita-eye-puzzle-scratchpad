@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::super::{
     KnownPlaintextPair, LymmDeckSpec, TopSwapConstraints, encrypt_lymm_deck,
@@ -15,8 +15,36 @@ fn ns3_top_swap_candidate_count_matches_verified_frontier() {
     let spec = LymmDeckSpec::lymm_default().expect("spec");
     let domains = enumerate_top_swap_domains(&spec, &TopSwapConstraints::up_to(3))
         .expect("ns=3 top-swap domains");
+    let mut independent = independent_top_swap_permutations(&spec, 3);
+    let mut top_images = BTreeSet::new();
 
     assert_eq!(domains.candidates.len(), 541_406);
+    assert_eq!(independent.len(), 541_406);
+    for candidate in &domains.candidates {
+        assert!(candidate.canonical_swaps.len() <= 3);
+        assert!(
+            candidate
+                .canonical_swaps
+                .iter()
+                .all(|&index| index < spec.n)
+        );
+        let permutation = candidate.permutation(&spec);
+        assert_eq!(
+            replay_top_swaps(&spec.base, &candidate.canonical_swaps),
+            permutation
+        );
+        assert_eq!(
+            permutation.get(spec.emit_index).copied(),
+            Some(candidate.top_image)
+        );
+        let _inserted = top_images.insert(candidate.top_image);
+        assert!(
+            independent.remove(&compact_permutation(&permutation)),
+            "duplicate or unreachable top-swap candidate"
+        );
+    }
+    assert!(independent.is_empty());
+    assert_eq!(top_images.len(), spec.n);
 }
 
 #[test]
@@ -136,5 +164,44 @@ fn synthetic_rows() -> Vec<(String, String)> {
         .into_iter()
         .enumerate()
         .map(|(index, letter)| ((index + 1).to_string(), letter.to_string().repeat(96)))
+        .collect()
+}
+
+fn independent_top_swap_permutations(spec: &LymmDeckSpec, max_depth: usize) -> BTreeSet<Vec<u16>> {
+    let mut seen = BTreeSet::new();
+    let mut permutation = spec.base.clone();
+    enumerate_independent_top_swap_words(spec.n, max_depth, &mut permutation, &mut seen);
+    seen
+}
+
+fn enumerate_independent_top_swap_words(
+    n: usize,
+    remaining_depth: usize,
+    permutation: &mut [usize],
+    seen: &mut BTreeSet<Vec<u16>>,
+) {
+    let _inserted = seen.insert(compact_permutation(permutation));
+    if remaining_depth == 0 {
+        return;
+    }
+    for swap_index in 0..n {
+        permutation.swap(0, swap_index);
+        enumerate_independent_top_swap_words(n, remaining_depth - 1, permutation, seen);
+        permutation.swap(0, swap_index);
+    }
+}
+
+fn replay_top_swaps(base: &[usize], swaps: &[usize]) -> Vec<usize> {
+    let mut permutation = base.to_vec();
+    for &swap_index in swaps {
+        permutation.swap(0, swap_index);
+    }
+    permutation
+}
+
+fn compact_permutation(permutation: &[usize]) -> Vec<u16> {
+    permutation
+        .iter()
+        .map(|&value| u16::try_from(value).expect("S83 deck fits in u16"))
         .collect()
 }
