@@ -5,7 +5,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use super::AlignedMessage;
 use super::arc_phase0::broad_replay_rejects_arc_clause;
 use super::arc_phase0_types::{
-    GakSwapArcTupleKillEstimate, InternalMinimizedReason, PROJECTION_LETTERS,
+    GakSwapArcTupleKillEstimate, InternalMinimizedReason, PINNED_ARC_PHASE0_TUPLE_KILL_T,
+    PROJECTION_LETTERS,
 };
 use super::propagation::{bit, bit_positions};
 use super::residual::ResidualDomains;
@@ -20,31 +21,35 @@ pub(super) fn estimate_tuple_kill(
     reason: &InternalMinimizedReason,
     spot_check_samples: usize,
 ) -> GakSwapArcTupleKillEstimate {
-    let projected_t = targets.get(&'T').copied();
-    let projected_total_for_t = projected_t.map_or(0, |target_t| {
-        count_projected_total_for_t(target_domains, target_t)
-    });
+    let sampled_t = targets.get(&'T').copied();
+    let projected_t = PINNED_ARC_PHASE0_TUPLE_KILL_T;
+    let projected_total_for_t = count_projected_total_for_t(target_domains, projected_t);
     let masks = projected_masks_for_reason(residual, target_domains, reason);
-    let estimated_killed_tuples =
-        projected_t.map_or(0, |target_t| count_projected_with_masks(&masks, target_t));
-    let (spot_checked_samples, spot_checked_rejections) = projected_t.map_or((0, 0), |target_t| {
-        spot_check_tuple_estimate(
-            spec,
-            messages,
-            residual,
-            &masks,
-            target_t,
-            reason,
-            spot_check_samples,
-        )
+    let estimated_killed_tuples = count_projected_with_masks(&masks, projected_t);
+    let (spot_checked_samples, spot_checked_rejections) = spot_check_tuple_estimate(
+        spec,
+        messages,
+        residual,
+        &masks,
+        projected_t,
+        reason,
+        spot_check_samples,
+    );
+    let included_in_go_rule_median = sampled_t == Some(projected_t);
+    let slab_anomaly = (!included_in_go_rule_median).then(|| match sampled_t {
+        Some(found) => format!("sampled T={found} is outside pinned T={projected_t} slab"),
+        None => format!("sampled assignment has no T target; pinned T={projected_t} slab"),
     });
     GakSwapArcTupleKillEstimate {
-        projected_t,
+        sampled_t,
+        projected_t: Some(projected_t),
         projected_total_for_t,
         estimated_killed_tuples,
         spot_checked_samples,
         spot_checked_rejections,
-        construction: "estimate: per-letter target masks induced by letter-local arc/context literals; sampled tuples replay deterministic propagation",
+        construction: "estimate: per-letter target masks induced by letter-local arc/context literals over pinned T=67 slab; sampled tuples replay deterministic propagation",
+        included_in_go_rule_median,
+        slab_anomaly,
     }
 }
 
@@ -186,7 +191,7 @@ fn spot_check_tuple_estimate(
     reason: &InternalMinimizedReason,
     sample_cap: usize,
 ) -> (usize, usize) {
-    if sample_cap == 0 {
+    if sample_cap == 0 || masks.get(&'T').copied().unwrap_or(0) & bit(target_t) == 0 {
         return (0, 0);
     }
     let mut checked = 0usize;
@@ -239,4 +244,109 @@ fn distinct_nonzero(values: [usize; PROJECTION_LETTERS.len()]) -> bool {
     values
         .into_iter()
         .all(|value| value != 0 && seen.insert(value))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use super::estimate_tuple_kill;
+    use crate::attack::gak_attack::lymm_deck::recovery::arc_phase0_types::{
+        InternalMinimizedReason, PINNED_ARC_PHASE0_TUPLE_KILL_T,
+    };
+    use crate::attack::gak_attack::lymm_deck::recovery::residual::ResidualDomains;
+    use crate::attack::gak_attack::lymm_deck::{
+        GeneratorBranchStrategy, LymmDeckSpec, TopSwapDomains, lymm_default_ct_alphabet,
+    };
+
+    #[test]
+    fn tuple_kill_uses_pinned_t67_slab_and_flags_dynamic_t_anomaly() {
+        let spec =
+            LymmDeckSpec::from_shift_decimation(83, "EHSTY", &lymm_default_ct_alphabet(83), 1, 1)
+                .expect("fixture spec");
+        let residual = empty_projection_residual();
+        let target_domains = projection_target_domains();
+        let targets = BTreeMap::from([('E', 1), ('H', 3), ('S', 5), ('T', 3), ('Y', 7)]);
+        let estimate = estimate_tuple_kill(
+            &spec,
+            &[],
+            &residual,
+            &target_domains,
+            &targets,
+            &InternalMinimizedReason {
+                arcs: Vec::new(),
+                context_targets: Vec::new(),
+                bin: super::super::arc_phase0_types::GakSwapArcContextBin::ContextFree,
+                literal_count: 1,
+                literal_count_is_upper_bound: false,
+                replay_checks: 0,
+            },
+            0,
+        );
+
+        assert_eq!(estimate.sampled_t, Some(3));
+        assert_eq!(estimate.projected_t, Some(PINNED_ARC_PHASE0_TUPLE_KILL_T));
+        assert_eq!(estimate.projected_total_for_t, 16);
+        assert_eq!(estimate.estimated_killed_tuples, 16);
+        assert!(!estimate.included_in_go_rule_median);
+        assert_eq!(
+            estimate.slab_anomaly.as_deref(),
+            Some("sampled T=3 is outside pinned T=67 slab")
+        );
+    }
+
+    #[test]
+    fn tuple_kill_includes_matching_t67_sample_in_go_median() {
+        let spec =
+            LymmDeckSpec::from_shift_decimation(83, "EHSTY", &lymm_default_ct_alphabet(83), 1, 1)
+                .expect("fixture spec");
+        let residual = empty_projection_residual();
+        let target_domains = projection_target_domains();
+        let targets = BTreeMap::from([('E', 1), ('H', 3), ('S', 5), ('T', 67), ('Y', 7)]);
+        let estimate = estimate_tuple_kill(
+            &spec,
+            &[],
+            &residual,
+            &target_domains,
+            &targets,
+            &InternalMinimizedReason {
+                arcs: Vec::new(),
+                context_targets: Vec::new(),
+                bin: super::super::arc_phase0_types::GakSwapArcContextBin::ContextFree,
+                literal_count: 1,
+                literal_count_is_upper_bound: false,
+                replay_checks: 0,
+            },
+            0,
+        );
+
+        assert_eq!(estimate.sampled_t, Some(PINNED_ARC_PHASE0_TUPLE_KILL_T));
+        assert_eq!(estimate.projected_t, Some(PINNED_ARC_PHASE0_TUPLE_KILL_T));
+        assert!(estimate.included_in_go_rule_median);
+        assert_eq!(estimate.slab_anomaly, None);
+    }
+
+    fn empty_projection_residual() -> ResidualDomains {
+        ResidualDomains {
+            domains: TopSwapDomains {
+                candidates: Vec::new(),
+                by_top_image: BTreeMap::new(),
+                by_support: BTreeMap::new(),
+                branch_strategy: GeneratorBranchStrategy::TopSwapSupport,
+            },
+            candidates: Vec::new(),
+            by_letter: BTreeMap::new(),
+            letters: Vec::new(),
+        }
+    }
+
+    fn projection_target_domains() -> BTreeMap<char, Vec<usize>> {
+        BTreeMap::from([
+            ('E', vec![1, 2]),
+            ('H', vec![3, 4]),
+            ('S', vec![5, 6]),
+            ('T', vec![3, 67]),
+            ('Y', vec![7, 8]),
+        ])
+    }
 }

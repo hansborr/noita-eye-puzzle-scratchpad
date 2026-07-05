@@ -13,6 +13,8 @@ pub const DEFAULT_ARC_PHASE0_WALL_SECS: u64 = 3600;
 pub const DEFAULT_ARC_PHASE0_REPLAY_CAP: usize = 32;
 /// Default sampled tuple spot-checks for the tuple-kill estimate.
 pub const DEFAULT_ARC_PHASE0_SPOT_CHECKS: usize = 256;
+/// Pre-registered Phase-0 tuple-kill slab: project every go-rule estimate at `T=67`.
+pub const PINNED_ARC_PHASE0_TUPLE_KILL_T: usize = 67;
 
 pub(super) const PROJECTION_LETTERS: [char; 5] = ['E', 'H', 'S', 'T', 'Y'];
 pub(super) const SHORT_CONFLICT_LIMIT: usize = 3;
@@ -102,6 +104,8 @@ impl GakSwapArcContextBin {
 /// Tuple-kill estimate for a minimized context-free/context-expressible reason.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GakSwapArcTupleKillEstimate {
+    /// The sampled target assignment's `T`, if present.
+    pub sampled_t: Option<usize>,
     /// Fixed `T` target slab used for the projection, when present.
     pub projected_t: Option<usize>,
     /// Total projected `E/H/S/T/Y` tuples in that slab before applying the reason.
@@ -114,6 +118,10 @@ pub struct GakSwapArcTupleKillEstimate {
     pub spot_checked_rejections: usize,
     /// Short construction label for reports.
     pub construction: &'static str,
+    /// True only when this estimate belongs in the pre-registered go-rule median.
+    pub included_in_go_rule_median: bool,
+    /// Reportable anomaly when the sampled assignment is outside the pinned slab.
+    pub slab_anomaly: Option<String>,
 }
 
 /// One sampled deterministic target rejection and its minimized arc reason.
@@ -215,6 +223,7 @@ impl GakSwapArcPhase0Report {
                 rejection
                     .tuple_kill_estimate
                     .as_ref()
+                    .filter(|estimate| estimate.included_in_go_rule_median)
                     .map(|estimate| estimate.estimated_killed_tuples)
             })
             .collect::<Vec<_>>();
@@ -223,6 +232,16 @@ impl GakSwapArcPhase0Report {
         }
         values.sort_unstable();
         values.get(values.len() / 2).copied()
+    }
+
+    /// Count tuple-kill estimates excluded from the median by a pinned-slab anomaly.
+    #[must_use]
+    pub fn tuple_kill_slab_anomalies(&self) -> usize {
+        self.rejections
+            .iter()
+            .filter_map(|rejection| rejection.tuple_kill_estimate.as_ref())
+            .filter(|estimate| estimate.slab_anomaly.is_some())
+            .count()
     }
 }
 
@@ -264,4 +283,61 @@ pub(super) struct InternalMinimizedReason {
     pub(super) literal_count: usize,
     pub(super) literal_count_is_upper_bound: bool,
     pub(super) replay_checks: usize,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        GakSwapArcContextBin, GakSwapArcPhase0Config, GakSwapArcPhase0Report, GakSwapArcPhase0Stop,
+        GakSwapArcRejection, GakSwapArcTupleKillEstimate,
+    };
+    use crate::attack::gak_attack::lymm_deck::recovery::SwapRecoveryStats;
+
+    #[test]
+    fn median_short_tuple_kill_estimate_excludes_pinned_slab_anomalies() {
+        let report = GakSwapArcPhase0Report {
+            config: GakSwapArcPhase0Config::default(),
+            enumerated_candidates: 0,
+            broad_stats: SwapRecoveryStats::default(),
+            target_nodes: 2,
+            stop: GakSwapArcPhase0Stop::RejectionCap,
+            rejections: vec![
+                rejection_with_tuple_kill(1_000_000, false),
+                rejection_with_tuple_kill(10, true),
+            ],
+        };
+        assert_eq!(report.short_go_conflicts(), 2);
+        assert_eq!(report.tuple_kill_slab_anomalies(), 1);
+        assert_eq!(report.median_short_tuple_kill_estimate(), Some(10));
+    }
+
+    fn rejection_with_tuple_kill(
+        estimated_killed_tuples: usize,
+        included_in_go_rule_median: bool,
+    ) -> GakSwapArcRejection {
+        GakSwapArcRejection {
+            node: 1,
+            targets: Vec::new(),
+            raw_arc_literals: Vec::new(),
+            raw_context_targets: Vec::new(),
+            minimized_arc_literals: Vec::new(),
+            minimized_context_targets: Vec::new(),
+            bin: GakSwapArcContextBin::ContextFree,
+            literal_count: 1,
+            literal_count_is_upper_bound: false,
+            replay_checks: 1,
+            tuple_kill_estimate: Some(GakSwapArcTupleKillEstimate {
+                sampled_t: Some(12),
+                projected_t: Some(67),
+                projected_total_for_t: 34_234_200,
+                estimated_killed_tuples,
+                spot_checked_samples: 0,
+                spot_checked_rejections: 0,
+                construction: "test",
+                included_in_go_rule_median,
+                slab_anomaly: (!included_in_go_rule_median)
+                    .then_some("sampled T is outside pinned T=67 slab".to_owned()),
+            }),
+        }
+    }
 }

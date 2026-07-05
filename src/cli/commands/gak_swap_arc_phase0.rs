@@ -318,15 +318,16 @@ fn print_text_report(report: &GakSwapArcPhase0Report, pair_count: usize) {
         report.broad_stats.deductions
     );
     println!(
-        "  stop: {} target-nodes={} sampled-rejections={} short-go-conflicts={} median-short-tuple-kill-estimate={}",
+        "  stop: {} target-nodes={} sampled-rejections={} short-go-conflicts={} median-short-tuple-kill-estimate={} tuple-kill-slab-anomalies={}",
         report.stop.as_str(),
         report.target_nodes,
         report.rejections.len(),
         report.short_go_conflicts(),
-        option_json(report.median_short_tuple_kill_estimate())
+        option_json(report.median_short_tuple_kill_estimate()),
+        report.tuple_kill_slab_anomalies()
     );
     println!(
-        "  tuple-kill construction: estimate from per-letter masks induced by letter-local arc/context literals, spot-checked by sampled deterministic propagation"
+        "  tuple-kill construction: estimate from per-letter masks induced by letter-local arc/context literals over pinned T=67 slab, spot-checked by sampled deterministic propagation"
     );
     for rejection in &report.rejections {
         println!(
@@ -342,19 +343,10 @@ fn print_text_report(report: &GakSwapArcPhase0Report, pair_count: usize) {
             rejection.replay_checks,
             format_arcs(&rejection.minimized_arc_literals),
             format_context(&rejection.minimized_context_targets),
-            rejection.tuple_kill_estimate.as_ref().map_or_else(
-                || "n/a".to_owned(),
-                |estimate| {
-                    format!(
-                        "{} of {} in T={} (spot-check {}/{})",
-                        estimate.estimated_killed_tuples,
-                        estimate.projected_total_for_t,
-                        option_json(estimate.projected_t),
-                        estimate.spot_checked_rejections,
-                        estimate.spot_checked_samples
-                    )
-                }
-            )
+            rejection
+                .tuple_kill_estimate
+                .as_ref()
+                .map_or_else(|| "n/a".to_owned(), format_tuple_kill_estimate)
         );
     }
 }
@@ -396,11 +388,12 @@ fn measurement_json(
     .expect("write to String");
     writeln!(
         &mut out,
-        "  \"stop\": \"{}\", \"target_nodes\": {}, \"short_go_conflicts\": {}, \"median_short_tuple_kill_estimate\": {},",
+        "  \"stop\": \"{}\", \"target_nodes\": {}, \"short_go_conflicts\": {}, \"median_short_tuple_kill_estimate\": {}, \"tuple_kill_slab_anomalies\": {},",
         report.stop.as_str(),
         report.target_nodes,
         report.short_go_conflicts(),
-        option_json(report.median_short_tuple_kill_estimate())
+        option_json(report.median_short_tuple_kill_estimate()),
+        report.tuple_kill_slab_anomalies()
     )
     .expect("write to String");
     writeln!(&mut out, "  \"rejections\": [").expect("write to String");
@@ -456,14 +449,40 @@ fn tuple_kill_json(
     estimate: &noita_eye_puzzle::attack::gak_attack::lymm_deck::GakSwapArcTupleKillEstimate,
 ) -> String {
     format!(
-        "{{\"projected_t\":{},\"projected_total_for_t\":{},\"estimated_killed_tuples\":{},\"spot_checked_samples\":{},\"spot_checked_rejections\":{},\"construction\":\"{}\"}}",
+        "{{\"sampled_t\":{},\"projected_t\":{},\"projected_total_for_t\":{},\"estimated_killed_tuples\":{},\"spot_checked_samples\":{},\"spot_checked_rejections\":{},\"construction\":\"{}\",\"included_in_go_rule_median\":{},\"slab_anomaly\":{}}}",
+        option_json(estimate.sampled_t),
         option_json(estimate.projected_t),
         estimate.projected_total_for_t,
         estimate.estimated_killed_tuples,
         estimate.spot_checked_samples,
         estimate.spot_checked_rejections,
-        json_escape(estimate.construction)
+        json_escape(estimate.construction),
+        estimate.included_in_go_rule_median,
+        estimate.slab_anomaly.as_ref().map_or_else(
+            || "null".to_owned(),
+            |value| format!("\"{}\"", json_escape(value))
+        )
     )
+}
+
+fn format_tuple_kill_estimate(
+    estimate: &noita_eye_puzzle::attack::gak_attack::lymm_deck::GakSwapArcTupleKillEstimate,
+) -> String {
+    let mut rendered = format!(
+        "{} of {} in pinned T={} (sampled T={}, spot-check {}/{}, median-included={})",
+        estimate.estimated_killed_tuples,
+        estimate.projected_total_for_t,
+        option_json(estimate.projected_t),
+        option_json(estimate.sampled_t),
+        estimate.spot_checked_rejections,
+        estimate.spot_checked_samples,
+        estimate.included_in_go_rule_median
+    );
+    if let Some(anomaly) = &estimate.slab_anomaly {
+        rendered.push_str("; anomaly: ");
+        rendered.push_str(anomaly);
+    }
+    rendered
 }
 
 fn format_arcs(arcs: &[GakSwapArcLiteral]) -> String {
