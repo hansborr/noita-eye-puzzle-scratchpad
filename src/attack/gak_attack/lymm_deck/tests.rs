@@ -386,6 +386,7 @@ fn swap_recovery_self_test_passes_supported_frontier_controls() {
         report.local_search_matched_null.outcome,
         NullControlOutcome::CleanFailure
     );
+    assert!(matches!(report.local_search_matched_null.nodes, Some(nodes) if nodes > 0));
 }
 
 #[test]

@@ -183,9 +183,9 @@ pub fn gak_swap_self_test(
     let over_budget_null = null_control("over-budget", &spec, &ns2_pairs, 1, config);
     let shuffled_pairs = label_shuffle_pairs(&spec, &ns2_pairs, config.seed ^ 0x44)?;
     let label_shuffle_null = null_control("label-shuffle", &spec, &shuffled_pairs, 2, config);
-    let ns3_null_pairs = mismatched_pair_null(&ns3_pairs);
+    let ns3_null_pairs = anchor_consistent_ciphertext_null(&spec, &ns3_pairs);
     let local_search_matched_null = null_control(
-        "mismatched-pair-ns3-local",
+        "anchor-consistent-ns3-local",
         &spec,
         &ns3_null_pairs,
         3,
@@ -429,16 +429,28 @@ fn label_shuffle_pairs(
         .collect())
 }
 
-fn mismatched_pair_null(pairs: &[KnownPlaintextPair]) -> Vec<KnownPlaintextPair> {
+fn anchor_consistent_ciphertext_null(
+    spec: &LymmDeckSpec,
+    pairs: &[KnownPlaintextPair],
+) -> Vec<KnownPlaintextPair> {
     let mut null_pairs = pairs.to_vec();
-    if null_pairs.len() >= 2 {
-        let first_plaintext = null_pairs
-            .first()
-            .map(|pair| pair.plaintext.clone())
-            .unwrap_or_default();
-        if let Some(second) = null_pairs.get_mut(1) {
-            second.plaintext = first_plaintext;
+    for pair in &mut null_pairs {
+        let mut ciphertext = pair.ciphertext.chars().collect::<Vec<_>>();
+        if ciphertext.len() <= 1 {
+            continue;
         }
+        let original = ciphertext.get(1).copied().unwrap_or_default();
+        let replacement = spec
+            .ct_alphabet
+            .iter()
+            .copied()
+            .find(|&candidate| candidate != original)
+            .unwrap_or(original);
+        if let Some(slot) = ciphertext.get_mut(1) {
+            *slot = replacement;
+        }
+        pair.ciphertext = ciphertext.into_iter().collect();
+        break;
     }
     null_pairs
 }
