@@ -707,9 +707,52 @@ Mechanical decision-rule application:
   exhaustion without adjudication is not evidence for either GO or NO-GO, and the
   budget was not extended to force a verdict.
 
-## Likely next levers
+Post-observability registered rerun, 2026-07-05 (**SUPERSEDED and MOOT**):
 
-Ranked hypotheses for closing `ns=3`:
+After the observability fixes in commits `a0bff33`, `fefa733`, and `6524eb8`,
+the registered Phase-0 measurement was rerun. This supersedes only the
+post-fix measurement record; it does not alter the original entry above, the
+pre-registered decision rule, or the pre-registered budgets. It is historical
+and moot for practice-puzzle recovery because substitution-first local search
+already recovers the `ns=3` observed-letter mapping by exact `2439/2439`
+re-encryption, so Phase-2 is unnecessary regardless of this GO readout.
+
+- Input: `3_swap_ct.txt`, 8 known-plaintext pairs, `ns=3`.
+- Config: `max-rejections=60`, `wall=3600s` (actual wall `3624s`),
+  `replay-cap=32`, `spot-check-samples=256`.
+- Controls passed: planted-positive, matched-null, matched-null-context.
+- Broad stats: `candidates=541406`, `domains_pruned=659692`,
+  `deductions=257083`.
+- Stop/caps: `stop=time-budget`, `target_nodes=4`,
+  `short_go_conflicts=4`, `tuple_kill_slab_anomalies=0`.
+
+Sampled rejections from the post-fix report:
+
+| node | class | literal count | tuple-kill estimate |
+| ---: | --- | ---: | ---: |
+| 1 | context-expressible | 3 | 438900 |
+| 2 | context-free | 3 | 33795300 |
+| 3 | context-free | 3 | 33795300 |
+| 4 | context-free | 3 | not measured; wall aborted the spot-check |
+
+All four literal counts are exact `literal_count=3`, not upper bounds.
+`median_short_tuple_kill_estimate = 33795300`.
+
+Mechanical decision-rule application for the rerun: by the letter of the
+pre-registered rule, both GO conditions are met on this wall-limited four-sample:
+100 percent of sampled rejections are at most three literals in bins `(a)/(b)`,
+and the median tuple-kill estimate far exceeds `10^4`. The historical Phase-0
+rerun verdict is therefore **GO**, but it is **SUPERSEDED and MOOT** because no
+Phase-2 systematic solver is needed for the known-plaintext practice-puzzle
+`ns=3` recovery.
+
+## Historical systematic next levers
+
+The ranked list below was the systematic-line planning snapshot before the
+local-search correction. It is retained as historical context, not as a live
+Phase-2 plan.
+
+Ranked hypotheses for closing `ns=3` systematically:
 
 1. Finer-than-target deterministic clauses / partial transition literals.
    Confidence: medium/high. Cost: high. Lever 1a made 5-literal target clauses
