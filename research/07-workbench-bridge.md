@@ -85,8 +85,8 @@ control.
 
 | Experiment | What it establishes | Where it lives |
 | ---------- | ------------------- | -------------- |
-| **7 — isomorph detection + shuffle null** | Isomorphs measured against a shuffle-based null (the null was the missing contribution) | `analysis::isomorph`, `analysis::isomorph_map`, `analysis::perfect_isomorphism`, `analysis::isomorph_imperfection`; null in `nulls::isomorph_null`. Subcommands: `isoscan`, `isomap`, `isomorphnull` |
-| **8 — grouping / base-N** | Internal state count estimated *independently* (not assuming 83) | `analysis::grouping`, `analysis::group_order`. Subcommand: `groupscan` |
+| **7 — isomorph detection + shuffle null** | Isomorphs measured against a shuffle-based null (the null was the missing contribution) | `analysis::isomorph`, `analysis::isomorph_map`, `analysis::translate_isomorph`, `analysis::perfect_isomorphism`, `analysis::isomorph_imperfection`; null in `nulls::isomorph_null`. Subcommands: `isoscan`, `isomap`, `isomorphnull`, `perfectiso`, `isomorphimperf` |
+| **8 — grouping / base-N** | Internal state count estimated *independently* (not assuming 83) | `analysis::grouping` (`grouping::run_experiment8`). Subcommand: `grouping` (`groupscan` is a different tool — the D4/A4/S4 hidden-group discriminator for practice puzzle `two`) |
 | **11 — solved-cipher positive controls** | Matched positive-control fixtures per tool; if the matched controls fail, an eye null is meaningless | `experiments::controls` (highest-value calibration step) |
 | **12 — candidate ciphers** | Incrementing-wheel / Chaocipher / S₈₃ deck implementations — the research frontier, not verification | Primitives in `ciphers::{mechanics, keys_gak, transforms}`; deck-cipher machinery in `attack::gak_attack` (`lymm_deck/`, `generator/`, `solver/`, `hidden_state_solver/`), plus `attack::agl_gak`. The completed GAK campaign is written up in [gak-threads/](gak-threads/) |
 
