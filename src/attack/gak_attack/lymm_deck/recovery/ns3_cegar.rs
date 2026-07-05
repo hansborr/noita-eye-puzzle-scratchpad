@@ -27,7 +27,7 @@ pub(super) fn recover_ns3_with_target_cegar(
     let truth = config.planted_truth().cloned().map(TruthTracker::new);
     let mut residual = build_residual_domains(spec, messages, config)?;
     let mut stats = SwapRecoveryStats {
-        enumerated_candidates: residual.candidates.len(),
+        enumerated_candidates: residual.candidate_count(),
         ..SwapRecoveryStats::default()
     };
     let propagation = propagate_partial_states(

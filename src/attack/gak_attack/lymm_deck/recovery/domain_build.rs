@@ -2,7 +2,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use super::residual::{CandidateRuntime, ResidualDomains};
+use super::domain_oracle::LetterDomainOracle;
+use super::residual::ResidualDomains;
 use super::state::{ForcedObservation, forced_observation};
 use super::{
     AlignedMessage, RecoveryGeneratorSet, SwapRecoveryConfig, SwapRecoveryError, occurrence_counts,
@@ -46,12 +47,18 @@ fn build_top_swap_domains(
     restart_observations: &BTreeMap<char, ForcedObservation>,
 ) -> Result<ResidualDomains, SwapRecoveryError> {
     let domains = enumerate_top_swap_domains(spec, &TopSwapConstraints::up_to(config.max_swaps))?;
-    let candidates = runtime_candidates(spec, &domains);
-    validate_distinct_nonzero_target_assumption(&candidates, spec, observed, restart_observations)?;
-    let by_letter = build_filtered_letters(&candidates, &domains, observed, restart_observations)?;
+    let oracle = LetterDomainOracle::for_domains(spec, &domains);
+    validate_distinct_nonzero_target_assumption(
+        &domains,
+        &oracle,
+        spec,
+        observed,
+        restart_observations,
+    )?;
+    let by_letter = build_filtered_letters(&domains, &oracle, observed, restart_observations)?;
     Ok(ResidualDomains {
         domains,
-        candidates,
+        oracle,
         by_letter,
         letters: observed.to_vec(),
     })
@@ -66,9 +73,8 @@ fn build_explicit_generator_domains(
 ) -> Result<ResidualDomains, SwapRecoveryError> {
     let constraints = TopSwapConstraints::up_to(config.max_swaps);
     let mut full_domains = None;
-    let mut candidates = Vec::new();
     let mut domain_candidates = Vec::new();
-    let mut index_by_perm = BTreeMap::<Vec<usize>, usize>::new();
+    let mut index_by_sparse = BTreeMap::<(Vec<usize>, Vec<usize>), usize>::new();
     let mut by_letter = BTreeMap::new();
     let mut branch_strategy = None;
 
@@ -93,13 +99,12 @@ fn build_explicit_generator_domains(
         branch_strategy = Some(letter_domains.branch_strategy.clone());
         let mut domain = Vec::new();
         for candidate in letter_domains.candidates {
-            let perm = candidate.permutation(spec);
-            let index = if let Some(index) = index_by_perm.get(&perm).copied() {
+            let key = (candidate.support.clone(), candidate.sigma_images.clone());
+            let index = if let Some(index) = index_by_sparse.get(&key).copied() {
                 index
             } else {
-                let index = candidates.len();
-                let _old = index_by_perm.insert(perm.clone(), index);
-                candidates.push(CandidateRuntime { perm });
+                let index = domain_candidates.len();
+                let _old = index_by_sparse.insert(key, index);
                 domain_candidates.push(candidate);
                 index
             };
@@ -122,43 +127,40 @@ fn build_explicit_generator_domains(
         domain_candidates,
         branch_strategy.unwrap_or(GeneratorBranchStrategy::WordMitm { split: 0 }),
     );
-    validate_distinct_nonzero_target_assumption(&candidates, spec, observed, restart_observations)?;
+    let oracle = LetterDomainOracle::for_domains(spec, &domains);
+    validate_distinct_nonzero_target_assumption(
+        &domains,
+        &oracle,
+        spec,
+        observed,
+        restart_observations,
+    )?;
 
     Ok(ResidualDomains {
         domains,
-        candidates,
+        oracle,
         by_letter,
         letters: observed.to_vec(),
     })
 }
 
-fn runtime_candidates(spec: &LymmDeckSpec, domains: &TopSwapDomains) -> Vec<CandidateRuntime> {
-    domains
-        .candidates
-        .iter()
-        .map(|candidate| CandidateRuntime {
-            perm: candidate.permutation(spec),
-        })
-        .collect()
-}
-
 fn build_filtered_letters(
-    candidates: &[CandidateRuntime],
     domains: &TopSwapDomains,
+    oracle: &LetterDomainOracle,
     observed: &[char],
     restart_observations: &BTreeMap<char, ForcedObservation>,
 ) -> Result<BTreeMap<char, Vec<usize>>, SwapRecoveryError> {
     let mut by_letter = BTreeMap::new();
     for &letter in observed {
         let domain: Vec<usize> = match restart_observations.get(&letter).copied() {
-            Some(observation) => candidates
+            Some(observation) => domains
+                .candidates
                 .iter()
                 .enumerate()
                 .filter_map(|(index, candidate)| {
-                    candidate
-                        .perm
-                        .get(observation.entry)
-                        .is_some_and(|&image| image == observation.target)
+                    oracle
+                        .candidate_value(candidate, observation.entry)
+                        .is_some_and(|image| image == observation.target)
                         .then_some(index)
                 })
                 .collect(),
@@ -202,7 +204,8 @@ fn domains_from_candidates(
 }
 
 fn validate_distinct_nonzero_target_assumption(
-    candidates: &[CandidateRuntime],
+    domains: &TopSwapDomains,
+    oracle: &LetterDomainOracle,
     spec: &LymmDeckSpec,
     observed: &[char],
     restart_observations: &BTreeMap<char, ForcedObservation>,
@@ -213,9 +216,10 @@ fn validate_distinct_nonzero_target_assumption(
         .collect::<BTreeSet<_>>();
     let _inserted = required_entries.insert(spec.emit_index);
     for entry in required_entries {
-        let available_nonzero_targets = candidates
+        let available_nonzero_targets = domains
+            .candidates
             .iter()
-            .filter_map(|candidate| candidate.perm.get(entry).copied())
+            .filter_map(|candidate| oracle.candidate_value(candidate, entry))
             .filter(|&target| target != 0)
             .collect::<BTreeSet<_>>()
             .len();

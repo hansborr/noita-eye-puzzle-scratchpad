@@ -52,7 +52,7 @@ pub(super) fn trace_residual(
         .unwrap_or(0);
     eprintln!(
         "trace {label} max_swaps={max_swaps} candidates={} total_domain_entries={total} max_domain={max} pruned={} deductions={}",
-        residual.candidates.len(),
+        residual.candidate_count(),
         stats.domains_pruned,
         stats.deductions
     );

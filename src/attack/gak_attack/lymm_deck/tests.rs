@@ -149,6 +149,8 @@ fn ns1_recovery_recovers_vendored_key_and_reencrypts_exactly() {
     assert_eq!(report.verdict, LetterRecoveryVerdict::RecoveredUnique);
     assert!(report.round_trip.exact());
     assert_eq!(report.round_trip.matched, report.round_trip.total);
+    assert_eq!(report.round_trip.matched, 2439);
+    assert_eq!(report.round_trip.total, 2439);
     assert_eq!(
         report
             .letters
@@ -176,6 +178,8 @@ fn ns2_recovery_recovers_vendored_key_and_reencrypts_exactly() {
 
     assert!(report.round_trip.exact());
     assert_eq!(report.round_trip.matched, report.round_trip.total);
+    assert_eq!(report.round_trip.matched, 2439);
+    assert_eq!(report.round_trip.total, 2439);
 }
 
 #[test]

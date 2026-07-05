@@ -24,7 +24,7 @@ pub(super) fn measure_truth_target_residual(
     let mut residual = broad_baseline.clone();
     restrict_to_targets(&mut residual, &targets)?;
     let mut measure_stats = SwapRecoveryStats {
-        enumerated_candidates: residual.candidates.len(),
+        enumerated_candidates: residual.candidate_count(),
         ..SwapRecoveryStats::default()
     };
     let _propagation = propagate_partial_states(
@@ -86,7 +86,7 @@ pub(super) fn extract_deterministic_target_conflict(
         Err(error) => return Err(error),
     }
     let mut probe_stats = SwapRecoveryStats {
-        enumerated_candidates: probe.candidates.len(),
+        enumerated_candidates: probe.candidate_count(),
         ..SwapRecoveryStats::default()
     };
     let mut tracker = None;
@@ -218,7 +218,7 @@ pub(super) fn broad_residual_rejects_target_choices(
         Err(error) => return Err(error),
     }
     let mut probe_stats = SwapRecoveryStats {
-        enumerated_candidates: probe.candidates.len(),
+        enumerated_candidates: probe.candidate_count(),
         ..SwapRecoveryStats::default()
     };
     let propagation = match propagate_partial_states(
@@ -254,7 +254,7 @@ fn deterministic_rejects(
         Err(error) => return Err(error),
     }
     let mut probe_stats = SwapRecoveryStats {
-        enumerated_candidates: probe.candidates.len(),
+        enumerated_candidates: probe.candidate_count(),
         ..SwapRecoveryStats::default()
     };
     match propagate_partial_states(

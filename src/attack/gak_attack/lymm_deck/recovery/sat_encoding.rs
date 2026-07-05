@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use batsat::{BasicSolver, Lit, SolverInterface};
 
-use super::super::{LymmComposeDirection, LymmDeckSpec, TopSwapCandidate};
+use super::super::{LymmComposeDirection, LymmDeckSpec};
 use super::AlignedMessage;
 use super::residual::ResidualDomains;
 
@@ -60,7 +60,6 @@ pub(super) fn add_adjacent_transition_clauses(
         return;
     }
     let full = full_mask(spec.n);
-    let base_inverse = base_inverse(spec);
     let target_masks = build_target_masks(residual);
     for (message_index, message) in messages.iter().enumerate() {
         let Some(message_states) = state_domains.get(message_index) else {
@@ -89,12 +88,11 @@ pub(super) fn add_adjacent_transition_clauses(
                 continue;
             };
             for &candidate_index in first_domain {
-                let Some(candidate) = residual.domains.candidates.get(candidate_index) else {
+                if residual.domains.candidates.get(candidate_index).is_none() {
                     continue;
-                };
+                }
                 let allowed_targets =
-                    candidate_preimage_mask(candidate, pre_positions, &base_inverse)
-                        & second_target_mask;
+                    residual.preimage_mask(candidate_index, pre_positions) & second_target_mask;
                 if allowed_targets == second_target_mask {
                     continue;
                 }
@@ -153,39 +151,6 @@ fn build_target_masks(residual: &ResidualDomains) -> BTreeMap<char, u128> {
             (letter, mask)
         })
         .collect()
-}
-
-fn base_inverse(spec: &LymmDeckSpec) -> Vec<usize> {
-    let mut inverse = vec![0usize; spec.n];
-    for (position, &image) in spec.base.iter().enumerate() {
-        if let Some(slot) = inverse.get_mut(image) {
-            *slot = position;
-        }
-    }
-    inverse
-}
-
-fn candidate_preimage_mask(
-    candidate: &TopSwapCandidate,
-    pre_positions: u128,
-    base_inverse: &[usize],
-) -> u128 {
-    let mut mask = 0u128;
-    for pre_position in bit_positions(pre_positions) {
-        let Some(&sigma_image) = base_inverse.get(pre_position) else {
-            continue;
-        };
-        let candidate_position = candidate
-            .support
-            .iter()
-            .zip(&candidate.sigma_images)
-            .find_map(|(&support_position, &image)| {
-                (image == sigma_image).then_some(support_position)
-            })
-            .unwrap_or(sigma_image);
-        mask |= bit(candidate_position);
-    }
-    mask
 }
 
 fn add_sat_clause(solver: &mut BasicSolver, literals: &[Lit]) {

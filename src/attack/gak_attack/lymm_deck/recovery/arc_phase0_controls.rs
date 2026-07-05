@@ -11,6 +11,7 @@ use super::arc_phase0_types::{
     SHORT_CONFLICT_LIMIT,
 };
 use super::domain_build::build_residual_domains;
+use super::domain_oracle::LetterDomainOracle;
 use super::propagation::{PropagationOptions, propagate_partial_states};
 use super::residual::ResidualDomains;
 use super::target_reason::{ArcLiteral, ArcReason};
@@ -207,7 +208,7 @@ fn rebuilt_broad_residual(
     let recovery_config = SwapRecoveryConfig::with_max_swaps(3);
     let mut residual = build_residual_domains(spec, &messages, &recovery_config)?;
     let mut stats = SwapRecoveryStats {
-        enumerated_candidates: residual.candidates.len(),
+        enumerated_candidates: residual.candidate_count(),
         ..SwapRecoveryStats::default()
     };
     let _propagation = propagate_partial_states(
@@ -235,21 +236,17 @@ fn known_long_replay_fixture() -> (
             pre_position: index + 5,
         })
         .collect::<Vec<_>>();
-    let mut runtimes = Vec::new();
     let mut candidates = Vec::new();
     for missing in 0..arcs.len() {
         let perm = valid_perm_missing_arc(missing);
-        candidates.push(super::super::TopSwapCandidate {
-            canonical_swaps: vec![missing],
-            top_image: perm
-                .first()
+        candidates.push(control_candidate(
+            &spec,
+            perm.first()
                 .copied()
                 .expect("fixture permutation is nonempty"),
-            support: (0..spec.n).collect(),
-            sigma_images: perm.clone(),
-            perm_images: perm.clone(),
-        });
-        runtimes.push(super::residual::CandidateRuntime { perm });
+            missing,
+            &perm,
+        ));
     }
     let domains = super::super::TopSwapDomains {
         candidates,
@@ -259,7 +256,7 @@ fn known_long_replay_fixture() -> (
     };
     let residual = ResidualDomains {
         domains,
-        candidates: runtimes,
+        oracle: LetterDomainOracle::top_swap(&spec),
         by_letter: BTreeMap::from([('A', vec![0, 1, 2, 3])]),
         letters: vec!['A'],
     };
@@ -287,18 +284,13 @@ fn context_leak_replay_fixture() -> (
             pre_position: index + 4,
         })
         .collect::<Vec<_>>();
-    let mut runtimes = Vec::new();
     let mut candidates = Vec::new();
     for missing in 0..arcs.len() {
         let perm = valid_perm_for_arc_profile(spec.n, 1, &arcs, Some(missing));
         candidates.push(control_candidate(&spec, 1, missing, &perm));
-        runtimes.push(super::residual::CandidateRuntime { perm });
     }
     let all_arcs_perm = valid_perm_for_arc_profile(spec.n, 2, &arcs, None);
     candidates.push(control_candidate(&spec, 2, arcs.len(), &all_arcs_perm));
-    runtimes.push(super::residual::CandidateRuntime {
-        perm: all_arcs_perm,
-    });
     let domains = super::super::TopSwapDomains {
         candidates,
         by_top_image: BTreeMap::new(),
@@ -307,7 +299,7 @@ fn context_leak_replay_fixture() -> (
     };
     let residual = ResidualDomains {
         domains,
-        candidates: runtimes,
+        oracle: LetterDomainOracle::top_swap(&spec),
         by_letter: BTreeMap::from([('A', vec![0, 1, 2, 3])]),
         letters: vec!['A'],
     };
@@ -327,13 +319,28 @@ fn control_candidate(
     canonical_marker: usize,
     perm: &[usize],
 ) -> super::super::TopSwapCandidate {
+    let base_inverse = base_inverse(spec);
+    let sigma_images = perm
+        .iter()
+        .filter_map(|&image| base_inverse.get(image).copied())
+        .collect::<Vec<_>>();
     super::super::TopSwapCandidate {
         canonical_swaps: vec![canonical_marker],
         top_image,
         support: (0..spec.n).collect(),
-        sigma_images: perm.to_vec(),
+        sigma_images,
         perm_images: perm.to_vec(),
     }
+}
+
+fn base_inverse(spec: &LymmDeckSpec) -> Vec<usize> {
+    let mut inverse = vec![0usize; spec.n];
+    for (position, &image) in spec.base.iter().enumerate() {
+        if let Some(slot) = inverse.get_mut(image) {
+            *slot = position;
+        }
+    }
+    inverse
 }
 
 fn valid_perm_for_arc_profile(

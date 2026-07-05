@@ -105,8 +105,7 @@ fn target_values_compatible_with_reason(
         .into_iter()
         .flat_map(|domain| domain.iter().copied())
         .filter_map(|candidate_index| {
-            let candidate = residual.candidates.get(candidate_index)?;
-            let top = residual.domains.candidates.get(candidate_index)?.top_image;
+            let top = residual.witness(candidate_index)?.top_image;
             if !allowed_targets.contains(&top) {
                 return None;
             }
@@ -116,10 +115,11 @@ fn target_values_compatible_with_reason(
             letter_arcs
                 .iter()
                 .all(|literal| {
-                    candidate
-                        .perm
-                        .get(literal.post_position)
-                        .is_some_and(|&pre| pre == literal.pre_position)
+                    residual.transition_possible(
+                        candidate_index,
+                        literal.post_position,
+                        literal.pre_position,
+                    )
                 })
                 .then_some(top)
         })
@@ -327,6 +327,9 @@ mod tests {
     }
 
     fn empty_projection_residual() -> ResidualDomains {
+        let spec =
+            LymmDeckSpec::from_shift_decimation(83, "EHSTY", &lymm_default_ct_alphabet(83), 1, 1)
+                .expect("fixture spec");
         ResidualDomains {
             domains: TopSwapDomains {
                 candidates: Vec::new(),
@@ -334,7 +337,7 @@ mod tests {
                 by_support: BTreeMap::new(),
                 branch_strategy: GeneratorBranchStrategy::TopSwapSupport,
             },
-            candidates: Vec::new(),
+            oracle: super::super::domain_oracle::LetterDomainOracle::top_swap(&spec),
             by_letter: BTreeMap::new(),
             letters: Vec::new(),
         }

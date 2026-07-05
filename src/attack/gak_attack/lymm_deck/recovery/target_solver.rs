@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 use batsat::{BasicSolver, Lit, SolverInterface, lbool};
 
-use super::super::{LymmDeckSpec, TopSwapCandidate};
+use super::super::LymmDeckSpec;
 use super::learning::{LearnedClause, TruthTracker, learn_sat_clause};
 use super::residual::ResidualDomains;
 use super::{AlignedMessage, SwapRecoveryError, SwapRecoveryStats};
@@ -283,7 +283,6 @@ fn add_transition_target_clauses(
     solver: &mut BasicSolver,
 ) {
     let full = full_mask(spec.n);
-    let base_inverse = base_inverse(spec);
     let grouped = candidates_by_letter_target(residual);
     let target_masks = build_target_masks(residual);
     for (message_index, message) in messages.iter().enumerate() {
@@ -317,12 +316,8 @@ fn add_transition_target_clauses(
                             .domains
                             .candidates
                             .get(candidate_index)
-                            .map_or(acc, |candidate| {
-                                acc | candidate_preimage_mask(
-                                    candidate,
-                                    pre_positions,
-                                    &base_inverse,
-                                )
+                            .map_or(acc, |_candidate| {
+                                acc | residual.preimage_mask(candidate_index, pre_positions)
                             })
                     })
                     & second_mask;
@@ -349,7 +344,6 @@ fn add_two_step_target_clauses(
     solver: &mut BasicSolver,
 ) {
     let full = full_mask(spec.n);
-    let base_inverse = base_inverse(spec);
     let grouped = candidates_by_letter_target(residual);
     let target_masks = build_target_masks(residual);
     let mut allowed_cache = BTreeMap::<(char, usize, u128), u128>::new();
@@ -396,7 +390,6 @@ fn add_two_step_target_clauses(
                                 first.letter,
                                 first_target,
                                 pre_positions,
-                                &base_inverse,
                             )
                         });
                     if allowed_inputs == 0 {
@@ -441,7 +434,6 @@ fn union_candidate_preimages(
     letter: char,
     target: usize,
     pre_positions: u128,
-    base_inverse: &[usize],
 ) -> u128 {
     grouped
         .get(&(letter, target))
@@ -452,8 +444,8 @@ fn union_candidate_preimages(
                 .domains
                 .candidates
                 .get(candidate_index)
-                .map_or(acc, |candidate| {
-                    acc | candidate_preimage_mask(candidate, pre_positions, base_inverse)
+                .map_or(acc, |_candidate| {
+                    acc | residual.preimage_mask(candidate_index, pre_positions)
                 })
         })
 }
@@ -470,11 +462,8 @@ fn union_candidate_images(
         .into_iter()
         .flat_map(|candidates| candidates.iter())
         .fold(0u128, |acc, &candidate_index| {
-            residual
-                .candidates
-                .get(candidate_index)
-                .and_then(|candidate| candidate.perm.get(input_position).copied())
-                .map_or(acc, |output| acc | bit(output))
+            let output = residual.image_mask(candidate_index, bit(input_position));
+            acc | output
         })
 }
 
@@ -520,39 +509,6 @@ fn target_values(residual: &ResidualDomains, domain: &[usize]) -> Vec<usize> {
     values.sort_unstable();
     values.dedup();
     values
-}
-
-fn base_inverse(spec: &LymmDeckSpec) -> Vec<usize> {
-    let mut inverse = vec![0usize; spec.n];
-    for (position, &image) in spec.base.iter().enumerate() {
-        if let Some(slot) = inverse.get_mut(image) {
-            *slot = position;
-        }
-    }
-    inverse
-}
-
-fn candidate_preimage_mask(
-    candidate: &TopSwapCandidate,
-    pre_positions: u128,
-    base_inverse: &[usize],
-) -> u128 {
-    let mut mask = 0u128;
-    for pre_position in bit_positions(pre_positions) {
-        let Some(&sigma_image) = base_inverse.get(pre_position) else {
-            continue;
-        };
-        let candidate_position = candidate
-            .support
-            .iter()
-            .zip(&candidate.sigma_images)
-            .find_map(|(&support_position, &image)| {
-                (image == sigma_image).then_some(support_position)
-            })
-            .unwrap_or(sigma_image);
-        mask |= bit(candidate_position);
-    }
-    mask
 }
 
 fn add_static_encoding_clause(solver: &mut BasicSolver, literals: &[Lit]) {

@@ -37,7 +37,7 @@ pub fn measure_ns3_arc_provenance(
     let recovery_config = SwapRecoveryConfig::with_max_swaps(3);
     let mut residual = build_residual_domains(spec, &messages, &recovery_config)?;
     let mut broad_stats = SwapRecoveryStats {
-        enumerated_candidates: residual.candidates.len(),
+        enumerated_candidates: residual.candidate_count(),
         ..SwapRecoveryStats::default()
     };
     let propagation = propagate_partial_states(
@@ -47,7 +47,7 @@ pub fn measure_ns3_arc_provenance(
         &mut broad_stats,
         PropagationOptions::ns3_broad(),
     )?;
-    let enumerated_candidates = residual.candidates.len();
+    let enumerated_candidates = residual.candidate_count();
     let mut target_solver =
         TargetAssignmentSolver::new(spec, &messages, &propagation.state_domains, &residual);
     let target_domains = target_domains(&target_solver, &residual.letters);
@@ -144,7 +144,7 @@ fn extract_arc_reason_for_targets(
         Err(error) => return Err(error),
     }
     let mut probe_stats = SwapRecoveryStats {
-        enumerated_candidates: probe.candidates.len(),
+        enumerated_candidates: probe.candidate_count(),
         ..SwapRecoveryStats::default()
     };
     let mut tracker = None;
@@ -385,7 +385,7 @@ pub(super) fn broad_replay_rejects_arc_clause(
         Err(error) => return Err(error),
     }
     let mut probe_stats = SwapRecoveryStats {
-        enumerated_candidates: probe.candidates.len(),
+        enumerated_candidates: probe.candidate_count(),
         ..SwapRecoveryStats::default()
     };
     match propagate_partial_states(
@@ -417,17 +417,13 @@ fn restrict_to_arc_literals(
             .iter()
             .copied()
             .filter(|&candidate_index| {
-                residual
-                    .candidates
-                    .get(candidate_index)
-                    .is_some_and(|candidate| {
-                        letter_arcs.iter().all(|literal| {
-                            candidate
-                                .perm
-                                .get(literal.post_position)
-                                .is_some_and(|&pre| pre == literal.pre_position)
-                        })
-                    })
+                letter_arcs.iter().all(|literal| {
+                    residual.transition_possible(
+                        candidate_index,
+                        literal.post_position,
+                        literal.pre_position,
+                    )
+                })
             })
             .collect::<Vec<_>>();
         if filtered.is_empty() {

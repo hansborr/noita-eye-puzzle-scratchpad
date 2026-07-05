@@ -8,6 +8,7 @@ mod arc_phase0_controls;
 mod arc_phase0_tuple;
 mod arc_phase0_types;
 mod domain_build;
+mod domain_oracle;
 mod error;
 mod inference;
 mod instrumentation;

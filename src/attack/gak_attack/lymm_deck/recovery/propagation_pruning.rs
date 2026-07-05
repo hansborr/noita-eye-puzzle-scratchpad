@@ -1,12 +1,12 @@
 //! Candidate-domain pruning rules used by partial-state propagation.
 
-use super::super::{LymmDeckSpec, TopSwapCandidate};
-use super::propagation::{bit, bit_positions, trace_conflict};
+use super::super::LymmDeckSpec;
+use super::propagation::{bit, trace_conflict};
 use super::propagation_removal::{
     apply_removals, build_target_masks, mark_removed_with_arc_reason, mark_removed_with_reason,
     removal_arc_reason_map, removal_map, removal_reason_map,
 };
-use super::residual::{CandidateRuntime, ResidualDomains};
+use super::residual::ResidualDomains;
 use super::target_reason::{ArcLiteral, ArcReason, TargetReasonTracker};
 use super::{AlignedMessage, SwapRecoveryError, SwapRecoveryStats};
 
@@ -17,7 +17,7 @@ const MAX_TRANSITION_READ_POSITIONS: u32 = 8;
     reason = "transition pruning stays in one hot loop so removals and reason masks remain aligned"
 )]
 pub(super) fn prune_transition_domains(
-    spec: &LymmDeckSpec,
+    _spec: &LymmDeckSpec,
     messages: &[AlignedMessage],
     state_domains: &[Vec<Vec<u128>>],
     residual: &mut ResidualDomains,
@@ -26,7 +26,6 @@ pub(super) fn prune_transition_domains(
     mut reason: Option<&mut TargetReasonTracker>,
 ) -> Result<bool, SwapRecoveryError> {
     let target_masks = build_target_masks(residual);
-    let base_inverse = base_inverse(spec);
     let mut remove = removal_map(residual, false);
     let mut remove_reasons = reason.as_ref().map(|_| removal_reason_map(residual));
     let mut arc_remove_reasons = reason.as_ref().map(|_| removal_arc_reason_map(residual));
@@ -107,12 +106,11 @@ pub(super) fn prune_transition_domains(
             let mut first_drops = Vec::new();
             let mut supported_second_targets = 0u128;
             for (domain_index, &candidate_index) in first_domain.iter().enumerate() {
-                let Some(candidate) = residual.domains.candidates.get(candidate_index) else {
+                if residual.domains.candidates.get(candidate_index).is_none() {
                     first_drops.push(domain_index);
                     continue;
-                };
-                let allowed_targets =
-                    candidate_preimage_mask(candidate, pre_positions, &base_inverse);
+                }
+                let allowed_targets = residual.preimage_mask(candidate_index, pre_positions);
                 if allowed_targets & second_target_mask == 0 {
                     first_drops.push(domain_index);
                 } else {
@@ -205,7 +203,7 @@ pub(super) fn prune_transition_domains(
     reason = "two-step pruning stays in one hot loop so removals and reason masks remain aligned"
 )]
 pub(super) fn prune_two_step_transition_domains(
-    spec: &LymmDeckSpec,
+    _spec: &LymmDeckSpec,
     messages: &[AlignedMessage],
     state_domains: &[Vec<Vec<u128>>],
     residual: &mut ResidualDomains,
@@ -214,7 +212,6 @@ pub(super) fn prune_two_step_transition_domains(
     mut reason: Option<&mut TargetReasonTracker>,
 ) -> Result<bool, SwapRecoveryError> {
     let target_masks = build_target_masks(residual);
-    let base_inverse = base_inverse(spec);
     let mut remove = removal_map(residual, false);
     let mut remove_reasons = reason.as_ref().map(|_| removal_reason_map(residual));
     let mut arc_remove_reasons = reason.as_ref().map(|_| removal_arc_reason_map(residual));
@@ -303,10 +300,10 @@ pub(super) fn prune_two_step_transition_domains(
             let mut second_outputs = Vec::with_capacity(second_domain.len());
             let mut any_second_outputs = 0u128;
             for (domain_index, &candidate_index) in second_domain.iter().enumerate() {
-                let Some(candidate) = residual.candidates.get(candidate_index) else {
+                if residual.domains.candidates.get(candidate_index).is_none() {
                     continue;
-                };
-                let output_mask = candidate_image_mask(candidate, third_target_mask);
+                }
+                let output_mask = residual.image_mask(candidate_index, third_target_mask);
                 if output_mask == 0 {
                     continue;
                 }
@@ -332,12 +329,11 @@ pub(super) fn prune_two_step_transition_domains(
             let mut first_drops = Vec::new();
             let mut any_allowed_inputs = 0u128;
             for (domain_index, &candidate_index) in first_domain.iter().enumerate() {
-                let Some(candidate) = residual.domains.candidates.get(candidate_index) else {
+                if residual.domains.candidates.get(candidate_index).is_none() {
                     first_drops.push(domain_index);
                     continue;
-                };
-                let allowed_inputs =
-                    candidate_preimage_mask(candidate, pre_positions, &base_inverse);
+                }
+                let allowed_inputs = residual.preimage_mask(candidate_index, pre_positions);
                 if allowed_inputs & any_second_outputs == 0 {
                     first_drops.push(domain_index);
                 } else {
@@ -453,49 +449,6 @@ pub(super) fn prune_two_step_transition_domains(
         arc_remove_reasons.as_ref(),
         reason,
     )
-}
-
-fn base_inverse(spec: &LymmDeckSpec) -> Vec<usize> {
-    let mut inverse = vec![0usize; spec.n];
-    for (position, &image) in spec.base.iter().enumerate() {
-        if let Some(slot) = inverse.get_mut(image) {
-            *slot = position;
-        }
-    }
-    inverse
-}
-
-fn candidate_preimage_mask(
-    candidate: &TopSwapCandidate,
-    pre_positions: u128,
-    base_inverse: &[usize],
-) -> u128 {
-    let mut mask = 0u128;
-    for pre_position in bit_positions(pre_positions) {
-        let Some(&sigma_image) = base_inverse.get(pre_position) else {
-            continue;
-        };
-        let candidate_position = candidate
-            .support
-            .iter()
-            .zip(&candidate.sigma_images)
-            .find_map(|(&support_position, &image)| {
-                (image == sigma_image).then_some(support_position)
-            })
-            .unwrap_or(sigma_image);
-        mask |= bit(candidate_position);
-    }
-    mask
-}
-
-fn candidate_image_mask(candidate: &CandidateRuntime, input_positions: u128) -> u128 {
-    let mut mask = 0u128;
-    for input_position in bit_positions(input_positions) {
-        if let Some(&output_position) = candidate.perm.get(input_position) {
-            mask |= bit(output_position);
-        }
-    }
-    mask
 }
 
 fn singleton_position(mask: u128) -> Option<usize> {

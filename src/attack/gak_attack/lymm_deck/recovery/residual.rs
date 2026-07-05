@@ -7,6 +7,7 @@ use batsat::{BasicSolver, Lit, SolverInterface, lbool};
 
 use super::super::{LymmComposeDirection, LymmDeckSpec, TopSwapDomains};
 pub(super) use super::domain_build::build_residual_domains;
+use super::domain_oracle::{CandidateWitness, LetterDomainOracle};
 use super::instrumentation::{trace_residual, trace_stats};
 use super::learning::{LearnedClause, TruthTracker, learn_sat_clause};
 use super::ns3_cegar::recover_ns3_with_target_cegar;
@@ -20,16 +21,41 @@ use super::{
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) struct CandidateRuntime {
-    pub(super) perm: Vec<usize>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct ResidualDomains {
     pub(super) domains: TopSwapDomains,
-    pub(super) candidates: Vec<CandidateRuntime>,
+    pub(super) oracle: LetterDomainOracle,
     pub(super) by_letter: BTreeMap<char, Vec<usize>>,
     pub(super) letters: Vec<char>,
+}
+
+impl ResidualDomains {
+    pub(super) fn candidate_count(&self) -> usize {
+        self.domains.candidates.len()
+    }
+
+    pub(super) fn image_mask(&self, candidate_index: usize, input_positions: u128) -> u128 {
+        self.oracle
+            .image_mask(&self.domains, candidate_index, input_positions)
+    }
+
+    pub(super) fn preimage_mask(&self, candidate_index: usize, image_positions: u128) -> u128 {
+        self.oracle
+            .preimage_mask(&self.domains, candidate_index, image_positions)
+    }
+
+    pub(super) fn transition_possible(
+        &self,
+        candidate_index: usize,
+        post_position: usize,
+        pre_position: usize,
+    ) -> bool {
+        self.oracle
+            .transition_possible(&self.domains, candidate_index, post_position, pre_position)
+    }
+
+    pub(super) fn witness(&self, candidate_index: usize) -> Option<CandidateWitness> {
+        self.oracle.witness(&self.domains, candidate_index)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -102,7 +128,7 @@ pub(super) fn recover_with_residual_domains(
     truth: Option<&TruthTracker>,
 ) -> Result<RecoveryReport, SwapRecoveryError> {
     let mut stats = SwapRecoveryStats {
-        enumerated_candidates: residual.candidates.len(),
+        enumerated_candidates: residual.candidate_count(),
         ..SwapRecoveryStats::default()
     };
     let propagation = propagate_partial_states(spec, messages, &mut residual, &mut stats, options)?;
@@ -384,11 +410,10 @@ pub(super) fn verify_candidate_assignment(
                     event_index,
                 }));
             };
-            let candidate = residual
-                .candidates
-                .get(candidate_index)
+            let witness = residual
+                .witness(candidate_index)
                 .ok_or(SwapRecoveryError::NoResidualCandidate)?;
-            state = apply_recovered_permutation(spec, &candidate.perm, &state)?;
+            state = apply_recovered_permutation(spec, &witness.permutation, &state)?;
             if state.get(spec.emit_index).copied() != Some(event.ct_value) {
                 return Ok(Err(VerificationFailure {
                     message_index,
@@ -432,10 +457,10 @@ fn add_prefix_conflict_clause(
             continue;
         }
         if let Some(&literal) = context.vars.get(&(event.letter, candidate_index))
-            && let Some(candidate) = context.residual.candidates.get(candidate_index)
+            && let Some(witness) = context.residual.witness(candidate_index)
         {
             clause.push(!literal);
-            choices.push((event.letter, candidate.perm.clone()));
+            choices.push((event.letter, witness.permutation));
         }
     }
     if !clause.is_empty() {
@@ -482,17 +507,16 @@ fn build_report_from_assignment(
                     .and_then(|domain| domain.first().copied())
             })
             .or(Some(0));
-        let candidate = candidate_index.and_then(|index| residual.domains.candidates.get(index));
-        let runtime = candidate_index.and_then(|index| residual.candidates.get(index));
-        if let Some(found) = runtime {
-            let _old = pt_mapping.insert(letter, found.perm.clone());
+        let witness = candidate_index.and_then(|index| residual.witness(index));
+        if let Some(found) = &witness {
+            let _old = pt_mapping.insert(letter, found.permutation.clone());
         }
-        let target = candidate.map(|found| found.top_image);
+        let target = witness.as_ref().map(|found| found.top_image);
         let no_doubles = target.is_none_or(|value| value != 0 && used_targets.insert(value));
         let equivalent_count = residual
             .by_letter
             .get(&letter)
-            .map_or(usize::from(candidate.is_some()), Vec::len);
+            .map_or(usize::from(witness.is_some()), Vec::len);
         let candidate_permutations =
             residual
                 .by_letter
@@ -500,8 +524,8 @@ fn build_report_from_assignment(
                 .map_or_else(Vec::new, |domain| {
                     domain
                         .iter()
-                        .filter_map(|&index| residual.candidates.get(index))
-                        .map(|candidate| candidate.perm.clone())
+                        .filter_map(|&index| residual.witness(index))
+                        .map(|candidate| candidate.permutation)
                         .collect()
                 });
         let verdict = if count == 0 {
@@ -513,10 +537,14 @@ fn build_report_from_assignment(
             letter,
             occurrences: count,
             target,
-            support: candidate.map_or_else(Vec::new, |found| found.support.clone()),
-            permutation: runtime.map(|found| found.perm.clone()),
+            support: witness
+                .as_ref()
+                .map_or_else(Vec::new, |found| found.support.clone()),
+            permutation: witness.map(|found| found.permutation),
             candidate_permutations,
-            canonical_swaps: candidate.map_or_else(Vec::new, |found| found.canonical_swaps.clone()),
+            canonical_swaps: candidate_index
+                .and_then(|index| residual.witness(index))
+                .map_or_else(Vec::new, |found| found.canonical_swaps),
             equivalent_count,
             no_doubles,
             verdict,

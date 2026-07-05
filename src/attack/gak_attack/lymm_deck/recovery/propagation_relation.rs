@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use super::super::LymmDeckSpec;
 use super::AlignedMessage;
 use super::propagation::{bit, bit_positions};
-use super::residual::{CandidateRuntime, ResidualDomains};
+use super::residual::ResidualDomains;
 use super::target_reason::{ArcReason, TargetReasonTracker};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -27,11 +27,12 @@ pub(super) fn build_domain_relations(
         let mut post_to_pre = vec![0u128; spec.n];
         let mut pre_to_post = vec![0u128; spec.n];
         for &candidate_index in domain {
-            if let Some(candidate) = residual.candidates.get(candidate_index) {
-                for (post_position, &pre_position) in candidate.perm.iter().enumerate() {
-                    if let Some(slot) = post_to_pre.get_mut(post_position) {
-                        *slot |= bit(pre_position);
-                    }
+            for post_position in 0..spec.n {
+                let pre_mask = residual.image_mask(candidate_index, bit(post_position));
+                if let Some(slot) = post_to_pre.get_mut(post_position) {
+                    *slot |= pre_mask;
+                }
+                for pre_position in bit_positions(pre_mask) {
                     if let Some(slot) = pre_to_post.get_mut(pre_position) {
                         *slot |= bit(post_position);
                     }
@@ -87,9 +88,6 @@ pub(super) fn candidate_is_arc_consistent(
     candidate_index: usize,
     full: u128,
 ) -> bool {
-    let Some(candidate) = residual.candidates.get(candidate_index) else {
-        return false;
-    };
     for (message_index, message) in messages.iter().enumerate() {
         let Some(message_states) = states.get(message_index) else {
             return false;
@@ -110,7 +108,8 @@ pub(super) fn candidate_is_arc_consistent(
                 if pre_positions == full && post_positions == full {
                     continue;
                 }
-                if !candidate_allows_value(candidate, pre_positions, post_positions) {
+                if !candidate_allows_value(residual, candidate_index, pre_positions, post_positions)
+                {
                     return false;
                 }
             }
@@ -120,16 +119,13 @@ pub(super) fn candidate_is_arc_consistent(
 }
 
 fn candidate_allows_value(
-    candidate: &CandidateRuntime,
+    residual: &ResidualDomains,
+    candidate_index: usize,
     pre_positions: u128,
     post_positions: u128,
 ) -> bool {
     for post_position in bit_positions(post_positions) {
-        if candidate
-            .perm
-            .get(post_position)
-            .is_some_and(|&pre_position| pre_positions & bit(pre_position) != 0)
-        {
+        if residual.image_mask(candidate_index, bit(post_position)) & pre_positions != 0 {
             return true;
         }
     }

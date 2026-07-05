@@ -69,7 +69,7 @@ fn ns3_planted_truth_survives_target_cegar_pruning() {
     let config = SwapRecoveryConfig::with_max_swaps(3);
     let mut residual = build_residual_domains(&spec, &messages, &config).expect("ns=3 residual");
     let mut broad_stats = SwapRecoveryStats {
-        enumerated_candidates: residual.candidates.len(),
+        enumerated_candidates: residual.candidate_count(),
         ..SwapRecoveryStats::default()
     };
     let broad = propagate_partial_states(
@@ -98,7 +98,7 @@ fn ns3_planted_truth_survives_target_cegar_pruning() {
     assert_planted_candidates_survive("target-restricted", &targeted, &planted);
 
     let mut targeted_stats = SwapRecoveryStats {
-        enumerated_candidates: targeted.candidates.len(),
+        enumerated_candidates: targeted.candidate_count(),
         ..SwapRecoveryStats::default()
     };
     let _targeted_propagation = propagate_partial_states(
@@ -135,7 +135,7 @@ fn ns3_sat_target_core_learning_rechecks_broad_residual() {
     let config = SwapRecoveryConfig::with_max_swaps(3);
     let mut residual = build_residual_domains(&spec, &messages, &config).expect("ns=3 residual");
     let mut broad_stats = SwapRecoveryStats {
-        enumerated_candidates: residual.candidates.len(),
+        enumerated_candidates: residual.candidate_count(),
         ..SwapRecoveryStats::default()
     };
     let broad = propagate_partial_states(
@@ -475,9 +475,8 @@ fn assert_planted_candidates_survive(
             .flat_map(|domain| domain.iter().copied())
             .any(|candidate_index| {
                 residual
-                    .candidates
-                    .get(candidate_index)
-                    .is_some_and(|candidate| &candidate.perm == planted_perm)
+                    .witness(candidate_index)
+                    .is_some_and(|candidate| &candidate.permutation == planted_perm)
             });
         assert!(
             survived,
@@ -506,9 +505,8 @@ fn planted_candidate_assignment(
                 .flat_map(|domain| domain.iter().copied())
                 .find(|&candidate_index| {
                     residual
-                        .candidates
-                        .get(candidate_index)
-                        .is_some_and(|candidate| &candidate.perm == planted_perm)
+                        .witness(candidate_index)
+                        .is_some_and(|candidate| &candidate.permutation == planted_perm)
                 })
                 .expect("planted candidate survived");
             (letter, candidate_index)
