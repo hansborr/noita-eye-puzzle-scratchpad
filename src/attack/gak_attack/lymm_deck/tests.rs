@@ -359,6 +359,12 @@ fn swap_recovery_self_test_passes_supported_frontier_controls() {
             + report.positive_ns2.ambiguous_observed_letters,
         report.positive_ns2.observed_letters
     );
+    assert!(report.positive_ns3_local.exact);
+    assert_eq!(report.positive_ns3_local.mismatched_unique_letters, 0);
+    assert_eq!(
+        report.positive_ns3_local.matched_observed_letters,
+        report.positive_ns3_local.observed_letters
+    );
     assert!(report.full_permutation_null.failed);
     assert_eq!(
         report.full_permutation_null.outcome,
@@ -373,6 +379,11 @@ fn swap_recovery_self_test_passes_supported_frontier_controls() {
     assert!(report.label_shuffle_null.failed);
     assert_eq!(
         report.label_shuffle_null.outcome,
+        NullControlOutcome::CleanFailure
+    );
+    assert!(report.local_search_matched_null.failed);
+    assert_eq!(
+        report.local_search_matched_null.outcome,
         NullControlOutcome::CleanFailure
     );
 }

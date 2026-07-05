@@ -21,6 +21,7 @@ pub(crate) fn print_self_test(report: &GakSwapSelfTestReport, output: GakSwapOut
     );
     print_positive("positive ns=1", &report.positive_ns1);
     print_positive("positive ns=2", &report.positive_ns2);
+    print_positive("positive ns=3 local-search", &report.positive_ns3_local);
     print_null(&report.full_permutation_null);
     print_null(&report.over_budget_null);
     println!(
@@ -28,20 +29,23 @@ pub(crate) fn print_self_test(report: &GakSwapSelfTestReport, output: GakSwapOut
         pass_fail(report.over_budget_recovery_exact)
     );
     print_null(&report.label_shuffle_null);
+    print_null(&report.local_search_matched_null);
     println!("  SELF-TEST: {}", pass_fail(report.passed()));
 }
 
 pub(crate) fn self_test_json(report: &GakSwapSelfTestReport) -> String {
     format!(
-        "{{\"seed\":\"0x{:016x}\",\"passed\":{},\"positive_ns1\":{},\"positive_ns2\":{},\"full_permutation_null\":{},\"over_budget_null\":{},\"over_budget_recovery_exact\":{},\"label_shuffle_null\":{}}}",
+        "{{\"seed\":\"0x{:016x}\",\"passed\":{},\"positive_ns1\":{},\"positive_ns2\":{},\"positive_ns3_local\":{},\"full_permutation_null\":{},\"over_budget_null\":{},\"over_budget_recovery_exact\":{},\"label_shuffle_null\":{},\"local_search_matched_null\":{}}}",
         report.config.seed,
         report.passed(),
         positive_json(&report.positive_ns1),
         positive_json(&report.positive_ns2),
+        positive_json(&report.positive_ns3_local),
         null_json(&report.full_permutation_null),
         null_json(&report.over_budget_null),
         report.over_budget_recovery_exact,
-        null_json(&report.label_shuffle_null)
+        null_json(&report.label_shuffle_null),
+        null_json(&report.local_search_matched_null)
     )
 }
 

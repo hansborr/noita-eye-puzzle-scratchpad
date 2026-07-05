@@ -6,6 +6,7 @@ use crate::nulls::null::{RandomBoundError, SplitMix64, fisher_yates, shuffled_pe
 
 use super::super::{
     KnownPlaintextPair, LymmDeckSpec, encrypt_lymm_deck, generate_random_pt_mapping,
+    lymm_default_ct_alphabet,
 };
 use super::{
     DEFAULT_SWAP_RECOVERY_SEED, LetterRecoveryVerdict, RecoveryReport, SwapRecoveryConfig,
@@ -122,6 +123,8 @@ pub struct GakSwapSelfTestReport {
     pub positive_ns1: PositiveControlReport,
     /// ns=2 planted control.
     pub positive_ns2: PositiveControlReport,
+    /// ns=3 planted control through the local-search path.
+    pub positive_ns3_local: PositiveControlReport,
     /// Random full-permutation null at the ns=2 bound.
     pub full_permutation_null: NullControlReport,
     /// ns=2 encrypted text attacked at the ns=1 bound.
@@ -130,6 +133,8 @@ pub struct GakSwapSelfTestReport {
     pub over_budget_recovery_exact: bool,
     /// Ciphertext-label shuffle null at the ns=2 bound.
     pub label_shuffle_null: NullControlReport,
+    /// Mismatched-pair null at the ns=3 local-search bound.
+    pub local_search_matched_null: NullControlReport,
 }
 
 impl GakSwapSelfTestReport {
@@ -138,14 +143,16 @@ impl GakSwapSelfTestReport {
     pub const fn passed(&self) -> bool {
         positive_passed(&self.positive_ns1)
             && positive_passed(&self.positive_ns2)
+            && positive_passed(&self.positive_ns3_local)
             && self.full_permutation_null.failed
             && self.over_budget_null.failed
             && self.over_budget_recovery_exact
             && self.label_shuffle_null.failed
+            && self.local_search_matched_null.failed
     }
 }
 
-/// Runs planted controls and matched nulls over the supported ns<=2 frontier.
+/// Runs planted controls and matched nulls over the supported ns<=3 frontier.
 ///
 /// # Errors
 /// Returns [`SwapRecoveryError`] when the oracle or recovery machinery fails on a
@@ -153,8 +160,8 @@ impl GakSwapSelfTestReport {
 pub fn gak_swap_self_test(
     config: GakSwapSelfTestConfig,
 ) -> Result<GakSwapSelfTestReport, SwapRecoveryError> {
-    let spec = LymmDeckSpec::lymm_default()?;
-    let plaintexts = control_plaintexts();
+    let spec = local_search_control_spec()?;
+    let plaintexts = local_search_control_plaintexts();
     let ns1_mapping = generate_random_pt_mapping(&spec, 1, config.seed ^ 0x11)?;
     let ns1_pairs = encrypt_pairs(&spec, &plaintexts, &ns1_mapping.pt_mapping)?;
     let positive_ns1 = positive_control(&spec, &ns1_pairs, &ns1_mapping.pt_mapping, 1, config)?;
@@ -164,6 +171,11 @@ pub fn gak_swap_self_test(
     let positive_ns2 = positive_control(&spec, &ns2_pairs, &ns2_mapping.pt_mapping, 2, config)?;
     let over_budget_recovery_exact = positive_ns2.exact;
 
+    let ns3_mapping = generate_random_pt_mapping(&spec, 3, config.seed ^ 0x333)?;
+    let ns3_pairs = encrypt_pairs(&spec, &plaintexts, &ns3_mapping.pt_mapping)?;
+    let positive_ns3_local =
+        positive_control(&spec, &ns3_pairs, &ns3_mapping.pt_mapping, 3, config)?;
+
     let full_mapping = random_full_mapping(&spec, config.seed ^ 0x33)?;
     let full_pairs = encrypt_pairs(&spec, &plaintexts, &full_mapping)?;
     let full_permutation_null = null_control("full-permutation", &spec, &full_pairs, 2, config);
@@ -171,15 +183,25 @@ pub fn gak_swap_self_test(
     let over_budget_null = null_control("over-budget", &spec, &ns2_pairs, 1, config);
     let shuffled_pairs = label_shuffle_pairs(&spec, &ns2_pairs, config.seed ^ 0x44)?;
     let label_shuffle_null = null_control("label-shuffle", &spec, &shuffled_pairs, 2, config);
+    let ns3_null_pairs = mismatched_pair_null(&ns3_pairs);
+    let local_search_matched_null = null_control(
+        "mismatched-pair-ns3-local",
+        &spec,
+        &ns3_null_pairs,
+        3,
+        config,
+    );
 
     Ok(GakSwapSelfTestReport {
         config,
         positive_ns1,
         positive_ns2,
+        positive_ns3_local,
         full_permutation_null,
         over_budget_null,
         over_budget_recovery_exact,
         label_shuffle_null,
+        local_search_matched_null,
     })
 }
 
@@ -223,6 +245,17 @@ fn positive_control(
                     ambiguous_observed_letters += 1;
                 } else {
                     ambiguous_missing_planted_letters += 1;
+                }
+            }
+            LetterRecoveryVerdict::Candidate if report.round_trip.exact() => {
+                if report
+                    .pt_mapping
+                    .get(&letter.letter)
+                    .is_some_and(|permutation| planted.get(&letter.letter) == Some(permutation))
+                {
+                    matched_observed_letters += 1;
+                } else {
+                    mismatched_unique_letters += 1;
                 }
             }
             LetterRecoveryVerdict::Candidate | LetterRecoveryVerdict::NoCandidate => {}
@@ -396,6 +429,20 @@ fn label_shuffle_pairs(
         .collect())
 }
 
+fn mismatched_pair_null(pairs: &[KnownPlaintextPair]) -> Vec<KnownPlaintextPair> {
+    let mut null_pairs = pairs.to_vec();
+    if null_pairs.len() >= 2 {
+        let first_plaintext = null_pairs
+            .first()
+            .map(|pair| pair.plaintext.clone())
+            .unwrap_or_default();
+        if let Some(second) = null_pairs.get_mut(1) {
+            second.plaintext = first_plaintext;
+        }
+    }
+    null_pairs
+}
+
 fn random_bound_error(error: RandomBoundError) -> SwapRecoveryError {
     SwapRecoveryError::SatSolver(format!(
         "deterministic random bound failed: {}",
@@ -403,10 +450,20 @@ fn random_bound_error(error: RandomBoundError) -> SwapRecoveryError {
     ))
 }
 
-fn control_plaintexts() -> Vec<(String, String)> {
-    include_str!("../../../../../research/data/practice-puzzles/deck-swap/plaintexts.txt")
-        .lines()
-        .filter_map(|line| line.split_once(": "))
-        .map(|(label, plaintext)| (label.to_owned(), plaintext.to_owned()))
+fn local_search_control_spec() -> Result<LymmDeckSpec, SwapRecoveryError> {
+    Ok(LymmDeckSpec::from_shift_decimation(
+        11,
+        "ABCD",
+        &lymm_default_ct_alphabet(11),
+        4,
+        3,
+    )?)
+}
+
+fn local_search_control_plaintexts() -> Vec<(String, String)> {
+    ['A', 'B', 'C', 'D']
+        .into_iter()
+        .enumerate()
+        .map(|(index, letter)| ((index + 1).to_string(), letter.to_string().repeat(96)))
         .collect()
 }
