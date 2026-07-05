@@ -28,6 +28,15 @@ list to chase.
 1. Enumerate candidate anchor sources and their status, e.g.:
    - **Developer statements** (Nolla Games / Petri Purho / Olli Harjola AMAs,
      streams, ARG hints) — any confirmation that the eyes encode recoverable text.
+     *Partial anchor on file (intentionality only):* a relayed-verbatim Arvi quote
+     (2021-10-15 Twitch stream, relayed by FuryForged) confirms the eye decorations
+     carry an **intentional** message — "do contain a message… do have a meaning" —
+     and are "very difficult" (~"square root of minus 1" hard). So intentionality /
+     "there is a message" *is* dev-attested. It discloses no cipher, key, method, or
+     plaintext, so it does **not** lift the ceiling: the recoverable-text
+     confirmation stays absent. This is the one developer-statement source that is
+     *not* wholly absent — treat it as an intentionality anchor, never as a
+     solvability confirmation.
    - **In-game lore / #silmä-novel track** — cribs from the game itself (a known
      word, a name, a number) that could pin even one symbol.
    - **Decompilation beyond `FUN_0061ed60`** — any code path that *consumes* the
@@ -42,7 +51,7 @@ list to chase.
 ## Definition of done
 - [ ] `external-anchor-hunt.md` lists sources, what each would unblock, and status.
 - [ ] No source is overstated; "absent" is stated where true; `make check` green.
-- [ ] `docs/deslop-audit` merged in; committed.
+- [ ] committed.
 
 ## Honesty guardrails
 This is the single highest-leverage *unblocker* and therefore the single biggest
@@ -52,6 +61,7 @@ verbatim. Do not let "we're hunting for an anchor" drift into "we expect a decod
 
 ## Pointers
 - Memory: the canonical state names this as "the one genuine open item."
-- `research/02-theories-and-encoding.md` (~:147: no primary developer confirmation)
+- `research/02-theories-and-encoding.md` (~:149: Arvi 2021 attests intentional
+  *meaning*, not solvability; no primary developer confirmation of recoverable plaintext)
 - Binary confirmation: messages are hardcoded constants; no symbol→meaning table.
 - `research/gak-threads/candidates/README.md` (candidate-logging discipline)

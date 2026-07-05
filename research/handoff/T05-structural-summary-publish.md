@@ -35,7 +35,7 @@ The structural attack program is essentially done; its results are scattered acr
 - [ ] `eyes-structural-summary.md` reads standalone; every number cites its source doc.
 - [ ] No claim exceeds the ceiling; assumptions labelled; T02/T03 certificates referenced.
 - [ ] `make check` green (codespell clean — this is prose-heavy).
-- [ ] `docs/deslop-audit` merged in; committed.
+- [ ] committed.
 
 ## Honesty guardrails
 This is a *synthesis*, not new results — do not introduce a number that isn't

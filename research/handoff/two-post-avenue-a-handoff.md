@@ -1,5 +1,27 @@
 # Handoff — `two` after Avenue A, and the route decision
 
+> **STATUS (2026-07-04): SEMI-ARCHIVAL — the open decision is closed and the
+> coloring surface is superseded. Read this for the Avenue-A record and the
+> `gak-swap-recovery` ruling, which remain accurate; do not act on "THE OPEN
+> DECISION" below.**
+>
+> - **Avenue G was RUN — closed, not a live choice.** The "run Avenue G next"
+>   option (option (a) below) is done: `pairclass --pattern-crib-scan` (Round 9,
+>   commit `0b05f78`) planted-positive-fired and null-quiet on all three
+>   committed corpora, then returned **0 surviving spans** on real `two` — a
+>   scoped honest negative, not a decode. Record: `two-fresh-avenues.md`
+>   §"Avenue G" and `research/data/practice-puzzles/CODEC-RESULTS.md` §Round 9.
+> - **The 26→4 coloring surface here is SUPERSEDED.** On 2026-07-04 the `two`
+>   campaign was route-reset (`research/handoff/two-cross-agent-recon.md`) to the
+>   **full 12-symbol ciphertext stream**: raw-symbol isomorph column-maps close
+>   to an order-48 observable shadow of a reported order-96 group. The
+>   direct-product `C3 × S4` (order-72) reading that the deck-free eps-pair
+>   4-class quotient — the surface Avenues A and G both attack — presumes is
+>   *superseded*; that quotient is now understood as a **lossy** projection of
+>   the stream that carried the crib-assisted solve. So the coloring/quotient
+>   framing of Avenues A/G/F below no longer describes the live surface, even
+>   though each avenue stands as an honest negative on the surface it ran on.
+
 Written 2026-07-03 at the close of the Avenue-A campaign on practice puzzle
 `two`. Self-contained: an incoming agent should be able to pick up from here
 without replaying the session. Load-bearing detail lives in-repo (pointers

@@ -9,7 +9,7 @@ undecidable for *any* geometry constant `G ∈ {1,2,3}`), not on the single-poin
 
 No new attack code; no symbol→meaning mapping. All of this is supply we can
 measure plus demand we can compute. The module is
-[`src/analysis/leak_ceiling.rs`](../../src/analysis/leak_ceiling.rs); the public
+[`src/analysis/leak_ceiling`](../../src/analysis/leak_ceiling/mod.rs); the public
 entry is `run_leak_ceiling(config) -> Result<LeakCeilingReport, …>`.
 
 ## The question
@@ -66,8 +66,8 @@ Read from the accepted honeycomb reading layer
   edges, coverage 83/83, 1 component (and at w9/c7: 15 273/1697/13 495;
   w13/c11: 28 145/2165/25 779 — all 83/83). **Caveat:** this is the *broad
   gap-isomorph graph* (collision-prone); full 83/83 coverage is not
-  same-plaintext genuine supply (see `chaining_graph.rs`). It is *evidence*, not
-  recoverable keystream.
+  same-plaintext genuine supply (see `src/analysis/chaining_graph/mod.rs`). It is
+  *evidence*, not recoverable keystream.
 - **Repeated-isomorph occurrence-pair supply** (pooled across messages, via the
   `isomorph::PatternSignature` primitive). The `ΣC(occ,2)` column counts aligned
   occurrence *pairs*, but these are redundant constraints over only ~`occ`
@@ -257,7 +257,7 @@ unsolved; no primary developer source confirms recoverable plaintext.
 Reproducibility. Every supply integer (M=1036, out-degree 10.24/3/19,
 chaining 23 232/2112/20 982, isomorph 9/26, …), the analytic figures
 (332.2 / 366.8, 6002, 71.4×, 7.2×), the `two` calibration (78.3% ∈ band), and the
-sweep crossings (N=4, N=20) are deterministic and asserted in `leak_ceiling.rs`'s
-`#[cfg(test)]` battery (`measured_supply_is_pinned`,
+sweep crossings (N=4, N=20) are deterministic and asserted in the `leak_ceiling`
+module's `#[cfg(test)]` battery (`measured_supply_is_pinned`,
 `demand_and_ceiling_are_consistent`, `two_calibration_lands_in_band`,
 `scaling_sweep_crossings_are_located`).

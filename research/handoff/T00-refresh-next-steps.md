@@ -29,7 +29,7 @@ already-done work (G2/G3 as "M, pending") and over-ranks G4/T6. Cheap correctnes
 - [ ] `NEXT-STEPS.md` marks G1/G1b/T1/G2/G3 + the near-free wins as merged.
 - [ ] Top-of-file pointer to `research/handoff/`.
 - [ ] No invented status — every "DONE" cites a commit or a `findings/` file.
-- [ ] `docs/deslop-audit` merged in; `make verify` green; committed.
+- [ ] `make verify` green; committed.
 
 ## Honesty guardrails
 Do not upgrade any verdict while editing. D₁₆₆ stays "conditional / MEDIUM";

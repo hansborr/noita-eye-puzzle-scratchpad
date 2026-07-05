@@ -47,9 +47,14 @@ adversarially. Result: 5 supported, 8 mixed, 1 unverifiable (full reasoning in
 - The puzzle is unsolved; flat trigram frequency rules out simple monoalphabetic substitution.
 
 **Notably debunked / downgraded:**
-- "**The developers confirmed it's solvable / meaningful**" — [disputed]. No primary
-  source. Traces to an unsourced 2022 Hacker News intro line, echoed by AI-generated
-  pages. The honest statement is "structured data of unknown meaning, unsolved."
+- "**The developers confirmed it's solvable / decodable**" — [disputed]. No primary
+  source upgrades the eyes to *solvable*: that framing traces to an unsourced 2022
+  Hacker News intro line, echoed by AI-generated pages. A relayed-verbatim developer
+  quote (Arvi, 2021-10-15 Twitch stream, via FuryForged) *does* attest that the eyes
+  carry an **intentional** message and are "very difficult" — so intentionality is
+  dev-attested, but the quote discloses no cipher, key, method, or solution, and
+  recoverable plaintext is not dev-attested. The honest statement stays "structured
+  data of unknown meaning, unsolved."
 - The exact direction-per-digit mapping (1=up, 2=right, …) — [unverifiable] from
   any text source; shown only as an image. Treat as convention, not fact.
 - The clean 0–82 range / distance-4 / no-doubles properties — [mixed];
@@ -66,7 +71,7 @@ adversarially. Result: 5 supported, 8 mixed, 1 unverifiable (full reasoning in
 | [05-code-investigations.md](05-code-investigations.md) | **The key deliverable.** 13 prioritized experiments to test/confirm/deny the findings in code, each with a hypothesis, method, expected-vs-null interpretation, tools, and difficulty. |
 | [06-sources.md](06-sources.md) | 57 deduplicated sources grouped by type. |
 | [07-workbench-bridge.md](07-workbench-bridge.md) | How to implement the experiments in the existing Rust crate: module-by-module build order and the first three commits. |
-| [gak-threads/](gak-threads/README.md) | **2026-06-24 next-work package.** Six self-contained, hand-off-ready threads from the community wiki's Group-Autokey (GAK) framework, which independently converges with our workbench. Start at `gak-threads/README.md`. |
+| [gak-threads/](gak-threads/README.md) | **Completed campaign / reference.** The six-thread (1A/1B/2/3/4/5/6) Group-Autokey (GAK) campaign — from the community wiki's GAK framework, which independently converges with our workbench — is DONE; every thread landed (see `gak-threads/PROGRESS.md` §6 and the `G1`/`G1b`/`G2`/`G3` result records). Read it as reference, not a next-work queue. |
 | [findings/agl-exclusion.md](findings/agl-exclusion.md) | **Wiki-postable result.** Exhaustive exclusion of the AGL(1,83)-GAK families (`C83:C82`, `C83:C41`): the fixed-point lemma + complete enumeration (0/6724 and 0/3362 fix ≥2 points) strengthen the wiki's *tentative* exclusion to a rigorous one. |
 | [attack-methodology.md](attack-methodology.md) | **Process lessons for building trustworthy cipher attacks** (matched nulls vs the search's DoF, gate-exercising positive controls, fold-vs-fold held-out scoring, the SA sum objective, reduced-base indexing, power calibration). Transfers to any new attack even when the cipher math does not. |
 | [data/](data/) | Raw structured outputs: `facts.json` (126), `verdicts.json` (14), `code-testable.json` (47), `sources.json` (57) — for downstream tooling to ingest. |

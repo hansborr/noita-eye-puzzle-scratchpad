@@ -20,7 +20,7 @@ community's whole Goal 2 had no forward thread. This is half the community probl
   boundary — ejects the eyes from the entire perfectly-isomorphic family. The most decisive
   possible result.
 - **Steps:**
-  1. Push `src/analysis/perfect_isomorphism.rs` (2056 lines; currently 0 robust violations,
+  1. Push `src/analysis/perfect_isomorphism/mod.rs` (currently 0 robust violations,
      matched null) for a *single robust* internal violation: extend windows, properly null the
      loose bar, add an explicit word-boundary discount, and chase the one within-chance
      loose-bar candidate (Stutter east4@65 / west4@67).
@@ -29,7 +29,7 @@ community's whole Goal 2 had no forward thread. This is half the community probl
      pattern, ~13% coincidence chance) fit it *better* than GAK.
 - **Validation:** any claimed violation must survive a hardened matched null *and* a word-boundary
   explanation; a clean negative (still perfect) is a legitimate, reportable strengthening of GAK.
-- **Dependencies:** none (tooling exists). **Conflicts with:** other `perfect_isomorphism.rs`/
+- **Dependencies:** none (tooling exists). **Conflicts with:** other `perfect_isomorphism/mod.rs`/
   `isomorph.rs` edits.
 
 ---
@@ -48,7 +48,9 @@ community's whole Goal 2 had no forward thread. This is half the community probl
   sample `two` pins the wall concretely — recovery dies because the visible readout is many-valued
   (out-degree 8 on all 12 symbols). That is the "delta-under-hidden-state" obstruction in the
   smallest real case; G3 should quantify how that many-valuedness scales toward the eyes' 83 symbols.
-- **Files:** `src/analysis/{isomorph,chaining_graph}.rs`, `src/data/corpus.rs`.
+  The current `two` route reads through `research/handoff/two-cross-agent-recon.md`; the many-valued
+  readout is a model-free measurement that survives its route reset (an order-48 observable shadow).
+- **Files:** `src/analysis/isomorph.rs`, `src/analysis/chaining_graph/mod.rs`, `src/data/corpus.rs`.
 - **Dependencies:** none.
 
 ### G4 — edge-overlap certification threshold vs transitivity degree *(new · M — fold into T6)*
@@ -57,14 +59,14 @@ community's whole Goal 2 had no forward thread. This is half the community probl
   subgroup)`, the minimum number of identical chaining edges that forces "same transformation."
   Tied to the group's transitivity degree on cosets of `H` (S₈₃/S₈₂ worst case = all edges;
   dihedral ~2). This is exactly T6's substrate, generalized — implement them together.
-- **Files:** `src/analysis/chaining_graph.rs`, `src/attack/gak_attack/`.
+- **Files:** `src/analysis/chaining_graph/mod.rs`, `src/attack/gak_attack/`.
 
 ### T6 — Schreier-composition-closure held-out gate for the eyes *(M · keep, raised)*
 - **Serves:** GAK-attack rigor + the certification sub-problem (absorbs G4).
 - A stricter held-out alternative: instead of the coverage-weighted
   held-out score, require recovered contexts to compose under Schreier-vector composition (the
   "correct" group-algebra check). Add as a variant gate in
-  `src/attack/gak_attack/eyes.rs::run_gak_attack_eyes` (chain-link infra in `chaining_graph.rs`);
+  `src/attack/gak_attack/eyes/mod.rs::run_gak_attack_eyes` (chain-link infra in `chaining_graph/mod.rs`);
   reuse synthetic positive controls. Directly implements the wiki's "certify two partial graphs are
   the same transformation."
 - **Dependencies:** Thread 4 + Thread 5 (landed). **Conflicts with:** T7 (both `gak_attack/`) — serialize.
@@ -99,7 +101,7 @@ community's whole Goal 2 had no forward thread. This is half the community probl
 ## Near-free contributions (cheap, directly contributable — *promoted onto the priority ladder*)
 
 - **Publish the AGL exclusion.** The wiki holds AGL only "tentatively" ruled out; our
-  `src/attack/agl_gak.rs` excludes it exhaustively (0/6724, 0/3362). Package it + a write-up
+  `src/attack/agl_gak/mod.rs` excludes it exhaustively (0/6724, 0/3362). Package it + a write-up
   of the fixed-point lemma → converts a stated soft link to firm. Near-zero new work.
 - **Base-5 first-trigram structure.** Tabulate the 9 first-trigram base-5 digit forms (already in
   `src/data/corpus.rs`); test index / checksum / last-char-moved-to-front and any base-5
@@ -112,7 +114,7 @@ community's whole Goal 2 had no forward thread. This is half the community probl
 - **G5 — GAK tractability boundary sweep** (M, mapping-independent, analysis-only): map recovery
   over wider `n` (20→83) × hidden-subgroup size to state precisely where, between synthetic
   small-`n` successes and the `n=83` negative, recovery dies (`gak_attack/mod.rs` +
-  `marginalization.rs`). The quantitative claim that either justifies abandoning recovery or
+  `gak_attack/marginalization/mod.rs`). The quantitative claim that either justifies abandoning recovery or
   motivates a targeted attack — complements G3.
 - Small-support prior (≤4 swaps/letter) sensitivity sweep — M.
 - Deeper isomorph-family analysis of the broad chaining graph's ~5000 conflict pairs (benign

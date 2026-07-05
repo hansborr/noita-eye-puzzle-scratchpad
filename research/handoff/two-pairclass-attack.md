@@ -1,9 +1,20 @@
 # `two` — rotor-carrier / pair-class campaign (2026-07-01)
 
-Status: **live attack surface, no candidate yet.** Findings summary lives in
+> **SUPERSEDED (2026-07-04):** the 348-token 4-class surface this doc attacks is
+> a **lossy quotient** of `two`'s live 12-symbol stream — the deck channel it
+> drops carries information, and the isomorph column-maps close to an order-48
+> observable shadow of a reported order-96 state group (`two-cross-agent-recon.md`).
+> The a′ LM-free anchor-harvest line is separately resolved as a
+> bounded-tractability negative in `two-pairclass-aprime-reform.md`. The exact
+> derivations and verified eps anchors below stand as a scoped dated record of
+> the deck-free 4-class reading; the ranked next steps no longer describe the
+> live route (that is `two-cross-agent-recon.md`).
+
+Status: **scoped dated record (2026-07-04) of the deck-free 4-class surface —
+no longer the live attack route.** Findings summary lives in
 `research/data/practice-puzzles/CODEC-RESULTS.md` §"`two` — rotor-carrier
-campaign"; this file is the working handoff: exact derivations, what has been
-excluded, and the ranked next steps.
+campaign"; this file preserves the exact derivations, what was excluded, and the
+ranked next steps as they stood.
 
 ## Derivations (exact)
 

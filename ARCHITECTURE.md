@@ -19,43 +19,36 @@ is the classic way to manufacture a false signal:
   messages and cross-checks `data/corpus.rs` byte-for-byte.
 - The reading layer is the honeycomb interpretation: base-5 trigrams of
   rendered orientations `0..4`, giving values `0..124`, of which 83 are actually
-  used. `core/trigram.rs` is this layer; `analysis/orders.rs` reconstructs the 2D
+  used. `core/trigram.rs` is this layer; `analysis/orders` reconstructs the 2D
   glyph grids and reads them under documented order families.
 
 `core/glyph.rs` provides the opaque `Glyph` (a `u16` index into an `Alphabet`,
-deliberately not a closed enum) and the `Sequence` type. `core/ingest.rs` is the
+deliberately not a closed enum) and the `Sequence` type. `core/ingest` is the
 external-ciphertext front door: a pure `parse_sequence` plus a thin
 `load_sequence` wrapper, so the library never touches global stdin.
 
 ## Source layout: grouping by role
 
 Source lives in `src/`, grouped into role directories: `core/`, `data/`,
-`analysis/`, `nulls/`, `ciphers/`, `attack/`, `experiments/`, and `report/`. The
-grouping is organizational, by role — it is not a module-path hierarchy.
+`analysis/`, `nulls/`, `ciphers/`, `attack/`, `experiments/`, and `report/`. Each
+role directory is a genuine directory module in its own right, so the directory
+grouping and the crate module path line up.
 
-Be precise about the module graph as it stands today: almost every leaf module is
-declared flat at the crate root and redirected into its role directory with a
-`#[path = "..."]` attribute in `src/lib.rs`. So `analysis/chaining.rs` is the
-module `crate::chaining`, not `crate::analysis::chaining` — the directory tells
-you the file's *role*; the crate path stays flat. For example:
+Be precise about the module graph as it stands today: every role directory is a
+directory module with a `mod.rs`, declared in `src/lib.rs` as `pub mod analysis;`,
+`pub mod attack;`, `pub mod nulls;`, and so on — no `#[path]` flattening. The role
+directory is the namespace, so leaf modules live one level down: `analysis/chaining`
+is the module `crate::analysis::chaining`, `attack/keystream` is
+`crate::attack::keystream`, and `nulls/null` is `crate::nulls::null`. The crate
+path mirrors the directory tree.
 
-```rust
-#[path = "analysis/chaining.rs"]
-pub mod chaining;        // public path: crate::chaining
-#[path = "nulls/null.rs"]
-pub mod null;            // public path: crate::null
-#[path = "attack/keystream.rs"]
-pub mod keystream;       // public path: crate::keystream
-```
-
-Two role directories are genuine directory modules (declared without `#[path]`,
-with a real `mod.rs`): `ciphers/` is `crate::ciphers`, and `report/` is
-`crate::report`. A handful of flat modules do own nested submodules — notably
-`crate::gak_attack` (with `solver`, `generator`, `marginalization`, `eyes`,
-`error` under it) and `crate::solve` (with `search`, `eval`, `record`, `types`,
-`codec_search`) — so paths like `crate::solve::search` are real. The thing that
-does not exist is an `analysis::` / `nulls::` / `experiments::` namespace
-layer over the leaf modules.
+Many leaf modules are themselves directories with their own `mod.rs` (for example
+`analysis/chaining/mod.rs` and `attack/keystream/mod.rs`), splitting a larger
+module into engine/report/tests files while keeping its crate path unchanged. Some
+own further nested submodules — notably `crate::attack::gak_attack` (with `solver`,
+`generator`, `marginalization`, `eyes`, and `error`, plus `hidden_state_solver`
+and `lymm_deck`) and `crate::attack::solve` (with `search`, `eval`, `record`,
+`types`, `codec_search`) — so paths like `crate::attack::solve::search` are real.
 
 Roughly, the roles are:
 
@@ -91,14 +84,14 @@ skeleton, which is worth recognizing once:
 
 ### Shared infrastructure
 
-- **Null harness (`crate::null`).** Home of the in-crate `SplitMix64` PRNG —
+- **Null harness (`crate::nulls::null`).** Home of the in-crate `SplitMix64` PRNG —
   deterministic, seed-only state, kept for reproducible null models rather than
   because crates.io is unavailable. It also provides the shuffle/permutation
   primitives (`fisher_yates`, `shuffled_permutation`), seed mixing, and add-one
-  p-value helpers that the matched nulls across the crate reuse. `crate::dof_null`
-  layers a calibrated adaptive null over researcher degrees of freedom (traversal,
-  grouping, headline-statistic choice).
-- **Held-out helpers (`crate::heldout`).** The alternating held-out fold
+  p-value helpers that the matched nulls across the crate reuse.
+  `crate::nulls::dof_null` layers a calibrated adaptive null over researcher
+  degrees of freedom (traversal, grouping, headline-statistic choice).
+- **Held-out helpers (`crate::nulls::heldout`).** The alternating held-out fold
   extraction and the matched-null full/held-out aggregation that the survival
   gates share, so the generalization check always compares fold-against-fold (not
   fold-against-full-stream, an earlier bug centralized away here).
@@ -117,7 +110,7 @@ held-out fold that must generalize fold-vs-fold.
 
 - **`solve` — the unified solve pipeline.** Enumerates a hypothesis space
   (cipher family × codec × symbol→letter mapping), decrypts, and scores against
-  English/Finnish n-gram models. A `codec` transduction layer (`attack/codec.rs`)
+  English/Finnish n-gram models. A `codec` transduction layer (`attack/codec`)
   can widen a small cipher alphabet by grouping digits, with every pruned codec
   logged rather than silently dropped. Every emitted `Candidate` carries the three
   gates above, and `candidate_survives` requires all three. On the real eyes the
@@ -148,23 +141,49 @@ material whose structure is known.
 
 ## The command-line interface
 
-`src/main.rs` is intentionally thin: `clap` owns argument parsing and usage text,
-and all logic lives in the library so it stays testable. Each subcommand builds a
-config, calls a library `run_*`, and renders the returned report. The binary is
-`noita-eye`; the structural battery, null tests, controls, and attack pipelines
-each have their own subcommand (see `README.md` for the full list).
+`src/main.rs` is a 13-line shim: it declares the bin-private `cli` module and
+returns `cli::run()`. Everything else lives under `src/cli/`, kept out of the
+library so the binary's parsing surface stays isolated while the domain logic it
+drives stays testable in the library. `clap` owns argument parsing and usage text.
+
+The `cli` tree has four parts:
+
+- **Argument parsing.** `cli/args.rs` holds the `Command` enum — one variant per
+  subcommand — and the `args_*.rs` modules (`args_analysis.rs`, `args_attack.rs`,
+  `args_gak_swap.rs`, `args_maskdecode.rs`, `args_pairclass.rs`,
+  `args_shadowsearch.rs`, and peers) hold the per-subcommand `*Args` structs those
+  variants carry.
+- **Dispatch.** `cli/dispatch.rs` holds `run` — the entry point `main` calls —
+  plus the generic uniform-experiment `dispatch`/`emit` registry and the
+  `RunOutcome` glue. Most subcommands are uniform experiments: build a config,
+  call a library `run_*`, and render the returned `Report` to stdout (or its error
+  line to stderr) through that one shared pair.
+- **Per-command handlers.** `cli/commands/` holds the handler modules (`gak.rs`,
+  `groupscan.rs`, `maskdecode.rs`, `pairclass.rs`, `solve.rs`, and peers) for the
+  irregular subcommands whose wiring does not fit the uniform path, each exposing a
+  `run_*` function that `dispatch.rs` calls.
+- **Shared helpers.** `cli/shared.rs` holds helpers used across more than one
+  command.
+
+The binary is `noita-eye`; the structural battery, null tests, controls, and
+attack pipelines each have their own subcommand (see `README.md` for the full
+list).
 
 ## Extension points
 
 Where new work goes, and what discipline applies to it:
 
-- **A new CLI subcommand.** Add a `Command` variant and its `*Args` in
-  `src/main.rs`, build a config, call a library `run_*`, and render the returned
-  `Report`. Add a golden-master fixture for the new stdout (see Guardrails).
+- **A new CLI subcommand.** Add a `Command` variant in `src/cli/args.rs` and its
+  `*Args` struct in the matching `args_*.rs`, then wire it through
+  `src/cli/dispatch.rs`: either onto the uniform `dispatch`/`emit` path (build a
+  config, call a library `run_*`, render the returned `Report`) or, for irregular
+  wiring, as a handler module under `src/cli/commands/`. `src/main.rs` is not
+  touched. Add a golden-master fixture for the new stdout (see Guardrails).
 - **A new analysis or experiment.** Add a module under the matching role
-  directory and wire it into `src/lib.rs`, following the recurring per-module
-  shape above (config/error → result structs → `Report` render → `run_*` → tests).
-- **Reading or importing external data.** `core/ingest.rs` is the front door for
+  directory and declare it in that directory's `mod.rs`, following the recurring
+  per-module shape above (config/error → result structs → `Report` render →
+  `run_*` → tests).
+- **Reading or importing external data.** `core/ingest` is the front door for
   external ciphertext; report rendering and shared formatters live in `report/`.
 - **Nulls and controls — scoped to claims.** An analysis whose output *asserts
   something about the eyes* pairs its statistic with a matched null and, where a

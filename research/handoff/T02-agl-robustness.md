@@ -1,8 +1,8 @@
 # T02 — AGL-exclusion transcription robustness
 
 **Tier:** 1 · **Size:** S · **Type:** code+doc · **Status:** Todo
-**Depends on:** T01 · **Conflicts with:** other `agl_gak.rs` edits
-**Touches:** `src/attack/agl_gak.rs` (+ test), `research/findings/agl-exclusion.md`
+**Depends on:** T01 · **Conflicts with:** other `agl_gak/` edits
+**Touches:** `src/attack/agl_gak/` (+ test), `research/findings/agl-exclusion.md`
 
 ## Goal
 Quantify how fragile the AGL(1,83)-GAK exclusion is to a transcription error in its
@@ -38,7 +38,7 @@ directly publishable, hardens the strongest eyes claim before release.
 - [ ] Certification counts asserted in a test; `make verify` green.
 - [ ] `findings/agl-exclusion.md` has a robustness section with the exact counts.
 - [ ] The dissolving perturbations (if any) are named explicitly, not summarized away.
-- [ ] `docs/deslop-audit` merged in; committed.
+- [ ] Committed.
 
 ## Honesty guardrails
 A perturbation that dissolves the exclusion is a *sensitivity* result, not evidence
@@ -47,7 +47,8 @@ State the conditional plainly: "the exclusion is exact GIVEN the verified prefix
 it would need re-checking only if glyph X were mis-read as Y."
 
 ## Pointers
-- `src/attack/agl_gak.rs`: `first_obstruction` / `global_prefix_obstruction` (~:651),
-  `fixed_point_of` / `fixed_point_count` (~:973), `fixed_point_enumeration` (~:804)
+- `src/attack/agl_gak/`: `first_obstruction` / `global_prefix_obstruction` in `mod.rs`;
+  `fixed_point_of` / `fixed_point_count` / `fixed_point_enumeration` in `groups.rs`
+  (report rendering in `report.rs`, tests in `tests.rs`)
 - `research/findings/agl-exclusion.md` §4.4 (the `[66,5]` prefix kill), §7 (claim ceiling)
 - T01 harness

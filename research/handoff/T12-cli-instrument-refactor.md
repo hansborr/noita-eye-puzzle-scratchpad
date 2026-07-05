@@ -174,11 +174,13 @@ Non-goal: solving puzzle `two` or the eyes. The solver remains an honest
     genetic search over the hidden per-coset permutations. Recovers a synthetic
     known-answer plaintext at ~100%. **On real `two` it is an honest negative**
     (the codec/exact-convention is unknown) — see the module's `two` test.
-  - Module doc is the current truth on `two`'s structure. NOTE: older in-repo docs
-    (`research/data/practice-puzzles/CODEC-RESULTS.md`, the README, and a memory)
-    predate this and still describe `two` as a "transition-law artifact"; they are
-    stale on the C3×S4 diagnosis. Not your job to fix here, but don't trust them
-    over the module.
+  - **Superseded 2026-07-04** (`research/handoff/two-cross-agent-recon.md`): the
+    C3 × S4 hidden-state diagnosis recorded here was itself later superseded. The
+    live surface is the full 12-symbol stream — isomorph column-maps close to an
+    order-48 observable shadow of a reported order-96 group, neither containing nor
+    contained in C3 × S4 (order 72). Treat the C3 × S4 reading as a historical step,
+    not the current truth on `two`'s structure. The `markov_excess` instrument and
+    the honest-negative result stand; only the group framing moved on.
 
 - **The file-driven plumbing already exists.** `src/cli/shared.rs`
   `resolve_input_text(sequence, input_file, stdin)` and the `--alphabet` →

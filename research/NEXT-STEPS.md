@@ -1,4 +1,4 @@
-# NEXT-STEPS — work plan (index) · revised 2026-06-26
+# NEXT-STEPS — work plan (index) · revised 2026-07-04
 
 A prioritized, parallelizable backlog for the Noita eye-puzzle workbench, re-weighted
 after a full read of the community wiki (Lymm's eye-messages wiki at
@@ -60,14 +60,14 @@ Full briefs in the linked docs; one line each here.
    → `threads-proving-ground.md`. *(also informs G3/G4)*
 2. **Near-free wins** (S each, highest value-per-effort) — publish our exhaustive AGL exclusion
    (the wiki rules AGL out only "tentatively") and tabulate the base-5 first-trigram structure
-   (open wiki question; needs only the 9 values in `corpus.rs`). → `threads-eyes.md` (near-free section).
-3. **T1** (correctness, S) — fix the held-out gate bug shared by `keystream.rs` + `solve/`;
-   it hardens the matched-null/held-out helper the eyes Gate-1 also relies on.
-   → `threads-proving-ground.md`.
+   (open wiki question; needs only the 9 values in `src/data/corpus.rs`). → `threads-eyes.md` (near-free section).
+3. **T1** (correctness, S) — **Done:** the held-out fold-vs-fold gate fix landed; the
+   comparison now lives in the solve pipeline (`solve/mod.rs`) via the shared held-out helper
+   the eyes Gate-1 also relies on. → `research/findings/T1-heldout-gate-fix.md`.
 4. **G1b** (proving-ground, M — *biggest-underweight catch*) — hidden-state attack on the
    known-answer sample `two` (+ codec layer): the closest *verifiable* miniature of the eyes'
    blocker. Run before eyes-scale T6/T7, in parallel with G2. → `threads-proving-ground.md`.
-5. **G2** (disproof, M) — forward isomorph-falsification: push `perfect_isomorphism.rs`
+5. **G2** (disproof, M) — forward isomorph-falsification: push `perfect_isomorphism/`
    for a robust violation + construct a concrete *imperfectly*-isomorphic candidate family.
    → `threads-eyes.md`.
 6. **G3 / G4** (leak quantification, M) — quantify the isomorph leak's information ceiling;
@@ -78,7 +78,8 @@ Full briefs in the linked docs; one line each here.
 9. **T3 / T4 / T5** (classical sample decodes, M each) — demoted to opportunistic. Keep
    the proving ground running in parallel but bias it toward the *transferable* GAK samples
    (G1/G1b), not the non-transferable classical letter puzzles. → `threads-proving-ground.md`.
-10. **R1** (refactor, M) in gaps; R2 / R3 deferred (see Supporting/internal below).
+10. **R1 / R2** (refactor) — **Done** (CLI registry + `ciphers/mod.rs` split); R3 deferred
+    (see Supporting/internal below).
 
 ---
 
@@ -86,23 +87,23 @@ Full briefs in the linked docs; one line each here.
 
 Independent streams (different subsystems → run concurrently, ideally separate worktrees):
 
-- **Stream A — proving ground / correctness:** G1 (done) → G1b (hidden-state attack on `two`
-  + codec) ∥ T1 (gate fix) → (opportunistic) T3/T4/T5. The two near-free outputs (publish AGL
-  exclusion; base-5 first-trigram) ship anytime, independently.
-  *(touches `gak_attack/`, `chaining_graph.rs`, `nulls/`, `keystream.rs`, `solve/mod.rs`)*
+- **Stream A — proving ground / correctness:** G1 (done), T1 (gate fix, done) → G1b
+  (hidden-state attack on `two` + codec) → (opportunistic) T3/T4/T5. The two near-free outputs
+  (publish AGL exclusion; base-5 first-trigram) ship anytime, independently.
+  *(touches `gak_attack/`, `chaining_graph/`, `nulls/`, `keystream/`, `solve/`)*
 - **Stream B — disproof:** G2 (isomorph-imperfection falsifier + imperfect-isomorph family).
-  *(touches `perfect_isomorphism.rs`, `isomorph.rs`)*
+  *(touches `perfect_isomorphism/`, `isomorph.rs`)*
 - **Stream C — leak quantification & attack rigor:** G3 ∥ (G4→T6) → T7. *(touches
-  `chaining_graph.rs`, `gak_attack/`, `marginalization.rs`)* — serialize G4/T6/T7.
+  `chaining_graph/`, `gak_attack/`, `marginalization/`)* — serialize G4/T6/T7.
 - **Stream D — tooling/long-shot:** T2 → T8 (mapping-dependent; lowest community priority).
 
 **Coordination hazards**
 - `gak_attack/` is shared by G1, T7, G5 and (indirectly) G4/T6 — don't run two
   `gak_attack/`-editing threads in parallel without coordinating; serialize T6/T7.
-- `main.rs` is the shared chokepoint for any new CLI subcommand (G1, T3/T4/T5, T8).
-  Do R1 (CLI registry) first, or have one integrator own the subcommand stubs.
-- **T1 vs the sample attacks** — land T1's shared null helper before any sample attack that
-  reuses the gate, so they build on the corrected version.
+- A new CLI subcommand lands entirely in `src/cli/` (an arg struct in `args_*.rs`, a
+  `Command` variant in `args.rs`, a handler in `commands/`, wired through the
+  `dispatch.rs` registry) — it does **not** edit `src/main.rs` (a 13-line shim), so new
+  subcommands no longer share a single-file chokepoint.
 
 ---
 
@@ -113,15 +114,20 @@ These serve no direct community goal; schedule in gaps.
 - **T2 — Finnish quadgram scorer** (new-tool, M). Generalize `quadgram.rs` (English-only)
   to a language-parameterized model; add a larger public-domain Finnish corpus to
   `research/data/lang/` (record provenance); thread `--language en|fi` through the search
-  entry points. Calibrate held-out (mirror `language.rs:584`). Only matters as the
+  entry points. Calibrate held-out (mirror the held-out logic in `src/attack/language/`). Only matters as the
   enabler for T8 — defer until a mapping-independent result motivates a language objective.
-- **R1 — CLI registry + args dedup** (refactor, M). `main.rs` is ~2107 lines with
-  ~20 uniform `run_*` dispatchers; collapse into a registry. Schedule early — every new
-  subcommand (G1, T3/T4/T5, T8) edits `main.rs`. (Not started.)
-- **R2 — Split `ciphers/mod.rs`** (~3673 lines) one-file-per-family (refactor, L). Pure
-  maintainability; biggest god-file. Low urgency.
-- R3 — extract colocated `print_*_report` renderers from `experiments/*`
-  (`conditional_structure.rs`, `periodicity.rs`, …) (refactor, L). Low urgency.
+- **R1 — CLI registry + args dedup** (refactor) — **Done.** `src/main.rs` is now a 13-line
+  shim (`mod cli;` + `cli::run()`); the whole CLI lives in `src/cli/` — per-subcommand arg
+  structs in `args_*.rs`, the `Command` enum in `args.rs`, the dispatch/registry + uniform
+  `run_*` loop in `dispatch.rs`, shared helpers in `shared.rs`, and per-command handlers in
+  `commands/`. A new subcommand adds an arg struct + a `Command` variant + a `commands/`
+  handler wired through `dispatch.rs`.
+- **R2 — Split `ciphers/mod.rs`** (refactor) — **Done.** `ciphers/mod.rs` is 329 lines; the
+  module is split into `mechanics.rs` (primitives), `keys_gak.rs`, `keys_simple.rs`,
+  `transforms.rs`, `validation.rs`, `error.rs`, and `tests.rs`.
+- R3 — extract the remaining colocated `print_*_report` renderers from `experiments/*`
+  (`conditional_structure/`, `periodicity/`, …) into per-module `report.rs` (refactor, L).
+  Partly underway; low urgency.
 
 ---
 
@@ -130,8 +136,8 @@ These serve no direct community goal; schedule in gaps.
   (Lymm's eye-messages wiki, `github.com/Lymm37/eye-messages/wiki`), read against the two
   community goals + the isomorph leak. Condensed in `frontier.md`.
 - Eyes/GAK state → `research/gak-threads/{README,PROGRESS}.md`, `src/attack/gak_attack/`,
-  `src/analysis/{isomorph,perfect_isomorphism,chaining_graph,transitivity}.rs`,
-  `src/attack/agl_gak.rs`.
+  `src/analysis/isomorph.rs`, `src/analysis/{perfect_isomorphism,chaining_graph}/`,
+  `src/experiments/transitivity/`, `src/attack/agl_gak/`.
 - Sample-puzzle state → `research/data/practice-puzzles/{KEYSTREAM,RAGBABY}-RESULTS.md`,
   `research/gak-threads/G1-RESULTS.md` (G1 output, pending).
 - Memory: `noita-eye-puzzle-state`, `noita-eye-wiki-gak-convergence`,
