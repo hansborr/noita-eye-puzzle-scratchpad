@@ -5,7 +5,10 @@ use super::super::{
     enumerate_top_swap_domains, generate_random_pt_mapping, lymm_default_ct_alphabet,
     parse_known_plaintext_pairs,
 };
-use super::{SwapRecoveryConfig, SwapRecoveryStrategy, recover_known_plaintext_swaps};
+use super::{
+    SwapInferenceOutcome, SwapInferenceRange, SwapRecoveryConfig, SwapRecoveryStrategy,
+    infer_known_plaintext_swap_budget, recover_known_plaintext_swaps,
+};
 
 #[test]
 fn ns3_top_swap_candidate_count_matches_verified_frontier() {
@@ -31,6 +34,28 @@ fn local_search_ns3_planted_control_recovers_exact_candidate() {
 
     assert!(report.round_trip.exact(), "{:#?}", report.round_trip);
     assert_eq!(report.round_trip.matched, report.round_trip.total);
+}
+
+#[test]
+fn infer_swaps_reaches_ns3_local_search_frontier() {
+    let spec = LymmDeckSpec::from_shift_decimation(11, "ABCD", &lymm_default_ct_alphabet(11), 4, 3)
+        .expect("spec");
+    let planted = generate_random_pt_mapping(&spec, 3, 0x51a7_0300_0000_0003).expect("ns=3 plant");
+    let pairs = encrypted_pairs(&spec, &planted.pt_mapping, &synthetic_rows());
+    let report = infer_known_plaintext_swap_budget(
+        &spec,
+        &pairs,
+        SwapInferenceRange::new(1, 3),
+        SwapRecoveryConfig::with_max_swaps(1),
+    )
+    .expect("ns=3 inference");
+
+    assert_eq!(report.inferred_max_swaps(), Some(3));
+    assert_eq!(
+        report.attempts.last().map(|attempt| attempt.outcome),
+        Some(SwapInferenceOutcome::ExactRoundTrip)
+    );
+    assert!(report.exact());
 }
 
 #[test]

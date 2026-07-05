@@ -316,24 +316,24 @@ fn infer_swaps_caps_requested_range_at_measured_frontier() {
     let report = infer_known_plaintext_swap_budget(
         &spec,
         &pairs,
-        SwapInferenceRange::new(1, 3),
+        SwapInferenceRange::new(1, 4),
         SwapRecoveryConfig::with_max_swaps(1),
     )
     .expect("frontier-capped inference");
     assert!(report.frontier_capped);
-    assert_eq!(report.attempted, SwapInferenceRange::new(1, 2));
+    assert_eq!(report.attempted, SwapInferenceRange::new(1, 3));
     assert_eq!(report.inferred_max_swaps(), Some(1));
 
     let unsupported = infer_known_plaintext_swap_budget(
         &spec,
         &pairs,
-        SwapInferenceRange::new(3, 4),
+        SwapInferenceRange::new(4, 5),
         SwapRecoveryConfig::with_max_swaps(3),
     )
     .expect_err("range starting past the frontier must not run");
     assert!(matches!(
         unsupported,
-        SwapRecoveryError::UnsupportedBudget { max_swaps: 3 }
+        SwapRecoveryError::UnsupportedBudget { max_swaps: 4 }
     ));
 }
 

@@ -7,11 +7,10 @@ use super::{
 use crate::attack::gak_attack::lymm_deck::{KnownPlaintextPair, LymmDeckSpec};
 
 /// Largest top-swap budget supported by the public recovery CLI today.
-pub const SUPPORTED_SWAP_RECOVERY_FRONTIER: usize = 2;
+pub const SUPPORTED_SWAP_RECOVERY_FRONTIER: usize = 3;
 
 /// Stable measured-frontier wording shared by direct and inferred recovery modes.
-pub const SWAP_RECOVERY_FRONTIER_MESSAGE: &str =
-    "measured Task-02 frontier is currently ns<=2, and ns=3 remains a recorded wall";
+pub const SWAP_RECOVERY_FRONTIER_MESSAGE: &str = "known-plaintext practice-puzzle recovery is supported through ns<=3; ns=3 uses exact-verified local search";
 
 /// Inclusive `--infer-swaps A..B` search range.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

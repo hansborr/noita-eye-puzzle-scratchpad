@@ -44,7 +44,7 @@ pub use recovery::{
     PositiveControlReport, RecoveredLetter, RecoveryGeneratorSet, RecoveryReport, RoundTripReport,
     SUPPORTED_SWAP_RECOVERY_FRONTIER, SWAP_RECOVERY_FRONTIER_MESSAGE, SwapInferenceAttempt,
     SwapInferenceOutcome, SwapInferenceRange, SwapInferenceReport, SwapRecoveryConfig,
-    SwapRecoveryError, SwapRecoveryStats, gak_swap_arc_phase0_controls,
+    SwapRecoveryError, SwapRecoveryStats, SwapRecoveryStrategy, gak_swap_arc_phase0_controls,
     gak_swap_reach_stress_self_test, gak_swap_self_test, infer_known_plaintext_swap_budget,
     measure_ns3_arc_provenance, measure_ns3_arc_provenance_with_sink,
     recover_known_plaintext_swaps, round_trip_check,

@@ -4,7 +4,7 @@ use clap::{Args, ValueEnum};
 use noita_eye_puzzle::attack::gak_attack::lymm_deck::{
     DEFAULT_ARC_PHASE0_REJECTION_CAP, DEFAULT_ARC_PHASE0_REPLAY_CAP,
     DEFAULT_ARC_PHASE0_SPOT_CHECKS, DEFAULT_ARC_PHASE0_WALL_SECS, DEFAULT_SWAP_RECOVERY_SEED,
-    LYMM_DEFAULT_N, LYMM_DEFAULT_PT_ALPHABET,
+    LYMM_DEFAULT_N, LYMM_DEFAULT_PT_ALPHABET, SwapRecoveryStrategy,
 };
 
 use super::shared::parse_seed;
@@ -59,6 +59,9 @@ pub(crate) struct GakSwapRecoverArgs {
     /// Maximum top-swap budget.
     #[arg(long = "max-swaps", conflicts_with = "num_swaps")]
     pub(crate) max_swaps: Option<usize>,
+    /// Recovery backend.
+    #[arg(long = "strategy", value_enum, default_value_t = GakSwapStrategy::Auto)]
+    pub(crate) strategy: GakSwapStrategy,
     /// Reserved Task-03 beam fallback knob.
     #[arg(long = "beam")]
     pub(crate) beam: Option<usize>,
@@ -179,6 +182,27 @@ pub(crate) enum GakSwapPairFormat {
     BlankLines,
     /// Reserved for Task-03 shareability; not implemented in Task-02.
     Jsonl,
+}
+
+/// Recovery backend for known-plaintext swap recovery.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+pub(crate) enum GakSwapStrategy {
+    /// Use systematic recovery for ns=1/2 and exact-verified local search for ns=3.
+    Auto,
+    /// Force the complete systematic recovery machinery.
+    Systematic,
+    /// Force substitution-first local search.
+    LocalSearch,
+}
+
+impl From<GakSwapStrategy> for SwapRecoveryStrategy {
+    fn from(value: GakSwapStrategy) -> Self {
+        match value {
+            GakSwapStrategy::Auto => Self::Auto,
+            GakSwapStrategy::Systematic => Self::Systematic,
+            GakSwapStrategy::LocalSearch => Self::LocalSearch,
+        }
+    }
 }
 
 /// CLI output format.

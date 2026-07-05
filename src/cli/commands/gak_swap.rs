@@ -121,7 +121,15 @@ pub(crate) fn run_gak_swap_recover(args: &GakSwapRecoverArgs) -> ExitCode {
         pairs.len(),
         args.output,
     );
-    ExitCode::SUCCESS
+    exact_exit_code(recovery.round_trip.exact())
+}
+
+fn exact_exit_code(exact: bool) -> ExitCode {
+    if exact {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
 }
 
 fn controls_required(run_controls: bool, skip_controls: bool, has_real_files: bool) -> bool {
@@ -172,7 +180,7 @@ fn run_controls_if_needed(
 
 fn validate_task02_knobs(args: &GakSwapRecoverArgs) -> Result<(), String> {
     if let Some(max_swaps) = args.num_swaps.or(args.max_swaps)
-        && max_swaps >= 3
+        && max_swaps > 3
     {
         return Err(format!(
             "unsupported top-swap budget {max_swaps}; {SWAP_RECOVERY_FRONTIER_MESSAGE}"
@@ -263,6 +271,7 @@ fn build_recovery_config(
 ) -> Result<SwapRecoveryConfig, String> {
     let mut config =
         SwapRecoveryConfig::with_max_swaps(args.num_swaps.or(args.max_swaps).unwrap_or(2));
+    config = config.with_strategy(args.strategy.into());
     config.max_nodes = args.max_nodes;
     config.time_budget = args.time_budget_secs.map(Duration::from_secs);
     if let Some(path) = &args.generator_file {
