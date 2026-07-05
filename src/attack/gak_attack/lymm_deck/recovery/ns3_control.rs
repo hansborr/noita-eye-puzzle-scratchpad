@@ -13,13 +13,15 @@ use super::residual::{
 use super::target_solver::TargetAssignmentSolver;
 use super::{
     LetterRecoveryVerdict, RecoveryReport, SwapRecoveryConfig, SwapRecoveryError,
-    SwapRecoveryStats, align_pairs, recover_known_plaintext_swaps,
+    SwapRecoveryStats, SwapRecoveryStrategy, align_pairs, recover_known_plaintext_swaps,
 };
 
 #[test]
 fn ns3_planted_control_recovers_through_production_path() {
     let (spec, planted, pairs) = small_ns3_control();
-    let mut config = SwapRecoveryConfig::with_max_swaps(3).with_planted_truth(planted.clone());
+    let mut config = SwapRecoveryConfig::with_max_swaps(3)
+        .with_strategy(SwapRecoveryStrategy::Systematic)
+        .with_planted_truth(planted.clone());
     config.max_nodes = Some(20_000);
 
     let report = recover_known_plaintext_swaps(&spec, &pairs, config)
@@ -217,7 +219,9 @@ fn ns3_top_swap_rejection_control_n17_recovers_after_target_rejections() {
 fn run_rejection_ns3_control(n: usize, shift: usize, decimation: usize, seed: u64) {
     let rows = anchored_abc_rows(4);
     let (spec, planted, pairs) = mid_size_ns3_control_with_rows(n, shift, decimation, seed, &rows);
-    let mut config = SwapRecoveryConfig::with_max_swaps(3).with_planted_truth(planted.clone());
+    let mut config = SwapRecoveryConfig::with_max_swaps(3)
+        .with_strategy(SwapRecoveryStrategy::Systematic)
+        .with_planted_truth(planted.clone());
     config.max_nodes = Some(env_usize("NOITA_SWAP_NS3_CONTROL_MAX_NODES").unwrap_or(200_000));
 
     let started = Instant::now();
@@ -275,7 +279,9 @@ fn small_ns3_control() -> (
 
 fn run_mid_size_ns3_control(n: usize, shift: usize, decimation: usize, seed: u64) {
     let (spec, planted, pairs) = mid_size_ns3_control(n, shift, decimation, seed);
-    let mut config = SwapRecoveryConfig::with_max_swaps(3).with_planted_truth(planted.clone());
+    let mut config = SwapRecoveryConfig::with_max_swaps(3)
+        .with_strategy(SwapRecoveryStrategy::Systematic)
+        .with_planted_truth(planted.clone());
     config.max_nodes = Some(env_usize("NOITA_SWAP_NS3_CONTROL_MAX_NODES").unwrap_or(200_000));
 
     let started = Instant::now();
