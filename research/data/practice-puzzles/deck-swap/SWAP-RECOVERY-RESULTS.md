@@ -228,11 +228,14 @@ The differential gate materializes reference permutations only inside tests and
 checks `image_mask`, `preimage_mask`, `transition_possible`, and `witness`
 bit-for-bit against those references. Coverage: top-swaps at `ns=1` and `ns=2`
 for `n=2..17` plus `n=83`; small top-swap `ns=3` for `n=3..9`; the planted
-small `ns=3` control residual; and an explicit full-support rotation-generator
-control that takes the `WordMitm` branch with forced-domain pruning. The vendored
-ns=1/ns=2 regressions now assert the concrete `2439/2439` exact round-trip
-counts. This did not rerun or change the Phase-0 real-file budget or decision
-rule.
+small `ns=3` control residual; and an explicit noncommuting generator control at
+`max_swaps=2` that takes the `WordMitm { split: 1 }` branch,
+checks the full MITM surface, and checks forced `(entry,target)` pruned domains.
+The vendored ns=1/ns=2 regressions now assert the concrete `2439/2439` exact
+round-trip counts. Oracle performance characterization: the win is memory and
+the ns=4 unblock; per-replay CPU on ns=3 is comparable to possibly slower because
+queries scan per-position support. This did not rerun or change the Phase-0
+real-file budget or decision rule.
 
 ## ns=3 wall
 

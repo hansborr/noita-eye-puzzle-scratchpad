@@ -180,8 +180,8 @@ mod tests {
     };
     use crate::attack::gak_attack::lymm_deck::{
         KnownPlaintextPair, LymmDeckSpec, LymmGeneratorSet, TopSwapConstraints, TopSwapDomains,
-        encrypt_lymm_deck, enumerate_top_swap_domains, generate_random_pt_mapping,
-        lymm_default_ct_alphabet,
+        compose_lymm, encrypt_lymm_deck, enumerate_generator_domains, enumerate_top_swap_domains,
+        generate_random_pt_mapping, lymm_default_ct_alphabet,
     };
 
     #[test]
@@ -224,23 +224,48 @@ mod tests {
     }
 
     #[test]
-    fn explicit_mitm_oracle_matches_materialized_forced_domains() {
-        let spec = identity_spec(7, "AB");
-        let generator_set = LymmGeneratorSet::parse_permutation_file(
-            spec.n,
-            "\
-rot1: 1 2 3 4 5 6 0
-rot2: 2 3 4 5 6 0 1
-",
-        )
-        .expect("generator file");
-        let planted = BTreeMap::from([('A', rotation(7, 1)), ('B', rotation(7, 2))]);
-        let pairs = encrypted_pairs(&spec, &planted, &[("a", "ABBAAB"), ("b", "BABAAB")]);
+    fn explicit_mitm_oracle_matches_materialized_noncommuting_split_forced_domains() {
+        let spec = identity_spec(7, "ABC");
+        let generator_set = noncommuting_generator_set(spec.n);
+        assert_generators_do_not_commute(&generator_set);
+
+        let constraints = TopSwapConstraints::up_to(2);
+        let full_domains =
+            enumerate_generator_domains(&spec, &generator_set, &constraints).expect("MITM domain");
+        assert!(matches!(
+            full_domains.branch_strategy,
+            crate::attack::gak_attack::lymm_deck::GeneratorBranchStrategy::WordMitm { split: 1 }
+        ));
+        assert!(
+            full_domains
+                .candidates
+                .iter()
+                .any(|candidate| candidate.canonical_swaps.len() == 2)
+        );
+
+        let full_oracle = LetterDomainOracle::for_domains(&spec, &full_domains);
+        assert_eq!(
+            full_oracle.backend(),
+            LetterDomainOracleBackend::ExplicitGeneratorMitm
+        );
+        assert_oracle_matches_materialized(
+            &spec,
+            &full_domains,
+            &full_oracle,
+            0..full_domains.candidates.len(),
+        );
+
+        let planted = planted_len2_mapping(&spec, &full_domains);
+        let pairs = encrypted_pairs(
+            &spec,
+            &planted,
+            &[("a", "ABCAB"), ("b", "BCABC"), ("c", "CABCA")],
+        );
         let messages = align_pairs(&spec, &pairs).expect("aligned explicit MITM control");
         let residual = super::super::domain_build::build_residual_domains(
             &spec,
             &messages,
-            &SwapRecoveryConfig::with_max_swaps(1)
+            &SwapRecoveryConfig::with_max_swaps(2)
                 .with_generator_set(RecoveryGeneratorSet::Explicit(generator_set)),
         )
         .expect("explicit MITM residual");
@@ -251,8 +276,26 @@ rot2: 2 3 4 5 6 0 1
         );
         assert!(matches!(
             residual.domains.branch_strategy,
-            crate::attack::gak_attack::lymm_deck::GeneratorBranchStrategy::WordMitm { .. }
+            crate::attack::gak_attack::lymm_deck::GeneratorBranchStrategy::WordMitm { split: 1 }
         ));
+        assert!(residual.candidate_count() < full_domains.candidates.len());
+        assert!(
+            residual
+                .by_letter
+                .values()
+                .all(|domain| !domain.is_empty() && domain.len() < full_domains.candidates.len())
+        );
+        assert!(
+            residual
+                .by_letter
+                .values()
+                .flat_map(|domain| domain.iter().copied())
+                .any(|index| residual
+                    .domains
+                    .candidates
+                    .get(index)
+                    .is_some_and(|candidate| candidate.canonical_swaps.len() == 2))
+        );
         assert_oracle_matches_materialized(
             &spec,
             &residual.domains,
@@ -387,6 +430,49 @@ rot2: 2 3 4 5 6 0 1
         (spec, pairs)
     }
 
+    fn noncommuting_generator_set(n: usize) -> LymmGeneratorSet {
+        LymmGeneratorSet::from_permutations(
+            n,
+            vec![
+                transposition(n, 0, 1),
+                vec![1, 2, 0, 3, 4, 5, 6],
+                vec![3, 1, 2, 4, 0, 5, 6],
+            ],
+        )
+        .expect("noncommuting generator set")
+    }
+
+    fn assert_generators_do_not_commute(generator_set: &LymmGeneratorSet) {
+        let first = generator_set.permutation(0).expect("first generator");
+        let second = generator_set.permutation(1).expect("second generator");
+        assert_ne!(
+            compose_lymm(first, second).expect("left composition"),
+            compose_lymm(second, first).expect("right composition")
+        );
+    }
+
+    fn planted_len2_mapping(
+        spec: &LymmDeckSpec,
+        domains: &TopSwapDomains,
+    ) -> BTreeMap<char, Vec<usize>> {
+        let mut mapping = BTreeMap::new();
+        let mut used_targets = Vec::new();
+        for &letter in &['A', 'B', 'C'] {
+            let candidate = domains
+                .candidates
+                .iter()
+                .find(|candidate| {
+                    candidate.canonical_swaps.len() == 2
+                        && candidate.top_image != 0
+                        && !used_targets.contains(&candidate.top_image)
+                })
+                .expect("enough distinct length-2 candidates");
+            used_targets.push(candidate.top_image);
+            let _old = mapping.insert(letter, candidate.permutation(spec));
+        }
+        mapping
+    }
+
     fn identity_spec(n: usize, pt_alphabet: &str) -> LymmDeckSpec {
         LymmDeckSpec::from_base(
             n,
@@ -397,8 +483,10 @@ rot2: 2 3 4 5 6 0 1
         .expect("identity spec")
     }
 
-    fn rotation(n: usize, shift: usize) -> Vec<usize> {
-        (0..n).map(|index| (index + shift) % n).collect()
+    fn transposition(n: usize, left: usize, right: usize) -> Vec<usize> {
+        let mut permutation = (0..n).collect::<Vec<_>>();
+        permutation.swap(left, right);
+        permutation
     }
 
     fn encrypted_pairs(
