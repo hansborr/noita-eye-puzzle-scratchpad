@@ -94,7 +94,11 @@ sections are retained for design rationale and guardrails.
   "stronger target reasons suffice" read; next design work should pressure-test
   finer-than-target or partial-slice theory propagation, not spend a blind
   implementation burn searching for sub-5 target-only clauses.
-- **Current decision point for the next agent.** The target layer is livelocked
+- **Current decision point for the next agent.** RESOLVED by the cross-lineage
+  design consult in `05-ns3-finer-vocabulary-plan.md` (phased plan: Phase-0 short-
+  conflict measurement gate → implicit oracle regardless → conditional finer-literal
+  CDCL(T); enumerate-filter rejected as primary). The framing below is retained for
+  rationale. The target layer is livelocked
   at the `(letter = target)` vocabulary. This is measured, not conjectured: the
   adjudicating cap-60 probe rejected `60` fresh projected `E/H/S/T/Y` tuples,
   consumed only `60` of `34,234,200` projected tuples under `T=67`, never changed
