@@ -21,7 +21,10 @@ pub(crate) fn run_gak_swap_arc_phase0(args: &GakSwapArcPhase0Args) -> ExitCode {
         Ok(has_real_files) => has_real_files,
         Err(exit_code) => return exit_code,
     };
-    let config = phase0_config(args);
+    let Some(config) = phase0_config(args) else {
+        eprintln!("gak-swap-arc-phase0 config error: --replay-cap must be at least 1");
+        return ExitCode::FAILURE;
+    };
     let controls = match run_controls_if_needed(args, has_real_files, config) {
         Ok(report) => report,
         Err(exit_code) => return exit_code,
@@ -73,13 +76,13 @@ pub(crate) fn run_gak_swap_arc_phase0(args: &GakSwapArcPhase0Args) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn phase0_config(args: &GakSwapArcPhase0Args) -> GakSwapArcPhase0Config {
-    GakSwapArcPhase0Config {
+fn phase0_config(args: &GakSwapArcPhase0Args) -> Option<GakSwapArcPhase0Config> {
+    (args.replay_cap > 0).then_some(GakSwapArcPhase0Config {
         max_rejections: args.max_rejections,
         wall_time: Duration::from_secs(args.time_budget_secs),
         replays_per_rejection: args.replay_cap,
         spot_check_samples: args.spot_check_samples,
-    }
+    })
 }
 
 fn controls_required(run_controls: bool, skip_controls: bool, has_real_files: bool) -> bool {
@@ -565,11 +568,9 @@ fn context_json(context: &[(char, usize)]) -> String {
 fn pass_fail(ok: bool) -> &'static str {
     if ok { "PASS" } else { "FAIL" }
 }
-
 fn option_json(value: Option<usize>) -> String {
     value.map_or_else(|| "null".to_owned(), |found| found.to_string())
 }
-
 fn json_escape(raw: &str) -> String {
     let mut escaped = String::new();
     for ch in raw.chars() {
@@ -584,7 +585,6 @@ fn json_escape(raw: &str) -> String {
     }
     escaped
 }
-
 #[cfg(test)]
 mod tests {
     use super::controls_required;

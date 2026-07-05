@@ -118,7 +118,7 @@ where
             deadline,
         )? {
             ArcReasonMinimizeOutcome::Characterized(minimized) => minimized,
-            ArcReasonMinimizeOutcome::WallBeforeValidation => {
+            ArcReasonMinimizeOutcome::UncharacterizedBeforeReplay => {
                 break GakSwapArcPhase0Stop::TimeBudget;
             }
         };
@@ -332,6 +332,35 @@ mod tests {
             &mut deadline,
         )
         .expect("wall-truncated measurement must report partial rejection");
+
+        assert_eq!(report.stop, GakSwapArcPhase0Stop::TimeBudget);
+        assert_eq!(report.target_nodes, 1);
+        assert!(report.rejections.is_empty(), "{report:?}");
+        assert!(streamed.is_empty(), "{streamed:?}");
+    }
+
+    #[test]
+    fn zero_replay_budget_does_not_emit_measured_rejection() {
+        let (spec, pairs) = positive_control_fixture().expect("positive fixture");
+        let config = GakSwapArcPhase0Config {
+            max_rejections: 1,
+            wall_time: Duration::from_hours(1),
+            replays_per_rejection: 0,
+            ..GakSwapArcPhase0Config::default()
+        };
+        let mut deadline = ScriptedDeadline::new(usize::MAX);
+        let mut streamed = Vec::new();
+        let report = measure_ns3_arc_provenance_with_deadline(
+            &spec,
+            &pairs,
+            config,
+            |rejection| {
+                streamed.push(rejection.clone());
+                Ok(())
+            },
+            &mut deadline,
+        )
+        .expect("zero replay budget must stop without emitting a measured row");
 
         assert_eq!(report.stop, GakSwapArcPhase0Stop::TimeBudget);
         assert_eq!(report.target_nodes, 1);

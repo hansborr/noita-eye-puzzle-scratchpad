@@ -13,7 +13,7 @@ use crate::attack::gak_attack::lymm_deck::LymmDeckSpec;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum ArcReasonMinimizeOutcome {
     Characterized(InternalMinimizedReason),
-    WallBeforeValidation,
+    UncharacterizedBeforeReplay,
 }
 
 pub(super) fn minimize_arc_reason(
@@ -33,8 +33,8 @@ pub(super) fn minimize_arc_reason(
         &mut deadline,
     )? {
         ArcReasonMinimizeOutcome::Characterized(reason) => Ok(reason),
-        ArcReasonMinimizeOutcome::WallBeforeValidation => Err(SwapRecoveryError::SatSolver(
-            "phase-0 no-deadline minimizer stopped before validation".to_owned(),
+        ArcReasonMinimizeOutcome::UncharacterizedBeforeReplay => Err(SwapRecoveryError::SatSolver(
+            "phase-0 minimizer stopped before any broad replay".to_owned(),
         )),
     }
 }
@@ -84,7 +84,7 @@ where
             ));
         }
         if budget.wall_expired {
-            return Ok(ArcReasonMinimizeOutcome::WallBeforeValidation);
+            return Ok(ArcReasonMinimizeOutcome::UncharacterizedBeforeReplay);
         }
     }
 
@@ -127,9 +127,12 @@ where
             ));
         }
         None if budget.wall_expired => {
-            return Ok(ArcReasonMinimizeOutcome::WallBeforeValidation);
+            return Ok(ArcReasonMinimizeOutcome::UncharacterizedBeforeReplay);
         }
         Some(false) | None => {}
+    }
+    if budget.used == 0 {
+        return Ok(ArcReasonMinimizeOutcome::UncharacterizedBeforeReplay);
     }
 
     let literal_count = raw_reason

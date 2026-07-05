@@ -9,6 +9,17 @@ use noita_eye_puzzle::attack::gak_attack::lymm_deck::{
 
 use super::shared::parse_seed;
 
+fn parse_positive_usize(raw: &str) -> Result<usize, String> {
+    let value = raw
+        .parse::<usize>()
+        .map_err(|error| format!("invalid unsigned integer: {error}"))?;
+    if value == 0 {
+        Err("must be at least 1".to_owned())
+    } else {
+        Ok(value)
+    }
+}
+
 /// `gak-swap-recover`: recover Lymm top-swap deck-cipher mappings from known
 /// plaintext/ciphertext pairs. It emits a candidate unless exact re-encryption
 /// verifies the recovered mapping.
@@ -137,7 +148,11 @@ pub(crate) struct GakSwapArcPhase0Args {
     #[arg(long = "time-budget", default_value_t = DEFAULT_ARC_PHASE0_WALL_SECS)]
     pub(crate) time_budget_secs: u64,
     /// Broad replay cap per rejection.
-    #[arg(long = "replay-cap", default_value_t = DEFAULT_ARC_PHASE0_REPLAY_CAP)]
+    #[arg(
+        long = "replay-cap",
+        default_value_t = DEFAULT_ARC_PHASE0_REPLAY_CAP,
+        value_parser = parse_positive_usize
+    )]
     pub(crate) replay_cap: usize,
     /// Sampled tuple spot-checks per minimized short reason.
     #[arg(long = "spot-check-samples", default_value_t = DEFAULT_ARC_PHASE0_SPOT_CHECKS)]

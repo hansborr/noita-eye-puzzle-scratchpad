@@ -73,6 +73,14 @@ fn gak_swap_arc_phase0_cli_runs_instrument_controls() {
 }
 
 #[test]
+fn gak_swap_arc_phase0_cli_rejects_zero_replay_cap() {
+    let stderr =
+        run_noita_eye_failure(&["gak-swap-arc-phase0", "--run-controls", "--replay-cap", "0"]);
+
+    assert_contains(&stderr, "must be at least 1");
+}
+
+#[test]
 fn gak_swap_recover_cli_infers_ns2_with_frontier_cap() {
     let stdout = run_noita_eye(&[
         "gak-swap-recover",
