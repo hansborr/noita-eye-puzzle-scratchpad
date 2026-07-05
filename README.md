@@ -108,9 +108,9 @@ reports anything stronger than "structured data of unknown meaning."
 
 ## Layout
 
-Source lives under `src/`, grouped by role. Modules are re-exported flat from the
-crate root (see `src/lib.rs`), so a path like `src/analysis/orders.rs` is the
-module `orders`.
+Source lives under `src/`, grouped by role directories, each a genuine module
+namespace (see `src/lib.rs`), so `src/analysis/orders/` is the module
+`crate::analysis::orders`.
 
 | Directory      | Role                                                                    |
 | -------------- | ----------------------------------------------------------------------- |

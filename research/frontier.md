@@ -74,17 +74,17 @@ the alternative-hypothesis space ("we don't know how to categorize imperfectly i
   research problem; clean and mapping-independent. → G4/T6.
 - AGL is only "tentatively" ruled out, with a *testable* discriminator (AGL needs fine-tuned
   per-message resync vs the deck's natural delayed hidden state — a prediction about the first
-  trigram). We hold an exhaustive AGL exclusion (`agl_gak.rs`, 0/6724 and 0/3362) — a
+  trigram). We hold an exhaustive AGL exclusion (`agl_gak/`, 0/6724 and 0/3362) — a
   community-grade result currently sitting as a finished internal artifact. → publish (threads-eyes).
 - The base-5 first-trigram structure (Message-Starts) is an explicitly open, unclaimed thread
-  needing only the 9 values already verified in `corpus.rs`. → near-free (threads-eyes).
+  needing only the 9 values already verified in `src/data/corpus.rs`. → near-free (threads-eyes).
 
 ---
 
 ## What this means for tooling (transfer)
 
 - **GAK / eyes / isomorph machinery is directly on-frontier.** `isomorph.rs` *is* the leak
-  encoding; `perfect_isomorphism.rs` *is* the Goal-2 falsifier; `chaining_graph.rs` is the
+  encoding; `perfect_isomorphism/` *is* the Goal-2 falsifier; `chaining_graph/` is the
   Schreier substrate every Goal-1 step consumes; `gak_attack/` is the only recovery-shaped code.
   Its one structural weakness: every positive control validates against fixtures it generated
   itself — the weakest validation, exactly what the wiki warns against (→ G1 fixes this).
