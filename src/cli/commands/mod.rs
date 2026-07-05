@@ -12,6 +12,7 @@ mod gak;
 mod gak_swap;
 mod gak_swap_arc_phase0;
 mod gak_swap_report;
+mod gak_swap_selftest_report;
 mod groupscan;
 mod isomap;
 mod isoscan;

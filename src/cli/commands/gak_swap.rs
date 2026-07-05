@@ -11,7 +11,8 @@ use noita_eye_puzzle::attack::gak_attack::lymm_deck::{
     parse_known_plaintext_pairs, recover_known_plaintext_swaps,
 };
 
-use super::gak_swap_report::{print_inference_report, print_recovery_report, print_self_test};
+use super::gak_swap_report::{print_inference_report, print_recovery_report};
+use super::gak_swap_selftest_report::print_self_test;
 use crate::cli::args_gak_swap::{GakSwapPairFormat, GakSwapRecoverArgs};
 use crate::cli::shared::split_blank_line_messages;
 
