@@ -1,7 +1,7 @@
 //! Target-domain pruning rules used by partial-state propagation.
 
 use super::propagation::bit;
-use super::propagation_pruning::{
+use super::propagation_removal::{
     apply_removals, build_target_masks, mark_removed_with_reason, removal_map, removal_reason_map,
 };
 use super::residual::ResidualDomains;
@@ -93,7 +93,14 @@ pub(super) fn prune_target_read_domains(
             removal_reason,
         );
     }
-    apply_removals(residual, stats, remove, remove_reasons.as_ref(), reason)
+    apply_removals(
+        residual,
+        stats,
+        remove,
+        remove_reasons.as_ref(),
+        None,
+        reason,
+    )
 }
 
 pub(super) fn prune_distinct_target_domains(
@@ -157,5 +164,12 @@ pub(super) fn prune_distinct_target_domains(
             );
         }
     }
-    apply_removals(residual, stats, remove, remove_reasons.as_ref(), reason)
+    apply_removals(
+        residual,
+        stats,
+        remove,
+        remove_reasons.as_ref(),
+        None,
+        reason,
+    )
 }

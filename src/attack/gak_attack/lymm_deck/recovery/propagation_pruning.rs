@@ -1,11 +1,13 @@
 //! Candidate-domain pruning rules used by partial-state propagation.
 
-use std::collections::BTreeMap;
-
 use super::super::{LymmDeckSpec, TopSwapCandidate};
 use super::propagation::{bit, bit_positions, trace_conflict};
+use super::propagation_removal::{
+    apply_removals, build_target_masks, mark_removed_with_arc_reason, mark_removed_with_reason,
+    removal_arc_reason_map, removal_map, removal_reason_map,
+};
 use super::residual::{CandidateRuntime, ResidualDomains};
-use super::target_reason::TargetReasonTracker;
+use super::target_reason::{ArcLiteral, ArcReason, TargetReasonTracker};
 use super::{AlignedMessage, SwapRecoveryError, SwapRecoveryStats};
 
 const MAX_TRANSITION_READ_POSITIONS: u32 = 8;
@@ -27,6 +29,7 @@ pub(super) fn prune_transition_domains(
     let base_inverse = base_inverse(spec);
     let mut remove = removal_map(residual, false);
     let mut remove_reasons = reason.as_ref().map(|_| removal_reason_map(residual));
+    let mut arc_remove_reasons = reason.as_ref().map(|_| removal_arc_reason_map(residual));
 
     for (message_index, message) in messages.iter().enumerate() {
         let Some(message_states) = state_domains.get(message_index) else {
@@ -49,7 +52,9 @@ pub(super) fn prune_transition_domains(
                 if let Some(tracker) = reason.as_deref_mut() {
                     let conflict_reason =
                         tracker.state_reason(message_index, event_index, second.ct_value);
-                    tracker.record_conflict(conflict_reason);
+                    let arc_reason =
+                        tracker.state_arc_reason(message_index, event_index, second.ct_value);
+                    tracker.record_conflict_with_arc_reason(conflict_reason, &arc_reason);
                 }
                 return Err(SwapRecoveryError::NoResidualCandidate);
             }
@@ -70,12 +75,34 @@ pub(super) fn prune_transition_domains(
             let pre_reason = reason.as_deref().map_or(0, |tracker| {
                 tracker.state_reason(message_index, event_index, second.ct_value)
             });
+            let pre_arc_reason = reason
+                .as_deref()
+                .map_or_else(ArcReason::default, |tracker| {
+                    tracker.state_arc_reason(message_index, event_index, second.ct_value)
+                });
             let first_reason = reason
                 .as_deref()
                 .map_or(0, |tracker| tracker.domain_reason(first.letter));
+            let first_arc_reason = reason
+                .as_deref()
+                .map_or_else(ArcReason::default, |tracker| {
+                    tracker.domain_arc_reason(first.letter)
+                });
             let second_reason = reason
                 .as_deref()
                 .map_or(0, |tracker| tracker.domain_reason(second.letter));
+            let second_arc_reason = reason
+                .as_deref()
+                .map_or_else(ArcReason::default, |tracker| {
+                    tracker.domain_arc_reason(second.letter)
+                });
+            let required_first_arc = singleton_position(pre_positions).and_then(|pre_position| {
+                singleton_position(second_target_mask).map(|post_position| ArcLiteral {
+                    letter: first.letter,
+                    post_position,
+                    pre_position,
+                })
+            });
 
             let mut first_drops = Vec::new();
             let mut supported_second_targets = 0u128;
@@ -98,12 +125,24 @@ pub(super) fn prune_transition_domains(
                     first.letter, second.letter
                 ));
                 if let Some(tracker) = reason.as_deref_mut() {
-                    tracker.record_conflict_excluding(
+                    let mut arc_reason = pre_arc_reason
+                        .clone()
+                        .union(&first_arc_reason)
+                        .union(&second_arc_reason);
+                    if let Some(literal) = required_first_arc {
+                        arc_reason.union_with(&ArcReason::from_arc(literal));
+                    }
+                    tracker.record_conflict_excluding_with_arc_reason(
                         [first.letter, second.letter],
                         pre_reason | first_reason | second_reason,
+                        &arc_reason,
                     );
                 }
                 return Err(SwapRecoveryError::NoResidualCandidate);
+            }
+            let mut first_drop_arc_reason = pre_arc_reason.clone().union(&second_arc_reason);
+            if let Some(literal) = required_first_arc {
+                first_drop_arc_reason.union_with(&ArcReason::from_arc(literal));
             }
             mark_removed_with_reason(
                 &mut remove,
@@ -111,6 +150,12 @@ pub(super) fn prune_transition_domains(
                 first.letter,
                 &first_drops,
                 pre_reason | second_reason,
+            );
+            mark_removed_with_arc_reason(
+                arc_remove_reasons.as_mut(),
+                first.letter,
+                &first_drops,
+                &first_drop_arc_reason,
             );
 
             let Some(second_domain) = residual.by_letter.get(&second.letter) else {
@@ -135,10 +180,24 @@ pub(super) fn prune_transition_domains(
                 &second_drops,
                 pre_reason | first_reason,
             );
+            let second_drop_arc_reason = pre_arc_reason.clone().union(&first_arc_reason);
+            mark_removed_with_arc_reason(
+                arc_remove_reasons.as_mut(),
+                second.letter,
+                &second_drops,
+                &second_drop_arc_reason,
+            );
         }
     }
 
-    apply_removals(residual, stats, remove, remove_reasons.as_ref(), reason)
+    apply_removals(
+        residual,
+        stats,
+        remove,
+        remove_reasons.as_ref(),
+        arc_remove_reasons.as_ref(),
+        reason,
+    )
 }
 
 #[allow(
@@ -158,6 +217,7 @@ pub(super) fn prune_two_step_transition_domains(
     let base_inverse = base_inverse(spec);
     let mut remove = removal_map(residual, false);
     let mut remove_reasons = reason.as_ref().map(|_| removal_reason_map(residual));
+    let mut arc_remove_reasons = reason.as_ref().map(|_| removal_arc_reason_map(residual));
 
     for (message_index, message) in messages.iter().enumerate() {
         let Some(message_states) = state_domains.get(message_index) else {
@@ -180,7 +240,9 @@ pub(super) fn prune_two_step_transition_domains(
                 if let Some(tracker) = reason.as_deref_mut() {
                     let conflict_reason =
                         tracker.state_reason(message_index, event_index, third.ct_value);
-                    tracker.record_conflict(conflict_reason);
+                    let arc_reason =
+                        tracker.state_arc_reason(message_index, event_index, third.ct_value);
+                    tracker.record_conflict_with_arc_reason(conflict_reason, &arc_reason);
                 }
                 return Err(SwapRecoveryError::NoResidualCandidate);
             }
@@ -208,15 +270,35 @@ pub(super) fn prune_two_step_transition_domains(
             let pre_reason = reason.as_deref().map_or(0, |tracker| {
                 tracker.state_reason(message_index, event_index, third.ct_value)
             });
+            let pre_arc_reason = reason
+                .as_deref()
+                .map_or_else(ArcReason::default, |tracker| {
+                    tracker.state_arc_reason(message_index, event_index, third.ct_value)
+                });
             let first_reason = reason
                 .as_deref()
                 .map_or(0, |tracker| tracker.domain_reason(first.letter));
+            let first_arc_reason = reason
+                .as_deref()
+                .map_or_else(ArcReason::default, |tracker| {
+                    tracker.domain_arc_reason(first.letter)
+                });
             let second_reason = reason
                 .as_deref()
                 .map_or(0, |tracker| tracker.domain_reason(second.letter));
+            let second_arc_reason = reason
+                .as_deref()
+                .map_or_else(ArcReason::default, |tracker| {
+                    tracker.domain_arc_reason(second.letter)
+                });
             let third_reason = reason
                 .as_deref()
                 .map_or(0, |tracker| tracker.domain_reason(third.letter));
+            let third_arc_reason = reason
+                .as_deref()
+                .map_or_else(ArcReason::default, |tracker| {
+                    tracker.domain_arc_reason(third.letter)
+                });
 
             let mut second_outputs = Vec::with_capacity(second_domain.len());
             let mut any_second_outputs = 0u128;
@@ -237,9 +319,11 @@ pub(super) fn prune_two_step_transition_domains(
                     first.letter, second.letter, third.letter
                 ));
                 if let Some(tracker) = reason.as_deref_mut() {
-                    tracker.record_conflict_excluding(
+                    let arc_reason = second_arc_reason.clone().union(&third_arc_reason);
+                    tracker.record_conflict_excluding_with_arc_reason(
                         [second.letter, third.letter],
                         second_reason | third_reason,
+                        &arc_reason,
                     );
                 }
                 return Err(SwapRecoveryError::NoResidualCandidate);
@@ -266,19 +350,54 @@ pub(super) fn prune_two_step_transition_domains(
                     first.letter, second.letter, third.letter
                 ));
                 if let Some(tracker) = reason.as_deref_mut() {
-                    tracker.record_conflict_excluding(
+                    let arc_reason = pre_arc_reason
+                        .clone()
+                        .union(&first_arc_reason)
+                        .union(&second_arc_reason)
+                        .union(&third_arc_reason);
+                    tracker.record_conflict_excluding_with_arc_reason(
                         [first.letter, second.letter, third.letter],
                         pre_reason | first_reason | second_reason | third_reason,
+                        &arc_reason,
                     );
                 }
                 return Err(SwapRecoveryError::NoResidualCandidate);
             }
+            let first_drop_arc_reason = singleton_position(pre_positions)
+                .and_then(|pre_position| {
+                    singleton_position(any_second_outputs).map(|post_position| ArcLiteral {
+                        letter: first.letter,
+                        post_position,
+                        pre_position,
+                    })
+                })
+                .map_or_else(
+                    || {
+                        pre_arc_reason
+                            .clone()
+                            .union(&second_arc_reason)
+                            .union(&third_arc_reason)
+                    },
+                    |literal| {
+                        pre_arc_reason
+                            .clone()
+                            .union(&second_arc_reason)
+                            .union(&third_arc_reason)
+                            .union(&ArcReason::from_arc(literal))
+                    },
+                );
             mark_removed_with_reason(
                 &mut remove,
                 remove_reasons.as_mut(),
                 first.letter,
                 &first_drops,
                 pre_reason | second_reason | third_reason,
+            );
+            mark_removed_with_arc_reason(
+                arc_remove_reasons.as_mut(),
+                first.letter,
+                &first_drops,
+                &first_drop_arc_reason,
             );
 
             let second_drops = second_outputs
@@ -287,6 +406,29 @@ pub(super) fn prune_two_step_transition_domains(
                     (output_mask & any_allowed_inputs == 0).then_some(domain_index)
                 })
                 .collect::<Vec<_>>();
+            let second_drop_arc_reason = singleton_position(third_target_mask)
+                .and_then(|post_position| {
+                    singleton_position(any_allowed_inputs).map(|pre_position| ArcLiteral {
+                        letter: second.letter,
+                        post_position,
+                        pre_position,
+                    })
+                })
+                .map_or_else(
+                    || {
+                        pre_arc_reason
+                            .clone()
+                            .union(&first_arc_reason)
+                            .union(&third_arc_reason)
+                    },
+                    |literal| {
+                        pre_arc_reason
+                            .clone()
+                            .union(&first_arc_reason)
+                            .union(&third_arc_reason)
+                            .union(&ArcReason::from_arc(literal))
+                    },
+                );
             mark_removed_with_reason(
                 &mut remove,
                 remove_reasons.as_mut(),
@@ -294,43 +436,23 @@ pub(super) fn prune_two_step_transition_domains(
                 &second_drops,
                 pre_reason | first_reason | third_reason,
             );
+            mark_removed_with_arc_reason(
+                arc_remove_reasons.as_mut(),
+                second.letter,
+                &second_drops,
+                &second_drop_arc_reason,
+            );
         }
     }
 
-    apply_removals(residual, stats, remove, remove_reasons.as_ref(), reason)
-}
-
-pub(super) fn removal_map(residual: &ResidualDomains, value: bool) -> BTreeMap<char, Vec<bool>> {
-    residual
-        .by_letter
-        .iter()
-        .map(|(&letter, domain)| (letter, vec![value; domain.len()]))
-        .collect()
-}
-
-pub(super) fn removal_reason_map(residual: &ResidualDomains) -> BTreeMap<char, Vec<u128>> {
-    residual
-        .by_letter
-        .iter()
-        .map(|(&letter, domain)| (letter, vec![0; domain.len()]))
-        .collect()
-}
-
-pub(super) fn build_target_masks(residual: &ResidualDomains) -> BTreeMap<char, u128> {
-    residual
-        .by_letter
-        .iter()
-        .map(|(&letter, domain)| {
-            let mask = domain.iter().fold(0u128, |acc, &candidate_index| {
-                residual
-                    .domains
-                    .candidates
-                    .get(candidate_index)
-                    .map_or(acc, |candidate| acc | bit(candidate.top_image))
-            });
-            (letter, mask)
-        })
-        .collect()
+    apply_removals(
+        residual,
+        stats,
+        remove,
+        remove_reasons.as_ref(),
+        arc_remove_reasons.as_ref(),
+        reason,
+    )
 }
 
 fn base_inverse(spec: &LymmDeckSpec) -> Vec<usize> {
@@ -376,110 +498,7 @@ fn candidate_image_mask(candidate: &CandidateRuntime, input_positions: u128) -> 
     mask
 }
 
-fn mark_removed(remove: &mut BTreeMap<char, Vec<bool>>, letter: char, indexes: &[usize]) {
-    let Some(letter_remove) = remove.get_mut(&letter) else {
-        return;
-    };
-    for &index in indexes {
-        if let Some(slot) = letter_remove.get_mut(index) {
-            *slot = true;
-        }
-    }
-}
-
-pub(super) fn mark_removed_with_reason(
-    remove: &mut BTreeMap<char, Vec<bool>>,
-    remove_reasons: Option<&mut BTreeMap<char, Vec<u128>>>,
-    letter: char,
-    indexes: &[usize],
-    reason: u128,
-) {
-    mark_removed(remove, letter, indexes);
-    let Some(reason_map) = remove_reasons else {
-        return;
-    };
-    let Some(letter_reasons) = reason_map.get_mut(&letter) else {
-        return;
-    };
-    for &index in indexes {
-        if let Some(slot) = letter_reasons.get_mut(index) {
-            *slot |= reason;
-        }
-    }
-}
-
-pub(super) fn apply_removals(
-    residual: &mut ResidualDomains,
-    stats: &mut SwapRecoveryStats,
-    remove: BTreeMap<char, Vec<bool>>,
-    remove_reasons: Option<&BTreeMap<char, Vec<u128>>>,
-    mut reason: Option<&mut TargetReasonTracker>,
-) -> Result<bool, SwapRecoveryError> {
-    let mut changed = false;
-    for (letter, removed) in remove {
-        if !removed.iter().any(|&drop| drop) {
-            continue;
-        }
-        let removed_reason_values = remove_reasons
-            .as_ref()
-            .and_then(|reasons| reasons.get(&letter))
-            .into_iter()
-            .flat_map(|reasons| {
-                reasons
-                    .iter()
-                    .zip(&removed)
-                    .filter_map(|(&reason, &drop)| drop.then_some(reason))
-            })
-            .collect::<Vec<_>>();
-        let removal_reason = removed_reason_values
-            .iter()
-            .copied()
-            .fold(0, |acc, reason| acc | reason);
-        let shared_removal_reason = removed_reason_values
-            .iter()
-            .copied()
-            .reduce(|acc, reason| acc & reason)
-            .unwrap_or(0);
-        let before = residual
-            .by_letter
-            .get(&letter)
-            .map_or(0usize, std::vec::Vec::len);
-        let filtered = residual
-            .by_letter
-            .get(&letter)
-            .into_iter()
-            .flat_map(|domain| domain.iter().copied().enumerate())
-            .filter_map(|(index, candidate)| {
-                (!removed.get(index).copied().unwrap_or(true)).then_some(candidate)
-            })
-            .collect::<Vec<_>>();
-        if filtered.is_empty() {
-            trace_conflict(&format!("removal pass emptied letter {letter}"));
-            if let Some(tracker) = reason.as_deref_mut() {
-                let conflict_reason = if shared_removal_reason == 0 {
-                    removal_reason
-                } else {
-                    shared_removal_reason
-                };
-                if std::env::var_os("NOITA_SWAP_CEGAR_TRACE").is_some() {
-                    eprintln!(
-                        "cegar: removal conflict letter={letter} reason={:?} shared={:?}",
-                        tracker.choices_for(removal_reason),
-                        tracker.choices_for(shared_removal_reason)
-                    );
-                }
-                tracker.record_letter_conflict(letter, conflict_reason);
-            }
-            return Err(SwapRecoveryError::NoResidualCandidate);
-        }
-        if filtered.len() != before {
-            stats.domains_pruned += before.saturating_sub(filtered.len());
-            if let Some(tracker) = reason.as_deref_mut() {
-                tracker.add_domain_reason(letter, removal_reason);
-            }
-            let _old = residual.by_letter.insert(letter, filtered);
-            changed = true;
-        }
-    }
-    Ok(changed)
+fn singleton_position(mask: u128) -> Option<usize> {
+    mask.is_power_of_two()
+        .then_some(mask.trailing_zeros() as usize)
 }

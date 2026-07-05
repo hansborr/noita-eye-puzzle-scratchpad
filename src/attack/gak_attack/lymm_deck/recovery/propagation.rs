@@ -4,18 +4,14 @@ use std::collections::BTreeMap;
 
 use super::super::LymmDeckSpec;
 use super::propagation_pruning::{prune_transition_domains, prune_two_step_transition_domains};
+use super::propagation_relation::{
+    DomainRelation, build_domain_relations, candidate_is_arc_consistent, map_post_to_pre,
+    map_pre_to_post,
+};
 use super::propagation_target_pruning::{prune_distinct_target_domains, prune_target_read_domains};
-use super::residual::{CandidateRuntime, ResidualDomains};
+use super::residual::ResidualDomains;
 use super::target_reason::TargetReasonTracker;
 use super::{AlignedMessage, SwapRecoveryError, SwapRecoveryStats};
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct DomainRelation {
-    letter: char,
-    post_to_pre: Vec<u128>,
-    pre_to_post: Vec<u128>,
-    reason: u128,
-}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct PropagationResult {
@@ -230,7 +226,10 @@ fn enforce_one_state_permutation_domain(
                 if let Some(tracker) = reason.as_deref_mut() {
                     let conflict_reason =
                         state_reason | tracker.state_reason(message_index, state_index, value);
-                    tracker.record_conflict(conflict_reason);
+                    let arc_reason = tracker
+                        .state_union_arc_reason(message_index, state_index)
+                        .union(&tracker.state_arc_reason(message_index, state_index, value));
+                    tracker.record_conflict_with_arc_reason(conflict_reason, &arc_reason);
                 }
                 return Err(SwapRecoveryError::NoResidualCandidate);
             }
@@ -258,7 +257,8 @@ fn enforce_one_state_permutation_domain(
             if support.is_empty() {
                 trace_conflict("state position has no supporting value");
                 if let Some(tracker) = reason.as_deref_mut() {
-                    tracker.record_conflict(state_reason);
+                    let arc_reason = tracker.state_union_arc_reason(message_index, state_index);
+                    tracker.record_conflict_with_arc_reason(state_reason, &arc_reason);
                 }
                 return Err(SwapRecoveryError::NoResidualCandidate);
             }
@@ -388,11 +388,35 @@ fn narrow_transition_state(
                 let conflict_reason = relation.reason
                     | tracker.state_reason(message_index, event_index, value)
                     | tracker.state_reason(message_index, event_index.saturating_add(1), value);
-                tracker.record_conflict_excluding([relation.letter], conflict_reason);
+                let arc_reason = relation
+                    .arc_reason
+                    .clone()
+                    .union(&tracker.state_arc_reason(message_index, event_index, value))
+                    .union(&tracker.state_arc_reason(
+                        message_index,
+                        event_index.saturating_add(1),
+                        value,
+                    ));
+                tracker.record_conflict_excluding_with_arc_reason(
+                    [relation.letter],
+                    conflict_reason,
+                    &arc_reason,
+                );
             }
             return Err(SwapRecoveryError::NoResidualCandidate);
         }
         if new_pre != old_pre {
+            let next_arc_reason = reason.as_deref().map(|tracker| {
+                relation
+                    .arc_reason
+                    .clone()
+                    .union(&tracker.state_arc_reason(message_index, event_index, value))
+                    .union(&tracker.state_arc_reason(
+                        message_index,
+                        event_index.saturating_add(1),
+                        value,
+                    ))
+            });
             if let Some(slot) = pre.get_mut(value) {
                 *slot = new_pre;
             }
@@ -401,11 +425,30 @@ fn narrow_transition_state(
                     | tracker.state_reason(message_index, event_index, value)
                     | tracker.state_reason(message_index, event_index.saturating_add(1), value);
                 tracker.set_state_reason(message_index, event_index, value, next_reason);
+                if let Some(next_arc_reason) = &next_arc_reason {
+                    tracker.set_state_arc_reason(
+                        message_index,
+                        event_index,
+                        value,
+                        next_arc_reason,
+                    );
+                }
             }
             stats.deductions += 1;
             changed = true;
         }
         if new_post != old_post {
+            let next_arc_reason = reason.as_deref().map(|tracker| {
+                relation
+                    .arc_reason
+                    .clone()
+                    .union(&tracker.state_arc_reason(message_index, event_index, value))
+                    .union(&tracker.state_arc_reason(
+                        message_index,
+                        event_index.saturating_add(1),
+                        value,
+                    ))
+            });
             if let Some(slot) = post.get_mut(value) {
                 *slot = new_post;
             }
@@ -419,6 +462,14 @@ fn narrow_transition_state(
                     value,
                     next_reason,
                 );
+                if let Some(next_arc_reason) = &next_arc_reason {
+                    tracker.set_state_arc_reason(
+                        message_index,
+                        event_index.saturating_add(1),
+                        value,
+                        next_arc_reason,
+                    );
+                }
             }
             stats.deductions += 1;
             changed = true;
@@ -476,122 +527,6 @@ fn prune_candidate_domains(
         }
     }
     Ok(changed)
-}
-
-fn build_domain_relations(
-    spec: &LymmDeckSpec,
-    residual: &ResidualDomains,
-    reason: Option<&TargetReasonTracker>,
-) -> BTreeMap<char, DomainRelation> {
-    let mut relations = BTreeMap::new();
-    for (&letter, domain) in &residual.by_letter {
-        let mut post_to_pre = vec![0u128; spec.n];
-        let mut pre_to_post = vec![0u128; spec.n];
-        for &candidate_index in domain {
-            if let Some(candidate) = residual.candidates.get(candidate_index) {
-                for (post_position, &pre_position) in candidate.perm.iter().enumerate() {
-                    if let Some(slot) = post_to_pre.get_mut(post_position) {
-                        *slot |= bit(pre_position);
-                    }
-                    if let Some(slot) = pre_to_post.get_mut(pre_position) {
-                        *slot |= bit(post_position);
-                    }
-                }
-            }
-        }
-        let _old = relations.insert(
-            letter,
-            DomainRelation {
-                letter,
-                post_to_pre,
-                pre_to_post,
-                reason: reason.map_or(0, |tracker| tracker.domain_reason(letter)),
-            },
-        );
-    }
-    relations
-}
-
-fn map_pre_to_post(pre_positions: u128, relation: &DomainRelation) -> u128 {
-    let mut mapped = 0u128;
-    for pre_position in bit_positions(pre_positions) {
-        mapped |= relation
-            .pre_to_post
-            .get(pre_position)
-            .copied()
-            .unwrap_or_default();
-    }
-    mapped
-}
-
-fn map_post_to_pre(post_positions: u128, relation: &DomainRelation) -> u128 {
-    let mut mapped = 0u128;
-    for post_position in bit_positions(post_positions) {
-        mapped |= relation
-            .post_to_pre
-            .get(post_position)
-            .copied()
-            .unwrap_or_default();
-    }
-    mapped
-}
-
-fn candidate_is_arc_consistent(
-    spec: &LymmDeckSpec,
-    messages: &[AlignedMessage],
-    states: &[Vec<Vec<u128>>],
-    residual: &ResidualDomains,
-    letter: char,
-    candidate_index: usize,
-    full: u128,
-) -> bool {
-    let Some(candidate) = residual.candidates.get(candidate_index) else {
-        return false;
-    };
-    for (message_index, message) in messages.iter().enumerate() {
-        let Some(message_states) = states.get(message_index) else {
-            return false;
-        };
-        for (event_index, event) in message.events.iter().enumerate() {
-            if event.letter != letter {
-                continue;
-            }
-            let (Some(pre), Some(post)) = (
-                message_states.get(event_index),
-                message_states.get(event_index.saturating_add(1)),
-            ) else {
-                return false;
-            };
-            for value in 0..spec.n {
-                let pre_positions = pre.get(value).copied().unwrap_or_default();
-                let post_positions = post.get(value).copied().unwrap_or_default();
-                if pre_positions == full && post_positions == full {
-                    continue;
-                }
-                if !candidate_allows_value(candidate, pre_positions, post_positions) {
-                    return false;
-                }
-            }
-        }
-    }
-    true
-}
-
-fn candidate_allows_value(
-    candidate: &CandidateRuntime,
-    pre_positions: u128,
-    post_positions: u128,
-) -> bool {
-    for post_position in bit_positions(post_positions) {
-        if candidate
-            .perm
-            .get(post_position)
-            .is_some_and(|&pre_position| pre_positions & bit(pre_position) != 0)
-        {
-            return true;
-        }
-    }
-    false
 }
 
 fn full_mask(n: usize) -> u128 {

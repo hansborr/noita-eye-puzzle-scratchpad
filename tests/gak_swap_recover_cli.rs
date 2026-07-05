@@ -56,6 +56,23 @@ fn gak_swap_recover_cli_reports_ns3_frontier_not_recovery() {
 }
 
 #[test]
+fn gak_swap_arc_phase0_cli_runs_instrument_controls() {
+    let stdout = run_noita_eye(&[
+        "gak-swap-arc-phase0",
+        "--run-controls",
+        "--max-rejections",
+        "1",
+        "--replay-cap",
+        "32",
+    ]);
+
+    assert_contains(&stdout, "gak swap arc Phase-0 controls:");
+    assert_contains(&stdout, "planted-positive: PASS");
+    assert_contains(&stdout, "matched-null: PASS");
+    assert_contains(&stdout, "SELF-TEST: PASS");
+}
+
+#[test]
 fn gak_swap_recover_cli_infers_ns2_with_frontier_cap() {
     let stdout = run_noita_eye(&[
         "gak-swap-recover",

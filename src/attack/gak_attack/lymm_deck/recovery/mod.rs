@@ -3,6 +3,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 
+mod arc_phase0;
+mod arc_phase0_controls;
+mod arc_phase0_tuple;
+mod arc_phase0_types;
 mod domain_build;
 mod error;
 mod inference;
@@ -13,6 +17,8 @@ mod ns3_cegar;
 mod ns3_control;
 mod propagation;
 mod propagation_pruning;
+mod propagation_relation;
+mod propagation_removal;
 mod propagation_target_pruning;
 mod reach;
 mod residual;
@@ -23,6 +29,15 @@ mod target_conflict;
 mod target_reason;
 mod target_solver;
 
+pub use arc_phase0::measure_ns3_arc_provenance;
+pub use arc_phase0_controls::gak_swap_arc_phase0_controls;
+pub use arc_phase0_types::{
+    DEFAULT_ARC_PHASE0_REJECTION_CAP, DEFAULT_ARC_PHASE0_REPLAY_CAP,
+    DEFAULT_ARC_PHASE0_SPOT_CHECKS, DEFAULT_ARC_PHASE0_WALL_SECS, GakSwapArcContextBin,
+    GakSwapArcControlLeg, GakSwapArcLiteral, GakSwapArcPhase0Config,
+    GakSwapArcPhase0ControlsReport, GakSwapArcPhase0Report, GakSwapArcPhase0Stop,
+    GakSwapArcRejection, GakSwapArcTupleKillEstimate,
+};
 pub use error::SwapRecoveryError;
 pub use inference::{
     SUPPORTED_SWAP_RECOVERY_FRONTIER, SWAP_RECOVERY_FRONTIER_MESSAGE, SwapInferenceAttempt,
