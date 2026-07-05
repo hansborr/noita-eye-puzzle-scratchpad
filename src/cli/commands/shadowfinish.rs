@@ -184,13 +184,25 @@ fn load_tables(paths: &[std::path::PathBuf]) -> Result<Vec<ShadowFinishTable>, S
 fn print_self_test(seed: u64, report: &ShadowFinishSelfTest) {
     println!("shadowfinish self-test (seed=0x{seed:016x}):");
     println!(
-        "  planted positive: {} (truth rank {:?}, margin vs junk max {:.4})",
-        pass_fail(report.positive_roundtrip && report.positive_truth_top_k),
+        "  planted positive: {} (candidate verdict: {}, roundtrip invariant: {}, truth rank {:?}, margin vs junk max {:.4})",
+        pass_fail(
+            report.positive_candidate_verdict
+                && report.positive_roundtrip
+                && report.positive_truth_top_k
+        ),
+        pass_fail(report.positive_candidate_verdict),
+        pass_fail(report.positive_roundtrip),
         report.positive_truth_rank,
         report.positive_margin_vs_junk_max
     );
     println!(
-        "  wrong-plaintext negative: {} (inside junk: {})",
+        "  vacuity control: {} (alternate roundtrip: {}, distinct plaintext: {})",
+        pass_fail(report.vacuity_both_roundtrip && report.vacuity_distinct_plaintexts),
+        report.vacuity_both_roundtrip,
+        report.vacuity_distinct_plaintexts
+    );
+    println!(
+        "  wrong-plaintext sanity: {} (inside junk: {})",
         pass_fail(report.wrong_plaintext_no_roundtrip),
         report.wrong_plaintext_inside_junk
     );
@@ -218,6 +230,9 @@ fn print_report(report: &ShadowFinishReport, artifact_path: &std::path::Path) {
     );
     println!("  tables: {}", report.table_names.join(", "));
     println!(
+        "  table note: table count is object count; ascii32 and ascii96 share byte decoding for 6-bit values 0..63"
+    );
+    println!(
         "  tier A: visited {}, retained {}, top-K dropped {}, loose rejects {}, strict passes {}",
         report.tier_a.visited,
         report.tier_a.retained_for_tier_b,
@@ -233,9 +248,10 @@ fn print_report(report: &ShadowFinishReport, artifact_path: &std::path::Path) {
         report.calibration.p_emp,
         report.calibration.margin_vs_null_max
     );
+    println!("  null scope: {}", report.calibration.null_scope);
     if let Some(best) = report.top_candidates.first() {
         println!(
-            "  best: class {} table {} {} {} score {:.4} word {:.4} anchor {:.4} roundtrip {}",
+            "  best: class {} table {} {} {} score {:.4} word {:.4} anchor {:.4} roundtrip invariant {}",
             best.class_index,
             best.table,
             best.phase.label(),
@@ -245,6 +261,10 @@ fn print_report(report: &ShadowFinishReport, artifact_path: &std::path::Path) {
             best.anchor_score,
             best.roundtrip
         );
+        println!(
+            "  roundtrip note: {}",
+            shadow_finish::ROUNDTRIP_INVARIANT_NOTE
+        );
     }
     println!("  VERDICT: {}", report.verdict.label());
 }
@@ -253,16 +273,7 @@ fn maybe_write_candidate(
     args: &ShadowfinishArgs,
     report: &ShadowFinishReport,
 ) -> Option<Result<std::path::PathBuf, String>> {
-    let top_roundtrip = report
-        .top_candidates
-        .first()
-        .is_some_and(|candidate| candidate.roundtrip);
-    if !top_roundtrip
-        && !matches!(
-            report.verdict,
-            ShadowFinishVerdict::RoundTripDecode | ShadowFinishVerdict::Candidate
-        )
-    {
+    if report.verdict != ShadowFinishVerdict::Candidate {
         return None;
     }
     let candidate = report.top_candidates.first()?.clone();
@@ -303,8 +314,9 @@ fn candidate_record(
          Stable label: label={} seed=0x{:016x}\n\n\
          ## Verdict\n\n\
          **{} — logged as a HYPOTHESIS, not a verified decode.**\n\n\
-         Exact visible-ciphertext round-trip: {}\n\
+         Round-trip invariant satisfied: {}. {}\n\
          Matched-null p_emp: {:.6} (null_ge {}/{})\n\
+         Matched-null scope: {}\n\
          Surface: {} interpretations; Tier-A retained {}; top-K dropped {}\n\n\
          ## Candidate Metadata\n\n\
          - class: {}\n\
@@ -323,9 +335,11 @@ fn candidate_record(
         args.seed,
         report.verdict.label(),
         candidate.roundtrip,
+        shadow_finish::ROUNDTRIP_INVARIANT_NOTE,
         report.calibration.p_emp,
         report.calibration.null_ge,
         report.calibration.trials,
+        report.calibration.null_scope,
         report.surface.total_interpretations,
         report.tier_a.retained_for_tier_b,
         report.tier_a.top_k_dropped,
@@ -347,6 +361,12 @@ fn report_json(report: &ShadowFinishReport) -> String {
     writeln!(&mut out, "{{").expect("write to String");
     writeln!(&mut out, "  \"tool\": \"shadowfinish\",").expect("write to String");
     writeln!(&mut out, "  \"verdict\": \"{}\",", report.verdict.label()).expect("write to String");
+    writeln!(
+        &mut out,
+        "  \"roundtrip_semantics\": \"{}\",",
+        json_escape(shadow_finish::ROUNDTRIP_INVARIANT_NOTE)
+    )
+    .expect("write to String");
     writeln!(
         &mut out,
         "  \"surface\": {{\"classes\":{},\"permutations_per_class\":{},\"digit_orders\":{},\"tables\":{},\"phases\":{},\"total_interpretations\":{},\"phase0_dropped_q_symbols\":{},\"phase1_dropped_q_symbols\":{}}},",
@@ -372,7 +392,8 @@ fn report_json(report: &ShadowFinishReport) -> String {
     .expect("write to String");
     writeln!(
         &mut out,
-        "  \"calibration\": {{\"trials\":{},\"observed_best\":{:.8},\"null_ge\":{},\"p_emp\":{:.8},\"null_max\":{:.8},\"margin_vs_null_max\":{:.8}}},",
+        "  \"calibration\": {{\"null_scope\":\"{}\",\"trials\":{},\"observed_best\":{:.8},\"null_ge\":{},\"p_emp\":{:.8},\"null_max\":{:.8},\"margin_vs_null_max\":{:.8}}},",
+        json_escape(&report.calibration.null_scope),
         report.calibration.trials,
         report.calibration.observed_best,
         report.calibration.null_ge,
@@ -396,7 +417,7 @@ fn candidates_json(candidates: &[FinishCandidate]) -> String {
         .iter()
         .map(|candidate| {
             format!(
-                "{{\"class_index\":{},\"table\":\"{}\",\"phase\":\"{}\",\"order\":\"{}\",\"permutation\":{},\"combined_score\":{:.8},\"quadgram_score\":{:.8},\"word_score\":{:.8},\"anchor_score\":{:.8},\"strict_valid\":{},\"roundtrip\":{}}}",
+                "{{\"class_index\":{},\"table\":\"{}\",\"phase\":\"{}\",\"order\":\"{}\",\"permutation\":{},\"combined_score\":{:.8},\"quadgram_score\":{:.8},\"word_score\":{:.8},\"anchor_score\":{:.8},\"strict_valid\":{},\"roundtrip_invariant\":{}}}",
                 candidate.class_index,
                 json_escape(&candidate.table),
                 candidate.phase.label(),

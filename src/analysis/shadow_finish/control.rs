@@ -3,12 +3,12 @@
 use crate::attack::quadgram::QuadgramModel;
 
 use super::artifact::{canonical_from_plaintext, encode_with_key};
-use super::engine::{TruthProbe, run_ladder_with_probe};
+use super::engine::{TruthProbe, decode_pattern, run_ladder_with_probe};
 use super::scoring::{WordSegModel, combined_score, score_anchor_words, score_quadgrams};
 use super::tables::builtin_tables;
 use super::{
-    DigitOrder, ShadowFinishArtifact, ShadowFinishConfig, ShadowFinishError, ShadowFinishTable,
-    ShadowFinishVerdict,
+    DigitOrder, PairPhase, ShadowFinishArtifact, ShadowFinishConfig, ShadowFinishError,
+    ShadowFinishTable, ShadowFinishVerdict,
 };
 
 const CONTROL_NULL_TRIALS: usize = 3;
@@ -23,8 +23,10 @@ const CONTROL_LEN: usize = 349;
     reason = "self-test report DTO: each bool is an independent control leg surfaced by the CLI"
 )]
 pub struct ShadowFinishSelfTest {
-    /// The planted plaintext survived Tier A and exact round-trip.
+    /// The planted plaintext survived Tier A and the phase-0 replay invariant.
     pub positive_roundtrip: bool,
+    /// The planted plaintext cleared the matched null as a language hypothesis.
+    pub positive_candidate_verdict: bool,
     /// Planted truth Tier-A rank across the full enumeration surface.
     pub positive_truth_rank: Option<usize>,
     /// The planted truth was inside the configured per-class top-K.
@@ -35,6 +37,10 @@ pub struct ShadowFinishSelfTest {
     pub wrong_plaintext_no_roundtrip: bool,
     /// The wrong plaintext's score sits inside the junk distribution.
     pub wrong_plaintext_inside_junk: bool,
+    /// Two different table/order/permutation interpretations both replay.
+    pub vacuity_both_roundtrip: bool,
+    /// The alternate replaying interpretation is textually different.
+    pub vacuity_distinct_plaintexts: bool,
     /// Overall self-test verdict.
     pub passed: bool,
 }
@@ -96,8 +102,8 @@ fn run_control(
         .report
         .top_candidates
         .iter()
-        .any(|candidate| candidate.plaintext == fixture.plaintext && candidate.roundtrip)
-        && outcome.report.verdict == ShadowFinishVerdict::RoundTripDecode;
+        .any(|candidate| candidate.plaintext == fixture.plaintext && candidate.roundtrip);
+    let positive_candidate_verdict = outcome.report.verdict == ShadowFinishVerdict::Candidate;
     let positive_truth_top_k = outcome.truth_tier_a_rank.is_some_and(|rank| rank <= top_k);
     let positive_margin_vs_junk_max = outcome.report.calibration.margin_vs_null_max;
     let wrong_plaintext_no_roundtrip = fixture.wrong_plaintext_no_roundtrip(tables)?;
@@ -113,26 +119,40 @@ fn run_control(
         .samples
         .iter()
         .any(|&sample| sample >= wrong_score);
+    let vacuity = fixture.vacuity_control(tables)?;
     let passed = positive_roundtrip
+        && positive_candidate_verdict
         && positive_truth_top_k
         && positive_margin_vs_junk_max > 0.0
         && wrong_plaintext_no_roundtrip
-        && wrong_plaintext_inside_junk;
+        && wrong_plaintext_inside_junk
+        && vacuity.both_roundtrip
+        && vacuity.distinct_plaintexts;
     Ok(ShadowFinishSelfTest {
         positive_roundtrip,
+        positive_candidate_verdict,
         positive_truth_rank: outcome.truth_tier_a_rank,
         positive_truth_top_k,
         positive_margin_vs_junk_max,
         wrong_plaintext_no_roundtrip,
         wrong_plaintext_inside_junk,
+        vacuity_both_roundtrip: vacuity.both_roundtrip,
+        vacuity_distinct_plaintexts: vacuity.distinct_plaintexts,
         passed,
     })
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct VacuityControl {
+    both_roundtrip: bool,
+    distinct_plaintexts: bool,
 }
 
 #[derive(Clone, Debug)]
 struct Fixture {
     artifact_json: String,
     ciphertext: Vec<u16>,
+    q_pattern: Vec<u16>,
     plaintext: Vec<u8>,
     wrong_plaintext: Vec<u8>,
     wordlist: String,
@@ -164,6 +184,7 @@ impl Fixture {
         Ok(Self {
             artifact_json,
             ciphertext,
+            q_pattern,
             plaintext,
             wrong_plaintext,
             wordlist: control_wordlist(),
@@ -190,6 +211,75 @@ impl Fixture {
         let rendered = encode_with_key(&q_pattern, 8, &(0..8).collect::<Vec<_>>(), &control_key())?;
         Ok(rendered != self.ciphertext)
     }
+
+    fn vacuity_control(
+        &self,
+        tables: &[ShadowFinishTable],
+    ) -> Result<VacuityControl, ShadowFinishError> {
+        let truth_table = find_table(tables, "sixbit-lower-space")?;
+        let (truth_text, _strict) = decode_pattern(
+            &self.q_pattern,
+            PairPhase::Phase0,
+            DigitOrder::HighLow,
+            self.permutation,
+            truth_table,
+        )
+        .ok_or_else(|| {
+            ShadowFinishError::RoundTrip("control truth interpretation failed to decode".to_owned())
+        })?;
+        let alt_table = tables
+            .iter()
+            .find(|table| table.name == "sixbit-base64")
+            .or_else(|| tables.first())
+            .ok_or_else(|| ShadowFinishError::Table("empty control table set".to_owned()))?;
+        let alt_permutation = [0, 1, 2, 3, 4, 5, 6, 7];
+        let (alt_text, _strict) = decode_pattern(
+            &self.q_pattern,
+            PairPhase::Phase0,
+            DigitOrder::LowHigh,
+            alt_permutation,
+            alt_table,
+        )
+        .ok_or_else(|| {
+            ShadowFinishError::RoundTrip(
+                "control alternate interpretation failed to decode".to_owned(),
+            )
+        })?;
+        let truth_roundtrip = self.roundtrips(
+            &truth_text,
+            truth_table,
+            DigitOrder::HighLow,
+            self.permutation,
+        )?;
+        let alt_roundtrip =
+            self.roundtrips(&alt_text, alt_table, DigitOrder::LowHigh, alt_permutation)?;
+        Ok(VacuityControl {
+            both_roundtrip: truth_roundtrip && alt_roundtrip,
+            distinct_plaintexts: truth_text != alt_text,
+        })
+    }
+
+    fn roundtrips(
+        &self,
+        plaintext: &[u8],
+        table: &ShadowFinishTable,
+        order: DigitOrder,
+        permutation: [u8; 8],
+    ) -> Result<bool, ShadowFinishError> {
+        let q_pattern = canonical_from_plaintext(plaintext, table, order, permutation)?;
+        let rendered = encode_with_key(&q_pattern, 8, &(0..8).collect::<Vec<_>>(), &control_key())?;
+        Ok(rendered == self.ciphertext)
+    }
+}
+
+fn find_table<'a>(
+    tables: &'a [ShadowFinishTable],
+    name: &str,
+) -> Result<&'a ShadowFinishTable, ShadowFinishError> {
+    tables
+        .iter()
+        .find(|table| table.name == name)
+        .ok_or_else(|| ShadowFinishError::Table(format!("missing {name} control table")))
 }
 
 fn score_plaintext(

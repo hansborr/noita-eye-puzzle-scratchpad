@@ -103,7 +103,7 @@ pub(super) fn run_ladder_with_probe(
     }
 
     let observed = enumerate_and_score(
-        artifact, prepared, ciphertext, tables, word_model, quadgram, config, truth,
+        artifact, prepared, ciphertext, tables, word_model, quadgram, config, truth, true,
     )?;
     let observed_best = observed
         .observed_best_tier_b
@@ -119,10 +119,7 @@ pub(super) fn run_ladder_with_probe(
         .take(MAX_TOP_CANDIDATES)
         .map(|scored| finish_candidate(scored, tables))
         .collect::<Vec<_>>();
-    let best_roundtrip = top_candidates
-        .first()
-        .is_some_and(|candidate| candidate.roundtrip);
-    let verdict = finish_verdict_with_alpha(best_roundtrip, &calibration, config.alpha);
+    let verdict = finish_verdict_with_alpha(&calibration, config.alpha);
     Ok(LadderOutcome {
         report: ShadowFinishReport {
             verdict,
@@ -152,6 +149,7 @@ fn enumerate_and_score(
     quadgram: &QuadgramModel,
     config: &ShadowFinishConfig,
     truth: Option<&TruthProbe<'_>>,
+    enforce_phase0_roundtrip: bool,
 ) -> Result<EnumerationSummary, ShadowFinishError> {
     let permutations = all_permutations();
     let phases = phases(config);
@@ -226,14 +224,54 @@ fn enumerate_and_score(
     }
 
     tier_a.retained_for_tier_b = retained.len();
-    let mut scored = retained
+    let mut scored = score_retained_tier_b(
+        artifact,
+        prepared,
+        ciphertext,
+        tables,
+        word_model,
+        &retained,
+        enforce_phase0_roundtrip,
+    )?;
+    sort_tier_b(&mut scored);
+    let truth_rank = if truth.is_some() && truth_seen_tier_a {
+        Some(truth_better_tier_a + 1)
+    } else {
+        None
+    };
+    Ok(EnumerationSummary {
+        tier_a,
+        observed_best_tier_b: scored,
+        truth_rank,
+    })
+}
+
+fn score_retained_tier_b(
+    artifact: &ShadowFinishArtifact,
+    prepared: &[PreparedClass],
+    ciphertext: &[u16],
+    tables: &[ShadowFinishTable],
+    word_model: &WordSegModel,
+    retained: &[TierACandidate],
+    enforce_phase0_roundtrip: bool,
+) -> Result<Vec<TierBScored>, ShadowFinishError> {
+    retained
         .iter()
         .map(|candidate| {
             score_tier_b(
-                artifact, prepared, ciphertext, tables, word_model, candidate,
+                artifact,
+                prepared,
+                ciphertext,
+                tables,
+                word_model,
+                candidate,
+                enforce_phase0_roundtrip,
             )
         })
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect()
+}
+
+fn sort_tier_b(scored: &mut [TierBScored]) {
     scored.sort_by(|left, right| {
         right
             .combined_score
@@ -245,16 +283,6 @@ fn enumerate_and_score(
                     .total_cmp(&left.candidate.quadgram_score)
             })
     });
-    let truth_rank = if truth.is_some() && truth_seen_tier_a {
-        Some(truth_better_tier_a + 1)
-    } else {
-        None
-    };
-    Ok(EnumerationSummary {
-        tier_a,
-        observed_best_tier_b: scored,
-        truth_rank,
-    })
 }
 
 #[allow(
@@ -274,7 +302,7 @@ fn matched_null_samples(
     for trial in 0..config.null_trials {
         let decoys = decoy_classes(prepared, mix_seed(config.seed, trial as u64 + 0x6600))?;
         let summary = enumerate_and_score(
-            artifact, &decoys, ciphertext, tables, word_model, quadgram, config, None,
+            artifact, &decoys, ciphertext, tables, word_model, quadgram, config, None, false,
         )?;
         let best = summary
             .observed_best_tier_b
@@ -314,11 +342,17 @@ fn score_tier_b(
     tables: &[ShadowFinishTable],
     word_model: &WordSegModel,
     candidate: &TierACandidate,
+    enforce_phase0_roundtrip: bool,
 ) -> Result<TierBScored, ShadowFinishError> {
     let word = word_model.score_text(&candidate.plaintext);
     let anchor = score_anchor_words(word_model, &candidate.plaintext, &artifact.hard_anchors);
     let combined = combined_score(candidate.quadgram_score, word, anchor);
     let roundtrip = exact_roundtrip(artifact, prepared, ciphertext, tables, candidate)?;
+    if enforce_phase0_roundtrip && candidate.phase == PairPhase::Phase0 && !roundtrip {
+        return Err(ShadowFinishError::RoundTrip(
+            "phase-0 bijective codec candidate failed the replay invariant".to_owned(),
+        ));
+    }
     Ok(TierBScored {
         candidate: candidate.clone(),
         word_score: word.mean_logp,
@@ -369,7 +403,7 @@ fn exact_roundtrip(
     Ok(rendered == ciphertext)
 }
 
-fn decode_pattern(
+pub(super) fn decode_pattern(
     pattern: &[u16],
     phase: PairPhase,
     order: DigitOrder,
@@ -519,19 +553,13 @@ fn quadgram_score(model: &QuadgramModel, plaintext: &[u8]) -> f64 {
     }
 }
 
-fn finish_verdict_with_alpha(
-    best_roundtrip: bool,
-    calibration: &CalibrationReport,
-    alpha: f64,
-) -> ShadowFinishVerdict {
+fn finish_verdict_with_alpha(calibration: &CalibrationReport, alpha: f64) -> ShadowFinishVerdict {
     let min_p = 1.0 / (calibration.trials.saturating_add(1) as f64);
     if min_p > alpha {
         return ShadowFinishVerdict::LowPowerNoExclusion;
     }
     if calibration.p_emp > alpha {
         ShadowFinishVerdict::NoCandidate
-    } else if best_roundtrip {
-        ShadowFinishVerdict::RoundTripDecode
     } else {
         ShadowFinishVerdict::Candidate
     }

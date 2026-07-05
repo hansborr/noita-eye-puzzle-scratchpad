@@ -2,8 +2,9 @@
 //!
 //! This module consumes the file artifact emitted by `shadowsearch --output`,
 //! enumerates the reported two-octal-digit residual surface, applies bounded
-//! language discriminators, and accepts a candidate only when it exactly
-//! re-encodes the visible ciphertext through the representative shadow key.
+//! language discriminators, and reports calibrated plaintext hypotheses. The
+//! phase-0 visible-ciphertext re-encode is a replay invariant on this
+//! co-searched bijective codec surface, not independent acceptance evidence.
 
 use std::fmt;
 
@@ -35,6 +36,10 @@ pub const DEFAULT_VOCAB_CAP: usize = 50_000;
 pub const DEFAULT_MAX_MEM_MIB: usize = 2048;
 /// Default candidate significance threshold.
 pub const DEFAULT_ALPHA: f64 = 0.05;
+/// Scope of the current matched-null calibration.
+pub const MATCHED_NULL_SCOPE: &str = "decoy q-pattern label shuffles of the artifact's retained max-soft shadowsearch classes; does not replay stage-ii survivor or non-max selection";
+/// Interpretation of the phase-0 re-encode check.
+pub const ROUNDTRIP_INVARIANT_NOTE: &str = "vacuous phase-0 replay invariant on the co-searched bijective table/permutation/order surface; every in-range phase-0 interpretation re-encodes through the representative shadow key, so this is not plaintext evidence";
 
 /// Digit order inside each two-octal-digit pair.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -113,9 +118,10 @@ impl Default for ShadowFinishConfig {
 /// Verdict vocabulary for the crib-free finish stage.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ShadowFinishVerdict {
-    /// Exact visible-ciphertext round-trip accepted a candidate.
+    /// Reserved for fixed-codec ladders; this co-searched finish stage never
+    /// emits it because round-trip is vacuous over table/permutation/order.
     RoundTripDecode,
-    /// A candidate-like plaintext emerged but did not meet exact acceptance.
+    /// A language-significant plaintext hypothesis cleared the matched null.
     Candidate,
     /// Controls were powered and no candidate cleared the matched null.
     NoCandidate,
@@ -180,6 +186,8 @@ pub struct TierAReport {
 /// Matched-null calibration summary.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CalibrationReport {
+    /// Exact degrees of freedom covered by this matched null.
+    pub null_scope: String,
     /// Number of decoy trials.
     pub trials: usize,
     /// Observed best Tier-B score.
@@ -221,7 +229,7 @@ pub struct FinishCandidate {
     pub combined_score: f64,
     /// Whether the strict value set accepted every decoded byte.
     pub strict_valid: bool,
-    /// Exact visible-ciphertext round-trip result.
+    /// Phase-0 replay invariant result; vacuous on the co-searched surface.
     pub roundtrip: bool,
 }
 
@@ -348,6 +356,7 @@ fn calibration_report(observed: f64, samples: Vec<f64>) -> CalibrationReport {
     let p_emp = add_one_p_value(null_ge, samples.len());
     let null_max = samples.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     CalibrationReport {
+        null_scope: MATCHED_NULL_SCOPE.to_owned(),
         trials: samples.len(),
         observed_best: observed,
         null_ge,
