@@ -285,6 +285,40 @@ across two scripts (consolidate ours).
    > (release); the `--output` JSON (canonical patterns + representative keys)
    > is the stage-(iii) hand-off artifact. Next: stage (iii), the crib-free
    > finish over the 24-class × 8! residual.
+   >
+   > **STATUS (2026-07-05): stage (iii) BUILT — the `shadowfinish` instrument**
+   > (`src/analysis/shadow_finish/`, CLI `shadowfinish`). File-driven over a
+   > regenerated `shadowsearch --output` artifact; self-validating before real
+   > output (`--self-test`: planted English plaintext → table/digit map → q
+   > stream → shadow-key encryption → full production finish ladder; wrong
+   > plaintext negative; planted truth rank measured across the full 8! surface).
+   > Control result: planted positive PASS (truth rank 1, margin vs junk max
+   > +7.7443); wrong-plaintext negative PASS.
+   >
+   > Real `two` run (release, `target/two-shadowsearch.json` regenerated from
+   > committed `two`; wordlist derived in-process from
+   > `research/data/lang/english-corpus-large.txt`): covered the external
+   > agent's reported phase-0 surface `24 classes × 40320 label→digit
+   > permutations × 2 digit orders × 7 built-in tables = 13,547,520`
+   > interpretations; phase-0 dropped 0 q-symbols. Tables covered:
+   > `ascii32`, `ascii64`, `ascii96`, `sixbit-lower-space`,
+   > `sixbit-upper-space`, `sixbit-base64`, `sixbit-base64url`. Tier A visited
+   > 13,547,520 interpretations, retained 12,288 (= 24 × top-K 512), rejected
+   > 897,120 by loose printable/value sanity, saw 66,808 strict-pass
+   > interpretations, and dropped 12,638,112 by the explicit top-K bound. Tier B
+   > top interpretation exactly re-encoded the full 698-symbol visible
+   > ciphertext through its representative shadow key (class 14, `ascii32`,
+   > phase0, HL), but the calibration run was intentionally reported as
+   > **low power**: 2 matched decoy q-pattern nulls, observed best −1.9417,
+   > null_ge 0/2, add-one `p_emp = 0.3333`, margin vs null max +3.5773. Because
+   > 2 nulls cannot attain `alpha = 0.05`, verdict is
+   > **`LowPowerNoExclusion`**, not `RoundTripDecode` and not `NoCandidate`.
+   > Runtime for the 2-null real run, including self-test, was 2m30s release.
+   > A 20-null alpha-resolution run was attempted first and stopped after
+   > several minutes as currently impractical for this unoptimized implementation;
+   > that is a runtime/power limitation to fix before making a stronger call.
+   > The round-trip plaintext hypothesis was logged, not promoted:
+   > `research/gak-threads/candidates/shadowfinish-two-shadowfinish-null2-seed-736861646f776603.md`.
 2. **Community-request relevance:** nothing here touches the `gak-swap-recover`
    ns=3 cost wall (that engine is known-plaintext, known group). But column-map
    closure is a **ciphertext-only group-reconstruction** technique — exactly
