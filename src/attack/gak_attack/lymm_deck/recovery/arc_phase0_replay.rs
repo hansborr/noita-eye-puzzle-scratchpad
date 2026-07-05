@@ -10,6 +10,12 @@ use super::target_reason::{ArcLiteral, ArcReason};
 use super::{AlignedMessage, SwapRecoveryError, SwapRecoveryStats};
 use crate::attack::gak_attack::lymm_deck::LymmDeckSpec;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) enum ArcReasonMinimizeOutcome {
+    Characterized(InternalMinimizedReason),
+    WallBeforeValidation,
+}
+
 pub(super) fn minimize_arc_reason(
     spec: &LymmDeckSpec,
     messages: &[AlignedMessage],
@@ -18,14 +24,19 @@ pub(super) fn minimize_arc_reason(
     replay_cap: usize,
 ) -> Result<InternalMinimizedReason, SwapRecoveryError> {
     let mut deadline = NoPhase0Deadline;
-    minimize_arc_reason_with_deadline(
+    match minimize_arc_reason_with_deadline(
         spec,
         messages,
         broad_baseline,
         raw_reason,
         replay_cap,
         &mut deadline,
-    )
+    )? {
+        ArcReasonMinimizeOutcome::Characterized(reason) => Ok(reason),
+        ArcReasonMinimizeOutcome::WallBeforeValidation => Err(SwapRecoveryError::SatSolver(
+            "phase-0 no-deadline minimizer stopped before validation".to_owned(),
+        )),
+    }
 }
 
 pub(super) fn minimize_arc_reason_with_deadline<D>(
@@ -35,14 +46,14 @@ pub(super) fn minimize_arc_reason_with_deadline<D>(
     raw_reason: &ArcReason,
     replay_cap: usize,
     deadline: &mut D,
-) -> Result<InternalMinimizedReason, SwapRecoveryError>
+) -> Result<ArcReasonMinimizeOutcome, SwapRecoveryError>
 where
     D: Phase0Deadline + ?Sized,
 {
     let mut budget = ReplayBudget::new(replay_cap);
     let raw_arcs = raw_reason.arc_literals.iter().copied().collect::<Vec<_>>();
-    if !raw_arcs.is_empty()
-        && let Some(true) = replay_with_budget(
+    if !raw_arcs.is_empty() {
+        if let Some(true) = replay_with_budget(
             spec,
             messages,
             broad_baseline,
@@ -50,26 +61,31 @@ where
             &[],
             &mut budget,
             deadline,
-        )?
-    {
-        let (arcs, capped) = minimize_arc_only(
-            spec,
-            messages,
-            broad_baseline,
-            raw_arcs,
-            &mut budget,
-            deadline,
-        )?;
-        let literal_count = arcs.len();
-        return Ok(InternalMinimizedReason {
-            arcs,
-            context_targets: Vec::new(),
-            bin: GakSwapArcContextBin::ContextFree,
-            literal_count,
-            literal_count_is_upper_bound: capped,
-            replay_checks: budget.used,
-            stopped_by_wall: budget.wall_expired,
-        });
+        )? {
+            let (arcs, capped) = minimize_arc_only(
+                spec,
+                messages,
+                broad_baseline,
+                raw_arcs,
+                &mut budget,
+                deadline,
+            )?;
+            let literal_count = arcs.len();
+            return Ok(ArcReasonMinimizeOutcome::Characterized(
+                InternalMinimizedReason {
+                    arcs,
+                    context_targets: Vec::new(),
+                    bin: GakSwapArcContextBin::ContextFree,
+                    literal_count,
+                    literal_count_is_upper_bound: capped,
+                    replay_checks: budget.used,
+                    stopped_by_wall: budget.wall_expired,
+                },
+            ));
+        }
+        if budget.wall_expired {
+            return Ok(ArcReasonMinimizeOutcome::WallBeforeValidation);
+        }
     }
 
     let mut arcs = raw_reason.arc_literals.iter().copied().collect::<Vec<_>>();
@@ -78,7 +94,7 @@ where
         .iter()
         .copied()
         .collect::<Vec<_>>();
-    if replay_with_budget(
+    match replay_with_budget(
         spec,
         messages,
         broad_baseline,
@@ -86,42 +102,51 @@ where
         &context_targets,
         &mut budget,
         deadline,
-    )? == Some(true)
-    {
-        let capped = minimize_mixed_reason(
-            spec,
-            messages,
-            broad_baseline,
-            &mut arcs,
-            &mut context_targets,
-            &mut budget,
-            deadline,
-        )?;
-        let literal_count = arcs.len().saturating_add(context_targets.len());
-        return Ok(InternalMinimizedReason {
-            arcs,
-            context_targets,
-            bin: GakSwapArcContextBin::ContextExpressible,
-            literal_count,
-            literal_count_is_upper_bound: capped,
-            replay_checks: budget.used,
-            stopped_by_wall: budget.wall_expired,
-        });
+    )? {
+        Some(true) => {
+            let capped = minimize_mixed_reason(
+                spec,
+                messages,
+                broad_baseline,
+                &mut arcs,
+                &mut context_targets,
+                &mut budget,
+                deadline,
+            )?;
+            let literal_count = arcs.len().saturating_add(context_targets.len());
+            return Ok(ArcReasonMinimizeOutcome::Characterized(
+                InternalMinimizedReason {
+                    arcs,
+                    context_targets,
+                    bin: GakSwapArcContextBin::ContextExpressible,
+                    literal_count,
+                    literal_count_is_upper_bound: capped,
+                    replay_checks: budget.used,
+                    stopped_by_wall: budget.wall_expired,
+                },
+            ));
+        }
+        None if budget.wall_expired => {
+            return Ok(ArcReasonMinimizeOutcome::WallBeforeValidation);
+        }
+        Some(false) | None => {}
     }
 
     let literal_count = raw_reason
         .arc_literals
         .len()
         .saturating_add(raw_reason.context_targets.len());
-    Ok(InternalMinimizedReason {
-        arcs: raw_reason.arc_literals.iter().copied().collect(),
-        context_targets: raw_reason.context_targets.iter().copied().collect(),
-        bin: GakSwapArcContextBin::ContextOpaque,
-        literal_count,
-        literal_count_is_upper_bound: budget.exhausted() || budget.wall_expired,
-        replay_checks: budget.used,
-        stopped_by_wall: budget.wall_expired,
-    })
+    Ok(ArcReasonMinimizeOutcome::Characterized(
+        InternalMinimizedReason {
+            arcs: raw_reason.arc_literals.iter().copied().collect(),
+            context_targets: raw_reason.context_targets.iter().copied().collect(),
+            bin: GakSwapArcContextBin::ContextOpaque,
+            literal_count,
+            literal_count_is_upper_bound: budget.exhausted() || budget.wall_expired,
+            replay_checks: budget.used,
+            stopped_by_wall: budget.wall_expired,
+        },
+    ))
 }
 
 fn minimize_arc_only<D>(

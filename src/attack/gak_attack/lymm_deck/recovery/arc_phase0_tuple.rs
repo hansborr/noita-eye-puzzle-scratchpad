@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::AlignedMessage;
-use super::arc_phase0_replay::broad_replay_rejects_arc_clause;
+use super::arc_phase0_replay::{Phase0Deadline, broad_replay_rejects_arc_clause};
 use super::arc_phase0_types::{
     GakSwapArcTupleKillEstimate, InternalMinimizedReason, PINNED_ARC_PHASE0_TUPLE_KILL_T,
     PROJECTION_LETTERS,
@@ -12,35 +12,47 @@ use super::propagation::{bit, bit_positions};
 use super::residual::ResidualDomains;
 use crate::attack::gak_attack::lymm_deck::LymmDeckSpec;
 
-pub(super) fn estimate_tuple_kill(
-    spec: &LymmDeckSpec,
-    messages: &[AlignedMessage],
-    residual: &ResidualDomains,
-    target_domains: &BTreeMap<char, Vec<usize>>,
-    targets: &BTreeMap<char, usize>,
-    reason: &InternalMinimizedReason,
-    spot_check_samples: usize,
-) -> GakSwapArcTupleKillEstimate {
-    let sampled_t = targets.get(&'T').copied();
+pub(super) struct TupleKillEstimateRequest<'a> {
+    pub(super) spec: &'a LymmDeckSpec,
+    pub(super) messages: &'a [AlignedMessage],
+    pub(super) residual: &'a ResidualDomains,
+    pub(super) target_domains: &'a BTreeMap<char, Vec<usize>>,
+    pub(super) targets: &'a BTreeMap<char, usize>,
+    pub(super) reason: &'a InternalMinimizedReason,
+    pub(super) spot_check_samples: usize,
+}
+
+pub(super) fn estimate_tuple_kill_with_deadline<D>(
+    request: &TupleKillEstimateRequest<'_>,
+    deadline: &mut D,
+) -> Option<GakSwapArcTupleKillEstimate>
+where
+    D: Phase0Deadline + ?Sized,
+{
+    let sampled_t = request.targets.get(&'T').copied();
     let projected_t = PINNED_ARC_PHASE0_TUPLE_KILL_T;
-    let projected_total_for_t = count_projected_total_for_t(target_domains, projected_t);
-    let masks = projected_masks_for_reason(residual, target_domains, reason);
+    let projected_total_for_t = count_projected_total_for_t(request.target_domains, projected_t);
+    let masks =
+        projected_masks_for_reason(request.residual, request.target_domains, request.reason);
     let estimated_killed_tuples = count_projected_with_masks(&masks, projected_t);
-    let (spot_checked_samples, spot_checked_rejections) = spot_check_tuple_estimate(
-        spec,
-        messages,
-        residual,
-        &masks,
-        projected_t,
-        reason,
-        spot_check_samples,
-    );
+    let (spot_checked_samples, spot_checked_rejections) = spot_check_tuple_estimate_with_deadline(
+        &SpotCheckTupleEstimate {
+            spec: request.spec,
+            messages: request.messages,
+            residual: request.residual,
+            masks: &masks,
+            target_t: projected_t,
+            reason: request.reason,
+            sample_cap: request.spot_check_samples,
+        },
+        deadline,
+    )?;
     let included_in_go_rule_median = sampled_t == Some(projected_t);
     let slab_anomaly = (!included_in_go_rule_median).then(|| match sampled_t {
         Some(found) => format!("sampled T={found} is outside pinned T={projected_t} slab"),
         None => format!("sampled assignment has no T target; pinned T={projected_t} slab"),
     });
-    GakSwapArcTupleKillEstimate {
+    Some(GakSwapArcTupleKillEstimate {
         sampled_t,
         projected_t: Some(projected_t),
         projected_total_for_t,
@@ -50,7 +62,7 @@ pub(super) fn estimate_tuple_kill(
         construction: "estimate: per-letter target masks induced by letter-local arc/context literals over pinned T=67 slab; sampled tuples replay deterministic propagation",
         included_in_go_rule_median,
         slab_anomaly,
-    }
+    })
 }
 
 fn projected_masks_for_reason(
@@ -182,36 +194,55 @@ fn projected_values(
         .collect()
 }
 
-fn spot_check_tuple_estimate(
-    spec: &LymmDeckSpec,
-    messages: &[AlignedMessage],
-    residual: &ResidualDomains,
-    masks: &BTreeMap<char, u128>,
+struct SpotCheckTupleEstimate<'a> {
+    spec: &'a LymmDeckSpec,
+    messages: &'a [AlignedMessage],
+    residual: &'a ResidualDomains,
+    masks: &'a BTreeMap<char, u128>,
     target_t: usize,
-    reason: &InternalMinimizedReason,
+    reason: &'a InternalMinimizedReason,
     sample_cap: usize,
-) -> (usize, usize) {
-    if sample_cap == 0 || masks.get(&'T').copied().unwrap_or(0) & bit(target_t) == 0 {
-        return (0, 0);
+}
+
+fn spot_check_tuple_estimate_with_deadline<D>(
+    request: &SpotCheckTupleEstimate<'_>,
+    deadline: &mut D,
+) -> Option<(usize, usize)>
+where
+    D: Phase0Deadline + ?Sized,
+{
+    if request.sample_cap == 0
+        || request.masks.get(&'T').copied().unwrap_or(0) & bit(request.target_t) == 0
+    {
+        return Some((0, 0));
     }
     let mut checked = 0usize;
     let mut rejected = 0usize;
-    'outer: for tuple in sample_projected_tuples(masks, target_t) {
-        let mut targets = reason.context_targets.clone();
+    'outer: for tuple in sample_projected_tuples(request.masks, request.target_t) {
+        if deadline.expired() {
+            return None;
+        }
+        let mut targets = request.reason.context_targets.clone();
         targets.extend(PROJECTION_LETTERS.into_iter().zip(tuple));
         targets.sort_unstable();
         targets.dedup();
-        if broad_replay_rejects_arc_clause(spec, messages, residual, &reason.arcs, &targets)
-            .unwrap_or(false)
+        if broad_replay_rejects_arc_clause(
+            request.spec,
+            request.messages,
+            request.residual,
+            &request.reason.arcs,
+            &targets,
+        )
+        .unwrap_or(false)
         {
             rejected = rejected.saturating_add(1);
         }
         checked = checked.saturating_add(1);
-        if checked >= sample_cap {
+        if checked >= request.sample_cap {
             break 'outer;
         }
     }
-    (checked, rejected)
+    Some((checked, rejected))
 }
 
 fn sample_projected_tuples(
@@ -250,7 +281,8 @@ fn distinct_nonzero(values: [usize; PROJECTION_LETTERS.len()]) -> bool {
 mod tests {
     use std::collections::BTreeMap;
 
-    use super::estimate_tuple_kill;
+    use super::{TupleKillEstimateRequest, estimate_tuple_kill_with_deadline};
+    use crate::attack::gak_attack::lymm_deck::recovery::arc_phase0_replay::Phase0Deadline;
     use crate::attack::gak_attack::lymm_deck::recovery::arc_phase0_types::{
         InternalMinimizedReason, PINNED_ARC_PHASE0_TUPLE_KILL_T,
     };
@@ -267,23 +299,21 @@ mod tests {
         let residual = empty_projection_residual();
         let target_domains = projection_target_domains();
         let targets = BTreeMap::from([('E', 1), ('H', 3), ('S', 5), ('T', 3), ('Y', 7)]);
-        let estimate = estimate_tuple_kill(
-            &spec,
-            &[],
-            &residual,
-            &target_domains,
-            &targets,
-            &InternalMinimizedReason {
-                arcs: Vec::new(),
-                context_targets: Vec::new(),
-                bin: super::super::arc_phase0_types::GakSwapArcContextBin::ContextFree,
-                literal_count: 1,
-                literal_count_is_upper_bound: false,
-                replay_checks: 0,
-                stopped_by_wall: false,
+        let reason = empty_reason();
+        let mut deadline = NeverExpiredDeadline;
+        let estimate = estimate_tuple_kill_with_deadline(
+            &TupleKillEstimateRequest {
+                spec: &spec,
+                messages: &[],
+                residual: &residual,
+                target_domains: &target_domains,
+                targets: &targets,
+                reason: &reason,
+                spot_check_samples: 0,
             },
-            0,
-        );
+            &mut deadline,
+        )
+        .expect("tuple estimate must complete");
 
         assert_eq!(estimate.sampled_t, Some(3));
         assert_eq!(estimate.projected_t, Some(PINNED_ARC_PHASE0_TUPLE_KILL_T));
@@ -304,28 +334,87 @@ mod tests {
         let residual = empty_projection_residual();
         let target_domains = projection_target_domains();
         let targets = BTreeMap::from([('E', 1), ('H', 3), ('S', 5), ('T', 67), ('Y', 7)]);
-        let estimate = estimate_tuple_kill(
-            &spec,
-            &[],
-            &residual,
-            &target_domains,
-            &targets,
-            &InternalMinimizedReason {
-                arcs: Vec::new(),
-                context_targets: Vec::new(),
-                bin: super::super::arc_phase0_types::GakSwapArcContextBin::ContextFree,
-                literal_count: 1,
-                literal_count_is_upper_bound: false,
-                replay_checks: 0,
-                stopped_by_wall: false,
+        let reason = empty_reason();
+        let mut deadline = NeverExpiredDeadline;
+        let estimate = estimate_tuple_kill_with_deadline(
+            &TupleKillEstimateRequest {
+                spec: &spec,
+                messages: &[],
+                residual: &residual,
+                target_domains: &target_domains,
+                targets: &targets,
+                reason: &reason,
+                spot_check_samples: 0,
             },
-            0,
-        );
+            &mut deadline,
+        )
+        .expect("tuple estimate must complete");
 
         assert_eq!(estimate.sampled_t, Some(PINNED_ARC_PHASE0_TUPLE_KILL_T));
         assert_eq!(estimate.projected_t, Some(PINNED_ARC_PHASE0_TUPLE_KILL_T));
         assert!(estimate.included_in_go_rule_median);
         assert_eq!(estimate.slab_anomaly, None);
+    }
+
+    #[test]
+    fn tuple_kill_deadline_aborts_before_spot_check_replay() {
+        let spec =
+            LymmDeckSpec::from_shift_decimation(83, "EHSTY", &lymm_default_ct_alphabet(83), 1, 1)
+                .expect("fixture spec");
+        let residual = empty_projection_residual();
+        let target_domains = projection_target_domains();
+        let targets = BTreeMap::from([('E', 1), ('H', 3), ('S', 5), ('T', 67), ('Y', 7)]);
+        let reason = empty_reason();
+        let mut deadline = AlwaysExpiredDeadline;
+
+        let estimate = estimate_tuple_kill_with_deadline(
+            &TupleKillEstimateRequest {
+                spec: &spec,
+                messages: &[],
+                residual: &residual,
+                target_domains: &target_domains,
+                targets: &targets,
+                reason: &reason,
+                spot_check_samples: 1,
+            },
+            &mut deadline,
+        );
+
+        assert!(estimate.is_none());
+    }
+
+    #[derive(Clone, Debug)]
+    struct AlwaysExpiredDeadline;
+
+    impl Phase0Deadline for AlwaysExpiredDeadline {
+        fn start(&mut self) {}
+
+        fn expired(&mut self) -> bool {
+            true
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    struct NeverExpiredDeadline;
+
+    impl Phase0Deadline for NeverExpiredDeadline {
+        fn start(&mut self) {}
+
+        fn expired(&mut self) -> bool {
+            false
+        }
+    }
+
+    fn empty_reason() -> InternalMinimizedReason {
+        InternalMinimizedReason {
+            arcs: Vec::new(),
+            context_targets: Vec::new(),
+            bin: super::super::arc_phase0_types::GakSwapArcContextBin::ContextFree,
+            literal_count: 1,
+            literal_count_is_upper_bound: false,
+            replay_checks: 0,
+            stopped_by_wall: false,
+        }
     }
 
     fn empty_projection_residual() -> ResidualDomains {

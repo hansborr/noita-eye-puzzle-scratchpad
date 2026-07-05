@@ -3,9 +3,10 @@
 use std::collections::BTreeMap;
 
 use super::arc_phase0_replay::{
-    InstantPhase0Deadline, Phase0Deadline, minimize_arc_reason_with_deadline,
+    ArcReasonMinimizeOutcome, InstantPhase0Deadline, Phase0Deadline,
+    minimize_arc_reason_with_deadline,
 };
-use super::arc_phase0_tuple::estimate_tuple_kill;
+use super::arc_phase0_tuple::{TupleKillEstimateRequest, estimate_tuple_kill_with_deadline};
 use super::arc_phase0_types::{
     GakSwapArcPhase0Config, GakSwapArcPhase0Report, GakSwapArcPhase0Stop, GakSwapArcRejection,
     GakSwapArcTupleKillEstimate, InternalMinimizedReason,
@@ -108,28 +109,30 @@ where
         else {
             break GakSwapArcPhase0Stop::NonDeterministicTargetSlice;
         };
-        let minimized = minimize_arc_reason_with_deadline(
+        let minimized = match minimize_arc_reason_with_deadline(
             spec,
             &messages,
             &residual,
             &raw_reason,
             config.replays_per_rejection,
             deadline,
-        )?;
-        let tuple_kill_estimate = (minimized.bin.counts_for_go_rule()
-            && !minimized.stopped_by_wall
-            && !deadline.expired())
-        .then(|| {
-            estimate_tuple_kill(
-                spec,
-                &messages,
-                &residual,
-                &target_domains,
-                &targets,
-                &minimized,
-                config.spot_check_samples,
-            )
-        });
+        )? {
+            ArcReasonMinimizeOutcome::Characterized(minimized) => minimized,
+            ArcReasonMinimizeOutcome::WallBeforeValidation => {
+                break GakSwapArcPhase0Stop::TimeBudget;
+            }
+        };
+        let tuple_request = TupleKillEstimateRequest {
+            spec,
+            messages: &messages,
+            residual: &residual,
+            target_domains: &target_domains,
+            targets: &targets,
+            reason: &minimized,
+            spot_check_samples: config.spot_check_samples,
+        };
+        let (tuple_kill_estimate, tuple_kill_stopped_by_wall) =
+            estimate_tuple_kill_until_wall(&tuple_request, deadline);
         let rejection = arc_rejection(
             target_nodes,
             &targets,
@@ -138,7 +141,8 @@ where
             tuple_kill_estimate,
         );
         sink(&rejection)?;
-        let stopped_by_wall = minimized.stopped_by_wall || deadline.expired();
+        let stopped_by_wall =
+            minimized.stopped_by_wall || tuple_kill_stopped_by_wall || deadline.expired();
         rejections.push(rejection);
         if stopped_by_wall {
             break GakSwapArcPhase0Stop::TimeBudget;
@@ -161,6 +165,24 @@ where
         stop,
         rejections,
     })
+}
+
+fn estimate_tuple_kill_until_wall<D>(
+    request: &TupleKillEstimateRequest<'_>,
+    deadline: &mut D,
+) -> (Option<GakSwapArcTupleKillEstimate>, bool)
+where
+    D: Phase0Deadline + ?Sized,
+{
+    if !request.reason.bin.counts_for_go_rule()
+        || request.reason.stopped_by_wall
+        || deadline.expired()
+    {
+        return (None, false);
+    }
+    let estimate = estimate_tuple_kill_with_deadline(request, deadline);
+    let stopped_by_wall = estimate.is_none();
+    (estimate, stopped_by_wall)
 }
 
 fn extract_arc_reason_for_targets(
@@ -289,7 +311,7 @@ mod tests {
     };
 
     #[test]
-    fn wall_deadline_truncates_in_progress_rejection_as_upper_bound() {
+    fn pre_validation_deadline_does_not_emit_measured_rejection() {
         let (spec, pairs) = positive_control_fixture().expect("positive fixture");
         let config = GakSwapArcPhase0Config {
             max_rejections: 1,
@@ -312,6 +334,35 @@ mod tests {
         .expect("wall-truncated measurement must report partial rejection");
 
         assert_eq!(report.stop, GakSwapArcPhase0Stop::TimeBudget);
+        assert_eq!(report.target_nodes, 1);
+        assert!(report.rejections.is_empty(), "{report:?}");
+        assert!(streamed.is_empty(), "{streamed:?}");
+    }
+
+    #[test]
+    fn wall_deadline_truncates_validated_rejection_as_upper_bound() {
+        let (spec, pairs) = positive_control_fixture().expect("positive fixture");
+        let config = GakSwapArcPhase0Config {
+            max_rejections: 1,
+            wall_time: Duration::from_hours(1),
+            replays_per_rejection: 32,
+            spot_check_samples: 0,
+        };
+        let mut deadline = ScriptedDeadline::new(4);
+        let mut streamed = Vec::new();
+        let report = measure_ns3_arc_provenance_with_deadline(
+            &spec,
+            &pairs,
+            config,
+            |rejection| {
+                streamed.push(rejection.clone());
+                Ok(())
+            },
+            &mut deadline,
+        )
+        .expect("wall-truncated measurement must report partial rejection");
+
+        assert_eq!(report.stop, GakSwapArcPhase0Stop::TimeBudget);
         assert_eq!(report.rejections.len(), 1);
         assert_eq!(streamed, report.rejections);
         let rejection = report
@@ -319,7 +370,7 @@ mod tests {
             .first()
             .expect("wall-truncated run must keep the partial rejection");
         assert!(rejection.literal_count_is_upper_bound, "{rejection:?}");
-        assert_eq!(rejection.replay_checks, 0, "{rejection:?}");
+        assert!(rejection.replay_checks > 0, "{rejection:?}");
         assert!(rejection.replay_checks < config.replays_per_rejection);
         assert!(
             rejection.tuple_kill_estimate.is_none(),
