@@ -244,13 +244,15 @@ pub struct GakSwapArcPhase0ControlsReport {
     pub positive: GakSwapArcControlLeg,
     /// Matched null: known-long minimal conflict.
     pub matched_null: GakSwapArcControlLeg,
+    /// Matched null: short bare arcs require target context and must not fake a go conflict.
+    pub matched_null_context: GakSwapArcControlLeg,
 }
 
 impl GakSwapArcPhase0ControlsReport {
-    /// Returns true when both instrument controls pass.
+    /// Returns true when every instrument control passes.
     #[must_use]
     pub const fn passed(&self) -> bool {
-        self.positive.passed && self.matched_null.passed
+        self.positive.passed && self.matched_null.passed && self.matched_null_context.passed
     }
 }
 

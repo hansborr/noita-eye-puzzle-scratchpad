@@ -31,9 +31,11 @@ pub fn gak_swap_arc_phase0_controls(
 ) -> Result<GakSwapArcPhase0ControlsReport, SwapRecoveryError> {
     let positive = run_positive_control(config)?;
     let matched_null = run_matched_null_control(&config)?;
+    let matched_null_context = run_context_leak_matched_null_control(&config)?;
     Ok(GakSwapArcPhase0ControlsReport {
         positive,
         matched_null,
+        matched_null_context,
     })
 }
 
@@ -103,6 +105,36 @@ fn run_matched_null_control(
         passed,
         detail: format!(
             "known-long minimal reason reported bin={} size{}{} replay_checks={}",
+            minimized.bin.as_str(),
+            if minimized.literal_count_is_upper_bound {
+                "<="
+            } else {
+                "="
+            },
+            minimized.literal_count,
+            minimized.replay_checks
+        ),
+    })
+}
+
+fn run_context_leak_matched_null_control(
+    config: &GakSwapArcPhase0Config,
+) -> Result<GakSwapArcControlLeg, SwapRecoveryError> {
+    let (spec, messages, residual, reason) = context_leak_replay_fixture();
+    let minimized = minimize_arc_reason(
+        &spec,
+        &messages,
+        &residual,
+        &reason,
+        config.replays_per_rejection,
+    )?;
+    let would_fake_go =
+        minimized.bin.counts_for_go_rule() && minimized.literal_count <= SHORT_CONFLICT_LIMIT;
+    Ok(GakSwapArcControlLeg {
+        label: "matched-null-context",
+        passed: !would_fake_go,
+        detail: format!(
+            "context-dependent short arcs reported bin={} size{}{} replay_checks={}",
             minimized.bin.as_str(),
             if minimized.literal_count_is_upper_bound {
                 "<="
@@ -240,6 +272,106 @@ fn known_long_replay_fixture() -> (
     (spec, Vec::new(), residual, reason)
 }
 
+fn context_leak_replay_fixture() -> (
+    LymmDeckSpec,
+    Vec<AlignedMessage>,
+    ResidualDomains,
+    ArcReason,
+) {
+    let spec = LymmDeckSpec::from_shift_decimation(9, "A", &lymm_default_ct_alphabet(9), 1, 1)
+        .expect("context-leak fixture spec");
+    let arcs = (0..3)
+        .map(|index| ArcLiteral {
+            letter: 'A',
+            post_position: index + 1,
+            pre_position: index + 4,
+        })
+        .collect::<Vec<_>>();
+    let mut runtimes = Vec::new();
+    let mut candidates = Vec::new();
+    for missing in 0..arcs.len() {
+        let perm = valid_perm_for_arc_profile(spec.n, 1, &arcs, Some(missing));
+        candidates.push(control_candidate(&spec, 1, missing, &perm));
+        runtimes.push(super::residual::CandidateRuntime { perm });
+    }
+    let all_arcs_perm = valid_perm_for_arc_profile(spec.n, 2, &arcs, None);
+    candidates.push(control_candidate(&spec, 2, arcs.len(), &all_arcs_perm));
+    runtimes.push(super::residual::CandidateRuntime {
+        perm: all_arcs_perm,
+    });
+    let domains = super::super::TopSwapDomains {
+        candidates,
+        by_top_image: BTreeMap::new(),
+        by_support: BTreeMap::new(),
+        branch_strategy: super::super::GeneratorBranchStrategy::TopSwapSupport,
+    };
+    let residual = ResidualDomains {
+        domains,
+        candidates: runtimes,
+        by_letter: BTreeMap::from([('A', vec![0, 1, 2, 3])]),
+        letters: vec!['A'],
+    };
+    let reason = arcs.into_iter().fold(
+        ArcReason::from_context_target('A', 1),
+        |mut reason, literal| {
+            reason.union_with(&ArcReason::from_arc(literal));
+            reason
+        },
+    );
+    (spec, Vec::new(), residual, reason)
+}
+
+fn control_candidate(
+    spec: &LymmDeckSpec,
+    top_image: usize,
+    canonical_marker: usize,
+    perm: &[usize],
+) -> super::super::TopSwapCandidate {
+    super::super::TopSwapCandidate {
+        canonical_swaps: vec![canonical_marker],
+        top_image,
+        support: (0..spec.n).collect(),
+        sigma_images: perm.to_vec(),
+        perm_images: perm.to_vec(),
+    }
+}
+
+fn valid_perm_for_arc_profile(
+    n: usize,
+    target: usize,
+    arcs: &[ArcLiteral],
+    missing: Option<usize>,
+) -> Vec<usize> {
+    let mut perm = vec![usize::MAX; n];
+    let mut used = BTreeSet::new();
+    if let Some(slot) = perm.get_mut(0) {
+        *slot = target;
+    }
+    let _inserted = used.insert(target);
+    for (index, literal) in arcs.iter().enumerate() {
+        let pre = if missing == Some(index) {
+            (0..n)
+                .find(|candidate| *candidate != literal.pre_position && !used.contains(candidate))
+                .expect("context-leak fixture has a spare preimage")
+        } else {
+            literal.pre_position
+        };
+        if let Some(slot) = perm.get_mut(literal.post_position) {
+            *slot = pre;
+        }
+        let _inserted = used.insert(pre);
+    }
+    let mut unused = (0..n)
+        .filter(|value| !used.contains(value))
+        .collect::<Vec<_>>();
+    for slot in &mut perm {
+        if *slot == usize::MAX {
+            *slot = unused.remove(0);
+        }
+    }
+    perm
+}
+
 fn valid_perm_missing_arc(missing: usize) -> Vec<usize> {
     let mut perm = vec![usize::MAX; 9];
     let mut used = BTreeSet::new();
@@ -274,7 +406,8 @@ fn valid_perm_missing_arc(missing: usize) -> Vec<usize> {
 #[cfg(test)]
 mod tests {
     use super::{
-        gak_swap_arc_phase0_controls, measure_ns3_arc_provenance, positive_control_fixture,
+        context_leak_replay_fixture, gak_swap_arc_phase0_controls, measure_ns3_arc_provenance,
+        minimize_arc_reason, positive_control_fixture,
     };
     use crate::attack::gak_attack::lymm_deck::recovery::arc_phase0_types::{
         GakSwapArcPhase0Config, GakSwapArcPhase0Stop, SHORT_CONFLICT_LIMIT,
@@ -290,9 +423,10 @@ mod tests {
         .expect("phase-0 controls must run");
         assert!(
             report.passed(),
-            "phase-0 controls failed: positive={:?} null={:?}",
+            "phase-0 controls failed: positive={:?} null={:?} context_null={:?}",
             report.positive,
-            report.matched_null
+            report.matched_null,
+            report.matched_null_context
         );
     }
 
@@ -324,5 +458,21 @@ mod tests {
             first.replay_checks <= 32,
             "positive exceeded replay cap: {first:?}"
         );
+    }
+
+    #[test]
+    fn context_leak_null_does_not_count_as_short_go_conflict() {
+        let (spec, messages, residual, reason) = context_leak_replay_fixture();
+        let minimized =
+            minimize_arc_reason(&spec, &messages, &residual, &reason, 32).expect("minimize null");
+        assert!(
+            !(minimized.bin.counts_for_go_rule()
+                && minimized.literal_count <= SHORT_CONFLICT_LIMIT),
+            "context-dependent arcs must not fake a short go conflict: {minimized:?}"
+        );
+        assert_eq!(minimized.bin.as_str(), "context-expressible");
+        assert_eq!(minimized.arcs.len(), SHORT_CONFLICT_LIMIT);
+        assert_eq!(minimized.context_targets, vec![('A', 1)]);
+        assert_eq!(minimized.literal_count, SHORT_CONFLICT_LIMIT + 1);
     }
 }

@@ -272,6 +272,7 @@ fn print_controls(report: &GakSwapArcPhase0ControlsReport, output: GakSwapOutput
             println!("gak swap arc Phase-0 controls:");
             print_control_leg(&report.positive);
             print_control_leg(&report.matched_null);
+            print_control_leg(&report.matched_null_context);
             println!("  SELF-TEST: {}", pass_fail(report.passed()));
         }
         GakSwapOutput::Json => println!("{}", controls_json(report)),
@@ -434,10 +435,11 @@ fn measurement_json(
 
 fn controls_json(report: &GakSwapArcPhase0ControlsReport) -> String {
     format!(
-        "{{\"passed\":{},\"positive\":{},\"matched_null\":{}}}",
+        "{{\"passed\":{},\"positive\":{},\"matched_null\":{},\"matched_null_context\":{}}}",
         report.passed(),
         control_leg_json(&report.positive),
-        control_leg_json(&report.matched_null)
+        control_leg_json(&report.matched_null),
+        control_leg_json(&report.matched_null_context)
     )
 }
 
