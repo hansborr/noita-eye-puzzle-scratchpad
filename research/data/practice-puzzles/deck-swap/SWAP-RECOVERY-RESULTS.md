@@ -4,8 +4,59 @@ Recorded 2026-07-03 on branch `feat/community-request`.
 
 This note is model-conditional: it reports what the current Lymm top-swap
 known-plaintext recovery engine can verify by exact re-encryption, and where the
-current propagation/SAT encoding stops. It is not a claim that larger swap budgets
-are impossible.
+systematic propagation/SAT encoding stopped. It is not a claim that larger swap
+budgets are impossible.
+
+## 2026-07-05 correction: ns=3 known-plaintext recovery
+
+The earlier `ns=3` "wall" framing below is corrected for the vendored
+known-plaintext practice puzzles. The wall was a limitation of the systematic
+propagation/CDCL(T) line, not of the practice-puzzle key-recovery problem.
+
+A substitution-first coordinate-descent local search recovers the full per-letter
+top-swap key for all three vendored files and accepts only by exact
+byte-for-byte re-encryption:
+
+| level | result | exact re-encryption | reference local-search timing |
+| --- | --- | --- | --- |
+| `ns=1` | recovered | residual `0`, `2439/2439` | about `0.03s` |
+| `ns=2` | recovered | residual `0`, `2439/2439` | about `0.11s` |
+| `ns=3` | recovered | residual `0`, `2439/2439` | about `14s`; `541406` candidate permutations enumerated |
+
+Independent verification used a fresh pure-Python re-encryption implementation of
+Lymm's vendored cipher formula, not the reference driver. The recovered key
+re-encrypts all 8 messages byte-for-byte to the ciphertext, decrypt-from-scratch
+reproduces the plaintext, and every recovered permutation is reachable by exactly
+`s` top-card `(0,k)` swaps from the public base. The `ns=3` solve converged on
+attempt `0`; no basin-hop restart was needed.
+
+Current Rust wiring keeps the complete systematic engine as the default path for
+`ns=1/2` and routes `ns=3` top-swap recovery through the local-search backend
+under `--strategy auto`. Direct reproduction command:
+
+```sh
+cargo run --locked --bin noita-eye -- gak-swap-recover \
+  --plaintext-file research/data/practice-puzzles/deck-swap/plaintexts.txt \
+  --ciphertext-file research/data/practice-puzzles/deck-swap/3_swap_ct.txt \
+  --num-swaps 3 \
+  --strategy local-search
+```
+
+The vendored `ns=3` Rust regression is kept ignored because the debug-profile
+test measured about `132s` in this worktree, above the default pre-commit gate
+budget. Reproduce it explicitly with:
+
+```sh
+cargo test --locked ns3_recovery_recovers_vendored_key_and_reencrypts_exactly -- --ignored --nocapture
+```
+
+Scope: this is known-plaintext key recovery for Lymm's practice-puzzle files. It
+answers the community request on that surface. It does not break the real Noita
+eye glyphs, which remain ciphertext-only with no known plaintext crib, and it
+does not change the eye-puzzle unsolved state. Historical Phase-0/Phase-2
+CDCL(T) measurements and decision entries below are preserved as measurements of
+that systematic line; they are superseded only for practice-puzzle recovery by
+the exact-verified local-search path above.
 
 ## Verified frontier
 
@@ -17,7 +68,7 @@ Inputs: `plaintexts.txt` paired with `1_swap_ct.txt`, `2_swap_ct.txt`, and
 | --- | --- | --- | --- |
 | `ns=1` | recovered | `2439/2439` | `candidates=83`, `pruned=0`, `deductions=24`, `nodes=0`, `sat_decisions=0`, `sat_conflicts=0` |
 | `ns=2` | recovered | `2439/2439` | `candidates=6725`, `pruned=134804`, `deductions=925549`, `nodes=1`, `sat_decisions=0`, `sat_conflicts=0` |
-| `ns=3` | not recovered by current engine | not claimed | unsupported in landed CLI; strengthened propagation frontier below |
+| `ns=3` | recovered by local search | `2439/2439` | `candidates=541406`; exact-verified candidate, not a uniqueness proof |
 
 Support-size summary for the recovered levels:
 
@@ -27,25 +78,31 @@ Support-size summary for the recovered levels:
   to one SAT model check. Reported observed-letter supports are within the
   `<=3` top-swap bound; most are three-position supports, with rare/degenerate
   letters shorter. The CLI emits the per-letter target/support/swap word.
+- `ns=3`: exact round-trip is recovered by the complementary local-search path.
+  The emitted mapping is accepted only by byte-for-byte re-encryption; the
+  local-search report marks it as a candidate rather than claiming exhaustive
+  uniqueness.
 
 Validation controls:
 
-- Planted `ns=1`: exact; `24/24` observed letters matched the planted unique
-  permutation, `0` ambiguous, `0` mismatched unique.
-- Planted `ns=2`: exact; `23/24` observed letters matched the planted unique
-  permutation, `1` observed letter remained ambiguous under exact re-encryption
-  with the planted permutation present in that letter's reported candidate set,
-  `0` ambiguous letters missing the plant, and `0` mismatched unique.
+- Current self-test controls use a small deterministic planted corpus (`n=11`,
+  `pt=ABCD`) so they are cheap enough for the default gate.
+- Planted `ns=1`: exact; `4/4` observed letters matched the planted unique
+  permutation.
+- Planted `ns=2`: exact; `4/4` observed letters matched the planted unique
+  permutation.
+- Planted `ns=3` through local search: exact; `4/4` observed letters matched
+  the planted candidate permutation.
 - Matched nulls all concluded with `CleanFailure` under the default
   `max_nodes=50000` cap: random full-permutation mapping at the `ns=2` bound,
   over-budget `ns=2` encrypted text attacked at `ns=1` (while recovering at
-  `ns=2`), and ciphertext-symbol label shuffle at the `ns=2` bound. The
-  self-test does not count `SearchCapExceeded` or `SearchTimeExceeded` as a
-  genuine null failure.
+  `ns=2`), ciphertext-symbol label shuffle at the `ns=2` bound, and a
+  mismatched-pair null at the `ns=3` local-search bound. The self-test does not
+  count `SearchCapExceeded` or `SearchTimeExceeded` as a genuine null failure.
 
 The `gak-swap-recover` CLI exposes the same library path used by the tests for
-the supported frontier. A request for `--num-swaps 3` currently fails with an
-explicit measured-frontier message rather than emitting a candidate.
+the supported frontier. `--strategy auto` keeps the systematic path for `ns=1/2`
+and routes `ns=3` top-swap recovery through local search.
 
 ## Rerun commands
 
@@ -54,9 +111,13 @@ Stable supported-frontier checks:
 ```sh
 cargo test --locked ns1_recovery_recovers_vendored_key_and_reencrypts_exactly -- --nocapture
 cargo test --locked ns2_recovery_recovers_vendored_key_and_reencrypts_exactly -- --nocapture
+cargo test --locked ns3_top_swap_candidate_count_matches_verified_frontier -- --nocapture
+cargo test --locked local_search_ns3_planted_control_recovers_exact_candidate -- --nocapture
+cargo test --locked infer_swaps_reaches_ns3_local_search_frontier -- --nocapture
 cargo test --locked swap_recovery_self_test_passes_supported_frontier_controls -- --nocapture
 cargo test --locked ns3_planted_truth_survives_target_cegar_pruning -- --nocapture
 cargo test --locked ns3_planted_control_recovers_through_production_path -- --nocapture
+cargo test --locked ns3_recovery_recovers_vendored_key_and_reencrypts_exactly -- --ignored --nocapture
 NOITA_SWAP_CEGAR_TRACE=1 NOITA_SWAP_TRACE_PASSES=1 NOITA_SWAP_TRACE_MAX_PASSES=2 \
   NOITA_SWAP_NS3_PROBE_MAX_NODES=1 \
   cargo test --locked ns3_real_file_production_path_frontier_probe -- --ignored --nocapture
@@ -73,7 +134,8 @@ cargo run --locked --bin noita-eye -- gak-swap-recover \
 cargo run --locked --bin noita-eye -- gak-swap-recover \
   --plaintext-file research/data/practice-puzzles/deck-swap/plaintexts.txt \
   --ciphertext-file research/data/practice-puzzles/deck-swap/3_swap_ct.txt \
-  --num-swaps 3
+  --num-swaps 3 \
+  --strategy local-search
 ```
 
 Task-03 item 1 adds supported-budget inference. It runs increasing budgets only
@@ -87,11 +149,11 @@ cargo run --locked --bin noita-eye -- gak-swap-recover \
   --infer-swaps 1..3
 ```
 
-For the vendored `2_swap_ct.txt` file, this caps the requested `1..3` range to
-the supported `1..2` range, rejects `s=1`, and reports `s=2` with exact
-`2439/2439` re-encryption and maximum observed support size `3`. A range that
-starts at `3` (for example `--infer-swaps 3..4`) fails with the same measured
-frontier message as `--num-swaps 3`.
+For the vendored `2_swap_ct.txt` file, this rejects `s=1` and reports `s=2`
+with exact `2439/2439` re-encryption and maximum observed support size `3`.
+Ranges that extend past the current supported frontier, for example
+`--infer-swaps 1..4`, cap at `ns=3`; ranges that start past it fail with the
+shared frontier message.
 
 Task-03 item 4 adds shareable output:
 
