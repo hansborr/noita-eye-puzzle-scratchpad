@@ -15,6 +15,18 @@ pub enum RecoveryGeneratorSet {
     Explicit(LymmGeneratorSet),
 }
 
+/// Recovery backend selection.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SwapRecoveryStrategy {
+    /// Use the complete systematic path where it is cheap, and the local-search
+    /// path for the measured ns=3 top-swap practice-puzzle surface.
+    Auto,
+    /// Force the propagation/SAT residual machinery.
+    Systematic,
+    /// Force substitution-first local search.
+    LocalSearch,
+}
+
 impl RecoveryGeneratorSet {
     /// Returns true for the specialized top-swap family.
     #[must_use]
@@ -34,6 +46,8 @@ pub struct SwapRecoveryConfig {
     pub max_nodes: Option<usize>,
     /// Optional wall-clock budget for the residual solver.
     pub time_budget: Option<Duration>,
+    /// Recovery backend selection.
+    pub strategy: SwapRecoveryStrategy,
     pub(super) planted_truth: Option<BTreeMap<char, Vec<usize>>>,
 }
 
@@ -46,6 +60,7 @@ impl SwapRecoveryConfig {
             generator_set: RecoveryGeneratorSet::TopSwaps,
             max_nodes: None,
             time_budget: None,
+            strategy: SwapRecoveryStrategy::Auto,
             planted_truth: None,
         }
     }
@@ -54,6 +69,13 @@ impl SwapRecoveryConfig {
     #[must_use]
     pub fn with_generator_set(mut self, generator_set: RecoveryGeneratorSet) -> Self {
         self.generator_set = generator_set;
+        self
+    }
+
+    /// Replaces the recovery backend strategy.
+    #[must_use]
+    pub const fn with_strategy(mut self, strategy: SwapRecoveryStrategy) -> Self {
+        self.strategy = strategy;
         self
     }
 

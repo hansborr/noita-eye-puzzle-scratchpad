@@ -14,6 +14,10 @@ mod error;
 mod inference;
 mod instrumentation;
 mod learning;
+mod local_search;
+mod local_search_data;
+#[cfg(test)]
+mod local_search_tests;
 mod ns3_cegar;
 #[cfg(test)]
 mod ns3_control;
@@ -41,7 +45,7 @@ pub use arc_phase0_types::{
     GakSwapArcPhase0ControlsReport, GakSwapArcPhase0Report, GakSwapArcPhase0Stop,
     GakSwapArcRejection, GakSwapArcTupleKillEstimate,
 };
-pub use config::{RecoveryGeneratorSet, SwapRecoveryConfig};
+pub use config::{RecoveryGeneratorSet, SwapRecoveryConfig, SwapRecoveryStrategy};
 pub use error::SwapRecoveryError;
 pub use inference::{
     SUPPORTED_SWAP_RECOVERY_FRONTIER, SWAP_RECOVERY_FRONTIER_MESSAGE, SwapInferenceAttempt,
@@ -211,16 +215,42 @@ pub fn recover_known_plaintext_swaps(
     config: SwapRecoveryConfig,
 ) -> Result<RecoveryReport, SwapRecoveryError> {
     let aligned = align_pairs(spec, pairs)?;
+    match config.strategy {
+        SwapRecoveryStrategy::Auto => recover_auto(spec, &aligned, config),
+        SwapRecoveryStrategy::Systematic => recover_systematic(spec, &aligned, config),
+        SwapRecoveryStrategy::LocalSearch => {
+            local_search::recover_with_local_search(spec, &aligned, config)
+        }
+    }
+}
+
+fn recover_auto(
+    spec: &LymmDeckSpec,
+    aligned: &[AlignedMessage],
+    config: SwapRecoveryConfig,
+) -> Result<RecoveryReport, SwapRecoveryError> {
+    if config.max_swaps == 3 && local_search::can_use_local_search(spec, &config) {
+        local_search::recover_with_local_search(spec, aligned, config)
+    } else {
+        recover_systematic(spec, aligned, config)
+    }
+}
+
+fn recover_systematic(
+    spec: &LymmDeckSpec,
+    aligned: &[AlignedMessage],
+    config: SwapRecoveryConfig,
+) -> Result<RecoveryReport, SwapRecoveryError> {
     if config.max_swaps == 1 && config.generator_set.is_top_swaps() && can_use_ns1_closed_form(spec)
     {
-        recover_ns1(spec, &aligned, config)
-    } else if (1..=3).contains(&config.max_swaps) {
-        recover_with_residual(spec, &aligned, config)
-    } else {
-        Err(SwapRecoveryError::UnsupportedBudget {
-            max_swaps: config.max_swaps,
-        })
+        return recover_ns1(spec, aligned, config);
     }
+    if (1..=3).contains(&config.max_swaps) {
+        return recover_with_residual(spec, aligned, config);
+    }
+    Err(SwapRecoveryError::UnsupportedBudget {
+        max_swaps: config.max_swaps,
+    })
 }
 
 fn can_use_ns1_closed_form(spec: &LymmDeckSpec) -> bool {
