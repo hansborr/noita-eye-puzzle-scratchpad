@@ -6,9 +6,10 @@ use std::time::Duration;
 
 use noita_eye_puzzle::attack::gak_attack::lymm_deck::{
     GakSwapArcControlLeg, GakSwapArcLiteral, GakSwapArcPhase0Config,
-    GakSwapArcPhase0ControlsReport, GakSwapArcPhase0Report, KnownPlaintextPair,
-    LYMM_DEFAULT_DECIMATION, LYMM_DEFAULT_SHIFT, LymmDeckSpec, gak_swap_arc_phase0_controls,
-    lymm_default_ct_alphabet, measure_ns3_arc_provenance, parse_known_plaintext_pairs,
+    GakSwapArcPhase0ControlsReport, GakSwapArcPhase0Report, GakSwapArcRejection,
+    KnownPlaintextPair, LYMM_DEFAULT_DECIMATION, LYMM_DEFAULT_SHIFT, LymmDeckSpec,
+    SwapRecoveryError, gak_swap_arc_phase0_controls, lymm_default_ct_alphabet,
+    measure_ns3_arc_provenance_with_sink, parse_known_plaintext_pairs,
 };
 
 use crate::cli::args_gak_swap::{GakSwapArcPhase0Args, GakSwapOutput, GakSwapPairFormat};
@@ -52,7 +53,10 @@ pub(crate) fn run_gak_swap_arc_phase0(args: &GakSwapArcPhase0Args) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let report = match measure_ns3_arc_provenance(&spec, &pairs, config) {
+    let mut stream = std::io::stderr().lock();
+    let report = match measure_ns3_arc_provenance_with_sink(&spec, &pairs, config, |rejection| {
+        write_rejection_stream_row(&mut stream, rejection)
+    }) {
         Ok(report) => report,
         Err(error) => {
             eprintln!("gak-swap-arc-phase0 measurement error: {error}");
@@ -403,27 +407,45 @@ fn measurement_json(
         } else {
             ","
         };
-        writeln!(
-            &mut out,
-            "    {{\"node\": {}, \"bin\": \"{}\", \"literal_count\": {}, \"literal_count_is_upper_bound\": {}, \"replay_checks\": {}, \"arcs\": {}, \"context_targets\": {}, \"tuple_kill_estimate\": {}}}{}",
-            rejection.node,
-            rejection.bin.as_str(),
-            rejection.literal_count,
-            rejection.literal_count_is_upper_bound,
-            rejection.replay_checks,
-            arcs_json(&rejection.minimized_arc_literals),
-            context_json(&rejection.minimized_context_targets),
-            rejection
-                .tuple_kill_estimate
-                .as_ref()
-                .map_or_else(|| "null".to_owned(), tuple_kill_json),
-            comma
-        )
-        .expect("write to String");
+        writeln!(&mut out, "    {}{}", rejection_json(rejection), comma).expect("write to String");
     }
     writeln!(&mut out, "  ]").expect("write to String");
     writeln!(&mut out, "}}").expect("write to String");
     out
+}
+
+fn write_rejection_stream_row(
+    stream: &mut impl std::io::Write,
+    rejection: &GakSwapArcRejection,
+) -> Result<(), SwapRecoveryError> {
+    writeln!(
+        stream,
+        "{{\"tool\":\"gak-swap-arc-phase0\",\"event\":\"rejection\",\"rejection\":{}}}",
+        rejection_json(rejection)
+    )
+    .map_err(|error| stream_err("write", &error))?;
+    stream.flush().map_err(|error| stream_err("flush", &error))
+}
+
+fn stream_err(action: &str, error: &std::io::Error) -> SwapRecoveryError {
+    SwapRecoveryError::SatSolver(format!("phase-0 stream {action} failed: {error}"))
+}
+
+fn rejection_json(rejection: &GakSwapArcRejection) -> String {
+    format!(
+        "{{\"node\": {}, \"bin\": \"{}\", \"literal_count\": {}, \"literal_count_is_upper_bound\": {}, \"replay_checks\": {}, \"arcs\": {}, \"context_targets\": {}, \"tuple_kill_estimate\": {}}}",
+        rejection.node,
+        rejection.bin.as_str(),
+        rejection.literal_count,
+        rejection.literal_count_is_upper_bound,
+        rejection.replay_checks,
+        arcs_json(&rejection.minimized_arc_literals),
+        context_json(&rejection.minimized_context_targets),
+        rejection
+            .tuple_kill_estimate
+            .as_ref()
+            .map_or_else(|| "null".to_owned(), tuple_kill_json)
+    )
 }
 
 fn controls_json(report: &GakSwapArcPhase0ControlsReport) -> String {

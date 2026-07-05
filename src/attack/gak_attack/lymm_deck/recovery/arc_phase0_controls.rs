@@ -3,9 +3,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 
-use super::arc_phase0::{
-    broad_replay_rejects_arc_clause, measure_ns3_arc_provenance, minimize_arc_reason,
-};
+use super::arc_phase0::measure_ns3_arc_provenance;
+use super::arc_phase0_replay::{broad_replay_rejects_arc_clause, minimize_arc_reason};
 use super::arc_phase0_types::{
     GakSwapArcControlLeg, GakSwapArcPhase0Config, GakSwapArcPhase0ControlsReport,
     SHORT_CONFLICT_LIMIT,
@@ -148,8 +147,8 @@ fn run_context_leak_matched_null_control(
     })
 }
 
-fn positive_control_fixture() -> Result<(LymmDeckSpec, Vec<KnownPlaintextPair>), SwapRecoveryError>
-{
+pub(super) fn positive_control_fixture()
+-> Result<(LymmDeckSpec, Vec<KnownPlaintextPair>), SwapRecoveryError> {
     let spec = LymmDeckSpec::from_shift_decimation(7, "ABC", &lymm_default_ct_alphabet(7), 2, 3)?;
     let planted = generate_random_pt_mapping(&spec, 3, 0x5a17_0200_0100_0002)?;
     let rows = anchored_abc_rows(4);

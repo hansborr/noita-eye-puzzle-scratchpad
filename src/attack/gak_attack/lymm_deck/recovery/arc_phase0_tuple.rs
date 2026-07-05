@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::AlignedMessage;
-use super::arc_phase0::broad_replay_rejects_arc_clause;
+use super::arc_phase0_replay::broad_replay_rejects_arc_clause;
 use super::arc_phase0_types::{
     GakSwapArcTupleKillEstimate, InternalMinimizedReason, PINNED_ARC_PHASE0_TUPLE_KILL_T,
     PROJECTION_LETTERS,
@@ -280,6 +280,7 @@ mod tests {
                 literal_count: 1,
                 literal_count_is_upper_bound: false,
                 replay_checks: 0,
+                stopped_by_wall: false,
             },
             0,
         );
@@ -316,6 +317,7 @@ mod tests {
                 literal_count: 1,
                 literal_count_is_upper_bound: false,
                 replay_checks: 0,
+                stopped_by_wall: false,
             },
             0,
         );

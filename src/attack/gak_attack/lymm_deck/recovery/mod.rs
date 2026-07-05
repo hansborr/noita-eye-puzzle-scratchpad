@@ -5,6 +5,7 @@ use std::time::Duration;
 
 mod arc_phase0;
 mod arc_phase0_controls;
+mod arc_phase0_replay;
 mod arc_phase0_tuple;
 mod arc_phase0_types;
 mod domain_build;
@@ -30,7 +31,7 @@ mod target_conflict;
 mod target_reason;
 mod target_solver;
 
-pub use arc_phase0::measure_ns3_arc_provenance;
+pub use arc_phase0::{measure_ns3_arc_provenance, measure_ns3_arc_provenance_with_sink};
 pub use arc_phase0_controls::gak_swap_arc_phase0_controls;
 pub use arc_phase0_types::{
     DEFAULT_ARC_PHASE0_REJECTION_CAP, DEFAULT_ARC_PHASE0_REPLAY_CAP,

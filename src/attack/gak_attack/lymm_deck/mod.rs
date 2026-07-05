@@ -46,7 +46,8 @@ pub use recovery::{
     SwapInferenceOutcome, SwapInferenceRange, SwapInferenceReport, SwapRecoveryConfig,
     SwapRecoveryError, SwapRecoveryStats, gak_swap_arc_phase0_controls,
     gak_swap_reach_stress_self_test, gak_swap_self_test, infer_known_plaintext_swap_budget,
-    measure_ns3_arc_provenance, recover_known_plaintext_swaps, round_trip_check,
+    measure_ns3_arc_provenance, measure_ns3_arc_provenance_with_sink,
+    recover_known_plaintext_swaps, round_trip_check,
 };
 pub use share::python_pt_mapping_literal;
 pub use spec::{

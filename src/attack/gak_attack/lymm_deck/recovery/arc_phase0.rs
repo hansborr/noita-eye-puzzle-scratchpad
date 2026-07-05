@@ -1,12 +1,14 @@
 //! Phase-0 arc-provenance measurement for ns=3 target rejections.
 
 use std::collections::BTreeMap;
-use std::time::Instant;
 
+use super::arc_phase0_replay::{
+    InstantPhase0Deadline, Phase0Deadline, minimize_arc_reason_with_deadline,
+};
 use super::arc_phase0_tuple::estimate_tuple_kill;
 use super::arc_phase0_types::{
-    GakSwapArcContextBin, GakSwapArcPhase0Config, GakSwapArcPhase0Report, GakSwapArcPhase0Stop,
-    GakSwapArcRejection, InternalMinimizedReason,
+    GakSwapArcPhase0Config, GakSwapArcPhase0Report, GakSwapArcPhase0Stop, GakSwapArcRejection,
+    GakSwapArcTupleKillEstimate, InternalMinimizedReason,
 };
 use super::domain_build::build_residual_domains;
 use super::propagation::{
@@ -16,7 +18,7 @@ use super::residual::{ResidualDomains, restrict_to_targets};
 use super::target_conflict::{
     broad_residual_rejects_target_choices, extract_deterministic_target_conflict,
 };
-use super::target_reason::{ArcLiteral, ArcReason};
+use super::target_reason::ArcReason;
 use super::target_solver::TargetAssignmentSolver;
 use super::{
     AlignedMessage, SwapRecoveryConfig, SwapRecoveryError, SwapRecoveryStats, align_pairs,
@@ -33,6 +35,40 @@ pub fn measure_ns3_arc_provenance(
     pairs: &[KnownPlaintextPair],
     config: GakSwapArcPhase0Config,
 ) -> Result<GakSwapArcPhase0Report, SwapRecoveryError> {
+    measure_ns3_arc_provenance_with_sink(spec, pairs, config, |_| Ok(()))
+}
+
+/// Measures ns=3 deterministic target rejections and calls `sink` after each
+/// completed rejection row is assembled.
+///
+/// The aggregate report returned on success is identical to
+/// [`measure_ns3_arc_provenance`]; the sink is an observability hook for
+/// incremental reporting.
+///
+/// # Errors
+/// Returns [`SwapRecoveryError`] when the input cannot be aligned, domains cannot
+/// be built, a broad replay invariant fails while advancing the target sampler,
+/// or `sink` returns an error.
+pub fn measure_ns3_arc_provenance_with_sink(
+    spec: &LymmDeckSpec,
+    pairs: &[KnownPlaintextPair],
+    config: GakSwapArcPhase0Config,
+    sink: impl FnMut(&GakSwapArcRejection) -> Result<(), SwapRecoveryError>,
+) -> Result<GakSwapArcPhase0Report, SwapRecoveryError> {
+    let mut deadline = InstantPhase0Deadline::new(config.wall_time);
+    measure_ns3_arc_provenance_with_deadline(spec, pairs, config, sink, &mut deadline)
+}
+
+fn measure_ns3_arc_provenance_with_deadline<D>(
+    spec: &LymmDeckSpec,
+    pairs: &[KnownPlaintextPair],
+    config: GakSwapArcPhase0Config,
+    mut sink: impl FnMut(&GakSwapArcRejection) -> Result<(), SwapRecoveryError>,
+    deadline: &mut D,
+) -> Result<GakSwapArcPhase0Report, SwapRecoveryError>
+where
+    D: Phase0Deadline + ?Sized,
+{
     let messages = align_pairs(spec, pairs)?;
     let recovery_config = SwapRecoveryConfig::with_max_swaps(3);
     let mut residual = build_residual_domains(spec, &messages, &recovery_config)?;
@@ -51,7 +87,7 @@ pub fn measure_ns3_arc_provenance(
     let mut target_solver =
         TargetAssignmentSolver::new(spec, &messages, &propagation.state_domains, &residual);
     let target_domains = target_domains(&target_solver, &residual.letters);
-    let started = Instant::now();
+    deadline.start();
     let mut target_nodes = 0usize;
     let mut rejections = Vec::new();
     let mut learning_stats = SwapRecoveryStats::default();
@@ -60,7 +96,7 @@ pub fn measure_ns3_arc_provenance(
         if rejections.len() >= config.max_rejections {
             break GakSwapArcPhase0Stop::RejectionCap;
         }
-        if started.elapsed() >= config.wall_time {
+        if deadline.expired() {
             break GakSwapArcPhase0Stop::TimeBudget;
         }
         let Some(targets) = target_solver.next_assignment()? else {
@@ -72,14 +108,18 @@ pub fn measure_ns3_arc_provenance(
         else {
             break GakSwapArcPhase0Stop::NonDeterministicTargetSlice;
         };
-        let minimized = minimize_arc_reason(
+        let minimized = minimize_arc_reason_with_deadline(
             spec,
             &messages,
             &residual,
             &raw_reason,
             config.replays_per_rejection,
+            deadline,
         )?;
-        let tuple_kill_estimate = minimized.bin.counts_for_go_rule().then(|| {
+        let tuple_kill_estimate = (minimized.bin.counts_for_go_rule()
+            && !minimized.stopped_by_wall
+            && !deadline.expired())
+        .then(|| {
             estimate_tuple_kill(
                 spec,
                 &messages,
@@ -90,27 +130,19 @@ pub fn measure_ns3_arc_provenance(
                 config.spot_check_samples,
             )
         });
-        rejections.push(GakSwapArcRejection {
-            node: target_nodes,
-            targets: targets
-                .iter()
-                .map(|(&letter, &target)| (letter, target))
-                .collect(),
-            raw_arc_literals: raw_reason
-                .arc_literals
-                .iter()
-                .copied()
-                .map(Into::into)
-                .collect(),
-            raw_context_targets: raw_reason.context_targets.iter().copied().collect(),
-            minimized_arc_literals: minimized.arcs.iter().copied().map(Into::into).collect(),
-            minimized_context_targets: minimized.context_targets.clone(),
-            bin: minimized.bin,
-            literal_count: minimized.literal_count,
-            literal_count_is_upper_bound: minimized.literal_count_is_upper_bound,
-            replay_checks: minimized.replay_checks,
+        let rejection = arc_rejection(
+            target_nodes,
+            &targets,
+            &raw_reason,
+            &minimized,
             tuple_kill_estimate,
-        });
+        );
+        sink(&rejection)?;
+        let stopped_by_wall = minimized.stopped_by_wall || deadline.expired();
+        rejections.push(rejection);
+        if stopped_by_wall {
+            break GakSwapArcPhase0Stop::TimeBudget;
+        }
         learn_existing_target_clause(
             &mut target_solver,
             spec,
@@ -177,269 +209,34 @@ fn context_reason(targets: &BTreeMap<char, usize>) -> ArcReason {
         })
 }
 
-pub(super) fn minimize_arc_reason(
-    spec: &LymmDeckSpec,
-    messages: &[AlignedMessage],
-    broad_baseline: &ResidualDomains,
+fn arc_rejection(
+    node: usize,
+    targets: &BTreeMap<char, usize>,
     raw_reason: &ArcReason,
-    replay_cap: usize,
-) -> Result<InternalMinimizedReason, SwapRecoveryError> {
-    let mut budget = ReplayBudget::new(replay_cap);
-    let raw_arcs = raw_reason.arc_literals.iter().copied().collect::<Vec<_>>();
-    if !raw_arcs.is_empty()
-        && replay_with_budget(spec, messages, broad_baseline, &raw_arcs, &[], &mut budget)?
-    {
-        let (arcs, capped) =
-            minimize_arc_only(spec, messages, broad_baseline, raw_arcs, &mut budget)?;
-        let literal_count = arcs.len();
-        return Ok(InternalMinimizedReason {
-            arcs,
-            context_targets: Vec::new(),
-            bin: GakSwapArcContextBin::ContextFree,
-            literal_count,
-            literal_count_is_upper_bound: capped,
-            replay_checks: budget.used,
-        });
-    }
-
-    let mut arcs = raw_reason.arc_literals.iter().copied().collect::<Vec<_>>();
-    let mut context_targets = raw_reason
-        .context_targets
-        .iter()
-        .copied()
-        .collect::<Vec<_>>();
-    if replay_with_budget(
-        spec,
-        messages,
-        broad_baseline,
-        &arcs,
-        &context_targets,
-        &mut budget,
-    )? {
-        let capped = minimize_mixed_reason(
-            spec,
-            messages,
-            broad_baseline,
-            &mut arcs,
-            &mut context_targets,
-            &mut budget,
-        )?;
-        let literal_count = arcs.len().saturating_add(context_targets.len());
-        return Ok(InternalMinimizedReason {
-            arcs,
-            context_targets,
-            bin: GakSwapArcContextBin::ContextExpressible,
-            literal_count,
-            literal_count_is_upper_bound: capped,
-            replay_checks: budget.used,
-        });
-    }
-
-    let literal_count = raw_reason
-        .arc_literals
-        .len()
-        .saturating_add(raw_reason.context_targets.len());
-    Ok(InternalMinimizedReason {
-        arcs: raw_reason.arc_literals.iter().copied().collect(),
-        context_targets: raw_reason.context_targets.iter().copied().collect(),
-        bin: GakSwapArcContextBin::ContextOpaque,
-        literal_count,
-        literal_count_is_upper_bound: budget.exhausted(),
-        replay_checks: budget.used,
-    })
-}
-
-fn minimize_arc_only(
-    spec: &LymmDeckSpec,
-    messages: &[AlignedMessage],
-    broad_baseline: &ResidualDomains,
-    mut arcs: Vec<ArcLiteral>,
-    budget: &mut ReplayBudget,
-) -> Result<(Vec<ArcLiteral>, bool), SwapRecoveryError> {
-    let mut capped = false;
-    let mut index = 0usize;
-    while index < arcs.len() {
-        if budget.exhausted() {
-            capped = true;
-            break;
-        }
-        let removed = arcs.remove(index);
-        if replay_with_budget(spec, messages, broad_baseline, &arcs, &[], budget)? {
-            continue;
-        }
-        arcs.insert(index, removed);
-        index = index.saturating_add(1);
-    }
-    Ok((arcs, capped))
-}
-
-fn minimize_mixed_reason(
-    spec: &LymmDeckSpec,
-    messages: &[AlignedMessage],
-    broad_baseline: &ResidualDomains,
-    arcs: &mut Vec<ArcLiteral>,
-    context_targets: &mut Vec<(char, usize)>,
-    budget: &mut ReplayBudget,
-) -> Result<bool, SwapRecoveryError> {
-    let mut capped = false;
-    let mut context_index = 0usize;
-    while context_index < context_targets.len() {
-        if budget.exhausted() {
-            capped = true;
-            break;
-        }
-        let removed = context_targets.remove(context_index);
-        if replay_with_budget(
-            spec,
-            messages,
-            broad_baseline,
-            arcs,
-            context_targets,
-            budget,
-        )? {
-            continue;
-        }
-        context_targets.insert(context_index, removed);
-        context_index = context_index.saturating_add(1);
-    }
-    let mut arc_index = 0usize;
-    while arc_index < arcs.len() {
-        if budget.exhausted() {
-            capped = true;
-            break;
-        }
-        let removed = arcs.remove(arc_index);
-        if replay_with_budget(
-            spec,
-            messages,
-            broad_baseline,
-            arcs,
-            context_targets,
-            budget,
-        )? {
-            continue;
-        }
-        arcs.insert(arc_index, removed);
-        arc_index = arc_index.saturating_add(1);
-    }
-    Ok(capped)
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct ReplayBudget {
-    cap: usize,
-    used: usize,
-}
-
-impl ReplayBudget {
-    const fn new(cap: usize) -> Self {
-        Self { cap, used: 0 }
-    }
-
-    const fn exhausted(&self) -> bool {
-        self.used >= self.cap
-    }
-
-    fn spend(&mut self) -> bool {
-        if self.exhausted() {
-            return false;
-        }
-        self.used = self.used.saturating_add(1);
-        true
-    }
-}
-
-fn replay_with_budget(
-    spec: &LymmDeckSpec,
-    messages: &[AlignedMessage],
-    broad_baseline: &ResidualDomains,
-    arcs: &[ArcLiteral],
-    context_targets: &[(char, usize)],
-    budget: &mut ReplayBudget,
-) -> Result<bool, SwapRecoveryError> {
-    if !budget.spend() {
-        return Ok(false);
-    }
-    broad_replay_rejects_arc_clause(spec, messages, broad_baseline, arcs, context_targets)
-}
-
-pub(super) fn broad_replay_rejects_arc_clause(
-    spec: &LymmDeckSpec,
-    messages: &[AlignedMessage],
-    broad_baseline: &ResidualDomains,
-    arcs: &[ArcLiteral],
-    context_targets: &[(char, usize)],
-) -> Result<bool, SwapRecoveryError> {
-    let mut probe = broad_baseline.clone();
-    if !context_targets.is_empty() {
-        let targets = context_targets.iter().copied().collect::<BTreeMap<_, _>>();
-        match restrict_to_targets(&mut probe, &targets) {
-            Ok(()) => {}
-            Err(SwapRecoveryError::NoResidualCandidate) => return Ok(true),
-            Err(error) => return Err(error),
-        }
-    }
-    match restrict_to_arc_literals(&mut probe, arcs) {
-        Ok(()) => {}
-        Err(SwapRecoveryError::NoResidualCandidate) => return Ok(true),
-        Err(error) => return Err(error),
-    }
-    let mut probe_stats = SwapRecoveryStats {
-        enumerated_candidates: probe.candidate_count(),
-        ..SwapRecoveryStats::default()
-    };
-    match propagate_partial_states(
-        spec,
-        messages,
-        &mut probe,
-        &mut probe_stats,
-        PropagationOptions {
-            max_passes: 2,
-            exhaustive_arc: false,
-        },
-    ) {
-        Ok(_) => Ok(false),
-        Err(SwapRecoveryError::NoResidualCandidate) => Ok(true),
-        Err(error) => Err(error),
-    }
-}
-
-fn restrict_to_arc_literals(
-    residual: &mut ResidualDomains,
-    arcs: &[ArcLiteral],
-) -> Result<(), SwapRecoveryError> {
-    let grouped = arcs_by_letter(arcs);
-    for (letter, letter_arcs) in grouped {
-        let Some(domain) = residual.by_letter.get(&letter) else {
-            continue;
-        };
-        let filtered = domain
+    minimized: &InternalMinimizedReason,
+    tuple_kill_estimate: Option<GakSwapArcTupleKillEstimate>,
+) -> GakSwapArcRejection {
+    GakSwapArcRejection {
+        node,
+        targets: targets
+            .iter()
+            .map(|(&letter, &target)| (letter, target))
+            .collect(),
+        raw_arc_literals: raw_reason
+            .arc_literals
             .iter()
             .copied()
-            .filter(|&candidate_index| {
-                letter_arcs.iter().all(|literal| {
-                    residual.transition_possible(
-                        candidate_index,
-                        literal.post_position,
-                        literal.pre_position,
-                    )
-                })
-            })
-            .collect::<Vec<_>>();
-        if filtered.is_empty() {
-            return Err(SwapRecoveryError::NoResidualCandidate);
-        }
-        let _old = residual.by_letter.insert(letter, filtered);
+            .map(Into::into)
+            .collect(),
+        raw_context_targets: raw_reason.context_targets.iter().copied().collect(),
+        minimized_arc_literals: minimized.arcs.iter().copied().map(Into::into).collect(),
+        minimized_context_targets: minimized.context_targets.clone(),
+        bin: minimized.bin,
+        literal_count: minimized.literal_count,
+        literal_count_is_upper_bound: minimized.literal_count_is_upper_bound,
+        replay_checks: minimized.replay_checks,
+        tuple_kill_estimate,
     }
-    Ok(())
-}
-
-fn arcs_by_letter(arcs: &[ArcLiteral]) -> BTreeMap<char, Vec<ArcLiteral>> {
-    let mut grouped = BTreeMap::<char, Vec<ArcLiteral>>::new();
-    for &literal in arcs {
-        grouped.entry(literal.letter).or_default().push(literal);
-    }
-    grouped
 }
 
 fn learn_existing_target_clause(
@@ -478,4 +275,109 @@ fn target_domains(
         .copied()
         .map(|letter| (letter, target_solver.letter_target_values(letter)))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use super::super::arc_phase0_controls::positive_control_fixture;
+    use super::super::arc_phase0_types::{GakSwapArcPhase0Config, GakSwapArcPhase0Stop};
+    use super::{
+        Phase0Deadline, measure_ns3_arc_provenance_with_deadline,
+        measure_ns3_arc_provenance_with_sink,
+    };
+
+    #[test]
+    fn wall_deadline_truncates_in_progress_rejection_as_upper_bound() {
+        let (spec, pairs) = positive_control_fixture().expect("positive fixture");
+        let config = GakSwapArcPhase0Config {
+            max_rejections: 1,
+            wall_time: Duration::from_hours(1),
+            replays_per_rejection: 32,
+            ..GakSwapArcPhase0Config::default()
+        };
+        let mut deadline = ScriptedDeadline::new(2);
+        let mut streamed = Vec::new();
+        let report = measure_ns3_arc_provenance_with_deadline(
+            &spec,
+            &pairs,
+            config,
+            |rejection| {
+                streamed.push(rejection.clone());
+                Ok(())
+            },
+            &mut deadline,
+        )
+        .expect("wall-truncated measurement must report partial rejection");
+
+        assert_eq!(report.stop, GakSwapArcPhase0Stop::TimeBudget);
+        assert_eq!(report.rejections.len(), 1);
+        assert_eq!(streamed, report.rejections);
+        let rejection = report
+            .rejections
+            .first()
+            .expect("wall-truncated run must keep the partial rejection");
+        assert!(rejection.literal_count_is_upper_bound, "{rejection:?}");
+        assert_eq!(rejection.replay_checks, 0, "{rejection:?}");
+        assert!(rejection.replay_checks < config.replays_per_rejection);
+        assert!(
+            rejection.tuple_kill_estimate.is_none(),
+            "wall-truncated rejection must not spend on tuple-kill: {rejection:?}"
+        );
+    }
+
+    #[test]
+    fn rejection_sink_is_called_before_aggregate_report_returns() {
+        let (spec, pairs) = positive_control_fixture().expect("positive fixture");
+        let config = GakSwapArcPhase0Config {
+            max_rejections: 1,
+            replays_per_rejection: 32,
+            ..GakSwapArcPhase0Config::default()
+        };
+        let mut streamed_nodes = Vec::new();
+        let report = measure_ns3_arc_provenance_with_sink(&spec, &pairs, config, |rejection| {
+            assert!(
+                streamed_nodes.is_empty(),
+                "single-rejection fixture streamed more than once before return"
+            );
+            streamed_nodes.push(rejection.node);
+            Ok(())
+        })
+        .expect("positive measurement must run");
+
+        assert_eq!(report.stop, GakSwapArcPhase0Stop::RejectionCap);
+        assert_eq!(
+            streamed_nodes,
+            report
+                .rejections
+                .iter()
+                .map(|rejection| rejection.node)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[derive(Clone, Debug)]
+    struct ScriptedDeadline {
+        checks: usize,
+        expire_on: usize,
+    }
+
+    impl ScriptedDeadline {
+        const fn new(expire_on: usize) -> Self {
+            Self {
+                checks: 0,
+                expire_on,
+            }
+        }
+    }
+
+    impl Phase0Deadline for ScriptedDeadline {
+        fn start(&mut self) {}
+
+        fn expired(&mut self) -> bool {
+            self.checks = self.checks.saturating_add(1);
+            self.checks >= self.expire_on
+        }
+    }
 }

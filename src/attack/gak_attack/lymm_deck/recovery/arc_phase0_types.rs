@@ -283,6 +283,7 @@ pub(super) struct InternalMinimizedReason {
     pub(super) literal_count: usize,
     pub(super) literal_count_is_upper_bound: bool,
     pub(super) replay_checks: usize,
+    pub(super) stopped_by_wall: bool,
 }
 
 #[cfg(test)]

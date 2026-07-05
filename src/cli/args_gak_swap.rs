@@ -95,7 +95,8 @@ pub(crate) struct GakSwapRecoverArgs {
 
 /// `gak-swap-arc-phase0`: measure ns=3 deterministic rejection provenance in
 /// a finer transition-arc vocabulary. This is an instrument, not a recovery
-/// command, and it does not claim an ns=3 decode.
+/// command, and it does not claim an ns=3 decode. Completed rejection rows are
+/// streamed as JSONL on stderr before the final aggregate report is printed.
 #[derive(Clone, Debug, Args)]
 pub(crate) struct GakSwapArcPhase0Args {
     /// Labeled known-plaintext file.
