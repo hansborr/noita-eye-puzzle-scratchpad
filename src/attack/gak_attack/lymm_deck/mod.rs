@@ -22,6 +22,8 @@ mod generator_tests;
 #[cfg(test)]
 mod ns3_probe;
 #[cfg(test)]
+mod share_tests;
+#[cfg(test)]
 mod tests;
 
 pub use corpus::{KnownPlaintextPair, parse_known_plaintext_pairs};
