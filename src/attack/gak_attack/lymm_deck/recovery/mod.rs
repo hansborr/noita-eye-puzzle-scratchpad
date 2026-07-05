@@ -1,13 +1,13 @@
 //! Known-plaintext recovery for Lymm's top-swap deck-cipher family.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::time::Duration;
 
 mod arc_phase0;
 mod arc_phase0_controls;
 mod arc_phase0_replay;
 mod arc_phase0_tuple;
 mod arc_phase0_types;
+mod config;
 mod domain_build;
 mod domain_oracle;
 mod error;
@@ -41,6 +41,7 @@ pub use arc_phase0_types::{
     GakSwapArcPhase0ControlsReport, GakSwapArcPhase0Report, GakSwapArcPhase0Stop,
     GakSwapArcRejection, GakSwapArcTupleKillEstimate,
 };
+pub use config::{RecoveryGeneratorSet, SwapRecoveryConfig};
 pub use error::SwapRecoveryError;
 pub use inference::{
     SUPPORTED_SWAP_RECOVERY_FRONTIER, SWAP_RECOVERY_FRONTIER_MESSAGE, SwapInferenceAttempt,
@@ -57,80 +58,14 @@ pub use selftest::{
 };
 
 use super::{
-    KnownPlaintextPair, LymmDeckSpec, LymmGeneratorSet, TopSwapConstraints, TopSwapDomains,
-    encrypt_lymm_deck, enumerate_top_swap_domains,
+    KnownPlaintextPair, LymmDeckSpec, TopSwapConstraints, TopSwapDomains, encrypt_lymm_deck,
+    enumerate_top_swap_domains,
 };
 use residual::recover_with_residual;
 use state::{ForcedObservation, apply_recovered_permutation, forced_observation};
 
 /// Default deterministic seed for the swap-recovery controls.
 pub const DEFAULT_SWAP_RECOVERY_SEED: u64 = 0x5a17_0200_0000_0002;
-
-/// Generator family admitted by [`recover_known_plaintext_swaps`].
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum RecoveryGeneratorSet {
-    /// Lymm's original top-swap generator family `{(0 k)}`.
-    TopSwaps,
-    /// Explicit generator-file family. Words are reported as generator row
-    /// indexes rather than top-swap positions.
-    Explicit(LymmGeneratorSet),
-}
-
-impl RecoveryGeneratorSet {
-    /// Returns true for the specialized top-swap family.
-    #[must_use]
-    pub const fn is_top_swaps(&self) -> bool {
-        matches!(self, Self::TopSwaps)
-    }
-}
-
-/// Search controls for [`recover_known_plaintext_swaps`].
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SwapRecoveryConfig {
-    /// Maximum generator-word budget to admit into each per-letter domain.
-    pub max_swaps: usize,
-    /// Generator family used to build per-letter domains.
-    pub generator_set: RecoveryGeneratorSet,
-    /// Optional cap for residual-solver candidate models.
-    pub max_nodes: Option<usize>,
-    /// Optional wall-clock budget for the residual solver.
-    pub time_budget: Option<Duration>,
-    planted_truth: Option<BTreeMap<char, Vec<usize>>>,
-}
-
-impl SwapRecoveryConfig {
-    /// Builds a config with only the top-swap budget set.
-    #[must_use]
-    pub const fn with_max_swaps(max_swaps: usize) -> Self {
-        Self {
-            max_swaps,
-            generator_set: RecoveryGeneratorSet::TopSwaps,
-            max_nodes: None,
-            time_budget: None,
-            planted_truth: None,
-        }
-    }
-
-    /// Replaces the generator family.
-    #[must_use]
-    pub fn with_generator_set(mut self, generator_set: RecoveryGeneratorSet) -> Self {
-        self.generator_set = generator_set;
-        self
-    }
-
-    /// Adds observational planted truth for production-path soundness controls.
-    #[cfg(test)]
-    #[must_use]
-    pub(crate) fn with_planted_truth(mut self, planted_truth: BTreeMap<char, Vec<usize>>) -> Self {
-        self.planted_truth = Some(planted_truth);
-        self
-    }
-
-    /// Returns observational planted truth for internal controls.
-    pub(super) fn planted_truth(&self) -> Option<&BTreeMap<char, Vec<usize>>> {
-        self.planted_truth.as_ref()
-    }
-}
 
 /// Final classification for a recovered plaintext letter.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
