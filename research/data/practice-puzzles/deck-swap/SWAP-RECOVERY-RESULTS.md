@@ -7,28 +7,32 @@ known-plaintext recovery engine can verify by exact re-encryption, and where the
 systematic propagation/SAT encoding stopped. It is not a claim that larger swap
 budgets are impossible.
 
-## 2026-07-05 correction: ns=3 known-plaintext recovery
+## 2026-07-05 correction: ns=3 known-plaintext observed-letter recovery
 
 The earlier `ns=3` "wall" framing below is corrected for the vendored
 known-plaintext practice puzzles. The wall was a limitation of the systematic
 propagation/CDCL(T) line, not of the practice-puzzle key-recovery problem.
 
-A substitution-first coordinate-descent local search recovers the full per-letter
-top-swap key for all three vendored files and accepts only by exact
-byte-for-byte re-encryption:
+A substitution-first coordinate-descent local search recovers the top-swap
+mapping for the 24 plaintext letters that occur in the vendored corpus and
+accepts only by exact byte-for-byte re-encryption. `J` and `Z` never appear in
+the plaintext, so their swaps are unconstrained and are not reported as
+recovered:
 
 | level | result | exact re-encryption | reference local-search timing |
 | --- | --- | --- | --- |
-| `ns=1` | recovered | residual `0`, `2439/2439` | about `0.03s` |
-| `ns=2` | recovered | residual `0`, `2439/2439` | about `0.11s` |
-| `ns=3` | recovered | residual `0`, `2439/2439` | about `14s`; `541406` candidate permutations enumerated |
+| `ns=1` | observed letters recovered | residual `0`, `2439/2439` | about `0.03s` |
+| `ns=2` | observed letters recovered | residual `0`, `2439/2439` | about `0.11s` |
+| `ns=3` | observed letters recovered | residual `0`, `2439/2439` | about `14s`; `541406` candidate permutations enumerated |
 
 Independent verification used a fresh pure-Python re-encryption implementation of
-Lymm's vendored cipher formula, not the reference driver. The recovered key
-re-encrypts all 8 messages byte-for-byte to the ciphertext, decrypt-from-scratch
-reproduces the plaintext, and every recovered permutation is reachable by exactly
-`s` top-card `(0,k)` swaps from the public base. The `ns=3` solve converged on
-attempt `0`; no basin-hop restart was needed.
+Lymm's vendored cipher formula, not the reference driver. The recovered
+observed-letter mapping re-encrypts all 8 messages byte-for-byte to the
+ciphertext, decrypt-from-scratch reproduces the plaintext, and every recovered
+observed-letter permutation is reachable by exactly `s` top-card `(0,k)` swaps
+from the public base. Exact re-encryption does not identify the absent-letter
+swaps for `J` or `Z`. The `ns=3` solve converged on attempt `0`; no basin-hop
+restart was needed.
 
 Current Rust wiring keeps the complete systematic engine as the default path for
 `ns=1/2` and routes `ns=3` top-swap recovery through the local-search backend
@@ -51,12 +55,12 @@ cargo test --locked ns3_recovery_recovers_vendored_key_and_reencrypts_exactly --
 ```
 
 Scope: this is known-plaintext key recovery for Lymm's practice-puzzle files. It
-answers the community request on that surface. It does not break the real Noita
-eye glyphs, which remain ciphertext-only with no known plaintext crib, and it
-does not change the eye-puzzle unsolved state. Historical Phase-0/Phase-2
-CDCL(T) measurements and decision entries below are preserved as measurements of
-that systematic line; they are superseded only for practice-puzzle recovery by
-the exact-verified local-search path above.
+answers the community request on that surface for observed plaintext letters. It
+does not break the real Noita eye glyphs, which remain ciphertext-only with no
+known plaintext crib, and it does not change the eye-puzzle unsolved state.
+Historical Phase-0/Phase-2 CDCL(T) measurements and decision entries below are
+preserved as measurements of that systematic line; they are superseded only for
+practice-puzzle recovery by the exact-verified local-search path above.
 
 ## Verified frontier
 
@@ -66,9 +70,9 @@ Inputs: `plaintexts.txt` paired with `1_swap_ct.txt`, `2_swap_ct.txt`, and
 
 | level | status | exact re-encryption | solver stats |
 | --- | --- | --- | --- |
-| `ns=1` | recovered | `2439/2439` | `candidates=83`, `pruned=0`, `deductions=24`, `nodes=0`, `sat_decisions=0`, `sat_conflicts=0` |
-| `ns=2` | recovered | `2439/2439` | `candidates=6725`, `pruned=134804`, `deductions=925549`, `nodes=1`, `sat_decisions=0`, `sat_conflicts=0` |
-| `ns=3` | recovered by local search | `2439/2439` | `candidates=541406`; exact-verified candidate, not a uniqueness proof |
+| `ns=1` | observed letters recovered | `2439/2439` | `candidates=83`, `pruned=0`, `deductions=24`, `nodes=0`, `sat_decisions=0`, `sat_conflicts=0` |
+| `ns=2` | observed letters recovered | `2439/2439` | `candidates=6725`, `pruned=134804`, `deductions=925549`, `nodes=1`, `sat_decisions=0`, `sat_conflicts=0` |
+| `ns=3` | observed letters recovered by local search | `2439/2439` | `candidates=541406`; exact-verified candidate, not a uniqueness proof |
 
 Support-size summary for the recovered levels:
 
@@ -78,10 +82,11 @@ Support-size summary for the recovered levels:
   to one SAT model check. Reported observed-letter supports are within the
   `<=3` top-swap bound; most are three-position supports, with rare/degenerate
   letters shorter. The CLI emits the per-letter target/support/swap word.
-- `ns=3`: exact round-trip is recovered by the complementary local-search path.
-  The emitted mapping is accepted only by byte-for-byte re-encryption; the
-  local-search report marks it as a candidate rather than claiming exhaustive
-  uniqueness.
+- `ns=3`: exact round-trip is recovered by the complementary local-search path
+  for the 24 observed letters. The emitted mapping is accepted only by
+  byte-for-byte re-encryption; the local-search report marks it as a candidate
+  rather than claiming exhaustive uniqueness. `J` and `Z` remain
+  `UNRECOVERED`/unconstrained and are not serialized as recovered swaps.
 
 Validation controls:
 
@@ -96,9 +101,10 @@ Validation controls:
 - Matched nulls all concluded with `CleanFailure` under the default
   `max_nodes=50000` cap: random full-permutation mapping at the `ns=2` bound,
   over-budget `ns=2` encrypted text attacked at `ns=1` (while recovering at
-  `ns=2`), ciphertext-symbol label shuffle at the `ns=2` bound, and a
-  mismatched-pair null at the `ns=3` local-search bound. The self-test does not
-  count `SearchCapExceeded` or `SearchTimeExceeded` as a genuine null failure.
+  `ns=2`), ciphertext-symbol label shuffle at the `ns=2` bound, and an
+  anchor-consistent ciphertext perturbation at the `ns=3` local-search bound.
+  The self-test does not count `SearchCapExceeded` or `SearchTimeExceeded` as a
+  genuine null failure.
 
 The `gak-swap-recover` CLI exposes the same library path used by the tests for
 the supported frontier. `--strategy auto` keeps the systematic path for `ns=1/2`
@@ -165,9 +171,11 @@ cargo run --locked --bin noita-eye -- gak-swap-recover \
   --output json
 ```
 
-The JSON report includes the full recovered `pt_mapping`, per-letter
+The JSON report includes the recovered observed-letter `pt_mapping`, per-letter
 `support`/`support_size`/canonical `swap_word`, aggregate and per-letter verdicts,
-and `round_trip.exact`. It also includes `python_pt_mapping`, the same
+and `round_trip.exact`. Unobserved plaintext letters are omitted from
+`pt_mapping` and reported as unrecovered/unconstrained. It also includes
+`python_pt_mapping`, the same
 copy-pasteable `pt_mapping = {...}` dict printed by text output for direct use in
 Lymm's `noita_test_cipher.py`. The reference-Python side remains the existing
 thin `generate_reference_vectors.py` oracle/generator; no Python attack logic was
@@ -202,12 +210,13 @@ Validation added for this surface:
 - A CLI integration test that writes plaintext, ciphertext, base, and generator
   files and recovers through `--generator-file`.
 
-Bounded-search note: direct CLI recovery still rejects `--num-swaps` /
-`--max-swaps >= 3` with the measured-frontier message. The generator-set
-generality does not claim larger reach by itself; higher budgets and larger-group
-stress frontiers are Task-03 item 3. The distinct nonzero target/no-doubles
-assumption remains load-bearing for generalized generator sets, and violating it
-is reported as a model rejection rather than a candidate recovery.
+Bounded-search note: built-in top-swap `ns=3` now routes through exact-accepted
+local search under `--strategy auto`; budgets above `3` still use the shared
+frontier guard. The generator-set generality does not claim larger reach by
+itself; higher budgets and larger-group stress frontiers are Task-03 item 3. The
+distinct nonzero target/no-doubles assumption remains load-bearing for
+generalized generator sets, and violating it is reported as a model rejection
+rather than a candidate recovery.
 
 The `ns=3` planted test is a soundness control, not a real-file recovery claim:
 it exercises the same `ns=3` broad propagation, target pre-solver, targeted
@@ -244,10 +253,11 @@ Validation added for this surface:
 - A CLI integration test that writes plaintext, ciphertext, base, and generator
   files and recovers through `--compose-direction right --emit-index 1`.
 
-Bounded-search note: this item does not extend the real-file frontier. The CLI
-still rejects `--num-swaps` / `--max-swaps >= 3` with the measured-frontier
-message, and right-compose residual recovery bypasses the left-compose
-transition-pruning clauses rather than claiming those deductions are symmetric.
+Bounded-search note: this item does not extend the built-in top-swap
+local-search result to every configured surface. Built-in left-compose top-swaps
+at `ns=3` recover the observed-letter mapping by exact-accepted local search;
+right-compose residual recovery bypasses the left-compose transition-pruning
+clauses rather than claiming those deductions are symmetric.
 The distinct nonzero target/no-doubles assumption remains documented and enforced
 at `perm(L)[emit_index]`; when the configured direction/start forces a different
 first-read entry, that bootstrap entry is checked as well. Violating surfaces are
@@ -272,10 +282,10 @@ Validation added for this surface:
 - The test asserts the measured passing boundary `(n=17, max-swaps=3)` and records
   per-case candidate counts/nodes in the `GakSwapReachStressReport`.
 
-Bounded-search note: this does not change the public real-file frontier. The
-CLI still rejects direct `--num-swaps` / `--max-swaps >= 3` requests with the
-measured-frontier message, and the vendored S83 `ns=3` ciphertext remains in the
-wall section below. The new stress boundary is model-conditional on the explicit
+Bounded-search note: this does not generalize the public top-swap `ns=3`
+local-search result to arbitrary generator surfaces or larger budgets. Built-in
+top-swaps at `ns=3` now recover the observed-letter mapping by exact-accepted
+local search; the new stress boundary is model-conditional on the explicit
 rotation-generator surface and planted controls.
 
 Phase-1 oracle primitive (2026-07-05): residual recovery now uses an implicit
@@ -299,15 +309,16 @@ the ns=4 unblock; per-replay CPU on ns=3 is comparable to possibly slower becaus
 queries scan per-position support. This did not rerun or change the Phase-0
 real-file budget or decision rule.
 
-## ns=3 wall
+## Superseded systematic ns=3 wall
 
-The current ns=2 success does not scale automatically to ns=3. The structural
-break is that R-top/R-read deductions become much weaker once each letter domain
-has hundreds of thousands of possible three-swap candidates. At `ns=2`, the traced
-residual reached `6725` candidates, `18863` total domain entries, max domain
-`6643`, then propagation collapsed the SAT-ready residual to `24` total entries
-with max domain `1`. At `ns=3`, equivalent propagation leaves multi-million-entry
-residuals, so the current SAT model has too little eager structure to learn from.
+Before the local-search correction, the systematic `ns=2` success did not scale
+automatically to `ns=3`. The structural break is that R-top/R-read deductions
+become much weaker once each letter domain has hundreds of thousands of possible
+three-swap candidates. At `ns=2`, the traced residual reached `6725` candidates,
+`18863` total domain entries, max domain `6643`, then propagation collapsed the
+SAT-ready residual to `24` total entries with max domain `1`. At `ns=3`,
+equivalent propagation leaves multi-million-entry residuals, so the systematic
+SAT model had too little eager structure to learn from.
 
 Measured attempts before landing the bounded frontier:
 
@@ -374,13 +385,14 @@ Follow-up ns=3 attack pass, 2026-07-03:
 These follow-up measurements are likewise scratch trace observations unless they
 are covered by the stable commands above.
 
-Current diagnosis: the new propagation buys useful target-restricted pruning but
-does not close the target-assignment problem. The wall is now specifically that
-deterministic propagation can reject wrong full target assignments, but the engine
-does not yet learn a small sound target-level reason from that rejection. Whole
-assignment nogoods continue to enumerate nearby target permutations too slowly.
-The all-consecutive channelling and stronger deterministic R-read levers have
-therefore been implemented and spent as standalone closing hypotheses.
+Systematic-line diagnosis at the time: the new propagation bought useful
+target-restricted pruning but did not close the target-assignment problem. The
+wall was specifically that deterministic propagation can reject wrong full target
+assignments, but the engine did not learn a small sound target-level reason from
+that rejection. Whole-assignment nogoods continued to enumerate nearby target
+permutations too slowly. The all-consecutive channelling and stronger
+deterministic R-read levers were therefore implemented and spent as standalone
+closing hypotheses.
 
 First target-level conflict-learning milestone, 2026-07-04:
 
@@ -416,9 +428,9 @@ First target-level conflict-learning milestone, 2026-07-04:
   inside the exhaustive candidate-arc propagation for that single slice before
   being interrupted. That arc is now deliberately excluded from the target tier;
   the retained candidate SAT residual is the witness tier.
-- This does not earn the real `ns=3` recovery rung. There is no exact
-  `2439/2439` re-encryption for `3_swap_ct.txt`, the CLI remains capped at the
-  measured `ns=2` frontier, and `--num-swaps 3` still fails by design.
+- This did not earn the real `ns=3` systematic recovery rung at the time. This
+  pre-local-search probe had no exact `2439/2439` re-encryption for
+  `3_swap_ct.txt`, and `--num-swaps 3` was still capped by design.
 
 Stage-1 planted ns=3 calibration controls, 2026-07-04:
 

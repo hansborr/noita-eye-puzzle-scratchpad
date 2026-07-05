@@ -4,7 +4,8 @@ External samples from the Noita eye-messages community (author: **Lymm**),
 supplied 2026-07-03 as a request for a *general* GAK deck-cipher attack. Unlike
 the other practice puzzles (which are ciphertext-only), this is a genuine
 **known-plaintext** corpus: the plaintexts are public (below), and the task is to
-recover the secret per-letter permutation key (the "swaps").
+recover the per-letter permutation key (the "swaps") where the corpus constrains
+it.
 
 Provenance / honesty note: these files are external cipher artifacts —
 transcription-integrity rule applies (`AGENTS.md`); do not alter them. This
@@ -37,21 +38,24 @@ distinct across letters).
 
 ## Status / how it's used
 
-The landed Rust `gak-swap-recover` engine recovers the secret key **exactly** for
-`num_swaps=1` and `num_swaps=2`: both re-encrypt all 8 messages byte-for-byte
-(`2439/2439`). The engine is propagation-first deduction (R-top/R-read) followed by
-a residual SAT check; the recovery core lives under
-`attack::gak_attack::lymm_deck` (recovery submodule) and the CLI handler is
-`run_gak_swap_recover` (`src/cli/commands/gak_swap.rs`, wired through
-`src/cli/dispatch.rs` from the `Command::GakSwapRecover` variant in
-`src/cli/args.rs`). `num_swaps=3` is the current **cost-walled frontier**: the CLI
-deliberately refuses to emit a candidate at `--num-swaps 3` (a measured cost wall,
-not a soundness failure). Solver stats, planted-positive controls, matched nulls,
-and the full `ns=3` wall diagnosis are in `SWAP-RECOVERY-RESULTS.md`; the
-delegatable task package that produced this engine (Tasks 01/02/03) is built and
-merged under `research/handoff/gak-swap-recovery/`. No result here relaxes the
-project honesty ceiling — a recovered key is a *candidate* until it re-encrypts the
-ciphertext exactly.
+The landed Rust `gak-swap-recover` engine recovers exact observed-letter
+candidates for `num_swaps=1`, `num_swaps=2`, and built-in top-swap
+`num_swaps=3`: each re-encrypts all 8 messages byte-for-byte (`2439/2439`).
+The vendored plaintext uses 24 of 26 letters; `J` and `Z` never occur, so their
+swaps are unconstrained and are reported as unrecovered rather than fabricated.
+The recovery core lives under `attack::gak_attack::lymm_deck` (recovery
+submodule) and the CLI handler is `run_gak_swap_recover`
+(`src/cli/commands/gak_swap.rs`, wired through `src/cli/dispatch.rs` from the
+`Command::GakSwapRecover` variant in `src/cli/args.rs`). `--strategy auto` keeps
+the complete systematic engine for `ns=1/2` and routes built-in top-swap `ns=3`
+through exact-accepted local search. Solver stats, planted-positive controls,
+matched nulls, the superseded systematic `ns=3` wall diagnosis, and the current
+local-search correction are in `SWAP-RECOVERY-RESULTS.md`; the delegatable task
+package that produced this engine (Tasks 01/02/03) is built and merged under
+`research/handoff/gak-swap-recovery/`. No result here relaxes the project honesty
+ceiling — a recovered mapping is a *candidate* until it re-encrypts the ciphertext
+exactly, and this known-plaintext practice-puzzle result does not affect the
+ciphertext-only eye glyphs.
 
 ## Oracle differential fixture
 
@@ -86,7 +90,8 @@ cargo run --locked --bin noita-eye -- gak-swap-recover \
 
 JSON includes:
 
-- `pt_mapping`: the recovered full permutation mapping as plain arrays.
+- `pt_mapping`: the recovered observed-letter permutation mapping as plain
+  arrays. Unobserved plaintext letters are omitted and reported as unrecovered.
 - `letters[*].support`, `letters[*].support_size`, and `letters[*].swap_word`:
   the final support and canonical top-swap word for each letter.
 - `verdict` and `round_trip.exact`: the exact re-encryption status.
@@ -122,10 +127,10 @@ specialized S83 top-swap engine.
 The generalized engine chooses a sparse transposition-support path when every
 explicit generator is a small-support transposition. Otherwise it enumerates
 generator words with a meet-in-the-middle split and applies the forced-top prune
-when every observed letter has an identity-restart target. The landed CLI keeps
-the same measured direct frontier as the top-swap path (`--num-swaps` /
-`--max-swaps` below 3); larger reach is a separate measured item, not implied by
-the generator-file knob.
+when every observed letter has an identity-restart target. The built-in top-swap
+surface now routes `ns=3` through local search under `--strategy auto`, but the
+generator-file knob does not by itself claim arbitrary-generator recovery at the
+same budget.
 
 The no-doubles model assumption still applies: observed plaintext letters must be
 assignable to distinct nonzero `perm(L)[0]` targets. Explicit generator surfaces
@@ -158,9 +163,10 @@ The no-doubles assumption generalizes to distinct nonzero
 `perm(L)[emit_index]` targets. If the configured direction/start also creates a
 different forced first-read entry, that bootstrap entry is checked too. Generator
 surfaces or restarts that violate those assumptions are rejected as model
-violations. The measured direct frontier is unchanged: the CLI still refuses
-`--num-swaps` / `--max-swaps >= 3`, and the right-compose path currently uses
-exact verification without the left-compose transition-pruning rules.
+violations. Built-in left-compose top-swaps at `ns=3` are handled by the
+local-search route; right-compose and explicit-generator larger-budget recovery
+remain separate measured surfaces, with exact verification but without a broader
+scale claim.
 
 ## Reach stress self-test
 
@@ -180,4 +186,5 @@ frontier self-test: only `clean-failure` earns a passing null, while caps,
 timeouts, and plumbing errors make the stress report fail. The measured boundary
 reported by the test is `(n=17, max-swaps=3)`. This is a regression/stress
 measurement, not a claim that the engine scales arbitrarily or that the vendored
-S83 `ns=3` wall is solved.
+S83 top-swap `ns=3` systematic wall generalizes beyond the known-plaintext
+local-search correction.
