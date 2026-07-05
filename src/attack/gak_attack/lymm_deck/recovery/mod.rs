@@ -23,6 +23,7 @@ mod propagation_relation;
 mod propagation_removal;
 mod propagation_target_pruning;
 mod reach;
+mod report;
 mod residual;
 mod sat_encoding;
 mod selftest;
