@@ -8,11 +8,11 @@ conditional) failure point.
 ## The gap G1b closes
 
 G1 pointed the *bijective-readout* GCTAK solver
-([`solve_gctak`](../../src/attack/gak_attack/solver.rs)) at `two` and reported a clean
+([`solve_gctak`](../../src/attack/gak_attack/solver/mod.rs)) at `two` and reported a clean
 honest negative: it dies at seeding because `two`'s readout is many-valued
 (out-degree 8 on all 12 symbols), which violates GCTAK's bijective-readout
 assumption. G1 explicitly deferred the *hidden-state* machinery
-([`marginalization.rs`](../../src/attack/gak_attack/marginalization.rs)) to G1b. G1b
+([`marginalization`](../../src/attack/gak_attack/marginalization/mod.rs)) to G1b. G1b
 builds a hidden-state attack, validates it on a known-answer synthetic matched to
 `two`'s observable signature, and runs it on `two`.
 
@@ -24,6 +24,15 @@ share a class: every symbol has out-degree and in-degree exactly 8 (the 8
 symbols outside its own class), with zero adjacent-equal pairs. So the visible
 symbol factors as `class (mod 3) × rank (0..3)`: the class is a fast coordinate that
 always advances, the rank is freer. This is the hidden-state signature in miniature.
+
+**Group-framing caveat (2026-06-26 observation, superseded framing).** This
+`class (mod 3) × rank (0..3)` recon predates the 2026-07-04 route reset of `two`
+(`research/handoff/two-cross-agent-recon.md`), which establishes the live surface as
+the full 12-symbol stream whose isomorph column-maps close to an order-48 observable
+shadow of a reported order-96 group. The mod-3 class law and the degree-8 signature
+survive as model-free measurements, but the direct-product `class × rank` reading is
+not the current canonical group framing. G1b's honest-negative conclusion (the attack
+runs but cannot decode `two` for lack of a dominant repeated phrase) is unaffected.
 
 ## What was built
 

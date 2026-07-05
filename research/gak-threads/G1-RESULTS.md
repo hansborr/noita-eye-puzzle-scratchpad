@@ -6,10 +6,10 @@ externally-sourced GAK samples with known structure). **Status:** Done.
 ## The gap G1 closes
 
 Before G1, the GCTAK solver
-([`solve_gctak`](../../src/attack/gak_attack/solver.rs)) and the chaining substrate
-it consumes ([`chaining_graph.rs`](../../src/analysis/chaining_graph.rs)) had only
-self-generated positive controls: the synthetic fixtures in
-[`generator.rs`](../../src/attack/gak_attack/generator.rs), whose ground truth the
+([`solve_gctak`](../../src/attack/gak_attack/solver/mod.rs)) and the chaining substrate
+it consumes ([`chaining_graph`](../../src/analysis/chaining_graph/mod.rs), `compute_graph`)
+had only self-generated positive controls: the synthetic fixtures in
+[`generator`](../../src/attack/gak_attack/generator/mod.rs), whose ground truth the
 generator itself produced. That is the weakest form of validation — the tool was
 only ever shown ciphers it built. Meanwhile two practice puzzles in
 [`research/data/practice-puzzles/`](../data/practice-puzzles/README.md) are
@@ -107,7 +107,7 @@ the expected, valuable negative, and the death point is precise:
 This is exactly the structural limit the thread predicted: `solve_gctak` is a GCTAK
 solver (trivial hidden subgroup); `two` is a real GAK whose hidden state it cannot
 model. Cracking `two` would require the hidden-state machinery
-([`marginalization.rs`](../../src/attack/gak_attack/marginalization.rs) / the deck
+([`marginalization`](../../src/attack/gak_attack/marginalization/mod.rs) / the deck
 attack), not the bijective-readout GCTAK gate — and even there the measured
 `(n-1)!` tractability wall (Thread 4, wave 2) would apply.
 

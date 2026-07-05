@@ -1,13 +1,21 @@
-# GAK Threads — handoff index
+# GAK Threads — completed campaign (reference)
 
-Status as of 2026-06-24. Source of the new material: Lymm's eye-messages
-wiki (github.com/Lymm37/eye-messages/wiki), content current to 2026-01-16.
+> **Status — COMPLETE (as of 2026-06-24).** The six-thread GAK campaign is
+> DONE: every thread (1A/1B/2/3/4/5/6) has landed. See
+> [`PROGRESS.md`](PROGRESS.md) section 6 for the Rust modules that shipped, and
+> the result records
+> [`G1-RESULTS.md`](G1-RESULTS.md) /
+> [`G1b-RESULTS.md`](G1b-RESULTS.md) /
+> [`G2-isomorph-imperfection.md`](G2-isomorph-imperfection.md) /
+> [`G3-leak-ceiling.md`](G3-leak-ceiling.md).
+> This folder is now a **completed campaign / reference**, not a next-work
+> queue: do not dispatch a cold agent to "pick an assigned thread" — the threads
+> are finished. The convergence narrative and glossary below stand as reference;
+> the per-thread briefs, priorities, and sequencing are preserved further down as
+> the historical hand-off record that produced those landings.
 
-This folder is a set of self-contained briefs for handing individual threads to
-other agents. Each `thread-N-*.md` can be picked up cold: it states the claim,
-the method, which existing modules to reuse or extend, the success/failure
-criteria, and the honesty caveats. Read this index first, then your assigned
-thread.
+Source of the material: Lymm's eye-messages wiki
+(github.com/Lymm37/eye-messages/wiki), content current to 2026-01-16.
 
 ---
 
@@ -52,7 +60,7 @@ this.
   *symbol equality* and group structure — they never need the symbol→meaning
   mapping, so they sidestep the decode blocker entirely. Thread 4 *produces* a
   candidate mapping rather than consuming one.
-- **Data lives in `src/corpus.rs`** — the nine verified messages, cross-checked
+- **Data lives in `src/data/corpus.rs`** — the nine verified messages, cross-checked
   byte-for-byte against the ngraham20 transcription and Xkeeper0's base-7
   transcoder. Use `corpus::messages()` / `corpus::combined_sequence()`. The
   accepted reading layer is the honeycomb base-5 trigram stream (`0..=82`).
@@ -74,15 +82,25 @@ this.
 
 ---
 
-## The threads at a glance
+## Historical hand-off record (the original dispatch plan)
 
-| # | Thread | Priority | Effort | Tests a wiki claim that is… | Build depends on |
+Everything from here down is the Wave-1 dispatch plan exactly as it was handed
+to agents — the self-contained thread briefs, their priorities, the recommended
+sequencing, and the Thread-4 go/no-go. Each `thread-N-*.md` was written to be
+picked up cold. **All of it has since landed** (see the completion banner at the
+top and `PROGRESS.md` section 6); it is retained for provenance and as the
+method trail, not as live work. A cold reader should treat the priorities and
+"start here" notes below as artifacts of the original plan, not instructions.
+
+### The threads at a glance
+
+| # | Thread | Priority (original) | Effort | Tested a wiki claim that was… | Build depended on |
 | - | ------ | -------- | ------ | --------------------------- | ---------------- |
 | 1 | [Dihedral impossibility + 6-group transitivity restriction](thread-1-dihedral-and-transitivity.md) | **High (start here)** | Low–Med | Load-bearing & central | — (foundational) |
 | 2 | [AGL stress-test (the soft link)](thread-2-agl-stress-test.md) | **High** | Med | Only *tentative* | Thread 1 helpful |
-| 3 | [Perfect-isomorphism / allomorph scan](thread-3-perfect-isomorphism-scan.md) | **High** | Med | *Unproven by their own admission* | `isomorph.rs` |
+| 3 | [Perfect-isomorphism / allomorph scan](thread-3-perfect-isomorphism-scan.md) | **High** | Med | *Unproven by their own admission* | `src/analysis/isomorph.rs` |
 | 4 | [GAK attack prototype (the prize)](thread-4-gak-attack-prototype.md) | Med (high reward, high risk) | High | Their stated open problem | Thread 5 helpful |
-| 5 | [Chaining-graph: conflicts + transitivity coverage](thread-5-chaining-graph.md) | Med (foundational) | Med | Asserted qualitatively | `isomorph.rs` |
+| 5 | [Chaining-graph: conflicts + transitivity coverage](thread-5-chaining-graph.md) | Med (foundational) | Med | Asserted qualitatively | `src/analysis/isomorph.rs` |
 | 6 | [Binary / game-data re-examination](thread-6-binary-game-data.md) | **Low (likely dead end)** | Low | n/a | Ghidra, game files |
 
 ### Recommended sequencing
@@ -129,7 +147,7 @@ an *input*.
 
 - **Isomorph** — a repeated ciphertext segment with the same *gap pattern*
   (positions of repeats), even if the symbols differ. Evidence of repeated
-  plaintext under a polyalphabetic cipher. (`src/isomorph.rs`)
+  plaintext under a polyalphabetic cipher. (`src/analysis/isomorph.rs`)
 - **Allomorph** — a place where two segments *fail* to be isomorphic, proving the
   underlying plaintext must differ there (under perfect isomorphism).
 - **Perfect isomorphism** — same plaintext always yields the same gap pattern,

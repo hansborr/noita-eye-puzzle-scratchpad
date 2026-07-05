@@ -14,10 +14,10 @@ break geometry (see scope below).
 
 Mapping-independent throughout (ciphertext symbol equality and
 first-occurrence gap structure only; no symbol→meaning mapping). The module is
-[`src/analysis/isomorph_imperfection.rs`](../../src/analysis/isomorph_imperfection.rs);
+[`src/analysis/isomorph_imperfection`](../../src/analysis/isomorph_imperfection/mod.rs);
 the public entry is `run_isomorph_imperfection(config) -> Result<…>`. It consumes
-[`perfect_isomorphism.rs`](../../src/analysis/perfect_isomorphism.rs) read-only
-(no edits to that file).
+[`perfect_isomorphism`](../../src/analysis/perfect_isomorphism/mod.rs) read-only
+(no edits to that module).
 
 ## The falsifier
 
@@ -263,7 +263,7 @@ Reproducibility. The hardened-negative assertions (0 robust at base and
 extended windows; robust-null p > 0.05; loose candidates > 0 and exceeding the
 shuffle null; the surfaced loose-candidate list matches the loose count and every
 entry is benign and unpromoted; positive control fires; eyes best-fit ε = 0) are
-pinned in `isomorph_imperfection.rs`'s `#[cfg(test)]` battery at a cheap
+pinned in the `isomorph_imperfection` module's `#[cfg(test)]` battery at a cheap
 deterministic config. The headline integers in this note (loose-null
 p = 4.998e-4, family-fit table, the two loose candidates east4@65/west4@67
 [internalness 11] and east4@68/east5@69 [internalness 29], detection threshold

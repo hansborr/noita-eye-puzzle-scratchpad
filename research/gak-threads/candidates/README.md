@@ -83,9 +83,11 @@ never primary.
     hypothesis records for the external practice puzzles
     (`research/data/practice-puzzles/`): `one` is an honest negative (no in-budget
     codec partitions its 266-digit / differenced-265 stream while clearing the
-    29-symbol floor); `two` is logged even though its held-out gate fails; `six`'s
-    base-6 grouping reinserts its preserved word-boundary spaces into the rendered
-    cleartext. None is a decode — each is a labelled hypothesis pending human
+    29-symbol floor); `two` survives all three gates (round-trip; held-out
+    generalizes with score -3.192 vs matched-null held-out mean -3.533; beats its
+    in-sample null) and is logged as a labelled hypothesis; `six`'s base-6 grouping
+    reinserts its preserved word-boundary spaces into the rendered cleartext but
+    fails gate 3. None is a decode — each is a labelled hypothesis pending human
     confirmation against (for `two`, withheld) ground truth.
     - **Reproduce.** Each record's `## Provenance (reproducible)` section carries
       the exact, clock-free command that regenerates it byte-for-byte (deterministic
@@ -97,11 +99,12 @@ never primary.
       make run ARGS='solve --input-file research/data/practice-puzzles/six --alphabet 123456 --codec-search --restarts 4 --iterations 2000 --null-trials 16 --seed 0x0000736f6c766504 --label six --candidates-dir research/gak-threads/candidates'
       ```
 
-      `--codec-search` auto-enables the mapping search (one-line stderr note). All
-      three stay honest negatives — `one` surfaces no codec candidate; `two`
-      beats its in-sample null but fails the held-out gate (overfit); `six` fails
-      both — each a hypothesis, never a decode. The runbook and the in-record
-      provenance agree by construction.
+      `--codec-search` auto-enables the mapping search (one-line stderr note).
+      None is a decode — `one` surfaces no codec candidate (honest negative);
+      `two` survives all three gates (beats its in-sample null and generalizes to
+      the held-out fold, -3.192 vs -3.533) and is logged as a labelled hypothesis;
+      `six` fails gate 3 — each a hypothesis, never a decode. The runbook and the
+      in-record provenance agree by construction.
 
       Reproducibility is verified on demand by re-running the embedded command
       (no CI test pins it byte-for-byte: a faithful reproduction would have to write

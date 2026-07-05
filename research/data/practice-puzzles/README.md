@@ -43,12 +43,12 @@ Notes:
 - `one` was previously referred to as `/tmp/gak_cipher_example`; `two` as
   `/tmp/gak_example_two`. They are byte-identical to those files.
 - The letter puzzles (`three`/`four`/`five`/`seven`) preserve word boundaries and
-  punctuation — a strong crib. Correction (2026-06-26): the earlier "monoalphabetic
-  substitution" reading is falsified — the `profile` subcommand shows all four have
-  a flat IoC (~0.036–0.044 vs English ~0.0667), so they are *not* monoalphabetic;
-  and the per-period IoC is flat at every period 2..40 (both keystream-advance
-  conventions), so they are *not* periodic Vigenère/Beaufort/Quagmire/Gronsfeld/Porta
-  either. They are aperiodic polyalphabetic / position-keyed ciphers that still
+  punctuation — a strong crib. They are **aperiodic polyalphabetic / position-keyed**
+  ciphers, not monoalphabetic and not periodic: the `profile` subcommand shows all
+  four have a flat IoC (~0.036–0.044 vs English ~0.0667), which rules out a
+  monoalphabetic substitution, and the per-period IoC is flat at every period 2..40
+  (both keystream-advance conventions), which rules out a periodic
+  Vigenère/Beaufort/Quagmire/Gronsfeld/Porta. They still
   preserve word boundaries (repeated whole words encrypt identically in `five`, single
   letters shift) — consistent with Ragbaby-class or running-key. Validated negatives so
   far: keyword-Ragbaby (all four), general (non-keyword) Ragbaby (all four; `five`
@@ -66,23 +66,32 @@ Notes:
   the inventory row above); `two` (whose `s%3` channel is a ±1 walk on C3) is an
   honest negative and additionally exposes a transition-law blind spot in the
   bigram/Fisher-Yates gate (its gate "survivors" are artifacts, not decodes).
-  `CODEC-RESULTS.md` also records the transparent-rotor leak (the C3 channel
-  exposes ~1/3 of the plaintext key-free) and the `isoscan` crib anchors — long
+  `CODEC-RESULTS.md` also records the `isoscan` crib anchors — long
   exact translate-isomorphs in the difference channel (`two`: len 68; `one`: len
-  36) that locate repeated plaintext spans (structural candidates, not decodes).
-  The `groupscan` instrument is the `D4`/`A4`/`S4` hidden-group element-order
-  discriminator (disjoint giveaway cycle types over the deck channel, null-gated);
-  real `two` is a robust `NoDeckSignal` (the crib anchors are eps-only/rotor-only
-  repeats at the deck level, which weakens the crib-recovery lead). The `ctakscan`
-  instrument then closes the **ciphertext-autokey (feedback)** regime `groupscan`
+  36) that locate repeated plaintext spans (structural candidates, not decodes) —
+  and the `groupscan`/`ctakscan` deck-channel discriminators.
+
+  **Route reset (2026-07-04, `research/handoff/two-cross-agent-recon.md`).** The
+  mod-3 forbidden-successor law (`two`'s `s%3` ±1 walk on C3) and every anchor
+  position above survive as **model-free measurements**, but the `C3 × S4`
+  direct-product reading those `two` instruments were framed under is
+  **superseded**: a cross-agent reconstruction of the state group acting on the 12
+  labels has order 48 (an observable shadow of a reported order-96 group), neither
+  containing nor contained in `C3 × S4` = 72. So the "transparent channel leaks
+  ~1/3 of the plaintext key-free" and `D4`/`A4`/`S4` hidden-group framings are
+  direct-product-conditional and are **not** the current reading; the live attack
+  surface is the **full 12-symbol stream**, not the deck-free `s%3` quotient.
+
+  What still stands model-free: `groupscan` (disjoint giveaway cycle types over the
+  deck channel, null-gated) finds real `two` a robust `NoDeckSignal`, and
+  `ctakscan` — which closes the **ciphertext-autokey (feedback)** regime `groupscan`
   left untested (the deck advances on the emitted ciphertext, so its trajectory is
-  computable): real `two` is a `NoFeedbackSignal` (joint min-run at the random
-  floor across all four conventions). With both the passive-deck and the
-  single-symbol-feedback decks excluded — and the length-68 rotor repeat confirmed a
-  *genuine* repeated phrase (it clears a period-2-preserving null) — no
-  computable-deck reading reproduces `two`'s real deck-channel repeat: the deck
-  carries true hidden state, the eye-cipher wall at small scale. See
-  `research/findings/ctak-feedback-discriminator.md`.
+  computable) — finds a `NoFeedbackSignal` (joint min-run at the random floor across
+  all four conventions). With both the passive-deck and single-symbol-feedback decks
+  excluded, and the length-68 rotor repeat confirmed a *genuine* repeated phrase (it
+  clears a period-2-preserving null), no computable-deck reading reproduces `two`'s
+  real deck-channel repeat: the deck carries true hidden state, the eye-cipher wall
+  at small scale. See `research/findings/ctak-feedback-discriminator.md`.
 
 ## Provenance
 External samples gathered by the maintainer (2026-06-25) to test the workbench's

@@ -5,7 +5,7 @@ lemma), under the stated point-stabilizer GAK model.
 **Claim ceiling:** this rules out one candidate *group family*; it says nothing
 about recoverable plaintext. The eyes remain deterministic, engine-generated,
 strikingly structured data of unknown meaning, and unsolved.
-**Code:** `src/attack/agl_gak.rs` (Rust workbench); CLI subcommand `agl-gak`.
+**Code:** `src/attack/agl_gak/` (Rust workbench); CLI subcommand `agl-gak`.
 
 This note converts the wiki's *tentative* exclusion of the AGL(1,83) Group-Autokey
 (GAK) families into a rigorous one. It is self-contained and intended to be
@@ -56,7 +56,8 @@ silently drift:
   state, `symbol = agl_apply(state, x₀) = b`. The hidden subgroup is therefore the
   point stabilizer `Stab(0) = { (a, 0) }` (order 82 / 41); its 83 cosets are
   indexed by `b`, i.e. by "where the reference point lands." This is the code's
-  *"right-multiplication / left-coset"* framing (`agl_gak.rs:460-483`).
+  *"right-multiplication / left-coset"* framing
+  (`agl_gak/report.rs::append_agl_gak_interpretation`).
 
 This is what makes the obstruction below exact: a ciphertext symbol *is* the moved
 reference point, so symbol-agreement between two parties is a statement about a
@@ -195,7 +196,7 @@ varying runs (e.g. `east4/west4` length 20, 18 distinct) only reinforce it.
 
 ## 5. The exhaustive enumeration (the rigorous strengthening)
 
-`fixed_point_enumeration` (`agl_gak.rs:804`) does not sample and does not fit a
+`fixed_point_enumeration` (`agl_gak/groups.rs`) does not sample and does not fit a
 key. It enumerates every candidate discrepancy consistent with a differing
 start and counts fixed points for each. "Consistent with a differing start"
 means the discrepancy moves the reference point, i.e. `b ≠ 0`
@@ -260,16 +261,17 @@ subgroup verdicts
     obstruction: east1/west1 start 1 len 2 distinct 2/2 after predecessors 50 vs 80
 ```
 
-**Pointers (`src/attack/agl_gak.rs`):**
-- `fixed_point_enumeration` (≈ line 804) and its test
-  `fixed_point_enumeration_counts_reproduce` (≈ line 1180).
-- `fixed_point_of` / `fixed_point_count` (≈ line 973) — the Lemma in code.
-- `agreement_check` (≈ line 825) — the §4.2 bridge identity, spot-checked.
-- `first_obstruction` / `global_prefix_obstruction` (≈ line 651) — the all-nine
+**Pointers (`src/attack/agl_gak/`):**
+- `fixed_point_enumeration` (`groups.rs`) and its test
+  `fixed_point_enumeration_counts_reproduce` (`tests.rs`).
+- `fixed_point_of` / `fixed_point_count` (`groups.rs`) — the Lemma in code.
+- `agreement_check` (`groups.rs`) — the §4.2 bridge identity, spot-checked.
+- `first_obstruction` / `global_prefix_obstruction` (`mod.rs`) — the all-nine
   prefix kill in §4.4.
-- Interpretation + claim-ceiling text (≈ lines 460-483).
+- Interpretation + claim-ceiling text
+  (`report.rs::append_agl_gak_interpretation`).
 - Cipher primitives `agl_compose` / `agl_apply` / `agl_coset_symbol` /
-  `quadratic_residues_mod` in `src/ciphers/mod.rs` (≈ lines 2299-2349).
+  `quadratic_residues_mod` in `src/ciphers/mechanics.rs`.
 - CLI integration test: `tests/agl_gak_cli.rs`.
 
 ---

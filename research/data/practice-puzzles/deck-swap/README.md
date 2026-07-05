@@ -37,16 +37,21 @@ distinct across letters).
 
 ## Status / how it's used
 
-Attack tooling proposal + delegatable tasks live in
-`research/handoff/gak-swap-recovery/`. Measured so far (two Python prototypes):
-`num_swaps=1` is closed-form and recovers exactly (all 8 messages re-encrypt
-byte-for-byte). `num_swaps≥2` is genuinely hard: forward left-to-right search
-*wanders* — not just naive DFS but MRV + cross-message forward-checking capped
-without a solution, even on a *planted* ns=2 with the answer in the search space.
-The recommended path is propagation-first deduction (R-top/R-read) + a CP-SAT
-residual solver (see the handoff), and ns≥2 is **not yet verified end-to-end**. No
-result here relaxes the project honesty ceiling — a recovered key is a *candidate*
-until it re-encrypts the ciphertext exactly.
+The landed Rust `gak-swap-recover` engine recovers the secret key **exactly** for
+`num_swaps=1` and `num_swaps=2`: both re-encrypt all 8 messages byte-for-byte
+(`2439/2439`). The engine is propagation-first deduction (R-top/R-read) followed by
+a residual SAT check; the recovery core lives under
+`attack::gak_attack::lymm_deck` (recovery submodule) and the CLI handler is
+`run_gak_swap_recover` (`src/cli/commands/gak_swap.rs`, wired through
+`src/cli/dispatch.rs` from the `Command::GakSwapRecover` variant in
+`src/cli/args.rs`). `num_swaps=3` is the current **cost-walled frontier**: the CLI
+deliberately refuses to emit a candidate at `--num-swaps 3` (a measured cost wall,
+not a soundness failure). Solver stats, planted-positive controls, matched nulls,
+and the full `ns=3` wall diagnosis are in `SWAP-RECOVERY-RESULTS.md`; the
+delegatable task package that produced this engine (Tasks 01/02/03) is built and
+merged under `research/handoff/gak-swap-recovery/`. No result here relaxes the
+project honesty ceiling — a recovered key is a *candidate* until it re-encrypts the
+ciphertext exactly.
 
 ## Oracle differential fixture
 
