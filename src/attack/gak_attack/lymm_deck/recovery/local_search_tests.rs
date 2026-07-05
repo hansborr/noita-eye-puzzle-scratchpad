@@ -6,8 +6,8 @@ use super::super::{
     parse_known_plaintext_pairs,
 };
 use super::{
-    SwapInferenceOutcome, SwapInferenceRange, SwapRecoveryConfig, SwapRecoveryStrategy,
-    infer_known_plaintext_swap_budget, recover_known_plaintext_swaps,
+    LetterRecoveryVerdict, SwapInferenceOutcome, SwapInferenceRange, SwapRecoveryConfig,
+    SwapRecoveryStrategy, infer_known_plaintext_swap_budget, recover_known_plaintext_swaps,
 };
 
 #[test]
@@ -34,6 +34,39 @@ fn local_search_ns3_planted_control_recovers_exact_candidate() {
 
     assert!(report.round_trip.exact(), "{:#?}", report.round_trip);
     assert_eq!(report.round_trip.matched, report.round_trip.total);
+}
+
+#[test]
+fn unobserved_vendored_letters_are_not_serialized_as_recovered_swaps() {
+    let spec = LymmDeckSpec::lymm_default().expect("spec");
+    let pairs = parse_known_plaintext_pairs(
+        &spec,
+        include_str!("../../../../../research/data/practice-puzzles/deck-swap/plaintexts.txt"),
+        include_str!("../../../../../research/data/practice-puzzles/deck-swap/1_swap_ct.txt"),
+    )
+    .expect("known plaintext pairs");
+    let report =
+        recover_known_plaintext_swaps(&spec, &pairs, SwapRecoveryConfig::with_max_swaps(1))
+            .expect("ns=1 recovery");
+
+    assert!(report.round_trip.exact(), "{:#?}", report.round_trip);
+    assert_eq!(report.pt_mapping.len(), 24);
+    for letter in ['J', 'Z'] {
+        assert!(!report.pt_mapping.contains_key(&letter));
+        let found = report
+            .letters
+            .iter()
+            .find(|entry| entry.letter == letter)
+            .expect("letter report");
+        assert_eq!(found.occurrences, 0);
+        assert_eq!(found.verdict, LetterRecoveryVerdict::NoCandidate);
+        assert!(found.target.is_none());
+        assert!(found.support.is_empty());
+        assert!(found.canonical_swaps.is_empty());
+        assert!(found.permutation.is_none());
+        assert!(found.candidate_permutations.is_empty());
+        assert_eq!(found.equivalent_count, 0);
+    }
 }
 
 #[test]

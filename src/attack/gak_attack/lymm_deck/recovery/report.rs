@@ -24,6 +24,21 @@ pub(super) fn build_report_from_assignment(
     let mut letters = Vec::with_capacity(spec.pt_alphabet.len());
     for &letter in &spec.pt_alphabet {
         let count = occurrences.remove(&letter).unwrap_or(0);
+        if count == 0 {
+            letters.push(RecoveredLetter {
+                letter,
+                occurrences: 0,
+                target: None,
+                support: Vec::new(),
+                permutation: None,
+                candidate_permutations: Vec::new(),
+                canonical_swaps: Vec::new(),
+                equivalent_count: 0,
+                no_doubles: true,
+                verdict: LetterRecoveryVerdict::NoCandidate,
+            });
+            continue;
+        }
         let candidate_index = assignment
             .get(&letter)
             .copied()
@@ -55,11 +70,6 @@ pub(super) fn build_report_from_assignment(
                         .map(|candidate| candidate.permutation)
                         .collect()
                 });
-        let verdict = if count == 0 {
-            LetterRecoveryVerdict::NoCandidate
-        } else {
-            LetterRecoveryVerdict::Candidate
-        };
         letters.push(RecoveredLetter {
             letter,
             occurrences: count,
@@ -74,7 +84,7 @@ pub(super) fn build_report_from_assignment(
                 .map_or_else(Vec::new, |found| found.canonical_swaps),
             equivalent_count,
             no_doubles,
-            verdict,
+            verdict: LetterRecoveryVerdict::Candidate,
         });
     }
     let placeholder = report_shell(config, letters, pt_mapping, stats);

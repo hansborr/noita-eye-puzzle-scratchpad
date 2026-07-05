@@ -3,8 +3,8 @@
 use std::fmt::Write as _;
 
 use noita_eye_puzzle::attack::gak_attack::lymm_deck::{
-    GakSwapSelfTestReport, RecoveryReport, SWAP_RECOVERY_FRONTIER_MESSAGE, SwapInferenceReport,
-    python_pt_mapping_literal,
+    GakSwapSelfTestReport, LetterRecoveryVerdict, RecoveryReport, SWAP_RECOVERY_FRONTIER_MESSAGE,
+    SwapInferenceReport, python_pt_mapping_literal,
 };
 
 use crate::cli::args_gak_swap::GakSwapOutput;
@@ -188,7 +188,7 @@ fn print_recovery_details(report: &RecoveryReport, pair_count: usize) {
     println!("  per-letter:");
     for letter in &report.letters {
         println!(
-            "    {} occ={} target={} support={} swaps={} equiv={} no-doubles={} verdict={:?}",
+            "    {} occ={} target={} support={} swaps={} equiv={} no-doubles={} verdict={}",
             letter.letter,
             letter.occurrences,
             format_option_usize(letter.target),
@@ -196,7 +196,7 @@ fn print_recovery_details(report: &RecoveryReport, pair_count: usize) {
             format_usize_slice(&letter.canonical_swaps),
             letter.equivalent_count,
             letter.no_doubles,
-            letter.verdict
+            text_verdict(letter.verdict)
         );
     }
     println!("  python pt_mapping (copy into noita_test_cipher.py after numpy import):");
@@ -469,6 +469,15 @@ fn format_char_usize_pairs(values: &[(char, usize)]) -> String {
 
 fn option_json(value: Option<usize>) -> String {
     value.map_or_else(|| "null".to_owned(), |found| found.to_string())
+}
+
+fn text_verdict(verdict: LetterRecoveryVerdict) -> &'static str {
+    match verdict {
+        LetterRecoveryVerdict::NoCandidate => "UNRECOVERED (unconstrained)",
+        LetterRecoveryVerdict::Candidate => "Candidate",
+        LetterRecoveryVerdict::RecoveredUnique => "RecoveredUnique",
+        LetterRecoveryVerdict::RecoveredAmbiguous => "RecoveredAmbiguous",
+    }
 }
 
 fn usize_slice_json(values: &[usize]) -> String {

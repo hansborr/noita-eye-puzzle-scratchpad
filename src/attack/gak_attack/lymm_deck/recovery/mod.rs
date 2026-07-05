@@ -271,8 +271,9 @@ pub fn round_trip_check(
     let mut total = 0usize;
     let mut matched = 0usize;
     let mut first_divergence = None;
+    let round_trip_mapping = complete_mapping_for_round_trip(spec, report, pairs);
     for pair in pairs {
-        let encrypted = encrypt_lymm_deck(spec, &report.pt_mapping, &pair.plaintext)?;
+        let encrypted = encrypt_lymm_deck(spec, &round_trip_mapping, &pair.plaintext)?;
         let actual = compressed_emissions(spec, &pair.plaintext, &encrypted);
         let expected = pair.ciphertext.chars().collect::<Vec<_>>();
         let pair_total = expected.len();
@@ -303,6 +304,27 @@ pub fn round_trip_check(
         per_message,
         first_divergence,
     })
+}
+
+fn complete_mapping_for_round_trip(
+    spec: &LymmDeckSpec,
+    report: &RecoveryReport,
+    pairs: &[KnownPlaintextPair],
+) -> BTreeMap<char, Vec<usize>> {
+    // The encryption oracle validates complete mappings. Fill placeholders only
+    // for this private check; unobserved letters remain absent from the report.
+    let mut mapping = report.pt_mapping.clone();
+    for letter in pairs
+        .iter()
+        .flat_map(|pair| pair.plaintext.chars())
+        .filter(|&ch| spec.is_plaintext_char(ch))
+    {
+        let _placeholder = mapping.entry(letter).or_insert_with(|| spec.base.clone());
+    }
+    for &letter in &spec.pt_alphabet {
+        let _placeholder = mapping.entry(letter).or_insert_with(|| spec.base.clone());
+    }
+    mapping
 }
 
 fn recover_ns1(
@@ -349,6 +371,21 @@ fn recover_ns1(
     let mut letters = Vec::with_capacity(spec.pt_alphabet.len());
     for &letter in &spec.pt_alphabet {
         let count = occurrences.remove(&letter).unwrap_or(0);
+        if count == 0 {
+            letters.push(RecoveredLetter {
+                letter,
+                occurrences: 0,
+                target: None,
+                support: Vec::new(),
+                permutation: None,
+                candidate_permutations: Vec::new(),
+                canonical_swaps: Vec::new(),
+                equivalent_count: 0,
+                no_doubles: true,
+                verdict: LetterRecoveryVerdict::NoCandidate,
+            });
+            continue;
+        }
         let target = inferred_targets.get(&letter).copied();
         let candidate = match target {
             Some(value) => Some(unique_candidate_for_observation(
@@ -368,9 +405,7 @@ fn recover_ns1(
             let _old = pt_mapping.insert(letter, perm.clone());
         }
         let no_doubles = target.is_none_or(|value| value != 0 && used_targets.insert(value));
-        let verdict = if count == 0 {
-            LetterRecoveryVerdict::NoCandidate
-        } else if candidate.is_some() {
+        let verdict = if candidate.is_some() {
             LetterRecoveryVerdict::RecoveredUnique
         } else {
             LetterRecoveryVerdict::NoCandidate
