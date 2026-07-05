@@ -133,9 +133,11 @@ measurement gating an even finer CDCL(T) "Phase-2". Every failure we actually
 cautioned against local search — "one wrong permutation desyncs all later state, so
 the objective is avalanche-heavy and misleading" — and that **unmeasured caution** is
 exactly what steered us away from the approach that trivially works. A plain
-substitution-first coordinate-descent + basin-hopping local search recovers the full
-ns=3 key in ~14 s, verified byte-for-byte against the vendor cipher (s=1 0.03 s,
-s=2 0.11 s, s=3 ~14 s; converged on the first restart). The avalanche is defused by
+substitution-first coordinate-descent + basin-hopping local search recovers the ns=3
+swaps for every letter that occurs in the corpus (24 of 26 — J and Z never appear in
+the plaintext, so their swaps stay unconstrained) in ~14 s, verified byte-for-byte
+against the vendor cipher (s=1 0.03 s, s=2 0.11 s, s=3 ~14 s; converged on the first
+restart). The avalanche is defused by
 settling the *substitution layer* first — perm[0] per letter, pinned by exact
 message-start anchors and ranked with cheap single-swap representatives — so far-swap
 noise cannot poison the score before the substitution is right.
@@ -144,8 +146,9 @@ Two habits fix this cheaply: (a) a caution against an approach is a hypothesis t
 test, not a result to build around — before erecting an expensive escalation to avoid
 a quadrant, spend the hours to run the cheap version of the avoided approach and record
 it as a calibrated positive or negative; (b) beware a pre-registered gate that
-adjudicates the *wrong* question. Our Phase-0 measurement faithfully returned GO ("the
-ns=3 conflict structure is rich enough for the finer CDCL(T) solver") on its
-wall-limited sample — a clean GO on a question that no longer mattered, because the
-real question ("do we need a systematic solver for ns=3 at all?") had answer *no*.
-Demonstrated: `data/practice-puzzles/deck-swap/SWAP-RECOVERY-RESULTS.md`.
+adjudicates the *wrong* question. Our Phase-0 gate was built to score whether the ns=3
+conflict structure is rich enough for the finer CDCL(T) solver; once we fixed its
+observability and reran it, the wall-limited sample met both GO thresholds — a green
+light on a question that no longer mattered, because the real question ("do we need a
+systematic solver for ns=3 at all?") has answer *no*. Demonstrated:
+`data/practice-puzzles/deck-swap/SWAP-RECOVERY-RESULTS.md`.
