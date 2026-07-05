@@ -577,6 +577,41 @@ measurably exhausting a finite local projected pocket; it is enumerating fresh
 be more target-only singleton chasing. It should bring finer-than-target /
 partial-transition literals or partial-slice theory propagation forward.
 
+Phase-0 arc-provenance adjudicating measurement, 2026-07-05:
+
+```sh
+cargo run --locked --bin noita-eye -- gak-swap-arc-phase0 \
+  --plaintext-file research/data/practice-puzzles/deck-swap/plaintexts.txt \
+  --ciphertext-file research/data/practice-puzzles/deck-swap/3_swap_ct.txt \
+  --output json
+```
+
+Result: unmeasured at budget. The command was run with the pre-registered
+defaults baked into the instrument (`max_rejections=60`, `wall=3600s`,
+`replay_cap=32`, controls enabled). It exceeded the `3600s` wall budget before
+emitting an instrument JSON report. The process was still CPU-bound at the last
+check (`01:01:41` elapsed) and was interrupted to avoid extending the registered
+budget. Captured stdout was `0` bytes; captured stderr contained only Cargo's
+startup lines. Therefore there is no emitted sampled-rejection readout to score.
+
+Mechanical decision-rule application:
+
+- Sampled rejections emitted by the Phase-0 report: not available; no report was
+  emitted before the wall budget.
+- Stop/cap: wall-budget exhaustion without adjudicating output.
+- Bin distribution: not available (`context-free=0`, `context-expressible=0`,
+  `context-opaque=0` are not claimed; the instrument emitted no rows).
+- Literal-count distribution: not available; no capped `size <= k` rows were
+  emitted.
+- Short `(a)/(b)` conflicts (`<=3` literals, context literals included):
+  not measurable from this run.
+- Median tuple-kill estimate over short `(a)/(b)` nogoods in the pinned `T=67`
+  slab: not measurable from this run.
+- Slab anomalies: not available; no tuple-kill estimates were emitted.
+- Verdict: **unmeasured at budget**. Per the pre-registered rule, budget
+  exhaustion without adjudication is not evidence for either GO or NO-GO, and the
+  budget was not extended to force a verdict.
+
 ## Likely next levers
 
 Ranked hypotheses for closing `ns=3`:
