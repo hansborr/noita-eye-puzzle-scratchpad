@@ -9,7 +9,9 @@ soundness invariants) and `../../data/practice-puzzles/deck-swap/SWAP-RECOVERY-R
 (every number). House rules: `../README.md`, `AGENTS.md`.
 
 This is a **pre-build** plan produced by a cross-lineage design consult
-(orchestrator Opus-4.8 design; gemini-3.1-pro and codex/GPT pressure-tests). It
+(orchestrator Opus-4.8 design; gemini-3.1-pro and codex/GPT pressure-tests),
+hardened by a post-consult review pass (Fable 5) that tightened the Phase-0
+measurement into a pre-registered, self-calibrating instrument. It
 does not relax the honesty ceiling. ns=1/ns=2 are delivered (`2439/2439` exact).
 ns=3-real (`3_swap_ct.txt`) stays walled, measured, not claimed.
 
@@ -20,18 +22,20 @@ behind a cheap measurement and preceded by a shared primitive justified on its o
 merits. Framing (ii) as the *primary* engine is rejected; its oracle *shape* is
 adopted.
 
-1. **Phase 0 — adjudicating measurement (do FIRST, low/moderate cost).** Measure
+1. **Phase 0 — adjudicating measurement (do FIRST, budgeted).** Measure
    whether the real `n=83` ns=3 instance admits **short (≤3-literal) conflicts in a
-   finer-than-`(letter = target)` vocabulary**. Short arc conflicts ⇒ Phase 2.
-   Conflicts that also floor at ~5+ arc literals ⇒ **do not build a bigger solver**;
-   land Phase 1 as the generality deliverable and write ns=3-real up as a measured,
-   likely-structural/information-theoretic frontier.
+   finer-than-`(letter = target)` vocabulary** with real pruning power. Go/no-go
+   follows the **pre-registered decision rule** in the Phase-0 spec (context bins,
+   kill-count metric, budget) — not adjudicated after the run. Go ⇒ Phase 2. No-go
+   (a ~5+ arc-literal floor, or any readout outside the go rule) ⇒ **do not build a
+   bigger solver**; land Phase 1 as the generality deliverable and write ns=3-real
+   up as a measured, likely-structural/information-theoretic frontier.
 2. **Phase 1 — the implicit `LetterDomainOracle` (build regardless of Phase 0).**
    Replace the materialized `Vec<CandidateRuntime>` with an implicit per-letter
    oracle (`image_mask`/`preimage_mask`/`transition_possible`/`witness`). Justified
    independently of ns=3: it is the ns=4 unblocker and *is* the community mandate
    ("a more general GAK attack for larger groups"). Not wasted under either Phase-0
-   outcome.
+   outcome. Lands only behind the differential-equivalence gate (§ Phase 1 below).
 3. **Phase 2 — finer-literal CDCL(T) (framing i), CONDITIONAL on Phase 0.** Arc /
    partial-transition literals in the SAT vocabulary; oracle as an SMT
    theory-propagator with lazy arc-nogood generation; partial-slice DPLL(T); the
@@ -110,8 +114,80 @@ mis-adjudicate the entire decision toward a false "no short conflicts." The Phas
 readout must record arc literals *with* their generator/domain context, or the
 measurement is biased.
 
-Decision rule: a meaningful fraction of rejections explained by ≤3 arc literals
-(surviving broad replay) ⇒ Phase 2. Otherwise ⇒ land Phase 1 + report the wall.
+**The same trap, mirrored (review [P0]): context can also fake a "go."** If a
+≤3-arc-literal conflict reproduces only *with* a target-conditional
+domain-restriction context, the reusable nogood is really `context ⇒ ¬(arcs)` —
+and unless that context is expressible as literals in the Phase-2 vocabulary, the
+short conflict yields no short *learnable clause*. The readout must therefore bin
+every short conflict:
+
+- **(a) context-free** — the arc literals alone survive broad replay;
+- **(b) context-expressible** — reproducible with a context that reduces to
+  additional vocabulary literals (arc or target), which **count toward the
+  clause length**;
+- **(c) context-opaque** — reproducible only under a domain restriction the
+  vocabulary cannot express.
+
+Only (a) and (b) support the Phase-2 premise. Counting (c) as "short"
+mis-adjudicates toward a false "go" — the exact mirror of the gemini under-count.
+
+**Instrument controls (house rule: planted positive + matched null).** The
+solver invariants below do not calibrate the *measurement itself*; the Phase-0
+instrument gets its own controls before any real-file run:
+
+- **Positive control** — a synthetic instance constructed to admit a known short
+  arc conflict; the instrument must extract it, minimize to it, and the result
+  must survive broad replay.
+- **Matched null** — an instance whose minimal conflict is known to be long (the
+  planted ns=3 control is a source of ground-truth cases); the instrument must
+  NOT report a spurious short conflict. A replay bug that accepts too easily
+  fakes a "go" and triggers the expensive Phase-2 build; this control is what
+  catches it.
+
+**Pruning power is the decision metric; literal count is the proxy.** The
+convergence argument for Phase 2 is that one short nogood prunes a slab — so
+measure that, not just lengths. For each minimized (a)/(b) reason, record an
+**estimate of how many of the `34,234,200` projected `T=67` tuples it excludes**,
+with the estimate's construction stated (per-letter mask arithmetic where arc
+literals are letter-local, spot-checked by sampled propagation on a few hundred
+tuples), and label it an estimate. Grounding: a coarse 5-target clause kills
+exactly `1` tuple — the measured livelock; at `10^4` tuples/nogood, covering the
+slab takes ~`3.4k` rejections at ~1 replay each, which is plausible-convergence
+territory.
+
+**Budget (pre-registered).** Sample cap: the first `60` real-file rejections or
+`3600s` wall, whichever comes first (cap-60 precedent: `60` coarse rejections ≈
+`2330s`; arc-granular minimization is strictly more work per rejection).
+Minimizer cap: at most `32` broad replays per rejection; when capped, report the
+unminimized bound as "size ≤ k" (still adjudicating data when `k ≤ 3`). Hitting
+the budget without adjudication is itself a reportable outcome (§ soundness).
+
+**Decision rule (pre-registered — amend only in writing, BEFORE the real-file
+run).** GO to Phase 2 iff, on the sampled rejections, **both**:
+
+1. **≥25%** minimize to **≤3 literals** in bins (a)/(b) (context literals
+   included in the count), and
+2. the **median tuple-kill estimate** of those short nogoods is **≥10^4**.
+
+Anything else — a floor at 4, a bimodal split, short-but-weak nogoods, a
+(c)-dominated readout, or budget exhaustion — is a NO-GO: land Phase 1 and write
+the wall up as measured. These defaults are written down now precisely so the
+run cannot be rationalized post hoc. Numbers land in
+`../../data/practice-puzzles/deck-swap/SWAP-RECOVERY-RESULTS.md` per the doc-set
+convention.
+
+## Phase 1 — oracle acceptance gate
+
+Phase 0 runs entirely on the existing materialized path — it needs no oracle
+code — so Phases 0 and 1 can proceed independently, and the adjudicating
+measurement never depends on new oracle code. The oracle itself lands only
+behind a **differential-equivalence gate**: on every configuration where the
+materialized `Vec<CandidateRuntime>` path is feasible (ns≤2 at all `n`, small-`n`
+ns=3, the planted ns=3 control), `image_mask`/`preimage_mask`/
+`transition_possible`/`witness` must match what materialization produces
+bit-for-bit, and the ns=1/ns=2 `2439/2439` regressions and null classifications
+must be unchanged. Both backends (top-swap and explicit-generator MITM) go
+through the same gate.
 
 ## Phase 2 — finer-literal CDCL(T) (only if Phase 0 says go)
 
@@ -163,7 +239,9 @@ enumerate-filter converges on this data.
 - Nulls via `recovery/selftest.rs::classify_null_recovery`; a null fails by
   `CleanFailure`, never cap/timeout.
 - Report the measured frontier. A Phase-0 "stop and report" is a legitimate,
-  honest outcome, not a failure.
+  honest outcome, not a failure — including hitting the Phase-0 budget without
+  adjudication, which reports as "unmeasured at budget," never as evidence in
+  either direction.
 
 ## Consult provenance
 
@@ -177,9 +255,18 @@ enumerate-filter converges on this data.
   Phase 0 is an instrument, not a read-out), corrected the oracle to need a
   top-swap backend (real file is top-swaps, not the `generators.rs` MITM), and
   refined Phase 2 to a hybrid eager/lazy encoding.
+- **Fable 5 (post-consult review, 2026-07-04):** verified every line-cited code
+  claim in this doc against source; contributed the mirrored context trap
+  (bins (a)/(b)/(c) — context can fake a "go," not only a "no-go"), the
+  pre-registered decision rule + budgets, the tuple-kill pruning metric, the
+  Phase-0 instrument's own planted positive / matched-null controls, and the
+  Phase-1 differential-equivalence gate.
 
 Both lineages converged: keep the Phase-0 gate; build the oracle regardless; build
 full finer-literal CDCL(T) only if Phase 0 finds short arc conflicts; reject
-enumerate-filter as primary. The two [P0]s are complementary and together specify
-the Phase-0 instrument: **build arc/position provenance that carries its
-generator/domain-restriction context so broad replay can re-derive the conflict.**
+enumerate-filter as primary. The consult [P0]s and the review [P0] are
+complementary and together specify the Phase-0 instrument: **build arc/position
+provenance that carries its generator/domain-restriction context so broad replay
+can re-derive the conflict — then bin each short conflict by whether that context
+is expressible in the clause vocabulary, and score it by tuples killed, under a
+decision rule fixed before the run.**
