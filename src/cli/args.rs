@@ -27,6 +27,7 @@ use super::args_pairclass::PairclassArgs;
 use super::args_predicates::PredscanArgs;
 use super::args_rankcodec::RankcodecArgs;
 use super::args_rlcodec::RlcodecArgs;
+use super::args_shadowfinish::ShadowfinishArgs;
 use super::args_shadowsearch::ShadowsearchArgs;
 
 #[derive(Debug, Parser)]
@@ -83,6 +84,12 @@ pub(crate) enum Command {
     /// quotient candidates under the closure shadow, never decodes.
     #[command(name = "shadowsearch", alias = "shadow-search")]
     Shadowsearch(ShadowsearchArgs),
+    /// Crib-free finish over a `shadowsearch --output` residual artifact.
+    /// Enumerates q-label digit permutations, digit orders, and charset tables;
+    /// gates the ranking against matched decoy q-pattern nulls; and accepts only
+    /// exact visible-ciphertext re-encoding through the representative shadow key.
+    #[command(name = "shadowfinish", alias = "shadow-finish")]
+    Shadowfinish(ShadowfinishArgs),
     /// Run-length codec battery for `±1`-walk puzzles. Derives the direction-blind
     /// run-length magnitude carrier, censuses its exact repeats, and gates a family
     /// of codecs against a matched Markov-resampled-`M` null. A near-English codec

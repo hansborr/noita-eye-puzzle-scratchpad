@@ -34,6 +34,8 @@
 //!   finite-difference order (identical / constant-additive / linear / irregular).
 //! - [`shadow_search`]: closure-shadow hidden-state key search over derived
 //!   isomorph-map groups; emits quotient candidates only.
+//! - [`shadow_finish`]: crib-free finish over `shadowsearch` residual q-pattern
+//!   classes with exact visible-ciphertext re-encode acceptance.
 //! - [`isomorph_imperfection`]: Thread G2 forward isomorph-imperfection
 //!   disproof — extended-window violation push, loose-candidate-class matched
 //!   null, word-boundary discount, and a generative imperfectly-isomorphic
@@ -68,5 +70,6 @@ pub mod leak_ceiling;
 pub mod orders;
 pub mod perfect_isomorphism;
 pub mod predicates;
+pub mod shadow_finish;
 pub mod shadow_search;
 pub mod translate_isomorph;

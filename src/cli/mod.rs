@@ -21,6 +21,7 @@ mod args_pairclass;
 mod args_predicates;
 mod args_rankcodec;
 mod args_rlcodec;
+mod args_shadowfinish;
 mod args_shadowsearch;
 mod commands;
 mod dispatch;
