@@ -34,14 +34,19 @@ pub use generators::{LymmGeneratorSet, enumerate_generator_domains};
 pub use oracle::encrypt_lymm_deck;
 pub use plant::{PlantedLymmMapping, generate_random_pt_mapping};
 pub use recovery::{
-    DEFAULT_SWAP_RECOVERY_SEED, GakSwapReachStressCase, GakSwapReachStressConfig,
-    GakSwapReachStressReport, GakSwapSelfTestConfig, GakSwapSelfTestReport, LetterRecoveryVerdict,
-    NullControlOutcome, NullControlReport, PositiveControlReport, RecoveredLetter,
-    RecoveryGeneratorSet, RecoveryReport, RoundTripReport, SUPPORTED_SWAP_RECOVERY_FRONTIER,
-    SWAP_RECOVERY_FRONTIER_MESSAGE, SwapInferenceAttempt, SwapInferenceOutcome, SwapInferenceRange,
-    SwapInferenceReport, SwapRecoveryConfig, SwapRecoveryError, SwapRecoveryStats,
+    DEFAULT_ARC_PHASE0_REJECTION_CAP, DEFAULT_ARC_PHASE0_REPLAY_CAP,
+    DEFAULT_ARC_PHASE0_SPOT_CHECKS, DEFAULT_ARC_PHASE0_WALL_SECS, DEFAULT_SWAP_RECOVERY_SEED,
+    GakSwapArcContextBin, GakSwapArcControlLeg, GakSwapArcLiteral, GakSwapArcPhase0Config,
+    GakSwapArcPhase0ControlsReport, GakSwapArcPhase0Report, GakSwapArcPhase0Stop,
+    GakSwapArcRejection, GakSwapArcTupleKillEstimate, GakSwapReachStressCase,
+    GakSwapReachStressConfig, GakSwapReachStressReport, GakSwapSelfTestConfig,
+    GakSwapSelfTestReport, LetterRecoveryVerdict, NullControlOutcome, NullControlReport,
+    PositiveControlReport, RecoveredLetter, RecoveryGeneratorSet, RecoveryReport, RoundTripReport,
+    SUPPORTED_SWAP_RECOVERY_FRONTIER, SWAP_RECOVERY_FRONTIER_MESSAGE, SwapInferenceAttempt,
+    SwapInferenceOutcome, SwapInferenceRange, SwapInferenceReport, SwapRecoveryConfig,
+    SwapRecoveryError, SwapRecoveryStats, gak_swap_arc_phase0_controls,
     gak_swap_reach_stress_self_test, gak_swap_self_test, infer_known_plaintext_swap_budget,
-    recover_known_plaintext_swaps, round_trip_check,
+    measure_ns3_arc_provenance, recover_known_plaintext_swaps, round_trip_check,
 };
 pub use share::python_pt_mapping_literal;
 pub use spec::{

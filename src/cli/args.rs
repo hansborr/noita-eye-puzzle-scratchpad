@@ -19,7 +19,7 @@ use super::args_bigramcodec::BigramcodecArgs;
 use super::args_codecpower::CodecpowerArgs;
 use super::args_cribfit::CribfitArgs;
 use super::args_ctak::CtakscanArgs;
-use super::args_gak_swap::GakSwapRecoverArgs;
+use super::args_gak_swap::{GakSwapArcPhase0Args, GakSwapRecoverArgs};
 use super::args_isomap::IsomapArgs;
 use super::args_maskdecode::MaskdecodeArgs;
 use super::args_mdlcodec::MdlcodecArgs;
@@ -69,6 +69,11 @@ pub(crate) enum Command {
     /// re-encryption is the only verified recovery criterion.
     #[command(name = "gak-swap-recover")]
     GakSwapRecover(GakSwapRecoverArgs),
+    /// Phase-0 ns=3 transition-arc provenance measurement instrument.
+    /// Runs calibrated controls and samples deterministic target rejections;
+    /// emits candidates for the finer-vocabulary decision rule, never a decode.
+    #[command(name = "gak-swap-arc-phase0")]
+    GakSwapArcPhase0(GakSwapArcPhase0Args),
     /// Translate-isomorph (exact repeated-substring) scanner with an order-1
     /// Markov matched null. Locates where a stream repeats — optionally on the
     /// `--delta-mod` difference channel — as a structural candidate, never a decode.
