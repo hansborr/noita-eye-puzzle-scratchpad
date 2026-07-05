@@ -1,3 +1,16 @@
+> **STATUS — COMPLETE / SUPERSEDED (2026-07-04).** This is an archival
+> point-in-time handoff snapshot; its queue is **done**, not live work. The
+> `groupscan` instrument shipped (`src/analysis/group_order/` + the `groupscan`
+> subcommand) and Threads A–D landed (see `research/findings/` — CRC/lumikki,
+> the isomorph key-difference discriminator, the predicate battery, and the
+> modular-form exclusions). Its `two = C3 × S4` framing is **superseded**: per
+> `research/handoff/two-cross-agent-recon.md`, the live surface is the full
+> 12-symbol stream whose isomorph column-maps close to an order-48 observable
+> shadow of a reported order-96 group, and the `C3 × S4` direct-product /
+> 4-class-quotient reading no longer stands (the mod-3 law and eps/anchor
+> positions survive only as model-free measurements). Read the body below as a
+> historical record; do **not** action its task list.
+
 # Handoff: finish `groupscan`, then pull the new research threads
 
 **Created:** 2026-06-29 · **Branch:** `exploration` · **Last code commit:**

@@ -38,49 +38,30 @@ solver." The remaining code work is transcription-robustness certification +
   known signal — otherwise it is not a finding. Reuse `src/nulls/` helpers.
 - **Any candidate cleartext (English or Finnish) → log it** as a hypothesis under
   `research/gak-threads/candidates/` per that folder's README. Never a decode.
-- **`src/main.rs` is the CLI chokepoint.** Any task adding a subcommand edits it;
-  if two code tasks run in parallel, have one agent own the subcommand stubs.
-
-## Keeping `docs/deslop-audit` merged in (read carefully — it touches code)
-
-A separate agent is doing a maintainability pass on `docs/deslop-audit`. This
-is not prose-only — it refactors code (e.g. the commit on it now extracts
-`*_tests.rs` siblings out of `chaining_graph.rs`, `gak_attack/mod.rs`,
-`solve/mod.rs`, `ciphers/mod.rs`; more file-decomposition/dedup is coming per
-`docs/deslop/02-*`/`03-*`/`04-*`). It is a local branch — there is no
-`origin/docs/deslop-audit`, so do not `git fetch` it.
-
-- **Cadence:** at the start of each task and again before you commit, run
-  `git merge docs/deslop-audit` (local branch name, no `origin/`). First run
-  `git log main..docs/deslop-audit --stat` to see what it is currently touching.
-- **Expect real code conflicts** if your task edits a file it is refactoring.
-  Because it moves/splits code (inline tests → a sibling `*_tests.rs`, files
-  decomposed), resolve on substance — never blindly take one side for code,
-  and run `make verify` after every merge. For pure prose/doc conflicts, prefer
-  the deslop agent's wording.
-- **Low overlap right now:** the Tier-1 code tasks touch a *new* file (T01),
-  `agl_gak.rs` (T02), `analysis/isomorph_imperfection.rs` (T03), and
-  `experiments/transitivity.rs` (T04) — none of which are in the current deslop
-  refactor set. Re-check at task start; the set grows.
-- **Stray artifacts:** an earlier deslop commit accidentally carried
-  `verify-solve.log` at the repo root (since removed at the deslop tip). As a general
-  rule, don't propagate stray build logs/artifacts that show up in a merge — drop
-  them and `.gitignore` if needed, and flag to the maintainer.
+- **Adding a subcommand lives in `src/cli/`, not `main.rs`.** `src/main.rs` is a
+  13-line shim (`mod cli; fn main() -> ExitCode { cli::run() }`). A new subcommand
+  adds an argument struct in `src/cli/args_*.rs`, a `Command` variant in
+  `src/cli/args.rs`, and a handler in `src/cli/commands/`, all wired through the
+  uniform run loop in `src/cli/dispatch.rs` (shared helpers in `src/cli/shared.rs`).
+  `main.rs` is untouched, so parallel code tasks no longer contend on one file.
 
 ## Priority ladder
 
-**Tier 0 — tooling (maintainer-requested 2026-06-29; a different shape than the publish tasks).**
-- `T12` — turn the analysis/attack capability into **file-driven CLI instruments** (un-hardwire the
-  structural battery from the eye corpus; promote the GAK hidden-state solver + discriminator out of
-  `#[cfg(test)]` into a `gak` subcommand with a self-test). High value for every future agent: the
-  toolbox becomes runnable on arbitrary ciphertext, not frozen to fixtures. Intended for a fresh-context
-  agent; independently committable in pieces.
-- `gak-swap-recovery/` — **general GAK deck-cipher known-plaintext swap-recovery instrument**
-  (community-requested 2026-07-03 by Lymm: "a more general GAK attack that can work on larger groups").
-  A 3-task dependency ladder (oracle+differential-test → propagation recovery engine+CLI+controls →
-  generality/shareability/reach) with a vendored challenge corpus at
-  `research/data/practice-puzzles/deck-swap/`. Design is settled (four-way consult + working prototype:
-  ns=1 closed-form-solved, ns≥2 needs the propagation engine). See the folder's `README.md`.
+**Tier 0 — tooling (maintainer-requested 2026-06-29; both items now DELIVERED — kept as a pointer to the landed instruments).**
+- `T12` — **DONE.** The analysis/attack capability is now **file-driven CLI instruments**: the
+  structural battery is un-hardwired from the eye corpus (each analysis keeps its verified-corpus
+  default but accepts an `--input-file`/`--stdin` stream under `--alphabet`, via the `structural` and
+  `groupscan` subcommands), and the GAK hidden-state solver + discriminator are promoted out of
+  `#[cfg(test)]` into a `gak` subcommand with a self-test. The toolbox runs on arbitrary ciphertext,
+  not frozen to fixtures.
+- `gak-swap-recovery/` — **BUILT + MERGED.** The general GAK deck-cipher known-plaintext swap-recovery
+  instrument (community-requested 2026-07-03 by Lymm: "a more general GAK attack that can work on larger
+  groups"). Tasks 01/02/03 are done/reviewed/merged; the `gak-swap-recover` and `gak-swap-arc-phase0`
+  subcommands are live (`src/cli/args.rs` + `src/cli/commands/gak_swap*.rs`, with the Phase-0 arc
+  instrument under `src/attack/gak_attack/lymm_deck/recovery/`). The engine recovers `num_swaps=1` and
+  `num_swaps=2` exactly (byte-for-byte 2439/2439 re-encryption of all 8 messages); `num_swaps=3` is the
+  current cost-walled frontier where the CLI refuses to emit a candidate. Vendored challenge corpus +
+  results at `research/data/practice-puzzles/deck-swap/`.
 
 **Tier 1 — harden & publish the eyes frontier (do these first; highest value/effort).**
 - `T00` — refresh `NEXT-STEPS.md` (doc hygiene; unblocks anyone reading the stale ladder).
@@ -119,9 +100,9 @@ is not prose-only — it refactors code (e.g. the commit on it now extracts
 
 ```
 T00  (doc)            — independent
-T01  (code) ──┬─> T02 (code+doc)   [AGL: src/attack/agl_gak.rs]
-              ├─> T03 (code+doc)   [Stutter: src/analysis/isomorph_imperfection.rs]
-              └─> T04 (code+doc)   [D166: src/experiments/transitivity.rs]
+T01  (code) ──┬─> T02 (code+doc)   [AGL: src/attack/agl_gak/mod.rs]
+              ├─> T03 (code+doc)   [Stutter: src/analysis/isomorph_imperfection/mod.rs]
+              └─> T04 (code+doc)   [D166: src/experiments/transitivity/mod.rs]
 T02,T03 ─────────> T05 (doc)       [summary cites the certificates]
 T06, T11 (doc)       — independent
 T07  (doc/menu)      — independent; opportunistic only

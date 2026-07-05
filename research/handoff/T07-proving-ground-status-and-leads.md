@@ -25,7 +25,10 @@ lead as one pass.
 
 ## Remaining low-value leads (each: split before starting; honesty-gated)
 1. **Running-key two-stream beam on `five`** (the lone z≈2.4 battery signal; never
-   engine-ified). *Touches `keystream.rs` + `main.rs`.* Split into three passes:
+   engine-ified). *Touches the `keystream` attack module (`src/attack/keystream/`)
+   plus a new CLI mode wired through the `src/cli/` registry — an `args_*.rs` arg
+   struct, a `Command` variant in `args.rs`, and a `commands/` handler dispatched
+   from `dispatch.rs` (not `main.rs`, which is a 13-line shim).* Split into three passes:
    (a) planted-running-key fixture + two-stream joint-quadgram scoring;
    (b) a minimal beam that recovers the plant and fires as the positive control
    (no control firing → stop); (c) real `five` behind the matched-null + fold-vs-fold
@@ -42,7 +45,7 @@ lead as one pass.
 ## Definition of done (for the status note)
 - [ ] A short `research/data/practice-puzzles/STATUS.md` (or an addition to its
       README) cross-linking the done codec negatives + this menu, so nobody re-runs them.
-- [ ] `make check` green; `docs/deslop-audit` merged in; committed.
+- [ ] `make check` green; committed.
 
 ## Honesty guardrails
 Every classical result here is non-transferring to the eyes — say so in any
@@ -54,4 +57,4 @@ sub-gate signals (z≈2.4) as findings.
 - `research/data/practice-puzzles/{README,KEYSTREAM-RESULTS,RAGBABY-RESULTS}.md`
 - `research/gak-threads/candidates/solve-{one,six,two}-*.md` (the logged negatives)
 - `research/gak-threads/G1-RESULTS.md` (the `one` structure recovery)
-- `src/attack/keystream.rs`, `src/attack/quadgram.rs`, `src/nulls/heldout.rs`
+- `src/attack/keystream/`, `src/attack/quadgram.rs`, `src/nulls/heldout.rs`

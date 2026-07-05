@@ -1,5 +1,29 @@
 # Plan — ns=3 finer-vocabulary lever: the resolved framing
 
+> **Status — Phase 0 built (2026-07-04).** The Phase-0 arc-provenance instrument
+> this plan describes below as "the concrete next step to build" is now landed and
+> wired. The `gak-swap-arc-phase0` subcommand is registered in `src/cli/args.rs`
+> (`Command::GakSwapArcPhase0`, dispatched in `cli/dispatch.rs`) with its handler in
+> `cli/commands/gak_swap_arc_phase0.rs`; the measurement itself lives in
+> `lymm_deck/recovery/arc_phase0.rs` over `arc_phase0_tuple.rs` (`estimate_tuple_kill`)
+> and `arc_phase0_types.rs` (config / report / the (a)/(b)/(c) `GakSwapArcContextBin`),
+> with its own planted-positive + matched-null controls in `arc_phase0_controls.rs`
+> (run standalone via `--run-controls`, default-on and gating a real measurement
+> unless `--skip-controls`).
+>
+> - **Landed:** the Phase-0 arc-provenance instrument (arc/position provenance added
+>   to the reason tracker per Fact A, minimizer, context bins, tuple-kill estimator,
+>   controls) and the ns=1/ns=2 `2439/2439` exact recovery.
+> - **Pending:** the real-file Phase-0 measurement *run* on `3_swap_ct.txt` and its
+>   pre-registered go/no-go adjudication — its numbers land in
+>   `../../data/practice-puzzles/deck-swap/SWAP-RECOVERY-RESULTS.md`, which today
+>   carries the pre-Phase-0 cap-60 target-layer livelock readout the plan is built
+>   on. Then **Phase 1** (implicit `LetterDomainOracle`) and **Phase 2**
+>   (finer-literal CDCL(T), conditional on the Phase-0 verdict).
+>
+> The phased plan, decision rule, and soundness invariants below stand unchanged;
+> read them as the spec the shipped instrument implements.
+
 Written 2026-07-04. This resolves the open decision point at the end of
 `04-ns3-conflict-learning-followup.md` ("Current decision point for the next
 agent" / "The Next Lever"): choosing between **(i) pure CDCL(T) finer-literal
@@ -8,12 +32,13 @@ letter**, before any build. Read `04-...md` first (measured wall, honesty ceilin
 soundness invariants) and `../../data/practice-puzzles/deck-swap/SWAP-RECOVERY-RESULTS.md`
 (every number). House rules: `../README.md`, `AGENTS.md`.
 
-This is a **pre-build** plan produced by a cross-lineage design consult
-(orchestrator Opus-4.8 design; gemini-3.1-pro and codex/GPT pressure-tests),
-hardened by a post-consult review pass (Fable 5) that tightened the Phase-0
-measurement into a pre-registered, self-calibrating instrument. It
-does not relax the honesty ceiling. ns=1/ns=2 are delivered (`2439/2439` exact).
-ns=3-real (`3_swap_ct.txt`) stays walled, measured, not claimed.
+This plan was produced by a cross-lineage design consult (orchestrator Opus-4.8
+design; gemini-3.1-pro and codex/GPT pressure-tests), hardened by a post-consult
+review pass (Fable 5) that tightened the Phase-0 measurement into a pre-registered,
+self-calibrating instrument — and Phase 0 (that instrument) has since shipped as the
+`gak-swap-arc-phase0` subcommand (see the status banner above). It does not relax the
+honesty ceiling. ns=1/ns=2 are delivered (`2439/2439` exact). ns=3-real
+(`3_swap_ct.txt`) stays walled, measured, not claimed.
 
 ## Decision (what to build, in order)
 
@@ -94,12 +119,15 @@ Both prior large probes (cap-8, cap-60) taught the coarse lesson. The process no
 that has paid off twice — measure the decisive thing cheaply before a big burn —
 says measure this first.
 
-## Phase 0 — instrument spec (the concrete next step)
+## Phase 0 — instrument spec (SHIPPED as `gak-swap-arc-phase0`)
 
-Add **arc/position provenance** to `TargetReasonTracker` so each real-file
-rejection emits the set of transition-arc literals deterministic propagation used
-to reach `NoResidualCandidate`; minimize each arc reason under broad replay (as
-target reasons already are, `target_conflict.rs`); measure the size distribution on
+This section is the spec the landed instrument implements; what remains is running
+it on the real file and adjudicating (see the status banner). The instrument adds
+**arc/position provenance** to `TargetReasonTracker` (via `target_reason.rs`'s
+`ArcLiteral`/`ArcReason`) so each real-file rejection emits the set of
+transition-arc literals deterministic propagation used to reach
+`NoResidualCandidate`; it minimizes each arc reason under broad replay (as target
+reasons already are, `target_conflict.rs`) and measures the size distribution on
 `3_swap_ct.txt`. This is a real instrument, not a read-out (Fact A).
 
 **Load-bearing requirement (gemini [P0]):** an arc reason must carry the

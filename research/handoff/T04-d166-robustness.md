@@ -1,8 +1,8 @@
 # T04 — D₁₆₆ dihedral-exclusion transcription robustness
 
 **Tier:** 3 (optional) · **Size:** S · **Type:** code+doc · **Status:** Todo
-**Depends on:** T01 · **Conflicts with:** other `transitivity.rs` edits
-**Touches:** `src/experiments/transitivity.rs` (+ test), `research/gak-threads/thread-1-dihedral-and-transitivity.md`
+**Depends on:** T01 · **Conflicts with:** other `transitivity/` edits
+**Touches:** `src/experiments/transitivity/` (+ test), `research/gak-threads/thread-1-dihedral-and-transitivity.md`
 
 ## Goal
 The D₁₆₆ exclusion is already the most fragile eyes verdict: conditional, medium
@@ -28,13 +28,15 @@ rather than vibes-based. Lower value than T02/T03 only because the verdict is
 - [ ] Certification counts asserted in a test; `make verify` green.
 - [ ] Dihedral thread doc gets a robustness section quantifying hole 1.
 - [ ] The medium/conditional verdict is preserved (this only sharpens the hedge).
-- [ ] `docs/deslop-audit` merged in; committed.
+- [ ] Committed.
 
 ## Honesty guardrails
 Do not upgrade D₁₆₆ off the back of this — it stays conditional/medium. A
 high-fragility result *strengthens* the existing hedge; it is not a new claim.
 
 ## Pointers
-- `src/experiments/transitivity.rs` (the pinned witness; hole 1/2 + A1–A5 text)
+- `src/experiments/transitivity/`: the `ExclusionWitness` / `core_only` witness model and
+  the hole 1/2 + Assumptions A1–A5 caveat text live in `mod.rs`; the pinned-witness
+  assertions are in `tests.rs`
 - `research/gak-threads/PROGRESS.md` §1 Thread 1B; wiki-audit ledger (hole 1 quote)
 - T01 harness

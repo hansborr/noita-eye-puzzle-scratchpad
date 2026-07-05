@@ -48,7 +48,7 @@ framework.
 - [ ] Compiles under `-D warnings`; rustdoc present; `make verify` green.
 - [ ] Variant count asserted in a test; double-change explosion guard asserted.
 - [ ] No new dependency; reuses `corpus.rs` / `orders.rs` types (no invented `Corpus`).
-- [ ] `docs/deslop-audit` merged in; committed.
+- [ ] committed.
 
 ## Honesty guardrails
 This produces counterfactual transcriptions for sensitivity analysis only.

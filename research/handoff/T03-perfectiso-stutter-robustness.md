@@ -1,8 +1,8 @@
 # T03 — Perfect-iso / G2 Stutter-region transcription *sensitivity*
 
 **Tier:** 1 · **Size:** S · **Type:** code+doc · **Status:** Todo
-**Depends on:** T01 · **Conflicts with:** other `isomorph_imperfection.rs` edits
-**Touches:** `src/analysis/isomorph_imperfection.rs` (+ test),
+**Depends on:** T01 · **Conflicts with:** other `isomorph_imperfection/` edits
+**Touches:** `src/analysis/isomorph_imperfection/` (+ test),
 `research/gak-threads/G2-isomorph-imperfection.md`
 
 ## Goal
@@ -14,8 +14,8 @@ from *benign* to a *promoted robust internal violation* (which would eject the e
 from the perfectly-isomorphic family)?
 
 ## Scope correction (do not redo the audit)
-G2 is landed in `src/analysis/isomorph_imperfection.rs` (it consumes
-`perfect_isomorphism.rs` read-only). It already has the extended-window scan, the
+G2 is landed in `src/analysis/isomorph_imperfection/` (it consumes
+`perfect_isomorphism/` read-only). It already has the extended-window scan, the
 loose-bar matched null, the word-boundary discount, and the named-benign-Stutter
 attribution, and it lists both loose candidates:
 
@@ -25,7 +25,7 @@ attribution, and it lists both loose candidates:
 | east4 / east5 | 68 / 69 | 1 | 29 | 29 | Stutter |
 
 The negative is conditional on both being benign. Do not re-implement the audit
-or edit `perfect_isomorphism.rs`; build on the existing `isomorph_imperfection.rs`.
+or edit `perfect_isomorphism/`; build on the existing `isomorph_imperfection/`.
 
 ## Why
 The benign-Stutter attribution is the only thing between these two candidates and
@@ -49,7 +49,7 @@ load-bearing caveat precise before publication.
 - [ ] `G2-isomorph-imperfection.md` documents whether the negative is robust to a
       Stutter-region mis-read; any flipping perturbation named explicitly.
 - [ ] Existing G2 verdict/positive-controls unchanged (this only adds a layer).
-- [ ] `docs/deslop-audit` merged in; committed.
+- [ ] Committed.
 
 ## Honesty guardrails
 A flip under a counterfactual mis-read is a *fragility* finding, not a falsification
@@ -57,8 +57,11 @@ of GAK — the verified transcription stands. The verdict stays "SUPPORTED, not
 proven" / "GAK not falsified" unless real data changes it.
 
 ## Pointers
-- `src/analysis/isomorph_imperfection.rs`: `run_isomorph_imperfection` (~:602),
-  `loose_candidates` / `benign_stutter` / word-boundary fields (~:176-238)
+- `src/analysis/isomorph_imperfection/`: `run_isomorph_imperfection` drives the scan
+  (`mod.rs`); `collect_loose_candidates` / `is_loose_candidate` and the `benign_stutter`
+  attribution live in `detector.rs`; the `LooseCandidate` fields (`benign_stutter`,
+  `far_run`, `internalness`, word-boundary discount) are in `mod.rs`; report rendering
+  in `report.rs`, tests in `tests.rs`
 - `research/gak-threads/G2-isomorph-imperfection.md` ("Both loose candidates" ~:132,
   the load-bearing benign-attribution caveat)
 - T01 harness

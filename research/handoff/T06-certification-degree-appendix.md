@@ -37,7 +37,7 @@ vs-supply read, or (b) if you genuinely derive per-group `t`, re-scope it as a
 - [ ] `certification-degree.md` restates only G3-sourced numbers (or is re-scoped as
       a proof task with validation).
 - [ ] Every number cites G3; `make check` green (doc-only → codespell clean).
-- [ ] `docs/deslop-audit` merged in; committed.
+- [ ] committed.
 
 ## Honesty guardrails
 Do not present the appendix as a new finding or as progress toward a decode. No
