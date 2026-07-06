@@ -135,7 +135,11 @@ trusted_hash = "sha256:<codex-reported hash>"
   because the broader analysis alphabet still has multiple layers. The rendered
   orientation inventory is settled separately: digits `0`-`4` are the five
   displayed orientations, and `5` is a non-rendered row delimiter. Do not encode
-  unverifiable pixel-direction names into those orientation digits.
+  pixel-direction names into those orientation digits — the mapping is
+  binary-verifiable (eye sprites are hardcoded in the engine's drawing function
+  and extractable from the shipped binary), but the digit labels are a
+  convention no statistic in this crate depends on, not an unknown being
+  protected.
 - The CLI in `main.rs` is intentionally thin: `clap` owns argument parsing and
   subcommands, while all domain logic lives in the library so it stays testable.
 

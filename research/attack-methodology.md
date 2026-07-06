@@ -9,6 +9,34 @@ The overarching rule (see also `AGENTS.md` and `NEXT-STEPS.md`): a high n-gram o
 structure score is not a decode, and "ruled out" is meaningless without a *passing*
 positive control and an adequate model/wordlist.
 
+## Recurring misconceptions (do not regenerate)
+
+The repo already disputes several claims that agents keep regenerating from priors
+or a superficial read of community write-ups. Check here before re-deriving any of
+these — the correction is already established and cited in-repo:
+
+- **"Pyry is a Nolla dev."** Unverified; the known team is Purho/Harjola/Teikari.
+  Treating Pyry's autokey-Alberti demo as an insider signal is unsupported.
+  (`research/03-confirmed-vs-speculation.md` §5.)
+- **"~83 internal states."** Superseded, not merely disputed: the surviving
+  cipher-family theories (GAK on a near-S₈₃ state group) imply an S₈₃-scale state
+  space (83! ≈ 10¹²⁴). (`research/03-confirmed-vs-speculation.md` §3/§5/§7,
+  `research/01-overview.md`, `research/02-theories-and-encoding.md`.)
+- **"We need a symbol-to-meaning mapping."** No such fixed mapping exists — the
+  cipher is polyalphabetic. The plaintext-letter→group-action assignment IS the
+  key: it is the thing to be recovered, and would never be externally supplied.
+  (`research/05-code-investigations.md`.)
+- **"The digit→direction mapping is unverifiable."** Binary-verifiable: the eye
+  sprites are hardcoded in the engine's drawing function and extractable from the
+  shipped binary (maintainer-confirmed 2026-07-06). A different labeling would
+  only be a fixed substitution — cryptanalytically immaterial either way.
+  (`research/03-confirmed-vs-speculation.md` §3.)
+- **"Alternative substitution-equivalent reading orders are a live concern."**
+  Immaterial: every statistic this workbench computes is substitution-invariant
+  or conditioned on the fixed digit sequence, so a substitution-equivalent
+  reorder changes no computed result. (`research/03-confirmed-vs-speculation.md`
+  §7.)
+
 ## 1. Null against the search's degrees of freedom, not against random keys
 
 A search-based attack (annealed key/mapping search) overfits short ciphertext and will
@@ -152,3 +180,19 @@ observability and reran it, the wall-limited sample met both GO thresholds — a
 light on a question that no longer mattered, because the real question ("do we need a
 systematic solver for ns=3 at all?") has answer *no*. Demonstrated:
 `data/practice-puzzles/deck-swap/SWAP-RECOVERY-RESULTS.md`.
+
+## 13. Scope-match a verdict's confidence to what its proof actually covers
+
+A verdict is only as strong as the model, key space, and substitution layer its proof
+actually swept — not the adjective attached to it. Two exclusion proofs run over the
+*same* chaining model can end up with inverted-looking confidence labels (one
+"exhaustive," one "conditional") when the true relationship between them is
+subsumption: if the narrower group is a literal subgroup of the wider one, excluding
+the wider group within a model excludes the narrower group as a special case, for
+free, within that same model. Before reporting relative confidence between two
+results, check whether one's swept search space contains the other's and whether both
+share the same relabeling-invariance assumptions — don't just compare their headline
+adjectives. Case study: the AGL(1,83) vs D₁₆₆ exclusion-scope audit
+(`research/findings/agl-exclusion.md` §8) — D₁₆₆ ≤ AGL(1,83) meant the "exhaustively
+excluded" AGL sweep already covered the "conditional" dihedral case, and the doc had
+been reporting the confidence the wrong way round.
