@@ -9,12 +9,12 @@ The 2026-07-06 Tier-1 cycle in
 has landed: planning hygiene, the transcription-perturbation harness, AGL
 robustness, Stutter sensitivity, and the structural summary are all merged.
 
-Start new work from [`research/handoff/README.md`](handoff/README.md). The current
-best next action is `T11`, the bounded external-anchor criteria/status document.
-After that, only optional formalization remains: `T04` for the already-hedged
-`D166` robustness caveat and `T06` for a certification-degree appendix. `T07` is
-sample-suite cleanup and should stay opportunistic because it transfers poorly to
-the eyes.
+Start new work from [`research/handoff/README.md`](handoff/README.md). There are
+now two active priorities depending on the goal. For the eyes decode itself, the
+best next action remains `T11`, the bounded external-anchor criteria/status
+document. For Lymm's stated interest in general smaller-GAK attacks, start with
+[`gak-unknown-base-recovery/`](handoff/gak-unknown-base-recovery/), which removes
+the public-base assumption from the deck-swap proving ground.
 
 > **Honesty ceiling (binding, project-wide):** the eye data is deterministic,
 > engine-generated, strikingly structured data of unknown meaning; unsolved; no
@@ -37,10 +37,17 @@ so it does not upgrade any eyes claim.
 
 The next useful work is not another broad decode search. The publish-blocking
 robustness gap has been closed and the structural summary is published in
-`research/findings/eyes-structural-summary.md`. The remaining high-leverage item
-is external rather than computational: write down what would count as a real
-external anchor — key material, a method disclosure, or known plaintext — and
-the current status of each candidate source (`T11`).
+`research/findings/eyes-structural-summary.md`. If the target is the eyes decode,
+the remaining high-leverage item is external rather than computational: write
+down what would count as a real external anchor — key material, a method
+disclosure, or known plaintext — and the current status of each candidate source
+(`T11`).
+
+If the target is helping Lymm's stated interests, the next useful computational
+line is unknown-base smaller-GAK recovery. The current deck-swap instrument
+recovers known-plaintext keys for public-base `s=1..3`; the new question is
+whether a solver can recover or marginalize over the shared base permutation on
+small planted instances before any ciphertext-only or eyes-facing attempt.
 
 ## Landed Status
 
@@ -70,15 +77,18 @@ result document that now owns the claim.
 Tier 1 is complete. The active backlog is now the remaining Tier-2/Tier-3 work in
 [`research/handoff/README.md`](handoff/README.md):
 
-1. `T11` — external-anchor criteria/status document. This is the only remaining
-   item likely to change the decode outcome without new ciphertext.
-2. `T04` — optional `D166` transcription robustness; within the point-stabilizer
+1. `gak-unknown-base-recovery/` — unknown-base known-plaintext GAK/deck recovery
+   on small planted instances. This is the current priority when optimizing for
+   Lymm's general-GAK request rather than the eyes decode.
+2. `T11` — external-anchor criteria/status document. This is the only remaining
+   item likely to change the eyes decode outcome without new ciphertext.
+3. `T04` — optional `D166` transcription robustness; within the point-stabilizer
    model `D166` is already excluded by AGL subsumption (same conditions as the
    AGL verdict), so this only sharpens the Thread-1B single-witness
    corroboration, which stays conditional/hedged on its own.
-3. `T06` — optional certification-degree appendix; it formalizes G3's existing
+4. `T06` — optional certification-degree appendix; it formalizes G3's existing
    numbers and does not move decode odds.
-4. `T07` — proving-ground status/menu only if sample-suite progress is explicitly
+5. `T07` — proving-ground status/menu only if sample-suite progress is explicitly
    prioritized over eyes work.
 
 ## Re-Ranking Rationale
@@ -89,9 +99,12 @@ they were meant to chase: the sharp `S83` certification degree is `t = N - 1 =
 to pin one element on at least `N - 1` cosets. T7/G5 are confirmatory now that
 the Thread-4 attack arc has completed with an honest-negative eyes run. T8/T2
 remain triage-only because mapping-dependent language scoring cannot supply the
-missing key material, method disclosure, or known plaintext. With the transcription certificates and summary
-now landed, the next useful work is documenting the external-anchor bar and
-current source status, not searching the same ciphertext harder.
+missing key material, method disclosure, or known plaintext. With the
+transcription certificates and summary now landed, the next useful eyes work is
+documenting the external-anchor bar and current source status, not searching the
+same ciphertext harder. The unknown-base GAK track is not another eye-corpus
+search; it is a proving-ground extension of the public-base deck-swap solver,
+aimed at the base-permutation gap that blocks transfer.
 
 ## Coordination Notes
 

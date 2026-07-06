@@ -7,8 +7,10 @@ Work the priority ladder below top-down; stop when the marginal value drops
 
 This backlog was written 2026-06-26 after a full state read + two codex passes (a
 direction second-opinion and a review of this folder). Update 2026-07-06:
-Tier 1 has landed through the structural summary. The active remaining queue is
-Tier 2, starting with `T11`.
+Tier 1 has landed through the structural summary. If the goal is the eyes decode
+itself, the active remaining queue is Tier 2, starting with `T11`. If the goal is
+to help Lymm's stated GAK-attack interests, start with
+`gak-unknown-base-recovery/`.
 
 ## The one-paragraph situation
 
@@ -23,7 +25,10 @@ anchor. The harden-and-publish cycle is now complete: the transcription
 robustness certificates landed, and the publishable structural summary is in
 `research/findings/eyes-structural-summary.md`. The remaining useful work is
 mostly external-anchor documentation plus optional formalization; broad decode
-search is not the next move.
+search is not the next move. A separate useful community-infrastructure track is
+to extend the smaller-GAK/deck proving ground by removing the public-base
+assumption from `gak-swap-recover`, because that is the transfer gap Lymm called
+out.
 
 ## House rules (read before any task)
 
@@ -67,6 +72,12 @@ search is not the next move.
   Phase-0/Phase-2 escalation are superseded for the vendored practice-puzzle recovery by the
   substitution-first local-search backend. Vendored challenge corpus + results at
   `research/data/practice-puzzles/deck-swap/`.
+- `gak-unknown-base-recovery/` — **NEXT if helping Lymm's stated interests.**
+  The public-base solver is useful but conditions on exactly the base
+  permutation the eyes would not provide. This new proving-ground track starts
+  with known-plaintext hidden-base fixtures, measures identifiability, and only
+  then attempts base recovery or marginalization. It is community GAK tooling,
+  not an eye decode.
 
 **Tier 1 — harden & publish the eyes frontier (DONE; kept as provenance).**
 - `next-cycle-2026-07-06.md` — **EXECUTED.** It sent the repo through
@@ -82,9 +93,14 @@ search is not the next move.
 - `T05` — **DONE** (`a314f42`). The structural summary is published at
   `research/findings/eyes-structural-summary.md`.
 
-**Tier 2 — active remaining work: the standing unblocker + optional formalization.**
+**Tier 2A — active community-infrastructure work: Lymm's general-GAK interest.**
+- `gak-unknown-base-recovery/` — unknown-base known-plaintext GAK/deck recovery
+  on small planted instances. Do this next when the priority is to help Lymm
+  with general methods for smaller GAK ciphers faster than brute force.
+
+**Tier 2B — eyes-specific remaining work: the standing unblocker + optional formalization.**
 - `T11` — external-anchor hunt (the only real decode-unblocker; mostly
-  non-computational). Do this next unless the user explicitly asks for a code task.
+  non-computational). Do this next when the priority is the eyes decode itself.
 - `T04` — D₁₆₆ dihedral-exclusion robustness (optional; D₁₆₆ is already excluded
   within-model by AGL subsumption, same conditions as the AGL verdict — this only
   sharpens the Thread-1B single-witness corroboration, which stays hedged on its own).
@@ -126,7 +142,8 @@ search is not the next move.
 
 ```
 T00, T01, T02, T03, T05 — DONE
-T11  (doc)              — active next; independent
+gak-unknown-base-recovery — active next for Lymm/general-GAK work; independent
+T11  (doc)              — active next for eyes-decode work; independent
 T04  (code+doc)         — optional; depends on landed T01 harness
 T06  (doc)              — optional; independent
 T07  (doc/menu)         — independent; opportunistic only
@@ -137,5 +154,6 @@ T07  (doc/menu)         — independent; opportunistic only
 Tier 1 has landed: the eyes' structural conclusions are transcription-certified
 and packaged into one postable summary, with the stale ladder fixed. That is a
 publishable, honest close of the computational frontier. Tiers 2–3 are upside;
-T11 is the only remaining item that could change the decode outcome, and it is
-external.
+T11 is the only remaining item that could change the eyes decode outcome, and it
+is external. The unknown-base GAK track is separate: it can help the community's
+general attack tooling without implying a new eye-corpus result.
