@@ -1,9 +1,12 @@
 //! Tests for hidden-base fixture and identifiability audit plumbing.
 
+use std::collections::BTreeMap;
+
 use super::{
     DEFAULT_HIDDEN_BASE_AUDIT_SEED, HiddenBaseAuditConfig, HiddenBaseFixtureConfig,
-    HiddenBaseIdentifiabilityStatus, HiddenBaseKind, audit_hidden_base_mapping,
-    hidden_base_audit_self_test, plant_hidden_base_fixture, run_hidden_base_identifiability_audit,
+    HiddenBaseIdentifiabilityStatus, HiddenBaseKind, KnownPlaintextPair, LymmDeckSpec,
+    audit_hidden_base_mapping, encrypt_lymm_deck, hidden_base_audit_self_test,
+    plant_hidden_base_fixture, run_hidden_base_identifiability_audit,
 };
 
 #[test]
@@ -70,4 +73,29 @@ fn hidden_base_controls_fire_positive_and_matched_nulls() {
     assert!(report.over_budget_positive.accepted);
     assert!(!report.ciphertext_label_shuffle_null.accepted);
     assert!(report.passed());
+}
+
+#[test]
+fn hidden_base_acceptance_requires_compatible_base_without_planted_base() {
+    let spec = LymmDeckSpec::from_base(5, "AB", "abcde", vec![0, 1, 2, 3, 4]).expect("spec");
+    let mut mapping = BTreeMap::new();
+    let _old = mapping.insert('A', vec![0, 1, 2, 3, 4]);
+    let _old = mapping.insert('B', vec![0, 2, 1, 3, 4]);
+    let plaintext = "ABBA".to_owned();
+    let ciphertext = encrypt_lymm_deck(&spec, &mapping, &plaintext).expect("encrypt");
+    let pairs = vec![KnownPlaintextPair {
+        label: "fixture".to_owned(),
+        plaintext,
+        ciphertext,
+    }];
+
+    let report = audit_hidden_base_mapping(&spec, &pairs, &mapping, 1, None).expect("audit");
+
+    assert!(report.round_trip.exact);
+    assert_eq!(report.base_candidate_count, 0);
+    assert_eq!(
+        report.status,
+        HiddenBaseIdentifiabilityStatus::NoCompatibleBase
+    );
+    assert!(!report.accepted());
 }

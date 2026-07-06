@@ -170,10 +170,12 @@ pub struct HiddenBaseSurfaceReport {
 
 impl HiddenBaseSurfaceReport {
     /// Returns true only when exact re-encryption holds and the planted base, if
-    /// supplied, remains in the compatible class.
+    /// supplied, remains in a non-empty compatible class.
     #[must_use]
     pub fn accepted(&self) -> bool {
-        self.round_trip.exact && self.planted_base_in_candidates != Some(false)
+        self.round_trip.exact
+            && self.base_candidate_count > 0
+            && self.planted_base_in_candidates != Some(false)
     }
 }
 
