@@ -23,9 +23,11 @@ subsumption in the Full AGL sweep [Lymm, verified].
 
 The blocker is being actively re-characterized on the wiki (struck-through
 `~~lack a GAK attack~~`) to the sharper: "no known way to take deltas in GAK ciphers with
-hidden states." The recoverable quantity is precise — each isomorph pair exposes a concrete
-group element `a⁻¹b` acting by right-multiplication on right cosets of the hidden subgroup
-`H` (chaining-graph edge color = Schreier coset graph). Three named sub-problems gate the attack:
+hidden states." The observable quantity is relative and model-conditional: a
+genuine aligned isomorph can constrain a transformation `a⁻¹b` acting by
+right-multiplication on right cosets of the hidden subgroup `H` (chaining-graph
+edge color = Schreier coset graph). It does not directly reveal the plaintext
+identities `a,b` or the letter→action key. Three named sub-problems gate the attack:
 
 1. **Order-conflict reconciliation** — safely adding inferred chaining edges without contradiction.
 2. **Edge-overlap certification** — how many overlapping edges certify that two partial graphs

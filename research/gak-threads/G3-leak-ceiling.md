@@ -7,8 +7,9 @@ rests on the robustness of the leak shortfall (the eyes are 98.6–99.9%
 undecidable for *any* geometry constant `G ∈ {1,2,3}`), not on the single-point
 `two` calibration, which is a sanity check, not a licensing gate.
 
-No new attack code; no symbol→meaning mapping. All of this is supply we can
-measure plus demand we can compute. The module is
+No new attack code; no symbol→meaning mapping, and no direct
+plaintext→permutation observations. All of this is supply we can measure plus
+demand we can compute. The module is
 [`src/analysis/leak_ceiling`](../../src/analysis/leak_ceiling/mod.rs); the public
 entry is `run_leak_ceiling(config) -> Result<LeakCeilingReport, …>`.
 
@@ -20,16 +21,19 @@ group — but nobody has quantified that ceiling (`research/frontier.md`).
 G3 answers: *is chaining recovery even possible for the eyes, and by how much
 does the leak fall short?*
 
-**Headline:** a quantified no at this trigram budget. The eyes' richest
-aligned isomorph signature (26 occurrences) falls ~13× short of the 332
-aligned observations needed to pin even *one* `S₈₃` coset-permutation (the exact
-`≥ N−1` demand `N·(H_N−1) = 332.2`; the full-collection asymptotic `N·ln N` is a
-slightly larger 366.8), and a coverage model predicts 98.6–99.8% of the 1036
-transitions undecidable — and crucially 98.6–99.9% for any geometry
-constant `G ∈ {1,2,3}`, so the conclusion does not depend on the single-point
-`two` calibration. The near-identity (≤4-swap) prior is what makes recovery even
-*conceivable* (underdetermination drops from 71× to 7×), but it remains > 1
-(still underdetermined).
+**Headline:** a quantified no at this trigram budget. The eyes' richest aligned
+isomorph signature supplies 26 repeated-signature occurrences. Under the most
+generous reading, those are independent coset observations of one recurring
+hidden-state transformation, not observations of plaintext letters or
+plaintext→permutation key assignments. That optimistic supply falls ~13× short
+of the 332 coset observations needed to pin even *one* `S₈₃`
+coset-permutation (the exact `≥ N−1` demand `N·(H_N−1) = 332.2`; the
+full-collection asymptotic `N·ln N` is a slightly larger 366.8), and a coverage
+model predicts 98.6–99.8% of the 1036 transitions undecidable — and crucially
+98.6–99.9% for any geometry constant `G ∈ {1,2,3}`, so the conclusion does not
+depend on the single-point `two` calibration. The near-identity (≤4-swap) prior
+is what makes recovery even *conceivable* (underdetermination drops from 71× to
+7×), but it remains > 1 (still underdetermined).
 
 This bounds recoverability only. It makes no claim that the eyes are or
 are not GAK. The standing claim ceiling holds: the eyes are deterministic,
@@ -41,7 +45,7 @@ engine-generated, strikingly structured data of unknown meaning; unsolved.
 
 | Quantity | Status |
 | --- | --- |
-| Part A supply (M, out-degree, chaining edges, isomorph occurrences) | **Measured** (read-only, real corpus) |
+| Part A supply (M, out-degree, chaining edges, isomorph occurrences) | **Measured** (read-only, real corpus; isomorph occurrences are not plaintext/key observations) |
 | Part B certification degree, coupon-collector demand | **Analytic** (model-conditional) |
 | Part C per-element shortfall, key-entropy needs, coverage prediction | **Analytic & model-conditional** |
 | MI figure (`M·H_emp`) | **Upper bound** on leaked bits |
@@ -72,8 +76,10 @@ Read from the accepted honeycomb reading layer
   `isomorph::PatternSignature` primitive). The `ΣC(occ,2)` column counts aligned
   occurrence *pairs*, but these are redundant constraints over only ~`occ`
   *independent* coset observations, so the operative supply unit is `occ`
-  (max-repeat), not the pair count — see the Part C supply-unit
-  reconciliation:
+  (max-repeat), not the pair count. These observations constrain hidden
+  state/key evolution under a GAK model; they do not identify the plaintext
+  letters or the plaintext→permutation assignment that would be the key. See the
+  Part C supply-unit reconciliation:
 
   | window | repeated kinds | max repeat (dominant) | aligned occurrence pairs `ΣC(occ,2)` (redundant — see Part C) | informative windows |
   | --- | --- | --- | --- | --- |
@@ -92,9 +98,11 @@ Read from the accepted honeycomb reading layer
 
 ## Part B — demand (analytic, model-conditional)
 
-Each isomorph pair exposes `a⁻¹b` acting by right-multiplication on the `N`
-right cosets of the hidden subgroup `H`; the chaining-graph edge color is a
-Schreier coset edge (`frontier.md`).
+Under the GAK model, a genuine aligned isomorph can constrain the relative
+transformation `a⁻¹b` acting by right-multiplication on the `N` right cosets of
+the hidden subgroup `H`; the chaining-graph edge color is a Schreier coset edge
+(`frontier.md`). This is a coset-edge constraint, not an observation of the
+plaintext identities `a,b` or the plaintext→permutation key assignment.
 
 - **Edge-overlap certification degree `t(N)`** (how many overlapping edges
   certify "same transformation"): in the sharply-`N`-transitive `S_N` (`S₈₃/S₈₂`)
@@ -113,12 +121,13 @@ Schreier coset edge (`frontier.md`).
 
 1. **Per-element recurrence shortfall.** Demand to fully pin one `S₈₃` element on
    `≥ N−1` cosets = 332.2 (`N·(H_N−1)`; the full-collection asymptotic
-   `N·ln N = 366.8` is slightly larger). Eyes supply: dominant length-4 signature
-   9 → 36.9× short; richest signature 26 → 12.8× short. ⇒ the
-   eyes cannot fully pin even one element's `S₈₃` coset-permutation. Contrast
-   `two`: demand 29.8, supply 76 → ratio 0.39 < 1 (it *can* pin one element —
-   and G1b confirms `two` recovers a few edges/columns, yet still fails by stream
-   coverage).
+   `N·ln N = 366.8` is slightly larger). Eyes supply, already counted in the
+   optimistic hidden-state/coset unit: dominant length-4 signature 9 → 36.9×
+   short; richest signature 26 → 12.8× short. ⇒ the eyes cannot fully pin even
+   one element's `S₈₃` coset-permutation, before asking for plaintext/key
+   assignments. Contrast `two`: demand 29.8, supply 76 → ratio 0.39 < 1 (it
+   *can* pin one element — and G1b confirms `two` recovers a few edges/columns,
+   yet still fails by stream coverage).
 
    Supply-unit reconciliation (Part A → Part C). Part A's aligned-pair counts
    `ΣC(occ,2)` (56 / 845 / 1382 / 2112) are redundant constraints generated by

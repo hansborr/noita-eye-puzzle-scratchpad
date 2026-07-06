@@ -1,10 +1,11 @@
 # Thread 4 — GAK attack prototype: implementation / research spec
 
 **Status:** spec only. Time-boxed research spike, gated by go/no-go milestones.
-**Effort:** High. **Reward:** Highest — this is the one thread that could break the
-standing "decode is blocked on the unknown symbol→meaning mapping" conclusion *by
-pure cryptanalysis*, because a working GAK attack produces the
-plaintext→permutation mapping rather than requiring it as input.
+**Effort:** High. **Reward:** Highest — this is the one thread that could test
+whether the standing "decode is blocked on missing key material, method
+disclosure, or known plaintext" conclusion can be broken *by pure
+cryptanalysis*, because a working GAK attack would infer a candidate
+plaintext→permutation key rather than requiring it as input.
 
 ## The claim ceiling (non-negotiable, applies to every output of this thread)
 
@@ -18,8 +19,10 @@ prints may be stronger. In particular:
   with no held-out data is almost certainly coincidence (see "The trap", §Gates).
 - This is mapping-independent structural work: use only ciphertext symbol
   equality and group structure. Never invent a symbol→meaning mapping. (The
-  attack may *recover* a plaintext→group-element map on synthetic ciphers where
-  we hold the ground truth; that is a recovered key, not an assumed mapping.)
+  attack may *recover* a plaintext→group-element key on synthetic ciphers where
+  we hold the ground truth; that is a recovered key, not an assumed mapping. On
+  the eyes, isomorphs supply relative/coset constraints, not direct key
+  observations.)
 - Every structural negative needs a matched null; every positive control must
   fire on known signal (the `cipher_attack.rs` discipline).
 - The small-support / ~≤4-swaps-per-letter prior is tentative (allomorph-derived,
@@ -320,11 +323,12 @@ unconstrained fit is almost certainly a coincidence. Do not report it as a decod
   small-support prior), and (c) calibrated nulls and positive controls others can
   build on. The community problem is *open*; a rigorous, reproducible "here is how far
   it goes and where it stops" moves it forward.
-- **The reframe (for memory / write-up):** if even a *partial* attack recovers the
-  mapping from isomorph structure alone on synthetics, it shows the eye mapping is
+- **The reframe (for memory / write-up):** if even a *partial* attack recovers a
+  key from isomorph-derived constraints on synthetics, it shows the eye key is
   "unrecovered by attacks tried so far," not "recoverable only from an external
-  source." That is a softening of the standing claim — but the standing claim about
-  the eyes does not change until a candidate survives Step 3's held-out checks.
+  source." That is a softening of the standing claim — but the standing claim
+  about the eyes does not change until a candidate survives Step 3's held-out
+  checks.
 
 ## Reuse map (do not reinvent)
 

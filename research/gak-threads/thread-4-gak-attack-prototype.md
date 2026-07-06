@@ -2,14 +2,16 @@
 
 **Priority:** Medium to staff, but highest reward. **Effort:** High — a
 time-boxed research spike, not a checklist. **Mapping-independent:** Yes in the
-strongest sense — a working attack *produces* the symbol→permutation mapping
-rather than needing it as input. **Game-data/Ghidra helps:** Only post-hoc (to
-corroborate a recovered plaintext).
+sense that it does not assume a fixed ciphertext-symbol→meaning table; a
+successful attack must infer a candidate letter→action key from structural
+constraints rather than requiring it as input. **Game-data/Ghidra helps:** Only
+post-hoc (to corroborate a recovered plaintext).
 
 **One-line:** The community's stated open problem is a GAK attack — there is no
 known way to "take deltas" in a GAK cipher with hidden states. Building even a
 partial one is the single path that could break our long-standing "decode is
-blocked on the unknown mapping" conclusion *by pure cryptanalysis*.
+blocked on missing key material / method / known plaintext" conclusion *by pure
+cryptanalysis*.
 
 ## Why this is the prize (and the reframe)
 
@@ -25,11 +27,13 @@ The wiki:
 > to the hidden states… Basically, we need a GAK attack, and any work on this would
 > be much appreciated.
 
-If such an attack existed, it would recover the plaintext→permutation mapping from
-the isomorph structure alone — no in-game anchor, no developer statement. That
-directly contradicts our standing memory claim that the mapping is recoverable only
-from an external source. It is the reason that claim is *too strong*: the mapping
-is unrecovered by the attacks tried so far, not unrecoverable in principle.
+If such an attack existed, it would recover a candidate plaintext→permutation
+key from sufficient structural constraints — no in-game anchor, no developer
+statement. The important caveat is that isomorph chains do not directly reveal
+plaintext letters or key permutations; they supply relative hidden-state/coset
+constraints that an attack must make determinate. That is why the older claim
+"recoverable only from an external source" was too strong: the key is unrecovered
+by the attacks tried so far, not proven unrecoverable in principle.
 
 Wiki sources to read first (Lymm's eye-messages wiki,
 github.com/Lymm37/eye-messages/wiki):

@@ -196,12 +196,9 @@ shuffle null (held-out score 0, p=1.0); the negative is clean and fair (the eyes
 have passed and did not). No candidate cleartext arose, and the speculative cleartext
 gate was correctly never reached.
 
-The eyes remain unsolved; the decode remains blocked on the unknown symbol→meaning
-mapping. Claim ceiling, verbatim: *deterministic, engine-generated, strikingly
-structured data of unknown meaning; unsolved; no primary developer source confirms
-recoverable plaintext.*
-
-*(Updated 2026-07-06: "symbol→meaning mapping" is retired framing. No fixed
-symbol-to-meaning mapping exists for a polyalphabetic cipher; the standing
-blocker is missing key material (the letter→action assignment), a method
-disclosure, or known plaintext. The claim ceiling itself is unchanged.)*
+The eyes remain unsolved; the decode remains blocked on missing key material
+(the letter→action assignment), a method disclosure, or known plaintext. No
+fixed symbol-to-meaning table exists for a polyalphabetic cipher, and the
+isomorph chains do not directly observe the key. Claim ceiling, verbatim:
+*deterministic, engine-generated, strikingly structured data of unknown meaning;
+unsolved; no primary developer source confirms recoverable plaintext.*

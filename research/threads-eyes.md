@@ -86,14 +86,17 @@ community's whole Goal 2 had no forward thread. This is half the community probl
 ## Mapping-dependent long shot
 
 ### T8 — language-guided mapping search on the eyes *(L · keep, honesty-gated)*
-- **Serves:** Goal 1 decode (mapping-dependent) — the one thread that could touch symbol→meaning.
-  Speculative; blocked on missing key material, a method disclosure, or known
-  plaintext — not a fixed symbol→meaning mapping.
-- Use a Finnish/English n-gram score as the search objective over the GAK key / symbol→meaning
-  mapping (analog of the Ragbaby keyed-alphabet search). **Caveat (binding):** the eyes are a
-  context-dependent deck-cipher autokey, so a naive substitution-style mapping search will not
-  work — the GAK structure must be folded into the objective. Treat any readable output as a
-  hypothesis and log per the candidate-logging directive (`research/gak-threads/candidates/`).
+- **Serves:** Goal 1 decode (key-dependent) — the one thread that could use
+  language evidence after structural gates. Speculative; blocked on missing key
+  material, a method disclosure, or known plaintext — not a fixed symbol→meaning
+  mapping.
+- Use a Finnish/English n-gram score as the search objective over the GAK
+  letter→action key plus a candidate plaintext-letter reading (analogous in
+  spirit to the Ragbaby keyed-alphabet search, but not a substitution solve).
+  **Caveat (binding):** the eyes are a context-dependent deck-cipher autokey, so
+  a naive substitution-style mapping search will not work — the GAK structure
+  must be folded into the objective. Treat any readable output as a hypothesis
+  and log per the candidate-logging directive (`research/gak-threads/candidates/`).
 - **Dependencies:** T2 (Finnish quadgram, see `NEXT-STEPS.md` → Supporting). Builds on the
   Thread-4 solver. Don't gate the ladder on it; don't over-invest.
 

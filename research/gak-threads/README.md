@@ -43,23 +43,27 @@ constants were *produced*, which the binary does not reveal.
 
 ## The reframe (important — it changes our standing conclusion)
 
-Our memory has long said decode is blocked on the unknown 83-symbol→meaning
-mapping, recoverable only via an external in-game/developer anchor. The wiki's
-framing shows that claim is too strong. Their stated open problem is a GAK
-attack — there is no known way to "take deltas" in a GAK cipher with hidden
-states. A *working* GAK attack would recover the plaintext→permutation mapping
-from the isomorph structure alone, with no in-game anchor. So decode is
-blocked on *the attacks tried so far*, not in principle. Thread 4 chases exactly
-this.
+Our memory long said decode was blocked on an unknown fixed
+83-symbol→meaning table, recoverable only via an external in-game/developer
+anchor. The wiki's framing shows that this was the wrong object for a
+polyalphabetic GAK model. Their stated open problem is a GAK attack — there is
+no known way to "take deltas" in a GAK cipher with hidden states. A working GAK
+attack would have to use isomorph-derived coset constraints, plus any valid
+model priors, to recover or marginalize over a candidate plaintext→permutation
+key. The isomorph chains do not directly observe plaintext letters or key
+permutations. So decode is blocked on missing key material, a method disclosure,
+known plaintext, or a stronger validated attack; it is not blocked on a fixed
+eye-symbol table.
 
 ---
 
 ## Shared ground rules (apply to every thread)
 
 - **Mapping-independence is the point.** Threads 1, 2, 3, 5 use only ciphertext
-  *symbol equality* and group structure — they never need the symbol→meaning
-  mapping, so they sidestep the decode blocker entirely. Thread 4 *produces* a
-  candidate mapping rather than consuming one.
+  *symbol equality* and group structure — they never need a fixed
+  symbol→meaning table, so they sidestep that obsolete framing entirely. Thread
+  4 can produce a candidate letter→action key only when the attack constraints
+  determine one; it does not consume such a key as input.
 - **Data lives in `src/data/corpus.rs`** — the nine verified messages, cross-checked
   byte-for-byte against the ngraham20 transcription and Xkeeper0's base-7
   transcoder. Use `corpus::messages()` / `corpus::combined_sequence()`. The
