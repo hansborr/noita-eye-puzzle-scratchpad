@@ -78,11 +78,49 @@ Interpretation:
   weak evidence. The aligned public source is
   <https://en.wikipedia.org/wiki/Octal#By_Europeans>.
 
+## Punctuation/source-aligned reading (2026-07-06)
+
+Best-effort plaintext with punctuation and hyphenation:
+
+```text
+Would an octal number system have come before the decimal number system? It has been suggested that the reconstructed Proto-Indo-European word for "nine" might be related to the Proto-Indo-European word for "new". Based on this, some have speculated that proto-Indo-Europeans used an octal number system, though the evidence supporting this is slim.
+```
+
+Source alignment:
+
+- Article source: Wikipedia, Octal, "By Europeans":
+  <https://en.wikipedia.org/wiki/Octal#By_Europeans>.
+- Stable source snapshots checked:
+  <https://en.wikipedia.org/w/index.php?title=Octal&oldid=1361717197#By_Europeans>
+  (2026-06-29) and
+  <https://en.wikipedia.org/w/index.php?title=Octal&oldid=1033968504#By_Europeans>
+  (2021-07-16).
+- The article source supplies the `nine`/`new`, octal-system, and weak-evidence
+  content, plus the hyphenation style for `Proto-Indo-European` and
+  `proto-Indo-Europeans`.
+- No checked public Octal revision is an exact byte-for-byte source for the whole
+  candidate: the candidate adds the opening question, omits the current article's
+  parenthetical `(PIE)`, and expands the article's second `PIE` reference to
+  `Proto-Indo-European`.
+
+Uncertainty notes:
+
+- The opening `Would` is an editorial repair of the `substfinish` render `SOULD`;
+  the monoalphabetic layer certifies only `_ould` plus the surrounding question
+  shape.
+- The question mark after the first `system`, the period after `"new"`, the comma
+  after `this`, the comma after the second `system`, and the final period are
+  source/syntax-aligned punctuation, not independently recovered cipher symbols.
+- A direct raw-symbol to punctuated-character map is not one-to-one: several raw
+  symbols would have to serve both a letter and punctuation/case. Treat this as a
+  source-aligned plaintext restoration over the letter-only candidate, not as a
+  recovered punctuation alphabet.
+
 Claim ceiling:
 
 **Strong plaintext hypothesis, not a verified decode.** The phase-0 round-trip is
 still the vacuous shadowfinish invariant, the matched null remains conditional on
 the retained shadowsearch classes, and the source alignment is a human/external
-confirmation aid rather than an independent cipher gate. The first word of the
-introductory question is not fully certified by the monoalphabetic layer alone
-(`SOULD` is compatible with a one-symbol residual error before `ould`).
+confirmation aid rather than an independent cipher gate. The aligned text above is
+the current best-effort reading for practice `two`, but it is not maintainer
+ground truth and not an original-generator round-trip.

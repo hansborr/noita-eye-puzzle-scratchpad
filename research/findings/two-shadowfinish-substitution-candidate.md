@@ -40,23 +40,50 @@ input. On the real candidate it reported:
 
 ## Reading
 
-The second-stage render begins:
+The second-stage render begins with a malformed first word, then the
+octal-system question:
 
 ```text
-SOULD AN OCTAL NUMBER SQSTEM HAVE COME BEFORE THE DECIMAL NUMBER SQSTEMZ ...
+_OULD AN OCTAL NUMBER SQSTEM HAVE COME BEFORE THE DECIMAL NUMBER SQSTEMZ ...
 ```
 
 The remaining bad letters are expected under the current finisher because it
-forces all non-space symbols to letters. Source alignment points to a short
-question about an octal number system predating decimal, followed by the Octal
-article's "By Europeans" content about the Proto-Indo-European `nine`/`new`
-speculation and weak evidence:
+forces all non-space symbols to letters. Source/syntax alignment gives this
+best-effort plaintext:
+
+```text
+Would an octal number system have come before the decimal number system? It has been suggested that the reconstructed Proto-Indo-European word for "nine" might be related to the Proto-Indo-European word for "new". Based on this, some have speculated that proto-Indo-Europeans used an octal number system, though the evidence supporting this is slim.
+```
+
+Source alignment points to a short question about an octal number system
+predating decimal, followed by the Octal article's "By Europeans" content about
+the Proto-Indo-European `nine`/`new` speculation and weak evidence:
 
 <https://en.wikipedia.org/wiki/Octal#By_Europeans>
 
+Stable source snapshots checked:
+
+- <https://en.wikipedia.org/w/index.php?title=Octal&oldid=1361717197#By_Europeans>
+  (2026-06-29)
+- <https://en.wikipedia.org/w/index.php?title=Octal&oldid=1033968504#By_Europeans>
+  (2021-07-16)
+
 The aligned wording is therefore an octal-system / decimal-system question plus
-the PIE `nine`/`new` sentence, with punctuation and hyphenation not cleanly
-resolved by the current letter-only instrument.
+the Octal article's `nine`/`new` sentence. It is not an exact byte-for-byte copy
+of the checked public source: the candidate adds the opening question, omits the
+current article's parenthetical `(PIE)`, and expands the article's second `PIE`
+reference to `Proto-Indo-European`.
+
+Uncertainty notes:
+
+- `Would` repairs the observed malformed first word; the monoalphabetic layer
+  itself certifies only `_ould` and the surrounding question grammar.
+- The question mark, period after `"new"`, commas after `this` and the second
+  `system`, final period, quotes, and hyphens are source/syntax-aligned
+  restoration, not recovered by `substfinish`.
+- A direct raw-symbol to punctuated-character map would not be one-to-one, so
+  this is a best-effort plaintext restoration over a letter-only candidate rather
+  than a recovered punctuation alphabet.
 
 ## Claim ceiling
 
@@ -65,6 +92,9 @@ hypothesis level**, but not as a verified decode. We still lack an independent
 round-trip through the original puzzle generator or maintainer ground truth, and
 the shadowfinish null does not replay stage-(ii) survivor selection over all
 104,096 candidates.
+
+The punctuation/source alignment is a human/external confirmation aid only. It
+does not upgrade the candidate to a verified decode.
 
 The next useful work is narrow:
 
