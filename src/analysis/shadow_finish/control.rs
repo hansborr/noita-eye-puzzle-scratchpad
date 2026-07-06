@@ -4,7 +4,9 @@ use crate::attack::quadgram::QuadgramModel;
 
 use super::artifact::{canonical_from_plaintext, encode_with_key};
 use super::engine::{TruthProbe, decode_pattern, run_ladder_with_probe};
-use super::scoring::{WordSegModel, combined_score, score_anchor_words, score_quadgrams};
+use super::scoring::{
+    WordSegModel, combined_score, score_anchor_words, score_byte_coverage, score_quadgrams,
+};
 use super::tables::builtin_tables;
 use super::{
     DigitOrder, PairPhase, ShadowFinishArtifact, ShadowFinishConfig, ShadowFinishError,
@@ -23,16 +25,20 @@ const CONTROL_LEN: usize = 349;
     reason = "self-test report DTO: each bool is an independent control leg surfaced by the CLI"
 )]
 pub struct ShadowFinishSelfTest {
-    /// The planted plaintext survived Tier A and the phase-0 replay invariant.
+    /// The phase-0 replay invariant held for the planted plaintext.
     pub positive_roundtrip: bool,
     /// The planted plaintext cleared the matched null as a language hypothesis.
     pub positive_candidate_verdict: bool,
+    /// The planted plaintext won Tier B under the language statistic.
+    pub positive_truth_best: bool,
     /// Planted truth Tier-A rank across the full enumeration surface.
     pub positive_truth_rank: Option<usize>,
     /// The planted truth was inside the configured per-class top-K.
     pub positive_truth_top_k: bool,
     /// Planted best score minus the matched-null maximum.
     pub positive_margin_vs_junk_max: f64,
+    /// A repeated anchor trimmed to dirty word boundaries still scores as English.
+    pub dirty_boundary_anchor: bool,
     /// The mutated wrong plaintext does not round-trip to the plant ciphertext.
     pub wrong_plaintext_no_roundtrip: bool,
     /// The wrong plaintext's score sits inside the junk distribution.
@@ -103,9 +109,16 @@ fn run_control(
         .top_candidates
         .iter()
         .any(|candidate| candidate.plaintext == fixture.plaintext && candidate.roundtrip);
+    let positive_truth_best = outcome
+        .report
+        .top_candidates
+        .first()
+        .is_some_and(|candidate| candidate.plaintext == fixture.plaintext);
     let positive_candidate_verdict = outcome.report.verdict == ShadowFinishVerdict::Candidate;
     let positive_truth_top_k = outcome.truth_tier_a_rank.is_some_and(|rank| rank <= top_k);
     let positive_margin_vs_junk_max = outcome.report.calibration.margin_vs_null_max;
+    let dirty_boundary_anchor =
+        dirty_boundary_anchor_passes(&fixture, &word_model, &artifact.hard_anchors);
     let wrong_plaintext_no_roundtrip = fixture.wrong_plaintext_no_roundtrip(tables)?;
     let wrong_score = score_plaintext(
         &fixture.wrong_plaintext,
@@ -122,8 +135,10 @@ fn run_control(
     let vacuity = fixture.vacuity_control(tables)?;
     let passed = positive_roundtrip
         && positive_candidate_verdict
+        && positive_truth_best
         && positive_truth_top_k
         && positive_margin_vs_junk_max > 0.0
+        && dirty_boundary_anchor
         && wrong_plaintext_no_roundtrip
         && wrong_plaintext_inside_junk
         && vacuity.both_roundtrip
@@ -131,9 +146,11 @@ fn run_control(
     Ok(ShadowFinishSelfTest {
         positive_roundtrip,
         positive_candidate_verdict,
+        positive_truth_best,
         positive_truth_rank: outcome.truth_tier_a_rank,
         positive_truth_top_k,
         positive_margin_vs_junk_max,
+        dirty_boundary_anchor,
         wrong_plaintext_no_roundtrip,
         wrong_plaintext_inside_junk,
         vacuity_both_roundtrip: vacuity.both_roundtrip,
@@ -291,14 +308,36 @@ fn score_plaintext(
     let quad = score_quadgrams(quadgram, plaintext);
     let word = word_model.score_text(plaintext);
     let anchor = score_anchor_words(word_model, plaintext, anchors);
-    combined_score(quad, word, anchor)
+    let coverage = score_byte_coverage(plaintext);
+    combined_score(quad, word, anchor, coverage)
+}
+
+fn dirty_boundary_anchor_passes(
+    fixture: &Fixture,
+    word_model: &WordSegModel,
+    anchors: &[crate::analysis::shadow_search::Anchor],
+) -> bool {
+    let truth = score_anchor_words(word_model, &fixture.plaintext, anchors);
+    let wrong = score_anchor_words(word_model, &fixture.wrong_plaintext, anchors);
+    let raw_chars = anchors.first().map_or(0, |anchor| anchor.length / 2);
+    truth.spans_scored > 0
+        && truth.bytes < raw_chars
+        && truth.mean_logp > wrong.mean_logp
+        && truth.coverage_score > 6.0
 }
 
 fn plant_plaintext() -> Vec<u8> {
-    let phrase = b"the hidden state search can finish without a crib when repeated spans carry clear english words ";
+    let phrase = [
+        b"the ".as_slice(),
+        control_anchor_phrase(),
+        b"when repeated spans carry clear english words and ".as_slice(),
+        control_anchor_phrase(),
+        b"the search remains clear when english words carry the hidden state ".as_slice(),
+    ]
+    .concat();
     let mut out = Vec::with_capacity(CONTROL_LEN);
     while out.len() < CONTROL_LEN {
-        out.extend_from_slice(phrase);
+        out.extend_from_slice(&phrase);
     }
     out.truncate(CONTROL_LEN);
     out
@@ -332,6 +371,8 @@ fn control_wordlist() -> String {
         ("clear", 580),
         ("english", 570),
         ("words", 560),
+        ("and", 550),
+        ("remains", 540),
     ]
     .iter()
     .map(|(word, count)| format!("{word} {count}"))
@@ -364,7 +405,7 @@ fn artifact_json(
          \"basis\":{{\"legal_readouts\":[0,1,2,3,4,5,6,7]}},\
          \"hard_anchors\":[{}],\"outcome\":{{\"top_canonical_classes\":[{}]}}}}",
         input_len,
-        anchor_json(24, 120, 64),
+        control_anchor_json(),
         class_json(q_pattern, key)
     )
 }
@@ -404,10 +445,43 @@ fn key_json(key: &crate::analysis::shadow_search::RepresentativeKey) -> String {
     )
 }
 
-fn anchor_json(first: usize, second: usize, length: usize) -> String {
+fn control_anchor_phrase() -> &'static [u8] {
+    b"hidden state search can finish without a crib "
+}
+
+fn control_anchor_json() -> String {
+    let prefix_len = b"the ".len();
+    let phrase_len = control_anchor_phrase().len();
+    let bridge_len = b"when repeated spans carry clear english words and ".len();
+    let trim_chars = 2usize;
+    let raw_first = prefix_len * 2;
+    let raw_second = (prefix_len + phrase_len + bridge_len) * 2;
+    let raw_length = phrase_len * 2;
+    let trim = trim_chars * 2;
+    anchor_json(
+        raw_first + trim,
+        raw_second + trim,
+        raw_length - 2 * trim,
+        raw_first,
+        raw_second,
+        raw_length,
+        trim,
+    )
+}
+
+fn anchor_json(
+    first: usize,
+    second: usize,
+    length: usize,
+    raw_first: usize,
+    raw_second: usize,
+    raw_length: usize,
+    trim: usize,
+) -> String {
     format!(
         "{{\"first\":{first},\"second\":{second},\"length\":{length},\
-         \"raw_first\":{first},\"raw_second\":{second},\"raw_length\":{length},\"trim\":0}}"
+         \"raw_first\":{raw_first},\"raw_second\":{raw_second},\
+         \"raw_length\":{raw_length},\"trim\":{trim}}}"
     )
 }
 

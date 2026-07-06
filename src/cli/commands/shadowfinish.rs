@@ -184,16 +184,24 @@ fn load_tables(paths: &[std::path::PathBuf]) -> Result<Vec<ShadowFinishTable>, S
 fn print_self_test(seed: u64, report: &ShadowFinishSelfTest) {
     println!("shadowfinish self-test (seed=0x{seed:016x}):");
     println!(
-        "  planted positive: {} (candidate verdict: {}, roundtrip invariant: {}, truth rank {:?}, margin vs junk max {:.4})",
+        "  planted positive: {} (candidate verdict: {}, truth best: {}, truth rank {:?}, margin vs junk max {:.4})",
         pass_fail(
             report.positive_candidate_verdict
-                && report.positive_roundtrip
+                && report.positive_truth_best
                 && report.positive_truth_top_k
         ),
         pass_fail(report.positive_candidate_verdict),
-        pass_fail(report.positive_roundtrip),
+        pass_fail(report.positive_truth_best),
         report.positive_truth_rank,
         report.positive_margin_vs_junk_max
+    );
+    println!(
+        "  dirty-boundary anchor: {}",
+        pass_fail(report.dirty_boundary_anchor)
+    );
+    println!(
+        "  roundtrip invariant: {}",
+        pass_fail(report.positive_roundtrip)
     );
     println!(
         "  vacuity control: {} (alternate roundtrip: {}, distinct plaintext: {})",
