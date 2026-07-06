@@ -66,7 +66,10 @@ Notes:
   the inventory row above); `two` (whose `s%3` channel is a ±1 walk on C3) now has
   a strong crib-free candidate via the later `shadowfinish` route, while the
   earlier codec-family negatives still stand as scoped exclusions and document the
-  transition-law blind spot in the bigram/Fisher-Yates gate.
+  transition-law blind spot in the bigram/Fisher-Yates gate. The blind
+  withheld-ground-truth comparison packet for `two` is
+  `TWO-WITHHELD-CONFIRMATION-FREEZE.md`; it freezes the candidate by path/hash and
+  makes no confirmation claim.
   `CODEC-RESULTS.md` also records the `isoscan` crib anchors — long
   exact translate-isomorphs in the difference channel (`two`: len 68; `one`: len
   36) that locate repeated plaintext spans (structural candidates, not decodes) —
