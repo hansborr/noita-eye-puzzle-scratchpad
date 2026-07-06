@@ -44,10 +44,14 @@ two layers as distinct types and keeping `Glyph`/`Alphabet` generic:
   TrigramValue}` (`value()` in `0..=124`).
 
 The generic `core::glyph::{Glyph, Alphabet, Sequence}` container remains for the
-broader analysis alphabet. **Caveat, still standing:** the *direction* each
-digit denotes (1=up, 2=right, …) is `[unverifiable]` from any text source — the
-types keep digit identities and deliberately do not bake pixel-direction
-semantics in.
+broader analysis alphabet. **Caveat, updated 2026-07-06:** the *direction* each
+digit denotes (1=up, 2=right, …) is binary-verifiable from the shipped binary
+(eye sprites are hardcoded in the drawing function; maintainer-confirmed
+2026-07-06, independent re-extraction in this repo still pending) rather than
+merely image-sourced as earlier drafts of this doc treated it. The types still
+keep digit identities and deliberately do not bake pixel-direction semantics
+in — the labeling is a convention no statistic in this crate depends on, not
+an unknown being protected.
 
 ## Where each experiment lives now
 

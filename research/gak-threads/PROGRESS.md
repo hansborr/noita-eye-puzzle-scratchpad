@@ -200,10 +200,15 @@ different model family, re-running the scratchpad Python where possible.
 - **AGL exclusion — corroborated.** The cross-model re-run reproduced the enumerations (`0/6724`, `0/3362`,
   `0/2M` sims) and confirmed both variants excluded; flagged the now-fixed stale
   `C₈₃:C₄₁` line. `[AGREE]×4`.
-- **Dihedral exclusion — corroborated, medium confidence.** An independent D₁₆₆
-  model (0 divide-order violations) re-derived the exact column provenance (`Q->)`
-  is col-9 over-extension only). Net `[CONCERN]`: conditional, fragile to one
-  mis-transcription — report at medium confidence, not settled fact.
+- **Dihedral exclusion — corroborated at the time; superseded by the AGL-subsumption
+  upgrade.** An independent D₁₆₆ model (0 divide-order violations) re-derived the
+  exact column provenance (`Q->)` is col-9 over-extension only). At the time, net
+  `[CONCERN]`: conditional, fragile to one mis-transcription — reported at medium
+  confidence, not settled fact. **Update (2026-07-06):** within the point-stabilizer
+  GAK model, D₁₆₆-GAK is now excluded as a special case of the exhaustive AGL sweep,
+  inheriting the same conditions (one global configuration, the `(66,5)`-prefix gate,
+  T02 hardening). This single-witness argument survives only as corroboration; it
+  alone remains medium-confidence/fragile.
 - **6-group count — corroborated, high.** Brute-checked the projective equation;
   OEIS A000019 `a(83)=6` closes the count cross-check [verified 2026-07-06].
   The CFSG-conditional wording remains; the direct GAP transitive-groups route is
@@ -215,8 +220,10 @@ different model family, re-running the scratchpad Python where possible.
   hardening `perfect_isomorphism.rs`.
 
 No cross-model verdict overturned a wave-1 conclusion; two were sharpened (dihedral →
-medium-confidence/conditional; perfect-iso artifact → hygiene fixes required) and one
-stale contradiction (`C₈₃:C₄₁`) was corrected. The claim ceiling is unchanged.
+medium-confidence/conditional at the time, later upgraded 2026-07-06 to
+excluded-by-subsumption within-model, with the single-witness argument retained only
+as corroboration at medium confidence; perfect-iso artifact → hygiene fixes required)
+and one stale contradiction (`C₈₃:C₄₁`) was corrected. The claim ceiling is unchanged.
 
 ---
 

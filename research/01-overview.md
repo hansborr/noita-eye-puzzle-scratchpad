@@ -54,7 +54,33 @@ The commonly cited direction-per-digit legend is:
 - 3 = down
 - 4 = left
 
-This specific direction-to-digit mapping should be treated cautiously. [disputed / unverifiable as to the exact directions] In the primary Google Doc and on the Noita Wiki, the orientation-to-value correspondence is presented only as an image (a sprite table), never as retrievable text, so no text/primary source pins each pixel direction to its digit. At least one independent analysis (Klausis Krypto Kolumne / Cipherbrain) explicitly warns that the eye-symbol-to-number assignment is non-obvious and differs from the naïve pictures. What *is* firmly established is that there are exactly five orientations mapped to 0–4 (plus 5 as a non-displayed delimiter); the exact assignment of which orientation is which digit is best treated as an arbitrary-but-conventional labeling. Importantly, the canonical 0–4 numbering "was learned from data mining the game's executable" and is "the unique numbering that produces a complete range of 0–82" under the base-5 trigram reading — so the numbering is grounded in the binary, even if the directional pictures are only shown as images. [confirmed for "five orientations + delimiter," "from datamining"; disputed/unverifiable for the exact direction legend] (https://noita.wiki.gg/wiki/Eye_Messages, https://noita.fandom.com/wiki/Eye_Messages, https://docs.google.com/document/d/1QeagH8TklJsd8iribMtT5LIRL91laOUU_tFcVl7OOqA, https://scienceblogs.de/klausis-krypto-kolumne/unsolved-the-noita-eye-messages/)
+This specific direction-to-digit mapping is binary-verifiable, not merely
+image-sourced as earlier drafts of this doc treated it. **[Lymm]** The eye
+sprites are hardcoded in the function that draws the eyes and can be
+extracted directly from the shipped binary; the directions visible in-game
+match the base-5 digit values pulled from the raw hex (maintainer-confirmed
+2026-07-06, not yet independently re-extracted in this repo — an optional
+Ghidra follow-up in the `…-ghidra` worktree could close that gap). In the
+primary Google Doc and on the Noita Wiki, the orientation-to-value
+correspondence is presented only as an image (a sprite table) rather than
+retrievable text — that image-only presentation motivated the earlier
+"unverifiable" verdict, but it no longer implies the mapping is unknowable,
+only that it hasn't yet been independently re-extracted here. At least one
+independent analysis (Klausis Krypto Kolumne / Cipherbrain) warns that the
+eye-symbol-to-number assignment is non-obvious and differs from the naïve
+pictures — a caution against guessing the legend without checking it, not
+evidence against the binary-verifiable mapping. What *is* firmly established
+is that there are exactly five orientations mapped to 0–4 (plus 5 as a
+non-displayed delimiter); the canonical 0–4 numbering "was learned from data
+mining the game's executable" and is "the unique numbering that produces a
+complete range of 0–82" under the base-5 trigram reading — so the numbering
+is grounded in the binary. A different digit↔direction labeling would only
+induce a fixed substitution on the ciphertext — cryptanalytically immaterial,
+since every statistic in this workbench runs on the engine-fixed integer
+digit sequence, not the cosmetic direction names. [confirmed for "five
+orientations + delimiter," "from datamining"; likely — maintainer-attested and
+binary-verifiable for the exact direction legend, independent re-extraction
+pending] (https://noita.wiki.gg/wiki/Eye_Messages, https://noita.fandom.com/wiki/Eye_Messages, https://docs.google.com/document/d/1QeagH8TklJsd8iribMtT5LIRL91laOUU_tFcVl7OOqA, https://scienceblogs.de/klausis-krypto-kolumne/unsolved-the-noita-eye-messages/)
 
 ### Visual layout
 

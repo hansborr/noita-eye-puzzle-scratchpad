@@ -85,7 +85,9 @@ search is not the next move.
 **Tier 2 — active remaining work: the standing unblocker + optional formalization.**
 - `T11` — external-anchor hunt (the only real decode-unblocker; mostly
   non-computational). Do this next unless the user explicitly asks for a code task.
-- `T04` — D₁₆₆ dihedral-exclusion robustness (optional; only sharpens an already-hedged verdict).
+- `T04` — D₁₆₆ dihedral-exclusion robustness (optional; D₁₆₆ is already excluded
+  within-model by AGL subsumption, same conditions as the AGL verdict — this only
+  sharpens the Thread-1B single-witness corroboration, which stays hedged on its own).
 - `T06` — G3 certification-degree appendix (formalization; numbers already exist in G3).
 
 **Tier 3 — proving ground (low transfer, mostly exhausted; opportunistic only).**

@@ -21,7 +21,8 @@ The structural attack program is essentially done; its results are scattered acr
 1. Open with a one-paragraph "what this is."
 2. Summarize, each in a short section with the headline number and a pointer to its
    full write-up (do not re-derive):
-   - Transitivity restriction → 6 groups; family pinned to {A₈₃, S₈₃}, D₁₆₆ conditional.
+   - Transitivity restriction → 6 groups; family pinned to {A₈₃, S₈₃}, with D₁₆₆
+     excluded within-model by AGL subsumption (same conditions as the AGL verdict).
    - **AGL exhaustively excluded** (0/6724, 0/3362) + its transcription-robustness certificate (T02).
    - **Perfect-isomorphism supported** → GAK not falsified; + Stutter robustness (T03).
    - **G3 leak ceiling:** recovery is a calibrated no at this data budget (supply 26
@@ -29,7 +30,9 @@ The structural attack program is essentially done; its results are scattered acr
    - **Thread-4 attack:** clean, *fair* eyes honest-negative (the eyes could have
      passed; they scored 0).
 3. State the bottom line: GAK survives as a model; recovery not supported under
-   stated assumptions; decode blocked on the symbol→meaning mapping (no anchor).
+   stated assumptions; decode blocked on missing key material, a method
+   disclosure, or known plaintext (no anchor) — not a fixed symbol→meaning
+   mapping.
 4. A short "what would change this" section → external anchor (see T11).
 5. Keep it mapping-independent; flag every model-conditional assumption (shared
    plaintext + single global config) once, clearly.

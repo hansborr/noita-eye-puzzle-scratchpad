@@ -24,8 +24,10 @@ independently reviewed, and gate-green.
 > disfavors monoalphabetic and fixed-keystream additive ciphers and favors
 > a plaintext-dependent (self-modifying) permutation direction — but decodes
 > nothing. The puzzle is unsolved: no primary developer source confirms it
-> encodes recoverable plaintext, and the 83-symbol→meaning mapping is not present
-> in the game's storage layer.
+> encodes recoverable plaintext, and decode remains blocked on missing key
+> material (the letter→action assignment), a method disclosure, or known
+> plaintext — not a fixed symbol→meaning table, since the cipher is
+> polyalphabetic.
 
 Nothing in this repo prints anything stronger than that.
 

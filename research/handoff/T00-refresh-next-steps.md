@@ -33,7 +33,10 @@ already-done work (G2/G3 as "M, pending") and over-ranks G4/T6. Cheap correctnes
 
 ## Honesty guardrails
 Do not upgrade any verdict while editing. D₁₆₆ stays "conditional / MEDIUM";
-perfect-iso stays "SUPPORTED (not proven)"; the decode stays blocked.
+perfect-iso stays "SUPPORTED (not proven)"; the decode stays blocked. (Note,
+2026-07-06: this guardrail reflects the state at the time this task was done.
+D₁₆₆ has since been upgraded — it is now excluded within-model by AGL
+subsumption, per `PROGRESS.md` §6 / `T04-d166-robustness.md`.)
 
 ## Pointers
 - `research/NEXT-STEPS.md` (the file)

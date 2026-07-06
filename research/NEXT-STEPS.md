@@ -72,8 +72,10 @@ Tier 1 is complete. The active backlog is now the remaining Tier-2/Tier-3 work i
 
 1. `T11` — external-anchor criteria/status document. This is the only remaining
    item likely to change the decode outcome without new ciphertext.
-2. `T04` — optional `D166` transcription robustness; it only sharpens an
-   already-hedged, conditional verdict.
+2. `T04` — optional `D166` transcription robustness; within the point-stabilizer
+   model `D166` is already excluded by AGL subsumption (same conditions as the
+   AGL verdict), so this only sharpens the Thread-1B single-witness
+   corroboration, which stays conditional/hedged on its own.
 3. `T06` — optional certification-degree appendix; it formalizes G3's existing
    numbers and does not move decode odds.
 4. `T07` — proving-ground status/menu only if sample-suite progress is explicitly

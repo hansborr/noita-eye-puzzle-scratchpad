@@ -55,8 +55,13 @@ adversarially. Result: 5 supported, 8 mixed, 1 unverifiable (full reasoning in
   dev-attested, but the quote discloses no cipher, key, method, or solution, and
   recoverable plaintext is not dev-attested. The honest statement stays "structured
   data of unknown meaning, unsolved."
-- The exact direction-per-digit mapping (1=up, 2=right, …) — [unverifiable] from
-  any text source; shown only as an image. Treat as convention, not fact.
+- The exact direction-per-digit mapping (1=up, 2=right, …) — **[Lymm]**
+  binary-verifiable from the shipped binary (eye sprites are hardcoded in the
+  drawing function), not merely image-sourced; maintainer-confirmed
+  2026-07-06, independent re-extraction in this repo still pending. Treat the
+  digit labels as a convention no statistic in this workbench depends on: a
+  different labeling would only induce a fixed substitution on the
+  ciphertext — cryptanalytically immaterial either way.
 - The clean 0–82 range / distance-4 / no-doubles properties — [mixed];
   order-contingent (see takeaway above).
 

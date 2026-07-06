@@ -121,4 +121,5 @@ the GCTAK gate is no longer validated only against ciphers it generated itself. 
 hidden-state readout (out-degree 8) violates GCTAK's bijective-readout assumption —
 the correct, expected behaviour, not a bug. None of this touches the eyes or the
 standing claim ceiling: the eyes remain unsolved and the decode remains blocked on
-the unknown symbol→meaning mapping.
+missing key material, a method disclosure, or known plaintext — not a fixed
+symbol→meaning mapping (no such fixed mapping exists for a polyalphabetic cipher).
