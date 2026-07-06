@@ -1,144 +1,106 @@
-# NEXT-STEPS — work plan (index) · revised 2026-07-04
+# NEXT-STEPS — work plan index · refreshed 2026-07-06
 
-A prioritized, parallelizable backlog for the Noita eye-puzzle workbench, re-weighted
-after a full read of the community wiki (Lymm's eye-messages wiki at
-`github.com/Lymm37/eye-messages/wiki` — the most up-to-date community work). This file is the index: the
-strategic snapshot, the priority ladder, and the parallelization map. The full thread
-briefs live in three companion docs, each readable on its own:
+> **Re-ranked 2026-06-26.** See `research/handoff/` for the active backlog.
+> `git log` is the source of truth for what has merged; this file is now a
+> navigation/status index, not the live priority queue.
 
-- **`frontier.md`** — what the #silmä-cryptography effort is actually trying to do, and
-  what each goal needs. *Read this first if you're new.*
-- **`threads-proving-ground.md`** — the community sample puzzles: which are GAK vs
-  classical, plus G1 (validate GAK tooling on the GAK samples), T1 (gate fix), and the
-  demoted classical decodes T3/T4/T5.
-- **`threads-eyes.md`** — the eyes themselves: GAK-disproof (G2), isomorph-leak
-  quantification (G3/G4), GAK-attack rigor (T6/T7/T8), and two near-free
-  contributions (publish the AGL exclusion; the base-5 first-trigram question).
+The current coordinator handoff is
+[`research/handoff/next-cycle-2026-07-06.md`](handoff/next-cycle-2026-07-06.md).
+Start there for new work. The recommended Tier-1 cycle is:
 
-> **Honesty ceiling (binding, project-wide):** a high n-gram/structure score on
-> gibberish is not a decode, and a high score on the *wrong* structure is not a
-> recovery. Every "ruled out" claim needs a passing positive control and an adequate
-> model. Label model-conditional results as such. See `AGENTS.md`.
+1. `T00` — refresh this index.
+2. `T01` — build the transcription-perturbation harness.
+3. `T02` / `T03` — use the harness to harden AGL and Stutter/perfect-iso
+   sensitivity claims.
+4. `T05` — write the publishable structural summary after those certificates
+   land.
 
----
+Optional side work is tracked in the same handoff folder. In particular, `T11`
+records the external-anchor hunt, which is the only route likely to change the
+decode outcome without new symbol-to-meaning evidence.
 
-## The answer: does the wiki change the plan?
-
-Yes — materially in emphasis, not in correctness. The prior plan was technically
-sound and honest, but it was attack/recovery-heavy and proving-ground-misaligned:
-
-1. The community frontier is two goals, both driven by the isomorph leak: *find a
-   GAK attack* (recover information) or *disprove the eyes are GAK* (find a property
-   the eyes have that GAK cannot produce, or vice-versa). See `frontier.md`.
-2. Our near-term energy (T3/T4/T5) was spent on classical sample-puzzle decodes whose
-   *attack code does not transfer* to the eyes — a different mathematical object
-   (a non-abelian, hidden-state, 83-symbol group-autokey with no symbol→meaning map).
-   What transfers from the proving ground is the methodology (matched-null
-   discipline, firing positive controls, held-out gating), not the cipher math.
-3. **The proving ground was aimed at the wrong machine.** Of the seven sample puzzles,
-   `one` and `two` are the GAK-family ones (a structural hypothesis from provenance +
-   observed structure, not a repo-proven generator) — but they were only ever run through
-   the classical `solve` pipeline, which cannot represent a GCTAK keystream. So our GAK
-   tooling had never been validated on a known-answer GAK instance. G1 fixed that
-   (@b681c35) for the cyclic case: `one` recovers cleanly — the first known-answer positive
-   control for the GCTAK gate (not yet the *hidden-state* machinery). `two` (hidden-state)
-   dies precisely at the wall that blocks the eyes — making it the standing first-class target
-   (G1b), not a closed follow-on.
-4. **GAK-disproof — half the community's problem — had zero forward thread.** The wiki
-   names one live whole-family falsifier (isomorph imperfection); we own the tooling
-   but weren't pushing it. Added as G2.
+> **Honesty ceiling (binding, project-wide):** the eye data is deterministic,
+> engine-generated, strikingly structured data of unknown meaning; unsolved; no
+> primary developer source confirms recoverable plaintext. A high n-gram or
+> structure score on the wrong structure is not a recovery. Label
+> model-conditional results as such. See `AGENTS.md`.
 
 ---
 
-## Priority ladder (recommended order)
+## Current Answer
 
-Full briefs in the linked docs; one line each here.
+The old July-4 ladder was correct for its time, but it is no longer the work
+queue. G1, G1b, T1, G2, G3, the two near-free eyes wins, and the Thread-4 GAK
+attack arc have all landed. Practice puzzle `two` is no longer an open
+hidden-state target: the original G1b hidden-state attack remains an honest
+negative, and later `shadowfinish` + `substfinish` work produced a
+maintainer-confirmed plaintext-level solve. That solve is still only
+letter-level computationally and still lacks an original-generator round trip,
+so it does not upgrade any eyes claim.
 
-1. **G1** (proving-ground, S) — **Done (@b681c35):** drove the GAK samples `one`/`two` through
-   `solve_gctak`. `one` (cyclic) recovered cleanly — first known-answer positive control for the
-   GCTAK gate; `two` (hidden-state) honest-negative at the wall that blocks the eyes.
-   → `threads-proving-ground.md`. *(also informs G3/G4)*
-2. **Near-free wins** (S each, highest value-per-effort) — publish our exhaustive AGL exclusion
-   (the wiki rules AGL out only "tentatively") and tabulate the base-5 first-trigram structure
-   (open wiki question; needs only the 9 values in `src/data/corpus.rs`). → `threads-eyes.md` (near-free section).
-3. **T1** (correctness, S) — **Done:** the held-out fold-vs-fold gate fix landed; the
-   comparison now lives in the solve pipeline (`solve/mod.rs`) via the shared held-out helper
-   the eyes Gate-1 also relies on. → `research/findings/T1-heldout-gate-fix.md`.
-4. **G1b** (proving-ground, M — *biggest-underweight catch*) — hidden-state attack on the
-   known-answer sample `two` (+ codec layer): the closest *verifiable* miniature of the eyes'
-   blocker. Run before eyes-scale T6/T7, in parallel with G2. → `threads-proving-ground.md`.
-5. **G2** (disproof, M) — forward isomorph-falsification: push `perfect_isomorphism/`
-   for a robust violation + construct a concrete *imperfectly*-isomorphic candidate family.
-   → `threads-eyes.md`.
-6. **G3 / G4** (leak quantification, M) — quantify the isomorph leak's information ceiling;
-   compute the edge-overlap certification threshold (fold G4 into T6). Mapping-
-   independent, publishable, answer wiki-open questions. → `threads-eyes.md`.
-7. **T6 → T7** (eyes GAK-attack rigor, M→L, serialized in `gak_attack/`). → `threads-eyes.md`.
-8. **T8** (mapping-dependent long shot, L) — honesty-gated, hypothesis-only. → `threads-eyes.md`.
-9. **T3 / T4 / T5** (classical sample decodes, M each) — demoted to opportunistic. Keep
-   the proving ground running in parallel but bias it toward the *transferable* GAK samples
-   (G1/G1b), not the non-transferable classical letter puzzles. → `threads-proving-ground.md`.
-10. **R1 / R2** (refactor) — **Done** (CLI registry + `ciphers/mod.rs` split); R3 deferred
-    (see Supporting/internal below).
+The next useful work is not another broad decode search. The remaining
+publish-blocking gap is robustness: perturb small source-layer transcription
+windows, rebuild through the accepted honeycomb order, and measure whether the
+two load-bearing eyes conclusions survive. After that, publish one structural
+summary.
 
----
+## Landed Status
 
-## Parallelization map
+Every "done" item below cites either a commit named in recent history or the
+result document that now owns the claim.
 
-Independent streams (different subsystems → run concurrently, ideally separate worktrees):
+| Item | Status | Source of truth |
+| --- | --- | --- |
+| **G1** — known-answer GAK validation | **DONE.** `one` validates the cyclic GCTAK path; `two` is the expected hidden-state honest negative for the bijective-readout solver. | `b681c35`; [`gak-threads/G1-RESULTS.md`](gak-threads/G1-RESULTS.md) |
+| **Near-free win: AGL exclusion** | **DONE.** AGL(1,83)-GAK `C83:C82` and `C83:C41` are exhaustively excluded under the point-stabilizer, single-shared-running-key model. | `1d3a005`, `06bed9b`; [`findings/agl-exclusion.md`](findings/agl-exclusion.md) |
+| **Near-free win: base-5 first trigram** | **DONE.** The first-trigram wiki question is computed and regression-locked; the only sharp storage-order regularity reduces to a shared rendered eye. | `419851a`, `fb43620`, `37407cb`; [`findings/base5-first-trigram.md`](findings/base5-first-trigram.md) |
+| **T1** — held-out gate fix | **DONE.** Fold-vs-fold held-out scoring is fixed through the shared helper used by the solve pipeline and eyes Gate 1. | `34cac21`; [`findings/T1-heldout-gate-fix.md`](findings/T1-heldout-gate-fix.md) |
+| **G1b** — hidden-state attack on practice `two` | **DONE.** The hidden-state attack fires on synthetic controls but leaves `two` without enough stream coverage; this is an honest negative, not a decode. | `93a0c71`, `51b307a`, `c4ddb6e`; [`gak-threads/G1b-RESULTS.md`](gak-threads/G1b-RESULTS.md) |
+| **Practice `two` finish** | **DONE at plaintext level / maintainer-confirmed.** `shadowfinish` produced the candidate and `substfinish` recovered the monoalphabetic letter hypothesis; punctuation/hyphenation came from source/syntax alignment, not the Rust finisher. | `4dcc376`; [`findings/two-shadowfinish-substitution-candidate.md`](findings/two-shadowfinish-substitution-candidate.md), [`findings/two-original-generator-roundtrip-blocker.md`](findings/two-original-generator-roundtrip-blocker.md) |
+| **G2** — isomorph-imperfection falsifier | **DONE.** Perfect isomorphism is supported within the tested envelope; GAK is not falsified. This is not a proof that the eyes are GAK. | `5d5c149`, `61dac1c`, `cbf163f`; [`gak-threads/G2-isomorph-imperfection.md`](gak-threads/G2-isomorph-imperfection.md) |
+| **G3** — isomorph leak ceiling | **DONE.** The leak shortfall is quantified: the richest repeated signature is far below the `S83` coset-permutation certification demand. | `8f052b6`, `dfd7139`; [`gak-threads/G3-leak-ceiling.md`](gak-threads/G3-leak-ceiling.md) |
+| **Thread 4 / T6-T7 attack arc** | **DONE.** The GAK attack spike produced synthetic gates, measured hidden-state limits, and an honest-negative eyes Step 3 with no surviving candidate. | `e7b88f8`, `d3b30fd`, `aaa9e9a`, `1d928a2`, `8aa7c53`, `44d4ec4`; [`gak-threads/PROGRESS.md`](gak-threads/PROGRESS.md) §6 |
+| **Deck-swap tooling side path** | **BUILT + MERGED.** The general swap-recovery instrument and practice-puzzle results are reference material, not the next eyes queue. | [`data/practice-puzzles/deck-swap/SWAP-RECOVERY-RESULTS.md`](data/practice-puzzles/deck-swap/SWAP-RECOVERY-RESULTS.md), [`handoff/README.md`](handoff/README.md) |
 
-- **Stream A — proving ground / correctness:** G1 (done), T1 (gate fix, done) → G1b
-  (hidden-state attack on `two` + codec) → (opportunistic) T3/T4/T5. The two near-free outputs
-  (publish AGL exclusion; base-5 first-trigram) ship anytime, independently.
-  *(touches `gak_attack/`, `chaining_graph/`, `nulls/`, `keystream/`, `solve/`)*
-- **Stream B — disproof:** G2 (isomorph-imperfection falsifier + imperfect-isomorph family).
-  *(touches `perfect_isomorphism/`, `isomorph.rs`)*
-- **Stream C — leak quantification & attack rigor:** G3 ∥ (G4→T6) → T7. *(touches
-  `chaining_graph/`, `gak_attack/`, `marginalization/`)* — serialize G4/T6/T7.
-- **Stream D — tooling/long-shot:** T2 → T8 (mapping-dependent; lowest community priority).
+## Active Priority
 
-**Coordination hazards**
-- `gak_attack/` is shared by G1, T7, G5 and (indirectly) G4/T6 — don't run two
-  `gak_attack/`-editing threads in parallel without coordinating; serialize T6/T7.
-- A new CLI subcommand lands entirely in `src/cli/` (an arg struct in `args_*.rs`, a
-  `Command` variant in `args.rs`, a handler in `commands/`, wired through the
-  `dispatch.rs` registry) — it does **not** edit `src/main.rs` (a 13-line shim), so new
-  subcommands no longer share a single-file chokepoint.
+The active backlog is the Tier-1 harden-and-publish path in
+[`research/handoff/README.md`](handoff/README.md):
 
----
+1. `T01` — source-layer transcription perturbation harness.
+2. `T02` — AGL-exclusion transcription robustness certificate.
+3. `T03` — perfect-iso / Stutter-region sensitivity certificate.
+4. `T05` — structural summary once `T02` and `T03` have landed.
 
-## Supporting / internal (low community priority)
+`T00` is this refresh. After it lands, do not continue from the old G1/G2/G3/T6
+ordering in this file; use the task files under `research/handoff/`.
 
-These serve no direct community goal; schedule in gaps.
+## Re-Ranking Rationale
 
-- **T2 — Finnish quadgram scorer** (new-tool, M). Generalize `quadgram.rs` (English-only)
-  to a language-parameterized model; add a larger public-domain Finnish corpus to
-  `research/data/lang/` (record provenance); thread `--language en|fi` through the search
-  entry points. Calibrate held-out (mirror the held-out logic in `src/attack/language/`). Only matters as the
-  enabler for T8 — defer until a mapping-independent result motivates a language objective.
-- **R1 — CLI registry + args dedup** (refactor) — **Done.** `src/main.rs` is now a 13-line
-  shim (`mod cli;` + `cli::run()`); the whole CLI lives in `src/cli/` — per-subcommand arg
-  structs in `args_*.rs`, the `Command` enum in `args.rs`, the dispatch/registry + uniform
-  `run_*` loop in `dispatch.rs`, shared helpers in `shared.rs`, and per-command handlers in
-  `commands/`. A new subcommand adds an arg struct + a `Command` variant + a `commands/`
-  handler wired through `dispatch.rs`.
-- **R2 — Split `ciphers/mod.rs`** (refactor) — **Done.** `ciphers/mod.rs` is 329 lines; the
-  module is split into `mechanics.rs` (primitives), `keys_gak.rs`, `keys_simple.rs`,
-  `transforms.rs`, `validation.rs`, `error.rs`, and `tests.rs`.
-- R3 — extract the remaining colocated `print_*_report` renderers from `experiments/*`
-  (`conditional_structure/`, `periodicity/`, …) into per-module `report.rs` (refactor, L).
-  Partly underway; low urgency.
+G4/T6 are demoted to formalization because G3 already computed the key numbers
+they were meant to chase: the sharp `S83` certification degree is `t = N - 1 =
+82`, and the harmonic coupon demand for `N = 83` is 332.2 aligned observations
+to pin one element on at least `N - 1` cosets. T7/G5 are confirmatory now that
+the Thread-4 attack arc has completed with an honest-negative eyes run. T8/T2
+remain triage-only because mapping-dependent language scoring cannot supply the
+missing symbol-to-meaning anchor. The highest-value remaining work is therefore
+the transcription-robustness certificate plus a single publishable structural
+summary.
 
----
+## Coordination Notes
 
-## Sources
-- Wiki review (this revision): the 55-page community wiki
-  (Lymm's eye-messages wiki, `github.com/Lymm37/eye-messages/wiki`), read against the two
-  community goals + the isomorph leak. Condensed in `frontier.md`.
-- Eyes/GAK state → `research/gak-threads/{README,PROGRESS}.md`, `src/attack/gak_attack/`,
-  `src/analysis/isomorph.rs`, `src/analysis/{perfect_isomorphism,chaining_graph}/`,
-  `src/experiments/transitivity/`, `src/attack/agl_gak/`.
-- Sample-puzzle state → `research/data/practice-puzzles/{KEYSTREAM,RAGBABY}-RESULTS.md`,
-  `research/gak-threads/G1-RESULTS.md` (G1 output, pending).
-- Memory: `noita-eye-puzzle-state`, `noita-eye-wiki-gak-convergence`,
-  `practice-puzzle-keystream-state`, `gak-cipher-example-sample`.
+- A new CLI subcommand belongs in `src/cli/` and the library, not in `src/main.rs`.
+- New findings need a positive control and a matched null when they make a
+  negative or discriminator claim.
+- Any candidate cleartext belongs under `research/gak-threads/candidates/` and
+  must be called a candidate unless independently confirmed.
+- Research results worth keeping belong in `research/`, not in agent memory.
+
+## Standing Sources
+
+- Dossier index: [`research/README.md`](README.md)
+- Claim ceiling: [`03-confirmed-vs-speculation.md`](03-confirmed-vs-speculation.md)
+- Methodology lessons: [`attack-methodology.md`](attack-methodology.md)
+- Completed GAK campaign: [`gak-threads/README.md`](gak-threads/README.md) and
+  [`gak-threads/PROGRESS.md`](gak-threads/PROGRESS.md)
+- Active backlog: [`handoff/README.md`](handoff/README.md)
