@@ -65,6 +65,10 @@ solver." The remaining code work is transcription-robustness certification +
   `research/data/practice-puzzles/deck-swap/`.
 
 **Tier 1 — harden & publish the eyes frontier (do these first; highest value/effort).**
+- `next-cycle-2026-07-06.md` — **coordinator handoff for the next natural cycle**:
+  after practice `two` confirmation, stop broad proving-ground search and execute
+  the Tier-1 publishability path: T00 → T01 → T02/T03 → T05, with T11 as an
+  optional doc/research sidecar.
 - `T00` — refresh `NEXT-STEPS.md` (doc hygiene; unblocks anyone reading the stale ladder).
 - `T01` — transcription-perturbation harness (shared primitive; enables T02–T04).
 - `T02` — AGL-exclusion transcription robustness.
