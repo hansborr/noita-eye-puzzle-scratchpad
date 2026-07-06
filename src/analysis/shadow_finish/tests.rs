@@ -12,6 +12,7 @@ fn self_test_controls_pass() {
     assert!(report.positive_roundtrip, "{report:?}");
     assert!(report.positive_candidate_verdict, "{report:?}");
     assert!(report.positive_truth_best, "{report:?}");
+    assert_eq!(report.positive_truth_rank, Some(1), "{report:?}");
     assert!(report.positive_truth_top_k, "{report:?}");
     assert!(report.positive_margin_vs_junk_max > 0.0, "{report:?}");
     assert!(report.dirty_boundary_anchor, "{report:?}");

@@ -150,7 +150,7 @@ pub struct ByteCoverageScore {
     pub alpha_space_ratio: f32,
     /// Fraction of bytes that are ASCII digits.
     pub digit_ratio: f32,
-    /// Fraction of bytes that are non-alphanumeric punctuation or symbols.
+    /// Fraction of bytes that are non-strict non-alphanumeric symbols.
     pub symbol_ratio: f32,
     /// Combined coverage statistic; higher means more natural-language bytes.
     pub score: f32,
@@ -223,10 +223,11 @@ pub fn score_byte_coverage(text: &[u8]) -> ByteCoverageScore {
     let mut digits = 0usize;
     let mut symbols = 0usize;
     for byte in text.iter().copied() {
-        strict += usize::from(strict_language_byte(byte));
+        let strict_byte = strict_language_byte(byte);
+        strict += usize::from(strict_byte);
         alpha_space += usize::from(byte.is_ascii_alphabetic() || byte == b' ');
         digits += usize::from(byte.is_ascii_digit());
-        symbols += usize::from(!(byte.is_ascii_alphanumeric() || byte == b' '));
+        symbols += usize::from(!(byte.is_ascii_alphanumeric() || byte == b' ' || strict_byte));
     }
     let bytes = text.len();
     let scale = bytes as f32;
@@ -404,7 +405,9 @@ mod tests {
         assert!(soup_coverage.strict_coverage < 0.50);
         assert!(soup_coverage.alpha_space_ratio < 0.25);
         assert!(soup_coverage.digit_ratio > 0.20);
-        assert!(soup_coverage.symbol_ratio > 0.50);
+        assert_close(f64::from(soup_coverage.symbol_ratio), 128.0 / 349.0);
+        assert_close(soup_fixed, -1.858_362);
+        assert_close(plant_fixed, 0.664_933);
         assert!(
             soup_old > plant_old,
             "old sparse-letter score should expose the regression fixture: soup={soup_old}, plant={plant_old}"
@@ -412,6 +415,13 @@ mod tests {
         assert!(
             plant_fixed > soup_fixed,
             "fixed score should prefer planted English: soup={soup_fixed}, plant={plant_fixed}"
+        );
+    }
+
+    fn assert_close(actual: f64, expected: f64) {
+        assert!(
+            (actual - expected).abs() <= 1.0e-5,
+            "actual {actual} differed from expected {expected}"
         );
     }
 
