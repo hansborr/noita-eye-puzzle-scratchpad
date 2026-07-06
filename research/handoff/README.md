@@ -13,11 +13,12 @@ Tier 2, starting with `T11`.
 ## The one-paragraph situation
 
 The mapping-independent *structural attack* program is essentially exhausted. The
-eyes' transitive group family is pinned to {A₈₃, S₈₃} (D₁₆₆ conditional); AGL
-is exhaustively excluded; perfect-isomorphism is *supported* (so GAK is not
-falsified); the Thread-4 attack gives a clean, fair honest-negative; and G3
-quantified a calibrated no on chaining recovery at this data budget. The
-decode is blocked on the unknown symbol→meaning mapping, with no external
+eyes' transitive group family is pinned to {A₈₃, S₈₃}; AGL is exhaustively
+excluded, and D₁₆₆ is excluded within-model by subsumption in the Full AGL sweep
+[Lymm, verified]. Perfect-isomorphism is *supported* (so GAK is not falsified);
+the Thread-4 attack gives a clean, fair honest-negative; and G3 quantified a
+calibrated no on chaining recovery at this data budget. The decode is blocked on
+missing key material, method disclosure, or known plaintext, with no external
 anchor. The harden-and-publish cycle is now complete: the transcription
 robustness certificates landed, and the publishable structural summary is in
 `research/findings/eyes-structural-summary.md`. The remaining useful work is
@@ -113,9 +114,11 @@ search is not the next move.
   measurement / original-generator verifier / broader null, not another broad
   route reset.
 
-> Optional confirmatory one-off (no task file): if GAP becomes available, run
-> `NrTransitiveGroups(83)` to machine-cross-check the 6-group count — the one
-> residual gap in Thread 1A (`PROGRESS.md` §1). Tiny; skip unless GAP is installed.
+> Count cross-check note: direct GAP `NrTransitiveGroups(83)` is unavailable
+> (`fail`, per maintainer-run GAP) [Lymm]. The count cross-check is closed by the
+> prime-degree transitive=primitive reduction plus OEIS A000019 `a(83)=6`
+> [verified 2026-07-06]; `NrPrimitiveGroups(83)` would only be an extra machine
+> check.
 
 ## Dependency / conflict map
 

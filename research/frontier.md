@@ -16,9 +16,10 @@ cryptography track, and it is doing exactly two things — both levered by the i
 GAK (Group-Autokey, developed by Lymm & Simplesmiler) reproduces the eyes' properties
 under two assumptions: the cipher produces perfect isomorphs, and each plaintext letter
 corresponds to a distinct cipher-state action. The deck cipher is a notable physical
-interpretation. The surviving group family for the eyes (83 symbols) is {A₈₃, S₈₃} (with
-D₁₆₆ conditional); cyclic C₈₃ is killed by chaining conflicts, dihedral by an element-order
-argument, and AGL is tentatively ruled out.
+interpretation. The surviving group family for the eyes (83 symbols) is {A₈₃, S₈₃};
+cyclic C₈₃ is killed by chaining conflicts, both AGL variants are exhaustively
+excluded, and D₁₆₆ is excluded within the same point-stabilizer GAK model by
+subsumption in the Full AGL sweep [Lymm, verified].
 
 The blocker is being actively re-characterized on the wiki (struck-through
 `~~lack a GAK attack~~`) to the sharper: "no known way to take deltas in GAK ciphers with
@@ -36,7 +37,11 @@ group element `a⁻¹b` acting by right-multiplication on right cosets of the hi
 **Live tractable lead:** shared sections after a differing first character imply the per-letter
 permutations are only a few swaps from a shared base permutation (allomorph analysis gives a
 *tentative* ≤~4 swaps/letter upper bound) — turning a one-time-pad-sized key space into a small
-near-identity neighborhood, not all of S₈₃.
+near-identity neighborhood, not all of S₈₃. Transfer caveat [Lymm]: this lead
+presumes proximity to a shared base permutation whose identity is unknown for the
+eyes. The practice-puzzle `gak-swap-recover` machinery conditions on a public base
+permutation, so it does not transfer as-is; base-permutation recovery or
+marginalization is part of any eyes-facing attack.
 
 **Open caveat the community states plainly:** it "might be unrealistic to expect chaining to ever
 work for the eyes" given ~1036 trigrams vs a near-S₈₃ group — but nobody has quantified that
@@ -72,10 +77,10 @@ the alternative-hypothesis space ("we don't know how to categorize imperfectly i
   open, wiki-flagged question that nobody has quantified. → G3.
 - Edge-overlap certification as a function of transitivity degree is a stated, half-solved
   research problem; clean and mapping-independent. → G4/T6.
-- AGL is only "tentatively" ruled out, with a *testable* discriminator (AGL needs fine-tuned
-  per-message resync vs the deck's natural delayed hidden state — a prediction about the first
-  trigram). We hold an exhaustive AGL exclusion (`agl_gak/`, 0/6724 and 0/3362) — a
-  community-grade result currently sitting as a finished internal artifact. → publish (threads-eyes).
+- AGL is no longer merely "tentatively" ruled out: the exhaustive AGL exclusion
+  (`agl_gak/`, 0/6724 and 0/3362) is the community-grade discriminator, and the
+  Full-case sweep also subsumes D₁₆₆ within-model [verified]. → publish
+  (threads-eyes).
 - The base-5 first-trigram structure (Message-Starts) is an explicitly open, unclaimed thread
   needing only the 9 values already verified in `src/data/corpus.rs`. → near-free (threads-eyes).
 

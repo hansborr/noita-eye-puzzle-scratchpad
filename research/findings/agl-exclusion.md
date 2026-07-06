@@ -324,16 +324,35 @@ exhaustively excluded for the eyes. The exclusion is a theorem (the Lemma) plus 
 complete enumeration plus an observed, transcription-checked structural feature
 (varying shared runs after differing starts, witnessed by the all-nine prefix). It
 narrows the six transitive GAK candidates. Those six (for prime degree 83) are
-`C₈₃`, `D₁₆₆`, `C₈₃:C₄₁`, `C₈₃:C₈₂` (= AGL), `A₈₃`, `S₈₃`. Removing the AGL pair
-(this doc) and `D₁₆₆` (ruled out separately by the community via implied element
-orders) leaves {C₈₃, A₈₃, S₈₃} — note this doc does *not* eliminate `C₈₃`, the
-cyclic "wheel" / standard CTAK; it is disfavored separately by our structural
-battery, leaving the `A₈₃`/`S₈₃` deck ciphers as the live worst case.
+`C₈₃`, `D₁₆₆`, `C₈₃:C₄₁`, `C₈₃:C₈₂` (= AGL), `A₈₃`, `S₈₃`.
+
+**Subsumption corollary.** [Lymm] observed on 2026-07-06 that `D₁₆₆` is a
+subgroup of `AGL(1,83)`: `D₁₆₆ = C₈₃⋊⟨-1⟩ = {x ↦ ±x+b}`. The 2026-07-06
+proof-scope audit verified that the Full-case enumeration in §5 ranges over
+`G \ Stab(0)` = all 82 multipliers × all 82 nonzero offsets, and therefore includes
+the multiplier `-1` and every non-stabilizer `D₁₆₆` discrepancy [verified].
+Thread 1B's dihedral proof uses the same right-multiplication update,
+point-stabilizer readout, and one-global-configuration GAK model, so the fixed-point
+lemma excludes `D₁₆₆` as a literal special case of the Full AGL sweep within that
+model [verified]. This subsumption rides on the Full case only: `D₁₆₆` is not a
+subgroup of `C₈₃:C₄₁` because `-1` is a non-residue mod 83.
+
+The proof uses only ciphertext-symbol equality. Therefore a single global
+relabeling of the 83 ciphertext/coset labels, applied consistently across all
+messages, leaves the verdict unchanged; the matching condition is one global cipher
+configuration and one global labeling, not externally named glyph values. Removing
+the AGL pair (this doc) and `D₁₆₆` (by the subsumption corollary above) leaves
+{C₈₃, A₈₃, S₈₃} — note this doc does *not* eliminate `C₈₃`, the cyclic "wheel" /
+standard CTAK; it is disfavored separately by our structural battery, leaving the
+`A₈₃`/`S₈₃` deck ciphers as the live worst case.
 
 What it does *not* cover.
 - It does not address non-GAK affine constructions, nor an AGL-GAK with a
   different hidden subgroup (a non-point-stabilizer readout), nor multiple /
   non-shared running keys.
+- It does not license per-message or per-section relabelings. The relabeling
+  invariance above is only the equality-only invariance under one global
+  ciphertext/coset labeling shared by the whole corpus.
 - It says nothing about recoverable plaintext. AGL being out does not make any
   other group "in," and the remaining candidates (`A₈₃`, `S₈₃` deck ciphers) have
   no known mapping-recovery attack.
