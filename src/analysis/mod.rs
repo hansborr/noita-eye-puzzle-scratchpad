@@ -48,6 +48,9 @@
 //!   documented order families.
 //! - [`perfect_isomorphism`]: Thread 3 perfect-isomorphism and allomorph
 //!   consistency scan over cross-message gap-pattern isomorphs.
+//! - [`perturbation`]: bounded source-layer transcription sensitivity harness
+//!   that perturbs rendered orientation digits and rebuilds reading-layer values
+//!   through the accepted honeycomb order.
 
 #[allow(
     clippy::module_inception,
@@ -69,6 +72,7 @@ pub mod key_difference;
 pub mod leak_ceiling;
 pub mod orders;
 pub mod perfect_isomorphism;
+pub mod perturbation;
 pub mod predicates;
 pub mod shadow_finish;
 pub mod shadow_search;
