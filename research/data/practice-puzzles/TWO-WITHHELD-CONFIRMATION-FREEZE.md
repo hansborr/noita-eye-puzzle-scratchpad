@@ -1,11 +1,26 @@
 # Practice `two` withheld-ground-truth confirmation freeze packet
 
-Status: **frozen candidate packet for blind maintainer comparison, not a
-confirmation** (2026-07-06).
+Status: **frozen candidate packet; maintainer confirmed solution after the
+freeze** (2026-07-06).
 
 This packet packages the already-logged practice `two` candidate for a
 withheld-ground-truth check. No private or withheld file was searched or read for
 this packet, and the candidate record below was not edited.
+
+## Confirmation result
+
+Outcome: **PASS-content / solution confirmed by maintainer** (2026-07-06).
+
+The confirmation landed after the candidate record was frozen by path and hash,
+so it did not shape the search, seed, alphabet, scorer, or candidate text. The
+private withheld cleartext remains uncommitted.
+
+This confirms the practice `two` plaintext at the solution level. It does not
+turn the current `shadowfinish` replay into a non-vacuous original-generator
+round-trip, and it does not mean `substfinish` recovered punctuation. The pure
+code result is still the letter-level monoalphabetic finish; punctuation,
+hyphenation, quotes, and the opening-word repair came from source/syntax
+alignment over that result.
 
 ## Frozen candidate record
 
@@ -90,10 +105,13 @@ letters, so it is not an exact punctuation claim.
 
 ## Maintainer request text
 
+Historical request, completed on 2026-07-06:
+
 Please compare the frozen practice `two` candidate
 `research/gak-threads/candidates/shadowfinish-two-shadowfinish-seed-736861646f776603.md`
 at SHA-256
 `eca855c902e0ae4a9079bca64bef08fec60de03ca00e56b1e8333b4a1968fb85`
 against the withheld cleartext, without sharing or committing the withheld text.
 Report only `PASS-content`, `PASS-exact`, `FAIL`, or `INDETERMINATE` plus any
-non-sensitive mismatch class. This packet makes no confirmation claim.
+non-sensitive mismatch class. The maintainer reported `PASS-content` / solution
+confirmed after this packet was frozen.

@@ -94,11 +94,13 @@ solver." The remaining code work is transcription-robustness certification +
   reading and the 4-class coloring framing are superseded. Read this before
   any further `two` work; new methodology lessons #8–10 in
   `../attack-methodology.md`.
-- `two-crib-free-finish-plan.md` — **candidate surfaced (2026-07-06)**: the plan
-  was driven through fixed `shadowfinish` and produced a strong plaintext
-  hypothesis; see `../findings/two-shadowfinish-substitution-candidate.md` before
-  doing more search. Remaining work is confirmation / punctuation-aware finishing /
-  optional broader null, not another broad route reset.
+- `two-crib-free-finish-plan.md` — **solved / maintainer-confirmed (2026-07-06)**:
+  the plan was driven through fixed `shadowfinish` and produced the plaintext
+  hypothesis, then maintainer confirmation against withheld ground truth confirmed
+  the solution. See `../findings/two-shadowfinish-substitution-candidate.md`
+  before doing more search. Remaining work is optional punctuation-recovery
+  measurement / original-generator verifier / broader null, not another broad
+  route reset.
 
 > Optional confirmatory one-off (no task file): if GAP becomes available, run
 > `NrTransitiveGroups(83)` to machine-cross-check the 6-group count — the one

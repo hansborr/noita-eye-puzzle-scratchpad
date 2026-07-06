@@ -1,12 +1,12 @@
 # `two` — crib-free finish plan (ns=3 lesson transfer)
 
-Status: **PARTIAL RESULT / follow-up narrowed** (2026-07-06). The ordered plan
-below was driven through Phase 2 far enough to surface a strong plaintext
-hypothesis; see
+Status: **SOLVED / maintainer-confirmed; optional follow-up only** (2026-07-06).
+The ordered plan below was driven through Phase 2 far enough to surface a strong
+plaintext hypothesis; maintainer confirmation against withheld ground truth then
+confirmed the solution. See
 `research/findings/two-shadowfinish-substitution-candidate.md` and
 `research/gak-threads/candidates/shadowfinish-two-shadowfinish-seed-736861646f776603.md`.
-We still do **not** call this a verified decode until original-generator or
-withheld-ground-truth confirmation lands.
+We still do **not** have an original-generator round-trip.
 
 Original scope: the crib-free finish of practice puzzle `two`. We held no
 plaintext, no crib, no key; the maintainer's withheld snippet remained a
@@ -21,12 +21,16 @@ octal-system / Proto-Indo-European plaintext hypothesis (`null_ge 0/20`,
 `p_emp 0.0476`) against space-position-preserving shuffles. The remaining
 cleanup is punctuation/hyphen/source alignment, not broad search.
 
-Current next actions:
+Current next actions after maintainer confirmation:
 
-- keep the result labelled candidate/hypothesis until ground-truth confirmation;
-- optionally add punctuation-aware finishing if exact punctuation matters;
+- keep historical candidate records frozen where they were used for blind
+  confirmation;
+- optionally add punctuation-aware finishing only to measure whether punctuation
+  can be recovered without public-source alignment;
 - only build the stage-(ii)-replaying null if we need a full-pipeline statistical
-  claim rather than a practice-puzzle solve record.
+  claim rather than a practice-puzzle solve record;
+- build an original-generator verifier only if the missing generator/key/codec
+  artifacts become available.
 
 This plan applies the ns=3 methodology lesson (`attack-methodology.md` #12: *a
 caution/limit you assumed rather than measured is not a result*) to `two`, and
@@ -169,8 +173,9 @@ conditional surface:
   24 max-soft classes, does the true finish separate from matched nulls." That is
   a legitimate, scoped claim; it is **not** yet a pipeline-level exclusion.
 - **Outcome vocabulary:** `Candidate` (separates with margin — then log as a
-  HYPOTHESIS per `candidate-cleartext-logging`, still not a verified decode without
-  an independent anchor), `NoCandidate`, or a **measured** `LowPowerNoExclusion`
+  HYPOTHESIS per `candidate-cleartext-logging`; after 2026-07-06 this path has
+  maintainer confirmation for practice `two`, though not an original-generator
+  round-trip), `NoCandidate`, or a **measured** `LowPowerNoExclusion`
   (distinct from today's runtime-limited one — this would be real evidence the
   conditional surface lacks power, and progress).
 

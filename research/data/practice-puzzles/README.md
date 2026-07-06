@@ -15,11 +15,12 @@ the sole honest-negative.
 ## Honesty discipline (binding)
 - The "likely mode" column below is a structural hypothesis from inspecting each
   ciphertext, not a confirmed cipher identification. Do not report it as fact.
-- We do not hold ground-truth cleartext in-repo for any puzzle. (Puzzle `two`'s
-  English is known to the maintainer but is deliberately not committed, so the
-  engine cannot be tuned to it.) Recovering a puzzle's English is a goal /
-  hypothesis; a scored candidate is never a decode until checked against
-  withheld ground truth. Same claim ceiling as the eyes.
+- We do not hold ground-truth cleartext in-repo for any puzzle. Puzzle `two` is
+  the exception in outcome but not in data policy: its frozen candidate was
+  confirmed by the maintainer against withheld ground truth on 2026-07-06, but
+  the private ground-truth file is still not committed. Recovering a puzzle's
+  English starts as a goal / hypothesis; a scored candidate is never a decode
+  until checked against withheld ground truth. Same claim ceiling as the eyes.
 - Exception, precisely scoped: a candidate that **re-encodes to the exact
   ciphertext** under a stated zero-free-parameter model (an exact round-trip, not
   an n-gram score) is a *verified decode* — the ciphertext itself is the ground
@@ -31,7 +32,7 @@ the sole honest-negative.
 | File | Symbols | Alphabet (verified) | Structure (verified) | Likely mode (hypothesis) |
 | ---- | ------- | ------------------- | -------------------- | ------------------------ |
 | `one`   | 266 | 5 digits `{0,1,2,3,4}`, no spaces | **±1 walk on C5** (all 265 transitions ±1 mod 5: +1×125, −1×140); `H1≈2.321/2.322` | **SOLVED (2026-07-01):** `Permutation Representation Destination` — alternating-orientation dihedral GAK + 7-bit ASCII, exact 266/266 round-trip (`maskdecode`; `CODEC-RESULTS.md` § "`one` — SOLVED") |
-| `two`   | 698 | 12 letters `{A..L}`, no spaces | near-flat marginal (`H1≈3.578/3.585`), out-degree ≈8 | **strong candidate (2026-07-06):** fixed `shadowfinish` + `substfinish` yields an octal/Proto-Indo-European plaintext hypothesis; still not a verified decode pending withheld ground truth |
+| `two`   | 698 | 12 letters `{A..L}`, no spaces | near-flat marginal (`H1≈3.578/3.585`), out-degree ≈8 | **SOLVED / maintainer-confirmed (2026-07-06):** fixed `shadowfinish` + `substfinish` recovered the octal/Proto-Indo-European plaintext at the letter level; punctuation/source alignment restored the final readable form; exact original-generator round-trip remains blocked |
 | `three` | 142 | ~letters `{A..Z}` (J, V absent) + space `,` `.` | word + two-sentence structure, spaces preserved | not mono, not periodic ≤40 (flat IoC) → **aperiodic polyalphabetic / position-keyed**; see `profile` |
 | `four`  | 128 | letters + space `,` `.` `?`, 6 lines | multi-sentence, spaces + punctuation preserved | not mono, not periodic ≤40 → **aperiodic polyalphabetic / position-keyed**; see `profile` |
 | `five`  | 281 | letters + space `!` `,` `.` `?`, 7 lines | multi-sentence, spaces + punctuation preserved | not mono, not periodic ≤40 → **aperiodic polyalphabetic / position-keyed**; see `profile` |
@@ -63,13 +64,13 @@ Notes:
   (grouping) layer. `six`'s preserved spaces make it the clearest
   base-N-grouping case. See `CODEC-RESULTS.md` for the codec-search battery:
   `one` (a ±1 walk on C5) is now **SOLVED** (2026-07-01, exact round-trip — see
-  the inventory row above); `two` (whose `s%3` channel is a ±1 walk on C3) now has
-  a strong crib-free candidate via the later `shadowfinish` route, while the
+  the inventory row above); `two` (whose `s%3` channel is a ±1 walk on C3) is now
+  **SOLVED / maintainer-confirmed** via the later `shadowfinish` route, while the
   earlier codec-family negatives still stand as scoped exclusions and document the
   transition-law blind spot in the bigram/Fisher-Yates gate. The blind
   withheld-ground-truth comparison packet for `two` is
   `TWO-WITHHELD-CONFIRMATION-FREEZE.md`; it freezes the candidate by path/hash and
-  makes no confirmation claim.
+  now records the post-freeze maintainer confirmation.
   `CODEC-RESULTS.md` also records the `isoscan` crib anchors — long
   exact translate-isomorphs in the difference channel (`two`: len 68; `one`: len
   36) that locate repeated plaintext spans (structural candidates, not decodes) —

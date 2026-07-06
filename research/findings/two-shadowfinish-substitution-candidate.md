@@ -1,6 +1,26 @@
-# Practice `two` shadowfinish + substitution candidate
+# Practice `two` shadowfinish + substitution solve
 
-Status: **strong plaintext hypothesis, not a verified decode** (2026-07-06).
+Status: **maintainer-confirmed plaintext, not an original-generator round-trip**
+(2026-07-06).
+
+## Post-confirmation status
+
+The maintainer confirmed the frozen practice `two` solution after the candidate
+record and blind confirmation packet were committed. This upgrades the
+`shadowfinish` + `substfinish` result from a strong hypothesis to a
+ground-truth-confirmed practice-puzzle solve.
+
+Scope of the confirmation:
+
+- The code-driven recovery is the `shadowfinish` candidate plus the
+  `substfinish` letter-level monoalphabetic finish below.
+- The punctuation, hyphenation, quotes, and the repaired opening `Would` are a
+  source/syntax-aligned restoration over that letter-level result.
+- No Rust code recovered punctuation or consulted the public Octal article as a
+  scoring source. The public-source alignment was a human/external restoration
+  step after the computational candidate already existed.
+- This is still not an original-generator round-trip; see
+  `research/findings/two-original-generator-roundtrip-blocker.md`.
 
 ## What changed
 
@@ -87,20 +107,21 @@ Uncertainty notes:
 
 ## Claim ceiling
 
-This should be treated as **practice `two` effectively cracked at the plaintext
-hypothesis level**, but not as a verified decode. We still lack an independent
-round-trip through the original puzzle generator or maintainer ground truth, and
-the shadowfinish null does not replay stage-(ii) survivor selection over all
-104,096 candidates.
+This should be treated as **practice `two` solved at the plaintext level and
+confirmed by the maintainer against withheld ground truth**. We still lack an
+independent round-trip through the original puzzle generator, and the shadowfinish
+null does not replay stage-(ii) survivor selection over all 104,096 candidates.
 
-The punctuation/source alignment is a human/external confirmation aid only. It
-does not upgrade the candidate to a verified decode.
+The punctuation/source alignment is a human/external restoration aid. It helped
+produce the readable final sentence form, but it is not part of the code's
+cryptanalytic scoring surface and should not be cited as the "pure" recovered
+layer.
 
 The next useful work is narrow:
 
-- add a punctuation-capable or source-alignment finishing mode if exact recovered
-  punctuation matters;
+- add a punctuation-capable finishing mode only if we want to measure how much of
+  the punctuation can be recovered without public-source alignment;
 - run a broader stage-(ii)-replaying null only if we want a pipeline-level
   statistical claim;
-- ask for withheld ground truth only after recording the candidate and gates, so
-  confirmation does not shape the search.
+- build an original-generator verifier only if the missing generator/key/codec
+  artifacts become available.

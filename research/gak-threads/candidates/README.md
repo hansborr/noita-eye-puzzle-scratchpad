@@ -100,9 +100,10 @@ never primary.
       ```
 
       `--codec-search` auto-enables the mapping search (one-line stderr note).
-      None is a decode — `one` surfaces no codec candidate (honest negative);
-      `two` survives all three gates (beats its in-sample null and generalizes to
-      the held-out fold, -3.192 vs -3.533) and is logged as a labelled hypothesis;
+      None of these older `solve` records is a decode — `one` surfaces no codec
+      candidate (honest negative); `two` survives all three gates (beats its
+      in-sample null and generalizes to the held-out fold, -3.192 vs -3.533) and
+      is logged as a labelled hypothesis;
       `six` fails gate 3 — each a hypothesis, never a decode. The runbook and the
       in-record provenance agree by construction.
 

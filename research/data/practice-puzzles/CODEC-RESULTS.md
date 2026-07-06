@@ -3,21 +3,23 @@
 Attack on the small-alphabet *digit* puzzles, which a direct symbol→letter
 substitution cannot carry (5 < 26, 12 < 26): they need the codec/transduction
 layer to widen the alphabet first. Result: **`one` is SOLVED** (2026-07-01, exact
-ciphertext round-trip — see its section); **`two` now has a strong plaintext
-hypothesis** (2026-07-06, `shadowfinish` + `substfinish`, still not a verified
-decode); `six` remains an honest negative.
+ciphertext round-trip — see its section); **`two` is SOLVED / maintainer-confirmed**
+(2026-07-06, `shadowfinish` + `substfinish` at the letter level, with
+punctuation/source alignment as a separate restoration step); `six` remains an
+honest negative.
 
 > Honesty ceiling (binding): a high n-gram score (or "surviving the gates") is not
-> a decode. Except for `one`'s round-trip-verified solve, nothing here is a
-> recovered message. The negatives are claims only about the codecs, mappings,
-> and nulls actually searched.
+> a decode. `one` is round-trip-verified; `two` is maintainer-confirmed against
+> withheld ground truth but still lacks an original-generator round-trip. The
+> negatives are claims only about the codecs, mappings, and nulls actually
+> searched.
 
 ## Headline
 
 | Puzzle | Verdict | Notes |
 | --- | --- | --- |
 | `one` | **SOLVED (2026-07-01)** — `Permutation Representation Destination` | alternating-orientation dihedral GAK over C5 + 7-bit ASCII; verified by an exact 266/266 ciphertext round-trip (`maskdecode`); see § "`one` — SOLVED" below. The prior honest negatives (`rlcodec`, `cribfit`, `rankcodec`, `mdlcodec`, `bigramcodec`) all stand *as scoped* — they attacked direction-blind reductions forced by a hidden-state assumption the actual cipher does not satisfy |
-| `two` | strong candidate — not a verified decode | fixed `shadowfinish` surfaced a crib-free candidate (`p_emp 0.0200` conditional null); `substfinish` recovered an octal/Proto-Indo-European plaintext hypothesis (`p_emp 0.0476` space-preserving null). Prior honest negatives below remain valid for their scoped codec families |
+| `two` | **SOLVED / maintainer-confirmed (2026-07-06)** | fixed `shadowfinish` surfaced a crib-free candidate (`p_emp 0.0200` conditional null); `substfinish` recovered the octal/Proto-Indo-European plaintext at the letter level (`p_emp 0.0476` space-preserving null); punctuation/source alignment restored the final readable form but is not part of the pure code recovery. Prior honest negatives below remain valid for their scoped codec families |
 | `six` | honest negative (0 survivors) | base-6, spaces preserved |
 
 ## The structural finding: `one` and `two` are ±1-walk-on-Cn encodings
