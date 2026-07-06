@@ -69,3 +69,39 @@ fn positive_controls_fire_and_eyes_are_excluded() {
         assert_eq!(subgroup.positive_controls.recovered_fixed_point, Some(42));
     }
 }
+
+#[test]
+fn prefix_transcription_robustness_counts_are_pinned() {
+    let config = AglGakConfig {
+        null_trials: 257,
+        ..AglGakConfig::default()
+    };
+    let report = run_agl_gak(config).unwrap();
+    let robustness = report.transcription_robustness;
+
+    assert_eq!(robustness.footprints.len(), 9);
+    for footprint in &robustness.footprints {
+        assert_eq!(
+            footprint.digit_indices,
+            vec![0, 1, 2, 3, 4, 39, 40, 41, 42],
+            "{} footprint changed",
+            footprint.message_key
+        );
+    }
+
+    assert_eq!(robustness.singles.changed_digits, 1);
+    assert_eq!(robustness.singles.total_variants, 324);
+    assert_eq!(robustness.singles.excluded_variants, 324);
+    assert_eq!(robustness.singles.global_prefix_obstruction_variants, 78);
+    assert_eq!(robustness.singles.outside_alphabet_variants, 51);
+    assert_eq!(robustness.singles.exact_verified_prefix_variants, 78);
+    assert_eq!(robustness.singles.breaks.len(), 0);
+
+    assert_eq!(robustness.doubles.changed_digits, 2);
+    assert_eq!(robustness.doubles.total_variants, 5_184);
+    assert_eq!(robustness.doubles.excluded_variants, 5_184);
+    assert_eq!(robustness.doubles.global_prefix_obstruction_variants, 257);
+    assert_eq!(robustness.doubles.outside_alphabet_variants, 1_516);
+    assert_eq!(robustness.doubles.exact_verified_prefix_variants, 257);
+    assert_eq!(robustness.doubles.breaks.len(), 0);
+}

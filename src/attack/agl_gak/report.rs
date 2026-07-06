@@ -1,5 +1,6 @@
 use super::{
-    AglGakMode, AglGakPositiveControls, AglGakReport, AglGakVerdict, AglMultiplierSubgroup,
+    AglGakMode, AglGakPositiveControls, AglGakReport, AglGakRobustnessBreakReason,
+    AglGakRobustnessSummary, AglGakVerdict, AglMultiplierSubgroup,
 };
 use crate::report::{self, Report};
 
@@ -35,6 +36,8 @@ impl Report for AglGakReport {
         append_agl_gak_observed(&mut out, self);
         report::appendln!(&mut out);
         append_agl_gak_subgroups(&mut out, self);
+        report::appendln!(&mut out);
+        append_agl_gak_transcription_robustness(&mut out, self);
         report::appendln!(&mut out);
         append_agl_gak_interpretation(&mut out, self);
         out
@@ -149,6 +152,73 @@ fn append_agl_gak_subgroups(out: &mut String, report: &AglGakReport) {
     }
 }
 
+fn append_agl_gak_transcription_robustness(out: &mut String, report: &AglGakReport) {
+    let robustness = &report.transcription_robustness;
+    let footprint = robustness
+        .footprints
+        .first()
+        .map(|item| report::format_usize_values(&item.digit_indices))
+        .unwrap_or_default();
+    report::appendln!(out, "transcription robustness");
+    report::appendln!(
+        out,
+        "  source footprint: {} messages x {} digits [{}] for reading offsets 0..=2",
+        robustness.footprints.len(),
+        robustness
+            .footprints
+            .first()
+            .map_or(0, |item| item.digit_indices.len()),
+        footprint
+    );
+    report::appendln!(
+        out,
+        "  double scope: exact two-digit changes are bounded within one message footprint"
+    );
+    append_agl_gak_robustness_summary(out, &robustness.singles);
+    append_agl_gak_robustness_summary(out, &robustness.doubles);
+}
+
+fn append_agl_gak_robustness_summary(out: &mut String, summary: &AglGakRobustnessSummary) {
+    report::appendln!(
+        out,
+        "  {}-digit variants: exclusion {}/{}; global-prefix witness {}/{}; outside alphabet {}/{}; exact verified prefix {}/{}",
+        summary.changed_digits,
+        summary.excluded_variants,
+        summary.total_variants,
+        summary.global_prefix_obstruction_variants,
+        summary.total_variants,
+        summary.outside_alphabet_variants,
+        summary.total_variants,
+        summary.exact_verified_prefix_variants,
+        summary.total_variants
+    );
+    if summary.breaks.is_empty() {
+        report::appendln!(out, "    dissolving perturbations: none");
+    } else {
+        report::appendln!(out, "    dissolving perturbations:");
+        for breakage in &summary.breaks {
+            report::appendln!(
+                out,
+                "      {} ({})",
+                breakage
+                    .changes
+                    .iter()
+                    .map(|change| format!(
+                        "{}#{} raw{} {}->{}",
+                        change.message_key,
+                        change.digit_index,
+                        change.raw_index,
+                        change.old,
+                        change.new
+                    ))
+                    .collect::<Vec<_>>()
+                    .join("; "),
+                format_agl_break_reason(breakage.reason)
+            );
+        }
+    }
+}
+
 fn append_agl_gak_interpretation(out: &mut String, report: &AglGakReport) {
     let all_excluded = report
         .subgroup_reports
@@ -173,6 +243,12 @@ fn append_agl_gak_interpretation(out: &mut String, report: &AglGakReport) {
         out,
         "Multiplicity note: both AGL multiplier variants are tested, and the repeated tails reported here are structural/exhaustive checks rather than language-scoring claims."
     );
+}
+
+fn format_agl_break_reason(reason: AglGakRobustnessBreakReason) -> &'static str {
+    match reason {
+        AglGakRobustnessBreakReason::NoVaryingRunObstruction => "no varying shared-run obstruction",
+    }
 }
 
 fn format_agl_subgroup(subgroup: AglMultiplierSubgroup) -> &'static str {

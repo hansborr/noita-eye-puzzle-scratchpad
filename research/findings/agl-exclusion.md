@@ -64,7 +64,7 @@ reference point, so symbol-agreement between two parties is a statement about a
 *fixed point* of their discrepancy.
 
 > Scope note: this is the point-stabilizer, single-shared-running-key GAK
-> model. It is the natural AGL-GAK reading, but it is a model; see §7.
+> model. It is the natural AGL-GAK reading, but it is a model; see §8.
 
 ---
 
@@ -248,6 +248,9 @@ cargo run --locked -- agl-gak --null-trials 32 --seed 123
 
 # CLI integration test (exclusion + honesty caveats present)
 cargo test --locked --test agl_gak_cli
+
+# Source-layer transcription certificate for the prefix region
+cargo test --locked prefix_transcription_robustness_counts_are_pinned
 ```
 
 Expected CLI verdict block:
@@ -276,7 +279,43 @@ subgroup verdicts
 
 ---
 
-## 7. Claim ceiling (what is and isn't covered)
+## 7. Transcription robustness
+
+Task `T02` adds a source-layer sensitivity certificate over the exact rendered
+orientation digits that produce the load-bearing reading-layer region: reading
+offsets 0, 1, and 2 in each of the nine messages. Under the accepted honeycomb
+order these are the nine non-delimiter source digit indices
+`[0,1,2,3,4,39,40,41,42]` per message.
+
+The certificate perturbs rendered orientation digits (`0..=4`) and rebuilds the
+reading-layer stream through `GlyphGrid` + `accepted_honeycomb_order`; it never
+edits reading-layer values directly. Exact two-digit variants are bounded to one
+message footprint at a time, so cross-message double transcription errors are not
+enumerated.
+
+| Perturbation depth | Variants | AGL still excluded | All-nine prefix witness survives | Outside 83-symbol alphabet | Exact §4.4 prefix data preserved | Dissolving perturbations |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 digit | 324 | 324 | 78 | 51 | 78 | 0 |
+| 2 digits, within one message | 5,184 | 5,184 | 257 | 1,516 | 257 | 0 |
+
+Read this as a sensitivity certificate, not as alternative transcriptions. The
+verified corpus remains the data under test. The all-nine `[66,5]` witness is
+locally fragile as a *preferred witness*: most counterfactual edits to the source
+digits feeding offsets 1 and 2 break the exact global prefix, and some
+counterfactual streams leave the accepted 83-symbol alphabet altogether. The AGL
+exclusion verdict itself survives every enumerated one-digit and bounded
+within-message two-digit perturbation because the existing obstruction logic
+still finds a varying shared run after differing predecessors, or the
+counterfactual stream is not an AGL(1,83) alphabet stream.
+
+There are no dissolving perturbations to name in this bounded certificate. A
+larger re-check would be needed only for a different perturbation model, such as
+two coordinated source errors in different messages or a changed reading-order
+assumption.
+
+---
+
+## 8. Claim ceiling (what is and isn't covered)
 
 What this establishes. Under the point-stabilizer AGL-GAK model of §1 —
 right-multiplication state update, a single shared running key, ciphertext symbol =
@@ -301,8 +340,10 @@ What it does *not* cover.
 - The eyes remain deterministic, engine-generated, strikingly structured data of
   unknown meaning — unsolved. No primary developer source confirms
   recoverable plaintext.
-- As always, transcription is the underlying risk: the obstruction depends on
-  the nine distinct first symbols and the `[66, 5]` shared prefix in the verified
-  corpus under the accepted honeycomb reading order. The exclusion is exact
-  *given* that data; a single mis-read glyph in the prefix region would need
-  re-checking.
+- As always, transcription is the underlying risk: the proof is exact *given*
+  the verified corpus under the accepted honeycomb reading order. The bounded
+  source-layer certificate in §7 shows that the AGL verdict survives every
+  enumerated one-digit and within-message two-digit counterfactual over the
+  prefix footprint, while also showing that the all-nine `[66,5]` prefix is a
+  sensitive preferred witness rather than an immutable feature under arbitrary
+  counterfactual edits.
