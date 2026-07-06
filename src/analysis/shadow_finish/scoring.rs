@@ -299,6 +299,8 @@ pub fn normalize_letters(text: &[u8]) -> Vec<u8> {
 /// Cheap approximation of the final statistic for Tier-A retention.
 #[must_use]
 pub fn tier_a_score(quadgram: f64, coverage: ByteCoverageScore, anchor_coverage: f32) -> f64 {
+    // Debt: tier_a_score and combined_score weights are hand-set without an
+    // ablation/sensitivity study; calibrate before treating Phase-2 margins as calibrated.
     0.10 * quadgram + 0.75 * f64::from(coverage.score) + 0.15 * f64::from(anchor_coverage)
 }
 

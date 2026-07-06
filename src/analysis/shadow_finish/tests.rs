@@ -1,6 +1,6 @@
 //! Tests for the shadow-finish residual instrument.
 
-use super::control::shadow_finish_self_test_fast_for_test;
+use super::control::{shadow_finish_self_test, shadow_finish_self_test_fast_for_test};
 use super::{
     ShadowFinishConfig, ShadowFinishTable, ShadowFinishVerdict, builtin_tables, parse_table_file,
 };
@@ -9,6 +9,24 @@ use super::{
 fn self_test_controls_pass() {
     let report =
         shadow_finish_self_test_fast_for_test(0x7368_6164_6f77_6603).expect("self-test runs");
+    assert!(report.positive_roundtrip, "{report:?}");
+    assert!(report.positive_candidate_verdict, "{report:?}");
+    assert!(report.positive_truth_best, "{report:?}");
+    assert_eq!(report.positive_truth_rank, Some(1), "{report:?}");
+    assert!(report.positive_truth_top_k, "{report:?}");
+    assert!(report.positive_margin_vs_junk_max > 0.0, "{report:?}");
+    assert!(report.dirty_boundary_anchor, "{report:?}");
+    assert!(report.wrong_plaintext_no_roundtrip, "{report:?}");
+    assert!(report.wrong_plaintext_inside_junk, "{report:?}");
+    assert!(report.vacuity_both_roundtrip, "{report:?}");
+    assert!(report.vacuity_distinct_plaintexts, "{report:?}");
+    assert!(report.passed, "{report:?}");
+}
+
+#[test]
+#[ignore = "full production self-test runs all built-in tables with top_k=256 and 3 nulls; keep it out of the default gate"]
+fn full_self_test_controls_pass() {
+    let report = shadow_finish_self_test(0x7368_6164_6f77_6603).expect("self-test runs");
     assert!(report.positive_roundtrip, "{report:?}");
     assert!(report.positive_candidate_verdict, "{report:?}");
     assert!(report.positive_truth_best, "{report:?}");
