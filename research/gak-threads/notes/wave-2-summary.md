@@ -80,6 +80,14 @@ conditional on the same shared-plaintext + single-global-config assumption the e
 transitivity analysis rests on; rejecting that assumption reopens the options *and*
 weakens the 6-group restriction itself.
 
+*(Updated 2026-07-06: within the point-stabilizer GAK model, `D₁₆₆` is now
+excluded as a special case of the exhaustive AGL sweep, inheriting the same
+conditions stated above — it is no longer merely "conditional at medium"
+in its own right. The Thread-1B single-witness argument recounted here
+survives only as corroboration and is the part that stays medium-confidence/
+fragile. See `PROGRESS.md` §6 and `findings/eyes-structural-summary.md` for
+the current framing.)*
+
 ## 3. Thread 4 — the GAK attack, end to end
 
 Thread 4 targets the wiki's explicit open problem ("we currently do not have any known
@@ -192,3 +200,8 @@ The eyes remain unsolved; the decode remains blocked on the unknown symbol→mea
 mapping. Claim ceiling, verbatim: *deterministic, engine-generated, strikingly
 structured data of unknown meaning; unsolved; no primary developer source confirms
 recoverable plaintext.*
+
+*(Updated 2026-07-06: "symbol→meaning mapping" is retired framing. No fixed
+symbol-to-meaning mapping exists for a polyalphabetic cipher; the standing
+blocker is missing key material (the letter→action assignment), a method
+disclosure, or known plaintext. The claim ceiling itself is unchanged.)*

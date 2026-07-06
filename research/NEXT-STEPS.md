@@ -39,7 +39,8 @@ The next useful work is not another broad decode search. The publish-blocking
 robustness gap has been closed and the structural summary is published in
 `research/findings/eyes-structural-summary.md`. The remaining high-leverage item
 is external rather than computational: write down what would count as a real
-symbol-to-meaning anchor and the current status of each candidate source (`T11`).
+external anchor — key material, a method disclosure, or known plaintext — and
+the current status of each candidate source (`T11`).
 
 ## Landed Status
 
@@ -71,8 +72,10 @@ Tier 1 is complete. The active backlog is now the remaining Tier-2/Tier-3 work i
 
 1. `T11` — external-anchor criteria/status document. This is the only remaining
    item likely to change the decode outcome without new ciphertext.
-2. `T04` — optional `D166` transcription robustness; it only sharpens an
-   already-hedged, conditional verdict.
+2. `T04` — optional `D166` transcription robustness; within the point-stabilizer
+   model `D166` is already excluded by AGL subsumption (same conditions as the
+   AGL verdict), so this only sharpens the Thread-1B single-witness
+   corroboration, which stays conditional/hedged on its own.
 3. `T06` — optional certification-degree appendix; it formalizes G3's existing
    numbers and does not move decode odds.
 4. `T07` — proving-ground status/menu only if sample-suite progress is explicitly
@@ -86,7 +89,7 @@ they were meant to chase: the sharp `S83` certification degree is `t = N - 1 =
 to pin one element on at least `N - 1` cosets. T7/G5 are confirmatory now that
 the Thread-4 attack arc has completed with an honest-negative eyes run. T8/T2
 remain triage-only because mapping-dependent language scoring cannot supply the
-missing symbol-to-meaning anchor. With the transcription certificates and summary
+missing key material, method disclosure, or known plaintext. With the transcription certificates and summary
 now landed, the next useful work is documenting the external-anchor bar and
 current source status, not searching the same ciphertext harder.
 

@@ -54,7 +54,33 @@ The commonly cited direction-per-digit legend is:
 - 3 = down
 - 4 = left
 
-This specific direction-to-digit mapping should be treated cautiously. [disputed / unverifiable as to the exact directions] In the primary Google Doc and on the Noita Wiki, the orientation-to-value correspondence is presented only as an image (a sprite table), never as retrievable text, so no text/primary source pins each pixel direction to its digit. At least one independent analysis (Klausis Krypto Kolumne / Cipherbrain) explicitly warns that the eye-symbol-to-number assignment is non-obvious and differs from the naïve pictures. What *is* firmly established is that there are exactly five orientations mapped to 0–4 (plus 5 as a non-displayed delimiter); the exact assignment of which orientation is which digit is best treated as an arbitrary-but-conventional labeling. Importantly, the canonical 0–4 numbering "was learned from data mining the game's executable" and is "the unique numbering that produces a complete range of 0–82" under the base-5 trigram reading — so the numbering is grounded in the binary, even if the directional pictures are only shown as images. [confirmed for "five orientations + delimiter," "from datamining"; disputed/unverifiable for the exact direction legend] (https://noita.wiki.gg/wiki/Eye_Messages, https://noita.fandom.com/wiki/Eye_Messages, https://docs.google.com/document/d/1QeagH8TklJsd8iribMtT5LIRL91laOUU_tFcVl7OOqA, https://scienceblogs.de/klausis-krypto-kolumne/unsolved-the-noita-eye-messages/)
+This specific direction-to-digit mapping is binary-verifiable, not merely
+image-sourced as earlier drafts of this doc treated it. **[Lymm]** The eye
+sprites are hardcoded in the function that draws the eyes and can be
+extracted directly from the shipped binary; the directions visible in-game
+match the base-5 digit values pulled from the raw hex (maintainer-confirmed
+2026-07-06, not yet independently re-extracted in this repo — an optional
+Ghidra follow-up in the `…-ghidra` worktree could close that gap). In the
+primary Google Doc and on the Noita Wiki, the orientation-to-value
+correspondence is presented only as an image (a sprite table) rather than
+retrievable text — that image-only presentation motivated the earlier
+"unverifiable" verdict, but it no longer implies the mapping is unknowable,
+only that it hasn't yet been independently re-extracted here. At least one
+independent analysis (Klausis Krypto Kolumne / Cipherbrain) warns that the
+eye-symbol-to-number assignment is non-obvious and differs from the naïve
+pictures — a caution against guessing the legend without checking it, not
+evidence against the binary-verifiable mapping. What *is* firmly established
+is that there are exactly five orientations mapped to 0–4 (plus 5 as a
+non-displayed delimiter); the canonical 0–4 numbering "was learned from data
+mining the game's executable" and is "the unique numbering that produces a
+complete range of 0–82" under the base-5 trigram reading — so the numbering
+is grounded in the binary. A different digit↔direction labeling would only
+induce a fixed substitution on the ciphertext — cryptanalytically immaterial,
+since every statistic in this workbench runs on the engine-fixed integer
+digit sequence, not the cosmetic direction names. [confirmed for "five
+orientations + delimiter," "from datamining"; likely — maintainer-attested and
+binary-verifiable for the exact direction legend, independent re-extraction
+pending] (https://noita.wiki.gg/wiki/Eye_Messages, https://noita.fandom.com/wiki/Eye_Messages, https://docs.google.com/document/d/1QeagH8TklJsd8iribMtT5LIRL91laOUU_tFcVl7OOqA, https://scienceblogs.de/klausis-krypto-kolumne/unsolved-the-noita-eye-messages/)
 
 ### Visual layout
 
@@ -89,7 +115,7 @@ The accepted reading model groups eyes into trigrams — three eyes read as a 3-
 
 The headline structural finding: under one specific reading order, the 1036 trigram values form an unbroken range 0–82 — exactly 83 distinct values, none missing, none above 82, out of the 125 possible. [confirmed, but order-dependent] (https://noita.wiki.gg/wiki/Eye_Messages, https://github.com/Doctor-Ned/NoitaEyeGlyphResearch)
 
-The critical caveat, which casual summaries omit: this result is not a property of the raw data in any obvious reading order. Independent recomputation shows that reading trigrams horizontally line-by-line yields ~114 distinct values spanning 0–122 (with gaps), and column-major yields all 125 values. The contiguous 0–82 set appears only under a particular interlocking-triangle traversal — "1 of 36 standard reading orders" per the wiki. Toboter scripted a brute force of ~86,000 reading-order variants and reportedly found no other order matching its statistical significance. So the 0–82 finding is real and statistically striking, but it presupposes a chosen traversal; the cryptanalysis effectively assumes the reading-order problem is solved, which is itself an inference. [confirmed for the order-dependence; likely for the ~86,000 brute-force result] (https://noita.wiki.gg/wiki/Eye_Messages, https://github.com/ToboterXP/EyeGlyphs)
+The critical caveat, which casual summaries omit: this result is not a property of the raw data in any obvious reading order. Independent recomputation shows that reading trigrams horizontally line-by-line yields ~114 distinct values spanning 0–122 (with gaps), and column-major yields all 125 values. The contiguous 0–82 set appears only under a particular interlocking-triangle traversal — "1 of 36 standard reading orders" per the wiki. Toboter scripted a brute force of ~86,000 reading-order variants and reportedly found no other order matching its statistical significance. So the 0–82 finding is real and statistically striking, but it is order-conditional: all downstream cryptanalysis is computed on this one chosen traversal. **[Lymm]** Contiguity was not chosen in advance as a validation criterion — it emerged while researchers were testing reading orders and stood out as significant; the order is retained because of independently significant downstream structure (isomorphs, forbidden-successor patterns), not because of circular reasoning from contiguity back to itself. Substitution-equivalent alternative reading orders change no computed statistic — every statistic here is substitution-invariant or conditioned on the fixed digit sequence. [confirmed for the order-dependence; likely for the ~86,000 brute-force result; look-elsewhere framing per Lymm 2026-07-06] (https://noita.wiki.gg/wiki/Eye_Messages, https://github.com/ToboterXP/EyeGlyphs)
 
 Some analysts (e.g. Perseus on Steam) push back that the specific 0–82 order has not been *proven* correct; the strongest defensible statement is that at least one of a small symmetric set of reading orders is correct. [likely] (https://steamcommunity.com/app/881100/discussions/0/4700161534027181070/)
 
@@ -104,7 +130,7 @@ The Eye Messages are unsolved. No public, method-backed decryption to plaintext 
 What the cryptanalysis establishes (working hypotheses, not proofs):
 
 - **Simple monoalphabetic substitution is ruled out** — trigram frequency is flat/uniform, IoC ≈ 1.066, non-monoalphabetic. [confirmed] (https://github.com/ngraham20/NoitaCryptographyResearch, https://noita.wiki.gg/wiki/Eye_Messages)
-- The cipher is believed polyalphabetic, aperiodic, with each ciphertext symbol conditionally dependent on the previous one, and roughly ~83 internal states. The "~83 states" figure is the softest of these claims — the source itself is hedged ("no fewer than 20 … probably at least ~88 … so likely 83") and 83 equals the alphabet size, raising a circularity concern. [likely for polyalphabetic/aperiodic; disputed for the precise "83 states"] (https://noita.wiki.gg/wiki/Eye_Messages)
+- The cipher is believed polyalphabetic, aperiodic, with each ciphertext symbol conditionally dependent on the previous one, and roughly ~83 internal states. The "~83 states" figure is the softest of these claims — the source itself is hedged ("no fewer than 20 … probably at least ~88 … so likely 83") and 83 equals the alphabet size, raising a circularity concern; it is also now superseded rather than merely disputed. Under the surviving cipher-family theories (GAK on a near-S₈₃ state group; see `research/gak-threads/`), the state space is understood to be S₈₃-scale (83! ≈ 10¹²⁴), not ~83 states — the old figure reflects the earlier, pre-GAK custom-Alberti-era framing. [likely for polyalphabetic/aperiodic; disputed and superseded for the precise "83 states"] (https://noita.wiki.gg/wiki/Eye_Messages)
 - Reported fingerprints — "no ciphertext symbol twice in a row," a "~2× expected" recurrence at distance 4, and cross-message isomorphs — hold only on the correctly-reordered ciphertext. On the raw stored order, independent recomputation finds 17 adjacent-equal trigrams and no distance-4 spike, confirming these properties are conditional on the inferred reading order. [disputed as stated; the properties are real only post-reorder] (https://noita.wiki.gg/wiki/Eye_Messages, https://github.com/ngraham20/NoitaCryptographyResearch)
 - Many classical attacks are documented dead ends: Vigenère/Caesar, Trifid (called "useless here"), diamond, Polybius, periodic ciphers, and 3D/octahedron projections. The isomorph-based "alphabet chaining" attack notably fails for unclear reasons, which is the main reason researchers are stuck; the live (unproven) directions are non-commutative / plaintext-driven permutation models (wheel/incrementing cipher, Chaocipher/Hutton, S₈₃ permutation, autokey-Alberti). [confirmed for the dead ends; likely for the live directions] (https://github.com/SirCapybar/NoitaEyeGlyphResearch, https://steamcommunity.com/app/881100/discussions/0/4700161534027181070/, https://noita.wiki.gg/wiki/Eye_Messages)
 

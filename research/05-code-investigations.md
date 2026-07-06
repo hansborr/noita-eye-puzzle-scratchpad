@@ -13,9 +13,11 @@ generation pipeline.
 Most of the null/control battery these experiments call for is now built in the
 crate and runnable as CLI subcommands (`cargo run -- <cmd>`); the genuine
 remaining open items are external (a vendored byte-for-byte cross-seed
-transcription diff, and an in-game/developer anchor for the 83-symbol-to-meaning
-mapping). Line numbers rot, so code below is cited by module path and subcommand
-name rather than file:line.
+transcription diff, and any external anchor for the eyes — key material (the
+letter→action assignment), a method/cipher-family disclosure, or known
+plaintext; there is no fixed symbol-to-meaning table to find, since the cipher
+is polyalphabetic). Line numbers rot, so code below is cited by module path and
+subcommand name rather than file:line.
 
 A recurring methodological trap runs through almost all community work and must
 be confronted head-on: nearly every "cipher property" (flat frequency, no
@@ -287,7 +289,11 @@ match a real language alphabet is a candidate. **Skeptical note:** "83 states �
 83 distinct glyph values" risks being circular — the state-count estimate may
 simply equal the alphabet size [disputed]. Estimate internal states
 *independently* (via isomorph-length distributions / unicity distance) and check
-whether you recover ~83 without assuming it.
+whether you recover ~83 without assuming it. This is now superseded rather than
+merely disputed: under the surviving cipher-family theories (GAK on a near-S₈₃
+state group), the true state space is S₈₃-scale (83! ≈ 10¹²⁴), not ~83 —
+the old "~83 states" figure reflects the earlier, pre-GAK custom-Alberti-era
+framing.
 
 ---
 
@@ -325,12 +331,16 @@ unproven.
 
 ## Experiment 10 — Sprite-state extraction & clustering (verify the 0–4 orientation mapping)
 
-Priority: medium — addresses a genuinely unverified link.
+Priority: low — the mapping is maintainer-attested as binary-verifiable (see
+below); this experiment is now an optional independent re-extraction, not a
+resolution of a genuinely unverified link.
 
-**Status:** The digit→direction *labeling* resolves as a convention, not a fact
-to verify (see below); the *count* is corroborated. Sprite-clustering from
-in-game pixels remains the only way to re-derive the mapping from primary pixels,
-but it is cryptanalytically immaterial.
+**Status:** The digit→direction *labeling* is binary-verifiable from the
+shipped engine per **[Lymm]** (maintainer-confirmed 2026-07-06), not yet
+independently re-extracted in this repo; the *count* is corroborated.
+Sprite-clustering from in-game pixels (or the decompiled render path) remains
+the only way to re-derive the mapping from primary pixels in this repo, but the
+result is cryptanalytically immaterial either way.
 
 **Hypothesis tested:** The specific digit→direction mapping (0=center, 1=up,
 2=right, 3=down, 4=left) is correct, and there are exactly 5 visually distinct
@@ -343,7 +353,7 @@ orientations.
 
 **Interpretation and current state:**
 - 5 clean clusters confirm the 5-orientation model. The repo owner, from direct in-game observation, confirms exactly 5 visually distinct orientations, corroborating the already-`[confirmed]` 0–4 inventory.
-- The exact direction-per-digit mapping is only shown as an image on the wiki/primary doc; no retrievable *text* source pins each pixel-direction to its digit, and one source (Cipherbrain) warns the numbering order is non-obvious. The repo owner independently concurs the digit→direction labeling is arbitrary ("no reason to prefer the encoding the community uses"). So the *mapping* sub-claim does not resolve as "verified" but as "there is no canonical mapping to verify — it is a labeling convention" [unverifiable from text; resolved as convention].
+- The exact direction-per-digit mapping is shown only as an image on the wiki/primary doc, and one source (Cipherbrain) warns the numbering order is non-obvious. **[Lymm]** The eye sprites are hardcoded in the engine's drawing function and can be extracted directly from the shipped binary, so the mapping is binary-verifiable, not merely image-sourced — maintainer-confirmed 2026-07-06, not yet independently re-extracted in this repo (an optional Ghidra follow-up in the `…-ghidra` worktree could close that gap). So the *mapping* sub-claim resolves as "maintainer-attested, verifiable on demand, independent re-extraction pending" rather than "unverifiable" [likely — maintainer-attested; independent re-extraction pending].
 - **This is cryptanalytically immaterial:** all downstream statistics run on the engine-fixed integer digit sequence (cross-validated byte-for-byte in Experiment 0), so a relabeling of the direction names permutes no value and changes no result. The only thing that would still matter is a *mis-assignment of which integer belongs to which glyph during transcription* — and that is exactly what Experiment 0 already rules out.
 
 ---
@@ -420,9 +430,12 @@ The null/control battery these experiments called for is now built and runnable:
 
 The genuine remaining open items are external, not pure-crate statistics: a
 vendored byte-for-byte cross-seed transcription diff (Experiment 9), and an
-in-game/developer anchor for the otherwise unknown 83-symbol-to-meaning mapping
-(Experiment 12's frontier).
+external anchor for the eyes — key material (the letter→action assignment), a
+method/cipher-family disclosure, or known plaintext (Experiment 12's frontier).
+There is no fixed symbol-to-meaning table to anchor: the cipher is
+polyalphabetic, so the plaintext-letter→group-action assignment IS the key to
+be recovered, not a lookup table that could be externally supplied.
 
 **Two standing caveats grounding all of the above:**
 - **On developer confirmation:** a relayed-verbatim developer quote (Arvi, 2021-10-15 Twitch stream, relayed by FuryForged) confirms the eyes carry an *intentional* message and are "very difficult" — so intentionality ("there is a message") is dev-attested. But that quote discloses no cipher, key, method, or solution, and no primary developer statement confirms the Eye Messages encode *recoverable plaintext*. The separate "developers confirmed it's meaningful/solvable" claim that traces to an unsourced 2022 Hacker News intro line and AI-generated/Grokipedia text is a debunked meta-claim [confirmed] and must not be upgraded into a solvability confirmation. The strongest honest statement is unchanged: the eye data is deterministic, engine-generated, strikingly structured data of unknown meaning; unsolved; no primary developer source confirms it encodes recoverable plaintext.
-- **On reproduction breadth:** the entire technical corpus rests on a handful of analysts (Lymm, CodeWarrior0, Toboter, Pyry, Perseus) and a few repos/Google Docs; independent reproduction beyond this group is thin [confirmed]. The crate has now added the key independent null distributions for Experiments 1, 2, and 7, including the researcher-DoF correction and the Perseus recurrence null. The genuine remaining open items are external: a vendored byte-for-byte cross-seed transcription diff, and an in-game/developer anchor for the otherwise unknown 83-symbol-to-meaning mapping.
+- **On reproduction breadth:** the entire technical corpus rests on a handful of analysts (Lymm, CodeWarrior0, Toboter, Pyry, Perseus) and a few repos/Google Docs; independent reproduction beyond this group is thin [confirmed]. The crate has now added the key independent null distributions for Experiments 1, 2, and 7, including the researcher-DoF correction and the Perseus recurrence null. The genuine remaining open items are external: a vendored byte-for-byte cross-seed transcription diff, and an external anchor for the eyes — key material (the letter→action assignment), a method/cipher-family disclosure, or known plaintext.

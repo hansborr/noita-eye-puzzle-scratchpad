@@ -3,8 +3,9 @@
 Scope. This note independently and adversarially re-derives, from first
 principles, the wiki's central counting claim and records the worked argument so
 the repo does not take it on faith. It is a *correctness audit of a theorem*, not
-a measurement and not a decode. Nothing here depends on a symbol→meaning mapping;
-it is pure group theory keyed only to the alphabet size `n = 83`.
+a measurement and not a decode. Nothing here depends on plaintext meaning or a
+letter-to-action key; it is pure group theory keyed only to the alphabet size
+`n = 83`.
 
 Claim under test (from
 `The-Transitivity-Restriction-(6-Groups-for-83).md`, content current to
@@ -26,12 +27,13 @@ fact this rests on.
 
 ---
 
-## 0. Tooling note (no GAP cross-check available)
+## 0. Tooling note (count cross-check via primitive groups)
 
-The thread doc suggests cross-checking with GAP's transitive-groups library
-(`NrTransitiveGroups(83)` should return `6`). GAP is not installed in this
-environment. On this machine `gap` is a shell alias for `git apply`, not the
-GAP computer-algebra system:
+The thread doc originally suggested cross-checking with GAP's transitive-groups
+library. That route is unavailable: `NrTransitiveGroups(83)` returns `fail`
+because the transitive-groups library does not reach degree 83 [Lymm]. GAP is
+also not installed in this environment. On this machine `gap` is a shell alias
+for `git apply`, not the GAP computer-algebra system:
 
 ```
 $ alias gap
@@ -39,10 +41,14 @@ gap='git apply'
 $ command -v gap   # no GAP binary on PATH
 ```
 
-So the GAP cross-check was not performed. The argument below stands on the
-classification theorem (Burnside + CFSG), and I instead sanity-checked the
-*method* by hand-deriving `NrTransitiveGroups(p)` for `p ∈ {5,7,11,23}` and
-confirming it matches the well-established library values (Section 4).
+The count does have a machine-independent cross-check route. At prime degree,
+every transitive group is primitive, and the OEIS A000019 b-file fetched
+2026-07-06 gives `a(83)=6` (`a(82)=10`, `a(81)=155`) [verified]. This matches the
+audited theorem application below. It closes the tooling cross-check gap for the
+count, but the non-solvable part still rests on the CFSG-dependent classification
+of 2-transitive groups of prime degree. I also sanity-checked the *method* by
+hand-deriving `NrTransitiveGroups(p)` for `p ∈ {5,7,11,23}` and confirming it
+matches the well-established library values (Section 4).
 
 ---
 
@@ -231,9 +237,9 @@ cosets of a hidden subgroup `H ≤ G`, so `|C| = |G|/|H|`, i.e. `|H| = |G|/83`
 | group                  | order `|G|`         | hidden `|H| = |G|/83` | nature / GAK reading                         |
 | ---------------------- | ------------------: | --------------------: | -------------------------------------------- |
 | `C₈₃`                  | `83`                | `1`                   | regular, **commutative** → ruled out by observed chaining conflicts (`Cyclic-Group.md`) |
-| `D₁₆₆`                 | `166`               | `2`                   | `C₈₃⋊C₂`, hidden `C₂` (two hidden states) → ruled out by the dihedral element-order proof (Thread 1B) |
-| `C₈₃:C₄₁`              | `3403` (`83·41`)    | `41`                  | metacyclic Frobenius; not yet excluded |
-| `C₈₃:C₈₂` = `AGL(1,83)`| `6806` (`83·82`)    | `82`                  | full affine; disfavoured (resync issue), not fully excluded |
+| `D₁₆₆`                 | `166`               | `2`                   | `C₈₃⋊C₂`, hidden `C₂` (two hidden states) → excluded within-model by Full AGL subsumption [verified]; Thread 1B corroborates |
+| `C₈₃:C₄₁`              | `3403` (`83·41`)    | `41`                  | metacyclic Frobenius; excluded by the AGL fixed-point lemma |
+| `C₈₃:C₈₂` = `AGL(1,83)`| `6806` (`83·82`)    | `82`                  | full affine; exhaustively excluded by the AGL fixed-point lemma |
 | `A₈₃`                  | `83!/2`             | `82!/2`               | alternating; survives |
 | `S₈₃`                  | `83!`               | `82!`                 | symmetric; survives |
 
@@ -269,19 +275,22 @@ Confidence: high, with the following precise scope.
 - The method was independently validated against four firmly-known small-prime
   counts (`5→5, 7→7, 11→8, 23→7`), each fully hand-derived with named sources for
   every extra, so the recipe is not folklore.
-- **Not done:** a direct GAP `NrTransitiveGroups(83)` cross-check — GAP is not
-  installed here (`gap` aliases to `git apply`). If GAP becomes available, running
-  `NrTransitiveGroups(83)` (expect `6`) and dumping the structure descriptions
-  would upgrade this from "theorem-applied, arithmetic-self-checked" to
-  "machine-cross-checked." That is the one residual gap.
+- **Machine count cross-check:** the direct GAP `NrTransitiveGroups(83)` route is
+  unavailable (`fail`, per maintainer-run GAP) [Lymm], but at prime degree
+  transitive implies primitive, and the OEIS A000019 b-file fetched 2026-07-06
+  gives `a(83)=6` [verified]. That closes the count cross-check gap; a future
+  `NrPrimitiveGroups(83)` run would be another machine check, not a change in
+  scope.
 
 Bottom line for the puzzle. This is a correctness audit, not a decode and not a
 statistic. It confirms the transitivity restriction the rest of the GAK thread
 relies on: the GAK state group (if the cipher is GAK on a transitive group, which
 itself is a *hypothesis* the wiki marks as "most likely," not established) is one
-of exactly six groups `{C₈₃, D₁₆₆, C₈₃:C₄₁, AGL(1,83), A₈₃, S₈₃}`. With `C₈₃`
-(commutativity) and `D₁₆₆` (dihedral element-order proof, Thread 1B) excluded, the
-survivors are `{C₈₃:C₄₁, AGL(1,83), A₈₃, S₈₃}`. None of this says anything about
-what the glyphs *mean*: the eyes remain deterministic, engine-generated,
-strikingly structured data of unknown meaning, unsolved, with no primary developer
-source confirming recoverable plaintext.
+of exactly six groups `{C₈₃, D₁₆₆, C₈₃:C₄₁, AGL(1,83), A₈₃, S₈₃}`. Subsequent
+structural work prunes `C₈₃` by non-commuting chaining evidence, the two affine
+variants by the AGL fixed-point lemma, and `D₁₆₆` within the same model by
+subsumption in the Full AGL sweep [verified], leaving `{A₈₃, S₈₃}` under the
+shared-plaintext and one-global-configuration assumptions. None of this says
+anything about what the glyphs *mean*: the eyes remain deterministic,
+engine-generated, strikingly structured data of unknown meaning, unsolved, with no
+primary developer source confirming recoverable plaintext.

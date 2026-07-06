@@ -144,11 +144,11 @@ fn letter_puzzles_run_end_to_end_and_log_as_hypotheses() {
 // The eyes honest negative (the single most important test).
 // Load the embedded 83-symbol reading-layer eye corpus via corpus/orders (not
 // /tmp), run the mapping search, and confirm it surfaces no surviving
-// candidate: the decode remains blocked on the unknown symbol->meaning
-// mapping. A clean honest negative is the success condition. Note the 83->29
-// mapping is many-to-one => non-invertible, so a cipher round-trip can hold
-// yet no surviving candidate may exist; the held-out + matched-null gates carry
-// the load.
+// candidate: the decode stays blocked on missing key material, a method
+// disclosure, or known plaintext (no fixed symbol->meaning table exists for a
+// polyalphabetic cipher); a clean honest negative is the success condition.
+// The 83->29 mapping is many-to-one => non-invertible, so a round-trip can
+// hold yet no candidate survive; held-out + matched-null gates carry the load.
 #[test]
 fn eyes_search_surfaces_no_surviving_candidate() {
     let english = english_model().unwrap();

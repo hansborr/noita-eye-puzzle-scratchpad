@@ -109,12 +109,17 @@ pub(crate) fn render_eyes_candidate_record(
     )?;
     writeln!(
         out,
-        "decode remains blocked on the unknown symbol->meaning mapping, and it is"
+        "decode remains blocked on missing key material, a method disclosure, or known"
     )?;
     writeln!(
         out,
-        "preserved by this run unless a candidate survived both structural gates below."
+        "plaintext -- not a fixed symbol->meaning table (no such table exists for a"
     )?;
+    writeln!(
+        out,
+        "polyalphabetic cipher) -- and it is preserved by this run unless a candidate"
+    )?;
+    writeln!(out, "survived both structural gates below.")?;
     writeln!(out)?;
 
     // What was attempted + entry path.
@@ -444,12 +449,17 @@ fn render_eyes_gate3_conclusion(
     } else {
         writeln!(
             out,
-            "No candidate surfaced. The eye decode remains blocked on the unknown"
+            "No candidate surfaced. The eye decode remains blocked on missing key"
         )?;
         writeln!(
             out,
-            "symbol->meaning mapping. This negative is the expected, reportable outcome."
+            "material, a method disclosure, or known plaintext -- not a fixed"
         )?;
+        writeln!(
+            out,
+            "symbol->meaning table (no such table exists for a polyalphabetic cipher)."
+        )?;
+        writeln!(out, "This negative is the expected, reportable outcome.")?;
     }
     Ok(())
 }

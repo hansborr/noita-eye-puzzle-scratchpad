@@ -19,9 +19,10 @@ GAK-frontier framing in [`frontier.md`](../frontier.md).
 
 The community GAK framing leaves two useful, mapping-independent questions:
 
-1. Can the isomorph leak recover information, ideally the plaintext-to-group
-   action or enough of it to attack the eyes?
-2. Can GAK be falsified without a symbol-to-meaning mapping?
+1. Can the isomorph leak recover information, ideally the letter-to-action key or
+   enough of it to attack the eyes?
+2. Can GAK be falsified without recovering the letter-to-action key or importing
+   known plaintext?
 
 The completed workbench answer is asymmetric. GAK is not falsified: the eyes
 remain consistent with perfect isomorphism within the tested envelope. Recovery,
@@ -38,18 +39,33 @@ of exactly six transitive groups:
 That six-group count is an audited theorem application: the solvable part is
 `τ(82)=4`, and the non-solvable prime-degree cases contribute only `A₈₃` and
 `S₈₃`, conditional on the standard classification of 2-transitive groups of
-prime degree. The proof note also records the remaining tooling gap: no direct
-GAP `NrTransitiveGroups(83)` cross-check was available. Source:
+prime degree. The count now also has a machine-independent cross-check route:
+at prime degree, transitive groups are primitive, and the OEIS A000019 b-file
+fetched 2026-07-06 gives `a(83)=6` [verified]. GAP's
+`NrTransitiveGroups(83)` route is unavailable (`fail`, per maintainer-run GAP)
+[Lymm]; the OEIS primitive-groups route closes only the cross-check gap, not the
+CFSG dependency. Source:
 [`thread-1a-transitivity-proof.md`](../gak-threads/notes/thread-1a-transitivity-proof.md).
 
-After the wave-2 structural landings, the working candidate set is narrowed to
-`{A₈₃, S₈₃}`, with `D₁₆₆` kept as a conditional/medium-confidence exclusion:
-`C₈₃` is out by the non-commuting chaining evidence, both affine variants are
-excluded by the AGL result, and `D₁₆₆` is single-witness-fragile but conditionally
-excluded. This narrowing is explicitly model-conditional on shared plaintext plus
-a single global configuration. Sources:
+After the wave-2 structural landings plus the 2026-07-06 subsumption audit, the
+working candidate set is narrowed to `{A₈₃, S₈₃}`. `C₈₃` is out by the
+non-commuting chaining evidence, both affine variants are excluded by the AGL
+result, and `D₁₆₆` is excluded within the same point-stabilizer GAK model because
+it is a subgroup of the Full AGL sweep [Lymm, verified]. The older thread-1b
+single-witness dihedral argument is retained as corroboration, not as the
+load-bearing exclusion. This narrowing is explicitly model-conditional on shared
+plaintext plus a single global configuration. Sources:
 [`wave-2-summary.md`](../gak-threads/notes/wave-2-summary.md) and
 [`PROGRESS.md`](../gak-threads/PROGRESS.md).
+
+Scope matrix for the current exclusions:
+
+| Exclusion | Model and space swept | Relabeling invariance | Conditions |
+| --- | --- | --- | --- |
+| `C₈₃` | Cyclic/commutative GAK compared to observed non-commuting chaining evidence | Equality-only chaining evidence; invariant under one global relabeling | Shared-plaintext/chaining interpretation |
+| `C₈₃:C₄₁` and `AGL(1,83)=C₈₃:C₈₂` | Point-stabilizer GAK; right-multiplication update; ciphertext = moved reference point; exhaustive `G \ Stab(0)` sweep (`3362` and `6724`) | Uses ciphertext-symbol equality only; invariant under one global ciphertext/coset relabeling | All-nine differing-start `[66, 5]` prefix gate; T02 source-layer hardening; one global configuration |
+| `D₁₆₆` by AGL subsumption | `D₁₆₆ = {x ↦ ±x+b}` lies inside the Full AGL sweep, including multiplier `-1` [verified] | Same equality-only invariance as AGL | Within-model only; inherits the AGL conditions above |
+| Thread-1b `D₁₆₆` witness | Dihedral element-order/commutativity contradiction on one cited isomorph triple | Equality-only; requires one global CT-symbol/coset labeling (A5) | Corroboration only; single-witness-fragile and conditional on A1+A5 |
 
 ## AGL is excluded, and the verdict is transcription-hardened
 
@@ -69,7 +85,9 @@ enumeration confirms the lemma over the two affine candidates:
 | `C₈₃:C₄₁` | 3362 | 0 | 1 |
 
 That moves the wiki's tentative AGL exclusion to an exhaustive exclusion for this
-model. Source: [`agl-exclusion.md`](agl-exclusion.md).
+model. Because `D₁₆₆` is included in the Full AGL sweep, the same fixed-point
+argument also excludes `D₁₆₆` within-model [Lymm, verified]. Source:
+[`agl-exclusion.md`](agl-exclusion.md).
 
 The T02 source-layer robustness certificate then perturbs the rendered
 orientation digits that feed the load-bearing prefix region and rebuilds through
@@ -131,13 +149,20 @@ the data. Source:
 G3 asks whether chaining recovery is feasible from the measured isomorph leak. It
 answers no for the current corpus and assumptions.
 
-The eyes have `M = 1036` reading-layer trigrams over `N = 83` symbols. The
-richest aligned isomorph signature supplies 26 occurrences; the dominant
+The eyes have `M = 1036` reading-layer trigrams over `N = 83` symbols. What G3
+counts is not a direct observation of plaintext-to-permutation assignments.
+Repeated isomorph-signature occurrences are, under the most generous reading,
+independent coset observations constraining hidden state/key evolution: the
+right-multiplication transformations that appear as coset-graph edges. The
+richest aligned signature supplies 26 such occurrences, and the dominant
 length-4 signature supplies 9. The demand to pin even one near-`S₈₃`
 coset-permutation on at least `N-1` cosets is the harmonic-exact
 `N * (H_N - 1) = 332.2` observations; the full-collection asymptotic is 366.8.
 So the richest eye signature is 12.8x short, and the length-4 signature is 36.9x
-short. Source: [`G3-leak-ceiling.md`](../gak-threads/G3-leak-ceiling.md).
+short. Because the supply unit is already the optimistic occurrence count, not
+the redundant aligned-pair count and not plaintext/key observations, this is a
+conservative upper bound on the most favorable leak model. Source:
+[`G3-leak-ceiling.md`](../gak-threads/G3-leak-ceiling.md).
 
 The same note gives the information bound: the ciphertext leak is at most
 `M * H_emp = 6002` bits. Pinning an unconstrained per-position `S₈₃` stream would
@@ -191,26 +216,28 @@ and the stable candidate record
 ## Bottom line
 
 GAK survives as a model. It is not falsified by the perfect-isomorphism tests,
-and the surviving transitive family is the hard `A₈₃`/`S₈₃` region, with `D₁₆₆`
-kept conditional.
+and the surviving transitive family is the hard `A₈₃`/`S₈₃` region. The
+conditionality now lives in the shared model assumptions: same-plaintext
+sections, one global configuration/labeling, and the point-stabilizer GAK readout
+for the AGL/`D₁₆₆` exclusion.
 
 Recovery is not supported at the current data budget. The leak ceiling says the
 isomorph supply is far below the demand for near-`S₈₃` recovery, and the matured
 attack scores 0 on held-out eye signal against its matched null.
 
-The decode remains blocked on the symbol-to-meaning mapping. A structural
-candidate family, an isomorph consistency result, or a high-scoring search trace
-is not a plaintext. The result worth publishing is therefore the computational
-frontier itself: exact structural pruning where possible, measured robustness
-where a conclusion depends on transcription, and an honest boundary around what
-the current corpus can recover.
+The decode remains blocked on key material (the letter-to-action assignment), a
+method/cipher-family disclosure, or known plaintext. A structural candidate
+family, an isomorph consistency result, or a high-scoring search trace is not a
+plaintext. The result worth publishing is therefore the computational frontier
+itself: exact structural pruning where possible, measured robustness where a
+conclusion depends on transcription, and an honest boundary around what the
+current corpus can recover.
 
 ## What would change this
 
-The most direct unblocker is an external anchor: a primary or otherwise
-verifiable mapping between eye symbols and meaning, a developer/game-data source
-that identifies a key or plaintext layer, or a known-answer sample tied to the
-same cipher family. That is the standing non-computational hunt captured in
+The most direct unblocker is an external anchor: primary or otherwise verifiable
+key material, a method/cipher-family disclosure, or a known-plaintext sample tied
+to the same cipher family. That is the standing non-computational hunt captured in
 [`T11-external-anchor-hunt.md`](../handoff/T11-external-anchor-hunt.md).
 
 Computationally, the bar for moving the frontier is also clear: a new attack must

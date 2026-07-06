@@ -1,9 +1,12 @@
 # Thread 2 — AGL(1,83) GAK feasibility: empirical prototype results
 
 Honesty banner. Mapping-independent structural work: only ciphertext-symbol
-equality and group/coset structure are used. No symbol→meaning mapping is
-asserted. All checks below are exhaustive enumeration over the finite AGL state
-group / its discrepancy set, not statistical estimation. The strongest claim
+equality and group/coset structure are used. No plaintext meaning or
+letter-to-action key is asserted. Because the verdict uses only equality, it is
+invariant under one global relabeling of the 83 ciphertext/coset labels; it does
+not allow per-message relabelings. All checks below are exhaustive enumeration
+over the finite AGL state group / its discrepancy set, not statistical estimation.
+The strongest claim
 about the eyes themselves remains: deterministic, engine-generated, strikingly
 structured data of unknown meaning; unsolved; no primary developer source
 confirms recoverable plaintext. This note reports a structural *exclusion* of a

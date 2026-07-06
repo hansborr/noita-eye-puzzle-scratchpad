@@ -148,6 +148,11 @@ load:
   reflection subgroup, it does not matter which" only covers *which* reflection,
   assuming it is the same one throughout.)
 
+Relabeling scope. The argument uses only ciphertext-symbol equality and the
+resulting coset-chaining links, so it is invariant under one global relabeling of
+the CT-symbol↔coset labels. That invariance is exactly the A5 one-global-labeling
+condition; it does not permit per-message or per-isomorph relabelings.
+
 **Core inference verified:** in `D₁₆₆` the 82 order-83 elements are exactly the
 non-identity rotations, forming the unique (normal, Sylow-83) abelian `C₈₃`; all
 `C(82,2)` pairs commute (0 non-commuting pairs in the model). So "order 83 ⇒
@@ -178,3 +183,8 @@ true contradiction.
   forcing-plus-conflict inside repeated-core columns. House-style claim ceiling
   preserved: this constrains the candidate group set; it says nothing about
   recoverable plaintext.
+- **2026-07-06 status update:** [Lymm] observed, and the repo audit verified, that
+  `D₁₆₆` is a subgroup of the Full `AGL(1,83)` sweep under the same
+  point-stabilizer/right-multiplication GAK model [verified]. This single-witness
+  proof is therefore retained as independent corroboration, not as the
+  load-bearing `D₁₆₆` exclusion.

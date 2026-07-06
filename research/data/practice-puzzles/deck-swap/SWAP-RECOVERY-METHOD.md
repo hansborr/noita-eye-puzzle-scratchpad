@@ -263,6 +263,12 @@ All three hold for `s = 1, 2, 3`.
   key doesn't exist.
 - **Not the eyes.** Worth repeating: the real Noita eye puzzle has no known plaintext.
   This technique does not apply to it.
+- **Base permutation is public here, unknown for the eyes.** This method conditions
+  on the public `base` permutation given in §1 (`shift = 26`, `decimation = 3`);
+  the near-identity small-swap lead it exploits presumes proximity to a *shared
+  base permutation whose identity is unknown for the real eyes*. So this method
+  does not transfer as-is to an eyes-facing attack — base-permutation recovery
+  would be a separate, additional part of any such attack.
 
 ---
 

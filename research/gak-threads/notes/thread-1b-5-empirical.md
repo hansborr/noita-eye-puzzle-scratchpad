@@ -1,9 +1,12 @@
 # Threads 1B + 5 — Dihedral exclusion + chaining graph: empirical prototype results
 
 Honesty banner. Mapping-independent structural work: only ciphertext-symbol
-equality and group/coset structure are used. No symbol→meaning mapping is
-asserted; `display` chars are exactly `value+32` and used only for human echo.
-The strongest claim about the eyes themselves remains: deterministic,
+equality and group/coset structure are used. No plaintext meaning or
+letter-to-action key is asserted; `display` chars are exactly `value+32` and used
+only for human echo. Because the verdict uses equality/chaining links only, it is
+invariant under one global relabeling of the CT-symbol↔coset labels; it does not
+allow per-message relabelings. The strongest claim about the eyes themselves
+remains: deterministic,
 engine-generated, strikingly structured data of unknown meaning; unsolved; no
 primary developer source confirms recoverable plaintext. This note reports
 structural support for a candidate-cipher *exclusion* (`D₁₆₆`) and two *premises*
@@ -178,9 +181,12 @@ non-commutative GAK signal — the negatives in §3 are real, not detector failu
    conflict half is over-extension-bound (col9); no independent genuine witness
    makes it typo-robust. The exclusion holds conditional on assumptions
    A1 (same plaintext) + A5 (one global configuration) for that triple, exactly
-   as the logic note concluded. Claim ceiling: this constrains the candidate group
-   set to `{C₈₃:C₄₁, C₈₃:C₈₂, A₈₃, S₈₃}`; it says nothing about recoverable
-   plaintext.
+   as the logic note concluded. 2026-07-06 status update: [Lymm] observed, and the
+   repo audit verified, that `D₁₆₆` is subsumed by the Full `AGL(1,83)` sweep
+   within the same point-stabilizer GAK model [verified], so this single witness is
+   retained as independent corroboration rather than the load-bearing exclusion.
+   Claim ceiling: this constrains the candidate group set; it says nothing about
+   recoverable plaintext.
 2. **Non-commutativity.** *Supported as a structural fact of the broad chaining
    graph* (thousands of conflicts, ~900× null), but the count of typo-robust,
    same-plaintext-corroborated conflicts is 0–1, not "a dozen independent." The

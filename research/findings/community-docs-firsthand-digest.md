@@ -172,10 +172,14 @@ A genuinely valuable structural argument (distinct from anything in the repo):
   over all 1036 trigrams is `{0:317, 1:312, 2:310, 3:97, 4:0}` (recomputed exact).
   Digit 4 never leads, and a leading 3 spans only values 75–82 (8 of 25), giving
   `25 + 25 + 25 + 8 = 83` distinct values — the real arithmetic of "why 83."
-- **Direction names stay model-conditional** `[disputed/unverifiable]`: the doc
+- **Direction names stay a repo convention, not an asserted labeling**: the doc
   reads the histogram as Center 317 / Up 312 / Right 310 / Down 97 / Left 0. The
-  *numbers* verify, but per repo policy (`src/core/glyph.rs`) digits 0–4 carry no
-  asserted pixel-direction names — keep the legend as an unproven labeling.
+  *numbers* verify, and the digit↔direction legend is binary-verifiable
+  **[Lymm, maintainer-confirmed 2026-07-06]** (eye sprites are hardcoded in the
+  drawing function) rather than unverifiable — but per repo policy
+  (`src/core/glyph.rs`) digits 0–4 still carry no asserted pixel-direction
+  names, since the labeling is a convention no statistic depends on, not an
+  unknown being protected.
 - **Refinements**: a `~10⁻³³` figure for the 83 present values being
   *specifically* the contiguous `0..82` block (beyond the repo's
   `(83/125)^1036 ≈ 5.836e-185`); and an **order-vs-legend** distinction — the doc

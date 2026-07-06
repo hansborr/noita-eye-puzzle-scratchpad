@@ -15,8 +15,8 @@ pass through the phases below.
 The natural next cycle is **not another broad decode search**. Practice puzzle
 `two` is now maintainer-confirmed at the plaintext level, and the remaining
 practice-puzzle work is either optional measurement or blocked on external
-generator/key artifacts. The eyes themselves remain unsolved because the
-symbol-to-meaning anchor is still missing.
+generator/key artifacts. The eyes themselves remain unsolved because no external
+anchor — key material, a method disclosure, or known plaintext — has surfaced.
 
 The highest-value next cycle is therefore:
 
@@ -150,8 +150,8 @@ It should synthesize, not re-derive:
 - G3 leak ceiling;
 - Thread-4 attack honest-negative;
 - the bottom line: GAK survives as a model, recovery is not supported at the
-  current data budget, and decode remains blocked on the symbol-to-meaning
-  anchor.
+  current data budget, and decode remains blocked on missing key material, a
+  method disclosure, or known plaintext — not a symbol-to-meaning mapping.
 
 Expected output:
 
@@ -170,8 +170,9 @@ good bounded sidecar:
 - output: `research/external-anchor-hunt.md`
 
 This does not solve the eyes. It records what would count as a primary/verifiable
-symbol-to-meaning anchor and where to periodically look. Treat the actual search
-as standing human work, not something to exhaust in one agent pass.
+external anchor (key material, a method disclosure, or known plaintext) and where
+to periodically look. Treat the actual search as standing human work, not
+something to exhaust in one agent pass.
 
 ## Explicit non-goals for this cycle
 

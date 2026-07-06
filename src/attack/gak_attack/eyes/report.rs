@@ -85,11 +85,11 @@ impl Report for EyesAttackReport {
         );
         report::appendln!(
             &mut out,
-            "Expected outcome: no surviving candidate. The standing conclusion is the eye decode remains blocked on the unknown symbol->meaning mapping; a clean honest negative is a success, not a failure."
+            "Expected outcome: no surviving candidate. The standing conclusion is the eye decode remains blocked on missing key material, a method disclosure, or known plaintext -- not a fixed symbol->meaning table (no such table exists for a polyalphabetic cipher); a clean honest negative is a success, not a failure."
         );
         report::appendln!(
             &mut out,
-            "What is recovered: structure (visible-coset / chain-link constraints), not cleartext. A full structural recovery still yields abstract plaintext-letter indices, not readable text, because symbol->letter mapping needs an external anchor (the standing blocker). Any candidate is a hypothesis, never a decode."
+            "What is recovered: structure (visible-coset / chain-link constraints), not cleartext. A full structural recovery still yields abstract plaintext-letter indices, not readable text, because turning them into letters needs the letter->action assignment -- which is the key -- a method disclosure, or known plaintext (the standing blocker). Any candidate is a hypothesis, never a decode."
         );
         report::appendln!(
             &mut out,
@@ -266,7 +266,7 @@ fn append_eyes_gates_2_3_verdict(out: &mut String, eyes_report: &EyesAttackRepor
     } else {
         report::appendln!(
             out,
-            "Interpretation: no candidate surfaced. This is the expected, reportable outcome -- with a near-S_83 group and very little eye text, recovered structure does not predict held-out isomorphs above the matched null (no transferable structure detected by this gate). The eye decode remains blocked on the unknown symbol->meaning mapping. This is a hypothesis-free honest negative, not a decode."
+            "Interpretation: no candidate surfaced. This is the expected, reportable outcome -- with a near-S_83 group and very little eye text, recovered structure does not predict held-out isomorphs above the matched null (no transferable structure detected by this gate). The eye decode remains blocked on missing key material, a method disclosure, or known plaintext, not a symbol->meaning table. This is a hypothesis-free honest negative, not a decode."
         );
     }
     report::appendln!(

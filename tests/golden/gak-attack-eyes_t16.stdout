@@ -1,6 +1,6 @@
 Thread 4 eyes Step 3 (the only unit that touches the real eye corpus)
-Expected outcome: no surviving candidate. The standing conclusion is the eye decode remains blocked on the unknown symbol->meaning mapping; a clean honest negative is a success, not a failure.
-What is recovered: structure (visible-coset / chain-link constraints), not cleartext. A full structural recovery still yields abstract plaintext-letter indices, not readable text, because symbol->letter mapping needs an external anchor (the standing blocker). Any candidate is a hypothesis, never a decode.
+Expected outcome: no surviving candidate. The standing conclusion is the eye decode remains blocked on missing key material, a method disclosure, or known plaintext -- not a fixed symbol->meaning table (no such table exists for a polyalphabetic cipher); a clean honest negative is a success, not a failure.
+What is recovered: structure (visible-coset / chain-link constraints), not cleartext. A full structural recovery still yields abstract plaintext-letter indices, not readable text, because turning them into letters needs the letter->action assignment -- which is the key -- a method disclosure, or known plaintext (the standing blocker). Any candidate is a hypothesis, never a decode.
 entry path (exact): orders::corpus_grids() -> accepted_honeycomb_order() -> read_corpus_message_values (per-message, boundaries kept, never concatenated, never re-ordered)
   reading order `standard36-u012-d012`; 1036 reading-layer symbols; 83 distinct (the 83-symbol reading layer); 9 messages
 
@@ -33,5 +33,5 @@ Gate 3 -- speculative cleartext plausibility (last, Finnish-weighted, never prim
   Not run. Gate 1 and/or Gate 2 did not pass (the expected case), so the speculative cleartext path is correctly not executed and no candidate cleartext is reported.
 
 The verdict: candidate survived both structural gates: no
-Interpretation: no candidate surfaced. This is the expected, reportable outcome -- with a near-S_83 group and very little eye text, recovered structure does not predict held-out isomorphs above the matched null (no transferable structure detected by this gate). The eye decode remains blocked on the unknown symbol->meaning mapping. This is a hypothesis-free honest negative, not a decode.
+Interpretation: no candidate surfaced. This is the expected, reportable outcome -- with a near-S_83 group and very little eye text, recovered structure does not predict held-out isomorphs above the matched null (no transferable structure detected by this gate). The eye decode remains blocked on missing key material, a method disclosure, or known plaintext, not a symbol->meaning table. This is a hypothesis-free honest negative, not a decode.
 Candidate-logging protocol: every eyes run writes a dated, clock-free record under research/gak-threads/candidates/ capturing the attempt, the recovered-structure amount, the held-out verdict + matched-null p-value, the Thread-3 verdict, and the explicit hypothesis-not-decode label; any candidate cleartext (English or Finnish) is logged verbatim for human review. This run's record: <CANDIDATES_DIR>/eyes-seed-657965735f737470-trials-16-beam-8.md
