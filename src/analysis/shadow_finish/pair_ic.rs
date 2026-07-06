@@ -19,6 +19,8 @@ const FLAT_CLASS_IC_CEILING: f64 = 0.0450;
 const SELF_TEST_EPSILON: f64 = 1.0e-12;
 const SELF_TEST_LEN: usize = 349;
 const SELF_TEST_NULL_MIN_DISTANCE: f64 = 0.0200;
+const CONTROL_TABLE_BYTES: &[u8; 64] =
+    b" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.";
 
 /// Shape summary for the 24-class pair-IC ranking.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -91,6 +93,12 @@ pub struct PairIcReport {
     reason = "self-test DTO: each boolean is displayed independently by the CLI"
 )]
 pub struct PairIcSelfTest {
+    /// The sampled label permutation has no fixed points.
+    pub permutation_derangement: bool,
+    /// The sampled digit order flips high/low positions.
+    pub digit_order_flipped: bool,
+    /// The sampled codec table is not the identity table order.
+    pub table_shuffled: bool,
     /// Pair-IC of the planted plaintext's 6-bit value stream.
     pub plaintext_ic: f64,
     /// Pair-IC after random table, label permutation, and digit-order transpose.
@@ -200,11 +208,14 @@ pub fn pair_ic_self_test(seed: u64) -> Result<PairIcSelfTest, ShadowFinishError>
             error.bound
         ))
     })?;
+    let permutation_derangement = is_derangement(label_to_digit);
     let order = if rng.next_u64().is_multiple_of(2) {
         DigitOrder::HighLow
     } else {
         DigitOrder::LowHigh
     };
+    let digit_order_flipped = order == DigitOrder::LowHigh;
+    let table_shuffled = table_is_shuffled(&table);
     let transformed_pattern = pattern_from_values(&encoded_values, label_to_digit, order)?;
     let transformed_values = pair_values_checked(
         &transformed_pattern,
@@ -230,6 +241,9 @@ pub fn pair_ic_self_test(seed: u64) -> Result<PairIcSelfTest, ShadowFinishError>
     let flat_null_away = flat_null_distance >= SELF_TEST_NULL_MIN_DISTANCE;
     let decoded_roundtrip = decoded == plaintext;
     Ok(PairIcSelfTest {
+        permutation_derangement,
+        digit_order_flipped,
+        table_shuffled,
         plaintext_ic,
         transformed_ic,
         invariance_delta,
@@ -238,7 +252,12 @@ pub fn pair_ic_self_test(seed: u64) -> Result<PairIcSelfTest, ShadowFinishError>
         flat_null_ic,
         flat_null_distance,
         flat_null_away,
-        passed: invariance_passed && decoded_roundtrip && flat_null_away,
+        passed: permutation_derangement
+            && digit_order_flipped
+            && table_shuffled
+            && invariance_passed
+            && decoded_roundtrip
+            && flat_null_away,
     })
 }
 
@@ -315,12 +334,30 @@ fn identity_permutation() -> [u8; 8] {
     [0, 1, 2, 3, 4, 5, 6, 7]
 }
 
+fn is_derangement(permutation: [u8; 8]) -> bool {
+    permutation
+        .iter()
+        .enumerate()
+        .all(|(index, &value)| usize::from(value) != index)
+}
+
 fn random_injective_table(rng: &mut SplitMix64) -> Result<ShadowFinishTable, ShadowFinishError> {
-    let mut bytes = *b" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.";
+    let mut bytes = *CONTROL_TABLE_BYTES;
     fisher_yates(&mut bytes, rng).map_err(|error| {
         ShadowFinishError::Config(format!("table shuffle rejected bound {}", error.bound))
     })?;
     ShadowFinishTable::new("pair-ic-control", bytes)
+}
+
+fn table_is_shuffled(table: &ShadowFinishTable) -> bool {
+    CONTROL_TABLE_BYTES
+        .iter()
+        .enumerate()
+        .any(|(index, &byte)| {
+            table
+                .encode(byte)
+                .is_none_or(|value| usize::from(value) != index)
+        })
 }
 
 fn encode_plaintext_values(
@@ -404,6 +441,9 @@ mod tests {
     #[test]
     fn self_test_passes() {
         let report = pair_ic_self_test(DEFAULT_PAIR_IC_SEED).expect("self-test runs");
+        assert!(report.permutation_derangement, "{report:?}");
+        assert!(report.digit_order_flipped, "{report:?}");
+        assert!(report.table_shuffled, "{report:?}");
         assert!(report.invariance_passed, "{report:?}");
         assert!(report.decoded_roundtrip, "{report:?}");
         assert!(report.flat_null_away, "{report:?}");
