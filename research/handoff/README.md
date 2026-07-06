@@ -91,6 +91,14 @@ solver." The remaining code work is transcription-robustness certification +
   reading and the 4-class coloring framing are superseded. Read this before
   any further `two` work; new methodology lessons #8–10 in
   `../attack-methodology.md`.
+- `two-crib-free-finish-plan.md` — **CURRENT pickup point for `two`
+  (2026-07-05)**: an ordered, ready-to-drive plan that transfers the ns=3
+  lesson (#12) to the crib-free finish. Reframes `shadowfinish`'s
+  `LowPowerNoExclusion` as runtime-limited, not measured; fixes the verified
+  broken discriminator (no coverage penalty; quadgram-only Tier-A retention)
+  before running a powered ≥20-null measurement; adds a codec-invariant pair-IC
+  class ranker and defers the order-96 supergroup lift. Two-family design
+  consult baked in. Start here to continue `two`.
 
 > Optional confirmatory one-off (no task file): if GAP becomes available, run
 > `NrTransitiveGroups(83)` to machine-cross-check the 6-group count — the one
