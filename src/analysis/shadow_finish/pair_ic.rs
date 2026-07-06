@@ -305,6 +305,10 @@ fn pair_values_checked(
     Ok(out)
 }
 
+/// Classifies the ranking with descriptive-only heuristics.
+///
+/// The thresholds are not on any candidate-acceptance path, and they are
+/// hand-picked rather than calibrated for the current N=349 pair stream.
 fn classify_shape(
     rankings: &[PairIcClassRank],
     english_like_classes: usize,
@@ -434,8 +438,8 @@ fn planted_plaintext() -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::{
-        DEFAULT_PAIR_IC_SEED, ENGLISH_MONOGRAM_IC, PairIcShape, pair_ic_self_test, pair_value_ic,
-        run_pair_ic_ranking,
+        DEFAULT_PAIR_IC_SEED, ENGLISH_MONOGRAM_IC, PairIcClassRank, PairIcShape, classify_shape,
+        pair_ic_self_test, pair_value_ic, run_pair_ic_ranking,
     };
 
     #[test]
@@ -466,6 +470,32 @@ mod tests {
         assert_eq!(best.class_index, 1);
         assert_eq!(best.pairs, 26);
         assert_eq!(report.shape, PairIcShape::Flat);
+    }
+
+    #[test]
+    fn classify_shape_detects_single_english_like_peak() {
+        let rankings = vec![
+            rank_row(0, ENGLISH_MONOGRAM_IC),
+            rank_row(1, 0.0400),
+            rank_row(2, 0.0410),
+        ];
+        assert_eq!(
+            classify_shape(&rankings, 1, 0.0200),
+            PairIcShape::SharplyPeaked
+        );
+    }
+
+    fn rank_row(class_index: usize, pair_ic: f64) -> PairIcClassRank {
+        PairIcClassRank {
+            rank: class_index + 1,
+            class_index,
+            pairs: 349 / 2,
+            pair_ic,
+            distance: (pair_ic - ENGLISH_MONOGRAM_IC).abs(),
+            soft_score: 0,
+            sequence_count: 1,
+            key_multiplicity: 1,
+        }
     }
 
     fn artifact_fixture() -> String {
