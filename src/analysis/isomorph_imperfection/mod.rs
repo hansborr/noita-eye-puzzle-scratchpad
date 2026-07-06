@@ -26,6 +26,7 @@ use crate::nulls::null::{RandomBoundError, UsizeBand};
 mod detector;
 mod family;
 mod report;
+mod sensitivity;
 #[cfg(test)]
 mod tests;
 
@@ -34,6 +35,10 @@ use detector::{
     scan_breaks, scan_counts,
 };
 use family::{ensure_positive_control, run_family_fit};
+pub use sensitivity::{
+    StutterSensitivity, StutterSensitivityFlip, StutterSensitivityFootprint,
+    StutterSensitivitySummary,
+};
 
 /// Default deterministic seed for the nulls and the imperfect-family sweep.
 pub const DEFAULT_SEED: u64 = 0x6732_5f69_6d70_6600;
@@ -95,6 +100,8 @@ pub struct IsomorphImperfectionConfig {
     pub null_trials: usize,
     /// Imperfect-family draws per swept imperfection rate.
     pub family_trials: usize,
+    /// Whether to run the source-layer Stutter-region sensitivity certificate.
+    pub stutter_sensitivity: bool,
 }
 
 impl Default for IsomorphImperfectionConfig {
@@ -103,6 +110,7 @@ impl Default for IsomorphImperfectionConfig {
             seed: DEFAULT_SEED,
             null_trials: DEFAULT_NULL_TRIALS,
             family_trials: DEFAULT_FAMILY_TRIALS,
+            stutter_sensitivity: false,
         }
     }
 }
@@ -138,6 +146,11 @@ pub enum IsomorphImperfectionError {
         keys: usize,
         /// Number of messages supplied.
         messages: usize,
+    },
+    /// An internal invariant failed.
+    InternalInvariant {
+        /// Human-readable context.
+        context: &'static str,
     },
 }
 
@@ -176,6 +189,12 @@ impl fmt::Display for IsomorphImperfectionError {
                 formatter,
                 "stream call supplied {keys} display key(s) for {messages} message(s); one key per message is required"
             ),
+            Self::InternalInvariant { context } => {
+                write!(
+                    formatter,
+                    "internal isomorph-imperfection invariant failed: {context}"
+                )
+            }
         }
     }
 }
@@ -321,6 +340,8 @@ pub struct IsomorphImperfectionReport {
     /// so the conditional benign attribution of each is auditable, not only the
     /// single east4/west4 one in [`Self::stutter_candidate`].
     pub loose_candidates: Vec<LooseCandidate>,
+    /// Source-layer sensitivity certificate for the Stutter-region loose candidates.
+    pub stutter_sensitivity: Option<StutterSensitivity>,
     /// Imperfect-isomorph family fit comparison.
     pub family: FamilyFit,
 }
@@ -356,6 +377,11 @@ pub fn run_isomorph_imperfection(
     let (loose_null, robust_null) = matched_nulls(&key_refs, &messages, extended_counts, config)?;
     let stutter_candidate = locate_stutter_candidate(&key_refs, &extended_breaks);
     let loose_candidates = collect_loose_candidates(&keys, &extended_breaks);
+    let stutter_sensitivity = if config.stutter_sensitivity {
+        Some(sensitivity::certify_stutter_sensitivity(&message_values)?)
+    } else {
+        None
+    };
 
     let family = run_family_fit(config, extended_counts.robust_internal_violations);
     ensure_positive_control(config)?;
@@ -374,6 +400,7 @@ pub fn run_isomorph_imperfection(
         robust_null,
         stutter_candidate,
         loose_candidates,
+        stutter_sensitivity,
         family,
     })
 }
@@ -454,6 +481,7 @@ pub fn isomorph_imperfection_for_stream(
         robust_null,
         stutter_candidate,
         loose_candidates,
+        stutter_sensitivity: None,
         family,
     })
 }

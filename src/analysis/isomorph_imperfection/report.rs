@@ -7,7 +7,7 @@ use crate::analysis::orders::ReadingOrder;
 use crate::analysis::perfect_isomorphism::{MAX_ISLAND_COLS, POST_MIN, SIGNIFICANCE_ALPHA};
 use crate::report::{self, Report};
 
-use super::{IsomorphImperfectionReport, NullOutcome};
+use super::{IsomorphImperfectionReport, NullOutcome, StutterSensitivitySummary};
 
 /// Whether this report is an arbitrary-stream run (file-driven path) rather than
 /// the verified eye corpus. The eye path always uses the accepted honeycomb order;
@@ -49,6 +49,10 @@ impl Report for IsomorphImperfectionReport {
         append_stutter_section(&mut out, self);
         report::appendln!(&mut out);
         append_loose_candidates_section(&mut out, self);
+        if self.stutter_sensitivity.is_some() {
+            report::appendln!(&mut out);
+            append_stutter_sensitivity_section(&mut out, self);
+        }
         report::appendln!(&mut out);
         append_family_section(&mut out, self);
         report::appendln!(&mut out);
@@ -170,6 +174,78 @@ fn append_loose_candidates_section(out: &mut String, report: &IsomorphImperfecti
                 .benign_region
                 .unwrap_or("unattributed (non-benign -> robust violation)"),
             candidate.promoted_to_violation
+        );
+    }
+}
+
+fn append_stutter_sensitivity_section(out: &mut String, report: &IsomorphImperfectionReport) {
+    let Some(sensitivity) = &report.stutter_sensitivity else {
+        return;
+    };
+    report::appendln!(out, "Stutter-region transcription sensitivity");
+    report::appendln!(
+        out,
+        "  reading offsets: {}",
+        report::format_usize_values(&sensitivity.reading_offsets)
+    );
+    for footprint in &sensitivity.footprints {
+        report::appendln!(
+            out,
+            "  {} source digits: {}",
+            footprint.message_key,
+            report::format_usize_values(&footprint.digit_indices)
+        );
+    }
+    report::appendln!(
+        out,
+        "  double scope: exact two-digit changes are bounded within one message footprint"
+    );
+    append_stutter_sensitivity_summary(out, &sensitivity.singles);
+    append_stutter_sensitivity_summary(out, &sensitivity.doubles);
+}
+
+fn append_stutter_sensitivity_summary(out: &mut String, summary: &StutterSensitivitySummary) {
+    report::appendln!(
+        out,
+        "  {}-digit variants: negative survives {}/{}; promoted {}/{}",
+        summary.changed_digits,
+        summary.surviving_negative_variants,
+        summary.total_variants,
+        summary.promoted_variants,
+        summary.total_variants
+    );
+    if summary.flips.is_empty() {
+        report::appendln!(out, "    flipping perturbations: none");
+        return;
+    }
+    report::appendln!(out, "    flipping perturbations:");
+    for flip in &summary.flips {
+        report::appendln!(
+            out,
+            "      {} -> {}",
+            flip.changes
+                .iter()
+                .map(|change| format!(
+                    "{}#{} raw{} {}->{}",
+                    change.message_key,
+                    change.digit_index,
+                    change.raw_index,
+                    change.old,
+                    change.new
+                ))
+                .collect::<Vec<_>>()
+                .join("; "),
+            flip.promoted_candidates
+                .iter()
+                .map(|candidate| format!(
+                    "{}@{} / {}@{}",
+                    candidate.left_key,
+                    candidate.left_offset,
+                    candidate.right_key,
+                    candidate.right_offset
+                ))
+                .collect::<Vec<_>>()
+                .join(", ")
         );
     }
 }

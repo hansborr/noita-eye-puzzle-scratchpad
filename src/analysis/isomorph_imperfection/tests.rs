@@ -16,6 +16,7 @@ fn cheap_config() -> IsomorphImperfectionConfig {
         seed: 0x4242,
         null_trials: 64,
         family_trials: 12,
+        stutter_sensitivity: false,
     }
 }
 
@@ -24,6 +25,7 @@ fn tiny_config() -> IsomorphImperfectionConfig {
         seed: 0x4242,
         null_trials: 4,
         family_trials: 2,
+        stutter_sensitivity: false,
     }
 }
 
@@ -100,6 +102,65 @@ fn eyes_are_a_hardened_negative() {
 }
 
 #[test]
+fn stutter_transcription_sensitivity_counts_are_pinned() {
+    let report = run_isomorph_imperfection(IsomorphImperfectionConfig {
+        stutter_sensitivity: true,
+        ..tiny_config()
+    })
+    .unwrap();
+    let sensitivity = report
+        .stutter_sensitivity
+        .expect("eye-corpus report should include Stutter sensitivity");
+
+    assert_eq!(sensitivity.reading_offsets, vec![65, 66, 67, 68, 69]);
+    assert_eq!(sensitivity.footprints.len(), 3);
+    for footprint in &sensitivity.footprints {
+        assert_eq!(
+            footprint.digit_indices,
+            vec![
+                176, 177, 178, 179, 180, 181, 182, 214, 215, 216, 217, 218, 219, 220, 221
+            ],
+            "{} footprint changed",
+            footprint.message_key
+        );
+    }
+
+    assert_eq!(sensitivity.singles.changed_digits, 1);
+    assert_eq!(sensitivity.singles.total_variants, 180);
+    assert_eq!(sensitivity.singles.surviving_negative_variants, 180);
+    assert_eq!(sensitivity.singles.promoted_variants, 0);
+    assert_eq!(sensitivity.singles.flips.len(), 0);
+
+    assert_eq!(sensitivity.doubles.changed_digits, 2);
+    assert_eq!(sensitivity.doubles.total_variants, 5_040);
+    assert_eq!(sensitivity.doubles.surviving_negative_variants, 5_039);
+    assert_eq!(sensitivity.doubles.promoted_variants, 1);
+    assert_eq!(sensitivity.doubles.flips.len(), 1);
+    let [flip] = sensitivity.doubles.flips.as_slice() else {
+        panic!("expected one Stutter sensitivity flip");
+    };
+    let [first_change, second_change] = flip.changes.as_slice() else {
+        panic!("expected two digit changes");
+    };
+    assert_eq!(first_change.message_key, "east5");
+    assert_eq!(first_change.digit_index, 219);
+    assert_eq!(first_change.old, 4);
+    assert_eq!(first_change.new, 3);
+    assert_eq!(second_change.message_key, "east5");
+    assert_eq!(second_change.digit_index, 220);
+    assert_eq!(second_change.old, 1);
+    assert_eq!(second_change.new, 3);
+    let [promoted] = flip.promoted_candidates.as_slice() else {
+        panic!("expected one promoted candidate");
+    };
+    assert_eq!(promoted.left_key, "east4");
+    assert_eq!(promoted.right_key, "east5");
+    assert_eq!(promoted.left_offset, 86);
+    assert_eq!(promoted.right_offset, 87);
+    assert!(promoted.promoted_to_violation);
+}
+
+#[test]
 fn for_stream_does_not_apply_and_is_neutral_off_corpus() {
     // The fn the CLI handler calls, on an arbitrary single-message stream.
     // Isomorph imperfection is a cross-message test, so a single stream has an
@@ -168,6 +229,7 @@ fn for_stream_multi_message_localizes_cross_message_violation() {
         seed: 0x6d31,
         null_trials: 256,
         family_trials: 12,
+        stutter_sensitivity: false,
     };
     let report = isomorph_imperfection_for_stream(config, &keys, &messages).unwrap();
 
@@ -362,6 +424,7 @@ fn zero_trials_are_rejected() {
         seed: 1,
         null_trials: 0,
         family_trials: 1,
+        stutter_sensitivity: false,
     };
     assert!(run_isomorph_imperfection(config).is_err());
 }

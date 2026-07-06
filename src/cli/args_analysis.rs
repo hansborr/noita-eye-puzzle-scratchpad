@@ -355,6 +355,10 @@ pub(crate) struct IsomorphImperfectionArgs {
     pub(crate) null_trials: usize,
     #[arg(long = "family-trials", default_value_t = isomorph_imperfection::DEFAULT_FAMILY_TRIALS)]
     pub(crate) family_trials: usize,
+    /// Run the bounded Stutter-region transcription sensitivity certificate on
+    /// the verified eye corpus.
+    #[arg(long = "stutter-sensitivity")]
+    pub(crate) stutter_sensitivity: bool,
     /// Reading-layer value stream. Optional: omit to run the verified eye corpus,
     /// or read from --input-file / --stdin.
     pub(crate) sequence: Option<String>,

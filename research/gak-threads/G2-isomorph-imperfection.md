@@ -161,6 +161,46 @@ turn east4@68/east5@69 (the most-internal-looking break in the corpus) and
 east4@65/west4@67 into robust violations warranting direct scrutiny. This is not
 an unconditional "no internal structure exists."
 
+### Transcription sensitivity around the Stutter region (T03)
+
+The Stutter caveat is now quantified at the source-transcription layer. The
+instrument is opt-in (`isomorphimperf --stutter-sensitivity`) because it
+enumerates counterfactual source digits; the default G2 scan and verdict are
+unchanged. Scope is deliberately narrow: accepted honeycomb traversal, verified
+eye corpus, messages `east4`/`west4`/`east5`, reading offsets 65..69, and the
+source orientation digits feeding those offsets. For each of the three messages
+the footprint is the same 15 non-delimiter source digit indices:
+
+`[176,177,178,179,180,181,182,214,215,216,217,218,219,220,221]`
+
+Exact one-digit variants cover every alternative orientation at every footprint
+digit (3 messages x 15 digits x 4 alternatives = 180). Exact two-digit variants
+are bounded within one message footprint, not cross-message pairs
+(3 messages x C(15,2) x 4 x 4 = 5040).
+
+| source perturbation | variants | negative survives | promoted robust variants | flipping perturbations |
+| --- | --- | --- | --- | --- |
+| exactly 1 digit | 180 | **180** | 0 | none |
+| exactly 2 digits, within one message | 5040 | **5039** | 1 | one |
+
+The single flipping counterfactual changes two `east5` source digits:
+
+- `east5#219` (`raw224`) `4->3`
+- `east5#220` (`raw225`) `1->3`
+
+That double mis-read promotes a new non-benign candidate, not a verified-data
+finding: `east4@86 / east5@87`, island 1, far-run 13, internalness 13,
+`benign_region = none`, promoted to robust internal violation. Every single
+source-digit mis-read in the scoped Stutter footprint still leaves zero promoted
+robust non-benign internal violations; all but this one bounded double mis-read
+do as well.
+
+Honesty: this is a fragility certificate, not a falsification. The verified
+transcription remains the data. The T03 result says the G2 negative is robust to
+all scoped single-digit Stutter-region transcription errors and to 5039/5040
+scoped within-message double errors, but it is not absolutely insensitive to
+two coordinated source-digit changes in `east5`.
+
 ---
 
 ## (b) Imperfect-isomorph family + fit comparison (model-conditional)

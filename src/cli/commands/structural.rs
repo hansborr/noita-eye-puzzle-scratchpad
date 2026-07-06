@@ -346,6 +346,7 @@ pub(crate) fn run_isomorphimperf(args: &IsomorphImperfectionArgs) -> ExitCode {
         seed: args.seed,
         null_trials: args.null_trials,
         family_trials: args.family_trials,
+        stutter_sensitivity: args.stutter_sensitivity,
     };
     if args.sequence.is_none() && args.input_file.is_none() && !args.stdin {
         return emit_report(
