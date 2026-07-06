@@ -28,6 +28,7 @@ use super::args_predicates::PredscanArgs;
 use super::args_rankcodec::RankcodecArgs;
 use super::args_rlcodec::RlcodecArgs;
 use super::args_shadowfinish::ShadowfinishArgs;
+use super::args_shadowpairic::ShadowpairicArgs;
 use super::args_shadowsearch::ShadowsearchArgs;
 
 #[derive(Debug, Parser)]
@@ -95,6 +96,11 @@ pub(crate) enum Command {
     /// exact visible-ciphertext re-encoding through the representative shadow key.
     #[command(name = "shadowfinish", alias = "shadow-finish")]
     Shadowfinish(ShadowfinishArgs),
+    /// Phase-0 pair-value IC ranking over `shadowsearch --output` residual q
+    /// classes. This is a free class-axis necessary-condition filter and one
+    /// feature for ordering finish work, never a decode or acceptance verdict.
+    #[command(name = "shadowpairic", alias = "shadow-pair-ic")]
+    Shadowpairic(ShadowpairicArgs),
     /// Run-length codec battery for `±1`-walk puzzles. Derives the direction-blind
     /// run-length magnitude carrier, censuses its exact repeats, and gates a family
     /// of codecs against a matched Markov-resampled-`M` null. A near-English codec

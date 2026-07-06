@@ -15,6 +15,7 @@ mod artifact;
 mod control;
 mod engine;
 mod json;
+mod pair_ic;
 mod scoring;
 mod tables;
 #[cfg(test)]
@@ -22,6 +23,10 @@ mod tests;
 
 pub use artifact::{FinishClass, PreparedClass, ShadowFinishArtifact};
 pub use control::{ShadowFinishSelfTest, shadow_finish_self_test};
+pub use pair_ic::{
+    DEFAULT_PAIR_IC_SEED, ENGLISH_MONOGRAM_IC, PairIcClassRank, PairIcReport, PairIcSelfTest,
+    PairIcShape, pair_ic_self_test, pair_value_ic, run_pair_ic_ranking,
+};
 pub use tables::{ShadowFinishTable, builtin_tables, parse_table_file};
 
 /// Default deterministic seed for controls and matched nulls.

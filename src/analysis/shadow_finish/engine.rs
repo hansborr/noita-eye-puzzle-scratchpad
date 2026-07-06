@@ -410,15 +410,10 @@ pub(super) fn decode_pattern(
     permutation: [u8; 8],
     table: &ShadowFinishTable,
 ) -> Option<(Vec<u8>, bool)> {
-    let mut out = Vec::with_capacity(pattern.len() / 2);
+    let values = pair_values(pattern, phase, order, permutation)?;
+    let mut out = Vec::with_capacity(values.len());
     let mut strict = true;
-    for (left, right) in pair_iter(pattern, phase) {
-        let left = *permutation.get(usize::from(left))?;
-        let right = *permutation.get(usize::from(right))?;
-        let value = match order {
-            DigitOrder::HighLow => left * 8 + right,
-            DigitOrder::LowHigh => right * 8 + left,
-        };
+    for value in values {
         let byte = table.decode(value)?;
         strict &= strict_language_byte(byte);
         out.push(byte);
@@ -426,7 +421,29 @@ pub(super) fn decode_pattern(
     Some((out, strict))
 }
 
-fn pair_iter(pattern: &[u16], phase: PairPhase) -> impl Iterator<Item = (u16, u16)> + '_ {
+pub(super) fn pair_values(
+    pattern: &[u16],
+    phase: PairPhase,
+    order: DigitOrder,
+    permutation: [u8; 8],
+) -> Option<Vec<u8>> {
+    let mut out = Vec::with_capacity(pattern.len() / 2);
+    for (left, right) in pair_iter(pattern, phase) {
+        let left = *permutation.get(usize::from(left))?;
+        let right = *permutation.get(usize::from(right))?;
+        let value = match order {
+            DigitOrder::HighLow => left * 8 + right,
+            DigitOrder::LowHigh => right * 8 + left,
+        };
+        out.push(value);
+    }
+    Some(out)
+}
+
+pub(super) fn pair_iter(
+    pattern: &[u16],
+    phase: PairPhase,
+) -> impl Iterator<Item = (u16, u16)> + '_ {
     let start = match phase {
         PairPhase::Phase0 => 0,
         PairPhase::Phase1 => 1,

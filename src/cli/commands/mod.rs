@@ -27,6 +27,7 @@ mod ragbaby;
 mod rankcodec;
 mod rlcodec;
 mod shadowfinish;
+mod shadowpairic;
 mod shadowsearch;
 mod solve;
 mod structural;
@@ -55,6 +56,7 @@ pub(crate) use ragbaby::run_ragbaby;
 pub(crate) use rankcodec::run_rankcodec;
 pub(crate) use rlcodec::run_rlcodec;
 pub(crate) use shadowfinish::run_shadowfinish;
+pub(crate) use shadowpairic::run_shadowpairic;
 pub(crate) use shadowsearch::run_shadowsearch;
 pub(crate) use solve::run_solve;
 pub(crate) use structural::{
