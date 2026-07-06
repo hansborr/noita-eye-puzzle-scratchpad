@@ -56,12 +56,13 @@ solver." The remaining code work is transcription-robustness certification +
   not frozen to fixtures.
 - `gak-swap-recovery/` — **BUILT + MERGED.** The general GAK deck-cipher known-plaintext swap-recovery
   instrument (community-requested 2026-07-03 by Lymm: "a more general GAK attack that can work on larger
-  groups"). Tasks 01/02/03 are done/reviewed/merged; the `gak-swap-recover` and `gak-swap-arc-phase0`
-  subcommands are live (`src/cli/args.rs` + `src/cli/commands/gak_swap*.rs`, with the Phase-0 arc
-  instrument under `src/attack/gak_attack/lymm_deck/recovery/`). The engine recovers `num_swaps=1` and
-  `num_swaps=2` exactly (byte-for-byte 2439/2439 re-encryption of all 8 messages); `num_swaps=3` is the
-  current cost-walled frontier where the CLI refuses to emit a candidate. Vendored challenge corpus +
-  results at `research/data/practice-puzzles/deck-swap/`.
+  groups"). Tasks 01/02/03 are done/reviewed/merged; the `gak-swap-recover` subcommand is live
+  (`src/cli/args.rs` + `src/cli/commands/gak_swap*.rs`). The engine recovers observed-letter mappings for
+  `num_swaps=1`, `2`, and `3` exactly (byte-for-byte 2439/2439 re-encryption of all 8 messages; J/Z are
+  unconstrained because they do not occur in the plaintext). The earlier ns=3 CDCL(T) cost-wall and
+  Phase-0/Phase-2 escalation are superseded for the vendored practice-puzzle recovery by the
+  substitution-first local-search backend. Vendored challenge corpus + results at
+  `research/data/practice-puzzles/deck-swap/`.
 
 **Tier 1 — harden & publish the eyes frontier (do these first; highest value/effort).**
 - `T00` — refresh `NEXT-STEPS.md` (doc hygiene; unblocks anyone reading the stale ladder).

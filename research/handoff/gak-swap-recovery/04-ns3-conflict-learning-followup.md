@@ -1,5 +1,13 @@
 # ns=3 conflict-learning milestone — the two-tier CDCL(T) engine and its measured wall
 
+> **STATUS: SUPERSEDED for vendored practice-puzzle recovery (2026-07-05).** The
+> systematic CDCL(T) wall recorded here remains a valid measurement of that solver
+> line, but it no longer describes the supported frontier of
+> `gak-swap-recover`: substitution-first local search now recovers the ns=3
+> observed-letter mapping for the vendored known-plaintext corpus with exact
+> `2439/2439` re-encryption. Keep this file as provenance and implementation
+> context; do not pick it up as the next task for solving `3_swap_ct.txt`.
+
 Record of the ns=3 conflict-learning work in the gak-swap-recovery package: what
 the engine delivers, the resolved two-tier architecture, the binding
 soundness/honesty invariants, and the measured real-file wall. The

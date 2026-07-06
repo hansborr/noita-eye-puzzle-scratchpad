@@ -1,5 +1,13 @@
 # Plan — ns=3 finer-vocabulary lever: the resolved framing
 
+> **STATUS: SUPERSEDED for vendored practice-puzzle recovery (2026-07-05).** This
+> finer-vocabulary plan remains useful as a record of the systematic-solver
+> escalation, but the ns=3 practice-puzzle recovery it targeted is now solved for
+> observed letters by substitution-first local search with exact `2439/2439`
+> re-encryption. Do not resume Phase 1/Phase 2 for the vendored `3_swap_ct.txt`
+> unless the goal is explicitly to study the systematic solver rather than recover
+> the key.
+
 > **Status — Phase 0 built (2026-07-04).** The Phase-0 arc-provenance instrument
 > this plan describes below as "the concrete next step to build" is now landed and
 > wired. The `gak-swap-arc-phase0` subcommand is registered in `src/cli/args.rs`

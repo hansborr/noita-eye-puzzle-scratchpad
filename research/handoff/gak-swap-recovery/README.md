@@ -1,20 +1,24 @@
 # Handoff — general GAK / deck-cipher known-plaintext swap-recovery instrument
 
-> **STATUS: built (2026-07-04).** Tasks 01/02/03 are done, reviewed, and merged;
-> the `gak-swap-recover` and `gak-swap-arc-phase0` subcommands are live
-> (`src/cli/args.rs` → `GakSwapRecover`/`GakSwapArcPhase0`, handlers in
-> `src/cli/commands/gak_swap.rs` + `gak_swap_arc_phase0.rs`; the Phase-0 arc
-> instrument is `arc_phase0*.rs` under
-> `src/attack/gak_attack/lymm_deck/recovery/`). The landed engine recovers
-> `num_swaps=1` **and** `num_swaps=2` exactly (byte-for-byte `2439/2439`
-> re-encryption of all 8 messages); `num_swaps=3` is the current *cost-walled*
-> frontier — a measured search wall, not a soundness failure. Verified results
-> live in `research/data/practice-puzzles/deck-swap/SWAP-RECOVERY-RESULTS.md`; the
-> ns=3 push continues in `04-ns3-conflict-learning-followup.md` and
-> `05-ns3-finer-vocabulary-plan.md`. Read this doc for the cipher spec, the reuse
-> map, and the honesty framing — those are the durable reference. The "proposal /
-> what to build / feasibility ladder to earn" phrasing below is the original
-> pre-build plan, retained for provenance.
+> **STATUS: built; ns=3 practice recovery corrected (2026-07-05).** Tasks 01/02/03
+> are done, reviewed, and merged; the `gak-swap-recover` subcommand is live
+> (`src/cli/args.rs` → `GakSwapRecover`, handler in
+> `src/cli/commands/gak_swap.rs`). The landed engine recovers observed-letter
+> mappings for `num_swaps=1`, `2`, and `3` exactly (byte-for-byte `2439/2439`
+> re-encryption of all 8 messages). J and Z do not occur in the plaintext corpus,
+> so their swaps are unconstrained and must not be reported as recovered. Verified
+> results live in
+> `research/data/practice-puzzles/deck-swap/SWAP-RECOVERY-RESULTS.md`.
+>
+> The earlier ns=3 CDCL(T) cost wall, `gak-swap-arc-phase0`, and the Phase-0/Phase-2
+> escalation in `04-ns3-conflict-learning-followup.md` /
+> `05-ns3-finer-vocabulary-plan.md` are superseded for the vendored known-plaintext
+> practice-puzzle recovery by the substitution-first local-search backend. They
+> remain useful provenance about the systematic-solver line, not next work for this
+> corpus. Read this doc for the cipher spec, the reuse map, and the honesty framing
+> — those are the durable reference. The "proposal / what to build / feasibility
+> ladder to earn" phrasing below is the original pre-build plan, retained for
+> provenance.
 
 Written 2026-07-03 after a four-way design consult (Sonnet-5 repo+wiki inventory,
 Opus-4.8 design, Codex/GPT design, gemini-3.1-pro fresh-angle) plus a working
@@ -162,17 +166,14 @@ state, so the objective is avalanche-heavy and misleading.
   variable. **More nodes / Rust speed do not fix this — it is an algorithm problem.**
   Hence propagation-first + CP-SAT (conflict learning + non-chronological
   backjumping), not forward DFS.
-- Frontier (as built): **ns=1 and ns=2 are delivered and verified** — both recover
-  exactly (`2439/2439` re-encryption of all 8 messages) via the propagation +
-  CP-SAT path predicted here (ns=2 collapses the residual to a single SAT model
-  check). **ns=3 is the current cost wall** — the landed CLI refuses to emit a
-  candidate rather than over-claim; that is a measured search wall, not a soundness
-  failure. The ns=3 push (conflict-learning, finer literal vocabulary) is scoped in
-  `04-ns3-conflict-learning-followup.md` and `05-ns3-finer-vocabulary-plan.md`, and
-  the verified per-level stats live in
-  `../../data/practice-puzzles/deck-swap/SWAP-RECOVERY-RESULTS.md`. ns≥4 leans
-  harder on MITM/CP-SAT; ns≥5 research-grade. **Report the measured frontier; never
-  claim "scales arbitrarily."**
+- Frontier (as corrected 2026-07-05): **ns=1, ns=2, and ns=3 are delivered and
+  verified for the vendored known-plaintext practice corpus** — all recover the
+  observed-letter mapping with exact `2439/2439` re-encryption. The ns=3 result
+  comes from the substitution-first local-search backend, not from the systematic
+  CP-SAT/CDCL(T) line described above; that line's cost wall remains a measurement
+  of that approach, not of the recovery problem. J and Z are unconstrained because
+  they do not occur in the plaintext. ns≥4 is not claimed. **Report the measured
+  frontier; never claim "scales arbitrarily."**
 
 ## Validation (binding, `AGENTS.md`)
 
@@ -217,7 +218,7 @@ forward-checking wandering even on a planted ns=2, so the residual solver is now
 CP-SAT/SAT backend, not hand-rolled MRV-DFS. Codex's caution that the SAT encoding
 is heavy still stands: feed it the R-top/R-read deductions as unit facts first, and
 keep it behind a clean interface so MITM or a stronger propagator can swap in. Net
-honesty note: **ns=1 and ns=2 are now verified solved end-to-end by the built
-propagation+CP-SAT engine (exact re-encryption, all 8 messages); ns=3 remains the
-measured cost wall the follow-ups (04/05) are pushing.** The earlier framing of
-ns=2 as an unearned milestone is superseded by that delivery.
+honesty note: **ns=1 and ns=2 are verified solved end-to-end by the built
+propagation+CP-SAT engine; ns=3 is verified solved for observed letters by the
+later local-search backend.** The earlier framing of ns=2 as an unearned milestone
+and ns=3 as a live practice-puzzle wall is superseded by those deliveries.

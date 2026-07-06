@@ -330,12 +330,13 @@ across two scripts (consolidate ours).
    > that is a runtime/power limitation to fix before making a stronger call.
    > The low-power plaintext hypothesis was logged, not promoted:
    > `research/gak-threads/candidates/shadowfinish-two-shadowfinish-null2-seed-736861646f776603.md`.
-2. **Community-request relevance:** nothing here touches the `gak-swap-recover`
-   ns=3 cost wall (that engine is known-plaintext, known group). But column-map
-   closure is a **ciphertext-only group-reconstruction** technique — exactly
-   the "more general GAK attack" generality axis, and eyes-relevant (the eyes
-   are ciphertext-only with unknown group). Candidate future companion
-   instrument (Task-03-style), *after* it earns controls on `two`.
+2. **Community-request relevance:** nothing here changes `gak-swap-recover`
+   (that engine is known-plaintext with a known group; its vendored ns=3 recovery
+   was later solved by local search). But column-map closure is a
+   **ciphertext-only group-reconstruction** technique — exactly the "more general
+   GAK attack" generality axis, and eyes-relevant (the eyes are ciphertext-only
+   with unknown group). Candidate future companion instrument (Task-03-style),
+   *after* it earns controls on `two`.
 3. `CODEC-RESULTS.md` sections built on the `C3 × H` direct-product reading
    (transparent-channel leak rate, `groupscan`'s `H ⊆ S4` discriminator frame)
    need a superseded-model banner when next touched — the mod-3 law and the
