@@ -31,6 +31,7 @@ mod shadowpairic;
 mod shadowsearch;
 mod solve;
 mod structural;
+mod substfinish;
 
 pub(crate) use bigramcodec::run_bigramcodec;
 pub(crate) use codecpower::run_codecpower;
@@ -63,3 +64,4 @@ pub(crate) use structural::{
     run_chaining, run_chaining_graph, run_isomorphimperf, run_isomorphnull, run_leakceiling,
     run_perfectiso,
 };
+pub(crate) use substfinish::run_substfinish;

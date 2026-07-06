@@ -24,7 +24,7 @@ use super::commands::{
     run_keydiff, run_keystream, run_leakceiling, run_maskdecode, run_mdlcodec, run_orders,
     run_pairclass, run_perfectiso, run_pipelinenull, run_predscan, run_profile, run_ragbaby,
     run_rankcodec, run_rlcodec, run_shadowfinish, run_shadowpairic, run_shadowsearch, run_solve,
-    run_stats,
+    run_stats, run_substfinish,
 };
 
 /// Outcome of one experiment run, ready for the thin CLI to emit.
@@ -99,6 +99,7 @@ pub(crate) fn run() -> ExitCode {
         Command::Shadowsearch(args) => run_shadowsearch(&args),
         Command::Shadowfinish(args) => run_shadowfinish(&args),
         Command::Shadowpairic(args) => run_shadowpairic(&args),
+        Command::Substfinish(args) => run_substfinish(&args),
         Command::Rlcodec(args) => run_rlcodec(&args),
         Command::Bigramcodec(args) => run_bigramcodec(&args),
         Command::Codecpower(args) => run_codecpower(&args),

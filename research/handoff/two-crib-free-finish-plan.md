@@ -1,10 +1,32 @@
 # `two` — crib-free finish plan (ns=3 lesson transfer)
 
-Status: **PLAN, ready to drive** (2026-07-05). Owner of decisions: orchestrator.
-Implementation to be driven by a separate agent. Scope: the still-open crib-free
-finish of practice puzzle `two`. We hold **no plaintext, no crib, no key** — the
-standing goal is a crib-free solve, and the maintainer's withheld snippet is a
-last-resort fallback we do **not** ask for.
+Status: **PARTIAL RESULT / follow-up narrowed** (2026-07-06). The ordered plan
+below was driven through Phase 2 far enough to surface a strong plaintext
+hypothesis; see
+`research/findings/two-shadowfinish-substitution-candidate.md` and
+`research/gak-threads/candidates/shadowfinish-two-shadowfinish-seed-736861646f776603.md`.
+We still do **not** call this a verified decode until original-generator or
+withheld-ground-truth confirmation lands.
+
+Original scope: the crib-free finish of practice puzzle `two`. We held no
+plaintext, no crib, no key; the maintainer's withheld snippet remained a
+last-resort fallback.
+
+## 2026-07-06 update
+
+Phases 1-2 produced a `shadowfinish` candidate (`null_ge 0/49`,
+`p_emp 0.0200`). The raw mixed-case candidate had exactly 26 non-space symbols,
+and the new `substfinish` monoalphabetic finisher recovered a readable
+octal-system / Proto-Indo-European plaintext hypothesis (`null_ge 0/20`,
+`p_emp 0.0476`) against space-position-preserving shuffles. The remaining
+cleanup is punctuation/hyphen/source alignment, not broad search.
+
+Current next actions:
+
+- keep the result labelled candidate/hypothesis until ground-truth confirmation;
+- optionally add punctuation-aware finishing if exact punctuation matters;
+- only build the stage-(ii)-replaying null if we need a full-pipeline statistical
+  claim rather than a practice-puzzle solve record.
 
 This plan applies the ns=3 methodology lesson (`attack-methodology.md` #12: *a
 caution/limit you assumed rather than measured is not a result*) to `two`, and

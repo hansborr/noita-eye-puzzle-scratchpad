@@ -24,6 +24,7 @@ mod args_rlcodec;
 mod args_shadowfinish;
 mod args_shadowpairic;
 mod args_shadowsearch;
+mod args_substfinish;
 mod commands;
 mod dispatch;
 mod shared;

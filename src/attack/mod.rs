@@ -50,6 +50,8 @@
 //!   carrier, matched-null gate, and English model.
 //! - [`solve`]: unified search-and-score solve pipeline for candidate
 //!   hypotheses, with round-trip, held-out, and matched-null gates.
+//! - [`substitution`]: monoalphabetic finisher for already-segmented candidate
+//!   text, gated against a space-position-preserving symbol-shuffle null.
 
 pub mod agl_gak;
 pub mod bigramcodec;
@@ -72,3 +74,4 @@ pub mod ragbaby;
 pub mod rankcodec;
 pub mod rlcodec;
 pub mod solve;
+pub mod substitution;

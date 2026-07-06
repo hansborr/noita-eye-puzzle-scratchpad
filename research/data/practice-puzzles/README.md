@@ -31,7 +31,7 @@ the sole honest-negative.
 | File | Symbols | Alphabet (verified) | Structure (verified) | Likely mode (hypothesis) |
 | ---- | ------- | ------------------- | -------------------- | ------------------------ |
 | `one`   | 266 | 5 digits `{0,1,2,3,4}`, no spaces | **±1 walk on C5** (all 265 transitions ±1 mod 5: +1×125, −1×140); `H1≈2.321/2.322` | **SOLVED (2026-07-01):** `Permutation Representation Destination` — alternating-orientation dihedral GAK + 7-bit ASCII, exact 266/266 round-trip (`maskdecode`; `CODEC-RESULTS.md` § "`one` — SOLVED") |
-| `two`   | 698 | 12 letters `{A..L}`, no spaces | near-flat marginal (`H1≈3.578/3.585`), out-degree ≈8 | polyalphabetic/keystream → **needs codec** |
+| `two`   | 698 | 12 letters `{A..L}`, no spaces | near-flat marginal (`H1≈3.578/3.585`), out-degree ≈8 | **strong candidate (2026-07-06):** fixed `shadowfinish` + `substfinish` yields an octal/Proto-Indo-European plaintext hypothesis; still not a verified decode pending withheld ground truth |
 | `three` | 142 | ~letters `{A..Z}` (J, V absent) + space `,` `.` | word + two-sentence structure, spaces preserved | not mono, not periodic ≤40 (flat IoC) → **aperiodic polyalphabetic / position-keyed**; see `profile` |
 | `four`  | 128 | letters + space `,` `.` `?`, 6 lines | multi-sentence, spaces + punctuation preserved | not mono, not periodic ≤40 → **aperiodic polyalphabetic / position-keyed**; see `profile` |
 | `five`  | 281 | letters + space `!` `,` `.` `?`, 7 lines | multi-sentence, spaces + punctuation preserved | not mono, not periodic ≤40 → **aperiodic polyalphabetic / position-keyed**; see `profile` |
@@ -63,9 +63,10 @@ Notes:
   (grouping) layer. `six`'s preserved spaces make it the clearest
   base-N-grouping case. See `CODEC-RESULTS.md` for the codec-search battery:
   `one` (a ±1 walk on C5) is now **SOLVED** (2026-07-01, exact round-trip — see
-  the inventory row above); `two` (whose `s%3` channel is a ±1 walk on C3) is an
-  honest negative and additionally exposes a transition-law blind spot in the
-  bigram/Fisher-Yates gate (its gate "survivors" are artifacts, not decodes).
+  the inventory row above); `two` (whose `s%3` channel is a ±1 walk on C3) now has
+  a strong crib-free candidate via the later `shadowfinish` route, while the
+  earlier codec-family negatives still stand as scoped exclusions and document the
+  transition-law blind spot in the bigram/Fisher-Yates gate.
   `CODEC-RESULTS.md` also records the `isoscan` crib anchors — long
   exact translate-isomorphs in the difference channel (`two`: len 68; `one`: len
   36) that locate repeated plaintext spans (structural candidates, not decodes) —

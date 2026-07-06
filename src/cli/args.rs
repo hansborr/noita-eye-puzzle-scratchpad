@@ -30,6 +30,7 @@ use super::args_rlcodec::RlcodecArgs;
 use super::args_shadowfinish::ShadowfinishArgs;
 use super::args_shadowpairic::ShadowpairicArgs;
 use super::args_shadowsearch::ShadowsearchArgs;
+use super::args_substfinish::SubstfinishArgs;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -101,6 +102,12 @@ pub(crate) enum Command {
     /// feature for ordering finish work, never a decode or acceptance verdict.
     #[command(name = "shadowpairic", alias = "shadow-pair-ic")]
     Shadowpairic(ShadowpairicArgs),
+    /// Monoalphabetic finisher for already-segmented candidate text. Solves a
+    /// visible-symbol substitution with whitespace preserved, then gates the
+    /// language score against space-position-preserving symbol shuffles. Emits a
+    /// candidate hypothesis, never a verified decode.
+    #[command(name = "substfinish", alias = "subst-finish")]
+    Substfinish(SubstfinishArgs),
     /// Run-length codec battery for `±1`-walk puzzles. Derives the direction-blind
     /// run-length magnitude carrier, censuses its exact repeats, and gates a family
     /// of codecs against a matched Markov-resampled-`M` null. A near-English codec

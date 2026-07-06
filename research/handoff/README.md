@@ -77,8 +77,10 @@ solver." The remaining code work is transcription-robustness certification +
 
 **Tier 3 — proving ground (low transfer, mostly exhausted; opportunistic only).**
 - `T07` — proving-ground status + remaining low-value classical leads. Note: `one`/`six`/`two`
-  codec runs are already logged honest-negatives; the rest is low-value, non-transferring,
-  and must be split before starting. This is a menu, not a must-do.
+  legacy codec-family runs are already logged as scoped negatives, and `two` now
+  has a separate `shadowfinish`/`substfinish` candidate record. The rest is
+  low-value, non-transferring, and must be split before starting. This is a menu,
+  not a must-do.
 - `two-post-avenue-a-handoff.md` — **pickup point for practice puzzle `two`**
   after Avenue A closed (scoped honest negative, 2026-07-03). Carries the open
   route decision (run Avenue G / pivot eyes-side / stop) and the ruling that the
@@ -91,14 +93,11 @@ solver." The remaining code work is transcription-robustness certification +
   reading and the 4-class coloring framing are superseded. Read this before
   any further `two` work; new methodology lessons #8–10 in
   `../attack-methodology.md`.
-- `two-crib-free-finish-plan.md` — **CURRENT pickup point for `two`
-  (2026-07-05)**: an ordered, ready-to-drive plan that transfers the ns=3
-  lesson (#12) to the crib-free finish. Reframes `shadowfinish`'s
-  `LowPowerNoExclusion` as runtime-limited, not measured; fixes the verified
-  broken discriminator (no coverage penalty; quadgram-only Tier-A retention)
-  before running a powered ≥20-null measurement; adds a codec-invariant pair-IC
-  class ranker and defers the order-96 supergroup lift. Two-family design
-  consult baked in. Start here to continue `two`.
+- `two-crib-free-finish-plan.md` — **candidate surfaced (2026-07-06)**: the plan
+  was driven through fixed `shadowfinish` and produced a strong plaintext
+  hypothesis; see `../findings/two-shadowfinish-substitution-candidate.md` before
+  doing more search. Remaining work is confirmation / punctuation-aware finishing /
+  optional broader null, not another broad route reset.
 
 > Optional confirmatory one-off (no task file): if GAP becomes available, run
 > `NrTransitiveGroups(83)` to machine-cross-check the 6-group count — the one
