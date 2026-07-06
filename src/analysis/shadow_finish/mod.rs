@@ -16,6 +16,7 @@ mod control;
 mod engine;
 mod json;
 mod pair_ic;
+mod pairs;
 mod scoring;
 mod tables;
 #[cfg(test)]

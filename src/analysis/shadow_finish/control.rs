@@ -3,7 +3,8 @@
 use crate::attack::quadgram::QuadgramModel;
 
 use super::artifact::{canonical_from_plaintext, encode_with_key};
-use super::engine::{TruthProbe, decode_pattern, run_ladder_with_probe};
+use super::engine::{TruthProbe, run_ladder_with_probe};
+use super::pairs::decode_pattern;
 use super::scoring::{
     WordSegModel, combined_score, score_anchor_words, score_byte_coverage, score_quadgrams,
 };

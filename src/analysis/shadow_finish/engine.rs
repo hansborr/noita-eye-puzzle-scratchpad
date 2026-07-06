@@ -4,11 +4,12 @@ use crate::attack::quadgram::QuadgramModel;
 use crate::nulls::null::{SplitMix64, fisher_yates, mix_seed};
 
 use super::artifact::{PreparedClass, canonical_from_plaintext, encode_with_key};
+use super::pairs::decode_pattern;
 use super::scoring::{
     WordSegModel, combined_score, score_anchor_byte_coverage, score_anchor_words,
     score_byte_coverage, score_quadgrams as quad, tier_a_score,
 };
-use super::tables::{loose_printable, strict_language_byte};
+use super::tables::loose_printable;
 use super::{
     CalibrationReport, DigitOrder, FinishCandidate, PairPhase, ShadowFinishArtifact,
     ShadowFinishConfig, ShadowFinishError, ShadowFinishReport, ShadowFinishTable,
@@ -415,61 +416,6 @@ fn exact_roundtrip(
         &prepared_class.class.representative_key,
     )?;
     Ok(rendered == ciphertext)
-}
-
-pub(super) fn decode_pattern(
-    pattern: &[u16],
-    phase: PairPhase,
-    order: DigitOrder,
-    permutation: [u8; 8],
-    table: &ShadowFinishTable,
-) -> Option<(Vec<u8>, bool)> {
-    let values = pair_values(pattern, phase, order, permutation)?;
-    let mut out = Vec::with_capacity(values.len());
-    let mut strict = true;
-    for value in values {
-        let byte = table.decode(value)?;
-        strict &= strict_language_byte(byte);
-        out.push(byte);
-    }
-    Some((out, strict))
-}
-
-pub(super) fn pair_values(
-    pattern: &[u16],
-    phase: PairPhase,
-    order: DigitOrder,
-    permutation: [u8; 8],
-) -> Option<Vec<u8>> {
-    let mut out = Vec::with_capacity(pattern.len() / 2);
-    for (left, right) in pair_iter(pattern, phase) {
-        let left = *permutation.get(usize::from(left))?;
-        let right = *permutation.get(usize::from(right))?;
-        let value = match order {
-            DigitOrder::HighLow => left * 8 + right,
-            DigitOrder::LowHigh => right * 8 + left,
-        };
-        out.push(value);
-    }
-    Some(out)
-}
-
-pub(super) fn pair_iter(
-    pattern: &[u16],
-    phase: PairPhase,
-) -> impl Iterator<Item = (u16, u16)> + '_ {
-    let start = match phase {
-        PairPhase::Phase0 => 0,
-        PairPhase::Phase1 => 1,
-    };
-    pattern
-        .get(start..)
-        .unwrap_or(&[])
-        .chunks_exact(2)
-        .filter_map(|chunk| match *chunk {
-            [left, right] => Some((left, right)),
-            _ => None,
-        })
 }
 
 fn offer_top_a(

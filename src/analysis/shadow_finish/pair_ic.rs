@@ -3,7 +3,7 @@
 use crate::nulls::null::{SplitMix64, fisher_yates};
 
 use super::artifact::ShadowFinishArtifact;
-use super::engine::{decode_pattern, pair_values};
+use super::pairs::{decode_pattern, pair_values};
 use super::{DigitOrder, PairPhase, ShadowFinishError, ShadowFinishTable};
 
 /// English monogram index of coincidence used as the default target.
