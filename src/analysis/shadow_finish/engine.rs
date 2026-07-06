@@ -531,13 +531,13 @@ fn quadgram_score(model: &QuadgramModel, plaintext: &[u8]) -> f64 {
 }
 
 fn cheap_tier_a_score(
-    quad: f64,
+    quadgram_score: f64,
     plaintext: &[u8],
     anchors: &[crate::analysis::shadow_search::Anchor],
 ) -> f64 {
     let coverage = score_byte_coverage(plaintext);
     let anchor_coverage = score_anchor_byte_coverage(plaintext, anchors);
-    tier_a_score(quad, coverage, anchor_coverage)
+    tier_a_score(quadgram_score, coverage, anchor_coverage)
 }
 
 fn finish_verdict_with_alpha(calibration: &CalibrationReport, alpha: f64) -> ShadowFinishVerdict {
