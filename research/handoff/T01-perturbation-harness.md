@@ -1,6 +1,6 @@
 # T01 — Transcription-perturbation harness (shared primitive)
 
-**Tier:** 1 · **Size:** S · **Type:** code · **Status:** Todo
+**Tier:** 1 · **Size:** S · **Type:** code · **Status:** Done (`3290d84`)
 **Depends on:** none · **Conflicts with:** none · **Touches:** new
 `src/analysis/perturbation.rs` (+ `src/lib.rs` module decl)
 
@@ -9,6 +9,9 @@ A small reusable primitive that enumerates single-orientation-digit
 transcription perturbations over a tiny fixed window of the rendered corpus, and
 re-derives the reading-layer values so a caller can re-run a claim's verdict on
 each what-if transcription.
+
+Completion note: landed as `src/analysis/perturbation.rs` with tests in
+`src/analysis/perturbation/tests.rs`.
 
 Keep it minimal — a generator + a verdict-runner over a bounded window, not a
 framework.

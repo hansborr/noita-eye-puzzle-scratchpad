@@ -1,6 +1,6 @@
 # T02 — AGL-exclusion transcription robustness
 
-**Tier:** 1 · **Size:** S · **Type:** code+doc · **Status:** Todo
+**Tier:** 1 · **Size:** S · **Type:** code+doc · **Status:** Done (`5052f10`)
 **Depends on:** T01 · **Conflicts with:** other `agl_gak/` edits
 **Touches:** `src/attack/agl_gak/` (+ test), `research/findings/agl-exclusion.md`
 
@@ -10,6 +10,10 @@ load-bearing region. The exclusion's tightest clincher is the all-nine shared
 prefix: nine distinct first symbols then a length-2 varying run `[66, 5]`
 at offset 1. Certify which 1- and 2-glyph perturbations of that region preserve the
 exclusion.
+
+Completion note: the robustness section is in
+`research/findings/agl-exclusion.md`; the verdict survives all 324 one-digit and
+5,184 bounded two-digit counterfactuals.
 
 ## Why
 `agl-exclusion.md` §7 already flags transcription as "the underlying risk" — a

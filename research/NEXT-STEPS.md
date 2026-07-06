@@ -4,20 +4,17 @@
 > `git log` is the source of truth for what has merged; this file is now a
 > navigation/status index, not the live priority queue.
 
-The current coordinator handoff is
-[`research/handoff/next-cycle-2026-07-06.md`](handoff/next-cycle-2026-07-06.md).
-Start there for new work. The recommended Tier-1 cycle is:
+The 2026-07-06 Tier-1 cycle in
+[`research/handoff/next-cycle-2026-07-06.md`](handoff/next-cycle-2026-07-06.md)
+has landed: planning hygiene, the transcription-perturbation harness, AGL
+robustness, Stutter sensitivity, and the structural summary are all merged.
 
-1. `T00` — refresh this index.
-2. `T01` — build the transcription-perturbation harness.
-3. `T02` / `T03` — use the harness to harden AGL and Stutter/perfect-iso
-   sensitivity claims.
-4. `T05` — write the publishable structural summary after those certificates
-   land.
-
-Optional side work is tracked in the same handoff folder. In particular, `T11`
-records the external-anchor hunt, which is the only route likely to change the
-decode outcome without new symbol-to-meaning evidence.
+Start new work from [`research/handoff/README.md`](handoff/README.md). The current
+best next action is `T11`, the bounded external-anchor criteria/status document.
+After that, only optional formalization remains: `T04` for the already-hedged
+`D166` robustness caveat and `T06` for a certification-degree appendix. `T07` is
+sample-suite cleanup and should stay opportunistic because it transfers poorly to
+the eyes.
 
 > **Honesty ceiling (binding, project-wide):** the eye data is deterministic,
 > engine-generated, strikingly structured data of unknown meaning; unsolved; no
@@ -38,11 +35,11 @@ maintainer-confirmed plaintext-level solve. That solve is still only
 letter-level computationally and still lacks an original-generator round trip,
 so it does not upgrade any eyes claim.
 
-The next useful work is not another broad decode search. The remaining
-publish-blocking gap is robustness: perturb small source-layer transcription
-windows, rebuild through the accepted honeycomb order, and measure whether the
-two load-bearing eyes conclusions survive. After that, publish one structural
-summary.
+The next useful work is not another broad decode search. The publish-blocking
+robustness gap has been closed and the structural summary is published in
+`research/findings/eyes-structural-summary.md`. The remaining high-leverage item
+is external rather than computational: write down what would count as a real
+symbol-to-meaning anchor and the current status of each candidate source (`T11`).
 
 ## Landed Status
 
@@ -61,31 +58,37 @@ result document that now owns the claim.
 | **G3** — isomorph leak ceiling | **DONE.** The leak shortfall is quantified: the richest repeated signature is far below the `S83` coset-permutation certification demand. | `8f052b6`, `dfd7139`; [`gak-threads/G3-leak-ceiling.md`](gak-threads/G3-leak-ceiling.md) |
 | **Thread 4 / T6-T7 attack arc** | **DONE.** The GAK attack spike produced synthetic gates, measured hidden-state limits, and an honest-negative eyes Step 3 with no surviving candidate. | `e7b88f8`, `d3b30fd`, `aaa9e9a`, `1d928a2`, `8aa7c53`, `44d4ec4`; [`gak-threads/PROGRESS.md`](gak-threads/PROGRESS.md) §6 |
 | **Deck-swap tooling side path** | **BUILT + MERGED.** The general swap-recovery instrument and practice-puzzle results are reference material, not the next eyes queue. | [`data/practice-puzzles/deck-swap/SWAP-RECOVERY-RESULTS.md`](data/practice-puzzles/deck-swap/SWAP-RECOVERY-RESULTS.md), [`handoff/README.md`](handoff/README.md) |
+| **T00** — planning refresh | **DONE.** `NEXT-STEPS.md` was converted from stale queue to status/navigation index. | `9c60769`; [`handoff/T00-refresh-next-steps.md`](handoff/T00-refresh-next-steps.md) |
+| **T01** — transcription-perturbation harness | **DONE.** Source-layer counterfactuals now perturb rendered orientation digits and rebuild reading-layer values through the accepted honeycomb order. | `3290d84`; [`../src/analysis/perturbation.rs`](../src/analysis/perturbation.rs) |
+| **T02** — AGL robustness | **DONE.** The AGL exclusion survives 324 one-digit and 5,184 bounded two-digit prefix-region counterfactuals. | `5052f10`; [`findings/agl-exclusion.md`](findings/agl-exclusion.md#7-transcription-robustness) |
+| **T03** — Stutter sensitivity | **DONE.** The perfect-isomorphism negative survives all 180 one-digit and 5,039/5,040 two-digit Stutter-region counterfactuals; the single flip is named. | `68fcca9`; [`gak-threads/G2-isomorph-imperfection.md`](gak-threads/G2-isomorph-imperfection.md#transcription-sensitivity-around-the-stutter-region-t03) |
+| **T05** — structural summary | **DONE.** The eyes frontier is packaged as a standalone, postable synthesis. | `a314f42`; [`findings/eyes-structural-summary.md`](findings/eyes-structural-summary.md) |
 
 ## Active Priority
 
-The active backlog is the Tier-1 harden-and-publish path in
+Tier 1 is complete. The active backlog is now the remaining Tier-2/Tier-3 work in
 [`research/handoff/README.md`](handoff/README.md):
 
-1. `T01` — source-layer transcription perturbation harness.
-2. `T02` — AGL-exclusion transcription robustness certificate.
-3. `T03` — perfect-iso / Stutter-region sensitivity certificate.
-4. `T05` — structural summary once `T02` and `T03` have landed.
-
-`T00` is this refresh. After it lands, do not continue from the old G1/G2/G3/T6
-ordering in this file; use the task files under `research/handoff/`.
+1. `T11` — external-anchor criteria/status document. This is the only remaining
+   item likely to change the decode outcome without new ciphertext.
+2. `T04` — optional `D166` transcription robustness; it only sharpens an
+   already-hedged, conditional verdict.
+3. `T06` — optional certification-degree appendix; it formalizes G3's existing
+   numbers and does not move decode odds.
+4. `T07` — proving-ground status/menu only if sample-suite progress is explicitly
+   prioritized over eyes work.
 
 ## Re-Ranking Rationale
 
-G4/T6 are demoted to formalization because G3 already computed the key numbers
+G4/T6 were demoted to formalization because G3 already computed the key numbers
 they were meant to chase: the sharp `S83` certification degree is `t = N - 1 =
 82`, and the harmonic coupon demand for `N = 83` is 332.2 aligned observations
 to pin one element on at least `N - 1` cosets. T7/G5 are confirmatory now that
 the Thread-4 attack arc has completed with an honest-negative eyes run. T8/T2
 remain triage-only because mapping-dependent language scoring cannot supply the
-missing symbol-to-meaning anchor. The highest-value remaining work is therefore
-the transcription-robustness certificate plus a single publishable structural
-summary.
+missing symbol-to-meaning anchor. With the transcription certificates and summary
+now landed, the next useful work is documenting the external-anchor bar and
+current source status, not searching the same ciphertext harder.
 
 ## Coordination Notes
 

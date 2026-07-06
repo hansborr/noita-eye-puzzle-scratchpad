@@ -1,8 +1,14 @@
 # Next cycle handoff — publishable eyes frontier
 
 **Date:** 2026-07-06  
-**Status:** recommended next work cycle after practice `two` confirmation  
+**Status:** executed; retained as provenance after Tier 1 landed
 **Audience:** an implementation/exploration agent picking up the repo cold
+
+Execution update: this cycle landed on `main` as `T00` (`9c60769`), `T01`
+(`3290d84`), `T02` (`5052f10`), `T03` (`68fcca9`), and `T05` (`a314f42`).
+Current new work should start from `research/NEXT-STEPS.md` and
+`research/handoff/README.md`; the next recommended item is `T11`, not another
+pass through the phases below.
 
 ## Executive summary
 

@@ -1,6 +1,6 @@
 # T00 — Refresh `NEXT-STEPS.md` (mark merged threads, record re-ranking)
 
-**Tier:** 1 · **Size:** XS · **Type:** doc · **Status:** Todo
+**Tier:** 1 · **Size:** XS · **Type:** doc · **Status:** Done (`9c60769`)
 **Depends on:** none · **Conflicts with:** none · **Touches:** `research/NEXT-STEPS.md`
 
 ## Goal

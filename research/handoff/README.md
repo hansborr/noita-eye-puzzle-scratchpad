@@ -6,8 +6,9 @@ Work the priority ladder below top-down; stop when the marginal value drops
 (it is explicitly fine to stop after Tier 1).
 
 This backlog was written 2026-06-26 after a full state read + two codex passes (a
-direction second-opinion and a review of this folder). It supersedes the (stale)
-ranking in `research/NEXT-STEPS.md` — fixing that file is task T00.
+direction second-opinion and a review of this folder). Update 2026-07-06:
+Tier 1 has landed through the structural summary. The active remaining queue is
+Tier 2, starting with `T11`.
 
 ## The one-paragraph situation
 
@@ -17,9 +18,11 @@ is exhaustively excluded; perfect-isomorphism is *supported* (so GAK is not
 falsified); the Thread-4 attack gives a clean, fair honest-negative; and G3
 quantified a calibrated no on chaining recovery at this data budget. The
 decode is blocked on the unknown symbol→meaning mapping, with no external
-anchor. So the honest next move is harden-and-publish, not "find the next
-solver." The remaining code work is transcription-robustness certification +
-(low-value, mostly-exhausted) proving-ground decodes.
+anchor. The harden-and-publish cycle is now complete: the transcription
+robustness certificates landed, and the publishable structural summary is in
+`research/findings/eyes-structural-summary.md`. The remaining useful work is
+mostly external-anchor documentation plus optional formalization; broad decode
+search is not the next move.
 
 ## House rules (read before any task)
 
@@ -64,19 +67,23 @@ solver." The remaining code work is transcription-robustness certification +
   substitution-first local-search backend. Vendored challenge corpus + results at
   `research/data/practice-puzzles/deck-swap/`.
 
-**Tier 1 — harden & publish the eyes frontier (do these first; highest value/effort).**
-- `next-cycle-2026-07-06.md` — **coordinator handoff for the next natural cycle**:
-  after practice `two` confirmation, stop broad proving-ground search and execute
-  the Tier-1 publishability path: T00 → T01 → T02/T03 → T05, with T11 as an
-  optional doc/research sidecar.
-- `T00` — refresh `NEXT-STEPS.md` (doc hygiene; unblocks anyone reading the stale ladder).
-- `T01` — transcription-perturbation harness (shared primitive; enables T02–T04).
-- `T02` — AGL-exclusion transcription robustness.
-- `T03` — perfect-iso / G2 Stutter-region transcription *sensitivity* (the audit itself is done).
-- `T05` — community-facing structural summary (the publish artifact).
+**Tier 1 — harden & publish the eyes frontier (DONE; kept as provenance).**
+- `next-cycle-2026-07-06.md` — **EXECUTED.** It sent the repo through
+  T00 → T01 → T02/T03 → T05 after practice `two` confirmation.
+- `T00` — **DONE** (`9c60769`). `NEXT-STEPS.md` was refreshed into a
+  navigation/status index.
+- `T01` — **DONE** (`3290d84`). The source-layer transcription-perturbation
+  harness is live in `src/analysis/perturbation.rs`.
+- `T02` — **DONE** (`5052f10`). AGL exclusion robustness is recorded in
+  `research/findings/agl-exclusion.md`.
+- `T03` — **DONE** (`68fcca9`). Perfect-iso / G2 Stutter sensitivity is recorded
+  in `research/gak-threads/G2-isomorph-imperfection.md`.
+- `T05` — **DONE** (`a314f42`). The structural summary is published at
+  `research/findings/eyes-structural-summary.md`.
 
-**Tier 2 — the standing unblocker + optional formalization.**
-- `T11` — external-anchor hunt (the only real decode-unblocker; mostly non-computational).
+**Tier 2 — active remaining work: the standing unblocker + optional formalization.**
+- `T11` — external-anchor hunt (the only real decode-unblocker; mostly
+  non-computational). Do this next unless the user explicitly asks for a code task.
 - `T04` — D₁₆₆ dihedral-exclusion robustness (optional; only sharpens an already-hedged verdict).
 - `T06` — G3 certification-degree appendix (formalization; numbers already exist in G3).
 
@@ -113,18 +120,17 @@ solver." The remaining code work is transcription-robustness certification +
 ## Dependency / conflict map
 
 ```
-T00  (doc)            — independent
-T01  (code) ──┬─> T02 (code+doc)   [AGL: src/attack/agl_gak/mod.rs]
-              ├─> T03 (code+doc)   [Stutter: src/analysis/isomorph_imperfection/mod.rs]
-              └─> T04 (code+doc)   [D166: src/experiments/transitivity/mod.rs]
-T02,T03 ─────────> T05 (doc)       [summary cites the certificates]
-T06, T11 (doc)       — independent
-T07  (doc/menu)      — independent; opportunistic only
+T00, T01, T02, T03, T05 — DONE
+T11  (doc)              — active next; independent
+T04  (code+doc)         — optional; depends on landed T01 harness
+T06  (doc)              — optional; independent
+T07  (doc/menu)         — independent; opportunistic only
 ```
 
 ## What "done" looks like for the whole backlog
 
-Tier 1 landed = the eyes' structural conclusions are transcription-certified and
-packaged into one postable summary, with the stale ladder fixed. That is a
-publishable, honest close of the computational frontier. Tiers 2–3 are upside —
-T11 is the only thing that could change the decode outcome, and it is external.
+Tier 1 has landed: the eyes' structural conclusions are transcription-certified
+and packaged into one postable summary, with the stale ladder fixed. That is a
+publishable, honest close of the computational frontier. Tiers 2–3 are upside;
+T11 is the only remaining item that could change the decode outcome, and it is
+external.

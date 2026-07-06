@@ -1,6 +1,6 @@
 # T03 — Perfect-iso / G2 Stutter-region transcription *sensitivity*
 
-**Tier:** 1 · **Size:** S · **Type:** code+doc · **Status:** Todo
+**Tier:** 1 · **Size:** S · **Type:** code+doc · **Status:** Done (`68fcca9`)
 **Depends on:** T01 · **Conflicts with:** other `isomorph_imperfection/` edits
 **Touches:** `src/analysis/isomorph_imperfection/` (+ test),
 `research/gak-threads/G2-isomorph-imperfection.md`
@@ -12,6 +12,11 @@ benign attribution; this task adds only the perturbation-sensitivity layer: does
 any 1–2 orientation-digit mis-read in the Stutter region flip either loose candidate
 from *benign* to a *promoted robust internal violation* (which would eject the eyes
 from the perfectly-isomorphic family)?
+
+Completion note: the sensitivity section is in
+`research/gak-threads/G2-isomorph-imperfection.md`; the negative survives all 180
+one-digit and 5,039/5,040 bounded two-digit counterfactuals, with the single
+flipping two-digit counterfactual named there.
 
 ## Scope correction (do not redo the audit)
 G2 is landed in `src/analysis/isomorph_imperfection/` (it consumes

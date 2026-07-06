@@ -1,6 +1,6 @@
 # T05 — Community-facing structural summary (the publish artifact)
 
-**Tier:** 1 · **Size:** S · **Type:** doc · **Status:** Todo
+**Tier:** 1 · **Size:** S · **Type:** doc · **Status:** Done (`a314f42`)
 **Depends on:** T02, T03 (cites their certificates) · **Conflicts with:** none
 **Touches:** new `research/findings/eyes-structural-summary.md`
 
@@ -8,6 +8,9 @@
 One self-contained, postable document that consolidates the eyes' structural
 conclusions into a single honest narrative a community reader can absorb without
 spelunking the thread docs.
+
+Completion note: published as
+`research/findings/eyes-structural-summary.md`.
 
 ## Why
 The structural attack program is essentially done; its results are scattered across
