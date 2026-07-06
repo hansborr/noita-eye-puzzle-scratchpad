@@ -70,19 +70,61 @@ summary's relative confidences read backwards: the dihedral proof covered
 arbitrary substitution on top; the AGL proof did not, yet AGL is labeled
 "exhaustively excluded" while D₁₆₆ stays "conditional".
 
-**PENDING VERIFICATION** — a proof-scope audit of `agl-exclusion.md`,
-`thread-2-empirical.md`, `thread-1b-5-empirical.md` is running; fill in the
-resolved scope matrix here before implementing. Planned edit shape:
-- Add a short **scope matrix** to `research/findings/eyes-structural-summary.md`
-  (§ candidate family + § AGL): for each exclusion — model covered
-  (point-stabilizer GAK), key-space enumerated, substitution-on-top covered
-  or not, and the subgroup-lattice fact D₁₆₆ ≤ AGL(1,83).
-- If the exhaustive AGL enumeration subsumes dihedral configurations
-  within-model, upgrade the D₁₆₆ verdict to match within that model (its own
-  single-witness argument then only carries the substitution-hardened part).
-- `research/frontier.md:21` — "AGL is tentatively ruled out" is stale against
-  `frontier.md:75-78` (our exhaustive exclusion); fix in place.
-- Mirror the clarified labels in `research/gak-threads/PROGRESS.md:237-241`.
+**RESOLVED [verified]** by a 2026-07-06 proof-scope audit of
+`agl-exclusion.md`, `thread-2-empirical.md`, `thread-1b-5-empirical.md`,
+`thread-1b-dihedral-verification.md` (facts double-checked by the
+orchestrator):
+
+- **Subsumption holds.** The AGL Full-case enumeration is over
+  `G \ Stab(0)` = all 82 multipliers × 82 nonzero offsets (0/6724 with ≥2
+  fixed points; `agl-exclusion.md:199-213`), and the multiplier set includes
+  a = −1. Since D₁₆₆ = C₈₃⋊⟨−1⟩ = {x↦±x+b} ≤ AGL(1,83), and thread 1b uses
+  the *same* chaining model (right-multiplication update, ciphertext = moved
+  reference point, point-stabilizer readout;
+  `thread-1b-dihedral-verification.md:31-56` vs `thread-2-empirical.md:27-34`),
+  every D₁₆₆ discrepancy lies inside the swept set. The fixed-point lemma that
+  kills AGL-GAK therefore kills D₁₆₆-GAK as a literal special case,
+  within-model. (D₁₆₆ ⊄ C₈₃:C₄₁ — −1 is a non-residue mod 83, 83 ≡ 3 mod 4 —
+  so the subsumption rides on the Full-case sweep only.)
+- **Substitution coverage is symmetric, not asymmetric.** Neither proof
+  discusses substitutions, but both use only ciphertext-symbol *equality*
+  (honesty banners, `thread-2-empirical.md:3-4`,
+  `thread-1b-5-empirical.md:3-4`), so both are invariant under a single global
+  relabeling applied consistently across messages — as a construction side
+  effect, not a stated theorem. The dihedral thread names the one-global-
+  labeling assumption explicitly (A5); the AGL doc leaves the analogous
+  assumption implicit. Fix: state the relabeling-invariance + its
+  one-global-configuration condition explicitly in BOTH.
+- **Dihedral's own witness stays fragile.** Thread 1b's independent argument
+  rests on exactly one witness triple (west1@40/east2@45/west1@70), conditional
+  on A1+A5, with single-source columns col6/col9 (the commutativity half lives
+  entirely in the col9 over-extension). After the subsumption upgrade it is
+  corroboration, no longer load-bearing.
+
+Edits:
+- `research/findings/agl-exclusion.md` §8 (~:326-331) — currently treats the
+  D₁₆₆ exclusion as a separate community track; add the **subsumption
+  corollary** (observation: Lymm 2026-07-06; verified against the enumeration
+  definition above), and make the implicit one-global-labeling assumption +
+  equality-only relabeling-invariance explicit.
+- `research/findings/eyes-structural-summary.md:45-49, 54-88, 193-195` — add a
+  compact scope matrix (per exclusion: model, space swept, relabeling
+  invariance, conditions); upgrade D₁₆₆ to excluded-by-subsumption within the
+  same model/conditions as AGL (inheriting the differing-start/`(66,5)`-prefix
+  gate and its T02 transcription-hardening); demote the single-witness thread-1b
+  argument to corroboration; surviving family becomes {A₈₃, S₈₃} with no
+  "D₁₆₆ conditional" rider (the conditionality now lives in the shared
+  model/config assumptions, stated once).
+- `research/gak-threads/notes/thread-2-empirical.md` and
+  `.../notes/thread-1b-dihedral-verification.md` /
+  `.../notes/thread-1b-5-empirical.md` — one-line clarification each
+  (relabeling invariance explicit; 1b gains "subsumed by the AGL sweep
+  within-model; retained as independent corroboration").
+- `research/gak-threads/PROGRESS.md:26, 237-241` — mirror the upgraded labels.
+- `research/frontier.md:20-21` — "(with D₁₆₆ conditional)" and "AGL is
+  tentatively ruled out" are stale against `frontier.md:75-78`; fix in place.
+- `research/handoff/README.md:16` — "(D₁₆₆ conditional)" → subsumption-updated
+  wording.
 
 ## 4. Six-transitive-groups count: close the "GAP cross-check pending" gap
 
@@ -220,6 +262,26 @@ active direction; the eyes "publish-and-close" stance is unchanged.
 
 ## Implementation notes
 
+- Parallel-safe file ownership (no two implementers touch the same file):
+  - **Batch A (group theory + summary):** items 3, 4, 5, plus item 6's summary
+    lines and item 8's frontier/PROGRESS caveats — owns
+    `eyes-structural-summary.md`, `agl-exclusion.md`, `PROGRESS.md`,
+    `thread-1a-transitivity-proof.md`, `thread-2-empirical.md`,
+    `thread-1b-5-empirical.md`, `thread-1b-dihedral-verification.md`,
+    `frontier.md`, `handoff/README.md`.
+  - **Batch B (skeptic docs):** items 1, 2, 7, 9, plus item 6's
+    `05-code-investigations.md` lines — owns `01-overview.md`,
+    `02-theories-and-encoding.md`, `03-confirmed-vs-speculation.md`,
+    `05-code-investigations.md`, `AGENTS.md`, `attack-methodology.md`.
+  - **Batch C (mapping reframe + transfer caveat):** remainder of item 6 and
+    item 8 — owns `research/README.md`, `NEXT-STEPS.md`, `threads-eyes.md`,
+    `gak-threads/candidates/README.md`, `handoff/T11-external-anchor-hunt.md`,
+    `handoff/next-cycle-2026-07-06.md`, `SWAP-RECOVERY-METHOD.md`,
+    `src/attack/gak_attack/eyes/mod.rs`, `src/attack/gak_attack/eyes/report.rs`.
+  - **Batch D:** item 10 (new file only).
+- Historical handoffs (e.g. `two-pairclass-aprime-reform.md`,
+  `orchestrator-handoff-groupscan-and-threads.md`) are records of past tasking —
+  leave their wording as-is.
 - Line numbers above are as of commit `64dbef6`; re-locate by content.
 - Every new factual claim carries its provenance tag into the edited docs —
   do not upgrade **[Lymm]** items to independently-verified.
