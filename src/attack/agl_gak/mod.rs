@@ -13,6 +13,7 @@ use crate::nulls::perseus::{self, PerseusError, SharedRunRole};
 
 mod groups;
 mod report;
+mod robustness;
 #[cfg(test)]
 mod tests;
 
@@ -20,6 +21,10 @@ use groups::{
     agreement_check, distinct_symbols_in_run, fixed_point_enumeration, forward_simulation,
     message_index, positive_controls, predecessor_differs, stream_at, subgroups_to_run,
     validate_positive_controls,
+};
+pub use robustness::{
+    AglGakRobustnessBreak, AglGakRobustnessBreakReason, AglGakRobustnessSummary,
+    AglGakTranscriptionFootprint, AglGakTranscriptionRobustness,
 };
 
 /// Default deterministic seed for the AGL-GAK stress-test controls.
@@ -315,6 +320,8 @@ pub struct AglGakReport {
     pub positive_control_feasible_ok: bool,
     /// Whether every pure-translation negative control passed.
     pub positive_control_infeasible_ok: bool,
+    /// Source-layer perturbation sensitivity for the load-bearing prefix region.
+    pub transcription_robustness: AglGakTranscriptionRobustness,
 }
 
 /// Runs the AGL-GAK structural stress test.
@@ -324,7 +331,9 @@ pub struct AglGakReport {
 /// failure, invalid control construction, invalid configuration, random-draw
 /// failure, or a failing positive control.
 pub fn run_agl_gak(config: AglGakConfig) -> Result<AglGakReport, AglGakError> {
-    validate_config(config)?;
+    if config.null_trials == 0 {
+        return Err(AglGakError::ZeroTrials);
+    }
     let grids = orders::corpus_grids()?;
     let keys = grids
         .iter()
@@ -353,6 +362,7 @@ pub fn run_agl_gak(config: AglGakConfig) -> Result<AglGakReport, AglGakError> {
     let positive_control_infeasible_ok = subgroup_reports
         .iter()
         .all(|report| report.positive_controls.pure_translation_rejected_ok);
+    let transcription_robustness = robustness::certify_transcription_robustness()?;
 
     Ok(AglGakReport {
         config,
@@ -364,14 +374,8 @@ pub fn run_agl_gak(config: AglGakConfig) -> Result<AglGakReport, AglGakError> {
         subgroup_reports,
         positive_control_feasible_ok,
         positive_control_infeasible_ok,
+        transcription_robustness,
     })
-}
-
-fn validate_config(config: AglGakConfig) -> Result<(), AglGakError> {
-    if config.null_trials == 0 {
-        return Err(AglGakError::ZeroTrials);
-    }
-    Ok(())
 }
 
 fn checked_streams(

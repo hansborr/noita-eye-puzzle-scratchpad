@@ -59,6 +59,14 @@ subgroup verdicts
     obstruction: east1/west1 start 1 len 2 distinct 2/2 after predecessors 50 vs 80
     forward add-one p for a varying shared run: 0.030303
 
+transcription robustness
+  source footprint: 9 messages x 9 digits [0,1,2,3,4,39,40,41,42] for reading offsets 0..=2
+  double scope: exact two-digit changes are bounded within one message footprint
+  1-digit variants: exclusion 324/324; global-prefix witness 78/324; outside alphabet 51/324; exact verified prefix 78/324
+    dissolving perturbations: none
+  2-digit variants: exclusion 5184/5184; global-prefix witness 257/5184; outside alphabet 1516/5184; exact verified prefix 257/5184
+    dissolving perturbations: none
+
 Interpretation: AGL(1,83)-GAK is rigorously excluded for both C83:C82 and C83:C41 under the verified right-multiplication / left-coset model. The wiki's tentative message-start exclusion was over-conceded / weaker than needed: the rigorous kill is the varying-shared-run mechanism. After a differing start, an affine discrepancy can fix at most one point, so any AGL shared run must be constant; the eyes' shared runs vary.
 this excludes one candidate group family and narrows the transitive GAK candidate set toward {A83, S83}, with D166 conditional elsewhere. It says nothing about recoverable plaintext. Scope: this excludes the point-stabilizer AGL-GAK family (output = moved reference point, single shared running key); it does not speak to non-GAK affine constructions or a non-point-stabilizer hidden subgroup.
 Multiplicity note: both AGL multiplier variants are tested, and the repeated tails reported here are structural/exhaustive checks rather than language-scoring claims.
