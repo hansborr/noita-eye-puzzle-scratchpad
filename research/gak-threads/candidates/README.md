@@ -16,11 +16,13 @@ negative is the point — there are no silent caps.
 
 The GAK attack recovers structure (visible-coset actions / chain-link
 constraints), not cleartext. Even a full recovery of the eye group structure
-yields abstract plaintext-letter indices, not readable text, because mapping
-symbols→letters needs an external anchor — which is exactly the standing
-blocker. So any "candidate cleartext" can only arise by additionally hypothesizing
-a symbol→letter mapping. The cleartext path is therefore speculative, gated, and
-never primary.
+yields abstract plaintext-letter indices, not readable text, because turning
+those indices into letters needs the letter→action assignment — which *is* the
+key (there is no fixed symbol→meaning table to find; the cipher is
+polyalphabetic) — a method/cipher-family disclosure, or known plaintext, none of
+which is in hand (reframed per maintainer feedback, 2026-07-06). So any
+"candidate cleartext" can only arise by additionally hypothesizing that key. The
+cleartext path is therefore speculative, gated, and never primary.
 
 ## The kill order (every candidate is a hypothesis until it survives all of these)
 

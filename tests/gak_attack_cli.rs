@@ -254,7 +254,7 @@ fn gak_attack_eyes_subcommand_locks_the_eyes_honesty_surface() {
     // The expected outcome is no surviving candidate; the decode remains blocked.
     assert_contains(
         &stdout,
-        "Expected outcome: no surviving candidate. The standing conclusion is the eye decode remains blocked on the unknown symbol->meaning mapping; a clean honest negative is a success, not a failure.",
+        "Expected outcome: no surviving candidate. The standing conclusion is the eye decode remains blocked on missing key material, a method disclosure, or known plaintext -- not a fixed symbol->meaning table (no such table exists for a polyalphabetic cipher); a clean honest negative is a success, not a failure.",
     );
 
     // What is recovered is structure, not cleartext; any candidate is a hypothesis.

@@ -87,7 +87,8 @@ community's whole Goal 2 had no forward thread. This is half the community probl
 
 ### T8 — language-guided mapping search on the eyes *(L · keep, honesty-gated)*
 - **Serves:** Goal 1 decode (mapping-dependent) — the one thread that could touch symbol→meaning.
-  Speculative; blocked on the unknown symbol→meaning mapping with no external anchor.
+  Speculative; blocked on missing key material, a method disclosure, or known
+  plaintext — not a fixed symbol→meaning mapping.
 - Use a Finnish/English n-gram score as the search objective over the GAK key / symbol→meaning
   mapping (analog of the Ragbaby keyed-alphabet search). **Caveat (binding):** the eyes are a
   context-dependent deck-cipher autokey, so a naive substitution-style mapping search will not

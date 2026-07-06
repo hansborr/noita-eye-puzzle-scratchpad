@@ -13,11 +13,13 @@ use super::*;
 //
 // The attack recovers structure (visible-coset actions / chain-link constraints),
 // not cleartext. Even a full recovery of the eye group structure yields abstract
-// plaintext-letter indices, not readable text, because mapping symbols→letters
-// needs an external anchor (exactly the standing blocker). So a "candidate
-// cleartext" can only arise by additionally hypothesizing a symbol→letter mapping.
-// The cleartext path is therefore speculative, gated, Finnish-weighted, and never
-// primary.
+// plaintext-letter indices, not readable text, because turning those indices into
+// letters needs the letter→action assignment — which *is* the key (there is no
+// fixed symbol→meaning table to find; the cipher is polyalphabetic) — a
+// method/cipher-family disclosure, or known plaintext, none of which is in hand.
+// So a "candidate cleartext" can only arise by additionally hypothesizing that
+// key. The cleartext path is therefore speculative, gated, Finnish-weighted, and
+// never primary.
 //
 // ## Entry path (exact — never deviate)
 //
@@ -303,8 +305,10 @@ fn eyes_gate1_evaluation(
 /// Runs the eyes Step-3 attack on the verified eye corpus and writes the mandatory
 /// candidate record.
 ///
-/// The standing conclusion is the eye decode is blocked on the unknown
-/// symbol→meaning mapping. This run measures honestly whether that holds: it points
+/// The standing conclusion is the eye decode is blocked on missing key material
+/// (the letter→action assignment), a method/cipher-family disclosure, or known
+/// plaintext — not a fixed symbol→meaning table (no such table exists for a
+/// polyalphabetic cipher). This run measures honestly whether that holds: it points
 /// the matured chain-link attack at the real per-message eye streams, evaluates the
 /// held-out isomorph gate against a matched within-message shuffle null, consults
 /// Thread 3's perfect-isomorphism consistency, and only if both structural gates

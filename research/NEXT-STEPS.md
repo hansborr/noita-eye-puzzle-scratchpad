@@ -39,7 +39,8 @@ The next useful work is not another broad decode search. The publish-blocking
 robustness gap has been closed and the structural summary is published in
 `research/findings/eyes-structural-summary.md`. The remaining high-leverage item
 is external rather than computational: write down what would count as a real
-symbol-to-meaning anchor and the current status of each candidate source (`T11`).
+external anchor — key material, a method disclosure, or known plaintext — and
+the current status of each candidate source (`T11`).
 
 ## Landed Status
 
@@ -86,7 +87,7 @@ they were meant to chase: the sharp `S83` certification degree is `t = N - 1 =
 to pin one element on at least `N - 1` cosets. T7/G5 are confirmatory now that
 the Thread-4 attack arc has completed with an honest-negative eyes run. T8/T2
 remain triage-only because mapping-dependent language scoring cannot supply the
-missing symbol-to-meaning anchor. With the transcription certificates and summary
+missing key material, method disclosure, or known plaintext. With the transcription certificates and summary
 now landed, the next useful work is documenting the external-anchor bar and
 current source status, not searching the same ciphertext harder.
 
