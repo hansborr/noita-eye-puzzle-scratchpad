@@ -108,6 +108,11 @@ pub enum LymmDeckError {
         /// Count of ciphertext characters.
         ciphertext_chars: usize,
     },
+    /// A hidden-base audit fixture was configured with an impossible parameter.
+    HiddenBaseConfig {
+        /// Short diagnostic.
+        reason: &'static str,
+    },
 }
 
 impl fmt::Display for LymmDeckError {
@@ -175,6 +180,9 @@ impl fmt::Display for LymmDeckError {
                 f,
                 "message {label:?} has {plaintext_alpha_chars} plaintext alphabet characters but {ciphertext_chars} ciphertext characters"
             ),
+            Self::HiddenBaseConfig { reason } => {
+                write!(f, "invalid hidden-base audit fixture: {reason}")
+            }
         }
     }
 }

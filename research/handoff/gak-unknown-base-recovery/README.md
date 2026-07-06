@@ -1,6 +1,6 @@
 # Handoff - unknown-base GAK / deck-cipher recovery
 
-**Status:** proposed next community-infrastructure track
+**Status:** task 01 built; task 02 is the next solver rung
 **Priority:** active when the goal is to help Lymm's stated GAK-attack interests,
 rather than to move the eyes decode directly
 **Depends on:** `gak-swap-recovery/`, especially `gak-swap-recover` and
@@ -69,6 +69,18 @@ shared base action is hidden.
 ## Suggested Implementation Ladder
 
 ### 01 - Hidden-base fixture and identifiability audit
+
+**Built:** see
+[`01-hidden-base-fixture-audit.md`](01-hidden-base-fixture-audit.md). The landed
+instrument is `gak-hidden-base-audit`, backed by
+`plant_hidden_base_fixture`, `audit_hidden_base_mapping`,
+`run_hidden_base_identifiability_audit`, and `hidden_base_audit_self_test`.
+It plants synthetic known-plaintext hidden-base fixtures, accepts only by exact
+re-encryption of a supplied mapping, and audits whether that mapping's
+decomposition as `perm(L) = B o sigma_L` identifies the planted base or leaves an
+equivalent hidden-base class. Default controls include a planted positive, random
+full-permutation null, over-budget null, true-budget positive, and
+ciphertext-label-shuffle null.
 
 Add a fixture generator beside the Lymm deck machinery that can plant:
 

@@ -11,6 +11,9 @@ mod corpus;
 mod domain;
 mod error;
 mod generators;
+mod hidden_base;
+mod hidden_base_controls;
+mod hidden_base_fixture;
 mod oracle;
 mod plant;
 mod recovery;
@@ -19,6 +22,8 @@ mod spec;
 
 #[cfg(test)]
 mod generator_tests;
+#[cfg(test)]
+mod hidden_base_tests;
 #[cfg(test)]
 mod ns3_probe;
 #[cfg(test)]
@@ -33,6 +38,17 @@ pub use domain::{
 };
 pub use error::LymmDeckError;
 pub use generators::{LymmGeneratorSet, enumerate_generator_domains};
+pub use hidden_base::{
+    DEFAULT_HIDDEN_BASE_AUDIT_SEED, HiddenBaseAuditConfig, HiddenBaseAuditReport,
+    HiddenBaseFixture, HiddenBaseFixtureConfig, HiddenBaseIdentifiabilityStatus, HiddenBaseKind,
+    HiddenBaseRoundTrip, HiddenBaseSurfaceReport, HiddenBaseTrialReport, audit_hidden_base_mapping,
+    run_hidden_base_identifiability_audit,
+};
+pub use hidden_base_controls::{
+    HiddenBaseAuditSelfTestReport, HiddenBaseControlExpectation, HiddenBaseControlReport,
+    hidden_base_audit_self_test,
+};
+pub use hidden_base_fixture::plant_hidden_base_fixture;
 pub use oracle::encrypt_lymm_deck;
 pub use plant::{PlantedLymmMapping, generate_random_pt_mapping};
 pub use recovery::{

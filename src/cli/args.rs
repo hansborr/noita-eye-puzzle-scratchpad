@@ -19,6 +19,7 @@ use super::args_bigramcodec::BigramcodecArgs;
 use super::args_codecpower::CodecpowerArgs;
 use super::args_cribfit::CribfitArgs;
 use super::args_ctak::CtakscanArgs;
+use super::args_gak_hidden_base::GakHiddenBaseAuditArgs;
 use super::args_gak_swap::{GakSwapArcPhase0Args, GakSwapRecoverArgs};
 use super::args_isomap::IsomapArgs;
 use super::args_maskdecode::MaskdecodeArgs;
@@ -77,6 +78,11 @@ pub(crate) enum Command {
     /// emits candidates for the finer-vocabulary decision rule, never a decode.
     #[command(name = "gak-swap-arc-phase0")]
     GakSwapArcPhase0(GakSwapArcPhase0Args),
+    /// Synthetic known-plaintext hidden-base GAK/deck fixture audit.
+    /// Measures whether an exact re-encrypting mapping identifies the shared
+    /// hidden base, without running an eyes attack or language-scored search.
+    #[command(name = "gak-hidden-base-audit")]
+    GakHiddenBaseAudit(GakHiddenBaseAuditArgs),
     /// Translate-isomorph (exact repeated-substring) scanner with an order-1
     /// Markov matched null. Locates where a stream repeats — optionally on the
     /// `--delta-mod` difference channel — as a structural candidate, never a decode.
