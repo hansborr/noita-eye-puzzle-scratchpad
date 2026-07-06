@@ -1,5 +1,5 @@
 [codespell]
-skip = ./target,.git,Cargo.lock,./research/data/lang,./research/data/practice-puzzles,./research/gak-threads/candidates
+skip = ./target,.git,Cargo.lock,./research/data/lang,./research/data/practice-puzzles,./research/gak-threads/candidates,./research/data/crcscan-default-wordlist.txt
 # `research/data/lang` is skipped so public-domain calibration excerpts,
 # especially Finnish source text, are not altered to satisfy an English
 # spelling dictionary. `research/data/practice-puzzles` is skipped for the same
@@ -11,6 +11,8 @@ skip = ./target,.git,Cargo.lock,./research/data/lang,./research/data/practice-pu
 # cleartext (e.g. the base-6 grouping token `ALLL` in `solve-six`) is data that
 # the candidate-logging / transcription-integrity directive forbids altering,
 # so spell-checking it is categorically wrong.
+# `research/data/crcscan-default-wordlist.txt` is a mixed-language wordlist for
+# CRC scanning; entries such as Finnish `te` are data, not prose typos.
 # Domain words / abbreviations that are not typos (`implementors` is Rust
 # rustdoc terminology; the hyphenated forms are deliberate doc style).
-ignore-words-list = crate,ser,noita,nd,wont,Statics,substition,periodioc,implementors,pre-empt,re-declare,re-declared
+ignore-words-list = crate,ser,noita,nd,wont,Statics,substition,periodioc,implementors,pre-empt,re-declare,re-declared,inthe

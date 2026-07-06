@@ -15,7 +15,7 @@ The structural attack program is essentially done; its results are scattered acr
 "publish-and-close the computational frontier." Highest-value doc task.
 
 ## Steps
-1. Open with the claim ceiling verbatim and a one-paragraph "what this is."
+1. Open with a one-paragraph "what this is."
 2. Summarize, each in a short section with the headline number and a pointer to its
    full write-up (do not re-derive):
    - Transitivity restriction → 6 groups; family pinned to {A₈₃, S₈₃}, D₁₆₆ conditional.
@@ -33,7 +33,7 @@ The structural attack program is essentially done; its results are scattered acr
 
 ## Definition of done
 - [ ] `eyes-structural-summary.md` reads standalone; every number cites its source doc.
-- [ ] No claim exceeds the ceiling; assumptions labelled; T02/T03 certificates referenced.
+- [ ] No claim overstates the cited evidence; assumptions labelled; T02/T03 certificates referenced.
 - [ ] `make check` green (codespell clean — this is prose-heavy).
 - [ ] committed.
 

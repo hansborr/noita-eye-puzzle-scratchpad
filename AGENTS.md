@@ -15,7 +15,7 @@ All cryptanalysis results belong in the repo so every contributor and agent shar
 one source of truth. Start at **`research/README.md`** (the dossier index).
 Load-bearing entries:
 
-- `research/03-confirmed-vs-speculation.md` — the skeptic's scorecard / claim ceiling.
+- `research/03-confirmed-vs-speculation.md` — the skeptic's scorecard / evidence tiers.
 - `research/attack-methodology.md` — reusable, cross-cutting process lessons.
 - `research/gak-threads/` (`README.md`, `PROGRESS.md`) — the GAK-cipher campaign on the eyes.
 - `research/findings/` — individual calibrated results (CRC/lumikki, predicate battery, discriminators).
