@@ -4,7 +4,10 @@ use crate::attack::quadgram::QuadgramModel;
 use crate::nulls::null::{SplitMix64, fisher_yates, mix_seed};
 
 use super::artifact::{PreparedClass, canonical_from_plaintext, encode_with_key};
-use super::scoring::{WordSegModel, combined_score, score_anchor_words, score_quadgrams as quad};
+use super::scoring::{
+    WordSegModel, combined_score, score_anchor_byte_coverage, score_anchor_words,
+    score_byte_coverage, score_quadgrams as quad, tier_a_score,
+};
 use super::tables::{loose_printable, strict_language_byte};
 use super::{
     CalibrationReport, DigitOrder, FinishCandidate, PairPhase, ShadowFinishArtifact,
@@ -35,6 +38,7 @@ struct TierACandidate {
     permutation: [u8; 8],
     plaintext: Vec<u8>,
     quadgram_score: f64,
+    tier_a_score: f64,
     strict_valid: bool,
 }
 
@@ -163,7 +167,13 @@ fn enumerate_and_score(
         top_k_dropped: 0,
     };
     let mut retained = Vec::new();
-    let truth_reference_score = truth.map(|probe| quadgram_score(quadgram, probe.plaintext));
+    let truth_reference_score = truth.map(|probe| {
+        cheap_tier_a_score(
+            quadgram_score(quadgram, probe.plaintext),
+            probe.plaintext,
+            &artifact.hard_anchors,
+        )
+    });
     let mut truth_better_tier_a = 0usize;
     let mut truth_seen_tier_a = false;
 
@@ -194,10 +204,12 @@ fn enumerate_and_score(
                             tier_a.strict_passes += 1;
                         }
                         let quadgram_score = quadgram_score(quadgram, &plaintext);
+                        let tier_a_score =
+                            cheap_tier_a_score(quadgram_score, &plaintext, &artifact.hard_anchors);
                         if truth.is_some_and(|probe| probe.plaintext == plaintext.as_slice()) {
                             truth_seen_tier_a = true;
                         } else if truth_reference_score
-                            .is_some_and(|truth_score| quadgram_score > truth_score)
+                            .is_some_and(|truth_score| tier_a_score > truth_score)
                         {
                             truth_better_tier_a += 1;
                         }
@@ -211,6 +223,7 @@ fn enumerate_and_score(
                                 permutation,
                                 plaintext,
                                 quadgram_score,
+                                tier_a_score,
                                 strict_valid,
                             },
                             config.top_k_per_class,
@@ -346,7 +359,8 @@ fn score_tier_b(
 ) -> Result<TierBScored, ShadowFinishError> {
     let word = word_model.score_text(&candidate.plaintext);
     let anchor = score_anchor_words(word_model, &candidate.plaintext, &artifact.hard_anchors);
-    let combined = combined_score(candidate.quadgram_score, word, anchor);
+    let coverage = score_byte_coverage(&candidate.plaintext);
+    let combined = combined_score(candidate.quadgram_score, word, anchor, coverage);
     let roundtrip = exact_roundtrip(artifact, prepared, ciphertext, tables, candidate)?;
     if enforce_phase0_roundtrip && candidate.phase == PairPhase::Phase0 && !roundtrip {
         return Err(ShadowFinishError::RoundTrip(
@@ -454,11 +468,11 @@ fn offer_top_a(
     let Some((worst_index, worst)) = top
         .iter()
         .enumerate()
-        .min_by(|(_, left), (_, right)| left.quadgram_score.total_cmp(&right.quadgram_score))
+        .min_by(|(_, left), (_, right)| left.tier_a_score.total_cmp(&right.tier_a_score))
     else {
         return;
     };
-    if candidate.quadgram_score > worst.quadgram_score
+    if candidate.tier_a_score > worst.tier_a_score
         && let Some(slot) = top.get_mut(worst_index)
     {
         *slot = candidate;
@@ -551,6 +565,16 @@ fn quadgram_score(model: &QuadgramModel, plaintext: &[u8]) -> f64 {
     } else {
         f64::NEG_INFINITY
     }
+}
+
+fn cheap_tier_a_score(
+    quad: f64,
+    plaintext: &[u8],
+    anchors: &[crate::analysis::shadow_search::Anchor],
+) -> f64 {
+    let coverage = score_byte_coverage(plaintext);
+    let anchor_coverage = score_anchor_byte_coverage(plaintext, anchors);
+    tier_a_score(quad, coverage, anchor_coverage)
 }
 
 fn finish_verdict_with_alpha(calibration: &CalibrationReport, alpha: f64) -> ShadowFinishVerdict {

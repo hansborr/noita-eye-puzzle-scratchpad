@@ -11,8 +11,10 @@ fn self_test_controls_pass() {
         shadow_finish_self_test_fast_for_test(0x7368_6164_6f77_6603).expect("self-test runs");
     assert!(report.positive_roundtrip, "{report:?}");
     assert!(report.positive_candidate_verdict, "{report:?}");
+    assert!(report.positive_truth_best, "{report:?}");
     assert!(report.positive_truth_top_k, "{report:?}");
     assert!(report.positive_margin_vs_junk_max > 0.0, "{report:?}");
+    assert!(report.dirty_boundary_anchor, "{report:?}");
     assert!(report.wrong_plaintext_no_roundtrip, "{report:?}");
     assert!(report.wrong_plaintext_inside_junk, "{report:?}");
     assert!(report.vacuity_both_roundtrip, "{report:?}");
