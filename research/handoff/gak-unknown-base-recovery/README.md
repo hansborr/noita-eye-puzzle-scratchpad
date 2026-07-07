@@ -1,6 +1,7 @@
 # Handoff - unknown-base GAK / deck-cipher recovery
 
-**Status:** tasks 01 and 02 built; task 03 is the next solver rung
+**Status:** tasks 01, 02, and the first task-03 bounded local-search instrument
+built; task-03 frontier improvement is next
 **Priority:** active when the goal is to help Lymm's stated GAK-attack interests,
 rather than to move the eyes decode directly
 **Depends on:** `gak-swap-recovery/`, especially `gak-swap-recover` and
@@ -135,6 +136,20 @@ non-identifiability measurement, not a scalable `n=83` attack.
 
 ### 03 - Base-marginalized substitution-first local search, `s = 2..3`
 
+**Built first bounded rung:** see
+[`03-base-marginalized-local-search.md`](03-base-marginalized-local-search.md).
+The landed instrument is `gak-hidden-base-local-recover`, backed by
+`recover_hidden_base_local_known_plaintext`,
+`recover_hidden_base_local_known_plaintext_with_audit`, and
+`hidden_base_local_self_test`. It searches over per-letter `sigma_L`
+assignments, infers one hidden-base representative from identity-restart
+first-symbol anchors, and accepts only exact compressed re-encryption.
+
+The current positive frontier is deliberately modest: `s=2, n=7` fires as a
+control, and `s=3, n=5` fires while correctly reporting an equivalent-base
+class. The current `n=7` task-03 trial surfaces still have search-cap misses, so
+the next work is search-frontier improvement, not an eyes run.
+
 Adapt the existing substitution-first coordinate-descent idea:
 
 1. propose or refine the visible top mapping per letter;
@@ -181,7 +196,9 @@ Every result should record:
 
 ## Next Concrete Task
 
-Design task 03 around `s=2..3` known-plaintext recovery. Start from the exact
-`s=1` solver and task-01 audit surfaces, measure against direct enumeration, and
-keep exact re-encryption as the only acceptance criterion. Do not start with an
-eyes run or a language-scored ciphertext-only attack.
+Improve the task-03 `s=2..3` frontier. Start from the landed
+`gak-hidden-base-local-recover` instrument and add a top-source CSP/beam layer
+before coordinate descent. The near-term target is moving `n=7, s=2` from
+`SearchCapExceeded` to exact recovery under the same exact replay and
+hidden-base audit gates, then attempting `n=7, s=3`. Do not start with an eyes
+run or a language-scored ciphertext-only attack.

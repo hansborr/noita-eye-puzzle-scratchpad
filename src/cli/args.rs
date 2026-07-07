@@ -19,7 +19,9 @@ use super::args_bigramcodec::BigramcodecArgs;
 use super::args_codecpower::CodecpowerArgs;
 use super::args_cribfit::CribfitArgs;
 use super::args_ctak::CtakscanArgs;
-use super::args_gak_hidden_base::{GakHiddenBaseAuditArgs, GakHiddenBaseS1RecoverArgs};
+use super::args_gak_hidden_base::{
+    GakHiddenBaseAuditArgs, GakHiddenBaseLocalRecoverArgs, GakHiddenBaseS1RecoverArgs,
+};
 use super::args_gak_swap::{GakSwapArcPhase0Args, GakSwapRecoverArgs};
 use super::args_isomap::IsomapArgs;
 use super::args_maskdecode::MaskdecodeArgs;
@@ -88,6 +90,11 @@ pub(crate) enum Command {
     /// re-encryption is the only accepted recovery criterion.
     #[command(name = "gak-hidden-base-s1-recover")]
     GakHiddenBaseS1Recover(GakHiddenBaseS1RecoverArgs),
+    /// Synthetic known-plaintext hidden-base `s=2..3` local recovery.
+    /// Runs a bounded base-marginalized search on planted fixtures; exact
+    /// re-encryption is the only accepted recovery criterion.
+    #[command(name = "gak-hidden-base-local-recover")]
+    GakHiddenBaseLocalRecover(GakHiddenBaseLocalRecoverArgs),
     /// Translate-isomorph (exact repeated-substring) scanner with an order-1
     /// Markov matched null. Locates where a stream repeats — optionally on the
     /// `--delta-mod` difference channel — as a structural candidate, never a decode.
