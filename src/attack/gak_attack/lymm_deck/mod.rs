@@ -14,6 +14,8 @@ mod generators;
 mod hidden_base;
 mod hidden_base_controls;
 mod hidden_base_fixture;
+mod hidden_base_s1;
+mod hidden_base_s1_core;
 mod oracle;
 mod plant;
 mod recovery;
@@ -49,6 +51,11 @@ pub use hidden_base_controls::{
     hidden_base_audit_self_test,
 };
 pub use hidden_base_fixture::plant_hidden_base_fixture;
+pub use hidden_base_s1::{
+    HiddenBaseS1GeneratorFamily, HiddenBaseS1RecoveredKey, HiddenBaseS1RecoveryReport,
+    HiddenBaseS1RecoveryState, HiddenBaseS1SolverConfig, recover_hidden_base_s1_known_plaintext,
+    recover_hidden_base_s1_known_plaintext_with_audit,
+};
 pub use oracle::encrypt_lymm_deck;
 pub use plant::{PlantedLymmMapping, generate_random_pt_mapping};
 pub use recovery::{

@@ -373,8 +373,8 @@ fn exact_round_trip(
     let mut exact = true;
     for pair in pairs {
         let encrypted = encrypt_lymm_deck(spec, pt_mapping, &pair.plaintext)?;
+        let actual = compressed_emissions(spec, &pair.plaintext, &encrypted);
         let expected = pair.ciphertext.chars().collect::<Vec<_>>();
-        let actual = encrypted.chars().collect::<Vec<_>>();
         total = total.saturating_add(expected.len().max(actual.len()));
         matched = matched.saturating_add(
             expected
@@ -390,6 +390,14 @@ fn exact_round_trip(
         total,
         exact,
     })
+}
+
+fn compressed_emissions(spec: &LymmDeckSpec, plaintext: &str, encrypted: &str) -> Vec<char> {
+    plaintext
+        .chars()
+        .zip(encrypted.chars())
+        .filter_map(|(plain, cipher)| spec.is_plaintext_char(plain).then_some(cipher))
+        .collect()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

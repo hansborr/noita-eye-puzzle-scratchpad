@@ -19,7 +19,7 @@ use super::args_bigramcodec::BigramcodecArgs;
 use super::args_codecpower::CodecpowerArgs;
 use super::args_cribfit::CribfitArgs;
 use super::args_ctak::CtakscanArgs;
-use super::args_gak_hidden_base::GakHiddenBaseAuditArgs;
+use super::args_gak_hidden_base::{GakHiddenBaseAuditArgs, GakHiddenBaseS1RecoverArgs};
 use super::args_gak_swap::{GakSwapArcPhase0Args, GakSwapRecoverArgs};
 use super::args_isomap::IsomapArgs;
 use super::args_maskdecode::MaskdecodeArgs;
@@ -83,6 +83,11 @@ pub(crate) enum Command {
     /// hidden base, without running an eyes attack or language-scored search.
     #[command(name = "gak-hidden-base-audit")]
     GakHiddenBaseAudit(GakHiddenBaseAuditArgs),
+    /// Synthetic known-plaintext hidden-base `s=1` recovery.
+    /// Exhaustively searches candidate bases on planted fixtures; exact
+    /// re-encryption is the only accepted recovery criterion.
+    #[command(name = "gak-hidden-base-s1-recover")]
+    GakHiddenBaseS1Recover(GakHiddenBaseS1RecoverArgs),
     /// Translate-isomorph (exact repeated-substring) scanner with an order-1
     /// Markov matched null. Locates where a stream repeats — optionally on the
     /// `--delta-mod` difference channel — as a structural candidate, never a decode.

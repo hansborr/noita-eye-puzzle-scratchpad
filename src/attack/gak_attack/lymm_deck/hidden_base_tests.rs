@@ -4,9 +4,11 @@ use std::collections::BTreeMap;
 
 use super::{
     DEFAULT_HIDDEN_BASE_AUDIT_SEED, HiddenBaseAuditConfig, HiddenBaseFixtureConfig,
-    HiddenBaseIdentifiabilityStatus, HiddenBaseKind, KnownPlaintextPair, LymmDeckSpec,
-    audit_hidden_base_mapping, encrypt_lymm_deck, hidden_base_audit_self_test,
-    plant_hidden_base_fixture, run_hidden_base_identifiability_audit,
+    HiddenBaseIdentifiabilityStatus, HiddenBaseKind, HiddenBaseS1RecoveryState,
+    HiddenBaseS1SolverConfig, KnownPlaintextPair, LymmDeckSpec, audit_hidden_base_mapping,
+    encrypt_lymm_deck, hidden_base_audit_self_test, plant_hidden_base_fixture,
+    recover_hidden_base_s1_known_plaintext, recover_hidden_base_s1_known_plaintext_with_audit,
+    run_hidden_base_identifiability_audit,
 };
 
 #[test]
@@ -98,4 +100,170 @@ fn hidden_base_acceptance_requires_compatible_base_without_planted_base() {
         HiddenBaseIdentifiabilityStatus::NoCompatibleBase
     );
     assert!(!report.accepted());
+}
+
+#[test]
+fn hidden_base_s1_solver_recovers_planted_positive() {
+    let config = HiddenBaseFixtureConfig {
+        n: 7,
+        pt_alphabet: "ABCDEF".to_owned(),
+        swap_budget: 1,
+        message_count: 8,
+        message_len: 48,
+        seed: DEFAULT_HIDDEN_BASE_AUDIT_SEED,
+        base_kind: HiddenBaseKind::Random,
+    };
+    let fixture = plant_hidden_base_fixture(&config).expect("fixture");
+    let solver_config = s1_solver_config(&fixture.spec);
+    let report = recover_hidden_base_s1_known_plaintext_with_audit(
+        &solver_config,
+        &fixture.pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("s1 recovery");
+
+    assert_eq!(
+        report.state,
+        HiddenBaseS1RecoveryState::RecoveredPlantedBase
+    );
+    assert!(report.has_exact_recovery());
+    assert_eq!(report.brute_force_base_count, Some(5_040));
+    assert_eq!(report.base_candidates_tested, 5_040);
+    assert_eq!(report.exact_candidate_count, 1);
+    assert_eq!(report.planted_base_recovered, Some(true));
+    assert_eq!(report.event_count, 384);
+    assert!(report.representative_key.is_some());
+    let audit = report.representative_audit.expect("audit");
+    assert!(audit.round_trip.exact);
+    assert_eq!(audit.base_candidate_count, 1);
+}
+
+#[test]
+fn hidden_base_s1_solver_rejects_ciphertext_label_shuffle_null() {
+    let config = HiddenBaseFixtureConfig {
+        n: 7,
+        pt_alphabet: "ABCDEF".to_owned(),
+        swap_budget: 1,
+        message_count: 8,
+        message_len: 48,
+        seed: DEFAULT_HIDDEN_BASE_AUDIT_SEED,
+        base_kind: HiddenBaseKind::Random,
+    };
+    let fixture = plant_hidden_base_fixture(&config).expect("fixture");
+    let mut shuffled_pairs = fixture.pairs.clone();
+    for pair in &mut shuffled_pairs {
+        pair.ciphertext = pair
+            .ciphertext
+            .chars()
+            .map(|ch| match ch {
+                '!' => '"',
+                '"' => '!',
+                other => other,
+            })
+            .collect();
+    }
+    let solver_config = s1_solver_config(&fixture.spec);
+    let report = recover_hidden_base_s1_known_plaintext_with_audit(
+        &solver_config,
+        &shuffled_pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("s1 recovery");
+
+    assert_eq!(report.state, HiddenBaseS1RecoveryState::NoCandidate);
+    assert!(!report.has_exact_recovery());
+    assert_eq!(report.base_candidates_tested, 5_040);
+    assert_eq!(report.exact_candidate_count, 0);
+}
+
+#[test]
+fn hidden_base_s1_solver_rejects_over_budget_null() {
+    let fixture = (0..64usize)
+        .find_map(|attempt| {
+            let config = HiddenBaseFixtureConfig {
+                n: 7,
+                pt_alphabet: "ABCDEF".to_owned(),
+                swap_budget: 2,
+                message_count: 8,
+                message_len: 48,
+                seed: DEFAULT_HIDDEN_BASE_AUDIT_SEED ^ u64::try_from(attempt).ok()?,
+                base_kind: HiddenBaseKind::Random,
+            };
+            let fixture = plant_hidden_base_fixture(&config).ok()?;
+            let solver_config = s1_solver_config(&fixture.spec);
+            let report = recover_hidden_base_s1_known_plaintext_with_audit(
+                &solver_config,
+                &fixture.pairs,
+                Some(&fixture.spec.base),
+            )
+            .ok()?;
+            (report.state == HiddenBaseS1RecoveryState::NoCandidate).then_some(fixture)
+        })
+        .expect("rejecting over-budget fixture");
+    let solver_config = s1_solver_config(&fixture.spec);
+    let report = recover_hidden_base_s1_known_plaintext_with_audit(
+        &solver_config,
+        &fixture.pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("s1 recovery");
+
+    assert_eq!(report.state, HiddenBaseS1RecoveryState::NoCandidate);
+    assert_eq!(report.exact_candidate_count, 0);
+}
+
+#[test]
+fn hidden_base_s1_solver_reports_ambiguous_equivalent_class() {
+    let config = HiddenBaseFixtureConfig {
+        n: 5,
+        pt_alphabet: "A".to_owned(),
+        swap_budget: 1,
+        message_count: 1,
+        message_len: 1,
+        seed: DEFAULT_HIDDEN_BASE_AUDIT_SEED,
+        base_kind: HiddenBaseKind::Random,
+    };
+    let fixture = plant_hidden_base_fixture(&config).expect("fixture");
+    let solver_config = s1_solver_config(&fixture.spec);
+    let report = recover_hidden_base_s1_known_plaintext_with_audit(
+        &solver_config,
+        &fixture.pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("s1 recovery");
+
+    assert_eq!(
+        report.state,
+        HiddenBaseS1RecoveryState::AmbiguousEquivalentClass
+    );
+    assert_eq!(report.brute_force_base_count, Some(120));
+    assert_eq!(report.base_candidates_tested, 120);
+    assert_eq!(report.exact_candidate_count, 120);
+    assert_eq!(report.planted_base_recovered, Some(true));
+}
+
+#[test]
+fn hidden_base_s1_solver_reports_search_cap() {
+    let config = HiddenBaseFixtureConfig {
+        n: 7,
+        pt_alphabet: "ABCDEF".to_owned(),
+        swap_budget: 1,
+        message_count: 8,
+        message_len: 48,
+        seed: DEFAULT_HIDDEN_BASE_AUDIT_SEED,
+        base_kind: HiddenBaseKind::Random,
+    };
+    let fixture = plant_hidden_base_fixture(&config).expect("fixture");
+    let solver_config = s1_solver_config(&fixture.spec).with_max_base_candidates(Some(10));
+    let report = recover_hidden_base_s1_known_plaintext(&solver_config, &fixture.pairs)
+        .expect("s1 recovery");
+
+    assert_eq!(report.state, HiddenBaseS1RecoveryState::SearchCapExceeded);
+    assert_eq!(report.base_candidates_tested, 10);
+    assert_eq!(report.brute_force_base_count, Some(5_040));
+}
+
+fn s1_solver_config(spec: &LymmDeckSpec) -> HiddenBaseS1SolverConfig {
+    HiddenBaseS1SolverConfig::top_card_swaps(spec.n, spec.pt_alphabet.iter().collect::<String>())
+        .with_ct_alphabet(spec.ct_alphabet.iter().collect::<String>())
 }

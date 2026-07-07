@@ -108,6 +108,16 @@ pub enum LymmDeckError {
         /// Count of ciphertext characters.
         ciphertext_chars: usize,
     },
+    /// A known-plaintext ciphertext stream contained a symbol outside the
+    /// configured ciphertext alphabet.
+    UnknownCiphertextSymbol {
+        /// Message label.
+        label: String,
+        /// Zero-based compressed ciphertext symbol index.
+        index: usize,
+        /// Unknown ciphertext symbol.
+        ch: char,
+    },
     /// A hidden-base audit fixture was configured with an impossible parameter.
     HiddenBaseConfig {
         /// Short diagnostic.
@@ -179,6 +189,10 @@ impl fmt::Display for LymmDeckError {
             } => write!(
                 f,
                 "message {label:?} has {plaintext_alpha_chars} plaintext alphabet characters but {ciphertext_chars} ciphertext characters"
+            ),
+            Self::UnknownCiphertextSymbol { label, index, ch } => write!(
+                f,
+                "message {label:?} ciphertext symbol {index} is not in the configured alphabet: {ch:?}"
             ),
             Self::HiddenBaseConfig { reason } => {
                 write!(f, "invalid hidden-base audit fixture: {reason}")

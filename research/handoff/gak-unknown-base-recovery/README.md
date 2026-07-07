@@ -1,6 +1,6 @@
 # Handoff - unknown-base GAK / deck-cipher recovery
 
-**Status:** task 01 built; task 02 is the next solver rung
+**Status:** tasks 01 and 02 built; task 03 is the next solver rung
 **Priority:** active when the goal is to help Lymm's stated GAK-attack interests,
 rather than to move the eyes decode directly
 **Depends on:** `gak-swap-recovery/`, especially `gak-swap-recover` and
@@ -107,11 +107,22 @@ Acceptance:
 
 ### 02 - Known-plaintext unknown-base solver, `s = 1`
 
-Start with `s = 1` because the per-letter perturbation has one target and the
-candidate surface is small enough to inspect exhaustively on small `n`.
+**Built:** see
+[`02-known-plaintext-s1-recovery.md`](02-known-plaintext-s1-recovery.md). The
+landed solver is `recover_hidden_base_s1_known_plaintext`, with a synthetic
+report instrument `gak-hidden-base-s1-recover`. It enumerates candidate hidden
+bases for small `n`, derives the only possible per-letter top swap for each fixed
+base by replaying identity-reset known plaintext, and accepts only exact
+compressed re-encryption.
 
-The useful output is not necessarily "recover the planted base exactly." Prefer a
-report with explicit states:
+Measured default controls include a planted `s=1` positive, ciphertext-label
+shuffle null, over-budget `s=2` null attacked as `s=1`, an underspecified
+ambiguous fixture, and search-cap behavior. On random full-signal synthetic
+fixtures, `n=7` and `n=8` recovered the planted base uniquely; a capped `n=11`
+run reports `SearchCapExceeded` after the requested base cap.
+
+The useful output is not necessarily "recover the planted base exactly." The
+report states are explicit:
 
 - `RecoveredPlantedBase`;
 - `RecoveredEquivalentKey`;
@@ -119,7 +130,8 @@ report with explicit states:
 - `NoCandidate`;
 - `SearchCapExceeded`.
 
-Measure against brute force in both candidate count and wall time.
+The first rung remains factorial in `B`; it is a correctness baseline and
+non-identifiability measurement, not a scalable `n=83` attack.
 
 ### 03 - Base-marginalized substitution-first local search, `s = 2..3`
 
@@ -167,8 +179,9 @@ Every result should record:
 - `research/data/practice-puzzles/deck-swap/SWAP-RECOVERY-METHOD.md` for the
   public-base baseline and its honesty limits.
 
-## First Concrete Task
+## Next Concrete Task
 
-Write a small design/fixture task file under this directory for `01`, then build
-the fixture plus an identifiability-only report. Do not start with an eyes run or
-a language-scored ciphertext-only attack.
+Design task 03 around `s=2..3` known-plaintext recovery. Start from the exact
+`s=1` solver and task-01 audit surfaces, measure against direct enumeration, and
+keep exact re-encryption as the only acceptance criterion. Do not start with an
+eyes run or a language-scored ciphertext-only attack.
