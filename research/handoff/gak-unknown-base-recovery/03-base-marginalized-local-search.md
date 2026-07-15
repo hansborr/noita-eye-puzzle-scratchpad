@@ -2,8 +2,10 @@
 
 **Status:** bounded instrument, top-source CSP/beam, third-symbol arc-consistency
 ranking, fair joint budgets, explicit pair-order schedules, and optional
-fourth-prefix triple repair built; broader and disjoint calibrations measured
-through 2026-07-15.
+fourth-prefix triple repair and retained-hypothesis prefix CEGAR built; broader
+and seed-set-disjoint calibrations measured through 2026-07-15. Both late
+fallbacks remain disabled by default because their development gains did not
+replicate on sealed holdouts.
 
 ## Scope
 
@@ -148,6 +150,19 @@ replicate on the sealed holdout. Reports keep triple checks, replay work,
 accepted moves, prefix coverage, and total-budget exhaustion separate from the
 landed pair surface.
 
+An optional retained-hypothesis prefix CEGAR fallback is also available for
+`s=3` after the landed local search finds no exact candidate. For each retained
+top-source hypothesis it creates exactly-one SAT choices over every letter's
+second-symbol-compatible sigma domain. Each model is replayed only to the first
+wrong emission; the selected shared sigmas that determine that prefix are then
+negated as a sound lazy blocking clause under the fixed representative base.
+Only a complete exact replay is accepted. Separate per-hypothesis and total
+model caps are exposed as `--prefix-cegar-node-cap` and
+`--prefix-cegar-total-cap`; both default to zero because the sole development
+gain did not replicate on the sealed holdout. A retained state proved UNSAT
+does not make the complete bounded search exhaustive because the beam may have
+dropped other top-source states.
+
 The objective and CSP both use the cheap second-symbol identity-restart
 consistency term:
 
@@ -165,10 +180,11 @@ both `s=2` and `s=3` (previously the local objective gated it on `s >= 3`).
 When a planted base is supplied for synthetic audit, the report derives the
 planted top sources as `B^-1(c_0(L))` and records their one-based rank and whether
 they survived truncation. This is post-search provenance only; it is not exposed
-to ranking or refinement. The report also exposes configured beam/pair/triple caps,
-retained, expanded, pruned, and capacity-dropped states, constraint and candidate
-evaluations, third-symbol pair checks, total and joint-only replayed events,
-pair/triple evaluations and moves, total-budget exhaustion, and
+to ranking or refinement. The report also exposes configured
+beam/pair/triple/CEGAR caps, retained, expanded, pruned, and capacity-dropped
+states, constraint and candidate evaluations, third-symbol pair checks, total
+and joint-only replayed events, pair/triple evaluations and moves, CEGAR
+hypothesis/model/clause/core/replay accounting, total-budget exhaustion, and
 top-source/total runtime.
 
 ## Controls
@@ -181,6 +197,11 @@ The self-test exercises the same library surface as the CLI:
 | planted `s=3`, `n=5` positive | exact recovery | recovered exact key; representative audit reports an equivalent-base class |
 | ciphertext-label shuffle null | no exact key within budget | `SearchCapExceeded`, no exact key |
 | over-budget `s=3` attacked as `s=2` | no exact key within budget | `SearchCapExceeded`, no exact key |
+
+Focused production-path regressions additionally pin the optional CEGAR
+mechanism: one retained-plant pair-only miss reaches the exact planted base on
+SAT model 163, while a matched ciphertext-label swap at the same frozen caps
+explores models but finds no exact key.
 
 Focused test command:
 
@@ -346,26 +367,29 @@ Interpretation:
   ablation is a focused regression, and the five-seed batch remains a measured
   benchmark rather than a universal control. The broader 24-run calibration is
   still a small synthetic sample, not a universal control.
+- Prefix CEGAR is complete only inside an uncapped retained hypothesis. Its
+  per-hypothesis cap and the upstream 96-state beam mean a failed complete run
+  is still a bounded miss, even when some retained hypotheses are proved UNSAT.
 - No eyes corpus and no language-scored ciphertext-only attack was run.
 
-## Next Rung
+## Pre-CEGAR Decision
 
-The weak-restart rank, pair order, and fourth-prefix triple move are now
-measured, but they still do not justify a ciphertext-only bridge. On the two
+Before the CEGAR follow-up recorded below, the weak-restart rank, pair order,
+and fourth-prefix triple move had been measured without justifying a
+ciphertext-only bridge. On the two
 open development batches plus a fresh 16-fixture holdout, pair-only exact replay
 was `25/32`, optional triple repair was `26/32`, and coordinate-only was
 `17/32`. The one triple gain occurred only in development; the holdout tied at
 `15/16`, so triple repair remains disabled by default. Five of the six triple
 misses retained the planted top-source state and one plant was ranked out.
 
-Do not respond by stacking another higher-order local neighborhood onto the
-same optimizer. A useful next `n=7` step would factor the retained-hypothesis
-sigma problem into an explicit bounded prefix-constraint CSP/CEGAR rung, with
-the local solver as a baseline and the same exact-replay oracle. Otherwise stop
-task 03 here and broaden only when a new algebraic constraint or practice
-ciphertext surface warrants it. Preserve all cap-0/order ablations, event-level
-accounting, planted-rank audit, and seed-set-disjoint holdouts; keep bounded
-misses labeled `SearchCapExceeded` unless an exhaustive baseline proves
+The registered next `n=7` step was therefore to factor the retained-hypothesis
+sigma problem into the explicit bounded prefix-constraint CEGAR rung below,
+with the local solver as baseline and the same exact-replay oracle, rather than
+stacking another higher-order local neighborhood. Its eventual holdout tie is
+recorded in the result section. All cap-0/order ablations, event-level
+accounting, planted-rank audit, and seed-set-disjoint holdouts remain preserved;
+bounded misses stay `SearchCapExceeded` unless an exhaustive baseline proves
 `NoCandidate`.
 
 ### Pre-registered retained-hypothesis prefix CEGAR follow-up (2026-07-15, before runs)
@@ -454,6 +478,33 @@ same CEGAR surface; it explored models but found no exact key and remained
 `SearchCapExceeded`. Both are executable regression tests. The sealed
 `...773301` fixtures remain unopened at this point, and nonzero defaults remain
 conditional on an exact holdout gain.
+
+### Retained-hypothesis prefix CEGAR result (2026-07-15)
+
+After the freeze commit above, the seed-set-disjoint `...773301` holdout was
+opened with both frozen rows. Every accepted key below re-encrypts all `384/384`
+events exactly; all other states are bounded `SearchCapExceeded` outcomes.
+
+| search | development, 32 fixtures | sealed holdout, 16 fixtures | combined | combined states |
+| --- | ---: | ---: | ---: | --- |
+| landed pair-only, CEGAR caps `0/0` | `25/32` | `14/16` | `39/48` | 21 planted, 18 ambiguous, 9 misses |
+| pair-only then prefix CEGAR, caps `4096/393216` | `26/32` | `14/16` | `40/48` | 22 planted, 18 ambiguous, 8 misses |
+
+The two holdout misses had planted top-source ranks 104 and 4, respectively:
+one plant was outside the 96-state beam and one was retained. CEGAR explored
+52,732 and 55,353 models on them, learned the same number of mismatch clauses,
+and replayed at most 415,921 prefix events in a run. It found no exact model.
+Across the two misses as many as 94 retained hypotheses were proved UNSAT and
+as many as four hit their per-hypothesis cap; neither run exhausted the total
+model cap. These labels describe only the retained bounded surface.
+
+The sole `+1` remains the already-open development fixture, so the exact gain
+did not replicate. Under the preregistered rule, prefix CEGAR remains an
+optional diagnostic with both defaults at zero. Its positive regression is
+still useful evidence that the lazy prefix clauses can reach a solution the
+local neighborhood misses, but it is not evidence that the additional search
+budget improves recovery out of sample. Task 03 stops here rather than stacking
+another optimizer layer onto the same weak-restart fixture family.
 
 ### Pre-registered fourth-prefix triple-repair follow-up (2026-07-15, before runs)
 

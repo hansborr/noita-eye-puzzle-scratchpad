@@ -1,11 +1,11 @@
 # Handoff - unknown-base GAK / deck-cipher recovery
 
-**Status:** tasks 01, 02, and task-03 `n=7` bounded local-search frontier built;
-broader, disjoint weak-restart, pair-order, and fourth-prefix triple-repair
-calibrations measured; the optional triple gain was development-only, with
-within-bucket `s=3` refinement still limiting recovery
-**Priority:** active when the goal is to help Lymm's stated GAK-attack interests,
-rather than to move the eyes decode directly
+**Status:** tasks 01-03 built and calibrated; the `n=7` bounded local-search,
+triple-repair, and retained-hypothesis CEGAR frontier is measured on
+seed-set-disjoint holdouts. Both late fallbacks gained only in development and
+remain disabled by default; task 03 stops at this honest-negative frontier.
+**Priority:** reference implementation; resume only for a new algebraic
+constraint or practice-ciphertext surface, not another tuned optimizer layer
 **Depends on:** `gak-swap-recovery/`, especially `gak-swap-recover` and
 `research/data/practice-puzzles/deck-swap/SWAP-RECOVERY-METHOD.md`
 
@@ -199,8 +199,20 @@ capped triple repair improved the open development batches from `10/16` to
 repair `26/32`; the sole gain is development-only. Triple repair remains a
 rerunnable optional instrument with both caps defaulting to zero, not a promoted
 recovery improvement. Five of its six combined misses retained the planted
-top-source hypothesis, so a future attempt should factor an explicit bounded
-prefix-constraint CSP/CEGAR rung instead of stacking another local `k`-opt move.
+top-source hypothesis, motivating an explicit bounded prefix-constraint
+CSP/CEGAR rung instead of another local `k`-opt move.
+
+That prefix-constraint rung is now built. It lazily blocks exact-replay mismatch
+prefixes under each retained top-source hypothesis and exposes separate
+per-hypothesis/total SAT-model caps. On the 32 already-open fixtures it recovered
+`26/32` versus pair-only `25/32`, with a focused pair-fail/CEGAR-success positive
+at model 163 and a matched label-shuffle null that found no exact key. On a new
+seed-set-disjoint 16-fixture holdout, both rows tied at `14/16`; CEGAR explored
+52,732 and 55,353 models on the two misses without an exact recovery. Combined
+recovery is therefore pair-only `39/48` and CEGAR `40/48`, with the sole gain
+still development-only. Both CEGAR caps default to zero, and task 03 stops here
+until a new algebraic constraint or practice-ciphertext surface justifies a
+different rung.
 
 Adapt the existing substitution-first coordinate-descent idea:
 

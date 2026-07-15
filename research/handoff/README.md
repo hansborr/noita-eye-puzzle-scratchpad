@@ -72,12 +72,13 @@ out.
   Phase-0/Phase-2 escalation are superseded for the vendored practice-puzzle recovery by the
   substitution-first local-search backend. Vendored challenge corpus + results at
   `research/data/practice-puzzles/deck-swap/`.
-- `gak-unknown-base-recovery/` — **NEXT if helping Lymm's stated interests.**
-  The public-base solver is useful but conditions on exactly the base
-  permutation the eyes would not provide. This new proving-ground track starts
-  with known-plaintext hidden-base fixtures, measures identifiability, and only
-  then attempts base recovery or marginalization. It is community GAK tooling,
-  not an eye decode.
+- `gak-unknown-base-recovery/` — **BUILT + CALIBRATED.** The public-base solver
+  conditioned on a base permutation the eyes would not provide, so this track
+  added hidden-base fixtures, identifiability audit, exact `s=1` recovery, and
+  bounded `s=2..3` base marginalization. Optional triple and prefix-CEGAR
+  fallbacks gained only on development fixtures and tied sealed holdouts; both
+  remain disabled. Resume only for a new algebraic constraint or
+  practice-ciphertext surface. It is community GAK tooling, not an eye decode.
 
 **Tier 1 — harden & publish the eyes frontier (DONE; kept as provenance).**
 - `next-cycle-2026-07-06.md` — **EXECUTED.** It sent the repo through
@@ -93,10 +94,11 @@ out.
 - `T05` — **DONE** (`a314f42`). The structural summary is published at
   `research/findings/eyes-structural-summary.md`.
 
-**Tier 2A — active community-infrastructure work: Lymm's general-GAK interest.**
+**Tier 2A — completed community-infrastructure frontier: Lymm's general-GAK interest.**
 - `gak-unknown-base-recovery/` — unknown-base known-plaintext GAK/deck recovery
-  on small planted instances. Do this next when the priority is to help Lymm
-  with general methods for smaller GAK ciphers faster than brute force.
+  on small planted instances is built and holdout-calibrated. It now waits for
+  a new algebraic constraint or practice-ciphertext surface rather than another
+  locally tuned search layer.
 
 **Tier 2B — eyes-specific remaining work: the standing unblocker + optional formalization.**
 - `T11` — external-anchor hunt (the only real decode-unblocker; mostly

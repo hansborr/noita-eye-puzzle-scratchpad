@@ -333,3 +333,13 @@ events. The move therefore remained optional and disabled by default. A
 development win proves reachability on that fixture; only replicated exact
 recovery justifies paying a new default search budget. Demonstrated:
 `handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`.
+
+The same lesson replicated at a different search layer. Retained-hypothesis
+prefix CEGAR used sound first-mismatch blocking clauses and recovered one
+pair-only development miss after 163 SAT models. Its matched label-shuffle null
+found no exact key, so the mechanism itself was valid. Yet a sealed 16-fixture
+holdout tied pair-only at `14/16`; CEGAR spent 52,732 and 55,353 models on the
+two misses without recovery. Keep the positive regression, but leave the
+fallback disabled. A sound solver extension, a passing null, and one exact
+development rescue together still do not establish an out-of-sample default
+gain.
