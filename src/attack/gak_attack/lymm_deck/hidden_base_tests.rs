@@ -378,7 +378,9 @@ fn hidden_base_local_joint_move_recovers_stalled_n7_s3_fixture() {
     let fixture_seed = mix_seed(DEFAULT_HIDDEN_BASE_AUDIT_SEED, 0x6c73_7265_636f_7600 ^ 3);
     let fixture = local_s3_fixture(fixture_seed);
     let without_joint = recover_hidden_base_local_known_plaintext_with_audit(
-        &local_s3_solver_config(&fixture.spec, fixture_seed).with_joint_move_evaluation_cap(0),
+        &local_s3_solver_config(&fixture.spec, fixture_seed)
+            .with_joint_move_evaluation_cap(0)
+            .with_triple_move_evaluation_cap(0),
         &fixture.pairs,
         Some(&fixture.spec.base),
     )
@@ -394,6 +396,7 @@ fn hidden_base_local_joint_move_recovers_stalled_n7_s3_fixture() {
         without_joint.state,
         HiddenBaseLocalRecoveryState::SearchCapExceeded
     );
+    assert_eq!(without_joint.triple_move_candidate_evaluations, 0);
     assert_eq!(
         with_joint.state,
         HiddenBaseLocalRecoveryState::RecoveredPlantedBase
@@ -425,6 +428,7 @@ fn hidden_base_local_joint_move_obeys_total_run_cap() {
     let report = recover_hidden_base_local_known_plaintext_with_audit(
         &local_s3_solver_config(&fixture.spec, fixture_seed)
             .with_attempts(4)
+            .with_triple_move_evaluation_cap(0)
             .with_joint_move_total_evaluation_cap(100),
         &fixture.pairs,
         Some(&fixture.spec.base),
@@ -438,6 +442,7 @@ fn hidden_base_local_joint_move_obeys_total_run_cap() {
         &local_s3_solver_config(&fixture.spec, fixture_seed)
             .with_attempts(1)
             .with_joint_move_evaluation_cap(0)
+            .with_triple_move_evaluation_cap(0)
             .with_third_symbol_top_source_ranking(false),
         &fixture.pairs,
         Some(&fixture.spec.base),
@@ -477,6 +482,29 @@ fn hidden_base_local_round_robin_spreads_a_tight_cap_across_pairs() {
     assert!(fair.joint_move_pair_evaluations_max < pair_major.joint_move_pair_evaluations_max);
     assert_eq!(pair_major.joint_move_pair_evaluations_min, 0);
     assert_eq!(fair.joint_move_pair_evaluations_min, 0);
+}
+
+#[test]
+fn hidden_base_local_triple_repair_obeys_its_separate_cap() {
+    let fixture_seed = mix_seed(DEFAULT_HIDDEN_BASE_AUDIT_SEED, 0x6c73_7265_636f_7600 ^ 3);
+    let fixture = local_s3_fixture(fixture_seed);
+    let report = recover_hidden_base_local_known_plaintext_with_audit(
+        &local_s3_solver_config(&fixture.spec, fixture_seed)
+            .with_attempts(1)
+            .with_joint_move_evaluation_cap(0)
+            .with_triple_move_evaluation_cap(10)
+            .with_triple_move_total_evaluation_cap(10),
+        &fixture.pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("triple-capped local recovery");
+
+    assert_eq!(report.joint_move_candidate_evaluations, 0);
+    assert_eq!(report.triple_move_candidate_evaluations, 10);
+    assert!(report.triple_move_constraint_evaluations >= 10);
+    assert!(report.triple_move_prefixes_eligible > 0);
+    assert!(report.triple_move_prefixes_evaluated > 0);
+    assert!(report.triple_move_total_budget_exhausted);
 }
 
 fn local_s2_fixture(seed: u64) -> super::HiddenBaseFixture {

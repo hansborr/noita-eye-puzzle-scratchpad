@@ -117,6 +117,12 @@ pub(crate) struct GakHiddenBaseLocalRecoverArgs {
     /// Maximum two-letter sigma assignments scored over the complete run.
     #[arg(long = "joint-total-cap", default_value_t = 393_216)]
     pub(crate) joint_total_cap: usize,
+    /// Maximum fourth-prefix triple assignments checked per stalled s=3 restart.
+    #[arg(long = "triple-move-cap", default_value_t = 4_096)]
+    pub(crate) triple_move_cap: usize,
+    /// Maximum fourth-prefix triple assignments checked over the complete run.
+    #[arg(long = "triple-total-cap", default_value_t = 393_216)]
+    pub(crate) triple_total_cap: usize,
     /// Hidden-base construction family.
     #[arg(long = "base-kind", value_enum, default_value_t = GakHiddenBaseKind::Random)]
     pub(crate) base_kind: GakHiddenBaseKind,

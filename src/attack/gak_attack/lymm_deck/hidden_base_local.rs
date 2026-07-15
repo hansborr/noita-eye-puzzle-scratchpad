@@ -27,6 +27,8 @@ mod score;
 mod search;
 #[path = "hidden_base_local/top_source.rs"]
 mod top_source;
+#[path = "hidden_base_local/triple.rs"]
+mod triple;
 
 pub use controls::{
     HiddenBaseLocalControlExpectation, HiddenBaseLocalControlReport, HiddenBaseLocalSelfTestReport,
@@ -39,6 +41,8 @@ const DEFAULT_ROUNDS: usize = 18;
 const DEFAULT_TOP_SOURCE_BEAM_WIDTH: usize = 96;
 const DEFAULT_JOINT_MOVE_EVALUATION_CAP: usize = 4_096;
 const DEFAULT_JOINT_MOVE_TOTAL_EVALUATION_CAP: usize = 393_216;
+const DEFAULT_TRIPLE_MOVE_EVALUATION_CAP: usize = 4_096;
+const DEFAULT_TRIPLE_MOVE_TOTAL_EVALUATION_CAP: usize = 393_216;
 const DEFAULT_SEED: u64 = 0x6761_6b5f_6862_6c73;
 
 /// Generator family admitted by the hidden-base local solver.
@@ -92,6 +96,12 @@ pub struct HiddenBaseLocalSolverConfig {
     /// Maximum two-letter sigma assignments scored over the complete run,
     /// allocated by cumulative fair share across configured restarts.
     pub joint_move_total_evaluation_cap: usize,
+    /// Maximum fourth-prefix triple assignments checked per stalled `s=3`
+    /// restart. Zero disables triple repair moves.
+    pub triple_move_evaluation_cap: usize,
+    /// Maximum fourth-prefix triple assignments checked over the complete run,
+    /// allocated by cumulative fair share across configured restarts.
+    pub triple_move_total_evaluation_cap: usize,
 }
 
 impl HiddenBaseLocalSolverConfig {
@@ -112,6 +122,8 @@ impl HiddenBaseLocalSolverConfig {
             joint_move_order: HiddenBaseLocalJointMoveOrder::Hybrid,
             joint_move_evaluation_cap: DEFAULT_JOINT_MOVE_EVALUATION_CAP,
             joint_move_total_evaluation_cap: DEFAULT_JOINT_MOVE_TOTAL_EVALUATION_CAP,
+            triple_move_evaluation_cap: DEFAULT_TRIPLE_MOVE_EVALUATION_CAP,
+            triple_move_total_evaluation_cap: DEFAULT_TRIPLE_MOVE_TOTAL_EVALUATION_CAP,
         }
     }
 
@@ -175,6 +187,20 @@ impl HiddenBaseLocalSolverConfig {
     #[must_use]
     pub const fn with_joint_move_total_evaluation_cap(mut self, cap: usize) -> Self {
         self.joint_move_total_evaluation_cap = cap;
+        self
+    }
+
+    /// Replaces the per-restart fourth-prefix triple-repair evaluation cap.
+    #[must_use]
+    pub const fn with_triple_move_evaluation_cap(mut self, cap: usize) -> Self {
+        self.triple_move_evaluation_cap = cap;
+        self
+    }
+
+    /// Replaces the fairly allocated total-run triple-repair evaluation cap.
+    #[must_use]
+    pub const fn with_triple_move_total_evaluation_cap(mut self, cap: usize) -> Self {
+        self.triple_move_total_evaluation_cap = cap;
         self
     }
 }
@@ -254,6 +280,20 @@ pub struct HiddenBaseLocalRecoveryReport {
     pub joint_move_pair_evaluations_min: usize,
     /// Maximum candidate evaluations assigned to an eligible letter pair.
     pub joint_move_pair_evaluations_max: usize,
+    /// Fourth-prefix triple assignments checked by stalled triple repair.
+    pub triple_move_candidate_evaluations: usize,
+    /// Exact fourth-prefix equations checked by stalled triple repair.
+    pub triple_move_constraint_evaluations: usize,
+    /// Ciphertext events replayed for constraint-surviving triple proposals.
+    pub triple_move_replay_event_evaluations: usize,
+    /// Whether the total-run triple-repair budget was exhausted.
+    pub triple_move_total_budget_exhausted: bool,
+    /// Improving fourth-prefix triple moves accepted by the local search.
+    pub triple_moves_accepted: usize,
+    /// Distinct violated fourth-prefix triples eligible for repair.
+    pub triple_move_prefixes_eligible: usize,
+    /// Eligible fourth-prefix triples receiving at least one assignment check.
+    pub triple_move_prefixes_evaluated: usize,
     /// Complete top-source hypotheses retained for sigma refinement.
     pub top_source_hypotheses_retained: usize,
     /// One-based pre-truncation rank of the planted top-source hypothesis when
@@ -377,6 +417,13 @@ fn recover_hidden_base_local_known_plaintext_inner(
         joint_move_letter_pairs_evaluated: search.joint_move_letter_pairs_evaluated,
         joint_move_pair_evaluations_min: search.joint_move_pair_evaluations_min,
         joint_move_pair_evaluations_max: search.joint_move_pair_evaluations_max,
+        triple_move_candidate_evaluations: search.triple_move_candidate_evaluations,
+        triple_move_constraint_evaluations: search.triple_move_constraint_evaluations,
+        triple_move_replay_event_evaluations: search.triple_move_replay_event_evaluations,
+        triple_move_total_budget_exhausted: search.triple_move_total_budget_exhausted,
+        triple_moves_accepted: search.triple_moves_accepted,
+        triple_move_prefixes_eligible: search.triple_move_prefixes_eligible,
+        triple_move_prefixes_evaluated: search.triple_move_prefixes_evaluated,
         top_source_hypotheses_retained: search.top_source_hypotheses_retained,
         planted_top_source_hypothesis_rank: search.planted_top_source_hypothesis_rank,
         planted_top_source_hypothesis_retained: search.planted_top_source_hypothesis_retained,

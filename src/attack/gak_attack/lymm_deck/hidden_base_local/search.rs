@@ -15,6 +15,7 @@ use super::score::{
     reset_identity,
 };
 use super::top_source::build_top_source_beam;
+use super::triple::best_triple_move;
 use super::{HiddenBaseLocalRecoveredKey, HiddenBaseLocalSolverConfig};
 
 pub(super) struct LocalSearchOutput {
@@ -30,6 +31,13 @@ pub(super) struct LocalSearchOutput {
     pub(super) joint_move_letter_pairs_evaluated: usize,
     pub(super) joint_move_pair_evaluations_min: usize,
     pub(super) joint_move_pair_evaluations_max: usize,
+    pub(super) triple_move_candidate_evaluations: usize,
+    pub(super) triple_move_constraint_evaluations: usize,
+    pub(super) triple_move_replay_event_evaluations: usize,
+    pub(super) triple_move_total_budget_exhausted: bool,
+    pub(super) triple_moves_accepted: usize,
+    pub(super) triple_move_prefixes_eligible: usize,
+    pub(super) triple_move_prefixes_evaluated: usize,
     pub(super) top_source_hypotheses_retained: usize,
     pub(super) planted_top_source_hypothesis_rank: Option<usize>,
     pub(super) planted_top_source_hypothesis_retained: Option<bool>,
@@ -92,6 +100,13 @@ pub(super) fn run_local_search(
         joint_move_letter_pairs_evaluated: search.joint_move_pair_evaluations.len(),
         joint_move_pair_evaluations_min: search.joint_move_pair_evaluations_min(),
         joint_move_pair_evaluations_max: search.joint_move_pair_evaluations_max(),
+        triple_move_candidate_evaluations: search.triple_move_candidate_evaluations,
+        triple_move_constraint_evaluations: search.triple_move_constraint_evaluations,
+        triple_move_replay_event_evaluations: search.triple_move_replay_event_evaluations,
+        triple_move_total_budget_exhausted: search.triple_move_total_budget_exhausted(),
+        triple_moves_accepted: search.triple_moves_accepted,
+        triple_move_prefixes_eligible: search.triple_move_prefixes_eligible.len(),
+        triple_move_prefixes_evaluated: search.triple_move_prefix_evaluations.len(),
         top_source_hypotheses_retained: top_source_beam.hypotheses.len(),
         planted_top_source_hypothesis_rank: top_source_beam.planted_hypothesis_rank,
         planted_top_source_hypothesis_retained: top_source_beam.planted_hypothesis_retained,
@@ -177,6 +192,12 @@ pub(super) struct LocalSearch<'a> {
     joint_moves_accepted: usize,
     joint_move_letter_pairs_eligible: BTreeSet<(usize, usize)>,
     joint_move_pair_evaluations: BTreeMap<(usize, usize), usize>,
+    pub(super) triple_move_candidate_evaluations: usize,
+    pub(super) triple_move_constraint_evaluations: usize,
+    pub(super) triple_move_replay_event_evaluations: usize,
+    triple_moves_accepted: usize,
+    triple_move_prefixes_eligible: BTreeSet<[usize; 3]>,
+    triple_move_prefix_evaluations: BTreeMap<[usize; 3], usize>,
     best_mismatches: usize,
     exact_bases: BTreeSet<Vec<usize>>,
     planted_base_recovered: Option<bool>,
@@ -207,6 +228,12 @@ impl<'a> LocalSearch<'a> {
             joint_moves_accepted: 0,
             joint_move_letter_pairs_eligible: BTreeSet::new(),
             joint_move_pair_evaluations: BTreeMap::new(),
+            triple_move_candidate_evaluations: 0,
+            triple_move_constraint_evaluations: 0,
+            triple_move_replay_event_evaluations: 0,
+            triple_moves_accepted: 0,
+            triple_move_prefixes_eligible: BTreeSet::new(),
+            triple_move_prefix_evaluations: BTreeMap::new(),
             best_mismatches: corpus.event_count,
             exact_bases: BTreeSet::new(),
             planted_base_recovered: planted_base.map(|_| false),
@@ -222,66 +249,78 @@ impl<'a> LocalSearch<'a> {
         let mut rng = SplitMix64::new(self.config.seed);
         for attempt in 0..self.config.attempts {
             self.attempts_run = attempt.saturating_add(1);
-            let hypothesis_index = attempt % self.top_source_hypotheses.len();
-            let hypothesis: &[Option<usize>] = self
-                .top_source_hypotheses
-                .get(hypothesis_index)
-                .map_or(&[], Vec::as_slice);
-            let hypothesis_visit = attempt / self.top_source_hypotheses.len();
-            let mut assignment = self.seed_assignment(hypothesis, hypothesis_visit, &mut rng)?;
-            let mut score = self.score_assignment(&assignment, usize::MAX);
-            let mut joint_evaluations = 0usize;
-            let joint_evaluation_cap = self.joint_evaluation_cap_for_attempt(attempt);
-            for _round in 0..self.config.max_rounds {
-                let mut improved = false;
-                for &letter in &observed {
-                    let Some(letter_index) =
-                        self.spec.pt_alphabet.iter().position(|&ch| ch == letter)
-                    else {
+            self.run_attempt(attempt, &observed, &mut rng)?;
+            if self.planted_base_recovered == Some(true) {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    fn run_attempt(
+        &mut self,
+        attempt: usize,
+        observed: &[char],
+        rng: &mut SplitMix64,
+    ) -> Result<(), LymmDeckError> {
+        let hypothesis_index = attempt % self.top_source_hypotheses.len();
+        let hypothesis: &[Option<usize>] = self
+            .top_source_hypotheses
+            .get(hypothesis_index)
+            .map_or(&[], Vec::as_slice);
+        let hypothesis_visit = attempt / self.top_source_hypotheses.len();
+        let mut assignment = self.seed_assignment(hypothesis, hypothesis_visit, rng)?;
+        let mut score = self.score_assignment(&assignment, usize::MAX);
+        let mut joint_evaluations = 0usize;
+        let joint_evaluation_cap = self.joint_evaluation_cap_for_attempt(attempt);
+        let mut triple_evaluations = 0usize;
+        let triple_evaluation_cap = self.triple_evaluation_cap_for_attempt(attempt);
+        for _round in 0..self.config.max_rounds {
+            let mut improved = false;
+            for &letter in observed {
+                let Some(letter_index) = self.spec.pt_alphabet.iter().position(|&ch| ch == letter)
+                else {
+                    continue;
+                };
+                let current = assignment.get(letter_index).copied().unwrap_or(0);
+                let mut best_candidate = current;
+                let mut best_score = score.clone();
+                let candidate_indices = self.candidates_for_letter(letter_index, hypothesis);
+                for candidate_index in candidate_indices {
+                    if candidate_index == current {
                         continue;
-                    };
-                    let current = assignment.get(letter_index).copied().unwrap_or(0);
-                    let mut best_candidate = current;
-                    let mut best_score = score.clone();
-                    let candidate_indices = self.candidates_for_letter(letter_index, hypothesis);
-                    for candidate_index in candidate_indices {
-                        if candidate_index == current {
-                            continue;
-                        }
-                        if let Some(slot) = assignment.get_mut(letter_index) {
-                            *slot = candidate_index;
-                        }
-                        let candidate_score =
-                            self.score_assignment(&assignment, best_score.objective);
-                        if candidate_score.objective < best_score.objective {
-                            best_candidate = candidate_index;
-                            best_score = candidate_score;
-                        }
                     }
                     if let Some(slot) = assignment.get_mut(letter_index) {
-                        *slot = best_candidate;
+                        *slot = candidate_index;
                     }
-                    if best_candidate != current {
-                        score = best_score;
-                        improved = true;
+                    let candidate_score = self.score_assignment(&assignment, best_score.objective);
+                    if candidate_score.objective < best_score.objective {
+                        best_candidate = candidate_index;
+                        best_score = candidate_score;
                     }
                 }
-                if score.mismatches == 0 {
-                    break;
+                if let Some(slot) = assignment.get_mut(letter_index) {
+                    *slot = best_candidate;
                 }
-                if !improved {
-                    let joint_move = best_joint_move(
-                        self,
-                        &mut assignment,
-                        &score,
-                        &observed,
-                        hypothesis,
-                        &mut joint_evaluations,
-                        joint_evaluation_cap,
-                    );
-                    let Some(joint_move) = joint_move else {
-                        break;
-                    };
+                if best_candidate != current {
+                    score = best_score;
+                    improved = true;
+                }
+            }
+            if score.mismatches == 0 {
+                break;
+            }
+            if !improved {
+                let joint_move = best_joint_move(
+                    self,
+                    &mut assignment,
+                    &score,
+                    observed,
+                    hypothesis,
+                    &mut joint_evaluations,
+                    joint_evaluation_cap,
+                );
+                if let Some(joint_move) = joint_move {
                     if let Some(slot) = assignment.get_mut(joint_move.left_letter) {
                         *slot = joint_move.left_candidate;
                     }
@@ -290,14 +329,32 @@ impl<'a> LocalSearch<'a> {
                     }
                     score = joint_move.score;
                     self.joint_moves_accepted = self.joint_moves_accepted.saturating_add(1);
+                    continue;
                 }
-            }
-            let final_score = self.score_assignment(&assignment, usize::MAX);
-            self.record_score(&assignment, &final_score);
-            if self.planted_base_recovered == Some(true) {
-                break;
+                let triple_move = best_triple_move(
+                    self,
+                    &mut assignment,
+                    &score,
+                    hypothesis,
+                    &mut triple_evaluations,
+                    triple_evaluation_cap,
+                );
+                let Some(triple_move) = triple_move else {
+                    break;
+                };
+                for (letter, candidate) in
+                    triple_move.letters.into_iter().zip(triple_move.candidates)
+                {
+                    if let Some(slot) = assignment.get_mut(letter) {
+                        *slot = candidate;
+                    }
+                }
+                score = triple_move.score;
+                self.triple_moves_accepted = self.triple_moves_accepted.saturating_add(1);
             }
         }
+        let final_score = self.score_assignment(&assignment, usize::MAX);
+        self.record_score(&assignment, &final_score);
         Ok(())
     }
 
@@ -315,6 +372,34 @@ impl<'a> LocalSearch<'a> {
 
     fn joint_move_total_budget_exhausted(&self) -> bool {
         self.joint_move_candidate_evaluations >= self.config.joint_move_total_evaluation_cap
+    }
+
+    fn triple_evaluation_cap_for_attempt(&self, attempt: usize) -> usize {
+        let attempts = self.config.attempts.max(1);
+        let completed = attempt.saturating_add(1).min(attempts);
+        let total = self.config.triple_move_total_evaluation_cap;
+        let fair_cumulative_cap = (total / attempts)
+            .saturating_mul(completed)
+            .saturating_add((total % attempts).min(completed));
+        self.config
+            .triple_move_evaluation_cap
+            .min(fair_cumulative_cap.saturating_sub(self.triple_move_candidate_evaluations))
+    }
+
+    fn triple_move_total_budget_exhausted(&self) -> bool {
+        self.triple_move_candidate_evaluations >= self.config.triple_move_total_evaluation_cap
+    }
+
+    pub(super) fn record_triple_prefix_eligible(&mut self, letters: [usize; 3]) {
+        let _inserted = self.triple_move_prefixes_eligible.insert(letters);
+    }
+
+    pub(super) fn record_triple_prefix_evaluation(&mut self, letters: [usize; 3]) {
+        let count = self
+            .triple_move_prefix_evaluations
+            .entry(letters)
+            .or_default();
+        *count = count.saturating_add(1);
     }
 
     pub(super) fn record_joint_pair_eligible(&mut self, left: usize, right: usize) {

@@ -148,6 +148,8 @@ fn solver_config_from_spec(
     .with_joint_move_order(cli_joint_move_order(args.joint_move_order))
     .with_joint_move_evaluation_cap(args.joint_move_cap)
     .with_joint_move_total_evaluation_cap(args.joint_total_cap)
+    .with_triple_move_evaluation_cap(args.triple_move_cap)
+    .with_triple_move_total_evaluation_cap(args.triple_total_cap)
 }
 
 #[derive(Clone, Debug)]
@@ -169,7 +171,7 @@ fn render_local_recovery_report(
         .unwrap_or_else(|| default_pt_alphabet(args.n));
     appendln!(
         &mut out,
-        "gak-hidden-base-local-recover: trials={} n={} s={} messages={}x{} base={} attempts={} max-rounds={} top-source-beam={} third-symbol-rank={} joint-move-order={} joint-move-cap={} joint-total-cap={}",
+        "gak-hidden-base-local-recover: trials={} n={} s={} messages={}x{} base={} attempts={} max-rounds={} top-source-beam={} third-symbol-rank={} joint-move-order={} joint-move-cap={} joint-total-cap={} triple-move-cap={} triple-total-cap={}",
         trials.len(),
         args.n,
         args.num_swaps,
@@ -182,7 +184,9 @@ fn render_local_recovery_report(
         !args.disable_third_symbol_rank,
         joint_move_order_label(args.joint_move_order),
         args.joint_move_cap,
-        args.joint_total_cap
+        args.joint_total_cap,
+        args.triple_move_cap,
+        args.triple_total_cap
     );
     appendln!(
         &mut out,
@@ -190,7 +194,7 @@ fn render_local_recovery_report(
     );
     appendln!(
         &mut out,
-        "solver: bounded top-source CSP/beam from first-symbol injectivity, second-symbol constraints, and optional third-symbol shared-sigma arc consistency, followed by constraint-filtered coordinate descent and objective-bounded two-letter s=3 moves with selectable pair ordering under per-restart and fair total-run caps; acceptance is exact compressed re-encryption only"
+        "solver: bounded top-source CSP/beam from first-symbol injectivity, second-symbol constraints, and optional third-symbol shared-sigma arc consistency, followed by constraint-filtered coordinate descent, objective-bounded two-letter s=3 moves, and fourth-prefix triple repair under separate fair caps; acceptance is exact compressed re-encryption only"
     );
     appendln!(
         &mut out,
@@ -274,7 +278,7 @@ fn append_search_surface(out: &mut String, trials: &[LocalTrialReport]) {
         trials
             .iter()
             .map(|trial| format!(
-                "{}:{}/rank-{}/evals-{}/joint-{}",
+                "{}:{}/rank-{}/evals-{}/joint-{}/triple-{}",
                 trial.trial_index,
                 trial.report.state.label(),
                 trial
@@ -282,7 +286,8 @@ fn append_search_surface(out: &mut String, trials: &[LocalTrialReport]) {
                     .planted_top_source_hypothesis_rank
                     .map_or_else(|| "n/a".to_owned(), |rank| rank.to_string()),
                 trial.report.candidate_evaluations,
-                trial.report.joint_move_candidate_evaluations
+                trial.report.joint_move_candidate_evaluations,
+                trial.report.triple_move_candidate_evaluations
             ))
             .collect::<Vec<_>>()
             .join(", ")
@@ -322,6 +327,30 @@ fn append_local_work_surface(out: &mut String, trials: &[LocalTrialReport]) {
             .filter(|trial| trial.report.joint_move_total_budget_exhausted)
             .count(),
         format_range(local_range(trials, |report| report.exact_candidate_count))
+    );
+    appendln!(
+        out,
+        "triple repair: candidates min/max={} constraint-checks min/max={} replay-events min/max={} moves min/max={} prefixes-evaluated min/max={} eligible min/max={} total-budget-exhausted={}",
+        format_range(local_range(trials, |report| {
+            report.triple_move_candidate_evaluations
+        })),
+        format_range(local_range(trials, |report| {
+            report.triple_move_constraint_evaluations
+        })),
+        format_range(local_range(trials, |report| {
+            report.triple_move_replay_event_evaluations
+        })),
+        format_range(local_range(trials, |report| report.triple_moves_accepted)),
+        format_range(local_range(trials, |report| {
+            report.triple_move_prefixes_evaluated
+        })),
+        format_range(local_range(trials, |report| {
+            report.triple_move_prefixes_eligible
+        })),
+        trials
+            .iter()
+            .filter(|trial| trial.report.triple_move_total_budget_exhausted)
+            .count()
     );
 }
 
