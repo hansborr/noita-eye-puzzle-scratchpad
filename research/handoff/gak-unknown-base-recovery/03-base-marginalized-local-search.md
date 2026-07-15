@@ -506,6 +506,55 @@ local neighborhood misses, but it is not evidence that the additional search
 budget improves recovery out of sample. Task 03 stops here rather than stacking
 another optimizer layer onto the same weak-restart fixture family.
 
+### Pre-registered exact state-SAT follow-up (2026-07-15, before implementation or runs)
+
+Prefix CEGAR leaves the exact deck recurrence outside SAT: it chooses one sigma
+per observed letter, replays a complete assignment, and learns only a clause
+over the distinct letters in the first failing prefix. The next rung will encode
+that recurrence directly under each retained top-source hypothesis. Once the
+hypothesis fixes the representative base, one-hot state variables can channel
+every transition
+
+```text
+state_next[p] = state_previous[B[sigma_L[p]]]
+```
+
+and every observed emission into SAT. Letter-level route variables will share
+the selected sigma's source choice across all occurrences of a plaintext
+letter. A satisfying assignment is still accepted only after exact replay; an
+UNSAT result applies only to that retained fixed-base hypothesis. The upstream
+beam remains bounded, so exhausting all retained hypotheses does not prove that
+the complete unknown-base problem has no candidate.
+
+This is a new algebraic constraint surface, not another local neighborhood.
+It will be an optional fallback after the landed local search misses, exposed by
+a retained-hypothesis cap whose default is initially zero. Reports will add SAT
+hypotheses attempted/proved UNSAT, exact models, variables, clauses, replayed
+events, and elapsed time. The production-path positive will use an already-open
+retained-plant pair miss; a matched global ciphertext-label swap will exercise
+the same encoding and must find no exact key. Exact replay remains the only
+success condition.
+
+The open 48-fixture comparison (`...733301`, `...743301`, `...763301`, and
+`...773301`, 16 fixtures each) is development evidence. Frozen rows use `n=7`,
+`s=3`, alphabet `ABCDEF`, `6x64` identity restarts, beam/restarts `96`, rounds
+`18`, hybrid pair order, pair caps `4096/393216`, triple and prefix-CEGAR caps
+zero, and are:
+
+1. landed pair-only search with state-SAT cap `0`;
+2. pair-only then exact state-SAT over at most all `96` retained hypotheses.
+
+The new sealed 16-fixture holdout uses top-level seed
+`0x7769_6465_5f78_3301`. Its xor differences from every earlier weak-restart
+top-level seed are at least `0x100`, which cannot equal `i ^ j` for trial indices
+`i,j in 0..16`; the mixer input sets are therefore disjoint. No fixture,
+planted rank, or recovery outcome from `...783301` will be inspected until the
+encoding, accounting, cap-0 ablation, focused positive, matched null, and open
+development comparison are fixed. The fallback is promoted to a nonzero
+default only if it gains at least one exact recovery on this holdout without
+changing any existing positive or null verdict. Otherwise it remains a
+cap-zero diagnostic, regardless of development performance.
+
 ### Pre-registered fourth-prefix triple-repair follow-up (2026-07-15, before runs)
 
 The next bounded change targets the five retained-plant development stalls with
