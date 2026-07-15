@@ -603,6 +603,56 @@ CEGAR caps remain zero. This is a calibrated exact known-plaintext improvement
 for synthetic `n=7`, `s=3` top-swap fixtures; it does not remove beam truncation,
 generalize to arbitrary GAK families, or bridge to the ciphertext-only eyes.
 
+### Pre-registered top-source beam widening (2026-07-15, before implementation or runs)
+
+Exact state SAT recovered every admitted planted hypothesis in the sealed
+state-SAT holdout, while the two remaining plants ranked 99 and 132. The next
+bounded change therefore widens only the ranked hypotheses available to exact
+SAT; it does not add another sigma optimizer or increase the landed local-search
+budget.
+
+The current beam builder retains at most `min(top_source_beam_width, attempts)`
+states. That coupling is unnecessary now that exact SAT has its own hypothesis
+cap. The implementation will make `top_source_beam_width` the independent
+retention cap. Local search will still run exactly `attempts` restarts and will
+therefore visit only the first 96 states in these comparisons; exact state SAT
+may inspect the wider retained suffix after local search misses. With both caps
+at their existing default 96, behavior and accounting must remain unchanged.
+
+The already-open 48 state-SAT fixtures (`...733301`, `...743301`, `...763301`,
+and `...783301`) are the development comparison. The new sealed 16-fixture
+holdout uses top-level seed `0x7769_6465_5f79_3301`. Its xor difference from
+every earlier weak-restart top-level seed is at least `0x100`, which cannot equal
+`i ^ j` for trial indices `i,j in 0..16`; the fixture-seed sets are therefore
+disjoint. No fixture, planted rank, or recovery outcome from `...793301` will be
+inspected until the cap-decoupling implementation, cap-96 regression, expanded
+production-path positive, matched label-shuffle null, and open development
+comparison are fixed.
+
+All rows keep `n=7`, `s=3`, alphabet `ABCDEF`, `6x64` identity restarts, 96
+local attempts, 18 rounds, hybrid pair caps `4096/393216`, and triple/prefix
+CEGAR caps zero. The frozen comparison is:
+
+1. landed retention 96 and state-SAT cap 96;
+2. retention 256 and state-SAT cap 256, with local attempts still 96.
+
+The wider row is deliberately capped rather than exhaustive. Primary success is
+the number of exact re-encrypting keys and their planted/equivalent/ambiguous
+classification. Also record planted rank/retention, SAT hypotheses attempted
+and proved UNSAT, variables, clauses, replay work, and elapsed time. A known
+development fixture whose planted rank exceeds 96 will pin the expanded
+production path; a deterministic global ciphertext-label swap of the same
+fixture must find no exact key after searching the same 256-state surface.
+Exact replay remains the only acceptance condition.
+
+The 256-state defaults are promoted only if the wider row gains at least one
+exact recovery on the sealed holdout without changing any existing positive or
+null verdict. A development-only gain leaves the defaults at 96 and records the
+wider cap as an optional recovery/cost tradeoff. Regardless of outcome, a miss
+remains `SearchCapExceeded`: states below rank 256 are still dropped, and this
+synthetic known-plaintext top-swap result does not transfer to the
+ciphertext-only eyes.
+
 ### Pre-registered fourth-prefix triple-repair follow-up (2026-07-15, before runs)
 
 The next bounded change targets the five retained-plant development stalls with
