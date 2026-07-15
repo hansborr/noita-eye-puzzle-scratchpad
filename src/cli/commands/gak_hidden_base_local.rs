@@ -142,6 +142,7 @@ fn solver_config_from_spec(
     .with_max_rounds(args.max_rounds)
     .with_top_source_beam_width(args.top_source_beam)
     .with_third_symbol_top_source_ranking(!args.disable_third_symbol_rank)
+    .with_fair_joint_move_order(!args.disable_fair_joint_order)
     .with_joint_move_evaluation_cap(args.joint_move_cap)
     .with_joint_move_total_evaluation_cap(args.joint_total_cap)
 }
@@ -165,7 +166,7 @@ fn render_local_recovery_report(
         .unwrap_or_else(|| default_pt_alphabet(args.n));
     appendln!(
         &mut out,
-        "gak-hidden-base-local-recover: trials={} n={} s={} messages={}x{} base={} attempts={} max-rounds={} top-source-beam={} third-symbol-rank={} joint-move-cap={} joint-total-cap={}",
+        "gak-hidden-base-local-recover: trials={} n={} s={} messages={}x{} base={} attempts={} max-rounds={} top-source-beam={} third-symbol-rank={} fair-joint-order={} joint-move-cap={} joint-total-cap={}",
         trials.len(),
         args.n,
         args.num_swaps,
@@ -176,6 +177,7 @@ fn render_local_recovery_report(
         args.max_rounds,
         args.top_source_beam,
         !args.disable_third_symbol_rank,
+        !args.disable_fair_joint_order,
         args.joint_move_cap,
         args.joint_total_cap
     );
@@ -185,7 +187,7 @@ fn render_local_recovery_report(
     );
     appendln!(
         &mut out,
-        "solver: bounded top-source CSP/beam from first-symbol injectivity, second-symbol constraints, and optional third-symbol shared-sigma arc consistency, followed by constraint-filtered coordinate descent and objective-bounded two-letter s=3 moves under per-restart and fair total-run caps; acceptance is exact compressed re-encryption only"
+        "solver: bounded top-source CSP/beam from first-symbol injectivity, second-symbol constraints, and optional third-symbol shared-sigma arc consistency, followed by constraint-filtered coordinate descent and objective-bounded two-letter s=3 moves with optional pair-round-robin ordering under per-restart and fair total-run caps; acceptance is exact compressed re-encryption only"
     );
     appendln!(
         &mut out,
@@ -222,7 +224,7 @@ fn append_search_surface(out: &mut String, trials: &[LocalTrialReport]) {
     );
     appendln!(
         out,
-        "search surface: sigma-domain={} brute-force n!={} candidate-evaluations min/max={} replay-events min/max={} joint-evaluations min/max={} joint-replay-events min/max={} joint-moves min/max={} total-budget-exhausted={} exact-candidates min/max={}",
+        "search surface: sigma-domain={} brute-force n!={} candidate-evaluations min/max={} replay-events min/max={} joint-evaluations min/max={} joint-replay-events min/max={} joint-moves min/max={} joint-pairs evaluated/eligible min/max={}/{} pair-evaluations min/max={}..{} total-budget-exhausted={} exact-candidates min/max={}",
         first.map_or(0, |report| report.sigma_domain_size),
         first
             .and_then(|report| report.brute_force_base_count)
@@ -234,6 +236,18 @@ fn append_search_surface(out: &mut String, trials: &[LocalTrialReport]) {
             report.joint_move_replay_event_evaluations
         })),
         format_range(local_range(trials, |report| report.joint_moves_accepted)),
+        format_range(local_range(trials, |report| {
+            report.joint_move_letter_pairs_evaluated
+        })),
+        format_range(local_range(trials, |report| {
+            report.joint_move_letter_pairs_eligible
+        })),
+        format_range(local_range(trials, |report| {
+            report.joint_move_pair_evaluations_min
+        })),
+        format_range(local_range(trials, |report| {
+            report.joint_move_pair_evaluations_max
+        })),
         trials
             .iter()
             .filter(|trial| trial.report.joint_move_total_budget_exhausted)

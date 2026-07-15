@@ -108,6 +108,9 @@ pub(crate) struct GakHiddenBaseLocalRecoverArgs {
     /// Use only the landed second-symbol likelihood for top-source ranking.
     #[arg(long = "disable-third-symbol-rank")]
     pub(crate) disable_third_symbol_rank: bool,
+    /// Exhaust each letter-pair product in order instead of round-robin.
+    #[arg(long = "disable-fair-joint-order")]
+    pub(crate) disable_fair_joint_order: bool,
     /// Maximum two-letter sigma assignments scored per stalled s=3 restart.
     #[arg(long = "joint-move-cap", default_value_t = 4_096)]
     pub(crate) joint_move_cap: usize,

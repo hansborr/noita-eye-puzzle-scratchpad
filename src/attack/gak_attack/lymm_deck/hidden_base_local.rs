@@ -70,6 +70,9 @@ pub struct HiddenBaseLocalSolverConfig {
     /// Whether to rank complete top-source states with third-symbol restart
     /// compatibility before applying the beam cap.
     pub rank_top_sources_with_third_symbol: bool,
+    /// Whether two-letter candidates are interleaved fairly across letter
+    /// pairs instead of exhausting one pair product at a time.
+    pub fair_joint_move_order: bool,
     /// Maximum two-letter sigma assignments scored per stalled `s=3` restart.
     /// Zero disables joint moves.
     pub joint_move_evaluation_cap: usize,
@@ -93,6 +96,7 @@ impl HiddenBaseLocalSolverConfig {
             max_rounds: DEFAULT_ROUNDS,
             top_source_beam_width: DEFAULT_TOP_SOURCE_BEAM_WIDTH,
             rank_top_sources_with_third_symbol: true,
+            fair_joint_move_order: true,
             joint_move_evaluation_cap: DEFAULT_JOINT_MOVE_EVALUATION_CAP,
             joint_move_total_evaluation_cap: DEFAULT_JOINT_MOVE_TOTAL_EVALUATION_CAP,
         }
@@ -137,6 +141,13 @@ impl HiddenBaseLocalSolverConfig {
     #[must_use]
     pub const fn with_third_symbol_top_source_ranking(mut self, enabled: bool) -> Self {
         self.rank_top_sources_with_third_symbol = enabled;
+        self
+    }
+
+    /// Enables or disables pair-round-robin two-letter candidate ordering.
+    #[must_use]
+    pub const fn with_fair_joint_move_order(mut self, enabled: bool) -> Self {
+        self.fair_joint_move_order = enabled;
         self
     }
 
@@ -222,6 +233,14 @@ pub struct HiddenBaseLocalRecoveryReport {
     pub joint_move_total_budget_exhausted: bool,
     /// Improving two-letter sigma moves accepted by the local search.
     pub joint_moves_accepted: usize,
+    /// Eligible letter pairs seen by at least one two-letter move pass.
+    pub joint_move_letter_pairs_eligible: usize,
+    /// Eligible letter pairs that received at least one candidate evaluation.
+    pub joint_move_letter_pairs_evaluated: usize,
+    /// Minimum candidate evaluations assigned to an eligible letter pair.
+    pub joint_move_pair_evaluations_min: usize,
+    /// Maximum candidate evaluations assigned to an eligible letter pair.
+    pub joint_move_pair_evaluations_max: usize,
     /// Complete top-source hypotheses retained for sigma refinement.
     pub top_source_hypotheses_retained: usize,
     /// One-based pre-truncation rank of the planted top-source hypothesis when
@@ -341,6 +360,10 @@ fn recover_hidden_base_local_known_plaintext_inner(
         joint_move_replay_event_evaluations: search.joint_move_replay_event_evaluations,
         joint_move_total_budget_exhausted: search.joint_move_total_budget_exhausted,
         joint_moves_accepted: search.joint_moves_accepted,
+        joint_move_letter_pairs_eligible: search.joint_move_letter_pairs_eligible,
+        joint_move_letter_pairs_evaluated: search.joint_move_letter_pairs_evaluated,
+        joint_move_pair_evaluations_min: search.joint_move_pair_evaluations_min,
+        joint_move_pair_evaluations_max: search.joint_move_pair_evaluations_max,
         top_source_hypotheses_retained: search.top_source_hypotheses_retained,
         planted_top_source_hypothesis_rank: search.planted_top_source_hypothesis_rank,
         planted_top_source_hypothesis_retained: search.planted_top_source_hypothesis_retained,

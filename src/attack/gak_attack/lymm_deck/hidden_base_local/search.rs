@@ -22,6 +22,10 @@ pub(super) struct LocalSearchOutput {
     pub(super) joint_move_replay_event_evaluations: usize,
     pub(super) joint_move_total_budget_exhausted: bool,
     pub(super) joint_moves_accepted: usize,
+    pub(super) joint_move_letter_pairs_eligible: usize,
+    pub(super) joint_move_letter_pairs_evaluated: usize,
+    pub(super) joint_move_pair_evaluations_min: usize,
+    pub(super) joint_move_pair_evaluations_max: usize,
     pub(super) top_source_hypotheses_retained: usize,
     pub(super) planted_top_source_hypothesis_rank: Option<usize>,
     pub(super) planted_top_source_hypothesis_retained: Option<bool>,
@@ -80,6 +84,10 @@ pub(super) fn run_local_search(
         joint_move_replay_event_evaluations: search.joint_move_replay_event_evaluations,
         joint_move_total_budget_exhausted: search.joint_move_total_budget_exhausted(),
         joint_moves_accepted: search.joint_moves_accepted,
+        joint_move_letter_pairs_eligible: search.joint_move_letter_pairs_eligible.len(),
+        joint_move_letter_pairs_evaluated: search.joint_move_pair_evaluations.len(),
+        joint_move_pair_evaluations_min: search.joint_move_pair_evaluations_min(),
+        joint_move_pair_evaluations_max: search.joint_move_pair_evaluations_max(),
         top_source_hypotheses_retained: top_source_beam.hypotheses.len(),
         planted_top_source_hypothesis_rank: top_source_beam.planted_hypothesis_rank,
         planted_top_source_hypothesis_retained: top_source_beam.planted_hypothesis_retained,
@@ -163,6 +171,8 @@ pub(super) struct LocalSearch<'a> {
     pub(super) joint_move_candidate_evaluations: usize,
     pub(super) joint_move_replay_event_evaluations: usize,
     joint_moves_accepted: usize,
+    joint_move_letter_pairs_eligible: BTreeSet<(usize, usize)>,
+    joint_move_pair_evaluations: BTreeMap<(usize, usize), usize>,
     best_mismatches: usize,
     exact_bases: BTreeSet<Vec<usize>>,
     planted_base_recovered: Option<bool>,
@@ -191,6 +201,8 @@ impl<'a> LocalSearch<'a> {
             joint_move_candidate_evaluations: 0,
             joint_move_replay_event_evaluations: 0,
             joint_moves_accepted: 0,
+            joint_move_letter_pairs_eligible: BTreeSet::new(),
+            joint_move_pair_evaluations: BTreeMap::new(),
             best_mismatches: corpus.event_count,
             exact_bases: BTreeSet::new(),
             planted_base_recovered: planted_base.map(|_| false),
@@ -299,6 +311,39 @@ impl<'a> LocalSearch<'a> {
 
     fn joint_move_total_budget_exhausted(&self) -> bool {
         self.joint_move_candidate_evaluations >= self.config.joint_move_total_evaluation_cap
+    }
+
+    pub(super) fn record_joint_pair_eligible(&mut self, left: usize, right: usize) {
+        let _inserted = self.joint_move_letter_pairs_eligible.insert((left, right));
+    }
+
+    pub(super) fn record_joint_pair_evaluation(&mut self, left: usize, right: usize) {
+        let count = self
+            .joint_move_pair_evaluations
+            .entry((left, right))
+            .or_default();
+        *count = count.saturating_add(1);
+    }
+
+    fn joint_move_pair_evaluations_min(&self) -> usize {
+        self.joint_move_letter_pairs_eligible
+            .iter()
+            .map(|pair| {
+                self.joint_move_pair_evaluations
+                    .get(pair)
+                    .copied()
+                    .unwrap_or(0)
+            })
+            .min()
+            .unwrap_or(0)
+    }
+
+    fn joint_move_pair_evaluations_max(&self) -> usize {
+        self.joint_move_pair_evaluations
+            .values()
+            .copied()
+            .max()
+            .unwrap_or(0)
     }
 
     fn seed_assignment(

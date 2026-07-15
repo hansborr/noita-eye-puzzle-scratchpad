@@ -445,6 +445,37 @@ fn hidden_base_local_joint_move_obeys_total_run_cap() {
     assert_eq!(ablation.top_source_third_symbol_evaluations, 0);
 }
 
+#[test]
+fn hidden_base_local_fair_joint_order_spreads_a_tight_cap_across_pairs() {
+    let fixture_seed = mix_seed(DEFAULT_HIDDEN_BASE_AUDIT_SEED, 0x6c73_7265_636f_7600 ^ 3);
+    let fixture = local_s3_fixture(fixture_seed);
+    let base_config = local_s3_solver_config(&fixture.spec, fixture_seed)
+        .with_attempts(1)
+        .with_joint_move_evaluation_cap(10)
+        .with_joint_move_total_evaluation_cap(10);
+    let pair_major = recover_hidden_base_local_known_plaintext_with_audit(
+        &base_config.clone().with_fair_joint_move_order(false),
+        &fixture.pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("pair-major local recovery");
+    let fair = recover_hidden_base_local_known_plaintext_with_audit(
+        &base_config.with_fair_joint_move_order(true),
+        &fixture.pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("pair-fair local recovery");
+
+    assert_eq!(pair_major.joint_move_candidate_evaluations, 10);
+    assert_eq!(fair.joint_move_candidate_evaluations, 10);
+    assert_eq!(pair_major.joint_move_letter_pairs_eligible, 15);
+    assert_eq!(fair.joint_move_letter_pairs_eligible, 15);
+    assert!(fair.joint_move_letter_pairs_evaluated > pair_major.joint_move_letter_pairs_evaluated);
+    assert!(fair.joint_move_pair_evaluations_max < pair_major.joint_move_pair_evaluations_max);
+    assert_eq!(pair_major.joint_move_pair_evaluations_min, 0);
+    assert_eq!(fair.joint_move_pair_evaluations_min, 0);
+}
+
 fn local_s2_fixture(seed: u64) -> super::HiddenBaseFixture {
     plant_hidden_base_fixture(&HiddenBaseFixtureConfig {
         n: 7,
