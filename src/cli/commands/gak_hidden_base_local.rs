@@ -6,13 +6,16 @@ use std::time::Duration;
 
 use noita_eye_puzzle::attack::gak_attack::lymm_deck::{
     HiddenBaseFixtureConfig, HiddenBaseKind, HiddenBaseLocalControlReport,
-    HiddenBaseLocalRecoveryReport, HiddenBaseLocalRecoveryState, HiddenBaseLocalSelfTestReport,
-    HiddenBaseLocalSolverConfig, LymmDeckSpec, hidden_base_local_self_test,
-    plant_hidden_base_fixture, recover_hidden_base_local_known_plaintext_with_audit,
+    HiddenBaseLocalJointMoveOrder, HiddenBaseLocalRecoveryReport, HiddenBaseLocalRecoveryState,
+    HiddenBaseLocalSelfTestReport, HiddenBaseLocalSolverConfig, LymmDeckSpec,
+    hidden_base_local_self_test, plant_hidden_base_fixture,
+    recover_hidden_base_local_known_plaintext_with_audit,
 };
 use noita_eye_puzzle::nulls::null::mix_seed;
 
-use crate::cli::args_gak_hidden_base::{GakHiddenBaseKind, GakHiddenBaseLocalRecoverArgs};
+use crate::cli::args_gak_hidden_base::{
+    GakHiddenBaseJointMoveOrder, GakHiddenBaseKind, GakHiddenBaseLocalRecoverArgs,
+};
 
 macro_rules! appendln {
     ($out:expr, $($arg:tt)*) => {
@@ -142,7 +145,7 @@ fn solver_config_from_spec(
     .with_max_rounds(args.max_rounds)
     .with_top_source_beam_width(args.top_source_beam)
     .with_third_symbol_top_source_ranking(!args.disable_third_symbol_rank)
-    .with_fair_joint_move_order(!args.disable_fair_joint_order)
+    .with_joint_move_order(cli_joint_move_order(args.joint_move_order))
     .with_joint_move_evaluation_cap(args.joint_move_cap)
     .with_joint_move_total_evaluation_cap(args.joint_total_cap)
 }
@@ -166,7 +169,7 @@ fn render_local_recovery_report(
         .unwrap_or_else(|| default_pt_alphabet(args.n));
     appendln!(
         &mut out,
-        "gak-hidden-base-local-recover: trials={} n={} s={} messages={}x{} base={} attempts={} max-rounds={} top-source-beam={} third-symbol-rank={} fair-joint-order={} joint-move-cap={} joint-total-cap={}",
+        "gak-hidden-base-local-recover: trials={} n={} s={} messages={}x{} base={} attempts={} max-rounds={} top-source-beam={} third-symbol-rank={} joint-move-order={} joint-move-cap={} joint-total-cap={}",
         trials.len(),
         args.n,
         args.num_swaps,
@@ -177,7 +180,7 @@ fn render_local_recovery_report(
         args.max_rounds,
         args.top_source_beam,
         !args.disable_third_symbol_rank,
-        !args.disable_fair_joint_order,
+        joint_move_order_label(args.joint_move_order),
         args.joint_move_cap,
         args.joint_total_cap
     );
@@ -315,6 +318,24 @@ fn append_search_surface(out: &mut String, trials: &[LocalTrialReport]) {
             .collect::<Vec<_>>()
             .join(", ")
     );
+}
+
+const fn cli_joint_move_order(order: GakHiddenBaseJointMoveOrder) -> HiddenBaseLocalJointMoveOrder {
+    match order {
+        GakHiddenBaseJointMoveOrder::PairMajor => HiddenBaseLocalJointMoveOrder::PairMajor,
+        GakHiddenBaseJointMoveOrder::PairRoundRobin => {
+            HiddenBaseLocalJointMoveOrder::PairRoundRobin
+        }
+        GakHiddenBaseJointMoveOrder::Hybrid => HiddenBaseLocalJointMoveOrder::Hybrid,
+    }
+}
+
+const fn joint_move_order_label(order: GakHiddenBaseJointMoveOrder) -> &'static str {
+    match order {
+        GakHiddenBaseJointMoveOrder::PairMajor => "pair-major",
+        GakHiddenBaseJointMoveOrder::PairRoundRobin => "pair-round-robin",
+        GakHiddenBaseJointMoveOrder::Hybrid => "hybrid",
+    }
 }
 
 fn render_local_controls(

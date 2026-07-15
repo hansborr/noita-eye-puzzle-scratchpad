@@ -108,9 +108,9 @@ pub(crate) struct GakHiddenBaseLocalRecoverArgs {
     /// Use only the landed second-symbol likelihood for top-source ranking.
     #[arg(long = "disable-third-symbol-rank")]
     pub(crate) disable_third_symbol_rank: bool,
-    /// Exhaust each letter-pair product in order instead of round-robin.
-    #[arg(long = "disable-fair-joint-order")]
-    pub(crate) disable_fair_joint_order: bool,
+    /// Candidate order for stalled two-letter sigma moves.
+    #[arg(long = "joint-move-order", value_enum, default_value_t = GakHiddenBaseJointMoveOrder::Hybrid)]
+    pub(crate) joint_move_order: GakHiddenBaseJointMoveOrder,
     /// Maximum two-letter sigma assignments scored per stalled s=3 restart.
     #[arg(long = "joint-move-cap", default_value_t = 4_096)]
     pub(crate) joint_move_cap: usize,
@@ -135,4 +135,15 @@ pub(crate) enum GakHiddenBaseKind {
     Random,
     /// Structured affine base with shift=floor(n/3)+1 and decimation=3.
     Affine,
+}
+
+/// Two-letter candidate order exposed by the hidden-base local CLI.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+pub(crate) enum GakHiddenBaseJointMoveOrder {
+    /// Exhaust one letter-pair product before visiting the next pair.
+    PairMajor,
+    /// Visit one candidate from every letter pair in repeated strata.
+    PairRoundRobin,
+    /// Split each pass between round-robin breadth and pair-major depth.
+    Hybrid,
 }

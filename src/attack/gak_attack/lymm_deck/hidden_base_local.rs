@@ -46,6 +46,18 @@ pub enum HiddenBaseLocalGeneratorFamily {
     TopCardSwaps,
 }
 
+/// Candidate order for stalled two-letter sigma moves.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HiddenBaseLocalJointMoveOrder {
+    /// Exhaust each letter-pair product before visiting the next pair.
+    PairMajor,
+    /// Visit one candidate from every letter pair in repeated strata.
+    PairRoundRobin,
+    /// Spend half of each pass round-robin, then continue pair-major without
+    /// repeating candidates.
+    Hybrid,
+}
+
 /// Search configuration for [`recover_hidden_base_local_known_plaintext`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HiddenBaseLocalSolverConfig {
@@ -70,9 +82,8 @@ pub struct HiddenBaseLocalSolverConfig {
     /// Whether to rank complete top-source states with third-symbol restart
     /// compatibility before applying the beam cap.
     pub rank_top_sources_with_third_symbol: bool,
-    /// Whether two-letter candidates are interleaved fairly across letter
-    /// pairs instead of exhausting one pair product at a time.
-    pub fair_joint_move_order: bool,
+    /// Candidate order used by stalled two-letter sigma moves.
+    pub joint_move_order: HiddenBaseLocalJointMoveOrder,
     /// Maximum two-letter sigma assignments scored per stalled `s=3` restart.
     /// Zero disables joint moves.
     pub joint_move_evaluation_cap: usize,
@@ -96,7 +107,7 @@ impl HiddenBaseLocalSolverConfig {
             max_rounds: DEFAULT_ROUNDS,
             top_source_beam_width: DEFAULT_TOP_SOURCE_BEAM_WIDTH,
             rank_top_sources_with_third_symbol: true,
-            fair_joint_move_order: true,
+            joint_move_order: HiddenBaseLocalJointMoveOrder::Hybrid,
             joint_move_evaluation_cap: DEFAULT_JOINT_MOVE_EVALUATION_CAP,
             joint_move_total_evaluation_cap: DEFAULT_JOINT_MOVE_TOTAL_EVALUATION_CAP,
         }
@@ -144,10 +155,10 @@ impl HiddenBaseLocalSolverConfig {
         self
     }
 
-    /// Enables or disables pair-round-robin two-letter candidate ordering.
+    /// Replaces the stalled two-letter candidate order.
     #[must_use]
-    pub const fn with_fair_joint_move_order(mut self, enabled: bool) -> Self {
-        self.fair_joint_move_order = enabled;
+    pub const fn with_joint_move_order(mut self, order: HiddenBaseLocalJointMoveOrder) -> Self {
+        self.joint_move_order = order;
         self
     }
 

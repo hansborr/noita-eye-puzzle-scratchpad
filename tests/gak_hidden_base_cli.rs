@@ -77,7 +77,7 @@ fn gak_hidden_base_local_recover_cli_reports_bounded_surface() {
 
     assert_contains(&stdout, "gak-hidden-base-local-recover: trials=1 n=5 s=3");
     assert_contains(&stdout, "third-symbol-rank=true");
-    assert_contains(&stdout, "fair-joint-order=true");
+    assert_contains(&stdout, "joint-move-order=hybrid");
     assert_contains(&stdout, "joint-total-cap=393216");
     assert_contains(&stdout, "hidden-base local controls: PASS");
     assert_contains(&stdout, "planted-s2-positive: PASS");

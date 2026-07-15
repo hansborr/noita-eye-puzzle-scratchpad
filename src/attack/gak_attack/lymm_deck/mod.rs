@@ -54,9 +54,10 @@ pub use hidden_base_controls::{
 pub use hidden_base_fixture::plant_hidden_base_fixture;
 pub use hidden_base_local::{
     HiddenBaseLocalControlExpectation, HiddenBaseLocalControlReport,
-    HiddenBaseLocalGeneratorFamily, HiddenBaseLocalRecoveredKey, HiddenBaseLocalRecoveryReport,
-    HiddenBaseLocalRecoveryState, HiddenBaseLocalSelfTestReport, HiddenBaseLocalSolverConfig,
-    hidden_base_local_self_test, recover_hidden_base_local_known_plaintext,
+    HiddenBaseLocalGeneratorFamily, HiddenBaseLocalJointMoveOrder, HiddenBaseLocalRecoveredKey,
+    HiddenBaseLocalRecoveryReport, HiddenBaseLocalRecoveryState, HiddenBaseLocalSelfTestReport,
+    HiddenBaseLocalSolverConfig, hidden_base_local_self_test,
+    recover_hidden_base_local_known_plaintext,
     recover_hidden_base_local_known_plaintext_with_audit,
 };
 pub use hidden_base_s1::{

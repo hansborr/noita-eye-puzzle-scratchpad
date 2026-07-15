@@ -4,12 +4,13 @@ use std::collections::BTreeMap;
 
 use super::{
     DEFAULT_HIDDEN_BASE_AUDIT_SEED, HiddenBaseAuditConfig, HiddenBaseFixtureConfig,
-    HiddenBaseIdentifiabilityStatus, HiddenBaseKind, HiddenBaseLocalRecoveryState,
-    HiddenBaseLocalSolverConfig, HiddenBaseS1RecoveryState, HiddenBaseS1SolverConfig,
-    KnownPlaintextPair, LymmDeckSpec, audit_hidden_base_mapping, encrypt_lymm_deck,
-    hidden_base_audit_self_test, hidden_base_local_self_test, plant_hidden_base_fixture,
-    recover_hidden_base_local_known_plaintext_with_audit, recover_hidden_base_s1_known_plaintext,
-    recover_hidden_base_s1_known_plaintext_with_audit, run_hidden_base_identifiability_audit,
+    HiddenBaseIdentifiabilityStatus, HiddenBaseKind, HiddenBaseLocalJointMoveOrder,
+    HiddenBaseLocalRecoveryState, HiddenBaseLocalSolverConfig, HiddenBaseS1RecoveryState,
+    HiddenBaseS1SolverConfig, KnownPlaintextPair, LymmDeckSpec, audit_hidden_base_mapping,
+    encrypt_lymm_deck, hidden_base_audit_self_test, hidden_base_local_self_test,
+    plant_hidden_base_fixture, recover_hidden_base_local_known_plaintext_with_audit,
+    recover_hidden_base_s1_known_plaintext, recover_hidden_base_s1_known_plaintext_with_audit,
+    run_hidden_base_identifiability_audit,
 };
 use crate::nulls::null::mix_seed;
 
@@ -446,7 +447,7 @@ fn hidden_base_local_joint_move_obeys_total_run_cap() {
 }
 
 #[test]
-fn hidden_base_local_fair_joint_order_spreads_a_tight_cap_across_pairs() {
+fn hidden_base_local_round_robin_spreads_a_tight_cap_across_pairs() {
     let fixture_seed = mix_seed(DEFAULT_HIDDEN_BASE_AUDIT_SEED, 0x6c73_7265_636f_7600 ^ 3);
     let fixture = local_s3_fixture(fixture_seed);
     let base_config = local_s3_solver_config(&fixture.spec, fixture_seed)
@@ -454,13 +455,15 @@ fn hidden_base_local_fair_joint_order_spreads_a_tight_cap_across_pairs() {
         .with_joint_move_evaluation_cap(10)
         .with_joint_move_total_evaluation_cap(10);
     let pair_major = recover_hidden_base_local_known_plaintext_with_audit(
-        &base_config.clone().with_fair_joint_move_order(false),
+        &base_config
+            .clone()
+            .with_joint_move_order(HiddenBaseLocalJointMoveOrder::PairMajor),
         &fixture.pairs,
         Some(&fixture.spec.base),
     )
     .expect("pair-major local recovery");
     let fair = recover_hidden_base_local_known_plaintext_with_audit(
-        &base_config.with_fair_joint_move_order(true),
+        &base_config.with_joint_move_order(HiddenBaseLocalJointMoveOrder::PairRoundRobin),
         &fixture.pairs,
         Some(&fixture.spec.base),
     )

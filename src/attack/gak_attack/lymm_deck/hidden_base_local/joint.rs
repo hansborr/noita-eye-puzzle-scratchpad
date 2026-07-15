@@ -1,5 +1,8 @@
 //! Capped two-letter moves for stalled hidden-base local refinement.
 
+use std::collections::BTreeSet;
+
+use super::HiddenBaseLocalJointMoveOrder;
 use super::search::{LocalScore, LocalSearch};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -56,25 +59,24 @@ pub(super) fn best_joint_move(
     for pair in &pair_domains {
         search.record_joint_pair_eligible(pair.left_letter, pair.right_letter);
     }
-    if search.config.fair_joint_move_order {
-        best_pair_round_robin(
+    let remaining = evaluation_cap.saturating_sub(*evaluations);
+    let order = ordered_candidates(&pair_domains, search.config.joint_move_order, remaining);
+    let mut best = None;
+    for (pair_index, candidate_index) in order {
+        let Some(pair) = pair_domains.get(pair_index) else {
+            continue;
+        };
+        evaluate_candidate(
             search,
             assignment,
             score,
-            &pair_domains,
+            pair,
+            candidate_index,
             evaluations,
-            evaluation_cap,
-        )
-    } else {
-        best_pair_major(
-            search,
-            assignment,
-            score,
-            &pair_domains,
-            evaluations,
-            evaluation_cap,
-        )
+            &mut best,
+        );
     }
+    best
 }
 
 fn joint_pair_domains(
@@ -131,68 +133,66 @@ fn alternatives(candidates: Vec<usize>, current: usize) -> Vec<usize> {
         .collect()
 }
 
-fn best_pair_major(
-    search: &mut LocalSearch<'_>,
-    assignment: &mut [usize],
-    score: &LocalScore,
-    pair_domains: &[JointPairDomain],
-    evaluations: &mut usize,
-    evaluation_cap: usize,
-) -> Option<JointMove> {
-    let mut best = None;
-    for pair in pair_domains {
-        for candidate_index in 0..pair.product_len() {
-            if *evaluations >= evaluation_cap {
-                return best;
-            }
-            evaluate_candidate(
-                search,
-                assignment,
-                score,
-                pair,
-                candidate_index,
-                evaluations,
-                &mut best,
-            );
-        }
+fn ordered_candidates(
+    pairs: &[JointPairDomain],
+    order: HiddenBaseLocalJointMoveOrder,
+    cap: usize,
+) -> Vec<(usize, usize)> {
+    match order {
+        HiddenBaseLocalJointMoveOrder::PairMajor => pair_major_order(pairs, cap),
+        HiddenBaseLocalJointMoveOrder::PairRoundRobin => round_robin_order(pairs, cap),
+        HiddenBaseLocalJointMoveOrder::Hybrid => hybrid_order(pairs, cap),
     }
-    best
 }
 
-fn best_pair_round_robin(
-    search: &mut LocalSearch<'_>,
-    assignment: &mut [usize],
-    score: &LocalScore,
-    pair_domains: &[JointPairDomain],
-    evaluations: &mut usize,
-    evaluation_cap: usize,
-) -> Option<JointMove> {
-    let mut best = None;
-    let max_product = pair_domains
+fn pair_major_order(pairs: &[JointPairDomain], cap: usize) -> Vec<(usize, usize)> {
+    let mut order = Vec::with_capacity(cap);
+    for (pair_index, pair) in pairs.iter().enumerate() {
+        for candidate_index in 0..pair.product_len() {
+            if order.len() >= cap {
+                return order;
+            }
+            order.push((pair_index, candidate_index));
+        }
+    }
+    order
+}
+
+fn round_robin_order(pairs: &[JointPairDomain], cap: usize) -> Vec<(usize, usize)> {
+    let mut order = Vec::with_capacity(cap);
+    let max_product = pairs
         .iter()
         .map(JointPairDomain::product_len)
         .max()
         .unwrap_or(0);
     for candidate_index in 0..max_product {
-        for pair in pair_domains {
-            if candidate_index >= pair.product_len() {
-                continue;
+        for (pair_index, pair) in pairs.iter().enumerate() {
+            if candidate_index < pair.product_len() {
+                order.push((pair_index, candidate_index));
+                if order.len() >= cap {
+                    return order;
+                }
             }
-            if *evaluations >= evaluation_cap {
-                return best;
-            }
-            evaluate_candidate(
-                search,
-                assignment,
-                score,
-                pair,
-                candidate_index,
-                evaluations,
-                &mut best,
-            );
         }
     }
-    best
+    order
+}
+
+fn hybrid_order(pairs: &[JointPairDomain], cap: usize) -> Vec<(usize, usize)> {
+    let round_robin_cap = cap / 2 + cap % 2;
+    let mut order = round_robin_order(pairs, round_robin_cap);
+    let visited = order.iter().copied().collect::<BTreeSet<_>>();
+    for (pair_index, pair) in pairs.iter().enumerate() {
+        for candidate_index in 0..pair.product_len() {
+            if order.len() >= cap {
+                return order;
+            }
+            if !visited.contains(&(pair_index, candidate_index)) {
+                order.push((pair_index, candidate_index));
+            }
+        }
+    }
+    order
 }
 
 fn evaluate_candidate(
