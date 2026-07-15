@@ -25,10 +25,10 @@ anchor. The harden-and-publish cycle is now complete: the transcription
 robustness certificates landed, and the publishable structural summary is in
 `research/findings/eyes-structural-summary.md`. The remaining useful work is
 mostly external-anchor documentation plus optional formalization; broad decode
-search is not the next move. A separate useful community-infrastructure track is
-to extend the smaller-GAK/deck proving ground by removing the public-base
-assumption from `gak-swap-recover`, because that is the transfer gap Lymm called
-out.
+search is not the next move. The separate smaller-GAK/deck proving ground has
+now removed the public-base assumption at `n=7`: exact state SAT closes every
+within-beam miss on its latest holdout, leaving top-source retention as the
+measured transfer gap Lymm's request exposes.
 
 ## House rules (read before any task)
 
@@ -75,10 +75,10 @@ out.
 - `gak-unknown-base-recovery/` — **BUILT + CALIBRATED.** The public-base solver
   conditioned on a base permutation the eyes would not provide, so this track
   added hidden-base fixtures, identifiability audit, exact `s=1` recovery, and
-  bounded `s=2..3` base marginalization. Optional triple and prefix-CEGAR
-  fallbacks gained only on development fixtures and tied sealed holdouts; both
-  remain disabled. Resume only for a new algebraic constraint or
-  practice-ciphertext surface. It is community GAK tooling, not an eye decode.
+  bounded `s=2..3` base marginalization. Exact state SAT over retained
+  top-source hypotheses improved both development and a sealed holdout; the
+  remaining bottleneck is beam truncation. It is community GAK tooling, not an
+  eye decode.
 
 **Tier 1 — harden & publish the eyes frontier (DONE; kept as provenance).**
 - `next-cycle-2026-07-06.md` — **EXECUTED.** It sent the repo through
@@ -94,11 +94,11 @@ out.
 - `T05` — **DONE** (`a314f42`). The structural summary is published at
   `research/findings/eyes-structural-summary.md`.
 
-**Tier 2A — completed community-infrastructure frontier: Lymm's general-GAK interest.**
+**Tier 2A — active community-infrastructure frontier: Lymm's general-GAK interest.**
 - `gak-unknown-base-recovery/` — unknown-base known-plaintext GAK/deck recovery
-  on small planted instances is built and holdout-calibrated. It now waits for
-  a new algebraic constraint or practice-ciphertext surface rather than another
-  locally tuned search layer.
+  on small planted instances is built and holdout-calibrated. Exact state SAT
+  closes within-bucket retained-plant misses on the latest holdout; top-source
+  beam retention is the next measured transfer gap.
 
 **Tier 2B — eyes-specific remaining work: the standing unblocker + optional formalization.**
 - `T11` — external-anchor hunt (the only real decode-unblocker; mostly

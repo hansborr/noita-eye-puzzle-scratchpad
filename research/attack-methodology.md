@@ -343,3 +343,12 @@ two misses without recovery. Keep the positive regression, but leave the
 fallback disabled. A sound solver extension, a passing null, and one exact
 development rescue together still do not establish an out-of-sample default
 gain.
+
+The successful successor shows when escalation is justified: encode the
+cipher recurrence itself, not only complete key choices plus replay-derived
+blocking clauses. One-hot state channeling under each fixed top-source/base
+hypothesis improved exact recovery from `25/32` to `31/32` in development and
+from `13/16` to `14/16` on a sealed holdout. Every admitted planted hypothesis
+was recovered; all residual misses were upstream beam exclusions. This moved a
+measured bottleneck rather than adding another neighborhood to the same local
+objective, so the nonzero default is evidence-backed on this synthetic surface.

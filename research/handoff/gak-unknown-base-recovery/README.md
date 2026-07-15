@@ -1,11 +1,11 @@
 # Handoff - unknown-base GAK / deck-cipher recovery
 
-**Status:** tasks 01-03 built and calibrated; the `n=7` bounded local-search,
-triple-repair, and retained-hypothesis CEGAR frontier is measured on
-seed-set-disjoint holdouts. Both late fallbacks gained only in development and
-remain disabled by default; task 03 stops at this honest-negative frontier.
-**Priority:** reference implementation; resume only for a new algebraic
-constraint or practice-ciphertext surface, not another tuned optimizer layer
+**Status:** tasks 01-03 built and calibrated; exact state SAT over retained
+top-source hypotheses improved `n=7`, `s=3` recovery on both development and a
+seed-set-disjoint holdout and is enabled at cap 96. Earlier triple and CEGAR
+fallbacks remain disabled; beam truncation is now the measured bottleneck.
+**Priority:** active reference implementation; the next distinct rung is to
+remove or widen the top-source beam without relabeling bounded misses
 **Depends on:** `gak-swap-recovery/`, especially `gak-swap-recover` and
 `research/data/practice-puzzles/deck-swap/SWAP-RECOVERY-METHOD.md`
 
@@ -210,9 +210,16 @@ at model 163 and a matched label-shuffle null that found no exact key. On a new
 seed-set-disjoint 16-fixture holdout, both rows tied at `14/16`; CEGAR explored
 52,732 and 55,353 models on the two misses without an exact recovery. Combined
 recovery is therefore pair-only `39/48` and CEGAR `40/48`, with the sole gain
-still development-only. Both CEGAR caps default to zero, and task 03 stops here
-until a new algebraic constraint or practice-ciphertext surface justifies a
-different rung.
+still development-only. Both CEGAR caps default to zero; that lazy-prefix rung
+stops here rather than receiving another tuned budget.
+
+The next algebraic rung encodes the full deck recurrence into SAT under each
+retained top-source hypothesis. It recovered `31/32` versus pair-only `25/32`
+on development and `14/16` versus `13/16` on a sealed holdout, with every
+accepted key replaying exactly. The three combined misses all had planted
+top-source ranks outside the 96-state beam. The state-SAT cap is therefore
+enabled at 96; the next bottleneck is top-source retention, not within-bucket
+sigma refinement.
 
 Adapt the existing substitution-first coordinate-descent idea:
 

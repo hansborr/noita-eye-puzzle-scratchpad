@@ -1,11 +1,10 @@
 # 03 - base-marginalized local recovery, `s = 2..3`
 
-**Status:** bounded instrument, top-source CSP/beam, third-symbol arc-consistency
-ranking, fair joint budgets, explicit pair-order schedules, and optional
-fourth-prefix triple repair and retained-hypothesis prefix CEGAR built; broader
-and seed-set-disjoint calibrations measured through 2026-07-15. Both late
-fallbacks remain disabled by default because their development gains did not
-replicate on sealed holdouts.
+**Status:** bounded instrument, top-source CSP/beam, local neighborhoods, prefix
+CEGAR, and exact state SAT built; broader and seed-set-disjoint calibrations
+measured through 2026-07-15. Exact state SAT improved both development and its
+sealed holdout and is enabled over the retained 96 hypotheses; earlier triple
+and CEGAR fallbacks remain disabled.
 
 ## Scope
 
@@ -574,6 +573,35 @@ retained hypotheses UNSAT and finds no exact key. This clears the development
 gate and freezes the implementation, accounting, cap-zero ablation, and
 controls before the `...783301` holdout is opened. It does not yet justify a
 nonzero default.
+
+### Exact state-SAT result (2026-07-15)
+
+After commit `f191ee0` froze the implementation and development result, the
+seed-set-disjoint `...783301` holdout was opened with both registered rows.
+Every accepted key below passed exact `384/384` replay; misses remain bounded
+`SearchCapExceeded` outcomes because the top-source beam is truncated.
+
+| search | development, 32 fixtures | sealed holdout, 16 fixtures | combined | combined states |
+| --- | ---: | ---: | ---: | --- |
+| landed pair-only, state-SAT cap `0` | `25/32` | `13/16` | `38/48` | 22 planted, 16 ambiguous, 10 misses |
+| pair-only then exact state SAT, cap `96` | `31/32` | `14/16` | `45/48` | 28 planted, 17 ambiguous, 3 misses |
+
+The holdout gain was an exact equivalent-key recovery reached after 37 retained
+hypotheses; its planted top-source state ranked 90, so it was inside the beam.
+The two remaining holdout plants ranked 99 and 132, outside the 96-state beam;
+state SAT proved all 96 retained fixed-base hypotheses UNSAT in each run but did
+not search the dropped plants. Thus state SAT recovered every pair-only holdout
+miss whose planted top-source state was admitted, and the exact gain replicated
+out of sample.
+
+Across the holdout, the fallback added 1.026 seconds total in the release run.
+The largest run allocated 1,829,316 SAT variables and 12,347,596 clauses across
+96 separately solved hypotheses. These are cumulative construction counts, not
+one monolithic formula. Under the preregistered rule, the retained-hypothesis
+cap is promoted from zero to the existing beam width of 96. Triple and prefix
+CEGAR caps remain zero. This is a calibrated exact known-plaintext improvement
+for synthetic `n=7`, `s=3` top-swap fixtures; it does not remove beam truncation,
+generalize to arbitrary GAK families, or bridge to the ciphertext-only eyes.
 
 ### Pre-registered fourth-prefix triple-repair follow-up (2026-07-15, before runs)
 

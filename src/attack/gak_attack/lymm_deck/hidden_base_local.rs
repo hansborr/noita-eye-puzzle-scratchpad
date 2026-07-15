@@ -53,7 +53,7 @@ const DEFAULT_JOINT_MOVE_TOTAL_EVALUATION_CAP: usize = 393_216;
 const DEFAULT_TRIPLE_MOVE_EVALUATION_CAP: usize = 0;
 const DEFAULT_TRIPLE_MOVE_TOTAL_EVALUATION_CAP: usize = 0;
 const DEFAULT_PREFIX_CEGAR_CAPS: (usize, usize) = (0, 0);
-const DEFAULT_STATE_SAT_HYPOTHESIS_CAP: usize = 0;
+const DEFAULT_STATE_SAT_HYPOTHESIS_CAP: usize = 96;
 const DEFAULT_SEED: u64 = 0x6761_6b5f_6862_6c73;
 
 /// Generator family admitted by the hidden-base local solver.

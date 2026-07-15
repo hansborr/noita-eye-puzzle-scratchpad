@@ -130,7 +130,7 @@ pub(crate) struct GakHiddenBaseLocalRecoverArgs {
     #[arg(long = "prefix-cegar-total-cap", default_value_t = 0)]
     pub(crate) prefix_cegar_total_cap: usize,
     /// Maximum retained top-source hypotheses solved by exact state SAT.
-    #[arg(long = "state-sat-hypothesis-cap", default_value_t = 0)]
+    #[arg(long = "state-sat-hypothesis-cap", default_value_t = 96)]
     pub(crate) state_sat_hypothesis_cap: usize,
     /// Hidden-base construction family.
     #[arg(long = "base-kind", value_enum, default_value_t = GakHiddenBaseKind::Random)]
