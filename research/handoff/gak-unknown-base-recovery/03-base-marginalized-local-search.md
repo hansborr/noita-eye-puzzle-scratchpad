@@ -1,7 +1,7 @@
 # 03 - base-marginalized local recovery, `s = 2..3`
 
-**Status:** first bounded instrument built 2026-07-07 on branch
-`agent/gak-unknown-base-recovery-01`.
+**Status:** first bounded instrument built 2026-07-07; top-source CSP/beam
+frontier improvement measured 2026-07-14.
 
 ## Scope
 
@@ -56,6 +56,7 @@ cargo run --locked --bin noita-eye -- gak-hidden-base-local-recover \
   --num-swaps 2 \
   --messages 8 \
   --message-len 48 \
+  --top-source-beam 96 \
   --trials 1
 ```
 
@@ -80,9 +81,24 @@ For one assignment:
 5. feed the representative mapping into `audit_hidden_base_mapping` for
    planted/equivalent/ambiguous classification.
 
-The local search uses deterministic random restarts plus coordinate descent over
-the de-duplicated `sigma` domain. For `s=3`, the objective also uses a cheap
-second-symbol identity-restart consistency term:
+Before local refinement, the solver now constructs a bounded top-source
+CSP/beam:
+
+1. group first-symbol anchors by emitted value;
+2. assign those groups injectively to top sources;
+3. reject partial assignments when no sigma in an assigned source bucket can
+   satisfy the resolved second-symbol constraints;
+4. rank complete assignments by their compatible-sigma fraction;
+5. retain at most `min(top_source_beam_width, attempts)` hypotheses.
+
+Coordinate descent then changes each anchored letter only among sigma candidates
+in the hypothesis's selected top-source bucket. This removes the invalid
+intermediate collision that made a one-letter top-source permutation effectively
+untraversable. Deterministic restarts remain available inside each retained
+hypothesis.
+
+The objective and CSP both use the cheap second-symbol identity-restart
+consistency term:
 
 ```text
 message starts L M, second emission y
@@ -91,7 +107,13 @@ y = B[sigma_L[anchor(M)]]
 ```
 
 When `y` is itself an anchored value, this constrains
-`top_source(owner(y)) = sigma_L[anchor(M)]`.
+`top_source(owner(y)) = sigma_L[anchor(M)]`. The identity follows from the
+restart algebra and is independent of the swap budget, so it is now applied to
+both `s=2` and `s=3` (previously the local objective gated it on `s >= 3`).
+
+The report exposes configured beam width, retained hypotheses, expanded,
+pruned, and capacity-dropped states, constraint evaluations, replay candidate
+evaluations, and top-source/total runtime.
 
 ## Controls
 
@@ -122,12 +144,43 @@ measurements, not claims about the real eyes.
 | `n=7, s=2, messages=8, len=48, attempts=512, rounds=24` | `SearchCapExceeded` | sigma domain `37`, brute-force `7! = 5040` | best observed replay `118/384`; no exact key found |
 | `n=7, s=3, messages=8, len=32, attempts=512, rounds=24` | `SearchCapExceeded` | sigma domain `172`, brute-force `7! = 5040` | best observed replay `147/256`; no exact key found |
 
+### Top-source CSP/beam follow-up (2026-07-14)
+
+All rows below use the CLI default seed, consecutive deterministic trial seeds,
+random bases, six plaintext letters, eight identity-restart messages of 48
+events, and exact planted-base audit. Timings are local debug-build wall clock
+and are descriptive, not stable benchmarks.
+
+| surface | budget | result | bounded work |
+| --- | --- | --- | --- |
+| `n=7, s=2`, five seeds | beam/restarts `96`, rounds `18` | exact `5/5`; planted base `5/5`; replay `384/384` each | retained `24..96`; expanded `399..1414`; pruned `319..1039`; dropped `0..78`; constraint checks `2572..11496`; replay evaluations `156..1730`; total `0.219 s` |
+| previous failing default `n=7, s=2` fixture | same | `RecoveredPlantedBase`, `384/384` | attempt `25`; replay evaluations `1730`; `0.109 s` |
+| `n=7, s=3`, five seeds | beam/restarts `96`, rounds `18` | exact `2/5`; three `SearchCapExceeded`; best miss `108/384` | retained `96`; dropped `468..1872`; replay evaluations `2254..35502`; total `6.16 s` |
+| `n=7, s=3`, same five seeds | beam/restarts `512`, rounds `24` | exact `2/5`; no success-rate gain | retained `512`; dropped `52..1456`; replay evaluations `2254..188594`; total `30.28 s` |
+
+The legacy write-up recorded the failing `n=7, s=2` surface at `118/384`; an
+immediate pre-change rerun of the current checkout reached `128/384` after 512
+restarts and still ended at `SearchCapExceeded`. The deterministic regression is
+therefore pinned to the fixture and exact outcome, not to an optimizer-dependent
+intermediate mismatch count.
+
+Against the `7! = 5040` hidden-base-enumeration baseline, the five successful
+`s=2` trials expanded at most `1414` partial CSP states and made at most `1730`
+full replay evaluations. These are different work units from a tested base
+permutation: the CSP additionally made up to `11496` cheap sigma/second-symbol
+checks. The result supports a favorable bounded-search comparison, not a claim
+that `1730 < 5040` is itself a like-for-like speedup proof.
+
 Interpretation:
 
 - The task-03 instrument now has exact positive controls beyond `s=1`, including
   a small `s=3` fixture where non-identifiability is measured rather than hidden.
-- The bounded local search is not yet a general `n=7` solver. The current
-  `n=7` misses are search-budget misses, not mathematical no-candidate results.
+- The bounded local search is now reliable on the measured five-seed `n=7,
+  s=2` sample. This is a synthetic, model-conditional frontier result, not a
+  general proof over fixtures.
+- `n=7, s=3` remains fixture-sensitive at `2/5`; widening the beam/restart cap
+  from `96` to `512` did not improve that sample. The misses remain bounded
+  search misses, not mathematical no-candidate results.
 - Candidate-evaluation counts are not directly comparable to `n!`: one restart
   scores many `sigma` substitutions. The relevant comparison currently reported
   is restarts/evaluations against the hidden-base brute-force size, with exact
@@ -139,18 +192,16 @@ Interpretation:
   within this local-search budget."
 - The representative base is inferred from first-symbol anchors; sparse or
   non-anchored corpora can leave large equivalent classes.
-- The `s=3` positive currently uses `n=5`. Extending exact recovery to `n=7`
-  remains open.
+- The mandatory `s=3` control remains `n=5`; the measured `n=7, s=3` probe is
+  not reliable enough to replace it.
 - No eyes corpus and no language-scored ciphertext-only attack was run.
 
 ## Next Rung
 
-The immediate follow-up is to improve the task-03 search frontier rather than
-move to ciphertext-only:
-
-1. add a top-source CSP/beam layer before coordinate descent;
-2. keep the exact replay and hidden-base audit gates unchanged;
-3. measure whether `n=7, s=2` and then `n=7, s=3` move from
-   `SearchCapExceeded` to exact recovery;
-4. record misses as budgeted misses unless an exhaustive baseline proves
-   `NoCandidate`.
+The `n=7, s=2` milestone is met on the registered five-seed sample. The next
+frontier task is `n=7, s=3`: determine whether the true top-source state is
+dropped by ranking or whether fixed-bucket sigma refinement is stuck, then test
+a targeted joint-sigma move or stronger prefix constraint. Keep recording misses
+as budgeted misses unless an exhaustive baseline proves `NoCandidate`. Do not
+move to larger `n` or the optional ciphertext-only bridge on the present `2/5`
+`s=3` result.

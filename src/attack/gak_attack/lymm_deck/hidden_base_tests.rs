@@ -321,6 +321,79 @@ fn hidden_base_local_solver_recovers_small_s3_equivalent_class() {
     assert!(audit.base_candidate_count > 1);
 }
 
+#[test]
+fn hidden_base_local_solver_recovers_previous_n7_s2_search_cap_fixture() {
+    let fixture_seed = mix_seed(DEFAULT_HIDDEN_BASE_AUDIT_SEED, 0x6c73_7265_636f_7600);
+    let fixture = local_s2_fixture(fixture_seed);
+    let solver_config = local_s2_solver_config(&fixture.spec, fixture_seed);
+    let report = recover_hidden_base_local_known_plaintext_with_audit(
+        &solver_config,
+        &fixture.pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("local recovery");
+
+    assert_eq!(
+        report.state,
+        HiddenBaseLocalRecoveryState::RecoveredPlantedBase
+    );
+    assert!(report.best_round_trip.exact);
+    assert_eq!(report.best_round_trip.matched, 384);
+    assert_eq!(report.planted_base_recovered, Some(true));
+    assert!(report.top_source_hypotheses_retained <= 96);
+    assert!(report.top_source_states_expanded > 0);
+    assert!(report.top_source_constraint_evaluations > 0);
+}
+
+#[test]
+fn hidden_base_local_solver_recovers_five_seed_n7_s2_benchmark() {
+    let mut exact = 0usize;
+    for trial_index in 0..5usize {
+        let fixture_seed = mix_seed(
+            DEFAULT_HIDDEN_BASE_AUDIT_SEED,
+            0x6c73_7265_636f_7600 ^ u64::try_from(trial_index).expect("small index"),
+        );
+        let fixture = local_s2_fixture(fixture_seed);
+        let solver_config = local_s2_solver_config(&fixture.spec, fixture_seed);
+        let report = recover_hidden_base_local_known_plaintext_with_audit(
+            &solver_config,
+            &fixture.pairs,
+            Some(&fixture.spec.base),
+        )
+        .expect("local recovery");
+        exact = exact.saturating_add(usize::from(report.has_exact_recovery()));
+        assert_eq!(report.best_mismatches, 0, "trial {trial_index}");
+        assert!(
+            report.top_source_hypotheses_retained <= solver_config.top_source_beam_width,
+            "trial {trial_index}"
+        );
+    }
+
+    assert_eq!(exact, 5);
+}
+
+fn local_s2_fixture(seed: u64) -> super::HiddenBaseFixture {
+    plant_hidden_base_fixture(&HiddenBaseFixtureConfig {
+        n: 7,
+        pt_alphabet: "ABCDEF".to_owned(),
+        swap_budget: 2,
+        message_count: 8,
+        message_len: 48,
+        seed,
+        base_kind: HiddenBaseKind::Random,
+    })
+    .expect("fixture")
+}
+
+fn local_s2_solver_config(spec: &LymmDeckSpec, fixture_seed: u64) -> HiddenBaseLocalSolverConfig {
+    HiddenBaseLocalSolverConfig::top_card_swaps(7, "ABCDEF", 2)
+        .with_ct_alphabet(spec.ct_alphabet.iter().collect::<String>())
+        .with_seed(mix_seed(fixture_seed, 0x6c73_736f_6c76_6572))
+        .with_attempts(96)
+        .with_max_rounds(18)
+        .with_top_source_beam_width(96)
+}
+
 fn s1_solver_config(spec: &LymmDeckSpec) -> HiddenBaseS1SolverConfig {
     HiddenBaseS1SolverConfig::top_card_swaps(spec.n, spec.pt_alphabet.iter().collect::<String>())
         .with_ct_alphabet(spec.ct_alphabet.iter().collect::<String>())

@@ -21,6 +21,8 @@ mod controls;
 mod corpus;
 #[path = "hidden_base_local/search.rs"]
 mod search;
+#[path = "hidden_base_local/top_source.rs"]
+mod top_source;
 
 pub use controls::{
     HiddenBaseLocalControlExpectation, HiddenBaseLocalControlReport, HiddenBaseLocalSelfTestReport,
@@ -30,6 +32,7 @@ use search::run_local_search;
 
 const DEFAULT_ATTEMPTS: usize = 96;
 const DEFAULT_ROUNDS: usize = 18;
+const DEFAULT_TOP_SOURCE_BEAM_WIDTH: usize = 96;
 const DEFAULT_SEED: u64 = 0x6761_6b5f_6862_6c73;
 
 /// Generator family admitted by the hidden-base local solver.
@@ -58,6 +61,8 @@ pub struct HiddenBaseLocalSolverConfig {
     pub attempts: usize,
     /// Maximum coordinate-descent rounds per restart.
     pub max_rounds: usize,
+    /// Maximum top-source hypotheses retained for sigma refinement.
+    pub top_source_beam_width: usize,
 }
 
 impl HiddenBaseLocalSolverConfig {
@@ -73,6 +78,7 @@ impl HiddenBaseLocalSolverConfig {
             seed: DEFAULT_SEED,
             attempts: DEFAULT_ATTEMPTS,
             max_rounds: DEFAULT_ROUNDS,
+            top_source_beam_width: DEFAULT_TOP_SOURCE_BEAM_WIDTH,
         }
     }
 
@@ -101,6 +107,13 @@ impl HiddenBaseLocalSolverConfig {
     #[must_use]
     pub const fn with_max_rounds(mut self, max_rounds: usize) -> Self {
         self.max_rounds = max_rounds;
+        self
+    }
+
+    /// Replaces the top-source hypothesis beam width.
+    #[must_use]
+    pub const fn with_top_source_beam_width(mut self, width: usize) -> Self {
+        self.top_source_beam_width = width;
         self
     }
 }
@@ -162,6 +175,18 @@ pub struct HiddenBaseLocalRecoveryReport {
     pub attempts_run: usize,
     /// Candidate letter assignments scored by the local search.
     pub candidate_evaluations: usize,
+    /// Complete top-source hypotheses retained for sigma refinement.
+    pub top_source_hypotheses_retained: usize,
+    /// Partial top-source states expanded by the CSP stage.
+    pub top_source_states_expanded: usize,
+    /// Partial top-source states rejected by injectivity or second-symbol constraints.
+    pub top_source_states_pruned: usize,
+    /// Compatible complete states dropped at the configured beam/restart cap.
+    pub top_source_states_dropped: usize,
+    /// Sigma candidates checked while applying second-symbol constraints.
+    pub top_source_constraint_evaluations: usize,
+    /// Wall-clock time spent constructing the top-source beam.
+    pub top_source_elapsed: Duration,
     /// Distinct exact hidden bases found by the bounded search.
     pub exact_candidate_count: usize,
     /// Whether a planted base supplied for audit was recovered.
@@ -256,6 +281,12 @@ fn recover_hidden_base_local_known_plaintext_inner(
         sigma_domain_size: search.sigma_domain_size,
         attempts_run: search.attempts_run,
         candidate_evaluations: search.candidate_evaluations,
+        top_source_hypotheses_retained: search.top_source_hypotheses_retained,
+        top_source_states_expanded: search.top_source_states_expanded,
+        top_source_states_pruned: search.top_source_states_pruned,
+        top_source_states_dropped: search.top_source_states_dropped,
+        top_source_constraint_evaluations: search.top_source_constraint_evaluations,
+        top_source_elapsed: search.top_source_elapsed,
         exact_candidate_count: search.exact_candidate_count,
         planted_base_recovered: search.planted_base_recovered,
         observed_letters: search.observed_letters,
@@ -291,6 +322,11 @@ fn validate_solver_config(config: &HiddenBaseLocalSolverConfig) -> Result<(), Ly
     if config.max_rounds == 0 {
         return Err(LymmDeckError::HiddenBaseConfig {
             reason: "local solver max rounds must be at least one",
+        });
+    }
+    if config.top_source_beam_width == 0 {
+        return Err(LymmDeckError::HiddenBaseConfig {
+            reason: "top-source beam width must be at least one",
         });
     }
     match config.generator_family {

@@ -81,6 +81,7 @@ fn gak_hidden_base_local_recover_cli_reports_bounded_surface() {
     assert_contains(&stdout, "planted-s3-positive: PASS");
     assert_contains(&stdout, "scope note: a search-cap miss is not a proof");
     assert_contains(&stdout, "search surface: sigma-domain=");
+    assert_contains(&stdout, "top-source stage: retained min/max=");
     assert_contains(&stdout, "trial-0 recovery:");
     assert_contains(&stdout, "trial-0 signal:");
 }

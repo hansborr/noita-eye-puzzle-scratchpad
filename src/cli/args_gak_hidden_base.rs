@@ -102,6 +102,9 @@ pub(crate) struct GakHiddenBaseLocalRecoverArgs {
     /// Coordinate-descent rounds per restart.
     #[arg(long = "max-rounds", default_value_t = 18)]
     pub(crate) max_rounds: usize,
+    /// Maximum top-source hypotheses retained for sigma refinement.
+    #[arg(long = "top-source-beam", default_value_t = 96)]
+    pub(crate) top_source_beam: usize,
     /// Hidden-base construction family.
     #[arg(long = "base-kind", value_enum, default_value_t = GakHiddenBaseKind::Random)]
     pub(crate) base_kind: GakHiddenBaseKind,

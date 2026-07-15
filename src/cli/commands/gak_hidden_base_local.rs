@@ -78,6 +78,7 @@ pub(crate) fn run_gak_hidden_base_local_recover(args: &GakHiddenBaseLocalRecover
             mix_seed(seed, 0x6c73_736f_6c76_6572),
             args.attempts,
             args.max_rounds,
+            args.top_source_beam,
         );
         let report = match recover_hidden_base_local_known_plaintext_with_audit(
             &solver_config,
@@ -132,6 +133,7 @@ fn solver_config_from_spec(
     seed: u64,
     attempts: usize,
     max_rounds: usize,
+    top_source_beam: usize,
 ) -> HiddenBaseLocalSolverConfig {
     HiddenBaseLocalSolverConfig::top_card_swaps(
         spec.n,
@@ -142,6 +144,7 @@ fn solver_config_from_spec(
     .with_seed(seed)
     .with_attempts(attempts)
     .with_max_rounds(max_rounds)
+    .with_top_source_beam_width(top_source_beam)
 }
 
 #[derive(Clone, Debug)]
@@ -164,7 +167,7 @@ fn render_local_recovery_report(
     let first = trials.first().map(|trial| &trial.report);
     appendln!(
         &mut out,
-        "gak-hidden-base-local-recover: trials={} n={} s={} messages={}x{} base={} attempts={} max-rounds={}",
+        "gak-hidden-base-local-recover: trials={} n={} s={} messages={}x{} base={} attempts={} max-rounds={} top-source-beam={}",
         trials.len(),
         args.n,
         args.num_swaps,
@@ -172,7 +175,8 @@ fn render_local_recovery_report(
         args.message_len,
         cli_base_kind(args.base_kind, args.n).label(),
         args.attempts,
-        args.max_rounds
+        args.max_rounds,
+        args.top_source_beam
     );
     appendln!(
         &mut out,
@@ -180,7 +184,7 @@ fn render_local_recovery_report(
     );
     appendln!(
         &mut out,
-        "solver: bounded base-marginalized coordinate descent over sigma_L assignments; B is inferred from first-symbol anchors; acceptance is exact compressed re-encryption only"
+        "solver: bounded top-source CSP/beam from first-symbol injectivity and second-symbol constraints, followed by bucket-restricted coordinate descent over sigma_L; acceptance is exact compressed re-encryption only"
     );
     appendln!(
         &mut out,
@@ -215,6 +219,16 @@ fn render_local_recovery_report(
             .map_or_else(|| "overflow".to_owned(), |value| value.to_string()),
         format_range(local_range(trials, |report| report.candidate_evaluations)),
         format_range(local_range(trials, |report| report.exact_candidate_count))
+    );
+    appendln!(
+        &mut out,
+        "top-source stage: retained min/max={} expanded min/max={} pruned min/max={} dropped min/max={} constraint-evaluations min/max={} elapsed-total={}",
+        format_range(local_range(trials, |report| report.top_source_hypotheses_retained)),
+        format_range(local_range(trials, |report| report.top_source_states_expanded)),
+        format_range(local_range(trials, |report| report.top_source_states_pruned)),
+        format_range(local_range(trials, |report| report.top_source_states_dropped)),
+        format_range(local_range(trials, |report| report.top_source_constraint_evaluations)),
+        format_duration(top_source_elapsed(trials))
     );
     appendln!(
         &mut out,
@@ -349,6 +363,13 @@ fn total_elapsed(trials: &[LocalTrialReport]) -> Duration {
     trials
         .iter()
         .map(|trial| trial.report.elapsed)
+        .fold(Duration::ZERO, Duration::saturating_add)
+}
+
+fn top_source_elapsed(trials: &[LocalTrialReport]) -> Duration {
+    trials
+        .iter()
+        .map(|trial| trial.report.top_source_elapsed)
         .fold(Duration::ZERO, Duration::saturating_add)
 }
 

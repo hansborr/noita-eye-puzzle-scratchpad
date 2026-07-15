@@ -9,12 +9,19 @@ use super::super::{
     enumerate_top_swap_domains,
 };
 use super::corpus::LocalCorpus;
+use super::top_source::build_top_source_beam;
 use super::{HiddenBaseLocalRecoveredKey, HiddenBaseLocalSolverConfig};
 
 pub(super) struct LocalSearchOutput {
     pub(super) sigma_domain_size: usize,
     pub(super) attempts_run: usize,
     pub(super) candidate_evaluations: usize,
+    pub(super) top_source_hypotheses_retained: usize,
+    pub(super) top_source_states_expanded: usize,
+    pub(super) top_source_states_pruned: usize,
+    pub(super) top_source_states_dropped: usize,
+    pub(super) top_source_constraint_evaluations: usize,
+    pub(super) top_source_elapsed: std::time::Duration,
     pub(super) exact_candidate_count: usize,
     pub(super) planted_base_recovered: Option<bool>,
     pub(super) observed_letters: Vec<char>,
@@ -37,12 +44,33 @@ pub(super) fn run_local_search(
     let observed_letters = corpus.observed_letters(spec);
     let anchored_letters = corpus.anchored_letters(spec);
     let event_count = corpus.event_count;
-    let mut search = LocalSearch::new(config, spec, &corpus, &candidates, planted_base);
+    let top_source_beam = build_top_source_beam(
+        config.n,
+        spec.pt_alphabet.len(),
+        config.top_source_beam_width,
+        config.attempts,
+        &corpus,
+        &candidates,
+    );
+    let mut search = LocalSearch::new(
+        config,
+        spec,
+        &corpus,
+        &candidates,
+        &top_source_beam.hypotheses,
+        planted_base,
+    );
     search.run()?;
     Ok(LocalSearchOutput {
         sigma_domain_size,
         attempts_run: search.attempts_run,
         candidate_evaluations: search.candidate_evaluations,
+        top_source_hypotheses_retained: top_source_beam.hypotheses.len(),
+        top_source_states_expanded: top_source_beam.states_expanded,
+        top_source_states_pruned: top_source_beam.states_pruned,
+        top_source_states_dropped: top_source_beam.states_dropped,
+        top_source_constraint_evaluations: top_source_beam.constraint_evaluations,
+        top_source_elapsed: top_source_beam.elapsed,
         exact_candidate_count: search.exact_bases.len(),
         planted_base_recovered: search.planted_base_recovered,
         observed_letters,
@@ -55,16 +83,16 @@ pub(super) fn run_local_search(
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct SigmaCandidate {
-    sigma: Vec<usize>,
+pub(super) struct SigmaCandidate {
+    pub(super) sigma: Vec<usize>,
     canonical_swaps: Vec<usize>,
     top_source: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct SigmaDomain {
-    candidates: Vec<SigmaCandidate>,
-    by_top_source: Vec<Vec<usize>>,
+pub(super) struct SigmaDomain {
+    pub(super) candidates: Vec<SigmaCandidate>,
+    pub(super) by_top_source: Vec<Vec<usize>>,
     simplest_by_top_source: Vec<Option<usize>>,
 }
 
@@ -109,6 +137,7 @@ struct LocalSearch<'a> {
     spec: &'a LymmDeckSpec,
     corpus: &'a LocalCorpus,
     domain: &'a SigmaDomain,
+    top_source_hypotheses: &'a [Vec<Option<usize>>],
     planted_base: Option<&'a [usize]>,
     attempts_run: usize,
     candidate_evaluations: usize,
@@ -124,6 +153,7 @@ impl<'a> LocalSearch<'a> {
         spec: &'a LymmDeckSpec,
         corpus: &'a LocalCorpus,
         domain: &'a SigmaDomain,
+        top_source_hypotheses: &'a [Vec<Option<usize>>],
         planted_base: Option<&'a [usize]>,
     ) -> Self {
         Self {
@@ -131,10 +161,11 @@ impl<'a> LocalSearch<'a> {
             spec,
             corpus,
             domain,
+            top_source_hypotheses,
             planted_base,
             attempts_run: 0,
             candidate_evaluations: 0,
-            best_mismatches: usize::MAX,
+            best_mismatches: corpus.event_count,
             exact_bases: BTreeSet::new(),
             planted_base_recovered: planted_base.map(|_| false),
             representative_key: None,
@@ -143,10 +174,19 @@ impl<'a> LocalSearch<'a> {
 
     fn run(&mut self) -> Result<(), LymmDeckError> {
         let observed = self.corpus.observed_letters(self.spec);
+        if self.top_source_hypotheses.is_empty() {
+            return Ok(());
+        }
         let mut rng = SplitMix64::new(self.config.seed);
         for attempt in 0..self.config.attempts {
             self.attempts_run = attempt.saturating_add(1);
-            let mut assignment = self.seed_assignment(attempt, &mut rng)?;
+            let hypothesis_index = attempt % self.top_source_hypotheses.len();
+            let hypothesis: &[Option<usize>] = self
+                .top_source_hypotheses
+                .get(hypothesis_index)
+                .map_or(&[], Vec::as_slice);
+            let hypothesis_visit = attempt / self.top_source_hypotheses.len();
+            let mut assignment = self.seed_assignment(hypothesis, hypothesis_visit, &mut rng)?;
             let mut score = self.score_assignment(&assignment, usize::MAX);
             for _round in 0..self.config.max_rounds {
                 let mut improved = false;
@@ -159,7 +199,8 @@ impl<'a> LocalSearch<'a> {
                     let current = assignment.get(letter_index).copied().unwrap_or(0);
                     let mut best_candidate = current;
                     let mut best_score = score.clone();
-                    for candidate_index in 0..self.domain.candidates.len() {
+                    let candidate_indices = self.candidates_for_letter(letter_index, hypothesis);
+                    for candidate_index in candidate_indices {
                         if candidate_index == current {
                             continue;
                         }
@@ -196,42 +237,20 @@ impl<'a> LocalSearch<'a> {
 
     fn seed_assignment(
         &self,
-        attempt: usize,
+        hypothesis: &[Option<usize>],
+        hypothesis_visit: usize,
         rng: &mut SplitMix64,
     ) -> Result<Vec<usize>, LymmDeckError> {
         let mut assignment = vec![0; self.spec.pt_alphabet.len()];
-        let mut top_sources = (0..self.config.n).collect::<Vec<_>>();
-        if attempt <= 1 {
-            if attempt == 1 {
-                top_sources.rotate_left(1);
-            }
-        } else {
-            fisher_yates(&mut top_sources, rng)?;
-        }
-        let mut top_cursor = 0usize;
         for (letter, slot) in assignment.iter_mut().enumerate() {
-            let top_source = if let Some(anchor) =
-                self.corpus.anchors.get(letter).copied().flatten()
-                && attempt == 0
-            {
-                anchor
-            } else {
-                let source = top_sources
-                    .get(top_cursor % top_sources.len().max(1))
-                    .copied()
-                    .unwrap_or(0);
-                top_cursor = top_cursor.saturating_add(1);
-                source
-            };
-            let bucket = self
-                .domain
-                .by_top_source
-                .get(top_source)
+            let top_source = hypothesis.get(letter).copied().flatten();
+            let bucket = top_source
+                .and_then(|source| self.domain.by_top_source.get(source))
                 .filter(|bucket| !bucket.is_empty());
-            *slot = if attempt <= 1 {
+            *slot = if hypothesis_visit == 0 {
                 self.domain
                     .simplest_by_top_source
-                    .get(top_source)
+                    .get(top_source.unwrap_or(0))
                     .copied()
                     .flatten()
                     .unwrap_or(0)
@@ -245,6 +264,16 @@ impl<'a> LocalSearch<'a> {
         Ok(assignment)
     }
 
+    fn candidates_for_letter(&self, letter: usize, hypothesis: &[Option<usize>]) -> Vec<usize> {
+        hypothesis
+            .get(letter)
+            .copied()
+            .flatten()
+            .and_then(|source| self.domain.by_top_source.get(source))
+            .cloned()
+            .unwrap_or_else(|| (0..self.domain.candidates.len()).collect())
+    }
+
     fn score_assignment(&mut self, assignment: &[usize], stop_after: usize) -> LocalScore {
         self.candidate_evaluations = self.candidate_evaluations.saturating_add(1);
         let Some(base) = derive_base(self.config.n, self.corpus, self.domain, assignment) else {
@@ -254,11 +283,7 @@ impl<'a> LocalSearch<'a> {
                 base: None,
             };
         };
-        let pair_penalty = if self.config.swap_budget >= 3 {
-            pair_constraint_mismatches(self.corpus, self.domain, assignment)
-        } else {
-            0
-        };
+        let pair_penalty = pair_constraint_mismatches(self.corpus, self.domain, assignment);
         let mut mismatches = 0usize;
         let mut state = vec![0; self.config.n];
         let mut next = vec![0; self.config.n];
@@ -473,15 +498,4 @@ fn reset_identity(values: &mut [usize]) {
     for (index, slot) in values.iter_mut().enumerate() {
         *slot = index;
     }
-}
-
-fn fisher_yates(values: &mut [usize], rng: &mut SplitMix64) -> Result<(), LymmDeckError> {
-    let mut unswapped = values.len();
-    while unswapped > 1 {
-        let last = unswapped - 1;
-        let partner = random_index_below(unswapped, rng)?;
-        values.swap(last, partner);
-        unswapped = last;
-    }
-    Ok(())
 }

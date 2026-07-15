@@ -196,3 +196,22 @@ adjectives. Case study: the AGL(1,83) vs D₁₆₆ exclusion-scope audit
 (`research/findings/agl-exclusion.md` §8) — D₁₆₆ ≤ AGL(1,83) meant the "exhaustively
 excluded" AGL sweep already covered the "conditional" dihedral case, and the doc had
 been reporting the confidence the wrong way round.
+
+## 14. Match optimizer moves to hard global constraints
+
+A coordinate move can be locally impossible even when the corresponding global
+change is valid. In hidden-base GAK recovery, first-symbol anchors make the
+letter-to-top-source assignment injective. Changing one anchored letter's top
+source therefore collides with the current owner, so ordinary one-letter
+coordinate descent cannot traverse a valid permutation through its invalid
+intermediate state. One favorable `n=7, s=2` fixture passed anyway, while the
+registered default fixture remained at `SearchCapExceeded` after 512 restarts.
+
+Factor the hard discrete layer out first, or move it jointly. A bounded CSP over
+top sources, pruned with the exact second-symbol restart identity, followed by
+coordinate descent only within each selected source bucket recovered five of
+five registered `n=7, s=2` fixtures with exact replay and planted-base audit.
+The lesson is narrower than "use a beam": identify invariants that make the
+optimizer's neighborhood disconnected, then represent those invariants as a
+separate search layer or add permutation-preserving joint moves. Demonstrated:
+`handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`.
