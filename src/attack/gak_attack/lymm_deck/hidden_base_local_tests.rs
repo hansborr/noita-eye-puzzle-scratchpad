@@ -138,6 +138,79 @@ fn prefix_cegar_rejects_matched_ciphertext_label_shuffle() {
     assert!(report.prefix_cegar_replay_event_evaluations > 0);
 }
 
+#[test]
+fn state_sat_recovers_retained_weak_restart_positive() {
+    let fixture_seed = mix_seed(0x7769_6465_5f73_3301, 0x6c73_7265_636f_7600 ^ 7);
+    let fixture = weak_restart_fixture(fixture_seed);
+    let base_config = solver_config(&fixture.spec, fixture_seed);
+    let pair_only = recover_hidden_base_local_known_plaintext_with_audit(
+        &base_config,
+        &fixture.pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("pair-only weak-restart recovery");
+    let with_state_sat = recover_hidden_base_local_known_plaintext_with_audit(
+        &base_config.with_state_sat_hypothesis_cap(96),
+        &fixture.pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("state-SAT weak-restart recovery");
+
+    assert_eq!(
+        pair_only.state,
+        HiddenBaseLocalRecoveryState::SearchCapExceeded
+    );
+    assert_eq!(pair_only.planted_top_source_hypothesis_rank, Some(1));
+    assert_eq!(
+        with_state_sat.state,
+        HiddenBaseLocalRecoveryState::RecoveredPlantedBase
+    );
+    assert!(with_state_sat.best_round_trip.exact);
+    assert_eq!(with_state_sat.state_sat_hypotheses_attempted, 1);
+    assert_eq!(with_state_sat.state_sat_exact_models, 1);
+    assert!(with_state_sat.state_sat_variables > 0);
+    assert!(with_state_sat.state_sat_clauses > 0);
+    assert_eq!(
+        with_state_sat.state_sat_replay_event_evaluations,
+        with_state_sat.event_count
+    );
+}
+
+#[test]
+fn state_sat_rejects_matched_ciphertext_label_shuffle() {
+    let fixture_seed = mix_seed(0x7769_6465_5f73_3301, 0x6c73_7265_636f_7600 ^ 7);
+    let fixture = weak_restart_fixture(fixture_seed);
+    let mut shuffled_pairs = fixture.pairs.clone();
+    for pair in &mut shuffled_pairs {
+        pair.ciphertext = pair
+            .ciphertext
+            .chars()
+            .map(|ch| match ch {
+                '!' => '"',
+                '"' => '!',
+                other => other,
+            })
+            .collect();
+    }
+    let report = recover_hidden_base_local_known_plaintext_with_audit(
+        &solver_config(&fixture.spec, fixture_seed).with_state_sat_hypothesis_cap(96),
+        &shuffled_pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("state-SAT ciphertext-label shuffle null");
+
+    assert_eq!(
+        report.state,
+        HiddenBaseLocalRecoveryState::SearchCapExceeded
+    );
+    assert!(!report.has_exact_recovery());
+    assert_eq!(report.state_sat_hypotheses_attempted, 96);
+    assert_eq!(report.state_sat_hypotheses_unsat, 96);
+    assert_eq!(report.state_sat_exact_models, 0);
+    assert!(report.state_sat_variables > 0);
+    assert!(report.state_sat_clauses > 0);
+}
+
 fn weak_restart_fixture(seed: u64) -> super::HiddenBaseFixture {
     plant_hidden_base_fixture(&HiddenBaseFixtureConfig {
         n: 7,

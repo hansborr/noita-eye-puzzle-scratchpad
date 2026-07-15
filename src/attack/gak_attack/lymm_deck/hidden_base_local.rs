@@ -12,7 +12,7 @@ use crate::ciphers::validate_permutation;
 
 use super::{
     HiddenBaseRoundTrip, HiddenBaseSurfaceReport, KnownPlaintextPair, LymmDeckError, LymmDeckSpec,
-    audit_hidden_base_mapping, lymm_default_ct_alphabet,
+    lymm_default_ct_alphabet,
 };
 
 #[path = "hidden_base_local/controls.rs"]
@@ -25,10 +25,14 @@ mod joint;
 mod output;
 #[path = "hidden_base_local/prefix_cegar.rs"]
 mod prefix_cegar;
+#[path = "hidden_base_local/report.rs"]
+mod report;
 #[path = "hidden_base_local/score.rs"]
 mod score;
 #[path = "hidden_base_local/search.rs"]
 mod search;
+#[path = "hidden_base_local/state_sat.rs"]
+mod state_sat;
 #[path = "hidden_base_local/top_source.rs"]
 mod top_source;
 #[path = "hidden_base_local/triple.rs"]
@@ -38,6 +42,7 @@ pub use controls::{
     HiddenBaseLocalControlExpectation, HiddenBaseLocalControlReport, HiddenBaseLocalSelfTestReport,
     hidden_base_local_self_test,
 };
+use report::{classify_recovery, factorial_u128, representative_audit};
 use search::run_local_search;
 
 const DEFAULT_ATTEMPTS: usize = 96;
@@ -48,6 +53,7 @@ const DEFAULT_JOINT_MOVE_TOTAL_EVALUATION_CAP: usize = 393_216;
 const DEFAULT_TRIPLE_MOVE_EVALUATION_CAP: usize = 0;
 const DEFAULT_TRIPLE_MOVE_TOTAL_EVALUATION_CAP: usize = 0;
 const DEFAULT_PREFIX_CEGAR_CAPS: (usize, usize) = (0, 0);
+const DEFAULT_STATE_SAT_HYPOTHESIS_CAP: usize = 0;
 const DEFAULT_SEED: u64 = 0x6761_6b5f_6862_6c73;
 
 /// Generator family admitted by the hidden-base local solver.
@@ -110,6 +116,8 @@ pub struct HiddenBaseLocalSolverConfig {
     pub prefix_cegar_node_cap: usize,
     /// Maximum SAT models replayed over the complete prefix-CEGAR fallback.
     pub prefix_cegar_total_node_cap: usize,
+    /// Maximum retained top-source hypotheses solved by exact state SAT.
+    pub state_sat_hypothesis_cap: usize,
 }
 
 impl HiddenBaseLocalSolverConfig {
@@ -134,6 +142,7 @@ impl HiddenBaseLocalSolverConfig {
             triple_move_total_evaluation_cap: DEFAULT_TRIPLE_MOVE_TOTAL_EVALUATION_CAP,
             prefix_cegar_node_cap: DEFAULT_PREFIX_CEGAR_CAPS.0,
             prefix_cegar_total_node_cap: DEFAULT_PREFIX_CEGAR_CAPS.1,
+            state_sat_hypothesis_cap: DEFAULT_STATE_SAT_HYPOTHESIS_CAP,
         }
     }
 
@@ -225,6 +234,13 @@ impl HiddenBaseLocalSolverConfig {
     #[must_use]
     pub const fn with_prefix_cegar_total_node_cap(mut self, cap: usize) -> Self {
         self.prefix_cegar_total_node_cap = cap;
+        self
+    }
+
+    /// Replaces the retained-hypothesis cap for exact state SAT.
+    #[must_use]
+    pub const fn with_state_sat_hypothesis_cap(mut self, cap: usize) -> Self {
+        self.state_sat_hypothesis_cap = cap;
         self
     }
 }
@@ -338,6 +354,20 @@ pub struct HiddenBaseLocalRecoveryReport {
     pub prefix_cegar_core_size_max: usize,
     /// Whether the total prefix-CEGAR SAT-model budget was exhausted.
     pub prefix_cegar_total_budget_exhausted: bool,
+    /// Retained top-source hypotheses opened by exact state SAT.
+    pub state_sat_hypotheses_attempted: usize,
+    /// Retained fixed-base hypotheses proved unsatisfiable by state SAT.
+    pub state_sat_hypotheses_unsat: usize,
+    /// Exact state-SAT models accepted after complete replay.
+    pub state_sat_exact_models: usize,
+    /// SAT variables allocated across attempted fixed-base hypotheses.
+    pub state_sat_variables: usize,
+    /// SAT clauses allocated across attempted fixed-base hypotheses.
+    pub state_sat_clauses: usize,
+    /// Ciphertext events replayed to verify satisfying state-SAT models.
+    pub state_sat_replay_event_evaluations: usize,
+    /// Wall-clock time spent constructing and solving exact state SAT.
+    pub state_sat_elapsed: Duration,
     /// Complete top-source hypotheses retained for sigma refinement.
     pub top_source_hypotheses_retained: usize,
     /// One-based pre-truncation rank of the planted top-source hypothesis when
@@ -478,6 +508,13 @@ fn recover_hidden_base_local_known_plaintext_inner(
         prefix_cegar_core_size_min: search.prefix_cegar_core_size_min,
         prefix_cegar_core_size_max: search.prefix_cegar_core_size_max,
         prefix_cegar_total_budget_exhausted: search.prefix_cegar_total_budget_exhausted,
+        state_sat_hypotheses_attempted: search.state_sat_hypotheses_attempted,
+        state_sat_hypotheses_unsat: search.state_sat_hypotheses_unsat,
+        state_sat_exact_models: search.state_sat_exact_models,
+        state_sat_variables: search.state_sat_variables,
+        state_sat_clauses: search.state_sat_clauses,
+        state_sat_replay_event_evaluations: search.state_sat_replay_event_evaluations,
+        state_sat_elapsed: search.state_sat_elapsed,
         top_source_hypotheses_retained: search.top_source_hypotheses_retained,
         planted_top_source_hypothesis_rank: search.planted_top_source_hypothesis_rank,
         planted_top_source_hypothesis_retained: search.planted_top_source_hypothesis_retained,
@@ -543,58 +580,4 @@ fn solver_spec(config: &HiddenBaseLocalSolverConfig) -> Result<LymmDeckSpec, Lym
         &config.ct_alphabet,
         identity_base,
     )
-}
-
-fn representative_audit(
-    spec: &LymmDeckSpec,
-    pairs: &[KnownPlaintextPair],
-    key: Option<&HiddenBaseLocalRecoveredKey>,
-    swap_budget: usize,
-    planted_base: Option<&[usize]>,
-) -> Result<Option<HiddenBaseSurfaceReport>, LymmDeckError> {
-    let Some(key) = key else {
-        return Ok(None);
-    };
-    let audit_spec = LymmDeckSpec::from_base(
-        spec.n,
-        &spec.pt_alphabet.iter().collect::<String>(),
-        &spec.ct_alphabet.iter().collect::<String>(),
-        key.base.clone(),
-    )?;
-    audit_hidden_base_mapping(
-        &audit_spec,
-        pairs,
-        &key.pt_mapping,
-        swap_budget,
-        planted_base,
-    )
-    .map(Some)
-}
-
-fn classify_recovery(
-    exact_candidate_count: usize,
-    planted_base_recovered: Option<bool>,
-    representative_audit: Option<&HiddenBaseSurfaceReport>,
-) -> HiddenBaseLocalRecoveryState {
-    if exact_candidate_count == 0 {
-        return HiddenBaseLocalRecoveryState::SearchCapExceeded;
-    }
-    if exact_candidate_count > 1
-        || representative_audit.is_some_and(|audit| audit.base_candidate_count > 1)
-    {
-        return HiddenBaseLocalRecoveryState::AmbiguousEquivalentClass;
-    }
-    if planted_base_recovered == Some(true) {
-        HiddenBaseLocalRecoveryState::RecoveredPlantedBase
-    } else {
-        HiddenBaseLocalRecoveryState::RecoveredEquivalentKey
-    }
-}
-
-fn factorial_u128(n: usize) -> Option<u128> {
-    let mut value = 1u128;
-    for factor in 2..=n {
-        value = value.checked_mul(u128::try_from(factor).ok()?)?;
-    }
-    Some(value)
 }

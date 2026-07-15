@@ -535,11 +535,11 @@ retained-plant pair miss; a matched global ciphertext-label swap will exercise
 the same encoding and must find no exact key. Exact replay remains the only
 success condition.
 
-The open 48-fixture comparison (`...733301`, `...743301`, `...763301`, and
-`...773301`, 16 fixtures each) is development evidence. Frozen rows use `n=7`,
-`s=3`, alphabet `ABCDEF`, `6x64` identity restarts, beam/restarts `96`, rounds
-`18`, hybrid pair order, pair caps `4096/393216`, triple and prefix-CEGAR caps
-zero, and are:
+The open 32-fixture comparison is the same development surface used for prefix
+CEGAR: the first eight trials from `...733301` and `...743301`, plus all 16
+trials from `...763301`. Frozen rows use `n=7`, `s=3`, alphabet `ABCDEF`, `6x64`
+identity restarts, beam/restarts `96`, rounds `18`, hybrid pair order, pair caps
+`4096/393216`, triple and prefix-CEGAR caps zero, and are:
 
 1. landed pair-only search with state-SAT cap `0`;
 2. pair-only then exact state-SAT over at most all `96` retained hypotheses.
@@ -554,6 +554,26 @@ development comparison are fixed. The fallback is promoted to a nonzero
 default only if it gains at least one exact recovery on this holdout without
 changing any existing positive or null verdict. Otherwise it remains a
 cap-zero diagnostic, regardless of development performance.
+
+**Development result frozen before holdout:** exact state SAT recovered `31/32`
+keys versus `25/32` for the landed pair-only row. The six gains were every pair
+miss whose planted top-source hypothesis survived the beam: state SAT found the
+planted base after opening between 1 and 22 retained hypotheses, and every key
+passed exact `384/384` replay. The one remaining miss had planted rank 242,
+outside the 96-state beam; state SAT proved all 96 retained fixed-base
+hypotheses UNSAT but did not search the dropped plant. Development states moved
+from 13 planted, 12 ambiguous, and 7 bounded misses to 19 planted, 12 ambiguous,
+and 1 bounded miss.
+
+Across individual development runs, the state-SAT fallback allocated at most
+1,837,930 variables and 14,290,691 clauses. Satisfying models were replayed once
+over all 384 events. The production-path retained-plant positive and a matched
+global `!`/`"` ciphertext-label swap are pinned as regressions at the same
+96-hypothesis cap; the positive recovers exactly, while the null proves all 96
+retained hypotheses UNSAT and finds no exact key. This clears the development
+gate and freezes the implementation, accounting, cap-zero ablation, and
+controls before the `...783301` holdout is opened. It does not yet justify a
+nonzero default.
 
 ### Pre-registered fourth-prefix triple-repair follow-up (2026-07-15, before runs)
 

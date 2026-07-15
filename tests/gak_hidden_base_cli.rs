@@ -83,6 +83,7 @@ fn gak_hidden_base_local_recover_cli_reports_bounded_surface() {
     assert_contains(&stdout, "triple-total-cap=0");
     assert_contains(&stdout, "prefix-cegar-node-cap=0");
     assert_contains(&stdout, "prefix-cegar-total-cap=0");
+    assert_contains(&stdout, "state-sat-hypothesis-cap=0");
     assert_contains(&stdout, "hidden-base local controls: PASS");
     assert_contains(&stdout, "planted-s2-positive: PASS");
     assert_contains(&stdout, "planted-s3-positive: PASS");
@@ -94,6 +95,7 @@ fn gak_hidden_base_local_recover_cli_reports_bounded_surface() {
     assert_contains(&stdout, "total-budget-exhausted=");
     assert_contains(&stdout, "triple repair: candidates min/max=");
     assert_contains(&stdout, "prefix CEGAR: hypotheses-attempted min/max=");
+    assert_contains(&stdout, "state SAT: hypotheses-attempted min/max=");
     assert_contains(&stdout, "top-source stage: retained min/max=");
     assert_contains(&stdout, "third-symbol-evaluations min/max=");
     assert_contains(&stdout, "top-source planted audit: retained=");

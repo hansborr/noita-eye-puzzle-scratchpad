@@ -16,6 +16,7 @@ use super::score::{
     LocalScore, apply_base_sigma, derive_base, pair_constraint_mismatches, recovered_key,
     reset_identity,
 };
+use super::state_sat::{StateSatStats, run_state_sat};
 use super::top_source::build_top_source_beam;
 use super::triple::best_triple_move;
 use super::{HiddenBaseLocalRecoveredKey, HiddenBaseLocalSolverConfig};
@@ -80,6 +81,13 @@ pub(super) fn run_local_search(
         prefix_cegar_core_size_min: search.prefix_cegar.core_size_min(),
         prefix_cegar_core_size_max: search.prefix_cegar.core_size_max,
         prefix_cegar_total_budget_exhausted: search.prefix_cegar.total_budget_exhausted(config),
+        state_sat_hypotheses_attempted: search.state_sat.hypotheses_attempted,
+        state_sat_hypotheses_unsat: search.state_sat.hypotheses_unsat,
+        state_sat_exact_models: search.state_sat.exact_models,
+        state_sat_variables: search.state_sat.variables,
+        state_sat_clauses: search.state_sat.clauses,
+        state_sat_replay_event_evaluations: search.state_sat.replay_events,
+        state_sat_elapsed: search.state_sat.elapsed,
         top_source_hypotheses_retained: top_source_beam.hypotheses.len(),
         planted_top_source_hypothesis_rank: top_source_beam.planted_hypothesis_rank,
         planted_top_source_hypothesis_retained: top_source_beam.planted_hypothesis_retained,
@@ -172,6 +180,7 @@ pub(super) struct LocalSearch<'a> {
     triple_move_prefixes_eligible: BTreeSet<[usize; 3]>,
     triple_move_prefix_evaluations: BTreeMap<[usize; 3], usize>,
     pub(super) prefix_cegar: PrefixCegarStats,
+    pub(super) state_sat: StateSatStats,
     best_mismatches: usize,
     exact_bases: BTreeSet<Vec<usize>>,
     planted_base_recovered: Option<bool>,
@@ -209,6 +218,7 @@ impl<'a> LocalSearch<'a> {
             triple_move_prefixes_eligible: BTreeSet::new(),
             triple_move_prefix_evaluations: BTreeMap::new(),
             prefix_cegar: PrefixCegarStats::default(),
+            state_sat: StateSatStats::default(),
             best_mismatches: corpus.event_count,
             exact_bases: BTreeSet::new(),
             planted_base_recovered: planted_base.map(|_| false),
@@ -231,6 +241,9 @@ impl<'a> LocalSearch<'a> {
         }
         if self.exact_bases.is_empty() && self.config.prefix_cegar_node_cap > 0 {
             run_prefix_cegar(self)?;
+        }
+        if self.exact_bases.is_empty() && self.config.state_sat_hypothesis_cap > 0 {
+            run_state_sat(self)?;
         }
         Ok(())
     }
