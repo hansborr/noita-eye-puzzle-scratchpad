@@ -105,9 +105,15 @@ pub(crate) struct GakHiddenBaseLocalRecoverArgs {
     /// Maximum top-source hypotheses retained for sigma refinement.
     #[arg(long = "top-source-beam", default_value_t = 96)]
     pub(crate) top_source_beam: usize,
+    /// Use only the landed second-symbol likelihood for top-source ranking.
+    #[arg(long = "disable-third-symbol-rank")]
+    pub(crate) disable_third_symbol_rank: bool,
     /// Maximum two-letter sigma assignments scored per stalled s=3 restart.
     #[arg(long = "joint-move-cap", default_value_t = 4_096)]
     pub(crate) joint_move_cap: usize,
+    /// Maximum two-letter sigma assignments scored over the complete run.
+    #[arg(long = "joint-total-cap", default_value_t = 393_216)]
+    pub(crate) joint_total_cap: usize,
     /// Hidden-base construction family.
     #[arg(long = "base-kind", value_enum, default_value_t = GakHiddenBaseKind::Random)]
     pub(crate) base_kind: GakHiddenBaseKind,

@@ -1,8 +1,8 @@
 # 03 - base-marginalized local recovery, `s = 2..3`
 
-**Status:** bounded instrument, top-source CSP/beam, and capped joint-sigma
-frontier built; broader 24-run calibration and objective-bounded replay measured
-2026-07-14.
+**Status:** bounded instrument, top-source CSP/beam, third-symbol arc-consistency
+ranking, and fair total-run joint budget built; broader and weak-restart
+calibrations measured 2026-07-14.
 
 ## Scope
 
@@ -59,6 +59,7 @@ cargo run --locked --bin noita-eye -- gak-hidden-base-local-recover \
   --message-len 48 \
   --top-source-beam 96 \
   --joint-move-cap 4096 \
+  --joint-total-cap 393216 \
   --trials 1
 ```
 
@@ -90,8 +91,20 @@ CSP/beam:
 2. assign those groups injectively to top sources;
 3. reject partial assignments when no sigma in an assigned source bucket can
    satisfy the resolved second-symbol constraints;
-4. rank complete assignments by their compatible-sigma fraction;
+4. optionally rank third-symbol-viable complete states ahead of nonviable states,
+   then apply the existing compatible-sigma fraction and deterministic source
+   order;
 5. retain at most `min(top_source_beam_width, attempts)` hypotheses.
+
+The third-symbol ranker infers the same representative base as refinement,
+builds each letter's second-symbol-compatible sigma domain, and turns every
+resolved three-event message prefix into a binary constraint on the first two
+letters' shared sigma choices. It enforces arc consistency to a fixed point. A
+state with nonempty domains ranks ahead of one whose domains empty; the check
+does not consume the planted audit and does not prune either class. Disable it
+for the landed-ranking ablation with `--disable-third-symbol-rank`. When anchors
+do not determine the representative base, this remains a representative-base
+heuristic rather than an exclusion proof.
 
 Coordinate descent then changes each anchored letter only among sigma candidates
 in the hypothesis's selected top-source bucket that also satisfy every resolved
@@ -104,11 +117,14 @@ For `s=3`, a stalled coordinate pass can also test two letters jointly. The move
 enumerates deterministic pairs inside their fixed top-source/constraint buckets,
 retains only a strict objective improvement, and stops after the configured
 per-restart `joint_move_evaluation_cap` (CLI `--joint-move-cap`, default `4096`).
+The complete run also stops joint evaluations at
+`joint_move_total_evaluation_cap` (CLI `--joint-total-cap`, default `393216`).
+Each restart receives a cumulative fair share of that total, so an early
+hypothesis cannot consume work reserved for later ones.
 Each replay now stops once its mismatch count plus the fixed constraint penalty
 cannot beat the incumbent objective. Final candidates still receive a complete
-exact replay. Zero disables the move. This remains a bounded heuristic: the pair
-cap can stop before a useful combination, and the per-restart cap can accumulate
-to much more than its configured value over a full run.
+exact replay. A zero per-restart cap disables the move. This remains a bounded
+heuristic: either cap can stop before a useful combination.
 
 The objective and CSP both use the cheap second-symbol identity-restart
 consistency term:
@@ -129,8 +145,8 @@ planted top sources as `B^-1(c_0(L))` and records their one-based rank and wheth
 they survived truncation. This is post-search provenance only; it is not exposed
 to ranking or refinement. The report also exposes configured beam/joint caps,
 retained, expanded, pruned, and capacity-dropped states, constraint and candidate
-evaluations, total and joint-only replayed events, joint evaluations/moves, and
-top-source/total runtime.
+evaluations, third-symbol pair checks, total and joint-only replayed events,
+joint evaluations/moves, total-budget exhaustion, and top-source/total runtime.
 
 ## Controls
 
@@ -311,13 +327,15 @@ Interpretation:
 
 ## Next Rung
 
-The broader calibration is complete, and it does not justify a ciphertext-only
-bridge: recovery is `18/24`, with all six misses concentrated in the six-restart
-shape. The next task remains at `n=7`: improve or replace the weak-evidence
-top-source ranking, then give joint work a total-run budget or fair allocation
-across retained hypotheses instead of only a per-restart cap. Preserve the cap-0
-ablation, event-level accounting, and planted-rank audit, and test against these
-same frozen fixtures plus new holdouts. Keep recording misses as budgeted misses
+The weak-restart rank and total-run budget are now measured, but they still do
+not justify a ciphertext-only bridge. The arc-consistency rank doubled exact
+recovery from `5/16` to `10/16` across two disjoint `6x64` batches, leaving six
+bounded misses. Five misses retained the planted top-source state and therefore
+remain within-bucket refinement failures; one plant was ranked out. The next
+task stays at `n=7`: make the joint candidate order fairer across letter pairs or
+add another bounded within-bucket move, without hiding work behind the total
+cap. Preserve the cap-0 ablation, event-level accounting, and planted-rank audit,
+and use seed-set-disjoint holdouts. Keep recording misses as budgeted misses
 unless an exhaustive baseline proves `NoCandidate`.
 
 ### Pre-registered weak-restart follow-up (2026-07-14, before runs)
@@ -370,3 +388,53 @@ cannot equal `i ^ j` for `i,j in 0..8`, so the two eight-trial mixer input sets
 are disjoint. This check uses seed algebra only; no replacement fixture, rank,
 or outcome was inspected. The same four frozen comparisons and promotion rule
 apply to the replacement batch.
+
+### Weak-restart follow-up result (2026-07-14)
+
+The preregistered summed compatible-fraction score failed immediately on the
+already-open development fixtures: it pushed known planted hypotheses as low as
+rank `464` and broke the focused exact-recovery regression. Before opening a
+valid holdout, it was replaced with the shared-sigma arc-consistency viability
+rank described above. This was outcome-informed tuning and is not counted as
+holdout evidence. On the frozen `...3301` batch, the tuned rank improved exact
+recovery from `2/8` to `5/8` and planted retention from `4/8` to `7/8`.
+
+The initially registered `...3302` batch was then found to be the same eight
+fixtures in a different order, as recorded in the correction above. It
+contributes no evidence. The seed-set-disjoint replacement `...743301` batch was
+opened only after the arc-consistency implementation and budget rows were fixed.
+All exact states below re-encrypt `384/384`; all other states are bounded
+`SearchCapExceeded` outcomes.
+
+| rank / joint budget | frozen `...733301` | replacement holdout `...743301` | combined | planted retained |
+| --- | ---: | ---: | ---: | ---: |
+| landed second-symbol rank, per-restart `4096`, total `393216` | `2/8` | `3/8` | `5/16` | `8/16` |
+| third-symbol arc rank, per-restart `4096`, total `393216` | `5/8` | `5/8` | `10/16` | `14/16` |
+| arc rank, total `196608` | `3/8` | `5/8` | `8/16` | `14/16` |
+| arc rank, total `98304` | `2/8` | `4/8` | `6/16` | `14/16` |
+| arc rank, coordinate only (`joint=0`) | `2/8` | `3/8` | `5/16` | `14/16` |
+
+At the promoted `393216` surface, the frozen arc-rank states were four planted
+recoveries, one ambiguous equivalent class, and three misses; holdout states
+were two planted, three ambiguous, and three misses. The replicated gain is
+therefore exact-key recovery, not merely planted-key preference. Planted ranks
+moved from `1..2591` to `1..105` on the frozen batch and from `3..797` to
+`3..242` on holdout. Seven of eight plants survived each arc-ranked beam. The
+only ranked-out holdout plant was rank `242`; the other five combined misses had
+retained plant ranks `1`, `1`, `3`, `5`, and `6`.
+
+| total joint cap | exact combined | max joint candidates, frozen / holdout | max joint replay events, frozen / holdout |
+| ---: | ---: | ---: | ---: |
+| `393216` | `10/16` | `374094 / 393216` | `132436432 / 139581169` |
+| `196608` | `8/16` | `196608 / 196608` | `69986196 / 70054446` |
+| `98304` | `6/16` | `98304 / 98304` | `35124993 / 35149318` |
+| `0` | `5/16` | `0 / 0` | `0 / 0` |
+
+The half-cap row preserved `5/8` on holdout but lost two frozen recoveries, so it
+failed the preregistered paired promotion rule. The default total remains
+`393216`: it makes the former unbounded accumulation explicit but is not a cost
+reduction at the 96-restart default. The arc rank itself checked
+`37742..381510` sigma pairs per frozen run and `102292..1437228` per holdout run;
+these are algebraic prefix checks, not full ciphertext replays. Coordinate-only
+recovery (`5/16`) and the promoted joint row (`10/16`) show that the joint move
+still supplies half of the exact outcomes on this weak-restart surface.

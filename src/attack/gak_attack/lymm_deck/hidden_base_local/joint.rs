@@ -18,8 +18,9 @@ pub(super) fn best_joint_move(
     observed: &[char],
     hypothesis: &[Option<usize>],
     evaluations: &mut usize,
+    evaluation_cap: usize,
 ) -> Option<JointMove> {
-    if search.config.swap_budget != 3 || *evaluations >= search.config.joint_move_evaluation_cap {
+    if search.config.swap_budget != 3 || *evaluations >= evaluation_cap {
         return None;
     }
     let observed_indices = observed
@@ -51,7 +52,7 @@ pub(super) fn best_joint_move(
                     if right_candidate == right_current {
                         continue;
                     }
-                    if *evaluations >= search.config.joint_move_evaluation_cap {
+                    if *evaluations >= evaluation_cap {
                         exhausted = true;
                         break;
                     }

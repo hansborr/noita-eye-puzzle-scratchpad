@@ -398,7 +398,7 @@ fn hidden_base_local_joint_move_recovers_stalled_n7_s3_fixture() {
         HiddenBaseLocalRecoveryState::RecoveredPlantedBase
     );
     assert!(with_joint.best_round_trip.exact);
-    assert_eq!(with_joint.planted_top_source_hypothesis_rank, Some(8));
+    assert_eq!(with_joint.planted_top_source_hypothesis_rank, Some(1));
     assert_eq!(
         with_joint.planted_top_source_hypothesis_retained,
         Some(true)
@@ -414,6 +414,35 @@ fn hidden_base_local_joint_move_recovers_stalled_n7_s3_fixture() {
                 .saturating_mul(with_joint.event_count)
     );
     assert!(with_joint.joint_moves_accepted > 0);
+    assert!(with_joint.top_source_third_symbol_evaluations > 0);
+}
+
+#[test]
+fn hidden_base_local_joint_move_obeys_total_run_cap() {
+    let fixture_seed = mix_seed(DEFAULT_HIDDEN_BASE_AUDIT_SEED, 0x6c73_7265_636f_7600 ^ 3);
+    let fixture = local_s3_fixture(fixture_seed);
+    let report = recover_hidden_base_local_known_plaintext_with_audit(
+        &local_s3_solver_config(&fixture.spec, fixture_seed)
+            .with_attempts(4)
+            .with_joint_move_total_evaluation_cap(100),
+        &fixture.pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("total-capped local recovery");
+
+    assert_eq!(report.joint_move_candidate_evaluations, 100);
+    assert!(report.joint_move_total_budget_exhausted);
+
+    let ablation = recover_hidden_base_local_known_plaintext_with_audit(
+        &local_s3_solver_config(&fixture.spec, fixture_seed)
+            .with_attempts(1)
+            .with_joint_move_evaluation_cap(0)
+            .with_third_symbol_top_source_ranking(false),
+        &fixture.pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("ranking ablation");
+    assert_eq!(ablation.top_source_third_symbol_evaluations, 0);
 }
 
 fn local_s2_fixture(seed: u64) -> super::HiddenBaseFixture {

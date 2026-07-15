@@ -1,8 +1,8 @@
 # Handoff - unknown-base GAK / deck-cipher recovery
 
-**Status:** tasks 01, 02, and task-03 `n=7` bounded local-search frontier and
-broader 24-run calibration built; weak-restart ranking and total joint-work
-budgeting are next
+**Status:** tasks 01, 02, and task-03 `n=7` bounded local-search frontier built;
+broader 24-run and disjoint weak-restart calibrations measured, with
+within-bucket `s=3` refinement still limiting recovery
 **Priority:** active when the goal is to help Lymm's stated GAK-attack interests,
 rather than to move the eyes decode directly
 **Depends on:** `gak-swap-recovery/`, especially `gak-swap-recover` and
@@ -168,6 +168,17 @@ all 24 classifications while lowering worst-case joint replayed events by
 tradeoff was measured and rejected as the default. This remains synthetic,
 model-conditional calibration, not an eyes bridge.
 
+The weak `6x64` follow-up adds an optional third-symbol shared-sigma
+arc-consistency rank and a fair total-run joint-evaluation cap. Across a frozen
+development batch and a seed-set-disjoint holdout, the rank doubled exact
+recovery from `5/16` to `10/16` and raised planted top-source retention from
+`8/16` to `14/16`. A planned adjacent seed was correctly discarded after its
+xor-based trial mixer was shown to reproduce the development fixtures in a
+different order. Total caps of `196608` and `98304` reduced recovery to `8/16`
+and `6/16`; the explicit `393216` default preserves `10/16` but is a bound, not
+a cost reduction. Five of the six remaining misses retained the plant, keeping
+the next bottleneck inside sigma refinement.
+
 Adapt the existing substitution-first coordinate-descent idea:
 
 1. propose or refine the visible top mapping per letter;
@@ -214,10 +225,9 @@ Every result should record:
 
 ## Next Concrete Task
 
-Keep task 03 at `s=3, n=7`. Improve the weak-restart top-source ranking exposed
-by the frozen `6x64` fixtures, and replace the per-restart-only joint cap with a
-measured total-run budget or fair allocation across retained hypotheses. Retain
-the planted-rank diagnostic, cap-0 ablation, event-level replay accounting,
-exact audit, shuffled-label null, and over-budget null. Re-run the frozen sample
-and new holdouts; do not start an eyes or language-scored ciphertext-only attack
-from `18/24` synthetic recovery.
+Keep task 03 at `s=3, n=7`. The weak-restart rank and total-run cap are now
+measured; improve the within-bucket move or fairly schedule joint candidates
+across letter pairs and retained hypotheses. Retain the planted-rank diagnostic,
+cap-0 ablation, event-level replay accounting, exact audit, shuffled-label null,
+and over-budget null. Use seed-set-disjoint holdouts and do not start an eyes or
+language-scored ciphertext-only attack from `10/16` weak-restart recovery.

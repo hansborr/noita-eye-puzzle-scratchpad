@@ -76,10 +76,7 @@ pub(crate) fn run_gak_hidden_base_local_recover(args: &GakHiddenBaseLocalRecover
             &fixture.spec,
             args.num_swaps,
             mix_seed(seed, 0x6c73_736f_6c76_6572),
-            args.attempts,
-            args.max_rounds,
-            args.top_source_beam,
-            args.joint_move_cap,
+            args,
         );
         let report = match recover_hidden_base_local_known_plaintext_with_audit(
             &solver_config,
@@ -132,10 +129,7 @@ fn solver_config_from_spec(
     spec: &LymmDeckSpec,
     swap_budget: usize,
     seed: u64,
-    attempts: usize,
-    max_rounds: usize,
-    top_source_beam: usize,
-    joint_move_cap: usize,
+    args: &GakHiddenBaseLocalRecoverArgs,
 ) -> HiddenBaseLocalSolverConfig {
     HiddenBaseLocalSolverConfig::top_card_swaps(
         spec.n,
@@ -144,10 +138,12 @@ fn solver_config_from_spec(
     )
     .with_ct_alphabet(spec.ct_alphabet.iter().collect::<String>())
     .with_seed(seed)
-    .with_attempts(attempts)
-    .with_max_rounds(max_rounds)
-    .with_top_source_beam_width(top_source_beam)
-    .with_joint_move_evaluation_cap(joint_move_cap)
+    .with_attempts(args.attempts)
+    .with_max_rounds(args.max_rounds)
+    .with_top_source_beam_width(args.top_source_beam)
+    .with_third_symbol_top_source_ranking(!args.disable_third_symbol_rank)
+    .with_joint_move_evaluation_cap(args.joint_move_cap)
+    .with_joint_move_total_evaluation_cap(args.joint_total_cap)
 }
 
 #[derive(Clone, Debug)]
@@ -169,7 +165,7 @@ fn render_local_recovery_report(
         .unwrap_or_else(|| default_pt_alphabet(args.n));
     appendln!(
         &mut out,
-        "gak-hidden-base-local-recover: trials={} n={} s={} messages={}x{} base={} attempts={} max-rounds={} top-source-beam={} joint-move-cap={}",
+        "gak-hidden-base-local-recover: trials={} n={} s={} messages={}x{} base={} attempts={} max-rounds={} top-source-beam={} third-symbol-rank={} joint-move-cap={} joint-total-cap={}",
         trials.len(),
         args.n,
         args.num_swaps,
@@ -179,7 +175,9 @@ fn render_local_recovery_report(
         args.attempts,
         args.max_rounds,
         args.top_source_beam,
-        args.joint_move_cap
+        !args.disable_third_symbol_rank,
+        args.joint_move_cap,
+        args.joint_total_cap
     );
     appendln!(
         &mut out,
@@ -187,7 +185,7 @@ fn render_local_recovery_report(
     );
     appendln!(
         &mut out,
-        "solver: bounded top-source CSP/beam from first-symbol injectivity and second-symbol constraints, followed by constraint-filtered coordinate descent and objective-bounded, capped two-letter s=3 moves over sigma_L; acceptance is exact compressed re-encryption only"
+        "solver: bounded top-source CSP/beam from first-symbol injectivity, second-symbol constraints, and optional third-symbol shared-sigma arc consistency, followed by constraint-filtered coordinate descent and objective-bounded two-letter s=3 moves under per-restart and fair total-run caps; acceptance is exact compressed re-encryption only"
     );
     appendln!(
         &mut out,
@@ -224,7 +222,7 @@ fn append_search_surface(out: &mut String, trials: &[LocalTrialReport]) {
     );
     appendln!(
         out,
-        "search surface: sigma-domain={} brute-force n!={} candidate-evaluations min/max={} replay-events min/max={} joint-evaluations min/max={} joint-replay-events min/max={} joint-moves min/max={} exact-candidates min/max={}",
+        "search surface: sigma-domain={} brute-force n!={} candidate-evaluations min/max={} replay-events min/max={} joint-evaluations min/max={} joint-replay-events min/max={} joint-moves min/max={} total-budget-exhausted={} exact-candidates min/max={}",
         first.map_or(0, |report| report.sigma_domain_size),
         first
             .and_then(|report| report.brute_force_base_count)
@@ -236,16 +234,23 @@ fn append_search_surface(out: &mut String, trials: &[LocalTrialReport]) {
             report.joint_move_replay_event_evaluations
         })),
         format_range(local_range(trials, |report| report.joint_moves_accepted)),
+        trials
+            .iter()
+            .filter(|trial| trial.report.joint_move_total_budget_exhausted)
+            .count(),
         format_range(local_range(trials, |report| report.exact_candidate_count))
     );
     appendln!(
         out,
-        "top-source stage: retained min/max={} expanded min/max={} pruned min/max={} dropped min/max={} constraint-evaluations min/max={} elapsed-total={}",
+        "top-source stage: retained min/max={} expanded min/max={} pruned min/max={} dropped min/max={} constraint-evaluations min/max={} third-symbol-evaluations min/max={} elapsed-total={}",
         format_range(local_range(trials, |report| report.top_source_hypotheses_retained)),
         format_range(local_range(trials, |report| report.top_source_states_expanded)),
         format_range(local_range(trials, |report| report.top_source_states_pruned)),
         format_range(local_range(trials, |report| report.top_source_states_dropped)),
         format_range(local_range(trials, |report| report.top_source_constraint_evaluations)),
+        format_range(local_range(trials, |report| {
+            report.top_source_third_symbol_evaluations
+        })),
         format_duration(top_source_elapsed(trials))
     );
     appendln!(

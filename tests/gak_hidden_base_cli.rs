@@ -76,13 +76,17 @@ fn gak_hidden_base_local_recover_cli_reports_bounded_surface() {
     ]);
 
     assert_contains(&stdout, "gak-hidden-base-local-recover: trials=1 n=5 s=3");
+    assert_contains(&stdout, "third-symbol-rank=true");
+    assert_contains(&stdout, "joint-total-cap=393216");
     assert_contains(&stdout, "hidden-base local controls: PASS");
     assert_contains(&stdout, "planted-s2-positive: PASS");
     assert_contains(&stdout, "planted-s3-positive: PASS");
     assert_contains(&stdout, "scope note: a search-cap miss is not a proof");
     assert_contains(&stdout, "search surface: sigma-domain=");
     assert_contains(&stdout, "joint-replay-events min/max=");
+    assert_contains(&stdout, "total-budget-exhausted=");
     assert_contains(&stdout, "top-source stage: retained min/max=");
+    assert_contains(&stdout, "third-symbol-evaluations min/max=");
     assert_contains(&stdout, "top-source planted audit: retained=");
     assert_contains(&stdout, "trial-0 recovery:");
     assert_contains(&stdout, "trial-0 signal:");

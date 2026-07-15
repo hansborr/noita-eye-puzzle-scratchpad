@@ -254,3 +254,42 @@ work by `7.7%..9.3%` across three corpus shapes. Halving the candidate cap cut
 more work but reduced recovery to `17/24`, so it was recorded as a tradeoff and
 not promoted. Demonstrated:
 `handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`.
+
+## 17. Marginal compatibility can misrank a shared-key CSP
+
+Scoring each observation after independently marginalizing over its compatible
+local choices can reward hypotheses whose choices cannot coexist as one key. In
+hidden-base GAK ranking, a preregistered sum of per-message third-symbol
+compatible fractions pushed a known planted top-source state from rank `8` to
+rank `35` and broke its exact-recovery regression; across four already-open
+fixtures, planted ranks reached `464`. The score had forgotten that each letter
+must select one shared sigma across every message.
+
+Retain the shared variables when converting prefix evidence into a cheap rank.
+Here, binary third-symbol relations between the first two letters were enforced
+by arc consistency over their second-symbol-filtered sigma domains. On the
+frozen weak-restart batch this outcome-informed replacement improved exact
+recovery from `2/8` to `5/8`; on a subsequently opened seed-set-disjoint holdout
+it independently improved `3/8` to `5/8`. The resulting `10/16` is still a
+bounded frontier, but the replicated gain diagnoses the mechanism: local
+compatibility was not enough; cross-message key consistency mattered.
+Demonstrated:
+`handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`.
+
+## 18. Prove deterministic holdout streams are disjoint before calling them new
+
+Different top-level seeds do not guarantee different trial sets when a runner
+combines seeds and trial tags algebraically. The hidden-base CLI uses
+`mix_seed(seed, tag ^ i)`, with `mix_seed(a,b) = SplitMix64(a ^ b)`. Two planned
+eight-trial batches whose top seeds differed by `3` therefore had identical
+pre-mix seed sets: xor with trial indices `0..7` merely permuted them. The first
+baseline row reproduced every metric in a different order, so the alleged
+holdout was invalidated and contributed no evidence.
+
+Before planting or solving a deterministic holdout, compare the actual derived
+stream identifiers—or prove from the seed algebra that the sets do not overlap. A
+replacement whose xor difference was `0x700` could not collide with `i ^ j` for
+`i,j < 8`; that fact was frozen before its fixtures were opened. Record seed
+collisions as calibration failures rather than quietly choosing a more favorable
+batch after seeing results. Demonstrated:
+`handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`.

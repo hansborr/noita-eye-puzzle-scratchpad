@@ -36,6 +36,7 @@ const DEFAULT_ATTEMPTS: usize = 96;
 const DEFAULT_ROUNDS: usize = 18;
 const DEFAULT_TOP_SOURCE_BEAM_WIDTH: usize = 96;
 const DEFAULT_JOINT_MOVE_EVALUATION_CAP: usize = 4_096;
+const DEFAULT_JOINT_MOVE_TOTAL_EVALUATION_CAP: usize = 393_216;
 const DEFAULT_SEED: u64 = 0x6761_6b5f_6862_6c73;
 
 /// Generator family admitted by the hidden-base local solver.
@@ -66,9 +67,15 @@ pub struct HiddenBaseLocalSolverConfig {
     pub max_rounds: usize,
     /// Maximum top-source hypotheses retained for sigma refinement.
     pub top_source_beam_width: usize,
+    /// Whether to rank complete top-source states with third-symbol restart
+    /// compatibility before applying the beam cap.
+    pub rank_top_sources_with_third_symbol: bool,
     /// Maximum two-letter sigma assignments scored per stalled `s=3` restart.
     /// Zero disables joint moves.
     pub joint_move_evaluation_cap: usize,
+    /// Maximum two-letter sigma assignments scored over the complete run,
+    /// allocated by cumulative fair share across configured restarts.
+    pub joint_move_total_evaluation_cap: usize,
 }
 
 impl HiddenBaseLocalSolverConfig {
@@ -85,7 +92,9 @@ impl HiddenBaseLocalSolverConfig {
             attempts: DEFAULT_ATTEMPTS,
             max_rounds: DEFAULT_ROUNDS,
             top_source_beam_width: DEFAULT_TOP_SOURCE_BEAM_WIDTH,
+            rank_top_sources_with_third_symbol: true,
             joint_move_evaluation_cap: DEFAULT_JOINT_MOVE_EVALUATION_CAP,
+            joint_move_total_evaluation_cap: DEFAULT_JOINT_MOVE_TOTAL_EVALUATION_CAP,
         }
     }
 
@@ -124,10 +133,24 @@ impl HiddenBaseLocalSolverConfig {
         self
     }
 
+    /// Enables or disables third-symbol top-source ranking.
+    #[must_use]
+    pub const fn with_third_symbol_top_source_ranking(mut self, enabled: bool) -> Self {
+        self.rank_top_sources_with_third_symbol = enabled;
+        self
+    }
+
     /// Replaces the per-restart two-letter sigma evaluation cap.
     #[must_use]
     pub const fn with_joint_move_evaluation_cap(mut self, cap: usize) -> Self {
         self.joint_move_evaluation_cap = cap;
+        self
+    }
+
+    /// Replaces the fairly allocated total-run two-letter sigma evaluation cap.
+    #[must_use]
+    pub const fn with_joint_move_total_evaluation_cap(mut self, cap: usize) -> Self {
+        self.joint_move_total_evaluation_cap = cap;
         self
     }
 }
@@ -195,6 +218,8 @@ pub struct HiddenBaseLocalRecoveryReport {
     pub joint_move_candidate_evaluations: usize,
     /// Ciphertext events replayed inside stalled two-letter sigma moves.
     pub joint_move_replay_event_evaluations: usize,
+    /// Whether the total-run two-letter sigma evaluation budget was exhausted.
+    pub joint_move_total_budget_exhausted: bool,
     /// Improving two-letter sigma moves accepted by the local search.
     pub joint_moves_accepted: usize,
     /// Complete top-source hypotheses retained for sigma refinement.
@@ -213,6 +238,8 @@ pub struct HiddenBaseLocalRecoveryReport {
     pub top_source_states_dropped: usize,
     /// Sigma candidates checked while applying second-symbol constraints.
     pub top_source_constraint_evaluations: usize,
+    /// Sigma pairs checked by the third-symbol top-source ranker.
+    pub top_source_third_symbol_evaluations: usize,
     /// Wall-clock time spent constructing the top-source beam.
     pub top_source_elapsed: Duration,
     /// Distinct exact hidden bases found by the bounded search.
@@ -312,6 +339,7 @@ fn recover_hidden_base_local_known_plaintext_inner(
         replay_event_evaluations: search.replay_event_evaluations,
         joint_move_candidate_evaluations: search.joint_move_candidate_evaluations,
         joint_move_replay_event_evaluations: search.joint_move_replay_event_evaluations,
+        joint_move_total_budget_exhausted: search.joint_move_total_budget_exhausted,
         joint_moves_accepted: search.joint_moves_accepted,
         top_source_hypotheses_retained: search.top_source_hypotheses_retained,
         planted_top_source_hypothesis_rank: search.planted_top_source_hypothesis_rank,
@@ -320,6 +348,7 @@ fn recover_hidden_base_local_known_plaintext_inner(
         top_source_states_pruned: search.top_source_states_pruned,
         top_source_states_dropped: search.top_source_states_dropped,
         top_source_constraint_evaluations: search.top_source_constraint_evaluations,
+        top_source_third_symbol_evaluations: search.top_source_third_symbol_evaluations,
         top_source_elapsed: search.top_source_elapsed,
         exact_candidate_count: search.exact_candidate_count,
         planted_base_recovered: search.planted_base_recovered,

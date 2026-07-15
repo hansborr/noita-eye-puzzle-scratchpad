@@ -20,6 +20,7 @@ pub(super) struct LocalSearchOutput {
     pub(super) replay_event_evaluations: usize,
     pub(super) joint_move_candidate_evaluations: usize,
     pub(super) joint_move_replay_event_evaluations: usize,
+    pub(super) joint_move_total_budget_exhausted: bool,
     pub(super) joint_moves_accepted: usize,
     pub(super) top_source_hypotheses_retained: usize,
     pub(super) planted_top_source_hypothesis_rank: Option<usize>,
@@ -28,6 +29,7 @@ pub(super) struct LocalSearchOutput {
     pub(super) top_source_states_pruned: usize,
     pub(super) top_source_states_dropped: usize,
     pub(super) top_source_constraint_evaluations: usize,
+    pub(super) top_source_third_symbol_evaluations: usize,
     pub(super) top_source_elapsed: std::time::Duration,
     pub(super) exact_candidate_count: usize,
     pub(super) planted_base_recovered: Option<bool>,
@@ -53,10 +55,9 @@ pub(super) fn run_local_search(
     let event_count = corpus.event_count;
     let planted_sources = planted_base.map(|base| planted_top_sources(base, &corpus));
     let top_source_beam = build_top_source_beam(
-        config.n,
-        spec.pt_alphabet.len(),
         config.top_source_beam_width,
         config.attempts,
+        config.rank_top_sources_with_third_symbol,
         &corpus,
         &candidates,
         planted_sources.as_deref(),
@@ -77,6 +78,7 @@ pub(super) fn run_local_search(
         replay_event_evaluations: search.replay_event_evaluations,
         joint_move_candidate_evaluations: search.joint_move_candidate_evaluations,
         joint_move_replay_event_evaluations: search.joint_move_replay_event_evaluations,
+        joint_move_total_budget_exhausted: search.joint_move_total_budget_exhausted(),
         joint_moves_accepted: search.joint_moves_accepted,
         top_source_hypotheses_retained: top_source_beam.hypotheses.len(),
         planted_top_source_hypothesis_rank: top_source_beam.planted_hypothesis_rank,
@@ -85,6 +87,7 @@ pub(super) fn run_local_search(
         top_source_states_pruned: top_source_beam.states_pruned,
         top_source_states_dropped: top_source_beam.states_dropped,
         top_source_constraint_evaluations: top_source_beam.constraint_evaluations,
+        top_source_third_symbol_evaluations: top_source_beam.third_symbol_evaluations,
         top_source_elapsed: top_source_beam.elapsed,
         exact_candidate_count: search.exact_bases.len(),
         planted_base_recovered: search.planted_base_recovered,
@@ -212,6 +215,7 @@ impl<'a> LocalSearch<'a> {
             let mut assignment = self.seed_assignment(hypothesis, hypothesis_visit, &mut rng)?;
             let mut score = self.score_assignment(&assignment, usize::MAX);
             let mut joint_evaluations = 0usize;
+            let joint_evaluation_cap = self.joint_evaluation_cap_for_attempt(attempt);
             for _round in 0..self.config.max_rounds {
                 let mut improved = false;
                 for &letter in &observed {
@@ -257,6 +261,7 @@ impl<'a> LocalSearch<'a> {
                         &observed,
                         hypothesis,
                         &mut joint_evaluations,
+                        joint_evaluation_cap,
                     );
                     let Some(joint_move) = joint_move else {
                         break;
@@ -278,6 +283,22 @@ impl<'a> LocalSearch<'a> {
             }
         }
         Ok(())
+    }
+
+    fn joint_evaluation_cap_for_attempt(&self, attempt: usize) -> usize {
+        let attempts = self.config.attempts.max(1);
+        let completed = attempt.saturating_add(1).min(attempts);
+        let total = self.config.joint_move_total_evaluation_cap;
+        let fair_cumulative_cap = (total / attempts)
+            .saturating_mul(completed)
+            .saturating_add((total % attempts).min(completed));
+        self.config
+            .joint_move_evaluation_cap
+            .min(fair_cumulative_cap.saturating_sub(self.joint_move_candidate_evaluations))
+    }
+
+    fn joint_move_total_budget_exhausted(&self) -> bool {
+        self.joint_move_candidate_evaluations >= self.config.joint_move_total_evaluation_cap
     }
 
     fn seed_assignment(
