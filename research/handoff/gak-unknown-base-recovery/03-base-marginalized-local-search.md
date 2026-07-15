@@ -3,8 +3,10 @@
 **Status:** bounded instrument, top-source CSP/beam, local neighborhoods, prefix
 CEGAR, and exact state SAT built; broader and seed-set-disjoint calibrations
 measured through 2026-07-15. Exact state SAT improved both development and its
-sealed holdout and is enabled over the retained 96 hypotheses; earlier triple
-and CEGAR fallbacks remain disabled.
+sealed holdout and is enabled over the retained 96 hypotheses. A decoupled
+256-state beam closed three already-open misses but tied 16/16 on a fresh
+holdout, so it remains optional; earlier triple and CEGAR fallbacks remain
+disabled.
 
 ## Scope
 
@@ -660,6 +662,42 @@ wider cap as an optional recovery/cost tradeoff. Regardless of outcome, a miss
 remains `SearchCapExceeded`: states below rank 256 are still dropped, and this
 synthetic known-plaintext top-swap result does not transfer to the
 ciphertext-only eyes.
+
+### Top-source beam-widening result (2026-07-15)
+
+After commit `5540ddd` froze cap decoupling and the expanded controls, the
+seed-set-disjoint `...793301` holdout was opened under both registered rows.
+Every accepted key below passed exact `384/384` replay.
+
+| retention / state-SAT cap | already-open development, 48 | sealed holdout, 16 | combined | combined states |
+| --- | ---: | ---: | ---: | --- |
+| `96 / 96` | `45/48` | `16/16` | `61/64` | 37 planted, 24 ambiguous, 3 misses |
+| `256 / 256` | `48/48` | `16/16` | `64/64` | 40 planted, 24 ambiguous, 0 misses |
+
+The wider row recovered all three already-open plants previously dropped at
+ranks 99, 132, and 242. The rank-242 development positive opened 242 SAT
+hypotheses, proved 241 UNSAT, and then recovered the planted base; its widest
+run allocated 4,628,852 variables and 34,943,284 clauses cumulatively and spent
+1.323 seconds in SAT in the release batch. The deterministic post-anchor
+`!`/`"` label-swap null searched all 256 retained hypotheses, proved them UNSAT,
+and found no exact key. This validates the widened production path and its
+negative control.
+
+The sealed holdout supplied no recovery gain because the 96-state row already
+found exact keys on all 16 fixtures. Two planted hypotheses ranked 98 and 104
+and were marked dropped by the 96-state planted audit, but exact ambiguous-base
+keys were found earlier on both fixtures; at 256 they were retained without
+changing either classification. The rows therefore had identical local and SAT
+work, while total release time was 4.587 seconds at 96 and 4.631 seconds at 256.
+Those wall times are descriptive, not stable benchmarks.
+
+Under the pre-registered rule, both defaults remain 96. The cap decoupling and
+256-state option remain useful instruments: on the combined observed 64-fixture
+surface they close all bounded misses without increasing the 96 local restarts.
+But the gain is development-only, so `64/64` is not an out-of-sample reliability
+claim and does not justify a new default. Any miss beyond rank 256 would still
+be `SearchCapExceeded`; this remains synthetic known-plaintext recovery for one
+small top-swap family, not an eyes bridge.
 
 ### Pre-registered fourth-prefix triple-repair follow-up (2026-07-15, before runs)
 

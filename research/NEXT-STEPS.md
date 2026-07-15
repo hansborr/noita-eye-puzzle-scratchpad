@@ -43,13 +43,13 @@ down what would count as a real external anchor — key material, a method
 disclosure, or known plaintext — and the current status of each candidate source
 (`T11`).
 
-If the target is helping Lymm's stated interests, the next useful computational
-line is unknown-base smaller-GAK recovery. The current deck-swap instrument
-recovers known-plaintext keys for public-base `s=1..3`; hidden-base recovery now
-uses exact state SAT to reach `14/16` on a sealed `n=7`, `s=3` holdout. Its two
-remaining misses had planted top-source ranks outside the retained beam, making
-beam retention the next measured question before any ciphertext-only or
-eyes-facing attempt.
+If the target is helping Lymm's stated interests, the smaller-GAK workbench now
+has unknown-base known-plaintext recovery through exact state SAT and
+independently bounded top-source retention. A 256-state cap closed all three
+already-open beam misses but tied `16/16` with the 96-state default on a new
+holdout, so the wider cap remains optional. Stop tuning this `n=7` fixture
+family; any next community-GAK rung should test scaling or a broader generator
+family, not point at the eyes.
 
 ## Landed Status
 
@@ -69,6 +69,7 @@ result document that now owns the claim.
 | **Thread 4 / T6-T7 attack arc** | **DONE.** The GAK attack spike produced synthetic gates, measured hidden-state limits, and an honest-negative eyes Step 3 with no surviving candidate. | `e7b88f8`, `d3b30fd`, `aaa9e9a`, `1d928a2`, `8aa7c53`, `44d4ec4`; [`gak-threads/PROGRESS.md`](gak-threads/PROGRESS.md) §6 |
 | **Deck-swap tooling side path** | **BUILT + MERGED.** The general swap-recovery instrument and practice-puzzle results are reference material, not the next eyes queue. | [`data/practice-puzzles/deck-swap/SWAP-RECOVERY-RESULTS.md`](data/practice-puzzles/deck-swap/SWAP-RECOVERY-RESULTS.md), [`handoff/README.md`](handoff/README.md) |
 | **Unknown-base state SAT** | **BUILT + HOLDOUT-CALIBRATED.** Exact state channeling improved `n=7`, `s=3` recovery from `13/16` to `14/16` on a sealed holdout; both residual plants were outside the 96-state beam. | `f191ee0`; [`handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`](handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md#exact-state-sat-result-2026-07-15) |
+| **Unknown-base beam widening** | **BUILT; OPTIONAL.** Decoupled 256-state retention raised the already-open result from `45/48` to `48/48`, but a fresh holdout tied `16/16`; defaults remain 96. | `5540ddd`; [`handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`](handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md#top-source-beam-widening-result-2026-07-15) |
 | **T00** — planning refresh | **DONE.** `NEXT-STEPS.md` was converted from stale queue to status/navigation index. | `9c60769`; [`handoff/T00-refresh-next-steps.md`](handoff/T00-refresh-next-steps.md) |
 | **T01** — transcription-perturbation harness | **DONE.** Source-layer counterfactuals now perturb rendered orientation digits and rebuild reading-layer values through the accepted honeycomb order. | `3290d84`; [`../src/analysis/perturbation.rs`](../src/analysis/perturbation.rs) |
 | **T02** — AGL robustness | **DONE.** The AGL exclusion survives 324 one-digit and 5,184 bounded two-digit prefix-region counterfactuals. | `5052f10`; [`findings/agl-exclusion.md`](findings/agl-exclusion.md#7-transcription-robustness) |
@@ -81,9 +82,9 @@ Tier 1 is complete. The active backlog is now the remaining Tier-2/Tier-3 work i
 [`research/handoff/README.md`](handoff/README.md):
 
 1. `gak-unknown-base-recovery/` — unknown-base known-plaintext GAK/deck recovery
-   on small planted instances. Exact state SAT has moved the bottleneck to
-   top-source beam retention; this is the current priority when optimizing for
-   Lymm's general-GAK request rather than the eyes decode.
+   on small planted instances is calibrated through an optional 256-state beam.
+   The current `n=7` fixture family is saturated; only continue for Lymm's
+   general-GAK request with a pre-registered scaling or broader-generator rung.
 2. `T11` — external-anchor criteria/status document. This is the only remaining
    item likely to change the eyes decode outcome without new ciphertext.
 3. `T04` — optional `D166` transcription robustness; within the point-stabilizer

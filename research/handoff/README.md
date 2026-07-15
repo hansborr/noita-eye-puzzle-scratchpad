@@ -26,9 +26,10 @@ robustness certificates landed, and the publishable structural summary is in
 `research/findings/eyes-structural-summary.md`. The remaining useful work is
 mostly external-anchor documentation plus optional formalization; broad decode
 search is not the next move. The separate smaller-GAK/deck proving ground has
-now removed the public-base assumption at `n=7`: exact state SAT closes every
-within-beam miss on its latest holdout, leaving top-source retention as the
-measured transfer gap Lymm's request exposes.
+now removed the public-base assumption at `n=7`: exact state SAT plus an
+optional 256-state beam recovered all 64 observed fixtures. The wider beam's
+gains were development-only, so defaults remain 96 and this fixture family
+should not receive another tuned optimizer.
 
 ## House rules (read before any task)
 
@@ -76,9 +77,9 @@ measured transfer gap Lymm's request exposes.
   conditioned on a base permutation the eyes would not provide, so this track
   added hidden-base fixtures, identifiability audit, exact `s=1` recovery, and
   bounded `s=2..3` base marginalization. Exact state SAT over retained
-  top-source hypotheses improved both development and a sealed holdout; the
-  remaining bottleneck is beam truncation. It is community GAK tooling, not an
-  eye decode.
+  top-source hypotheses improved both development and a sealed holdout. An
+  optional wider beam closed the open misses but did not improve a fresh
+  holdout. It is community GAK tooling, not an eye decode.
 
 **Tier 1 — harden & publish the eyes frontier (DONE; kept as provenance).**
 - `next-cycle-2026-07-06.md` — **EXECUTED.** It sent the repo through
@@ -97,8 +98,8 @@ measured transfer gap Lymm's request exposes.
 **Tier 2A — active community-infrastructure frontier: Lymm's general-GAK interest.**
 - `gak-unknown-base-recovery/` — unknown-base known-plaintext GAK/deck recovery
   on small planted instances is built and holdout-calibrated. Exact state SAT
-  closes within-bucket retained-plant misses on the latest holdout; top-source
-  beam retention is the next measured transfer gap.
+  and optional 256-state retention now saturate the observed `n=7` fixtures;
+  the next distinct rung is scaling or generator-family breadth, if requested.
 
 **Tier 2B — eyes-specific remaining work: the standing unblocker + optional formalization.**
 - `T11` — external-anchor hunt (the only real decode-unblocker; mostly

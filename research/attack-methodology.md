@@ -352,3 +352,13 @@ from `13/16` to `14/16` on a sealed holdout. Every admitted planted hypothesis
 was recovered; all residual misses were upstream beam exclusions. This moved a
 measured bottleneck rather than adding another neighborhood to the same local
 objective, so the nonzero default is evidence-backed on this synthetic surface.
+
+The upstream follow-up then showed the same promotion discipline applies to a
+search cap. Decoupling top-source retention from heuristic restarts let exact
+state SAT recover three already-open plants at ranks 99, 132, and 242, raising
+that surface from `45/48` to `48/48`; a matched 256-state null found no exact
+key. But a fresh holdout tied `16/16` at caps 96 and 256 because the narrower
+row found equivalent exact keys even when two planted hypotheses were dropped.
+Keep the wider path as an instrument, but do not promote a development-only cap
+increase. Planted-key retention is diagnostic evidence, not itself the success
+criterion when equivalent re-encrypting keys are allowed.

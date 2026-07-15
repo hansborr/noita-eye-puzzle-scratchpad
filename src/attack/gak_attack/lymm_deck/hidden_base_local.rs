@@ -369,7 +369,7 @@ pub struct HiddenBaseLocalRecoveryReport {
     pub state_sat_replay_event_evaluations: usize,
     /// Wall-clock time spent constructing and solving exact state SAT.
     pub state_sat_elapsed: Duration,
-    /// Complete top-source hypotheses retained for sigma refinement.
+    /// Complete top-source hypotheses retained for bounded recovery.
     pub top_source_hypotheses_retained: usize,
     /// One-based pre-truncation rank of the planted top-source hypothesis when
     /// a planted base was supplied for audit.

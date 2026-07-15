@@ -2,10 +2,13 @@
 
 **Status:** tasks 01-03 built and calibrated; exact state SAT over retained
 top-source hypotheses improved `n=7`, `s=3` recovery on both development and a
-seed-set-disjoint holdout and is enabled at cap 96. Earlier triple and CEGAR
-fallbacks remain disabled; beam truncation is now the measured bottleneck.
-**Priority:** active reference implementation; the next distinct rung is to
-remove or widen the top-source beam without relabeling bounded misses
+seed-set-disjoint holdout and is enabled at cap 96. Decoupled 256-state
+retention closed three already-open beam misses but tied `16/16` on a fresh
+holdout, so it remains optional. Earlier triple and CEGAR fallbacks remain
+disabled.
+**Priority:** reference implementation; stop tuning this `n=7` fixture family.
+The next distinct rung, if requested, is a pre-registered scaling/general-family
+test rather than another optimizer on the same surface
 **Depends on:** `gak-swap-recovery/`, especially `gak-swap-recover` and
 `research/data/practice-puzzles/deck-swap/SWAP-RECOVERY-METHOD.md`
 
@@ -218,8 +221,17 @@ retained top-source hypothesis. It recovered `31/32` versus pair-only `25/32`
 on development and `14/16` versus `13/16` on a sealed holdout, with every
 accepted key replaying exactly. The three combined misses all had planted
 top-source ranks outside the 96-state beam. The state-SAT cap is therefore
-enabled at 96; the next bottleneck is top-source retention, not within-bucket
-sigma refinement.
+enabled at 96; that made top-source retention, rather than within-bucket sigma
+refinement, the next measured question addressed by the follow-up below.
+
+The follow-up decoupled ranked-state retention from the 96 heuristic restarts
+and tested a 256-state SAT cap. It raised the already-open 48-fixture result from
+`45/48` to `48/48`, recovering plants at ranks 99, 132, and 242, but a new
+seed-set-disjoint holdout tied `16/16` at both caps. The 256-state path and
+matched null are regression-pinned, while both defaults remain 96 under the
+pre-registered no-development-only-promotion rule. Combined `64/64` at the
+wider cap describes the observed synthetic fixtures; it is not a reliability
+claim or an eyes bridge.
 
 Adapt the existing substitution-first coordinate-descent idea:
 
