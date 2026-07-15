@@ -319,3 +319,42 @@ across retained hypotheses instead of only a per-restart cap. Preserve the cap-0
 ablation, event-level accounting, and planted-rank audit, and test against these
 same frozen fixtures plus new holdouts. Keep recording misses as budgeted misses
 unless an exhaustive baseline proves `NoCandidate`.
+
+### Pre-registered weak-restart follow-up (2026-07-14, before runs)
+
+The next change stays on `n=7`, `s=3`, six plaintext letters, and the weak
+`6x64` identity-restart shape. The eight previously measured fixtures from
+top-level seed `0x7769_6465_5f73_3301` are the development/frozen comparison
+set. Eight new CLI-mixed fixtures from top-level seed
+`0x7769_6465_5f73_3302` are sealed holdouts: their ranks and recovery outcomes
+will not be inspected until the implementation and comparison rows are fixed.
+
+The ranking addition is a third-symbol restart-compatibility score. For each
+complete top-source state, infer the same deterministic representative base used
+by refinement. For each message whose first three letters all have resolved top
+sources, marginalize over the already second-symbol-compatible sigma buckets for
+the first two letters and count the fraction that emits the observed third
+symbol. Rank by summed compatible fraction, then by the existing second-symbol
+likelihood and deterministic source order. This score sees ciphertext evidence,
+but never the planted base/key; it is a heuristic rank, not a pruning proof when
+the base is underdetermined.
+
+The joint-search addition keeps the existing per-restart ceiling but also
+enforces a total candidate-evaluation ceiling, allocated by a cumulative fair
+share across configured restarts so an early retained hypothesis cannot consume
+later hypotheses' shares. The frozen comparisons are:
+
+1. landed second-symbol ranking, per-restart cap `4096`, no effective total cap;
+2. third-symbol ranking with the same effective `4096 x 96` total surface;
+3. third-symbol ranking with total caps `196608` and `98304`, retaining the
+   per-restart `4096` ceiling;
+4. coordinate-only cap `0` as the mechanism ablation.
+
+Primary success is exact recovery, classified as planted, equivalent, ambiguous,
+or `SearchCapExceeded`. A lower total cap is promoted only if it preserves the
+best exact-recovery count on both the frozen and sealed batches. Record planted
+rank/retention, joint candidates, joint replayed events, and whether the total
+budget was exhausted. Existing positive, shuffled-label null, and over-budget
+null controls must remain unchanged. Any choice made after viewing the frozen
+batch is tuning and will be labeled as such; the `...3302` batch is the only new
+holdout evidence.
