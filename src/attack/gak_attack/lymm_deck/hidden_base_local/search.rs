@@ -10,6 +10,8 @@ use super::super::{
 };
 use super::corpus::LocalCorpus;
 use super::joint::best_joint_move;
+use super::output::LocalSearchOutput;
+use super::prefix_cegar::{PrefixCegarStats, run_prefix_cegar};
 use super::score::{
     LocalScore, apply_base_sigma, derive_base, pair_constraint_mismatches, recovered_key,
     reset_identity,
@@ -17,45 +19,6 @@ use super::score::{
 use super::top_source::build_top_source_beam;
 use super::triple::best_triple_move;
 use super::{HiddenBaseLocalRecoveredKey, HiddenBaseLocalSolverConfig};
-
-pub(super) struct LocalSearchOutput {
-    pub(super) sigma_domain_size: usize,
-    pub(super) attempts_run: usize,
-    pub(super) candidate_evaluations: usize,
-    pub(super) replay_event_evaluations: usize,
-    pub(super) joint_move_candidate_evaluations: usize,
-    pub(super) joint_move_replay_event_evaluations: usize,
-    pub(super) joint_move_total_budget_exhausted: bool,
-    pub(super) joint_moves_accepted: usize,
-    pub(super) joint_move_letter_pairs_eligible: usize,
-    pub(super) joint_move_letter_pairs_evaluated: usize,
-    pub(super) joint_move_pair_evaluations_min: usize,
-    pub(super) joint_move_pair_evaluations_max: usize,
-    pub(super) triple_move_candidate_evaluations: usize,
-    pub(super) triple_move_constraint_evaluations: usize,
-    pub(super) triple_move_replay_event_evaluations: usize,
-    pub(super) triple_move_total_budget_exhausted: bool,
-    pub(super) triple_moves_accepted: usize,
-    pub(super) triple_move_prefixes_eligible: usize,
-    pub(super) triple_move_prefixes_evaluated: usize,
-    pub(super) top_source_hypotheses_retained: usize,
-    pub(super) planted_top_source_hypothesis_rank: Option<usize>,
-    pub(super) planted_top_source_hypothesis_retained: Option<bool>,
-    pub(super) top_source_states_expanded: usize,
-    pub(super) top_source_states_pruned: usize,
-    pub(super) top_source_states_dropped: usize,
-    pub(super) top_source_constraint_evaluations: usize,
-    pub(super) top_source_third_symbol_evaluations: usize,
-    pub(super) top_source_elapsed: std::time::Duration,
-    pub(super) exact_candidate_count: usize,
-    pub(super) planted_base_recovered: Option<bool>,
-    pub(super) observed_letters: Vec<char>,
-    pub(super) anchored_letters: Vec<char>,
-    pub(super) event_count: usize,
-    pub(super) best_mismatches: usize,
-    pub(super) best_round_trip: HiddenBaseRoundTrip,
-    pub(super) representative_key: Option<HiddenBaseLocalRecoveredKey>,
-}
 
 pub(super) fn run_local_search(
     config: &HiddenBaseLocalSolverConfig,
@@ -107,6 +70,16 @@ pub(super) fn run_local_search(
         triple_moves_accepted: search.triple_moves_accepted,
         triple_move_prefixes_eligible: search.triple_move_prefixes_eligible.len(),
         triple_move_prefixes_evaluated: search.triple_move_prefix_evaluations.len(),
+        prefix_cegar_hypotheses_attempted: search.prefix_cegar.hypotheses_attempted,
+        prefix_cegar_hypotheses_unsat: search.prefix_cegar.hypotheses_unsat,
+        prefix_cegar_hypotheses_capped: search.prefix_cegar.hypotheses_capped,
+        prefix_cegar_models: search.prefix_cegar.models,
+        prefix_cegar_clauses: search.prefix_cegar.clauses,
+        prefix_cegar_replay_event_evaluations: search.prefix_cegar.replay_events,
+        prefix_cegar_exact_models: search.prefix_cegar.exact_models,
+        prefix_cegar_core_size_min: search.prefix_cegar.core_size_min(),
+        prefix_cegar_core_size_max: search.prefix_cegar.core_size_max,
+        prefix_cegar_total_budget_exhausted: search.prefix_cegar.total_budget_exhausted(config),
         top_source_hypotheses_retained: top_source_beam.hypotheses.len(),
         planted_top_source_hypothesis_rank: top_source_beam.planted_hypothesis_rank,
         planted_top_source_hypothesis_retained: top_source_beam.planted_hypothesis_retained,
@@ -182,7 +155,7 @@ pub(super) struct LocalSearch<'a> {
     pub(super) spec: &'a LymmDeckSpec,
     pub(super) corpus: &'a LocalCorpus,
     pub(super) domain: &'a SigmaDomain,
-    top_source_hypotheses: &'a [Vec<Option<usize>>],
+    pub(super) top_source_hypotheses: &'a [Vec<Option<usize>>],
     planted_base: Option<&'a [usize]>,
     attempts_run: usize,
     candidate_evaluations: usize,
@@ -198,6 +171,7 @@ pub(super) struct LocalSearch<'a> {
     triple_moves_accepted: usize,
     triple_move_prefixes_eligible: BTreeSet<[usize; 3]>,
     triple_move_prefix_evaluations: BTreeMap<[usize; 3], usize>,
+    pub(super) prefix_cegar: PrefixCegarStats,
     best_mismatches: usize,
     exact_bases: BTreeSet<Vec<usize>>,
     planted_base_recovered: Option<bool>,
@@ -234,6 +208,7 @@ impl<'a> LocalSearch<'a> {
             triple_moves_accepted: 0,
             triple_move_prefixes_eligible: BTreeSet::new(),
             triple_move_prefix_evaluations: BTreeMap::new(),
+            prefix_cegar: PrefixCegarStats::default(),
             best_mismatches: corpus.event_count,
             exact_bases: BTreeSet::new(),
             planted_base_recovered: planted_base.map(|_| false),
@@ -253,6 +228,9 @@ impl<'a> LocalSearch<'a> {
             if self.planted_base_recovered == Some(true) {
                 break;
             }
+        }
+        if self.exact_bases.is_empty() && self.config.prefix_cegar_node_cap > 0 {
+            run_prefix_cegar(self)?;
         }
         Ok(())
     }
@@ -557,7 +535,7 @@ impl<'a> LocalSearch<'a> {
         }
     }
 
-    fn record_score(&mut self, assignment: &[usize], score: &LocalScore) {
+    pub(super) fn record_score(&mut self, assignment: &[usize], score: &LocalScore) {
         self.best_mismatches = self.best_mismatches.min(score.mismatches);
         if score.mismatches != 0 {
             return;

@@ -123,6 +123,12 @@ pub(crate) struct GakHiddenBaseLocalRecoverArgs {
     /// Maximum fourth-prefix triple assignments checked over the complete run.
     #[arg(long = "triple-total-cap", default_value_t = 0)]
     pub(crate) triple_total_cap: usize,
+    /// Maximum prefix-CEGAR SAT models replayed per retained hypothesis.
+    #[arg(long = "prefix-cegar-node-cap", default_value_t = 0)]
+    pub(crate) prefix_cegar_node_cap: usize,
+    /// Maximum prefix-CEGAR SAT models replayed over the complete fallback.
+    #[arg(long = "prefix-cegar-total-cap", default_value_t = 0)]
+    pub(crate) prefix_cegar_total_cap: usize,
     /// Hidden-base construction family.
     #[arg(long = "base-kind", value_enum, default_value_t = GakHiddenBaseKind::Random)]
     pub(crate) base_kind: GakHiddenBaseKind,

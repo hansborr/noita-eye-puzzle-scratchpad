@@ -21,6 +21,10 @@ mod controls;
 mod corpus;
 #[path = "hidden_base_local/joint.rs"]
 mod joint;
+#[path = "hidden_base_local/output.rs"]
+mod output;
+#[path = "hidden_base_local/prefix_cegar.rs"]
+mod prefix_cegar;
 #[path = "hidden_base_local/score.rs"]
 mod score;
 #[path = "hidden_base_local/search.rs"]
@@ -43,6 +47,7 @@ const DEFAULT_JOINT_MOVE_EVALUATION_CAP: usize = 4_096;
 const DEFAULT_JOINT_MOVE_TOTAL_EVALUATION_CAP: usize = 393_216;
 const DEFAULT_TRIPLE_MOVE_EVALUATION_CAP: usize = 0;
 const DEFAULT_TRIPLE_MOVE_TOTAL_EVALUATION_CAP: usize = 0;
+const DEFAULT_PREFIX_CEGAR_CAPS: (usize, usize) = (0, 0);
 const DEFAULT_SEED: u64 = 0x6761_6b5f_6862_6c73;
 
 /// Generator family admitted by the hidden-base local solver.
@@ -96,12 +101,15 @@ pub struct HiddenBaseLocalSolverConfig {
     /// Maximum two-letter sigma assignments scored over the complete run,
     /// allocated by cumulative fair share across configured restarts.
     pub joint_move_total_evaluation_cap: usize,
-    /// Maximum fourth-prefix triple assignments checked per stalled `s=3`
-    /// restart. Zero disables triple repair moves.
+    /// Per-restart fourth-prefix triple cap; zero disables triple repair.
     pub triple_move_evaluation_cap: usize,
     /// Maximum fourth-prefix triple assignments checked over the complete run,
     /// allocated by cumulative fair share across configured restarts.
     pub triple_move_total_evaluation_cap: usize,
+    /// Per-hypothesis prefix-CEGAR SAT-model cap; zero disables the fallback.
+    pub prefix_cegar_node_cap: usize,
+    /// Maximum SAT models replayed over the complete prefix-CEGAR fallback.
+    pub prefix_cegar_total_node_cap: usize,
 }
 
 impl HiddenBaseLocalSolverConfig {
@@ -124,6 +132,8 @@ impl HiddenBaseLocalSolverConfig {
             joint_move_total_evaluation_cap: DEFAULT_JOINT_MOVE_TOTAL_EVALUATION_CAP,
             triple_move_evaluation_cap: DEFAULT_TRIPLE_MOVE_EVALUATION_CAP,
             triple_move_total_evaluation_cap: DEFAULT_TRIPLE_MOVE_TOTAL_EVALUATION_CAP,
+            prefix_cegar_node_cap: DEFAULT_PREFIX_CEGAR_CAPS.0,
+            prefix_cegar_total_node_cap: DEFAULT_PREFIX_CEGAR_CAPS.1,
         }
     }
 
@@ -201,6 +211,20 @@ impl HiddenBaseLocalSolverConfig {
     #[must_use]
     pub const fn with_triple_move_total_evaluation_cap(mut self, cap: usize) -> Self {
         self.triple_move_total_evaluation_cap = cap;
+        self
+    }
+
+    /// Replaces the per-hypothesis prefix-CEGAR SAT-model cap.
+    #[must_use]
+    pub const fn with_prefix_cegar_node_cap(mut self, cap: usize) -> Self {
+        self.prefix_cegar_node_cap = cap;
+        self
+    }
+
+    /// Replaces the total-run prefix-CEGAR SAT-model cap.
+    #[must_use]
+    pub const fn with_prefix_cegar_total_node_cap(mut self, cap: usize) -> Self {
+        self.prefix_cegar_total_node_cap = cap;
         self
     }
 }
@@ -294,6 +318,26 @@ pub struct HiddenBaseLocalRecoveryReport {
     pub triple_move_prefixes_eligible: usize,
     /// Eligible fourth-prefix triples receiving at least one assignment check.
     pub triple_move_prefixes_evaluated: usize,
+    /// Retained top-source hypotheses opened by prefix CEGAR.
+    pub prefix_cegar_hypotheses_attempted: usize,
+    /// Retained hypotheses proved unsatisfiable within the admitted sigma CSP.
+    pub prefix_cegar_hypotheses_unsat: usize,
+    /// Retained hypotheses stopped at their SAT-model cap.
+    pub prefix_cegar_hypotheses_capped: usize,
+    /// SAT models replayed by prefix CEGAR.
+    pub prefix_cegar_models: usize,
+    /// Sound replay-derived prefix clauses learned by CEGAR.
+    pub prefix_cegar_clauses: usize,
+    /// Ciphertext events replayed by prefix CEGAR.
+    pub prefix_cegar_replay_event_evaluations: usize,
+    /// Exact complete-replay SAT models found by prefix CEGAR.
+    pub prefix_cegar_exact_models: usize,
+    /// Smallest learned prefix core; zero means no clause was learned.
+    pub prefix_cegar_core_size_min: usize,
+    /// Largest learned prefix-clause core.
+    pub prefix_cegar_core_size_max: usize,
+    /// Whether the total prefix-CEGAR SAT-model budget was exhausted.
+    pub prefix_cegar_total_budget_exhausted: bool,
     /// Complete top-source hypotheses retained for sigma refinement.
     pub top_source_hypotheses_retained: usize,
     /// One-based pre-truncation rank of the planted top-source hypothesis when
@@ -424,6 +468,16 @@ fn recover_hidden_base_local_known_plaintext_inner(
         triple_moves_accepted: search.triple_moves_accepted,
         triple_move_prefixes_eligible: search.triple_move_prefixes_eligible,
         triple_move_prefixes_evaluated: search.triple_move_prefixes_evaluated,
+        prefix_cegar_hypotheses_attempted: search.prefix_cegar_hypotheses_attempted,
+        prefix_cegar_hypotheses_unsat: search.prefix_cegar_hypotheses_unsat,
+        prefix_cegar_hypotheses_capped: search.prefix_cegar_hypotheses_capped,
+        prefix_cegar_models: search.prefix_cegar_models,
+        prefix_cegar_clauses: search.prefix_cegar_clauses,
+        prefix_cegar_replay_event_evaluations: search.prefix_cegar_replay_event_evaluations,
+        prefix_cegar_exact_models: search.prefix_cegar_exact_models,
+        prefix_cegar_core_size_min: search.prefix_cegar_core_size_min,
+        prefix_cegar_core_size_max: search.prefix_cegar_core_size_max,
+        prefix_cegar_total_budget_exhausted: search.prefix_cegar_total_budget_exhausted,
         top_source_hypotheses_retained: search.top_source_hypotheses_retained,
         planted_top_source_hypothesis_rank: search.planted_top_source_hypothesis_rank,
         planted_top_source_hypothesis_retained: search.planted_top_source_hypothesis_retained,

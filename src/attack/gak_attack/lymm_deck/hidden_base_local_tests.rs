@@ -42,6 +42,28 @@ fn triple_repair_recovers_retained_weak_restart_stall() {
     assert!(with_triple.triple_moves_accepted > 0);
 }
 
+#[test]
+fn prefix_cegar_obeys_its_separate_total_cap() {
+    let fixture_seed = mix_seed(0x7769_6465_5f74_3301, 0x6c73_7265_636f_7600 ^ 2);
+    let fixture = weak_restart_fixture(fixture_seed);
+    let report = recover_hidden_base_local_known_plaintext_with_audit(
+        &solver_config(&fixture.spec, fixture_seed)
+            .with_prefix_cegar_node_cap(1)
+            .with_prefix_cegar_total_node_cap(1),
+        &fixture.pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("prefix-CEGAR-capped recovery");
+
+    assert_eq!(report.prefix_cegar_hypotheses_attempted, 1);
+    assert_eq!(report.prefix_cegar_hypotheses_capped, 1);
+    assert_eq!(report.prefix_cegar_models, 1);
+    assert_eq!(report.prefix_cegar_clauses, 1);
+    assert!(report.prefix_cegar_replay_event_evaluations > 0);
+    assert!((1..=6).contains(&report.prefix_cegar_core_size_min));
+    assert!(report.prefix_cegar_total_budget_exhausted);
+}
+
 fn weak_restart_fixture(seed: u64) -> super::HiddenBaseFixture {
     plant_hidden_base_fixture(&HiddenBaseFixtureConfig {
         n: 7,
