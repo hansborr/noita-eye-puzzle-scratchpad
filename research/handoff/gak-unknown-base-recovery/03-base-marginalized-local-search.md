@@ -349,6 +349,62 @@ ablations, the cap-0 row, event-level and per-pair accounting, planted-rank
 audit, and seed-set-disjoint holdouts. Keep recording misses as budgeted misses
 unless an exhaustive baseline proves `NoCandidate`.
 
+### Pre-registered fourth-prefix triple-repair follow-up (2026-07-15, before runs)
+
+The next bounded change targets the five retained-plant development stalls with
+an algebraic neighborhood rather than another letter-pair ordering. Under one
+fixed top-source hypothesis, every admitted sigma remains in its selected
+top-source bucket, so the representative hidden base is fixed throughout local
+refinement. For an identity-restart message beginning `L M N O` with fourth
+emission `z`, `z` is therefore an exact constraint on the three internal sigma
+choices for `L`, `M`, and `N`; only `O`'s already-fixed top source enters its
+emission. The new move will enumerate bounded assignments for the distinct
+first-three letters of a message only when the current assignment misses that
+message's fourth emission, retain proposals that repair the fourth-prefix
+equation under the same representative base, and then apply the existing strict
+full-objective improvement rule. Exact compressed replay remains the only
+acceptance condition. Repeated-letter prefixes and prefixes involving fewer
+than three distinct sigma variables stay on the existing coordinate/two-letter
+surface.
+
+This is an additional, separately capped move after a two-letter pass stalls;
+it does not replace or silently widen the landed pair budget. Reports will add
+triple candidates checked, fourth-prefix algebra checks, replayed events,
+accepted moves, eligible/evaluated prefix triples, and total-budget exhaustion.
+The per-restart and fairly allocated total-run defaults are provisionally
+`4096` and `393216`, matching the pair surface but reported separately. A cap of
+zero disables the move and is the landed pair-only ablation. The three existing
+pair orders, coordinate-only cap-0 row, planted-rank audit, positive controls,
+matched nulls, and event-level pair accounting must remain unchanged.
+
+The two original weak-restart batches (`...733301` and `...743301`, 16 fixtures)
+are the open development comparison. The already-open `...753301` pair-order
+holdout is diagnostic only because all pair orders recovered `8/8`; it will not
+be relabeled as fresh evidence. A new 16-fixture holdout uses top-level seed
+`0x7769_6465_5f76_3301`. Its xor differences from the three prior top-level
+seeds are at least `0x100`, which cannot equal `i ^ j` for trial indices
+`i,j in 0..16`, so the mixer input sets are disjoint. No fixture, planted rank,
+or recovery outcome from `...763301` will be inspected until the move,
+instrumentation, cap-0 ablation, focused regression, and development comparison
+are fixed.
+
+Frozen rows use `n=7`, `s=3`, alphabet `ABCDEF`, `6x64` identity-restart
+messages, beam/restarts `96`, rounds `18`, hybrid pair order, pair caps
+`4096/393216`, and are:
+
+1. landed pair-only search with triple cap `0`;
+2. fourth-prefix triple repair with per-restart/total caps `4096/393216`;
+3. coordinate-only search with both pair and triple caps `0`.
+
+Primary success is exact recovery classified as planted, equivalent, ambiguous,
+or `SearchCapExceeded`. The new move must recover at least one of the five
+retained-plant development misses to establish its intended mechanism. It is
+promoted as a default only if it also improves exact recovery on the sealed
+holdout without reducing any existing positive-control or null verdict; a
+development-only gain lands as an optional measured instrument, not as a new
+default. Record pair and triple work separately and keep all misses labeled as
+budgeted misses.
+
 ### Pre-registered pair-fair joint-order follow-up (2026-07-15, before runs)
 
 The next bounded change targets the diagnosed within-bucket failure without
