@@ -1,8 +1,9 @@
 # 03 - base-marginalized local recovery, `s = 2..3`
 
 **Status:** bounded instrument, top-source CSP/beam, third-symbol arc-consistency
-ranking, fair total-run joint budget, and explicit pair-order schedules built;
-broader, weak-restart, and pair-order calibrations measured through 2026-07-15.
+ranking, fair joint budgets, explicit pair-order schedules, and optional
+fourth-prefix triple repair built; broader and disjoint calibrations measured
+through 2026-07-15.
 
 ## Scope
 
@@ -135,6 +136,18 @@ counts and the minimum/maximum evaluations assigned to an eligible pair. The
 hybrid was development-tuned and is promoted only as a measured no-loss
 allocation change; it did not raise recovery or lower replay work.
 
+An optional fourth-prefix triple repair is available for `s=3`. After both
+coordinate and two-letter refinement stall, it finds identity-restart messages
+whose first three plaintext letters are distinct and whose fourth emission is
+currently wrong. It checks bounded three-letter assignments against that exact
+fourth-prefix equation under the current representative base, fully replays
+only equation-satisfying proposals, and accepts only a strict full-objective
+improvement. The separate CLI caps are `--triple-move-cap` and
+`--triple-total-cap`; both default to zero because a development gain did not
+replicate on the sealed holdout. Reports keep triple checks, replay work,
+accepted moves, prefix coverage, and total-budget exhaustion separate from the
+landed pair surface.
+
 The objective and CSP both use the cheap second-symbol identity-restart
 consistency term:
 
@@ -152,10 +165,11 @@ both `s=2` and `s=3` (previously the local objective gated it on `s >= 3`).
 When a planted base is supplied for synthetic audit, the report derives the
 planted top sources as `B^-1(c_0(L))` and records their one-based rank and whether
 they survived truncation. This is post-search provenance only; it is not exposed
-to ranking or refinement. The report also exposes configured beam/joint caps,
+to ranking or refinement. The report also exposes configured beam/pair/triple caps,
 retained, expanded, pruned, and capacity-dropped states, constraint and candidate
 evaluations, third-symbol pair checks, total and joint-only replayed events,
-joint evaluations/moves, total-budget exhaustion, and top-source/total runtime.
+pair/triple evaluations and moves, total-budget exhaustion, and
+top-source/total runtime.
 
 ## Controls
 
@@ -336,18 +350,23 @@ Interpretation:
 
 ## Next Rung
 
-The weak-restart rank, total-run budget, and joint pair order are now measured,
-but they still do not justify a ciphertext-only bridge. Across the two original
-development batches and the new pair-order holdout, the default hybrid ties the
-landed pair-major order at exact replay `18/24`; strict round-robin reaches
-`17/24`, and coordinate-only reaches `9/24`. All six hybrid misses are in the
-development fixtures. Five retained the planted top-source state and therefore
-remain within-bucket refinement failures; one plant was ranked out. The next
-task stays at `n=7`: add another algebraically motivated bounded within-bucket
-move rather than tune more pair-order mixtures. Preserve all three order
-ablations, the cap-0 row, event-level and per-pair accounting, planted-rank
-audit, and seed-set-disjoint holdouts. Keep recording misses as budgeted misses
-unless an exhaustive baseline proves `NoCandidate`.
+The weak-restart rank, pair order, and fourth-prefix triple move are now
+measured, but they still do not justify a ciphertext-only bridge. On the two
+open development batches plus a fresh 16-fixture holdout, pair-only exact replay
+was `25/32`, optional triple repair was `26/32`, and coordinate-only was
+`17/32`. The one triple gain occurred only in development; the holdout tied at
+`15/16`, so triple repair remains disabled by default. Five of the six triple
+misses retained the planted top-source state and one plant was ranked out.
+
+Do not respond by stacking another higher-order local neighborhood onto the
+same optimizer. A useful next `n=7` step would factor the retained-hypothesis
+sigma problem into an explicit bounded prefix-constraint CSP/CEGAR rung, with
+the local solver as a baseline and the same exact-replay oracle. Otherwise stop
+task 03 here and broaden only when a new algebraic constraint or practice
+ciphertext surface warrants it. Preserve all cap-0/order ablations, event-level
+accounting, planted-rank audit, and seed-set-disjoint holdouts; keep bounded
+misses labeled `SearchCapExceeded` unless an exhaustive baseline proves
+`NoCandidate`.
 
 ### Pre-registered fourth-prefix triple-repair follow-up (2026-07-15, before runs)
 
@@ -417,6 +436,36 @@ constraint-surviving assignments incurred full replay, totaling
 `26023..15360805` and `624115..16423454` replayed events. This clears the
 mechanism gate but is development evidence only; the `...763301` holdout remains
 sealed at this point.
+
+### Fourth-prefix triple-repair holdout result (2026-07-15)
+
+The sealed `...763301` batch was opened only after the implementation,
+instrumentation, cap-0 ablation, development comparison, and focused regression
+were committed. Every exact state re-encrypts `384/384`; all other states are
+bounded `SearchCapExceeded` outcomes.
+
+| search | open development, 16 fixtures | sealed holdout, 16 fixtures | combined | combined states |
+| --- | ---: | ---: | ---: | --- |
+| coordinate only, pair/triple caps `0` | `5/16` | `12/16` | `17/32` | mechanism ablation only |
+| hybrid pair-only, triple cap `0` | `10/16` | `15/16` | `25/32` | 13 planted, 12 ambiguous, 7 misses |
+| hybrid pair + fourth-prefix triple repair | `11/16` | `15/16` | `26/32` | 14 planted, 12 ambiguous, 6 misses |
+
+The holdout pair and triple rows had identical classifications: seven planted
+bases, eight ambiguous equivalent classes, and one retained-plant miss at rank
+22. Triple repair therefore failed the preregistered promotion gate. Its CLI
+and library surface remains available, but both triple caps default to zero.
+The combined one-recovery gain is labeled development-only, not a replicated
+recovery improvement.
+
+On holdout, triple repair checked `1536..325984` assignments and fully replayed
+`88901..14561802` events for equation-surviving proposals. It accepted `0..18`
+improving moves without changing a final classification. Pair-only replayed
+`1.46M..135.77M` joint-move events across the holdout;
+triple repair is thus meaningful additional work, not a free tie. Across the
+combined triple row, five of six misses retained the planted top-source
+hypothesis and one was ranked out. The result validates the move on one pinned
+fixture but argues against layering more local `k`-opt moves without a new CSP
+factorization.
 
 ### Pre-registered pair-fair joint-order follow-up (2026-07-15, before runs)
 

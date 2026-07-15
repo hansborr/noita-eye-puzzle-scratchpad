@@ -79,8 +79,8 @@ fn gak_hidden_base_local_recover_cli_reports_bounded_surface() {
     assert_contains(&stdout, "third-symbol-rank=true");
     assert_contains(&stdout, "joint-move-order=hybrid");
     assert_contains(&stdout, "joint-total-cap=393216");
-    assert_contains(&stdout, "triple-move-cap=4096");
-    assert_contains(&stdout, "triple-total-cap=393216");
+    assert_contains(&stdout, "triple-move-cap=0");
+    assert_contains(&stdout, "triple-total-cap=0");
     assert_contains(&stdout, "hidden-base local controls: PASS");
     assert_contains(&stdout, "planted-s2-positive: PASS");
     assert_contains(&stdout, "planted-s3-positive: PASS");

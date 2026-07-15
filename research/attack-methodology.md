@@ -314,3 +314,22 @@ as a recovery or cost gain. A sealed holdout prevents a pleasing search order
 from becoming another uncounted degree of freedom, but an easy holdout can
 establish no-loss without establishing superiority. Demonstrated:
 `handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`.
+
+## 20. A mechanism-positive regression is not a replicated recovery gain
+
+An algebraically targeted move can do exactly what it was designed to do on one
+diagnosed miss and still fail to improve out of sample. In hidden-base local
+recovery, the fourth emission after an identity restart is an exact constraint
+on the first three internal sigma choices under a fixed top-source hypothesis.
+A bounded triple-repair move used that equation to recover one retained-plant
+development miss, raising the open batches from `10/16` to `11/16`, and the
+pair-fail/triple-success fixture was pinned as a regression.
+
+Keep the regression—it validates the mechanism—but make default promotion a
+separate holdout decision. On a sealed 16-fixture batch, pair-only and triple
+repair both reached `15/16` with identical key-class outcomes, while triple
+repair added up to 325,984 algebra checks and 14.56 million fully replayed
+events. The move therefore remained optional and disabled by default. A
+development win proves reachability on that fixture; only replicated exact
+recovery justifies paying a new default search budget. Demonstrated:
+`handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`.

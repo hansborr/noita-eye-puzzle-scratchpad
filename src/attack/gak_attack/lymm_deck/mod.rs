@@ -26,6 +26,8 @@ mod spec;
 #[cfg(test)]
 mod generator_tests;
 #[cfg(test)]
+mod hidden_base_local_tests;
+#[cfg(test)]
 mod hidden_base_tests;
 #[cfg(test)]
 mod ns3_probe;

@@ -1,7 +1,8 @@
 # Handoff - unknown-base GAK / deck-cipher recovery
 
 **Status:** tasks 01, 02, and task-03 `n=7` bounded local-search frontier built;
-broader, disjoint weak-restart, and pair-order calibrations measured, with
+broader, disjoint weak-restart, pair-order, and fourth-prefix triple-repair
+calibrations measured; the optional triple gain was development-only, with
 within-bucket `s=3` refinement still limiting recovery
 **Priority:** active when the goal is to help Lymm's stated GAK-attack interests,
 rather than to move the eyes decode directly
@@ -189,6 +190,17 @@ holdout all three joint orders reached `8/8`, while coordinate-only reached
 `17/24`, hybrid `18/24`, and coordinate-only `9/24`. The hybrid is promoted as
 a no-loss allocation change, not a recovery-rate or cost improvement; the same
 five retained-plant development misses keep the next target within-bucket.
+
+The next algebraic neighborhood uses the exact fourth-emission constraint on
+the first three sigma variables of an identity-restart message. Its separately
+capped triple repair improved the open development batches from `10/16` to
+`11/16`, but a fresh 16-fixture holdout tied pair-only at `15/16`. Across those
+32 fixtures, coordinate-only reached `17/32`, pair-only `25/32`, and triple
+repair `26/32`; the sole gain is development-only. Triple repair remains a
+rerunnable optional instrument with both caps defaulting to zero, not a promoted
+recovery improvement. Five of its six combined misses retained the planted
+top-source hypothesis, so a future attempt should factor an explicit bounded
+prefix-constraint CSP/CEGAR rung instead of stacking another local `k`-opt move.
 
 Adapt the existing substitution-first coordinate-descent idea:
 
