@@ -384,6 +384,19 @@ positive, shuffled-label null, over-budget null, cap-0 ablation, and focused
 joint-move regression must continue to pass. Any post-development adjustment
 will be labeled tuning and frozen in this section before the holdout is opened.
 
+**Development-only adjustment, frozen before hybrid runs:** strict round-robin
+reached exact replay `9/16` on the two already-open batches, versus `10/16` for
+the landed pair-major order. It improved pair coverage but failed the no-loss
+gate; the `...753301` holdout remains sealed. One outcome-informed hybrid is now
+fixed before further runs: within each stalled two-letter pass, spend half of
+the remaining pass allowance in round-robin order, then spend the other half in
+pair-major order while skipping candidates already visited in the first phase.
+The same per-restart and total caps apply. This is one explicit breadth/depth
+tradeoff, not a sweep over mixing fractions. The hybrid will be opened on the
+16 development fixtures first and will reach the sealed holdout only if it
+recovers at least the landed `10/16`. The final comparison will retain all three
+orders and label the hybrid as development-tuned.
+
 ### Pre-registered weak-restart follow-up (2026-07-14, before runs)
 
 The next change stays on `n=7`, `s=3`, six plaintext letters, and the weak
