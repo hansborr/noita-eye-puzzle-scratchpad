@@ -338,6 +338,52 @@ cap. Preserve the cap-0 ablation, event-level accounting, and planted-rank audit
 and use seed-set-disjoint holdouts. Keep recording misses as budgeted misses
 unless an exhaustive baseline proves `NoCandidate`.
 
+### Pre-registered pair-fair joint-order follow-up (2026-07-15, before runs)
+
+The next bounded change targets the diagnosed within-bucket failure without
+widening either the top-source beam or the joint candidate budget. The current
+two-letter move exhausts the complete Cartesian product for the first letter
+pair before visiting the next pair. At cap `4096`, this can spend most or all of
+a restart on alphabetically early pairs even when a useful move changes a later
+pair.
+
+The proposed order constructs the same per-letter, top-source-fixed,
+second-symbol-compatible candidate domains, but visits their pair products in
+deterministic round-robin strata: candidate `0` for every nonempty letter pair,
+then candidate `1` for every pair that has one, and so on. It changes only
+candidate order, not the admitted move set, objective, strict-improvement rule,
+or exact-replay acceptance. The landed pair-major order remains available as an
+ablation. Reports will add the number of letter pairs evaluated and the minimum
+and maximum evaluations assigned to any eligible pair; total joint candidates
+and replayed events remain the work bounds.
+
+The two already-open, seed-set-disjoint weak-restart batches (`...733301` and
+`...743301`, 16 fixtures total) are the development comparison. A new eight-run
+holdout uses top-level seed `0x7769_6465_5f75_3301`. Its mixer input set is
+disjoint from both earlier sets: the top-seed xor differences are `0x600` and
+`0x100`, neither of which can equal `i ^ j` for `i,j in 0..8`. No fixture, rank,
+or recovery outcome from this new batch will be inspected until the order,
+instrumentation, tests, and comparison rows are fixed.
+
+All runs stay at `n=7`, `s=3`, alphabet `ABCDEF`, `6x64` identity-restart
+messages, beam/restarts `96`, rounds `18`, per-restart cap `4096`, and total cap
+`393216`. The frozen rows are:
+
+1. landed pair-major joint order;
+2. pair-round-robin joint order at identical caps;
+3. coordinate-only cap `0` as the mechanism ablation.
+
+Primary success is exact recovery, classified as planted, equivalent,
+ambiguous, or `SearchCapExceeded`. The fair order is promoted only if it does
+not reduce exact recovery on either the 16-fixture development comparison or
+the sealed eight-fixture holdout. The mechanism check is improved eligible-pair
+coverage and a smaller within-run pair-evaluation range at the same candidate
+caps. Record planted rank/retention for misses, joint candidates, joint replayed
+events, eligible-pair coverage/range, and total-budget exhaustion. Existing
+positive, shuffled-label null, over-budget null, cap-0 ablation, and focused
+joint-move regression must continue to pass. Any post-development adjustment
+will be labeled tuning and frozen in this section before the holdout is opened.
+
 ### Pre-registered weak-restart follow-up (2026-07-14, before runs)
 
 The next change stays on `n=7`, `s=3`, six plaintext letters, and the weak
