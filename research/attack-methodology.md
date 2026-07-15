@@ -235,3 +235,22 @@ reached exact replay `5/5`, with its `22066..221255` replay evaluations reported
 separately. This diagnoses the mechanism and exposes the cost instead of calling
 a larger opaque budget an algorithmic gain. Demonstrated:
 `handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`.
+
+## 16. A candidate cap is not a work bound — count the replayed evidence
+
+Local-search candidates can have radically different evaluation costs, and a
+cap scoped per restart can accumulate far beyond its headline value. In the
+hidden-base `s=3, n=7` search, a `4096` joint-move cap still produced up to
+`386298` joint candidate evaluations over one full run, and the landed evaluator
+replayed all 384 events for every joint candidate. Candidate counts alone hid up
+to 148 million event transitions.
+
+Instrument the primitive work unit as well as the search-node count, and state
+the scope of every cap. An exact objective lower bound can then stop a replay as
+soon as mismatches plus fixed penalties cannot beat the incumbent, while final
+acceptance still uses complete replay. On a pre-registered 24-run calibration,
+this preserved all `18/24` exact outcomes and reduced the maximum joint replay
+work by `7.7%..9.3%` across three corpus shapes. Halving the candidate cap cut
+more work but reduced recovery to `17/24`, so it was recorded as a tradeoff and
+not promoted. Demonstrated:
+`handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`.

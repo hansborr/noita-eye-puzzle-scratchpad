@@ -407,6 +407,12 @@ fn hidden_base_local_joint_move_recovers_stalled_n7_s3_fixture() {
     assert!(with_joint.replay_event_evaluations > 0);
     assert!(with_joint.joint_move_replay_event_evaluations > 0);
     assert!(with_joint.joint_move_replay_event_evaluations <= with_joint.replay_event_evaluations);
+    assert!(
+        with_joint.joint_move_replay_event_evaluations
+            < with_joint
+                .joint_move_candidate_evaluations
+                .saturating_mul(with_joint.event_count)
+    );
     assert!(with_joint.joint_moves_accepted > 0);
 }
 

@@ -1,8 +1,8 @@
 # 03 - base-marginalized local recovery, `s = 2..3`
 
-**Status:** first bounded instrument built 2026-07-07; top-source CSP/beam and
-capped joint-sigma frontier improvements measured 2026-07-14; broader
-calibration pre-registered 2026-07-14.
+**Status:** bounded instrument, top-source CSP/beam, and capped joint-sigma
+frontier built; broader 24-run calibration and objective-bounded replay measured
+2026-07-14.
 
 ## Scope
 
@@ -104,8 +104,11 @@ For `s=3`, a stalled coordinate pass can also test two letters jointly. The move
 enumerates deterministic pairs inside their fixed top-source/constraint buckets,
 retains only a strict objective improvement, and stops after the configured
 per-restart `joint_move_evaluation_cap` (CLI `--joint-move-cap`, default `4096`).
-Zero disables the move. This remains a bounded heuristic: the pair cap can stop
-before a useful combination.
+Each replay now stops once its mismatch count plus the fixed constraint penalty
+cannot beat the incumbent objective. Final candidates still receive a complete
+exact replay. Zero disables the move. This remains a bounded heuristic: the pair
+cap can stop before a useful combination, and the per-restart cap can accumulate
+to much more than its configured value over a full run.
 
 The objective and CSP both use the cheap second-symbol identity-restart
 consistency term:
@@ -125,8 +128,9 @@ When a planted base is supplied for synthetic audit, the report derives the
 planted top sources as `B^-1(c_0(L))` and records their one-based rank and whether
 they survived truncation. This is post-search provenance only; it is not exposed
 to ranking or refinement. The report also exposes configured beam/joint caps,
-retained, expanded, pruned, and capacity-dropped states, constraint and replay
-evaluations, joint evaluations/moves, and top-source/total runtime.
+retained, expanded, pruned, and capacity-dropped states, constraint and candidate
+evaluations, total and joint-only replayed events, joint evaluations/moves, and
+top-source/total runtime.
 
 ## Controls
 
@@ -183,6 +187,44 @@ wall time remain secondary because neither is a like-for-like hidden-base test.
 Also record planted-hypothesis retention/rank for every miss so beam drops and
 within-bucket stalls remain distinguishable. The existing positive, shuffled-
 label null, and over-budget null controls must continue to pass unchanged.
+
+### Broader calibration result (2026-07-14)
+
+The pre-registered 24 fixtures above were run without changing their seed,
+shape, or search budgets. All reported recoveries re-encrypt exactly; misses are
+`SearchCapExceeded`, not exclusions.
+
+| search | `6x64` | `8x48` | `12x32` | total | joint replay events, min/max by shape |
+| --- | ---: | ---: | ---: | ---: | --- |
+| coordinate only, cap `0` | `1/8` | `8/8` | `7/8` | `16/24` | `0` |
+| landed ordered joint search, cap `4096` | `2/8` | `8/8` | `8/8` | `18/24` | `53.22M..148.34M`; `0..37.26M`; `0.287M..22.17M` |
+| objective-bounded joint replay, cap `4096` | `2/8` | `8/8` | `8/8` | `18/24` | `49.44M..136.88M`; `0..33.78M`; `0.261M..20.25M` |
+| objective-bounded replay, cap `2048` | `1/8` | `8/8` | `8/8` | `17/24` | `47.09M..69.96M`; `0..23.78M`; `0.261M..20.25M` |
+
+The landed cap-4096 states were 15 planted-base recoveries, three ambiguous
+equivalent classes, and six bounded misses. Objective-bounded replay preserved
+all 24 state classifications and candidate-evaluation counts while reducing the
+maximum joint replayed events by `7.7%`, `9.3%`, and `8.7%` in the three shapes.
+This is a safe constant-factor improvement, not a new recovery result. The
+half-cap row failed the pre-registered no-loss criterion because it dropped the
+`6x64` equivalent-key recovery; its lower work is therefore a measured
+recovery/cost tradeoff, not the new default.
+
+Corpus shape mattered even at the same 384 total events. All eight planted
+top-source hypotheses survived for `8x48` and `12x32`, and those shapes reached
+exact replay `8/8` at cap `4096`. Only four of eight planted hypotheses survived
+the beam for `6x64`; among the six final misses, three plants were ranked out and
+three survived at ranks `1`, `2`, and `10` but still stalled. One `6x64` run whose
+planted hypothesis ranked `514` nevertheless found an exact equivalent class at
+cap `4096`. Thus planted retention diagnoses a planted-key miss, not the absence
+of every equivalent key.
+
+The cap-0 result also sharpens the mechanism: the joint move added only two
+recoveries over 24 runs, one each in the weak- and strong-restart shapes. On the
+current `8x48` out-of-sample batch, coordinate descent itself was already `8/8`.
+The current joint cap is per restart, so a cap of `4096` still accumulated as
+many as `386298` joint candidate evaluations in one run; the CLI now exposes
+replayed events so that cost is no longer hidden behind the nominal cap.
 
 | command shape | state | search surface | result |
 | --- | --- | --- | --- |
@@ -246,14 +288,14 @@ Interpretation:
 - The bounded local search is now reliable on the measured five-seed `n=7,
   s=2` sample. This is a synthetic, model-conditional frontier result, not a
   general proof over fixtures.
-- The registered `n=7, s=3` sample now reaches exact replay `5/5`, but at up to
-  `238540` full assignment evaluations and on only five deterministic fixtures.
-  This establishes a frontier improvement, not general reliability or a
-  like-for-like speedup over `7!` base enumeration.
+- The original registered `n=7, s=3` sample reaches exact replay `5/5`, but the
+  broader pre-registered sample reaches only `18/24`. The `6x64` result (`2/8`)
+  exposes both top-source ranking failures and retained-hypothesis stalls, so
+  the five-fixture result was not evidence of general reliability.
 - Candidate-evaluation counts are not directly comparable to `n!`: one restart
-  scores many `sigma` substitutions. The relevant comparison currently reported
-  is restarts/evaluations against the hidden-base brute-force size, with exact
-  re-encryption as the only success criterion.
+  scores many `sigma` substitutions, and each substitution replays a variable
+  number of events. Reports now carry both counts; exact re-encryption remains
+  the only success criterion.
 
 ## Limits
 
@@ -263,15 +305,17 @@ Interpretation:
   non-anchored corpora can leave large equivalent classes.
 - The mandatory fast `s=3` control remains `n=5`; the `n=7, s=3` rank-8
   ablation is a focused regression, and the five-seed batch remains a measured
-  benchmark rather than a universal control.
+  benchmark rather than a universal control. The broader 24-run calibration is
+  still a small synthetic sample, not a universal control.
 - No eyes corpus and no language-scored ciphertext-only attack was run.
 
 ## Next Rung
 
-The registered five-seed milestones are now met for both `n=7, s=2` and `s=3`.
-The next task is still at `n=7`: pre-register a broader seed/corpus sample and
-reduce the joint replay cost, for example by fair pair scheduling or a stronger
-prefix constraint. Preserve the cap-0 ablation and planted-rank audit so a wider
-sample distinguishes beam drops from refinement misses. Keep recording misses
-as budgeted misses unless an exhaustive baseline proves `NoCandidate`; do not
-move to the optional ciphertext-only bridge on five synthetic fixtures alone.
+The broader calibration is complete, and it does not justify a ciphertext-only
+bridge: recovery is `18/24`, with all six misses concentrated in the six-restart
+shape. The next task remains at `n=7`: improve or replace the weak-evidence
+top-source ranking, then give joint work a total-run budget or fair allocation
+across retained hypotheses instead of only a per-restart cap. Preserve the cap-0
+ablation, event-level accounting, and planted-rank audit, and test against these
+same frozen fixtures plus new holdouts. Keep recording misses as budgeted misses
+unless an exhaustive baseline proves `NoCandidate`.

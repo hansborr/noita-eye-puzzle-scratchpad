@@ -187,7 +187,7 @@ fn render_local_recovery_report(
     );
     appendln!(
         &mut out,
-        "solver: bounded top-source CSP/beam from first-symbol injectivity and second-symbol constraints, followed by constraint-filtered coordinate descent and capped two-letter s=3 moves over sigma_L; acceptance is exact compressed re-encryption only"
+        "solver: bounded top-source CSP/beam from first-symbol injectivity and second-symbol constraints, followed by constraint-filtered coordinate descent and objective-bounded, capped two-letter s=3 moves over sigma_L; acceptance is exact compressed re-encryption only"
     );
     appendln!(
         &mut out,

@@ -232,7 +232,7 @@ impl<'a> LocalSearch<'a> {
                             *slot = candidate_index;
                         }
                         let candidate_score =
-                            self.score_assignment(&assignment, best_score.mismatches);
+                            self.score_assignment(&assignment, best_score.objective);
                         if candidate_score.objective < best_score.objective {
                             best_candidate = candidate_index;
                             best_score = candidate_score;
@@ -356,7 +356,7 @@ impl<'a> LocalSearch<'a> {
     pub(super) fn score_assignment(
         &mut self,
         assignment: &[usize],
-        stop_after: usize,
+        stop_after_objective: usize,
     ) -> LocalScore {
         self.candidate_evaluations = self.candidate_evaluations.saturating_add(1);
         let Some(base) = derive_base(self.config.n, self.corpus, self.domain, assignment) else {
@@ -367,6 +367,8 @@ impl<'a> LocalSearch<'a> {
             };
         };
         let pair_penalty = pair_constraint_mismatches(self.corpus, self.domain, assignment);
+        let weighted_pair_penalty = pair_penalty.saturating_mul(self.corpus.event_count.max(1));
+        let mismatch_limit = stop_after_objective.saturating_sub(weighted_pair_penalty);
         let mut mismatches = 0usize;
         let mut state = vec![0; self.config.n];
         let mut next = vec![0; self.config.n];
@@ -382,11 +384,9 @@ impl<'a> LocalSearch<'a> {
                 apply_base_sigma(&base, &candidate.sigma, &state, &mut next);
                 if next.first().copied() != Some(event.ct_value) {
                     mismatches = mismatches.saturating_add(1);
-                    if mismatches > stop_after {
+                    if mismatches > mismatch_limit {
                         return LocalScore {
-                            objective: mismatches.saturating_add(
-                                pair_penalty.saturating_mul(self.corpus.event_count.max(1)),
-                            ),
+                            objective: mismatches.saturating_add(weighted_pair_penalty),
                             mismatches,
                             base: Some(base),
                         };
@@ -396,8 +396,7 @@ impl<'a> LocalSearch<'a> {
             }
         }
         LocalScore {
-            objective: mismatches
-                .saturating_add(pair_penalty.saturating_mul(self.corpus.event_count.max(1))),
+            objective: mismatches.saturating_add(weighted_pair_penalty),
             mismatches,
             base: Some(base),
         }
@@ -440,7 +439,7 @@ impl<'a> LocalSearch<'a> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct LocalScore {
     pub(super) objective: usize,
-    mismatches: usize,
+    pub(super) mismatches: usize,
     base: Option<Vec<usize>>,
 }
 
