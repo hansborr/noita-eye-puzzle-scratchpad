@@ -405,6 +405,19 @@ development-only gain lands as an optional measured instrument, not as a new
 default. Record pair and triple work separately and keep all misses labeled as
 budgeted misses.
 
+**Development gate, frozen before opening the holdout:** the cap-0 pair-only row
+reproduced exact replay `10/16` (`5/8` on each open batch). Fourth-prefix triple
+repair reached `11/16`: the `...743301` trial-2 planted hypothesis was retained
+at rank 3, remained `SearchCapExceeded` under pair-only search, and became a
+`RecoveredPlantedBase` exact replay with triple repair. A focused regression now
+pins that pair-fail/triple-success fixture. The other four retained-plant misses
+and the one ranked-out miss remained bounded misses. Triple assignment checks
+ranged from `576..339132` and `12288..374588` across the two batches; only
+constraint-surviving assignments incurred full replay, totaling
+`26023..15360805` and `624115..16423454` replayed events. This clears the
+mechanism gate but is development evidence only; the `...763301` holdout remains
+sealed at this point.
+
 ### Pre-registered pair-fair joint-order follow-up (2026-07-15, before runs)
 
 The next bounded change targets the diagnosed within-bucket failure without
