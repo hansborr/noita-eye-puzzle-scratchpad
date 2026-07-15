@@ -372,6 +372,41 @@ fn hidden_base_local_solver_recovers_five_seed_n7_s2_benchmark() {
     assert_eq!(exact, 5);
 }
 
+#[test]
+fn hidden_base_local_joint_move_recovers_stalled_n7_s3_fixture() {
+    let fixture_seed = mix_seed(DEFAULT_HIDDEN_BASE_AUDIT_SEED, 0x6c73_7265_636f_7600 ^ 3);
+    let fixture = local_s3_fixture(fixture_seed);
+    let without_joint = recover_hidden_base_local_known_plaintext_with_audit(
+        &local_s3_solver_config(&fixture.spec, fixture_seed).with_joint_move_evaluation_cap(0),
+        &fixture.pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("coordinate-only local recovery");
+    let with_joint = recover_hidden_base_local_known_plaintext_with_audit(
+        &local_s3_solver_config(&fixture.spec, fixture_seed),
+        &fixture.pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("joint local recovery");
+
+    assert_eq!(
+        without_joint.state,
+        HiddenBaseLocalRecoveryState::SearchCapExceeded
+    );
+    assert_eq!(
+        with_joint.state,
+        HiddenBaseLocalRecoveryState::RecoveredPlantedBase
+    );
+    assert!(with_joint.best_round_trip.exact);
+    assert_eq!(with_joint.planted_top_source_hypothesis_rank, Some(8));
+    assert_eq!(
+        with_joint.planted_top_source_hypothesis_retained,
+        Some(true)
+    );
+    assert!(with_joint.joint_move_candidate_evaluations > 0);
+    assert!(with_joint.joint_moves_accepted > 0);
+}
+
 fn local_s2_fixture(seed: u64) -> super::HiddenBaseFixture {
     plant_hidden_base_fixture(&HiddenBaseFixtureConfig {
         n: 7,
@@ -387,6 +422,28 @@ fn local_s2_fixture(seed: u64) -> super::HiddenBaseFixture {
 
 fn local_s2_solver_config(spec: &LymmDeckSpec, fixture_seed: u64) -> HiddenBaseLocalSolverConfig {
     HiddenBaseLocalSolverConfig::top_card_swaps(7, "ABCDEF", 2)
+        .with_ct_alphabet(spec.ct_alphabet.iter().collect::<String>())
+        .with_seed(mix_seed(fixture_seed, 0x6c73_736f_6c76_6572))
+        .with_attempts(96)
+        .with_max_rounds(18)
+        .with_top_source_beam_width(96)
+}
+
+fn local_s3_fixture(seed: u64) -> super::HiddenBaseFixture {
+    plant_hidden_base_fixture(&HiddenBaseFixtureConfig {
+        n: 7,
+        pt_alphabet: "ABCDEF".to_owned(),
+        swap_budget: 3,
+        message_count: 8,
+        message_len: 48,
+        seed,
+        base_kind: HiddenBaseKind::Random,
+    })
+    .expect("fixture")
+}
+
+fn local_s3_solver_config(spec: &LymmDeckSpec, fixture_seed: u64) -> HiddenBaseLocalSolverConfig {
+    HiddenBaseLocalSolverConfig::top_card_swaps(7, "ABCDEF", 3)
         .with_ct_alphabet(spec.ct_alphabet.iter().collect::<String>())
         .with_seed(mix_seed(fixture_seed, 0x6c73_736f_6c76_6572))
         .with_attempts(96)

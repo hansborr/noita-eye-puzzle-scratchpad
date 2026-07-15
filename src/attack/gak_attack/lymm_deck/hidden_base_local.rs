@@ -19,6 +19,8 @@ use super::{
 mod controls;
 #[path = "hidden_base_local/corpus.rs"]
 mod corpus;
+#[path = "hidden_base_local/joint.rs"]
+mod joint;
 #[path = "hidden_base_local/search.rs"]
 mod search;
 #[path = "hidden_base_local/top_source.rs"]
@@ -33,6 +35,7 @@ use search::run_local_search;
 const DEFAULT_ATTEMPTS: usize = 96;
 const DEFAULT_ROUNDS: usize = 18;
 const DEFAULT_TOP_SOURCE_BEAM_WIDTH: usize = 96;
+const DEFAULT_JOINT_MOVE_EVALUATION_CAP: usize = 4_096;
 const DEFAULT_SEED: u64 = 0x6761_6b5f_6862_6c73;
 
 /// Generator family admitted by the hidden-base local solver.
@@ -63,6 +66,9 @@ pub struct HiddenBaseLocalSolverConfig {
     pub max_rounds: usize,
     /// Maximum top-source hypotheses retained for sigma refinement.
     pub top_source_beam_width: usize,
+    /// Maximum two-letter sigma assignments scored per stalled `s=3` restart.
+    /// Zero disables joint moves.
+    pub joint_move_evaluation_cap: usize,
 }
 
 impl HiddenBaseLocalSolverConfig {
@@ -79,6 +85,7 @@ impl HiddenBaseLocalSolverConfig {
             attempts: DEFAULT_ATTEMPTS,
             max_rounds: DEFAULT_ROUNDS,
             top_source_beam_width: DEFAULT_TOP_SOURCE_BEAM_WIDTH,
+            joint_move_evaluation_cap: DEFAULT_JOINT_MOVE_EVALUATION_CAP,
         }
     }
 
@@ -114,6 +121,13 @@ impl HiddenBaseLocalSolverConfig {
     #[must_use]
     pub const fn with_top_source_beam_width(mut self, width: usize) -> Self {
         self.top_source_beam_width = width;
+        self
+    }
+
+    /// Replaces the per-restart two-letter sigma evaluation cap.
+    #[must_use]
+    pub const fn with_joint_move_evaluation_cap(mut self, cap: usize) -> Self {
+        self.joint_move_evaluation_cap = cap;
         self
     }
 }
@@ -175,8 +189,18 @@ pub struct HiddenBaseLocalRecoveryReport {
     pub attempts_run: usize,
     /// Candidate letter assignments scored by the local search.
     pub candidate_evaluations: usize,
+    /// Candidate evaluations spent on stalled two-letter sigma moves.
+    pub joint_move_candidate_evaluations: usize,
+    /// Improving two-letter sigma moves accepted by the local search.
+    pub joint_moves_accepted: usize,
     /// Complete top-source hypotheses retained for sigma refinement.
     pub top_source_hypotheses_retained: usize,
+    /// One-based pre-truncation rank of the planted top-source hypothesis when
+    /// a planted base was supplied for audit.
+    pub planted_top_source_hypothesis_rank: Option<usize>,
+    /// Whether the planted top-source hypothesis survived the configured beam
+    /// when a planted base was supplied for audit.
+    pub planted_top_source_hypothesis_retained: Option<bool>,
     /// Partial top-source states expanded by the CSP stage.
     pub top_source_states_expanded: usize,
     /// Partial top-source states rejected by injectivity or second-symbol constraints.
@@ -281,7 +305,11 @@ fn recover_hidden_base_local_known_plaintext_inner(
         sigma_domain_size: search.sigma_domain_size,
         attempts_run: search.attempts_run,
         candidate_evaluations: search.candidate_evaluations,
+        joint_move_candidate_evaluations: search.joint_move_candidate_evaluations,
+        joint_moves_accepted: search.joint_moves_accepted,
         top_source_hypotheses_retained: search.top_source_hypotheses_retained,
+        planted_top_source_hypothesis_rank: search.planted_top_source_hypothesis_rank,
+        planted_top_source_hypothesis_retained: search.planted_top_source_hypothesis_retained,
         top_source_states_expanded: search.top_source_states_expanded,
         top_source_states_pruned: search.top_source_states_pruned,
         top_source_states_dropped: search.top_source_states_dropped,

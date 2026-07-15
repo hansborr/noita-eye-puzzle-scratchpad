@@ -1,7 +1,7 @@
 # Handoff - unknown-base GAK / deck-cipher recovery
 
-**Status:** tasks 01, 02, and the first task-03 bounded local-search instrument
-built; task-03 frontier improvement is next
+**Status:** tasks 01, 02, and task-03 `n=7` bounded local-search frontier
+improvements built; broader task-03 calibration is next
 **Priority:** active when the goal is to help Lymm's stated GAK-attack interests,
 rather than to move the eyes decode directly
 **Depends on:** `gak-swap-recovery/`, especially `gak-swap-recover` and
@@ -145,14 +145,17 @@ The landed instrument is `gak-hidden-base-local-recover`, backed by
 assignments, infers one hidden-base representative from identity-restart
 first-symbol anchors, and accepts only exact compressed re-encryption.
 
-The top-source CSP/beam follow-up now recovers the planted base exactly on a
+The top-source CSP/beam follow-up recovers the planted base exactly on a
 registered five-seed `s=2, n=7` sample (`5/5`, exact `384/384` replay each).
 It enforces injective first-symbol top-source assignments, prunes/ranks them with
 the budget-independent second-symbol identity, and refines sigmas only inside
 the selected source bucket. The `s=3, n=5` control still fires while correctly
-reporting an equivalent-base class. A five-seed `s=3, n=7` probe reached only
-`2/5` at both 96- and 512-hypothesis budgets, so the next work remains the
-`s=3` search frontier, not an eyes run.
+reporting an equivalent-base class. Audit-only planted ranks showed that all
+five true `s=3, n=7` top-source hypotheses survived the beam (`rank 7..61`), so
+the misses were within-bucket stalls. Constraint-filtered coordinate descent
+plus a capped two-letter sigma move now reaches exact replay `5/5` on that same
+sample (four planted-base states and one ambiguous equivalent class). This is a
+five-fixture frontier measurement, not general reliability or an eyes bridge.
 
 Adapt the existing substitution-first coordinate-descent idea:
 
@@ -200,11 +203,10 @@ Every result should record:
 
 ## Next Concrete Task
 
-Improve the task-03 `s=3` frontier without moving to larger `n`. The landed
-top-source CSP/beam meets the registered `n=7, s=2` milestone, but `n=7, s=3`
-remains `2/5` even after widening from 96 to 512 retained hypotheses/restarts.
-Instrument whether each miss dropped the planted top-source hypothesis or
-stalled during within-bucket sigma refinement, then try a targeted joint-sigma
-move or stronger prefix constraint. Keep the exact replay, planted/equivalent
-audit, shuffled-label null, over-budget null, and bounded-work accounting. Do
-not start an eyes run or a language-scored ciphertext-only attack.
+Broaden and cheapen the task-03 `s=3, n=7` frontier before moving to larger `n`.
+Pre-register more seeds and corpus shapes, retain the planted-rank diagnostic
+and cap-0 ablation, and reduce the current joint move's full-replay cost through
+fair pair scheduling or a stronger prefix constraint. Keep the exact replay,
+planted/equivalent audit, shuffled-label null, over-budget null, and bounded-work
+accounting. Do not start an eyes run or a language-scored ciphertext-only attack
+from the present five-fixture result.

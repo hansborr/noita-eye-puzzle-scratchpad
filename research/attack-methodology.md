@@ -215,3 +215,23 @@ The lesson is narrower than "use a beam": identify invariants that make the
 optimizer's neighborhood disconnected, then represent those invariants as a
 separate search layer or add permutation-preserving joint moves. Demonstrated:
 `handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`.
+
+## 15. Instrument which search layer lost the plant before widening every budget
+
+A layered heuristic can miss because the correct coarse state was ranked out or
+because refinement stalled inside the correct state. Those require different
+fixes, and a wider global budget can obscure the distinction. In hidden-base GAK
+recovery, raising the top-source beam/restart budget from 96 to 512 left the
+registered `n=7, s=3` sample at `2/5`. An audit-only derivation
+`top_source(L) = B^-1(c_0(L))` then showed that the planted coarse hypothesis had
+already survived in all five fixtures (ranks `7..61`). The bottleneck was the
+within-bucket neighborhood, not ranking.
+
+Turn planted controls into provenance probes, while keeping their answers out of
+the search itself. Report the plant's rank/retention at each lossy layer, then
+ablate the proposed downstream move and account for its own work. Here, hard
+second-symbol filtering alone reached only `1/5`; a capped two-letter sigma move
+reached exact replay `5/5`, with its `22066..221255` replay evaluations reported
+separately. This diagnoses the mechanism and exposes the cost instead of calling
+a larger opaque budget an algorithmic gain. Demonstrated:
+`handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`.

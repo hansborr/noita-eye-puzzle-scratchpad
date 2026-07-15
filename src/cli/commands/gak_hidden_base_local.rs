@@ -79,6 +79,7 @@ pub(crate) fn run_gak_hidden_base_local_recover(args: &GakHiddenBaseLocalRecover
             args.attempts,
             args.max_rounds,
             args.top_source_beam,
+            args.joint_move_cap,
         );
         let report = match recover_hidden_base_local_known_plaintext_with_audit(
             &solver_config,
@@ -134,6 +135,7 @@ fn solver_config_from_spec(
     attempts: usize,
     max_rounds: usize,
     top_source_beam: usize,
+    joint_move_cap: usize,
 ) -> HiddenBaseLocalSolverConfig {
     HiddenBaseLocalSolverConfig::top_card_swaps(
         spec.n,
@@ -145,6 +147,7 @@ fn solver_config_from_spec(
     .with_attempts(attempts)
     .with_max_rounds(max_rounds)
     .with_top_source_beam_width(top_source_beam)
+    .with_joint_move_evaluation_cap(joint_move_cap)
 }
 
 #[derive(Clone, Debug)]
@@ -164,10 +167,9 @@ fn render_local_recovery_report(
         .pt_alphabet
         .clone()
         .unwrap_or_else(|| default_pt_alphabet(args.n));
-    let first = trials.first().map(|trial| &trial.report);
     appendln!(
         &mut out,
-        "gak-hidden-base-local-recover: trials={} n={} s={} messages={}x{} base={} attempts={} max-rounds={} top-source-beam={}",
+        "gak-hidden-base-local-recover: trials={} n={} s={} messages={}x{} base={} attempts={} max-rounds={} top-source-beam={} joint-move-cap={}",
         trials.len(),
         args.n,
         args.num_swaps,
@@ -176,7 +178,8 @@ fn render_local_recovery_report(
         cli_base_kind(args.base_kind, args.n).label(),
         args.attempts,
         args.max_rounds,
-        args.top_source_beam
+        args.top_source_beam,
+        args.joint_move_cap
     );
     appendln!(
         &mut out,
@@ -184,7 +187,7 @@ fn render_local_recovery_report(
     );
     appendln!(
         &mut out,
-        "solver: bounded top-source CSP/beam from first-symbol injectivity and second-symbol constraints, followed by bucket-restricted coordinate descent over sigma_L; acceptance is exact compressed re-encryption only"
+        "solver: bounded top-source CSP/beam from first-symbol injectivity and second-symbol constraints, followed by constraint-filtered coordinate descent and capped two-letter s=3 moves over sigma_L; acceptance is exact compressed re-encryption only"
     );
     appendln!(
         &mut out,
@@ -198,8 +201,17 @@ fn render_local_recovery_report(
     );
     out.push('\n');
     out.push_str(&render_local_controls(controls, args.skip_controls));
+    append_search_surface(&mut out, trials);
+    if let Some(first_trial) = trials.first() {
+        append_trial0(&mut out, first_trial);
+    }
+    out
+}
+
+fn append_search_surface(out: &mut String, trials: &[LocalTrialReport]) {
+    let first = trials.first().map(|trial| &trial.report);
     appendln!(
-        &mut out,
+        out,
         "states: planted={} equivalent-key={} ambiguous={} no-candidate={} search-cap={}",
         local_state_count(trials, HiddenBaseLocalRecoveryState::RecoveredPlantedBase),
         local_state_count(trials, HiddenBaseLocalRecoveryState::RecoveredEquivalentKey),
@@ -211,17 +223,19 @@ fn render_local_recovery_report(
         local_state_count(trials, HiddenBaseLocalRecoveryState::SearchCapExceeded)
     );
     appendln!(
-        &mut out,
-        "search surface: sigma-domain={} brute-force n!={} candidate-evaluations min/max={} exact-candidates min/max={}",
+        out,
+        "search surface: sigma-domain={} brute-force n!={} candidate-evaluations min/max={} joint-evaluations min/max={} joint-moves min/max={} exact-candidates min/max={}",
         first.map_or(0, |report| report.sigma_domain_size),
         first
             .and_then(|report| report.brute_force_base_count)
             .map_or_else(|| "overflow".to_owned(), |value| value.to_string()),
         format_range(local_range(trials, |report| report.candidate_evaluations)),
+        format_range(local_range(trials, |report| report.joint_move_candidate_evaluations)),
+        format_range(local_range(trials, |report| report.joint_moves_accepted)),
         format_range(local_range(trials, |report| report.exact_candidate_count))
     );
     appendln!(
-        &mut out,
+        out,
         "top-source stage: retained min/max={} expanded min/max={} pruned min/max={} dropped min/max={} constraint-evaluations min/max={} elapsed-total={}",
         format_range(local_range(trials, |report| report.top_source_hypotheses_retained)),
         format_range(local_range(trials, |report| report.top_source_states_expanded)),
@@ -231,12 +245,27 @@ fn render_local_recovery_report(
         format_duration(top_source_elapsed(trials))
     );
     appendln!(
-        &mut out,
+        out,
+        "top-source planted audit: retained={} dropped={} rank min/max={}",
+        trials
+            .iter()
+            .filter(|trial| trial.report.planted_top_source_hypothesis_retained == Some(true))
+            .count(),
+        trials
+            .iter()
+            .filter(|trial| trial.report.planted_top_source_hypothesis_retained == Some(false))
+            .count(),
+        format_range(optional_local_range(trials, |report| {
+            report.planted_top_source_hypothesis_rank
+        }))
+    );
+    appendln!(
+        out,
         "best mismatches per trial: {}",
         format_range(local_range(trials, |report| report.best_mismatches))
     );
     appendln!(
-        &mut out,
+        out,
         "elapsed: total={} trial-0={}",
         format_duration(total_elapsed(trials)),
         first.map_or_else(
@@ -244,10 +273,25 @@ fn render_local_recovery_report(
             |report| format_duration(report.elapsed)
         )
     );
-    if let Some(first_trial) = trials.first() {
-        append_trial0(&mut out, first_trial);
-    }
-    out
+    appendln!(
+        out,
+        "trial outcomes: {}",
+        trials
+            .iter()
+            .map(|trial| format!(
+                "{}:{}/rank-{}/evals-{}/joint-{}",
+                trial.trial_index,
+                trial.report.state.label(),
+                trial
+                    .report
+                    .planted_top_source_hypothesis_rank
+                    .map_or_else(|| "n/a".to_owned(), |rank| rank.to_string()),
+                trial.report.candidate_evaluations,
+                trial.report.joint_move_candidate_evaluations
+            ))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
 }
 
 fn render_local_controls(
@@ -315,9 +359,15 @@ fn append_trial0(out: &mut String, trial: &LocalTrialReport) {
     );
     appendln!(
         out,
-        "trial-0 signal: observed={} anchored={}",
+        "trial-0 signal: observed={} anchored={} planted-top-source-rank={} retained={}",
         report.observed_letters.iter().collect::<String>(),
-        report.anchored_letters.iter().collect::<String>()
+        report.anchored_letters.iter().collect::<String>(),
+        report
+            .planted_top_source_hypothesis_rank
+            .map_or_else(|| "n/a".to_owned(), |rank| rank.to_string()),
+        report
+            .planted_top_source_hypothesis_retained
+            .map_or_else(|| "n/a".to_owned(), |retained| retained.to_string())
     );
     if let Some(audit) = &report.representative_audit {
         appendln!(
@@ -345,6 +395,21 @@ fn local_range(
     value: impl Fn(&HiddenBaseLocalRecoveryReport) -> usize,
 ) -> Option<(usize, usize)> {
     let mut iter = trials.iter().map(|trial| value(&trial.report));
+    let first = iter.next()?;
+    let mut min_value = first;
+    let mut max_value = first;
+    for current in iter {
+        min_value = min_value.min(current);
+        max_value = max_value.max(current);
+    }
+    Some((min_value, max_value))
+}
+
+fn optional_local_range(
+    trials: &[LocalTrialReport],
+    value: impl Fn(&HiddenBaseLocalRecoveryReport) -> Option<usize>,
+) -> Option<(usize, usize)> {
+    let mut iter = trials.iter().filter_map(|trial| value(&trial.report));
     let first = iter.next()?;
     let mut min_value = first;
     let mut max_value = first;

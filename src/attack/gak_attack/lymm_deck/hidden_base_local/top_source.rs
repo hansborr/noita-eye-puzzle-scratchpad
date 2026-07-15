@@ -10,6 +10,8 @@ use super::search::SigmaDomain;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct TopSourceBeam {
     pub(super) hypotheses: Vec<Vec<Option<usize>>>,
+    pub(super) planted_hypothesis_rank: Option<usize>,
+    pub(super) planted_hypothesis_retained: Option<bool>,
     pub(super) states_expanded: usize,
     pub(super) states_pruned: usize,
     pub(super) states_dropped: usize,
@@ -38,11 +40,14 @@ pub(super) fn build_top_source_beam(
     restart_cap: usize,
     corpus: &LocalCorpus,
     domain: &SigmaDomain,
+    planted_sources: Option<&[Option<usize>]>,
 ) -> TopSourceBeam {
     let started = Instant::now();
     if corpus.anchor_conflict {
         return TopSourceBeam {
             hypotheses: Vec::new(),
+            planted_hypothesis_rank: None,
+            planted_hypothesis_retained: planted_sources.map(|_| false),
             states_expanded: 0,
             states_pruned: 1,
             states_dropped: 0,
@@ -101,10 +106,20 @@ pub(super) fn build_top_source_beam(
 
     states.sort_by(compare_states);
     let retained_cap = width.min(restart_cap).max(1);
+    let planted_hypothesis_rank = planted_sources.and_then(|planted| {
+        states
+            .iter()
+            .position(|state| state.sources == planted)
+            .map(|index| index.saturating_add(1))
+    });
+    let planted_hypothesis_retained =
+        planted_sources.map(|_| planted_hypothesis_rank.is_some_and(|rank| rank <= retained_cap));
     let states_dropped = states.len().saturating_sub(retained_cap);
     states.truncate(retained_cap);
     TopSourceBeam {
         hypotheses: states.into_iter().map(|state| state.sources).collect(),
+        planted_hypothesis_rank,
+        planted_hypothesis_retained,
         states_expanded,
         states_pruned,
         states_dropped,
