@@ -231,4 +231,5 @@ fn solver_config(spec: &LymmDeckSpec, fixture_seed: u64) -> HiddenBaseLocalSolve
         .with_attempts(96)
         .with_max_rounds(18)
         .with_top_source_beam_width(96)
+        .with_state_sat_hypothesis_cap(0)
 }

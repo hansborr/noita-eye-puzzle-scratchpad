@@ -527,6 +527,7 @@ fn local_s2_solver_config(spec: &LymmDeckSpec, fixture_seed: u64) -> HiddenBaseL
         .with_attempts(96)
         .with_max_rounds(18)
         .with_top_source_beam_width(96)
+        .with_state_sat_hypothesis_cap(0)
 }
 
 fn local_s3_fixture(seed: u64) -> super::HiddenBaseFixture {
@@ -549,6 +550,7 @@ fn local_s3_solver_config(spec: &LymmDeckSpec, fixture_seed: u64) -> HiddenBaseL
         .with_attempts(96)
         .with_max_rounds(18)
         .with_top_source_beam_width(96)
+        .with_state_sat_hypothesis_cap(0)
 }
 
 fn s1_solver_config(spec: &LymmDeckSpec) -> HiddenBaseS1SolverConfig {
