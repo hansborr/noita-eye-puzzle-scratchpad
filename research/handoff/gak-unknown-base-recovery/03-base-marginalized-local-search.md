@@ -368,6 +368,66 @@ accounting, planted-rank audit, and seed-set-disjoint holdouts; keep bounded
 misses labeled `SearchCapExceeded` unless an exhaustive baseline proves
 `NoCandidate`.
 
+### Pre-registered retained-hypothesis prefix CEGAR follow-up (2026-07-15, before runs)
+
+The next change implements the CSP/CEGAR fork named above rather than another
+local neighborhood. It runs only when the landed pair-only local search has
+found no exact key. For each retained top-source hypothesis, create one SAT
+variable for every second-symbol-compatible sigma candidate of every observed
+plaintext letter and enforce exactly one candidate per letter. A SAT model is
+replayed from each identity restart only to its earliest wrong emission. Under
+the fixed top-source hypothesis, the representative base is fixed; the emitted
+value is therefore determined by the selected shared sigmas occurring in that
+message prefix (plus the current letter only when its admitted candidates do
+not share one top source). Negating those selected literals yields a sound lazy
+blocking clause: every assignment containing the same prefix choices repeats
+the same mismatch. Exact complete replay remains the only success condition.
+
+This is bounded CEGAR over retained top-source states, not an exhaustive
+unknown-base solver. SAT exhaustion can prove that one retained hypothesis has
+no exact sigma assignment under its representative base and admitted domain,
+but beam-dropped top-source states remain unsearched. A run with no exact key is
+therefore still reported as `SearchCapExceeded`. The planted base/key is used
+only for the existing rank/recovery audit, never for clauses, SAT order, or
+acceptance.
+
+The new optional caps are provisionally 4096 SAT models per retained hypothesis
+and 393216 models over the complete fallback, allocated by cumulative fair
+share across the retained hypothesis order. Both default to zero until the
+promotion gate is decided. Reports will expose hypotheses attempted, hypotheses
+proved UNSAT, capped hypotheses, SAT models, learned prefix clauses, minimum and
+maximum learned core size, replayed events, exact models, and total-budget
+exhaustion. Pair, triple, top-source, and planted-audit accounting remains
+separate. A cap of zero is the landed pair-only ablation.
+
+The development comparison is all 32 already-open `6x64` fixtures from top
+seeds `...733301`, `...743301`, and `...763301`; pair-only recovered `25/32`,
+and six of its seven misses retained the planted top-source hypothesis. The
+already-open triple row is not a new baseline and triple caps remain zero. A
+new 16-fixture holdout uses top-level seed `0x7769_6465_5f77_3301`. Its xor
+differences from all prior weak-restart top seeds are at least `0x100`, which
+cannot equal `i ^ j` for trial indices `i,j in 0..16`; the mixer input sets are
+therefore disjoint. No fixture, rank, or recovery outcome from `...773301` will
+be inspected until the SAT encoding, cap-0 ablation, event/core accounting,
+development comparison, and controls are fixed and committed.
+
+Frozen rows use `n=7`, `s=3`, alphabet `ABCDEF`, `6x64` identity restarts,
+beam/restarts `96`, rounds `18`, hybrid pair caps `4096/393216`, triple caps
+`0/0`, and are:
+
+1. landed pair-only search with prefix-CEGAR caps `0/0`;
+2. pair-only search followed on misses by prefix CEGAR at caps
+   `4096/393216`.
+
+The development gate is at least one exact recovery among the six
+retained-plant pair misses. Before opening the holdout, pin one
+pair-fail/CEGAR-success positive through the production library path and a
+matched ciphertext-label-shuffle null that finds no exact key at the same CEGAR
+surface. Promote nonzero defaults only if exact recovery also improves on the
+sealed holdout without changing the existing positive/null verdicts. A
+development-only gain remains optional and disabled by default. Record all
+non-exhaustive misses as budgeted misses, not exclusions.
+
 ### Pre-registered fourth-prefix triple-repair follow-up (2026-07-15, before runs)
 
 The next bounded change targets the five retained-plant development stalls with
