@@ -64,6 +64,80 @@ fn prefix_cegar_obeys_its_separate_total_cap() {
     assert!(report.prefix_cegar_total_budget_exhausted);
 }
 
+#[test]
+fn prefix_cegar_recovers_preregistered_weak_restart_positive() {
+    let fixture_seed = mix_seed(0x7769_6465_5f73_3301, 0x6c73_7265_636f_7600 ^ 7);
+    let fixture = weak_restart_fixture(fixture_seed);
+    let base_config = solver_config(&fixture.spec, fixture_seed);
+    let pair_only = recover_hidden_base_local_known_plaintext_with_audit(
+        &base_config,
+        &fixture.pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("pair-only weak-restart recovery");
+    let with_cegar = recover_hidden_base_local_known_plaintext_with_audit(
+        &base_config
+            .with_prefix_cegar_node_cap(4_096)
+            .with_prefix_cegar_total_node_cap(393_216),
+        &fixture.pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("prefix-CEGAR weak-restart recovery");
+
+    assert_eq!(
+        pair_only.state,
+        HiddenBaseLocalRecoveryState::SearchCapExceeded
+    );
+    assert_eq!(pair_only.planted_top_source_hypothesis_rank, Some(1));
+    assert_eq!(
+        with_cegar.state,
+        HiddenBaseLocalRecoveryState::RecoveredPlantedBase
+    );
+    assert!(with_cegar.best_round_trip.exact);
+    assert_eq!(with_cegar.prefix_cegar_exact_models, 1);
+    assert_eq!(with_cegar.prefix_cegar_models, 163);
+    assert_eq!(with_cegar.prefix_cegar_clauses, 162);
+    assert!(with_cegar.prefix_cegar_replay_event_evaluations > 0);
+    assert!((1..=6).contains(&with_cegar.prefix_cegar_core_size_min));
+    assert!(with_cegar.prefix_cegar_core_size_max <= 6);
+    assert!(!with_cegar.prefix_cegar_total_budget_exhausted);
+}
+
+#[test]
+fn prefix_cegar_rejects_matched_ciphertext_label_shuffle() {
+    let fixture_seed = mix_seed(0x7769_6465_5f73_3301, 0x6c73_7265_636f_7600 ^ 7);
+    let fixture = weak_restart_fixture(fixture_seed);
+    let mut shuffled_pairs = fixture.pairs.clone();
+    for pair in &mut shuffled_pairs {
+        pair.ciphertext = pair
+            .ciphertext
+            .chars()
+            .map(|ch| match ch {
+                '!' => '"',
+                '"' => '!',
+                other => other,
+            })
+            .collect();
+    }
+    let report = recover_hidden_base_local_known_plaintext_with_audit(
+        &solver_config(&fixture.spec, fixture_seed)
+            .with_prefix_cegar_node_cap(4_096)
+            .with_prefix_cegar_total_node_cap(393_216),
+        &shuffled_pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("prefix-CEGAR ciphertext-label shuffle null");
+
+    assert_eq!(
+        report.state,
+        HiddenBaseLocalRecoveryState::SearchCapExceeded
+    );
+    assert!(!report.has_exact_recovery());
+    assert_eq!(report.prefix_cegar_exact_models, 0);
+    assert!(report.prefix_cegar_models > 0);
+    assert!(report.prefix_cegar_replay_event_evaluations > 0);
+}
+
 fn weak_restart_fixture(seed: u64) -> super::HiddenBaseFixture {
     plant_hidden_base_fixture(&HiddenBaseFixtureConfig {
         n: 7,

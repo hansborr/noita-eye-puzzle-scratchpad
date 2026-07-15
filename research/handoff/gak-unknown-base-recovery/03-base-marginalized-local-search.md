@@ -428,6 +428,33 @@ sealed holdout without changing the existing positive/null verdicts. A
 development-only gain remains optional and disabled by default. Record all
 non-exhaustive misses as budgeted misses, not exclusions.
 
+**Development result frozen before holdout:** the CEGAR row recovered `26/32`
+exact keys versus `25/32` for the landed pair-only row. The sole gain was trial
+7 of top seed `...733301`: pair-only stopped at `SearchCapExceeded`, the planted
+top-source hypothesis was retained at rank 1, and CEGAR recovered the planted
+base after 163 SAT models (162 learned prefix clauses). The three batch counts
+were `6/8` versus `5/8` on `...733301`, `5/8` versus `5/8` on `...743301`, and
+`15/16` versus `15/16` on `...763301`. Thus the preregistered development gate
+cleared by one exact recovery, but there is only one development positive and
+no replication yet.
+
+The other six pair misses remained bounded misses. Five retained the plant and
+ran between 84,702 and 222,987 SAT models; the sixth had dropped the planted
+top-source state. No run exhausted the `393216` total-model cap. Failed runs
+mixed per-hypothesis cap hits with retained-hypothesis UNSAT proofs, but neither
+case searches beam-dropped states, so all remain `SearchCapExceeded`. Maximum
+CEGAR replay work by batch was 1,049,318, 1,673,331, and 991,619 events. These
+are early-prefix replay counts, not complete-message evaluations.
+
+Before opening the holdout, the exact development positive was pinned through
+the production library path at the frozen caps: it deterministically reaches
+the planted base on model 163, while the cap-0 pair row misses. A matched global
+swap of ciphertext labels `!` and `"` was then run on the same fixture and the
+same CEGAR surface; it explored models but found no exact key and remained
+`SearchCapExceeded`. Both are executable regression tests. The sealed
+`...773301` fixtures remain unopened at this point, and nonzero defaults remain
+conditional on an exact holdout gain.
+
 ### Pre-registered fourth-prefix triple-repair follow-up (2026-07-15, before runs)
 
 The next bounded change targets the five retained-plant development stalls with
