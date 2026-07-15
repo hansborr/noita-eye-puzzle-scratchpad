@@ -17,7 +17,9 @@ pub(super) struct LocalSearchOutput {
     pub(super) sigma_domain_size: usize,
     pub(super) attempts_run: usize,
     pub(super) candidate_evaluations: usize,
+    pub(super) replay_event_evaluations: usize,
     pub(super) joint_move_candidate_evaluations: usize,
+    pub(super) joint_move_replay_event_evaluations: usize,
     pub(super) joint_moves_accepted: usize,
     pub(super) top_source_hypotheses_retained: usize,
     pub(super) planted_top_source_hypothesis_rank: Option<usize>,
@@ -72,7 +74,9 @@ pub(super) fn run_local_search(
         sigma_domain_size,
         attempts_run: search.attempts_run,
         candidate_evaluations: search.candidate_evaluations,
+        replay_event_evaluations: search.replay_event_evaluations,
         joint_move_candidate_evaluations: search.joint_move_candidate_evaluations,
+        joint_move_replay_event_evaluations: search.joint_move_replay_event_evaluations,
         joint_moves_accepted: search.joint_moves_accepted,
         top_source_hypotheses_retained: top_source_beam.hypotheses.len(),
         planted_top_source_hypothesis_rank: top_source_beam.planted_hypothesis_rank,
@@ -152,7 +156,9 @@ pub(super) struct LocalSearch<'a> {
     planted_base: Option<&'a [usize]>,
     attempts_run: usize,
     candidate_evaluations: usize,
+    pub(super) replay_event_evaluations: usize,
     pub(super) joint_move_candidate_evaluations: usize,
+    pub(super) joint_move_replay_event_evaluations: usize,
     joint_moves_accepted: usize,
     best_mismatches: usize,
     exact_bases: BTreeSet<Vec<usize>>,
@@ -178,7 +184,9 @@ impl<'a> LocalSearch<'a> {
             planted_base,
             attempts_run: 0,
             candidate_evaluations: 0,
+            replay_event_evaluations: 0,
             joint_move_candidate_evaluations: 0,
+            joint_move_replay_event_evaluations: 0,
             joint_moves_accepted: 0,
             best_mismatches: corpus.event_count,
             exact_bases: BTreeSet::new(),
@@ -365,6 +373,7 @@ impl<'a> LocalSearch<'a> {
         for message in &self.corpus.messages {
             reset_identity(&mut state);
             for event in &message.events {
+                self.replay_event_evaluations = self.replay_event_evaluations.saturating_add(1);
                 let candidate_index = assignment.get(event.letter).copied().unwrap_or(0);
                 let Some(candidate) = self.domain.candidates.get(candidate_index) else {
                     mismatches = mismatches.saturating_add(1);

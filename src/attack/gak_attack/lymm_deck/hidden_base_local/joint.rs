@@ -64,7 +64,14 @@ pub(super) fn best_joint_move(
                     *evaluations = evaluations.saturating_add(1);
                     search.joint_move_candidate_evaluations =
                         search.joint_move_candidate_evaluations.saturating_add(1);
+                    let replay_events_before = search.replay_event_evaluations;
                     let candidate_score = search.score_assignment(assignment, usize::MAX);
+                    search.joint_move_replay_event_evaluations =
+                        search.joint_move_replay_event_evaluations.saturating_add(
+                            search
+                                .replay_event_evaluations
+                                .saturating_sub(replay_events_before),
+                        );
                     let incumbent = best
                         .as_ref()
                         .map_or(score, |joint: &JointMove| &joint.score);

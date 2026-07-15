@@ -224,13 +224,17 @@ fn append_search_surface(out: &mut String, trials: &[LocalTrialReport]) {
     );
     appendln!(
         out,
-        "search surface: sigma-domain={} brute-force n!={} candidate-evaluations min/max={} joint-evaluations min/max={} joint-moves min/max={} exact-candidates min/max={}",
+        "search surface: sigma-domain={} brute-force n!={} candidate-evaluations min/max={} replay-events min/max={} joint-evaluations min/max={} joint-replay-events min/max={} joint-moves min/max={} exact-candidates min/max={}",
         first.map_or(0, |report| report.sigma_domain_size),
         first
             .and_then(|report| report.brute_force_base_count)
             .map_or_else(|| "overflow".to_owned(), |value| value.to_string()),
         format_range(local_range(trials, |report| report.candidate_evaluations)),
+        format_range(local_range(trials, |report| report.replay_event_evaluations)),
         format_range(local_range(trials, |report| report.joint_move_candidate_evaluations)),
+        format_range(local_range(trials, |report| {
+            report.joint_move_replay_event_evaluations
+        })),
         format_range(local_range(trials, |report| report.joint_moves_accepted)),
         format_range(local_range(trials, |report| report.exact_candidate_count))
     );

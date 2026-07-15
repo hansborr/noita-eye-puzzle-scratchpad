@@ -189,8 +189,12 @@ pub struct HiddenBaseLocalRecoveryReport {
     pub attempts_run: usize,
     /// Candidate letter assignments scored by the local search.
     pub candidate_evaluations: usize,
+    /// Ciphertext events replayed across all candidate evaluations.
+    pub replay_event_evaluations: usize,
     /// Candidate evaluations spent on stalled two-letter sigma moves.
     pub joint_move_candidate_evaluations: usize,
+    /// Ciphertext events replayed inside stalled two-letter sigma moves.
+    pub joint_move_replay_event_evaluations: usize,
     /// Improving two-letter sigma moves accepted by the local search.
     pub joint_moves_accepted: usize,
     /// Complete top-source hypotheses retained for sigma refinement.
@@ -305,7 +309,9 @@ fn recover_hidden_base_local_known_plaintext_inner(
         sigma_domain_size: search.sigma_domain_size,
         attempts_run: search.attempts_run,
         candidate_evaluations: search.candidate_evaluations,
+        replay_event_evaluations: search.replay_event_evaluations,
         joint_move_candidate_evaluations: search.joint_move_candidate_evaluations,
+        joint_move_replay_event_evaluations: search.joint_move_replay_event_evaluations,
         joint_moves_accepted: search.joint_moves_accepted,
         top_source_hypotheses_retained: search.top_source_hypotheses_retained,
         planted_top_source_hypothesis_rank: search.planted_top_source_hypothesis_rank,
