@@ -3,7 +3,8 @@
 use std::collections::BTreeSet;
 
 use super::HiddenBaseLocalJointMoveOrder;
-use super::search::{LocalScore, LocalSearch};
+use super::score::LocalScore;
+use super::search::LocalSearch;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct JointMove {

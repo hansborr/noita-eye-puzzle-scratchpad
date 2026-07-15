@@ -21,6 +21,8 @@ mod controls;
 mod corpus;
 #[path = "hidden_base_local/joint.rs"]
 mod joint;
+#[path = "hidden_base_local/score.rs"]
+mod score;
 #[path = "hidden_base_local/search.rs"]
 mod search;
 #[path = "hidden_base_local/top_source.rs"]

@@ -1,7 +1,7 @@
 # Handoff - unknown-base GAK / deck-cipher recovery
 
 **Status:** tasks 01, 02, and task-03 `n=7` bounded local-search frontier built;
-broader 24-run and disjoint weak-restart calibrations measured, with
+broader, disjoint weak-restart, and pair-order calibrations measured, with
 within-bucket `s=3` refinement still limiting recovery
 **Priority:** active when the goal is to help Lymm's stated GAK-attack interests,
 rather than to move the eyes decode directly
@@ -178,6 +178,17 @@ different order. Total caps of `196608` and `98304` reduced recovery to `8/16`
 and `6/16`; the explicit `393216` default preserves `10/16` but is a bound, not
 a cost reduction. Five of the six remaining misses retained the plant, keeping
 the next bottleneck inside sigma refinement.
+
+The pair-order follow-up makes the two-letter candidate schedule explicit:
+landed pair-major, strict pair-round-robin, or a development-tuned half-and-half
+hybrid, with eligible/evaluated-pair and per-pair allocation accounting. Strict
+round-robin improved coverage but reduced exact development recovery from
+`10/16` to `9/16`. The frozen hybrid restored `10/16`; on a new seed-set-disjoint
+holdout all three joint orders reached `8/8`, while coordinate-only reached
+`4/8`. Combined recovery is therefore pair-major `18/24`, strict round-robin
+`17/24`, hybrid `18/24`, and coordinate-only `9/24`. The hybrid is promoted as
+a no-loss allocation change, not a recovery-rate or cost improvement; the same
+five retained-plant development misses keep the next target within-bucket.
 
 Adapt the existing substitution-first coordinate-descent idea:
 

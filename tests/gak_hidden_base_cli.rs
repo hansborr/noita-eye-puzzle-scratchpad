@@ -85,7 +85,8 @@ fn gak_hidden_base_local_recover_cli_reports_bounded_surface() {
     assert_contains(&stdout, "scope note: a search-cap miss is not a proof");
     assert_contains(&stdout, "search surface: sigma-domain=");
     assert_contains(&stdout, "joint-replay-events min/max=");
-    assert_contains(&stdout, "joint-pairs evaluated/eligible min/max=");
+    assert_contains(&stdout, "joint-pairs-evaluated min/max=");
+    assert_contains(&stdout, "pair-evaluation-minimum min/max=");
     assert_contains(&stdout, "total-budget-exhausted=");
     assert_contains(&stdout, "top-source stage: retained min/max=");
     assert_contains(&stdout, "third-symbol-evaluations min/max=");

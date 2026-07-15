@@ -190,7 +190,7 @@ fn render_local_recovery_report(
     );
     appendln!(
         &mut out,
-        "solver: bounded top-source CSP/beam from first-symbol injectivity, second-symbol constraints, and optional third-symbol shared-sigma arc consistency, followed by constraint-filtered coordinate descent and objective-bounded two-letter s=3 moves with optional pair-round-robin ordering under per-restart and fair total-run caps; acceptance is exact compressed re-encryption only"
+        "solver: bounded top-source CSP/beam from first-symbol injectivity, second-symbol constraints, and optional third-symbol shared-sigma arc consistency, followed by constraint-filtered coordinate descent and objective-bounded two-letter s=3 moves with selectable pair ordering under per-restart and fair total-run caps; acceptance is exact compressed re-encryption only"
     );
     appendln!(
         &mut out,
@@ -225,38 +225,7 @@ fn append_search_surface(out: &mut String, trials: &[LocalTrialReport]) {
         local_state_count(trials, HiddenBaseLocalRecoveryState::NoCandidate),
         local_state_count(trials, HiddenBaseLocalRecoveryState::SearchCapExceeded)
     );
-    appendln!(
-        out,
-        "search surface: sigma-domain={} brute-force n!={} candidate-evaluations min/max={} replay-events min/max={} joint-evaluations min/max={} joint-replay-events min/max={} joint-moves min/max={} joint-pairs evaluated/eligible min/max={}/{} pair-evaluations min/max={}..{} total-budget-exhausted={} exact-candidates min/max={}",
-        first.map_or(0, |report| report.sigma_domain_size),
-        first
-            .and_then(|report| report.brute_force_base_count)
-            .map_or_else(|| "overflow".to_owned(), |value| value.to_string()),
-        format_range(local_range(trials, |report| report.candidate_evaluations)),
-        format_range(local_range(trials, |report| report.replay_event_evaluations)),
-        format_range(local_range(trials, |report| report.joint_move_candidate_evaluations)),
-        format_range(local_range(trials, |report| {
-            report.joint_move_replay_event_evaluations
-        })),
-        format_range(local_range(trials, |report| report.joint_moves_accepted)),
-        format_range(local_range(trials, |report| {
-            report.joint_move_letter_pairs_evaluated
-        })),
-        format_range(local_range(trials, |report| {
-            report.joint_move_letter_pairs_eligible
-        })),
-        format_range(local_range(trials, |report| {
-            report.joint_move_pair_evaluations_min
-        })),
-        format_range(local_range(trials, |report| {
-            report.joint_move_pair_evaluations_max
-        })),
-        trials
-            .iter()
-            .filter(|trial| trial.report.joint_move_total_budget_exhausted)
-            .count(),
-        format_range(local_range(trials, |report| report.exact_candidate_count))
-    );
+    append_local_work_surface(out, trials);
     appendln!(
         out,
         "top-source stage: retained min/max={} expanded min/max={} pruned min/max={} dropped min/max={} constraint-evaluations min/max={} third-symbol-evaluations min/max={} elapsed-total={}",
@@ -317,6 +286,42 @@ fn append_search_surface(out: &mut String, trials: &[LocalTrialReport]) {
             ))
             .collect::<Vec<_>>()
             .join(", ")
+    );
+}
+
+fn append_local_work_surface(out: &mut String, trials: &[LocalTrialReport]) {
+    let first = trials.first().map(|trial| &trial.report);
+    appendln!(
+        out,
+        "search surface: sigma-domain={} brute-force n!={} candidate-evaluations min/max={} replay-events min/max={} joint-evaluations min/max={} joint-replay-events min/max={} joint-moves min/max={} joint-pairs-evaluated min/max={} eligible min/max={} pair-evaluation-minimum min/max={} maximum min/max={} total-budget-exhausted={} exact-candidates min/max={}",
+        first.map_or(0, |report| report.sigma_domain_size),
+        first
+            .and_then(|report| report.brute_force_base_count)
+            .map_or_else(|| "overflow".to_owned(), |value| value.to_string()),
+        format_range(local_range(trials, |report| report.candidate_evaluations)),
+        format_range(local_range(trials, |report| report.replay_event_evaluations)),
+        format_range(local_range(trials, |report| report.joint_move_candidate_evaluations)),
+        format_range(local_range(trials, |report| {
+            report.joint_move_replay_event_evaluations
+        })),
+        format_range(local_range(trials, |report| report.joint_moves_accepted)),
+        format_range(local_range(trials, |report| {
+            report.joint_move_letter_pairs_evaluated
+        })),
+        format_range(local_range(trials, |report| {
+            report.joint_move_letter_pairs_eligible
+        })),
+        format_range(local_range(trials, |report| {
+            report.joint_move_pair_evaluations_min
+        })),
+        format_range(local_range(trials, |report| {
+            report.joint_move_pair_evaluations_max
+        })),
+        trials
+            .iter()
+            .filter(|trial| trial.report.joint_move_total_budget_exhausted)
+            .count(),
+        format_range(local_range(trials, |report| report.exact_candidate_count))
     );
 }
 

@@ -1,8 +1,8 @@
 # 03 - base-marginalized local recovery, `s = 2..3`
 
 **Status:** bounded instrument, top-source CSP/beam, third-symbol arc-consistency
-ranking, and fair total-run joint budget built; broader and weak-restart
-calibrations measured 2026-07-14.
+ranking, fair total-run joint budget, and explicit pair-order schedules built;
+broader, weak-restart, and pair-order calibrations measured through 2026-07-15.
 
 ## Scope
 
@@ -125,6 +125,15 @@ Each replay now stops once its mismatch count plus the fixed constraint penalty
 cannot beat the incumbent objective. Final candidates still receive a complete
 exact replay. A zero per-restart cap disables the move. This remains a bounded
 heuristic: either cap can stop before a useful combination.
+
+The joint candidate order is explicit (`--joint-move-order`). `pair-major`
+exhausts one letter-pair product at a time; `pair-round-robin` visits one
+candidate from every eligible pair in repeated strata; the default `hybrid`
+spends half of each stalled pass round-robin, then continues pair-major while
+skipping candidates already evaluated. Reports include eligible/evaluated pair
+counts and the minimum/maximum evaluations assigned to an eligible pair. The
+hybrid was development-tuned and is promoted only as a measured no-loss
+allocation change; it did not raise recovery or lower replay work.
 
 The objective and CSP both use the cheap second-symbol identity-restart
 consistency term:
@@ -327,15 +336,17 @@ Interpretation:
 
 ## Next Rung
 
-The weak-restart rank and total-run budget are now measured, but they still do
-not justify a ciphertext-only bridge. The arc-consistency rank doubled exact
-recovery from `5/16` to `10/16` across two disjoint `6x64` batches, leaving six
-bounded misses. Five misses retained the planted top-source state and therefore
+The weak-restart rank, total-run budget, and joint pair order are now measured,
+but they still do not justify a ciphertext-only bridge. Across the two original
+development batches and the new pair-order holdout, the default hybrid ties the
+landed pair-major order at exact replay `18/24`; strict round-robin reaches
+`17/24`, and coordinate-only reaches `9/24`. All six hybrid misses are in the
+development fixtures. Five retained the planted top-source state and therefore
 remain within-bucket refinement failures; one plant was ranked out. The next
-task stays at `n=7`: make the joint candidate order fairer across letter pairs or
-add another bounded within-bucket move, without hiding work behind the total
-cap. Preserve the cap-0 ablation, event-level accounting, and planted-rank audit,
-and use seed-set-disjoint holdouts. Keep recording misses as budgeted misses
+task stays at `n=7`: add another algebraically motivated bounded within-bucket
+move rather than tune more pair-order mixtures. Preserve all three order
+ablations, the cap-0 row, event-level and per-pair accounting, planted-rank
+audit, and seed-set-disjoint holdouts. Keep recording misses as budgeted misses
 unless an exhaustive baseline proves `NoCandidate`.
 
 ### Pre-registered pair-fair joint-order follow-up (2026-07-15, before runs)
@@ -396,6 +407,44 @@ tradeoff, not a sweep over mixing fractions. The hybrid will be opened on the
 16 development fixtures first and will reach the sealed holdout only if it
 recovers at least the landed `10/16`. The final comparison will retain all three
 orders and label the hybrid as development-tuned.
+
+### Pair-order follow-up result (2026-07-15)
+
+The strict and hybrid schedules were run exactly as frozen above. All exact
+states re-encrypt `384/384`; every other state is `SearchCapExceeded`. The new
+`...753301` holdout was opened only after the hybrid implementation, order
+ablations, accounting, and focused tests were committed.
+
+| joint order | development `...733301` + `...743301` | sealed `...753301` | combined | combined states |
+| --- | ---: | ---: | ---: | --- |
+| coordinate only, cap `0` | `5/16` | `4/8` | `9/24` | not used for key-class comparison |
+| landed pair-major | `10/16` | `8/8` | `18/24` | 9 planted, 9 ambiguous, 6 misses |
+| strict pair-round-robin | `9/16` | `8/8` | `17/24` | 9 planted, 8 ambiguous, 7 misses |
+| tuned half-round-robin / half-pair-major hybrid | `10/16` | `8/8` | `18/24` | 9 planted, 9 ambiguous, 6 misses |
+
+Strict round-robin therefore failed the development no-loss gate. The one
+declared hybrid adjustment restored the landed `10/16` before the holdout was
+opened, and the holdout preserved the tie. This promotes the hybrid default
+under the preregistered no-loss rule, but it is not evidence of a recovery-rate
+gain: its combined count is identical to pair-major, and the new holdout was an
+easy batch on which every joint order reached exact replay.
+
+The new accounting confirms that order changes allocation. On the second
+development batch, pair-major evaluated as few as 12 of 15 eligible pairs and
+assigned zero candidates to at least one eligible pair in a run; strict
+round-robin evaluated all 15 with a minimum of at least 773 per pair, and the
+hybrid evaluated all 15 with a minimum of at least 731. All orders happened to
+reach all 15 pairs on every holdout run. The hybrid's maximum joint replay work
+was `132.28M`, `139.60M`, and `88.25M` events across the two development batches
+and holdout, versus pair-major `132.44M`, `139.58M`, and `88.34M`. Those mixed,
+near-equal differences are not a cost reduction. One development hybrid run
+exhausted the explicit `393216` total candidate cap; no holdout run did.
+
+The mechanism conclusion is narrow: fair coverage can prevent silent
+letter-pair starvation, but candidate order changes the optimizer trajectory
+and strict fairness can lose a recovery. The hybrid preserves the measured
+frontier while making allocation less brittle. It does not resolve the five
+retained-plant within-bucket stalls, and it does not support an eyes run.
 
 ### Pre-registered weak-restart follow-up (2026-07-14, before runs)
 

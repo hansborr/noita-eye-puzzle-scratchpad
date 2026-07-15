@@ -293,3 +293,24 @@ replacement whose xor difference was `0x700` could not collide with `i ^ j` for
 collisions as calibration failures rather than quietly choosing a more favorable
 batch after seeing results. Demonstrated:
 `handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`.
+
+## 19. A fair candidate order is still an optimizer hyperparameter
+
+Two searches can admit the same moves and enforce the same candidate cap yet
+recover different fixtures solely because they visit candidates in a different
+order. In hidden-base joint refinement, pair-major enumeration could starve
+alphabetically later letter pairs; strict pair-round-robin fixed that coverage
+problem but reduced exact recovery from `10/16` to `9/16` on the open
+development fixtures. Fairness was structurally cleaner, not automatically a
+better recovery policy.
+
+Make order an explicit ablation, instrument allocation at the layer being made
+fair, and treat any mixture as tuning. Here, one declared half-round-robin,
+half-pair-major hybrid restored `10/16` on development before a seed-set-disjoint
+holdout was opened. On that holdout, pair-major, round-robin, and hybrid all
+recovered `8/8`; combined, the hybrid tied pair-major at `18/24` rather than
+beating it. It was therefore promoted only as a no-loss allocation change, not
+as a recovery or cost gain. A sealed holdout prevents a pleasing search order
+from becoming another uncounted degree of freedom, but an easy holdout can
+establish no-loss without establishing superiority. Demonstrated:
+`handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`.
