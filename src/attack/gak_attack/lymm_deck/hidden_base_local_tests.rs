@@ -177,6 +177,51 @@ fn state_sat_recovers_retained_weak_restart_positive() {
 }
 
 #[test]
+fn state_sat_recovers_widened_rank_242_positive() {
+    let fixture_seed = mix_seed(0x7769_6465_5f74_3301, 0x6c73_7265_636f_7600);
+    let fixture = weak_restart_fixture(fixture_seed);
+    let report = recover_hidden_base_local_known_plaintext_with_audit(
+        &solver_config(&fixture.spec, fixture_seed)
+            .with_top_source_beam_width(256)
+            .with_state_sat_hypothesis_cap(256),
+        &fixture.pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("widened state-SAT weak-restart recovery");
+
+    assert_eq!(
+        report.state,
+        HiddenBaseLocalRecoveryState::RecoveredPlantedBase
+    );
+    assert_eq!(report.planted_top_source_hypothesis_rank, Some(242));
+    assert_eq!(report.planted_top_source_hypothesis_retained, Some(true));
+    assert_eq!(report.state_sat_hypotheses_attempted, 242);
+    assert_eq!(report.state_sat_hypotheses_unsat, 241);
+    assert_eq!(report.state_sat_exact_models, 1);
+    assert!(report.best_round_trip.exact);
+}
+
+#[test]
+fn top_source_retention_is_independent_of_local_attempts() {
+    let fixture_seed = mix_seed(0x7769_6465_5f73_3301, 0x6c73_7265_636f_7600 ^ 7);
+    let fixture = weak_restart_fixture(fixture_seed);
+    let report = recover_hidden_base_local_known_plaintext_with_audit(
+        &solver_config(&fixture.spec, fixture_seed)
+            .with_attempts(1)
+            .with_max_rounds(1)
+            .with_top_source_beam_width(2)
+            .with_joint_move_evaluation_cap(0)
+            .with_joint_move_total_evaluation_cap(0),
+        &fixture.pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("independently retained top-source hypotheses");
+
+    assert_eq!(report.attempts_run, 1);
+    assert_eq!(report.top_source_hypotheses_retained, 2);
+}
+
+#[test]
 fn state_sat_rejects_matched_ciphertext_label_shuffle() {
     let fixture_seed = mix_seed(0x7769_6465_5f73_3301, 0x6c73_7265_636f_7600 ^ 7);
     let fixture = weak_restart_fixture(fixture_seed);
@@ -209,6 +254,43 @@ fn state_sat_rejects_matched_ciphertext_label_shuffle() {
     assert_eq!(report.state_sat_exact_models, 0);
     assert!(report.state_sat_variables > 0);
     assert!(report.state_sat_clauses > 0);
+}
+
+#[test]
+fn widened_state_sat_rejects_matched_ciphertext_label_shuffle() {
+    let fixture_seed = mix_seed(0x7769_6465_5f74_3301, 0x6c73_7265_636f_7600);
+    let fixture = weak_restart_fixture(fixture_seed);
+    let mut shuffled_pairs = fixture.pairs.clone();
+    for pair in &mut shuffled_pairs {
+        pair.ciphertext = pair
+            .ciphertext
+            .chars()
+            .enumerate()
+            .map(|(index, ch)| match (index, ch) {
+                (0, _) => ch,
+                (_, '!') => '"',
+                (_, '"') => '!',
+                (_, other) => other,
+            })
+            .collect();
+    }
+    let report = recover_hidden_base_local_known_plaintext_with_audit(
+        &solver_config(&fixture.spec, fixture_seed)
+            .with_top_source_beam_width(256)
+            .with_state_sat_hypothesis_cap(256),
+        &shuffled_pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("widened state-SAT post-anchor label-shuffle null");
+
+    assert_eq!(
+        report.state,
+        HiddenBaseLocalRecoveryState::SearchCapExceeded
+    );
+    assert!(!report.has_exact_recovery());
+    assert_eq!(report.state_sat_hypotheses_attempted, 256);
+    assert_eq!(report.state_sat_hypotheses_unsat, 256);
+    assert_eq!(report.state_sat_exact_models, 0);
 }
 
 fn weak_restart_fixture(seed: u64) -> super::HiddenBaseFixture {

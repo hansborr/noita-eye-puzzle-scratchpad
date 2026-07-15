@@ -94,7 +94,7 @@ pub struct HiddenBaseLocalSolverConfig {
     pub attempts: usize,
     /// Maximum coordinate-descent rounds per restart.
     pub max_rounds: usize,
-    /// Maximum top-source hypotheses retained for sigma refinement.
+    /// Maximum top-source hypotheses retained for bounded recovery.
     pub top_source_beam_width: usize,
     /// Whether to rank complete top-source states with third-symbol restart
     /// compatibility before applying the beam cap.
@@ -174,7 +174,8 @@ impl HiddenBaseLocalSolverConfig {
         self
     }
 
-    /// Replaces the top-source hypothesis beam width.
+    /// Replaces the top-source hypothesis retention width independently of the
+    /// local-search restart count.
     #[must_use]
     pub const fn with_top_source_beam_width(mut self, width: usize) -> Self {
         self.top_source_beam_width = width;

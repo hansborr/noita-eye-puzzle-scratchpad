@@ -641,9 +641,17 @@ the number of exact re-encrypting keys and their planted/equivalent/ambiguous
 classification. Also record planted rank/retention, SAT hypotheses attempted
 and proved UNSAT, variables, clauses, replay work, and elapsed time. A known
 development fixture whose planted rank exceeds 96 will pin the expanded
-production path; a deterministic global ciphertext-label swap of the same
-fixture must find no exact key after searching the same 256-state surface.
+production path; a deterministic ciphertext-label swap after each message's
+first symbol must find no exact key after searching the same 256-state surface.
 Exact replay remains the only acceptance condition.
+
+The initially registered global label swap on that fixture created a
+first-anchor contradiction and was rejected before SAT, so it did not exercise
+the intended expanded surface. This was observed while fixing controls and
+before the sealed holdout was opened. Preserving each message's first symbol and
+swapping the same labels only afterward keeps the top-source stage populated
+while still breaking the planted ciphertext stream; that corrected matched null
+is the frozen control used below.
 
 The 256-state defaults are promoted only if the wider row gains at least one
 exact recovery on the sealed holdout without changing any existing positive or

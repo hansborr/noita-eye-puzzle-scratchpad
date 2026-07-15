@@ -36,7 +36,6 @@ pub(super) fn run_local_search(
     let planted_sources = planted_base.map(|base| planted_top_sources(base, &corpus));
     let top_source_beam = build_top_source_beam(
         config.top_source_beam_width,
-        config.attempts,
         config.rank_top_sources_with_third_symbol,
         &corpus,
         &candidates,

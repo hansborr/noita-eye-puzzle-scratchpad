@@ -37,7 +37,6 @@ struct BeamState {
 
 pub(super) fn build_top_source_beam(
     width: usize,
-    restart_cap: usize,
     rank_with_third_symbol: bool,
     corpus: &LocalCorpus,
     domain: &SigmaDomain,
@@ -122,7 +121,7 @@ pub(super) fn build_top_source_beam(
         }
     }
     states.sort_by(compare_states);
-    let retained_cap = width.min(restart_cap).max(1);
+    let retained_cap = width.max(1);
     let planted_hypothesis_rank = planted_sources.and_then(|planted| {
         states
             .iter()

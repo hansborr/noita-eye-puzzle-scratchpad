@@ -102,7 +102,7 @@ pub(crate) struct GakHiddenBaseLocalRecoverArgs {
     /// Coordinate-descent rounds per restart.
     #[arg(long = "max-rounds", default_value_t = 18)]
     pub(crate) max_rounds: usize,
-    /// Maximum top-source hypotheses retained for sigma refinement.
+    /// Maximum top-source hypotheses retained for bounded recovery.
     #[arg(long = "top-source-beam", default_value_t = 96)]
     pub(crate) top_source_beam: usize,
     /// Use only the landed second-symbol likelihood for top-source ranking.
