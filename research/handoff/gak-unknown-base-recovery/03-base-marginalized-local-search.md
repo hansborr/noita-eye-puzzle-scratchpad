@@ -1,7 +1,8 @@
 # 03 - base-marginalized local recovery, `s = 2..3`
 
 **Status:** first bounded instrument built 2026-07-07; top-source CSP/beam and
-capped joint-sigma frontier improvements measured 2026-07-14.
+capped joint-sigma frontier improvements measured 2026-07-14; broader
+calibration pre-registered 2026-07-14.
 
 ## Scope
 
@@ -148,6 +149,40 @@ cargo test --locked hidden_base_local -- --nocapture
 
 These are synthetic known-plaintext fixtures. They are model-conditional
 measurements, not claims about the real eyes.
+
+### Pre-registered broader calibration (2026-07-14, before runs)
+
+The next calibration uses eight new deterministic random-base/key fixtures,
+derived by the existing CLI trial mixer from top-level seed
+`0x7769_6465_5f73_3301`. None of these eight fixture seeds was inspected while
+building the five-seed frontier above. Each hidden base/key is paired with three
+identity-restart corpus shapes holding total evidence fixed at 384 events:
+
+| shape | messages | events per message | purpose |
+| --- | ---: | ---: | --- |
+| few restarts | 6 | 64 | weaker first/second-symbol coverage |
+| current shape | 8 | 48 | out-of-sample replication of the tuned surface |
+| many restarts | 12 | 32 | stronger first/second-symbol coverage |
+
+All 24 runs use `n=7`, `s=3`, plaintext alphabet `ABCDEF`, a random base, beam
+and restart cap `96`, and `18` rounds. The following comparisons are frozen
+before reading outcomes:
+
+1. coordinate-only ablation with joint cap `0`;
+2. the landed ordered joint search with cap `4096`;
+3. a prefix-bounded and/or fairly scheduled joint search under the same `4096`
+   cap, with a `2048`-cap row if the same implementation remains informative at
+   half the candidate budget.
+
+Primary recovery is the number of exact re-encrypting keys, split into planted,
+equivalent, ambiguous, and `SearchCapExceeded` states. A search change is a
+frontier improvement only if it does not reduce exact recovery relative to the
+landed cap-4096 search on these paired runs. The primary cost is replayed event
+evaluations, reported separately for joint moves; candidate evaluations and
+wall time remain secondary because neither is a like-for-like hidden-base test.
+Also record planted-hypothesis retention/rank for every miss so beam drops and
+within-bucket stalls remain distinguishable. The existing positive, shuffled-
+label null, and over-budget null controls must continue to pass unchanged.
 
 | command shape | state | search surface | result |
 | --- | --- | --- | --- |
