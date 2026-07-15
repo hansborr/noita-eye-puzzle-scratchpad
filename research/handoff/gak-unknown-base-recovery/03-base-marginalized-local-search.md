@@ -358,3 +358,15 @@ budget was exhausted. Existing positive, shuffled-label null, and over-budget
 null controls must remain unchanged. Any choice made after viewing the frozen
 batch is tuning and will be labeled as such; the `...3302` batch is the only new
 holdout evidence.
+
+**Holdout correction, frozen before replacement runs:** `...3302` is invalid as
+a holdout. The CLI derives trial `i` from
+`mix_seed(seed, 0x6c73_7265_636f_7600 ^ i)`, and `...3301 ^ ...3302 = 3`;
+therefore trials `0..7` produce the same input-seed set in a different order.
+The first baseline row exposed the duplicate exactly; no third-symbol or
+lower-cap row was run on it, and it will not be counted. The replacement seed is
+`0x7769_6465_5f74_3301`. Its xor difference from `...3301` is `0x700`, which
+cannot equal `i ^ j` for `i,j in 0..8`, so the two eight-trial mixer input sets
+are disjoint. This check uses seed algebra only; no replacement fixture, rank,
+or outcome was inspected. The same four frozen comparisons and promotion rule
+apply to the replacement batch.
