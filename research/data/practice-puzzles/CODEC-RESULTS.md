@@ -5,8 +5,10 @@ substitution cannot carry (5 < 26, 12 < 26): they need the codec/transduction
 layer to widen the alphabet first. Result: **`one` is SOLVED** (2026-07-01, exact
 ciphertext round-trip — see its section); **`two` is SOLVED / maintainer-confirmed**
 (2026-07-06, `shadowfinish` + `substfinish` at the letter level, with
-punctuation/source alignment as a separate restoration step); `six` remains an
-honest negative.
+punctuation/source alignment as a separate restoration step). The generic
+base-grouping attack on `six` remains an honest scoped negative, but a later
+stateful cube/Morse instrument produced the exact candidate `CUBE IS A GREAT TOY
+MODEL OF NON-COMMUTATIVITY.`; see `SIX-RESULTS.md`.
 
 > Honesty ceiling (binding): a high n-gram score (or "surviving the gates") is not
 > a decode. `one` is round-trip-verified; `two` is maintainer-confirmed against
@@ -20,7 +22,23 @@ honest negative.
 | --- | --- | --- |
 | `one` | **SOLVED (2026-07-01)** — `Permutation Representation Destination` | alternating-orientation dihedral GAK over C5 + 7-bit ASCII; verified by an exact 266/266 ciphertext round-trip (`maskdecode`); see § "`one` — SOLVED" below. The prior honest negatives (`rlcodec`, `cribfit`, `rankcodec`, `mdlcodec`, `bigramcodec`) all stand *as scoped* — they attacked direction-blind reductions forced by a hidden-state assumption the actual cipher does not satisfy |
 | `two` | **SOLVED / maintainer-confirmed (2026-07-06)** | fixed `shadowfinish` surfaced a crib-free candidate (`p_emp 0.0200` conditional null); `substfinish` recovered the octal/Proto-Indo-European plaintext at the letter level (`p_emp 0.0476` space-preserving null); punctuation/source alignment restored the final readable form but is not part of the pure code recovery. Prior honest negatives below remain valid for their scoped codec families |
-| `six` | honest negative (0 survivors) | base-6, spaces preserved |
+| `six` | **exact cube/Morse candidate (2026-07-15)** | `CUBE IS A GREAT TOY MODEL OF NON-COMMUTATIVITY.`; exact 139/139 replay on each of three face-relabelings; 0/1024 matched-null survivors. Missing pre-stream orientation leaves a formal `FUBE ...` first-mark twin; see `SIX-RESULTS.md`. The base-6 grouping result below stays an honest negative for that scoped family |
+
+## `six` — cube/Morse exact candidate (2026-07-15)
+
+The `cubemorse` instrument found that labels `1..6` are successive top faces of
+a rolling cube with opposite pairs `(1,6)/(2,5)/(3,4)`. Exactly three roll
+directions occur; interpreted as International Morse dot, dash, and letter
+separator (with the supplied spaces as word boundaries), they yield:
+
+> `CUBE IS A GREAT TOY MODEL OF NON-COMMUTATIVITY.`
+
+Every line re-encodes exactly (`RoundTrip 139/139`), and the full bounded sweep
+had `0/1024` valid-Morse survivors under direction-count/word-length-matched
+shuffle walks. Because the file supplies no cube state before its first face,
+`FUBE ...` is an exact first-mark twin; English semantics select `CUBE`, while
+the result remains an exact candidate pending external confirmation. Full model,
+controls, commands, Python reference, and claim ceiling: `SIX-RESULTS.md`.
 
 ## The structural finding: `one` and `two` are ±1-walk-on-Cn encodings
 

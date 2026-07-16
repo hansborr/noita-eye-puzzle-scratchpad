@@ -12,11 +12,17 @@ want sample-suite progress, and split it before starting — do not attempt any
 lead as one pass.
 
 ## Status — what is already done (do not redo)
-- **`one`, `six`, `two` codec/grouping decodes are logged honest-negatives.** All
+- **The old `one`, `six`, `two` generic codec/grouping runs are logged scoped
+  honest-negatives.** All
   were run through `solve … --codec-search` (records in
   `research/gak-threads/candidates/solve-{one,six,two}-*.md`): `six` → 56 round-trip
   candidates, 0 survivors; `one` → 0 round-trip candidates (the classical pipeline
-  cannot represent its C5 GCTAK keystream); `two` → honest negative.
+  cannot represent its C5 GCTAK keystream); `two` → honest negative. **Update
+  (2026-07-15):** a later stateful `cubemorse` instrument recovered practice
+  `six`'s exact candidate `CUBE IS A GREAT TOY MODEL OF NON-COMMUTATIVITY.`
+  (`139/139`, `0/1024` matched-null survivors), with a disclosed first-mark
+  `FUBE ...` ambiguity. See `data/practice-puzzles/SIX-RESULTS.md`; the old
+  negative never covered that model.
 - **`one`'s C5 GCTAK keystream structure was recovered** separately by G1
   (`solve_gctak`), byte-for-byte — that is the valuable, transferable-discipline part.
 - The letter puzzles (`three/four/five/seven`) are aperiodic-polyalphabetic; mono /

@@ -36,7 +36,7 @@ the sole honest-negative.
 | `three` | 142 | ~letters `{A..Z}` (J, V absent) + space `,` `.` | word + two-sentence structure, spaces preserved | not mono, not periodic ≤40 (flat IoC) → **aperiodic polyalphabetic / position-keyed**; see `profile` |
 | `four`  | 128 | letters + space `,` `.` `?`, 6 lines | multi-sentence, spaces + punctuation preserved | not mono, not periodic ≤40 → **aperiodic polyalphabetic / position-keyed**; see `profile` |
 | `five`  | 281 | letters + space `!` `,` `.` `?`, 7 lines | multi-sentence, spaces + punctuation preserved | not mono, not periodic ≤40 → **aperiodic polyalphabetic / position-keyed**; see `profile` |
-| `six`   | 417 | 6 digits `{1..6}` + **spaces**, 3 data lines | word boundaries preserved; `H1≈2.582/2.585` (not a pure walk) | base-6 **digit-grouping codec** (pairs → ≤36 ≥ 26) → needs codec |
+| `six`   | 417 = 3×139 | 6 digits `{1..6}` + **spaces**, 3 relabeled lines | **cube-face walk:** opposite pairs `(1,6)/(2,5)/(3,4)`; every transition moves to an adjacent face; lines 2/3 are fixed face relabelings of line 1 | **EXACT CANDIDATE (2026-07-15):** `CUBE IS A GREAT TOY MODEL OF NON-COMMUTATIVITY.` via three roll directions → Morse; exact 139/139 replay per line, matched null 0/1024; formal first-mark ambiguity also admits `FUBE ...`; see `SIX-RESULTS.md` |
 | `seven` | 164 | letters + `#` + space `,` `?`, 5 lines | word structure preserved; `#` used as a symbol | not mono, not periodic ≤40 → **aperiodic polyalphabetic** (`#` = symbol/Alberti index?); see `profile` |
 | `deck-swap/` | 8 msgs × {1,2,3} swaps | ct `!`..`s` (83), pt `A..Z` | **known-plaintext** GAK deck cipher (S₈₃); `perm(L)=base∘(num_swaps top-swaps)`; plaintexts public | **KP swap-recovery** (Lymm request): ns=1 closed-form/solved, ns≥2 needs propagation engine — see `research/handoff/gak-swap-recovery/` |
 
@@ -71,6 +71,16 @@ Notes:
   withheld-ground-truth comparison packet for `two` is
   `TWO-WITHHELD-CONFIRMATION-FREEZE.md`; it freezes the candidate by path/hash and
   now records the post-freeze maintainer confirmation.
+  `six` is now a compelling exact cube/Morse candidate: the three lines are
+  face-relabelings of one rolling-cube trace, three roll directions are Morse
+  dot/dash/letter-separator, and the visible spaces are word boundaries. The
+  natural reading is `CUBE IS A GREAT TOY MODEL OF NON-COMMUTATIVITY.`; because
+  the pre-stream face is absent, the computation also admits the exact first-mark
+  completion `FUBE ...`. Both replay 139/139, and no registered matched null
+  (`0/1024`) produced any all-valid Morse candidate. See `SIX-RESULTS.md` and the
+  `cubemorse` Rust/Python instruments. The old generic grouping negative remains
+  scoped to its searched codecs.
+
   `CODEC-RESULTS.md` also records the `isoscan` crib anchors — long
   exact translate-isomorphs in the difference channel (`two`: len 68; `one`: len
   36) that locate repeated plaintext spans (structural candidates, not decodes) —

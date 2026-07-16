@@ -410,3 +410,24 @@ sealed `n=9` state-SAT time from `19.914 s` to `85.780 s`, and six anchors at
 the nuisance class is small and explicit; at large size it diagnoses the next
 need rather than removing it. Demonstrated:
 `handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`.
+
+## 23. Exact replay cannot recover an unobserved initial state
+
+A stateful codec can force an entire message except the part controlled by its
+pre-stream state. Practice puzzle `six` records successive top faces of a
+rolling cube but not the cube orientation immediately before the first face.
+The cube/Morse sweep therefore finds two exact 139/139 candidates:
+`CUBE IS A GREAT TOY MODEL OF NON-COMMUTATIVITY.` and an otherwise-identical
+`FUBE ...`. Both pass exact replay because their different initial orientations
+produce different first Morse marks and converge on the same first observed
+face; every later state and character is identical.
+
+Expose this as a candidate equivalence class instead of choosing the readable
+member inside the round-trip gate. A word/language prior can rank `CUBE`, and
+the direction-shuffle matched null (`0/1024` all-valid-Morse survivors) shows
+that the full message is not a generic search artifact, but neither observation
+manufactures the missing predecessor state. External confirmation or an
+explicit initialization convention is the formal discriminator. In any
+stateful attack, audit which prefix state is observed, which is assumed, and
+which plaintext symbols remain conditional on it. Demonstrated:
+`data/practice-puzzles/SIX-RESULTS.md`.

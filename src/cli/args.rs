@@ -19,6 +19,7 @@ use super::args_bigramcodec::BigramcodecArgs;
 use super::args_codecpower::CodecpowerArgs;
 use super::args_cribfit::CribfitArgs;
 use super::args_ctak::CtakscanArgs;
+use super::args_cubemorse::CubeMorseArgs;
 use super::args_gak_hidden_base::{
     GakHiddenBaseAuditArgs, GakHiddenBaseLocalRecoverArgs, GakHiddenBaseS1RecoverArgs,
 };
@@ -167,6 +168,12 @@ pub(crate) enum Command {
     /// Representation Destination`, `RoundTrip` 266/266).
     #[command(name = "maskdecode")]
     Maskdecode(MaskdecodeArgs),
+    /// Rolling-cube top-face to International Morse instrument. Whitespace is
+    /// the word boundary; three used roll directions are swept as dot, dash,
+    /// and letter separator. Exact candidates are gated against matched
+    /// direction-shuffle walks. With no input flags, runs practice puzzle `six`.
+    #[command(name = "cubemorse", alias = "cube-morse")]
+    Cubemorse(CubeMorseArgs),
     /// Crib-synchronous MDL-like affine running-key codec search for `one`'s
     /// run-length carrier. It selects a shortest crib-consistent candidate under a
     /// post-selection crib-pinned null; emitted-symbol-history codecs are out of

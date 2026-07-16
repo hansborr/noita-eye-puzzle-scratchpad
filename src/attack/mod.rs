@@ -11,6 +11,8 @@
 //! - [`codecpower`]: detection-power calibration for `rlcodec`'s comma-code
 //!   matched-null gate at practice puzzle `one`'s carrier budget.
 //! - [`codec`]: codec transduction layer feeding the [`solve`] search.
+//! - [`cubemorse`]: cube-face-walk to International Morse instrument for
+//!   practice puzzle `six`, with exact re-encoding and a matched walk null.
 //! - [`gak_attack`]: Thread 4 synthetic GAK generator and the decisive GCTAK
 //!   solver gate, validated against held-back ground truth (synthetic-only).
 //! - [`keystream`]: polyalphabetic keystream cracker (Vigenere/Beaufort/autokey)
@@ -62,6 +64,7 @@ pub mod codecpower;
 /// and the invariant candidate-record blocks) for the keystream and ragbaby crackers.
 mod crack;
 pub mod cribfit;
+pub mod cubemorse;
 pub mod gak_attack;
 pub mod keystream;
 pub mod language;

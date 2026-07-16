@@ -19,7 +19,7 @@ use noita_eye_puzzle::{
 use super::args::{Cli, Command};
 use super::commands::{
     run_bigramcodec, run_chaining, run_chaining_graph, run_codecpower, run_controls, run_crcscan,
-    run_cribfit, run_ctakscan, run_demo, run_gak, run_gak_hidden_base_audit,
+    run_cribfit, run_ctakscan, run_cubemorse, run_demo, run_gak, run_gak_hidden_base_audit,
     run_gak_hidden_base_local_recover, run_gak_hidden_base_s1_recover, run_gak_swap_arc_phase0,
     run_gak_swap_recover, run_grouping, run_groupscan, run_isomap, run_isomorphimperf,
     run_isomorphnull, run_isoscan, run_keydiff, run_keystream, run_leakceiling, run_maskdecode,
@@ -110,6 +110,7 @@ pub(crate) fn run() -> ExitCode {
         Command::Cribfit(args) => run_cribfit(&args),
         Command::Rankcodec(args) => run_rankcodec(&args),
         Command::Maskdecode(args) => run_maskdecode(&args),
+        Command::Cubemorse(args) => run_cubemorse(&args),
         Command::Mdlcodec(args) => run_mdlcodec(&args),
         Command::Pairclass(args) => run_pairclass(&args),
         Command::Groupscan(args) => run_groupscan(&args),

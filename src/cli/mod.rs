@@ -13,6 +13,7 @@ mod args_bigramcodec;
 mod args_codecpower;
 mod args_cribfit;
 mod args_ctak;
+mod args_cubemorse;
 mod args_gak_hidden_base;
 mod args_gak_swap;
 mod args_isomap;
