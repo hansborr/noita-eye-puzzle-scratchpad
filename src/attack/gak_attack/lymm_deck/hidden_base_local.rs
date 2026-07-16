@@ -40,7 +40,7 @@ mod triple;
 
 pub use controls::{
     HiddenBaseLocalControlExpectation, HiddenBaseLocalControlReport, HiddenBaseLocalSelfTestReport,
-    hidden_base_local_self_test,
+    hidden_base_local_self_test, post_anchor_ciphertext_label_swap,
 };
 use report::{classify_recovery, factorial_u128, representative_audit};
 use search::run_local_search;

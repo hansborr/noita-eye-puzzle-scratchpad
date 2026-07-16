@@ -58,7 +58,7 @@ pub use hidden_base_local::{
     HiddenBaseLocalControlExpectation, HiddenBaseLocalControlReport,
     HiddenBaseLocalGeneratorFamily, HiddenBaseLocalJointMoveOrder, HiddenBaseLocalRecoveredKey,
     HiddenBaseLocalRecoveryReport, HiddenBaseLocalRecoveryState, HiddenBaseLocalSelfTestReport,
-    HiddenBaseLocalSolverConfig, hidden_base_local_self_test,
+    HiddenBaseLocalSolverConfig, hidden_base_local_self_test, post_anchor_ciphertext_label_swap,
     recover_hidden_base_local_known_plaintext,
     recover_hidden_base_local_known_plaintext_with_audit,
 };

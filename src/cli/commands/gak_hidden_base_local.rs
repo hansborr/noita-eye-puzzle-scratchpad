@@ -2,13 +2,12 @@
 
 use std::fmt::Write as _;
 use std::process::ExitCode;
-use std::time::Duration;
 
 use noita_eye_puzzle::attack::gak_attack::lymm_deck::{
-    HiddenBaseFixtureConfig, HiddenBaseKind, HiddenBaseLocalControlReport,
+    HiddenBaseFixture, HiddenBaseFixtureConfig, HiddenBaseKind, HiddenBaseLocalControlReport,
     HiddenBaseLocalJointMoveOrder, HiddenBaseLocalRecoveryReport, HiddenBaseLocalRecoveryState,
     HiddenBaseLocalSelfTestReport, HiddenBaseLocalSolverConfig, LymmDeckSpec,
-    hidden_base_local_self_test, plant_hidden_base_fixture,
+    hidden_base_local_self_test, plant_hidden_base_fixture, post_anchor_ciphertext_label_swap,
     recover_hidden_base_local_known_plaintext_with_audit,
 };
 use noita_eye_puzzle::nulls::null::mix_seed;
@@ -22,6 +21,16 @@ macro_rules! appendln {
         writeln!($out, $($arg)*).expect("write to String")
     };
 }
+
+#[path = "gak_hidden_base_local/matched_null.rs"]
+mod matched_null;
+#[path = "gak_hidden_base_local/metrics.rs"]
+mod metrics;
+use matched_null::append_matched_null_surface;
+use metrics::{
+    format_duration, format_range, local_range, local_state_count, optional_local_range,
+    state_sat_elapsed, top_source_elapsed, total_elapsed,
+};
 
 /// Dispatches the `gak-hidden-base-local-recover` subcommand.
 pub(crate) fn run_gak_hidden_base_local_recover(args: &GakHiddenBaseLocalRecoverArgs) -> ExitCode {
@@ -92,10 +101,18 @@ pub(crate) fn run_gak_hidden_base_local_recover(args: &GakHiddenBaseLocalRecover
                 return ExitCode::FAILURE;
             }
         };
+        let matched_null = match run_matched_null(args, &fixture, &solver_config) {
+            Ok(report) => report,
+            Err(error) => {
+                eprintln!("gak-hidden-base-local-recover null error: {error}");
+                return ExitCode::FAILURE;
+            }
+        };
         trials.push(LocalTrialReport {
             trial_index,
             seed,
             report,
+            matched_null,
         });
     }
 
@@ -104,6 +121,33 @@ pub(crate) fn run_gak_hidden_base_local_recover(args: &GakHiddenBaseLocalRecover
         render_local_recovery_report(args, &trials, controls.as_ref())
     );
     ExitCode::SUCCESS
+}
+
+fn run_matched_null(
+    args: &GakHiddenBaseLocalRecoverArgs,
+    fixture: &HiddenBaseFixture,
+    solver_config: &HiddenBaseLocalSolverConfig,
+) -> Result<Option<MatchedNullTrialReport>, String> {
+    if !args.matched_label_shuffle_null {
+        return Ok(None);
+    }
+    let mut labels = fixture.spec.ct_alphabet.iter().copied();
+    let first = labels
+        .next()
+        .ok_or_else(|| "ciphertext alphabet has no labels".to_owned())?;
+    let second = labels
+        .next()
+        .ok_or_else(|| "ciphertext alphabet has fewer than two labels".to_owned())?;
+    let (pairs, changed_symbols) = post_anchor_ciphertext_label_swap(&fixture.pairs, first, second);
+    if changed_symbols == 0 {
+        return Err("post-anchor label swap changed no symbols".to_owned());
+    }
+    let report = recover_hidden_base_local_known_plaintext_with_audit(solver_config, &pairs, None)
+        .map_err(|error| format!("solver failed: {error}"))?;
+    Ok(Some(MatchedNullTrialReport {
+        changed_symbols,
+        report,
+    }))
 }
 
 fn default_pt_alphabet(n: usize) -> String {
@@ -156,9 +200,16 @@ fn solver_config_from_spec(
 }
 
 #[derive(Clone, Debug)]
-struct LocalTrialReport {
+pub(super) struct LocalTrialReport {
     trial_index: usize,
     seed: u64,
+    pub(super) report: HiddenBaseLocalRecoveryReport,
+    matched_null: Option<MatchedNullTrialReport>,
+}
+
+#[derive(Clone, Debug)]
+struct MatchedNullTrialReport {
+    changed_symbols: usize,
     report: HiddenBaseLocalRecoveryReport,
 }
 
@@ -174,7 +225,7 @@ fn render_local_recovery_report(
         .unwrap_or_else(|| default_pt_alphabet(args.n));
     appendln!(
         &mut out,
-        "gak-hidden-base-local-recover: trials={} n={} s={} messages={}x{} base={} attempts={} max-rounds={} top-source-beam={} third-symbol-rank={} joint-move-order={} joint-move-cap={} joint-total-cap={} triple-move-cap={} triple-total-cap={} prefix-cegar-node-cap={} prefix-cegar-total-cap={} state-sat-hypothesis-cap={}",
+        "gak-hidden-base-local-recover: trials={} n={} s={} messages={}x{} base={} attempts={} max-rounds={} top-source-beam={} third-symbol-rank={} joint-move-order={} joint-move-cap={} joint-total-cap={} triple-move-cap={} triple-total-cap={} prefix-cegar-node-cap={} prefix-cegar-total-cap={} state-sat-hypothesis-cap={} matched-label-shuffle-null={}",
         trials.len(),
         args.n,
         args.num_swaps,
@@ -192,7 +243,8 @@ fn render_local_recovery_report(
         args.triple_total_cap,
         args.prefix_cegar_node_cap,
         args.prefix_cegar_total_cap,
-        args.state_sat_hypothesis_cap
+        args.state_sat_hypothesis_cap,
+        args.matched_label_shuffle_null
     );
     appendln!(
         &mut out,
@@ -215,6 +267,7 @@ fn render_local_recovery_report(
     out.push('\n');
     out.push_str(&render_local_controls(controls, args.skip_controls));
     append_search_surface(&mut out, trials);
+    append_matched_null_surface(&mut out, trials);
     if let Some(first_trial) = trials.first() {
         append_trial0(&mut out, first_trial);
     }
@@ -516,76 +569,5 @@ fn append_trial0(out: &mut String, trial: &LocalTrialReport) {
             audit.round_trip.exact,
             audit.status.label()
         );
-    }
-}
-
-fn local_state_count(trials: &[LocalTrialReport], state: HiddenBaseLocalRecoveryState) -> usize {
-    trials
-        .iter()
-        .filter(|trial| trial.report.state == state)
-        .count()
-}
-
-fn local_range(
-    trials: &[LocalTrialReport],
-    value: impl Fn(&HiddenBaseLocalRecoveryReport) -> usize,
-) -> Option<(usize, usize)> {
-    let mut iter = trials.iter().map(|trial| value(&trial.report));
-    let first = iter.next()?;
-    let mut min_value = first;
-    let mut max_value = first;
-    for current in iter {
-        min_value = min_value.min(current);
-        max_value = max_value.max(current);
-    }
-    Some((min_value, max_value))
-}
-
-fn optional_local_range(
-    trials: &[LocalTrialReport],
-    value: impl Fn(&HiddenBaseLocalRecoveryReport) -> Option<usize>,
-) -> Option<(usize, usize)> {
-    let mut iter = trials.iter().filter_map(|trial| value(&trial.report));
-    let first = iter.next()?;
-    let mut min_value = first;
-    let mut max_value = first;
-    for current in iter {
-        min_value = min_value.min(current);
-        max_value = max_value.max(current);
-    }
-    Some((min_value, max_value))
-}
-
-fn format_range(range: Option<(usize, usize)>) -> String {
-    range.map_or_else(|| "n/a".to_owned(), |(min, max)| format!("{min}/{max}"))
-}
-
-fn total_elapsed(trials: &[LocalTrialReport]) -> Duration {
-    trials
-        .iter()
-        .map(|trial| trial.report.elapsed)
-        .fold(Duration::ZERO, Duration::saturating_add)
-}
-
-fn top_source_elapsed(trials: &[LocalTrialReport]) -> Duration {
-    trials
-        .iter()
-        .map(|trial| trial.report.top_source_elapsed)
-        .fold(Duration::ZERO, Duration::saturating_add)
-}
-
-fn state_sat_elapsed(trials: &[LocalTrialReport]) -> Duration {
-    trials
-        .iter()
-        .map(|trial| trial.report.state_sat_elapsed)
-        .fold(Duration::ZERO, Duration::saturating_add)
-}
-
-fn format_duration(duration: Duration) -> String {
-    let micros = duration.as_micros();
-    if micros >= 1_000 {
-        format!("{}.{:03} ms", micros / 1_000, micros % 1_000)
-    } else {
-        format!("{micros} us")
     }
 }

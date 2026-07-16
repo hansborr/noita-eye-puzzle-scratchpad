@@ -2,8 +2,8 @@
 
 use super::{
     HiddenBaseFixtureConfig, HiddenBaseKind, HiddenBaseLocalRecoveryState,
-    HiddenBaseLocalSolverConfig, LymmDeckSpec, plant_hidden_base_fixture,
-    recover_hidden_base_local_known_plaintext_with_audit,
+    HiddenBaseLocalSolverConfig, KnownPlaintextPair, LymmDeckSpec, plant_hidden_base_fixture,
+    post_anchor_ciphertext_label_swap, recover_hidden_base_local_known_plaintext_with_audit,
 };
 use crate::nulls::null::mix_seed;
 
@@ -291,6 +291,37 @@ fn widened_state_sat_rejects_matched_ciphertext_label_shuffle() {
     assert_eq!(report.state_sat_hypotheses_attempted, 256);
     assert_eq!(report.state_sat_hypotheses_unsat, 256);
     assert_eq!(report.state_sat_exact_models, 0);
+}
+
+#[test]
+fn post_anchor_label_swap_preserves_each_restart_anchor() {
+    let pairs = vec![
+        KnownPlaintextPair {
+            label: "first".to_owned(),
+            plaintext: "ABCD".to_owned(),
+            ciphertext: "!\"!#".to_owned(),
+        },
+        KnownPlaintextPair {
+            label: "second".to_owned(),
+            plaintext: "ABCD".to_owned(),
+            ciphertext: "\"!!\"".to_owned(),
+        },
+    ];
+
+    let (transformed, changed) = post_anchor_ciphertext_label_swap(&pairs, '!', '"');
+
+    assert_eq!(changed, 5);
+    assert_eq!(
+        transformed
+            .iter()
+            .map(|pair| pair.ciphertext.as_str())
+            .collect::<Vec<_>>(),
+        vec!["!!\"#", "\"\"\"!"]
+    );
+    assert_eq!(
+        pairs.first().map(|pair| pair.ciphertext.as_str()),
+        Some("!\"!#")
+    );
 }
 
 fn weak_restart_fixture(seed: u64) -> super::HiddenBaseFixture {

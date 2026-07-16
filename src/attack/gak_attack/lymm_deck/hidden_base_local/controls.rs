@@ -3,13 +3,52 @@
 use crate::nulls::null::mix_seed;
 
 use super::super::{
-    HiddenBaseFixture, HiddenBaseFixtureConfig, HiddenBaseKind, LymmDeckError,
+    HiddenBaseFixture, HiddenBaseFixtureConfig, HiddenBaseKind, KnownPlaintextPair, LymmDeckError,
     plant_hidden_base_fixture,
 };
 use super::{
     HiddenBaseLocalRecoveryState, HiddenBaseLocalSolverConfig,
     recover_hidden_base_local_known_plaintext_with_audit,
 };
+
+/// Swaps two ciphertext labels after each message's first emitted symbol.
+///
+/// Preserving the first emission keeps identity-restart anchor constraints
+/// intact, so the transformed corpus exercises downstream recovery rather than
+/// being rejected at top-source construction. The returned count is the number
+/// of changed ciphertext symbols.
+#[must_use]
+pub fn post_anchor_ciphertext_label_swap(
+    pairs: &[KnownPlaintextPair],
+    first: char,
+    second: char,
+) -> (Vec<KnownPlaintextPair>, usize) {
+    if first == second {
+        return (pairs.to_vec(), 0);
+    }
+    let mut changed = 0usize;
+    let mut transformed = pairs.to_vec();
+    for pair in &mut transformed {
+        pair.ciphertext = pair
+            .ciphertext
+            .chars()
+            .enumerate()
+            .map(|(index, ch)| match (index, ch) {
+                (0, _) => ch,
+                (_, current) if current == first => {
+                    changed = changed.saturating_add(1);
+                    second
+                }
+                (_, current) if current == second => {
+                    changed = changed.saturating_add(1);
+                    first
+                }
+                (_, current) => current,
+            })
+            .collect();
+    }
+    (transformed, changed)
+}
 
 /// Runs deterministic planted-positive and matched-null controls for the local
 /// hidden-base solver.

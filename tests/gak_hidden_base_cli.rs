@@ -73,6 +73,7 @@ fn gak_hidden_base_local_recover_cli_reports_bounded_surface() {
         "96",
         "--max-rounds",
         "18",
+        "--matched-label-shuffle-null",
     ]);
 
     assert_contains(&stdout, "gak-hidden-base-local-recover: trials=1 n=5 s=3");
@@ -84,6 +85,7 @@ fn gak_hidden_base_local_recover_cli_reports_bounded_surface() {
     assert_contains(&stdout, "prefix-cegar-node-cap=0");
     assert_contains(&stdout, "prefix-cegar-total-cap=0");
     assert_contains(&stdout, "state-sat-hypothesis-cap=96");
+    assert_contains(&stdout, "matched-label-shuffle-null=true");
     assert_contains(&stdout, "hidden-base local controls: PASS");
     assert_contains(&stdout, "planted-s2-positive: PASS");
     assert_contains(&stdout, "planted-s3-positive: PASS");
@@ -101,4 +103,9 @@ fn gak_hidden_base_local_recover_cli_reports_bounded_surface() {
     assert_contains(&stdout, "top-source planted audit: retained=");
     assert_contains(&stdout, "trial-0 recovery:");
     assert_contains(&stdout, "trial-0 signal:");
+    assert_contains(
+        &stdout,
+        "matched post-anchor label-shuffle null: trials=1 exact=0",
+    );
+    assert_contains(&stdout, "matched null work: retained min/max=");
 }
