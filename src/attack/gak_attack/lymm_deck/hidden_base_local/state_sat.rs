@@ -6,7 +6,6 @@ use std::time::{Duration, Instant};
 use batsat::{BasicSolver, Lit, SolverInterface, lbool};
 
 use super::super::LymmDeckError;
-use super::score::derive_base;
 use super::search::LocalSearch;
 
 type RouteDomains = BTreeMap<(usize, usize), Vec<(usize, Lit)>>;
@@ -15,6 +14,9 @@ type RouteDomains = BTreeMap<(usize, usize), Vec<(usize, Lit)>>;
 pub(super) struct StateSatStats {
     pub(super) hypotheses_attempted: usize,
     pub(super) hypotheses_unsat: usize,
+    pub(super) base_completions_attempted: usize,
+    pub(super) base_completions_unsat: usize,
+    pub(super) base_completion_cap_exhausted: usize,
     pub(super) exact_models: usize,
     pub(super) variables: usize,
     pub(super) clauses: usize,
@@ -29,42 +31,61 @@ pub(super) fn run_state_sat(search: &mut LocalSearch<'_>) -> Result<(), LymmDeck
     for hypothesis in hypotheses.iter().take(cap) {
         search.state_sat.hypotheses_attempted =
             search.state_sat.hypotheses_attempted.saturating_add(1);
-        let Some(mut encoding) = StateSatEncoding::new(search, hypothesis)? else {
+        let Some((bases, cap_exhausted)) = base_completions(
+            search,
+            hypothesis,
+            search.config.state_sat_base_completion_cap,
+        ) else {
             search.state_sat.hypotheses_unsat = search.state_sat.hypotheses_unsat.saturating_add(1);
             continue;
         };
-        search.state_sat.variables = search
-            .state_sat
-            .variables
-            .saturating_add(encoding.variables);
-        search.state_sat.clauses = search.state_sat.clauses.saturating_add(encoding.clauses);
-        match encoding.solve()? {
-            Some(assignment) => {
-                let Some(base) =
-                    derive_base(search.config.n, search.corpus, search.domain, &assignment)
-                else {
-                    return Err(LymmDeckError::HiddenBaseConfig {
-                        reason: "state-SAT model did not determine its representative base",
-                    });
-                };
-                search.state_sat.replay_events = search
-                    .state_sat
-                    .replay_events
-                    .saturating_add(search.corpus.event_count);
-                let score = search.score_assignment(&assignment, usize::MAX);
-                if score.mismatches != 0 || score.base.as_deref() != Some(base.as_slice()) {
-                    return Err(LymmDeckError::HiddenBaseConfig {
-                        reason: "state-SAT model failed exact replay",
-                    });
-                }
-                search.state_sat.exact_models = search.state_sat.exact_models.saturating_add(1);
-                search.record_score(&assignment, &score);
-                break;
+        if cap_exhausted {
+            search.state_sat.base_completion_cap_exhausted = search
+                .state_sat
+                .base_completion_cap_exhausted
+                .saturating_add(1);
+        }
+        let mut all_attempted_unsat = true;
+        for base in bases {
+            search.state_sat.base_completions_attempted = search
+                .state_sat
+                .base_completions_attempted
+                .saturating_add(1);
+            let Some(mut encoding) = StateSatEncoding::new(search, hypothesis, &base)? else {
+                search.state_sat.base_completions_unsat =
+                    search.state_sat.base_completions_unsat.saturating_add(1);
+                continue;
+            };
+            search.state_sat.variables = search
+                .state_sat
+                .variables
+                .saturating_add(encoding.variables);
+            search.state_sat.clauses = search.state_sat.clauses.saturating_add(encoding.clauses);
+            let Some(assignment) = encoding.solve()? else {
+                search.state_sat.base_completions_unsat =
+                    search.state_sat.base_completions_unsat.saturating_add(1);
+                continue;
+            };
+            all_attempted_unsat = false;
+            search.state_sat.replay_events = search
+                .state_sat
+                .replay_events
+                .saturating_add(search.corpus.event_count);
+            let score = search.score_assignment_with_base(&assignment, &base, usize::MAX);
+            if score.mismatches != 0 || score.base.as_deref() != Some(base.as_slice()) {
+                return Err(LymmDeckError::HiddenBaseConfig {
+                    reason: "state-SAT model failed exact replay",
+                });
             }
-            None => {
-                search.state_sat.hypotheses_unsat =
-                    search.state_sat.hypotheses_unsat.saturating_add(1);
-            }
+            search.state_sat.exact_models = search.state_sat.exact_models.saturating_add(1);
+            search.record_score(&assignment, &score);
+            break;
+        }
+        if all_attempted_unsat && !cap_exhausted {
+            search.state_sat.hypotheses_unsat = search.state_sat.hypotheses_unsat.saturating_add(1);
+        }
+        if !all_attempted_unsat {
+            break;
         }
     }
     search.state_sat.elapsed = started.elapsed();
@@ -84,10 +105,8 @@ impl StateSatEncoding {
     fn new(
         search: &LocalSearch<'_>,
         hypothesis: &[Option<usize>],
+        base: &[usize],
     ) -> Result<Option<Self>, LymmDeckError> {
-        let Some(base) = representative_base(search, hypothesis) else {
-            return Ok(None);
-        };
         let mut encoding = Self {
             solver: BasicSolver::default(),
             selection: BTreeMap::new(),
@@ -111,7 +130,7 @@ impl StateSatEncoding {
             encoding.add_exactly_one(&literals);
             let _old = encoding.domains.insert(letter, candidates);
         }
-        let routes = encoding.add_letter_routes(search, &base, &letters)?;
+        let routes = encoding.add_letter_routes(search, base, &letters)?;
         encoding.add_message_states(search, &routes)?;
         Ok(Some(encoding))
     }
@@ -316,18 +335,101 @@ impl StateSatEncoding {
     }
 }
 
-fn representative_base(
+fn base_completions(
     search: &LocalSearch<'_>,
     hypothesis: &[Option<usize>],
-) -> Option<Vec<usize>> {
-    let mut assignment = vec![0; search.spec.pt_alphabet.len()];
-    for (letter, slot) in assignment.iter_mut().enumerate() {
-        *slot = search
-            .candidates_for_letter(letter, hypothesis)
-            .first()
-            .copied()?;
+    cap: usize,
+) -> Option<(Vec<Vec<usize>>, bool)> {
+    let mut partial = vec![None; search.config.n];
+    let mut value_owner = vec![None; search.config.n];
+    for (letter, target) in search.corpus.anchors.iter().copied().enumerate() {
+        let Some(target) = target else {
+            continue;
+        };
+        let source = hypothesis.get(letter).copied().flatten()?;
+        if source >= search.config.n || target >= search.config.n {
+            return None;
+        }
+        match partial.get_mut(source)? {
+            Some(existing) if *existing != target => return None,
+            Some(_existing) => {}
+            slot @ None => {
+                if value_owner.get(target).copied().flatten().is_some() {
+                    return None;
+                }
+                *slot = Some(target);
+                *value_owner.get_mut(target)? = Some(source);
+            }
+        }
     }
-    derive_base(search.config.n, search.corpus, search.domain, &assignment)
+    let positions = partial
+        .iter()
+        .enumerate()
+        .filter_map(|(position, value)| value.is_none().then_some(position))
+        .collect::<Vec<_>>();
+    let remaining = value_owner
+        .iter()
+        .enumerate()
+        .filter_map(|(value, owner)| owner.is_none().then_some(value))
+        .collect::<Vec<_>>();
+    enumerate_completions(&partial, &positions, remaining, cap)
+}
+
+fn enumerate_completions(
+    partial: &[Option<usize>],
+    positions: &[usize],
+    mut remaining: Vec<usize>,
+    cap: usize,
+) -> Option<(Vec<Vec<usize>>, bool)> {
+    if positions.len() != remaining.len() {
+        return None;
+    }
+    if cap == 0 {
+        return Some((Vec::new(), true));
+    }
+    let mut completions = Vec::new();
+    loop {
+        let mut base = partial.to_vec();
+        for (&position, &value) in positions.iter().zip(&remaining) {
+            *base.get_mut(position)? = Some(value);
+        }
+        completions.push(base.into_iter().collect::<Option<Vec<_>>>()?);
+        let has_more = next_permutation(&mut remaining);
+        if completions.len() == cap {
+            return Some((completions, has_more));
+        }
+        if !has_more {
+            return Some((completions, false));
+        }
+    }
+}
+
+fn next_permutation(values: &mut [usize]) -> bool {
+    let Some(pivot) = values.windows(2).rposition(|pair| {
+        pair.first()
+            .zip(pair.get(1))
+            .is_some_and(|(left, right)| left < right)
+    }) else {
+        return false;
+    };
+    let Some(&pivot_value) = values.get(pivot) else {
+        return false;
+    };
+    let Some(successor) = values
+        .iter()
+        .enumerate()
+        .skip(pivot.saturating_add(1))
+        .rfind(|(_index, value)| pivot_value < **value)
+        .map(|(index, _value)| index)
+    else {
+        return false;
+    };
+    values.swap(pivot, successor);
+    let Some(tail) = values.get_mut(pivot.saturating_add(1)..) else {
+        return false;
+    };
+    tail.reverse();
+    true
 }
 
 fn observed_letter_indices(search: &LocalSearch<'_>) -> Vec<usize> {

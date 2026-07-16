@@ -82,6 +82,9 @@ pub(super) fn run_local_search(
         prefix_cegar_total_budget_exhausted: search.prefix_cegar.total_budget_exhausted(config),
         state_sat_hypotheses_attempted: search.state_sat.hypotheses_attempted,
         state_sat_hypotheses_unsat: search.state_sat.hypotheses_unsat,
+        state_sat_base_completions_attempted: search.state_sat.base_completions_attempted,
+        state_sat_base_completions_unsat: search.state_sat.base_completions_unsat,
+        state_sat_base_completion_cap_exhausted: search.state_sat.base_completion_cap_exhausted,
         state_sat_exact_models: search.state_sat.exact_models,
         state_sat_variables: search.state_sat.variables,
         state_sat_clauses: search.state_sat.clauses,
@@ -503,14 +506,24 @@ impl<'a> LocalSearch<'a> {
         assignment: &[usize],
         stop_after_objective: usize,
     ) -> LocalScore {
-        self.candidate_evaluations = self.candidate_evaluations.saturating_add(1);
         let Some(base) = derive_base(self.config.n, self.corpus, self.domain, assignment) else {
+            self.candidate_evaluations = self.candidate_evaluations.saturating_add(1);
             return LocalScore {
                 objective: usize::MAX / 4,
                 mismatches: self.corpus.event_count.saturating_add(1),
                 base: None,
             };
         };
+        self.score_assignment_with_base(assignment, &base, stop_after_objective)
+    }
+
+    pub(super) fn score_assignment_with_base(
+        &mut self,
+        assignment: &[usize],
+        base: &[usize],
+        stop_after_objective: usize,
+    ) -> LocalScore {
+        self.candidate_evaluations = self.candidate_evaluations.saturating_add(1);
         let pair_penalty = pair_constraint_mismatches(self.corpus, self.domain, assignment);
         let weighted_pair_penalty = pair_penalty.saturating_mul(self.corpus.event_count.max(1));
         let mismatch_limit = stop_after_objective.saturating_sub(weighted_pair_penalty);
@@ -526,14 +539,14 @@ impl<'a> LocalSearch<'a> {
                     mismatches = mismatches.saturating_add(1);
                     continue;
                 };
-                apply_base_sigma(&base, &candidate.sigma, &state, &mut next);
+                apply_base_sigma(base, &candidate.sigma, &state, &mut next);
                 if next.first().copied() != Some(event.ct_value) {
                     mismatches = mismatches.saturating_add(1);
                     if mismatches > mismatch_limit {
                         return LocalScore {
                             objective: mismatches.saturating_add(weighted_pair_penalty),
                             mismatches,
-                            base: Some(base),
+                            base: Some(base.to_vec()),
                         };
                     }
                 }
@@ -543,7 +556,7 @@ impl<'a> LocalSearch<'a> {
         LocalScore {
             objective: mismatches.saturating_add(weighted_pair_penalty),
             mismatches,
-            base: Some(base),
+            base: Some(base.to_vec()),
         }
     }
 

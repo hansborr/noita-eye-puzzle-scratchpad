@@ -841,6 +841,51 @@ all existing controls remain unchanged. Record any development-only gain as a
 diagnostic. This rung addresses fixed-base incompleteness only; it does not
 repair plants whose top-source ranks fall outside 96.
 
+### Unresolved-base marginalization: implementation and open result (2026-07-15)
+
+The instrument now exposes `--state-sat-base-completion-cap`, defaulting to one
+for cap-one compatibility. For every retained top-source hypothesis it builds
+the partial base fixed by the identity-restart anchors, enumerates the remaining
+values lexicographically, and runs the unchanged exact state recurrence for each
+admitted completion. Reports now separate top-source hypotheses attempted and
+proved UNSAT from base completions attempted and proved UNSAT, plus hypotheses
+whose completion set exceeded the cap. An exact model is still accepted only
+after all `384/384` events replay under that specific completed base.
+
+The production-path regression uses development trial 0 at `n=8`: cap one
+exhausts all 96 top-source hypotheses without an exact key, while cap two finds
+the planted base at rank 47 after 93 UNSAT completions and exact replay. This
+also pins the reporting distinction: the cap-one run proves zero complete
+top-source hypotheses UNSAT because every one still has an unsearched second
+base completion.
+
+The already-open `...696e6701` development comparison passed the registered
+mechanism gate at both sizes:
+
+| `n` | completion cap | exact / 16 | planted / equivalent / ambiguous / miss | planted retained | null exact / 16 |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 8 | 1 (prior baseline) | `3` | `2 / 0 / 1 / 13` | `8/16` | `0` |
+| 8 | 2 | `8` | `7 / 0 / 1 / 8` | `8/16` | `0` |
+| 9 | 1 (prior baseline) | `1` | `1 / 0 / 0 / 15` | `6/16` | `0` |
+| 9 | 6 | `7` | `6 / 0 / 1 / 9` | `6/16` | `0` |
+
+At `n=8`, every retained plant now recovers; the five added exact results are
+the retained-plant misses diagnosed in the scaling audit. At `n=9`, all six
+retained plants now recover and one additional retained hypothesis supplies an
+exact equivalent-key ambiguity. Thus the fixed representative was exactly the
+within-beam obstruction on this development batch. The remaining eight and ten
+dropped plants are untouched; completion marginalization does not improve
+top-source ranking.
+
+The gain costs real work. Aggregate planted-leg release time rose from the
+cap-one scaling measurements of `25.659 s` and `46.441 s` to `33.771 s` and
+`124.771 s` at `n=8,9`; aggregate state-SAT time rose from `9.284 s` and
+`21.391 s` to `14.789 s` and `96.118 s`. These are descriptive local wall
+times, not stable benchmarks. Complete-set matched nulls remained non-exact in
+all 32 legs. This is development evidence only; the preregistered sealed
+`0x6261_7365_6d61_7267` holdout remains unopened, and the default remains one
+until its gate is decided.
+
 ### Pre-registered fourth-prefix triple-repair follow-up (2026-07-15, before runs)
 
 The next bounded change targets the five retained-plant development stalls with

@@ -36,7 +36,7 @@ pub(super) fn append_matched_null_surface(out: &mut String, trials: &[LocalTrial
     .expect("write to String");
     writeln!(
         out,
-        "matched null work: retained min/max={} state-sat-hypotheses min/max={} unsat min/max={} variables min/max={} clauses min/max={} replay-events min/max={} elapsed-total={}",
+        "matched null work: retained min/max={} state-sat-hypotheses min/max={} hypotheses-unsat min/max={} base-completions min/max={} completions-unsat min/max={} completion-cap-exhausted min/max={} variables min/max={} clauses min/max={} replay-events min/max={} elapsed-total={}",
         format_range(null_range(trials, |trial| {
             trial.report.top_source_hypotheses_retained
         })),
@@ -45,6 +45,15 @@ pub(super) fn append_matched_null_surface(out: &mut String, trials: &[LocalTrial
         })),
         format_range(null_range(trials, |trial| {
             trial.report.state_sat_hypotheses_unsat
+        })),
+        format_range(null_range(trials, |trial| {
+            trial.report.state_sat_base_completions_attempted
+        })),
+        format_range(null_range(trials, |trial| {
+            trial.report.state_sat_base_completions_unsat
+        })),
+        format_range(null_range(trials, |trial| {
+            trial.report.state_sat_base_completion_cap_exhausted
         })),
         format_range(null_range(trials, |trial| trial.report.state_sat_variables)),
         format_range(null_range(trials, |trial| trial.report.state_sat_clauses)),

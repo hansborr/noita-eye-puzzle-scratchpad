@@ -54,6 +54,7 @@ const DEFAULT_TRIPLE_MOVE_EVALUATION_CAP: usize = 0;
 const DEFAULT_TRIPLE_MOVE_TOTAL_EVALUATION_CAP: usize = 0;
 const DEFAULT_PREFIX_CEGAR_CAPS: (usize, usize) = (0, 0);
 const DEFAULT_STATE_SAT_HYPOTHESIS_CAP: usize = 96;
+const DEFAULT_STATE_SAT_BASE_COMPLETION_CAP: usize = 1;
 const DEFAULT_SEED: u64 = 0x6761_6b5f_6862_6c73;
 
 /// Generator family admitted by the hidden-base local solver.
@@ -118,6 +119,9 @@ pub struct HiddenBaseLocalSolverConfig {
     pub prefix_cegar_total_node_cap: usize,
     /// Maximum retained top-source hypotheses solved by exact state SAT.
     pub state_sat_hypothesis_cap: usize,
+    /// Maximum lexicographic hidden-base completions solved per retained
+    /// top-source hypothesis.
+    pub state_sat_base_completion_cap: usize,
 }
 
 impl HiddenBaseLocalSolverConfig {
@@ -143,6 +147,7 @@ impl HiddenBaseLocalSolverConfig {
             prefix_cegar_node_cap: DEFAULT_PREFIX_CEGAR_CAPS.0,
             prefix_cegar_total_node_cap: DEFAULT_PREFIX_CEGAR_CAPS.1,
             state_sat_hypothesis_cap: DEFAULT_STATE_SAT_HYPOTHESIS_CAP,
+            state_sat_base_completion_cap: DEFAULT_STATE_SAT_BASE_COMPLETION_CAP,
         }
     }
 
@@ -242,6 +247,14 @@ impl HiddenBaseLocalSolverConfig {
     #[must_use]
     pub const fn with_state_sat_hypothesis_cap(mut self, cap: usize) -> Self {
         self.state_sat_hypothesis_cap = cap;
+        self
+    }
+
+    /// Replaces the per-hypothesis hidden-base completion cap for exact state
+    /// SAT. One preserves the original deterministic representative behavior.
+    #[must_use]
+    pub const fn with_state_sat_base_completion_cap(mut self, cap: usize) -> Self {
+        self.state_sat_base_completion_cap = cap;
         self
     }
 }
@@ -359,6 +372,12 @@ pub struct HiddenBaseLocalRecoveryReport {
     pub state_sat_hypotheses_attempted: usize,
     /// Retained fixed-base hypotheses proved unsatisfiable by state SAT.
     pub state_sat_hypotheses_unsat: usize,
+    /// Distinct hidden-base completions opened by exact state SAT.
+    pub state_sat_base_completions_attempted: usize,
+    /// Hidden-base completions proved unsatisfiable by exact state SAT.
+    pub state_sat_base_completions_unsat: usize,
+    /// Retained hypotheses whose remaining base completions exceeded the cap.
+    pub state_sat_base_completion_cap_exhausted: usize,
     /// Exact state-SAT models accepted after complete replay.
     pub state_sat_exact_models: usize,
     /// SAT variables allocated across attempted fixed-base hypotheses.
@@ -511,6 +530,9 @@ fn recover_hidden_base_local_known_plaintext_inner(
         prefix_cegar_total_budget_exhausted: search.prefix_cegar_total_budget_exhausted,
         state_sat_hypotheses_attempted: search.state_sat_hypotheses_attempted,
         state_sat_hypotheses_unsat: search.state_sat_hypotheses_unsat,
+        state_sat_base_completions_attempted: search.state_sat_base_completions_attempted,
+        state_sat_base_completions_unsat: search.state_sat_base_completions_unsat,
+        state_sat_base_completion_cap_exhausted: search.state_sat_base_completion_cap_exhausted,
         state_sat_exact_models: search.state_sat_exact_models,
         state_sat_variables: search.state_sat_variables,
         state_sat_clauses: search.state_sat_clauses,

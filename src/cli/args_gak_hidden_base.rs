@@ -132,6 +132,9 @@ pub(crate) struct GakHiddenBaseLocalRecoverArgs {
     /// Maximum retained top-source hypotheses solved by exact state SAT.
     #[arg(long = "state-sat-hypothesis-cap", default_value_t = 96)]
     pub(crate) state_sat_hypothesis_cap: usize,
+    /// Maximum hidden-base completions solved per retained state-SAT hypothesis.
+    #[arg(long = "state-sat-base-completion-cap", default_value_t = 1)]
+    pub(crate) state_sat_base_completion_cap: usize,
     /// Rerun each fixture after a post-anchor swap of the first two ciphertext labels.
     #[arg(long = "matched-label-shuffle-null")]
     pub(crate) matched_label_shuffle_null: bool,

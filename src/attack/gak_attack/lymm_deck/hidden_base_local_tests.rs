@@ -167,6 +167,9 @@ fn state_sat_recovers_retained_weak_restart_positive() {
     );
     assert!(with_state_sat.best_round_trip.exact);
     assert_eq!(with_state_sat.state_sat_hypotheses_attempted, 1);
+    assert_eq!(with_state_sat.state_sat_base_completions_attempted, 1);
+    assert_eq!(with_state_sat.state_sat_base_completions_unsat, 0);
+    assert_eq!(with_state_sat.state_sat_base_completion_cap_exhausted, 0);
     assert_eq!(with_state_sat.state_sat_exact_models, 1);
     assert!(with_state_sat.state_sat_variables > 0);
     assert!(with_state_sat.state_sat_clauses > 0);
@@ -291,6 +294,62 @@ fn widened_state_sat_rejects_matched_ciphertext_label_shuffle() {
     assert_eq!(report.state_sat_hypotheses_attempted, 256);
     assert_eq!(report.state_sat_hypotheses_unsat, 256);
     assert_eq!(report.state_sat_exact_models, 0);
+}
+
+#[test]
+fn state_sat_second_base_completion_recovers_n8_positive() {
+    let fixture_seed = mix_seed(0x7363_616c_696e_6701, 0x6c73_7265_636f_7600);
+    let fixture = plant_hidden_base_fixture(&HiddenBaseFixtureConfig {
+        n: 8,
+        pt_alphabet: "ABCDEF".to_owned(),
+        swap_budget: 3,
+        message_count: 6,
+        message_len: 64,
+        seed: fixture_seed,
+        base_kind: HiddenBaseKind::Random,
+    })
+    .expect("n=8 completion-sensitive fixture");
+    let config = HiddenBaseLocalSolverConfig::top_card_swaps(8, "ABCDEF", 3)
+        .with_ct_alphabet(fixture.spec.ct_alphabet.iter().collect::<String>())
+        .with_seed(mix_seed(fixture_seed, 0x6c73_736f_6c76_6572))
+        .with_attempts(1)
+        .with_max_rounds(1)
+        .with_top_source_beam_width(96)
+        .with_joint_move_evaluation_cap(0)
+        .with_joint_move_total_evaluation_cap(0)
+        .with_state_sat_hypothesis_cap(96);
+
+    let cap_one = recover_hidden_base_local_known_plaintext_with_audit(
+        &config.clone().with_state_sat_base_completion_cap(1),
+        &fixture.pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("single representative completion");
+    let cap_two = recover_hidden_base_local_known_plaintext_with_audit(
+        &config.with_state_sat_base_completion_cap(2),
+        &fixture.pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("complete n=8 base marginalization");
+
+    assert_eq!(
+        cap_one.state,
+        HiddenBaseLocalRecoveryState::SearchCapExceeded
+    );
+    assert_eq!(cap_one.planted_top_source_hypothesis_rank, Some(47));
+    assert_eq!(cap_one.state_sat_base_completion_cap_exhausted, 96);
+    assert_eq!(cap_one.state_sat_hypotheses_unsat, 0);
+    assert_eq!(
+        cap_two.state,
+        HiddenBaseLocalRecoveryState::RecoveredPlantedBase
+    );
+    assert_eq!(cap_two.state_sat_hypotheses_attempted, 47);
+    assert_eq!(cap_two.state_sat_hypotheses_unsat, 46);
+    assert_eq!(cap_two.state_sat_base_completions_attempted, 94);
+    assert_eq!(cap_two.state_sat_base_completions_unsat, 93);
+    assert_eq!(cap_two.state_sat_base_completion_cap_exhausted, 0);
+    assert_eq!(cap_two.state_sat_exact_models, 1);
+    assert!(cap_two.best_round_trip.exact);
 }
 
 #[test]

@@ -197,6 +197,7 @@ fn solver_config_from_spec(
     .with_prefix_cegar_node_cap(args.prefix_cegar_node_cap)
     .with_prefix_cegar_total_node_cap(args.prefix_cegar_total_cap)
     .with_state_sat_hypothesis_cap(args.state_sat_hypothesis_cap)
+    .with_state_sat_base_completion_cap(args.state_sat_base_completion_cap)
 }
 
 #[derive(Clone, Debug)]
@@ -225,7 +226,7 @@ fn render_local_recovery_report(
         .unwrap_or_else(|| default_pt_alphabet(args.n));
     appendln!(
         &mut out,
-        "gak-hidden-base-local-recover: trials={} n={} s={} messages={}x{} base={} attempts={} max-rounds={} top-source-beam={} third-symbol-rank={} joint-move-order={} joint-move-cap={} joint-total-cap={} triple-move-cap={} triple-total-cap={} prefix-cegar-node-cap={} prefix-cegar-total-cap={} state-sat-hypothesis-cap={} matched-label-shuffle-null={}",
+        "gak-hidden-base-local-recover: trials={} n={} s={} messages={}x{} base={} attempts={} max-rounds={} top-source-beam={} third-symbol-rank={} joint-move-order={} joint-move-cap={} joint-total-cap={} triple-move-cap={} triple-total-cap={} prefix-cegar-node-cap={} prefix-cegar-total-cap={} state-sat-hypothesis-cap={} state-sat-base-completion-cap={} matched-label-shuffle-null={}",
         trials.len(),
         args.n,
         args.num_swaps,
@@ -244,6 +245,7 @@ fn render_local_recovery_report(
         args.prefix_cegar_node_cap,
         args.prefix_cegar_total_cap,
         args.state_sat_hypothesis_cap,
+        args.state_sat_base_completion_cap,
         args.matched_label_shuffle_null
     );
     appendln!(
@@ -450,11 +452,20 @@ fn append_local_work_surface(out: &mut String, trials: &[LocalTrialReport]) {
 fn append_state_sat_surface(out: &mut String, trials: &[LocalTrialReport]) {
     appendln!(
         out,
-        "state SAT: hypotheses-attempted min/max={} unsat min/max={} exact-models min/max={} variables min/max={} clauses min/max={} replay-events min/max={} elapsed-total={}",
+        "state SAT: hypotheses-attempted min/max={} hypotheses-unsat min/max={} base-completions-attempted min/max={} completions-unsat min/max={} completion-cap-exhausted min/max={} exact-models min/max={} variables min/max={} clauses min/max={} replay-events min/max={} elapsed-total={}",
         format_range(local_range(trials, |report| {
             report.state_sat_hypotheses_attempted
         })),
         format_range(local_range(trials, |report| report.state_sat_hypotheses_unsat)),
+        format_range(local_range(trials, |report| {
+            report.state_sat_base_completions_attempted
+        })),
+        format_range(local_range(trials, |report| {
+            report.state_sat_base_completions_unsat
+        })),
+        format_range(local_range(trials, |report| {
+            report.state_sat_base_completion_cap_exhausted
+        })),
         format_range(local_range(trials, |report| report.state_sat_exact_models)),
         format_range(local_range(trials, |report| report.state_sat_variables)),
         format_range(local_range(trials, |report| report.state_sat_clauses)),

@@ -1,12 +1,13 @@
 # Handoff - unknown-base GAK / deck-cipher recovery
 
-**Status:** tasks 01-03 built and calibrated. A preregistered fixed-evidence
-scaling rung measured exact recovery `15/16`, `3/16`, and `1/16` at
-`n=7,8,9` under the 96-state default; all matched nulls stayed non-exact. The
-larger-size failure combines top-source ranking loss with state SAT's single
-deterministic completion of base positions left unanchored.
-**Priority:** unresolved-base completion marginalization is preregistered as the
-next algebraic rung. Do not return to tuning the saturated `n=7` optimizer
+**Status:** tasks 01-03 built and calibrated. Unresolved-base completion
+marginalization raised the already-open `n=8,9` development rows from `3/16`
+and `1/16` to `8/16` and `7/16`, recovering every retained plant while all
+matched nulls stayed non-exact. The preregistered sealed holdout is still
+unopened, so the completion cap remains one by default.
+**Priority:** open the sealed completion-marginalization holdout only after the
+implementation and development result are committed. Do not tune the saturated
+`n=7` optimizer or the still-failing top-source ranker
 **Depends on:** `gak-swap-recovery/`, especially `gak-swap-recover` and
 `research/data/practice-puzzles/deck-swap/SWAP-RECOVERY-METHOD.md`
 
