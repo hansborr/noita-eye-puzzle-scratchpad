@@ -20,6 +20,7 @@ mod args_isomap;
 mod args_maskdecode;
 mod args_mdlcodec;
 mod args_pairclass;
+mod args_polyshift;
 mod args_predicates;
 mod args_rankcodec;
 mod args_rlcodec;

@@ -58,7 +58,10 @@ Notes:
   long-primer ciphertext-autokey (L=1..60); running-key two-stream beam is a weak,
   non-surviving positive (z≈2.4) on `five`. `seven`'s gap-40 `UXECHTINIT`-style framing was a red
   herring — its `five` analogue crosses a word boundary (continuous keystream, not a key
-  period). See `KEYSTREAM-RESULTS.md` for the full battery.
+  period). An exhaustive, control-gated degree-at-most-two position-polynomial
+  shift sweep (35,152 cells across additive + Beaufort readouts) is also negative
+  on all four; see `POLYSHIFT-RESULTS.md`. See `KEYSTREAM-RESULTS.md` for the
+  broader keystream battery.
 - The small-alphabet puzzles (`one`/`two`/`six`) cannot carry 26–29-letter English
   under a direct substitution; recovering them needs the codec/transduction
   (grouping) layer. `six`'s preserved spaces make it the clearest

@@ -28,6 +28,7 @@ use super::args_isomap::IsomapArgs;
 use super::args_maskdecode::MaskdecodeArgs;
 use super::args_mdlcodec::MdlcodecArgs;
 use super::args_pairclass::PairclassArgs;
+use super::args_polyshift::PolyshiftArgs;
 use super::args_predicates::PredscanArgs;
 use super::args_rankcodec::RankcodecArgs;
 use super::args_rlcodec::RlcodecArgs;
@@ -174,6 +175,11 @@ pub(crate) enum Command {
     /// direction-shuffle walks. With no input flags, runs practice puzzle `six`.
     #[command(name = "cubemorse", alias = "cube-morse")]
     Cubemorse(CubeMorseArgs),
+    /// Exhaustive position-polynomial shift attack over `A..Z`. Searches linear
+    /// or quadratic Caesar/Beaufort keystreams, proves exact replay, and gates
+    /// the selected maximum against a matched max-over-family shuffle null.
+    #[command(name = "polyshift", alias = "poly-shift")]
+    Polyshift(PolyshiftArgs),
     /// Crib-synchronous MDL-like affine running-key codec search for `one`'s
     /// run-length carrier. It selects a shortest crib-consistent candidate under a
     /// post-selection crib-pinned null; emitted-symbol-history codecs are out of

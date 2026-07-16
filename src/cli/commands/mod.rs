@@ -26,6 +26,7 @@ mod maskdecode;
 mod mdlcodec;
 mod misc;
 mod pairclass;
+mod polyshift;
 mod predscan;
 mod ragbaby;
 mod rankcodec;
@@ -60,6 +61,7 @@ pub(crate) use misc::{
     run_controls, run_demo, run_grouping, run_orders, run_pipelinenull, run_stats,
 };
 pub(crate) use pairclass::run_pairclass;
+pub(crate) use polyshift::run_polyshift;
 pub(crate) use predscan::run_predscan;
 pub(crate) use ragbaby::run_ragbaby;
 pub(crate) use rankcodec::run_rankcodec;

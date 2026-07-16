@@ -28,6 +28,9 @@ lead as one pass.
 - The letter puzzles (`three/four/five/seven`) are aperiodic-polyalphabetic; mono /
   periodic / keyword-Ragbaby / general-Ragbaby / long-primer CT-autokey are ruled out
   (`KEYSTREAM-RESULTS.md`, `RAGBABY-RESULTS.md`).
+- Degree-at-most-two position-polynomial shifts modulo 26 are now exhaustively
+  negative across additive and Beaufort readouts, behind a passing recovery
+  control and matched max-over-family null (`POLYSHIFT-RESULTS.md`, `polyshift`).
 
 ## Remaining low-value leads (each: split before starting; honesty-gated)
 1. **Running-key two-stream beam on `five`** (the lone z≈2.4 battery signal; never

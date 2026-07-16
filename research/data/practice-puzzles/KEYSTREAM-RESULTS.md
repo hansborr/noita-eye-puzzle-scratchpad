@@ -112,6 +112,10 @@ controls that cleanly recover the plant).
   excluded a priori — Bifid fixes 1-letter words but English 1-letter words are a/I).
 - **Long-primer ciphertext-autokey** — the key-independent leak `p_i = c_i − c_{i−L}`
   checked exhaustively for L=1..60, three sign conventions: nothing English.
+- **Degree-at-most-two position-polynomial shifts** — follow-up `polyshift`
+  exhaustively checks 35,152 additive/Beaufort cells with exact replay, a passing
+  plant, and a matched max-over-family shuffle null. All four puzzles remain at
+  the null floor; see `POLYSHIFT-RESULTS.md`.
 
 **Weak / inconclusive:**
 - **Running-key** two-stream beam on `five` (joint quadgram of plaintext + key):

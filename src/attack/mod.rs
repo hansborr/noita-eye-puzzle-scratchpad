@@ -38,6 +38,8 @@
 //! - [`ragbaby`]: general (non-keyword) Ragbaby keyed-alphabet cracker with a
 //!   simulated-annealing search, quadgram scoring, a planted-recovery positive
 //!   control, and a matched-null/held-out survival gate.
+//! - [`polyshift`]: exhaustive linear/quadratic position-keyed shifts, with
+//!   planted recovery, exact replay, and a matched shuffle null.
 //! - [`rankcodec`]: bounded-order predictive-rank codec analysis for `one`'s
 //!   run-length magnitude carrier, with feasibility and crib-consistency as the
 //!   primary discriminators and the underpowered quadgram gate as tertiary.
@@ -71,6 +73,7 @@ pub mod language;
 pub mod maskdecode;
 pub mod mdlcodec;
 pub mod pairclass;
+pub mod polyshift;
 pub mod profile;
 pub mod quadgram;
 pub mod ragbaby;

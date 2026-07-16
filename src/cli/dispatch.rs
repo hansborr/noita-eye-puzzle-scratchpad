@@ -23,9 +23,9 @@ use super::commands::{
     run_gak_hidden_base_local_recover, run_gak_hidden_base_s1_recover, run_gak_swap_arc_phase0,
     run_gak_swap_recover, run_grouping, run_groupscan, run_isomap, run_isomorphimperf,
     run_isomorphnull, run_isoscan, run_keydiff, run_keystream, run_leakceiling, run_maskdecode,
-    run_mdlcodec, run_orders, run_pairclass, run_perfectiso, run_pipelinenull, run_predscan,
-    run_profile, run_ragbaby, run_rankcodec, run_rlcodec, run_shadowfinish, run_shadowpairic,
-    run_shadowsearch, run_solve, run_stats, run_substfinish,
+    run_mdlcodec, run_orders, run_pairclass, run_perfectiso, run_pipelinenull, run_polyshift,
+    run_predscan, run_profile, run_ragbaby, run_rankcodec, run_rlcodec, run_shadowfinish,
+    run_shadowpairic, run_shadowsearch, run_solve, run_stats, run_substfinish,
 };
 
 /// Outcome of one experiment run, ready for the thin CLI to emit.
@@ -111,6 +111,7 @@ pub(crate) fn run() -> ExitCode {
         Command::Rankcodec(args) => run_rankcodec(&args),
         Command::Maskdecode(args) => run_maskdecode(&args),
         Command::Cubemorse(args) => run_cubemorse(&args),
+        Command::Polyshift(args) => run_polyshift(&args),
         Command::Mdlcodec(args) => run_mdlcodec(&args),
         Command::Pairclass(args) => run_pairclass(&args),
         Command::Groupscan(args) => run_groupscan(&args),
