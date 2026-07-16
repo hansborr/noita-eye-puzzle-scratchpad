@@ -699,6 +699,69 @@ claim and does not justify a new default. Any miss beyond rank 256 would still
 be `SearchCapExceeded`; this remains synthetic known-plaintext recovery for one
 small top-swap family, not an eyes bridge.
 
+### Pre-registered deck-size scaling rung (2026-07-15, before implementation or runs)
+
+The `n=7` fixture family is now saturated: exact state SAT solved every retained
+planted hypothesis in its sealed holdout, and optional 256-state retention
+closed the three already-open beam misses without producing a fresh holdout
+gain. The next experiment changes deck size rather than tuning that optimizer.
+It keeps the top-card-swap generator family fixed so any observed degradation
+can be attributed to the larger hidden-base/top-source surface, not to a
+simultaneous generator-model change.
+
+One new prospective 16-trial batch uses top-level seed
+`0x7363_616c_696e_6701`. Its xor difference from every earlier weak-restart
+top-level seed is greater than `0x0f`, so the trial-mixer input sets are
+disjoint for indices `0..16`. No fixture, rank, recovery, or null outcome from
+this seed will be inspected before this registration is committed. The same
+trial indices are used at all deck sizes as a deterministic paired schedule;
+changing `n` changes the generated permutations, so this pairing controls the
+random stream but does not make the planted keys isomorphic.
+
+The frozen sizes are `n in {7, 8, 9}`. Every row keeps `s=3`, observed plaintext
+alphabet `ABCDEF`, six identity-restart messages of 64 events, random hidden
+bases, 96 local attempts, 18 rounds, third-symbol arc ranking, hybrid pair caps
+`4096/393216`, and triple/prefix-CEGAR caps zero. Holding the six-letter key and
+384 observed events fixed isolates deck-size scaling: the larger rows add
+hidden deck positions and enlarge each letter's admitted top-swap domain, but
+do not receive more plaintext letters, restarts, or ciphertext evidence.
+
+For each size, the frozen comparison is:
+
+1. landed retention 96 and exact state-SAT cap 96;
+2. optional retention 256 and exact state-SAT cap 256, while local attempts
+   remain 96.
+
+The CLI instrument will first gain an optional matched-null leg that applies a
+deterministic ciphertext-label transposition after each message's first symbol,
+preserving the first-symbol anchors so the null exercises the same top-source
+and state-SAT surfaces instead of failing at input construction. Each planted
+trial and its transformed null will be attacked with the identical solver
+configuration. This is a destructive model check, not a probability-calibrated
+null distribution: the required contrast is exact recovery on plants and no
+exact re-encrypting key on transformed streams within the same bounded search.
+The existing planted, label-shuffle, and over-budget controls must also continue
+to pass.
+
+Primary results are exact recoveries out of 16 at each `(n, cap)` cell, split
+into planted, equivalent, ambiguous, and `SearchCapExceeded` states. Report the
+same classifications for the matched-null legs; any exact null recovery is a
+failed contrast and must be investigated rather than discarded. Secondary
+diagnostics are planted-hypothesis rank/retention, sigma-domain size,
+top-source expanded/pruned/dropped states, joint replay work, state-SAT
+hypotheses/UNSAT counts, variables, clauses, replay work, and release elapsed
+time. Exact complete replay remains the only acceptance condition.
+
+This rung supports a narrow "useful beyond `n=7`" claim only if the landed
+96-state row recovers at least `12/16` plants at both `n=8` and `n=9`, no
+matched-null leg recovers exactly, and the existing controls pass. The `12/16`
+bar is fixed as a coarse minimum useful-yield threshold, not a confidence bound.
+The 256-state row is reported as the already-declared optional recovery/cost
+tradeoff; this scaling run cannot retroactively promote it after its fresh
+`n=7` holdout tie. Whatever the outcome, it generalizes only the measured
+known-plaintext top-swap surface. It does not cover arbitrary GAK generator
+families and does not supply the known plaintext missing from the eyes.
+
 ### Pre-registered fourth-prefix triple-repair follow-up (2026-07-15, before runs)
 
 The next bounded change targets the five retained-plant development stalls with
