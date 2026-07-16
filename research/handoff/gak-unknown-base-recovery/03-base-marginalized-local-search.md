@@ -1,12 +1,11 @@
 # 03 - base-marginalized local recovery, `s = 2..3`
 
 **Status:** bounded instrument, top-source CSP/beam, local neighborhoods, prefix
-CEGAR, and exact state SAT built; broader and seed-set-disjoint calibrations
-measured through 2026-07-15. Exact state SAT improved both development and its
-sealed holdout and is enabled over the retained 96 hypotheses. A decoupled
-256-state beam closed three already-open misses but tied 16/16 on a fresh
-holdout, so it remains optional; earlier triple and CEGAR fallbacks remain
-disabled.
+CEGAR, and exact state SAT built. A preregistered fixed-evidence scaling rung
+measured `15/16`, `3/16`, and `1/16` exact recovery at `n=7,8,9` under the
+96-state default; all matched nulls stayed non-exact. The larger-size failure
+exposes both ranking loss and fixed representative-base incompleteness.
+Unresolved-base completion marginalization is preregistered next.
 
 ## Scope
 
@@ -761,6 +760,86 @@ tradeoff; this scaling run cannot retroactively promote it after its fresh
 `n=7` holdout tie. Whatever the outcome, it generalizes only the measured
 known-plaintext top-swap surface. It does not cover arbitrary GAK generator
 families and does not supply the known plaintext missing from the eyes.
+
+### Deck-size scaling result (2026-07-15)
+
+After commits `1cbd8ff` and `e25d95f` froze the design and matched-null
+instrument, the prospective `...696e6701` batch was opened under all six
+registered cells. Every accepted plant re-encrypts all `384/384` events. All
+other plant states are bounded `SearchCapExceeded` outcomes, and none of the 96
+post-anchor label-shuffle null legs found an exact key.
+
+| `n` | retention / SAT cap | exact / 16 | planted / equivalent / ambiguous / miss | planted retained | planted-rank range | null exact / 16 |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 7 | `96 / 96` | `15` | `7 / 0 / 8 / 1` | `14/16` | `1..166` | `0` |
+| 7 | `256 / 256` | `16` | `8 / 0 / 8 / 0` | `16/16` | `1..166` | `0` |
+| 8 | `96 / 96` | `3` | `2 / 0 / 1 / 13` | `8/16` | `3..761` | `0` |
+| 8 | `256 / 256` | `4` | `3 / 0 / 1 / 12` | `9/16` | `3..761` | `0` |
+| 9 | `96 / 96` | `1` | `1 / 0 / 0 / 15` | `6/16` | `5..9454` | `0` |
+| 9 | `256 / 256` | `1` | `1 / 0 / 0 / 15` | `7/16` | `5..9454` | `0` |
+
+The preregistered useful-scaling bar failed decisively: the default row required
+at least `12/16` at both larger sizes and measured `3/16` and `1/16`. Widening
+retention was not a remedy. It recovered the `n=7` rank-98 plant and one `n=8`
+rank-170 plant, but supplied no `n=9` gain. The top-swap sigma domain grew from
+`172` at `n=7` to `281` and `429`; maximum planted rank grew much faster, from
+`166` to `761` and `9454`.
+
+The run exposes a second, distinct scaling obstruction. Six first-symbol
+anchors determine six base images. At `n=7`, permutation bijectivity forces the
+only remaining image, so the solver's deterministic representative base is the
+only completion. At `n=8` and `n=9`, two and three base positions remain,
+leaving `2!` and `3!` completions, while exact state SAT currently encodes only
+one. On the 256-state rows, nine `n=8` and seven `n=9` planted top-source
+hypotheses survived, but only four and one exact keys were recovered. Thus beam
+ranking explains the dropped plants, while fixed representative-base SAT
+explains at least five and six retained-plant misses. An UNSAT result for that
+one completion is not an UNSAT result for the retained top-source hypothesis.
+
+The larger cells also cost more despite recovering less. At cap 96, aggregate
+release time for the planted legs rose from `7.343 s` (`n=7`) to `25.659 s` and
+`46.441 s`; aggregate state-SAT time rose from `0.499 s` to `9.284 s` and
+`21.391 s`. At cap 256, planted-leg time was `7.961 s`, `43.803 s`, and
+`65.557 s`. These are descriptive local wall times, not stable benchmarks.
+The matched null changed `69..119` non-anchor symbols per trial across sizes;
+all 96 null legs remained bounded misses while using the identical solver caps.
+
+This is an honest negative for scaling the current fixed-representative method,
+not for unknown-base recovery in general. It retracts any implication that the
+`n=7` state-SAT success generalized to even `n=8`. It also identifies a bounded
+next algebraic rung: marginalize the unresolved base completions inside each
+retained top-source hypothesis before revisiting the much wider ranking problem.
+
+### Pre-registered unresolved-base marginalization (2026-07-15, before implementation or runs)
+
+The next change will make exact state SAT enumerate lexicographically distinct
+completions of the base positions not fixed by first-symbol anchors. It will not
+change top-source ranking, local attempts, sigma domains, or exact-replay
+acceptance. A new `state_sat_base_completion_cap` will bound completions per
+retained hypothesis and default to one until the holdout gate is decided.
+Reports will separate top-source hypotheses attempted/proved UNSAT from base
+completions attempted/proved UNSAT and cap exhaustion. Exhausting all
+completions can prove one retained hypothesis UNSAT; the upstream beam remains
+bounded, so a complete run is still not an exhaustive unknown-base solver.
+
+The already-open `...696e6701` scaling batch is development evidence. Frozen
+development rows keep the 96-state beam/SAT cap and compare completion cap one
+against cap two at `n=8` and cap six at `n=9`. The mechanism gate is at least
+one exact recovery among retained-plant misses at each size. A new sealed
+16-trial holdout uses top-level seed `0x6261_7365_6d61_7267`; its xor difference
+from all earlier scaling and weak-restart seeds is greater than `0x0f`, so its
+trial-mixer inputs are disjoint for indices `0..16`. It will remain unopened
+until enumeration, accounting, cap-one regression, production-path tests,
+matched null, and the open comparison are committed.
+
+Holdout rows use the same `ABCDEF`, `s=3`, `6x64`, random-base, 96-attempt,
+18-round, hybrid-pair `4096/393216`, and disabled triple/CEGAR surface. At each
+larger size compare completion cap one with the complete small completion set:
+two at `n=8`, six at `n=9`. Promote a larger default only if exact recovery
+improves at both sizes on the sealed holdout, no matched-null leg recovers, and
+all existing controls remain unchanged. Record any development-only gain as a
+diagnostic. This rung addresses fixed-base incompleteness only; it does not
+repair plants whose top-source ranks fall outside 96.
 
 ### Pre-registered fourth-prefix triple-repair follow-up (2026-07-15, before runs)
 

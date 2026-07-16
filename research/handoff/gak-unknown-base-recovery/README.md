@@ -1,14 +1,12 @@
 # Handoff - unknown-base GAK / deck-cipher recovery
 
-**Status:** tasks 01-03 built and calibrated; exact state SAT over retained
-top-source hypotheses improved `n=7`, `s=3` recovery on both development and a
-seed-set-disjoint holdout and is enabled at cap 96. Decoupled 256-state
-retention closed three already-open beam misses but tied `16/16` on a fresh
-holdout, so it remains optional. Earlier triple and CEGAR fallbacks remain
-disabled.
-**Priority:** reference implementation; stop tuning this `n=7` fixture family.
-The next distinct rung, if requested, is a pre-registered scaling/general-family
-test rather than another optimizer on the same surface
+**Status:** tasks 01-03 built and calibrated. A preregistered fixed-evidence
+scaling rung measured exact recovery `15/16`, `3/16`, and `1/16` at
+`n=7,8,9` under the 96-state default; all matched nulls stayed non-exact. The
+larger-size failure combines top-source ranking loss with state SAT's single
+deterministic completion of base positions left unanchored.
+**Priority:** unresolved-base completion marginalization is preregistered as the
+next algebraic rung. Do not return to tuning the saturated `n=7` optimizer
 **Depends on:** `gak-swap-recovery/`, especially `gak-swap-recover` and
 `research/data/practice-puzzles/deck-swap/SWAP-RECOVERY-METHOD.md`
 

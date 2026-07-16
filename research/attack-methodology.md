@@ -362,3 +362,27 @@ row found equivalent exact keys even when two planted hypotheses were dropped.
 Keep the wider path as an instrument, but do not promote a development-only cap
 increase. Planted-key retention is diagnostic evidence, not itself the success
 criterion when equivalent re-encrypting keys are allowed.
+
+## 21. Scale the nuisance degrees of freedom, not only the headline parameter
+
+A solver can look exact at one small size because a nuisance parameter has
+silently collapsed to a singleton. In hidden-base GAK recovery, six
+identity-restart anchors plus permutation bijectivity determine the complete
+base at `n=7`: six images are observed and the seventh is forced. The same six
+anchors leave `2!` base completions at `n=8` and `3!` at `n=9`, but the first
+state-SAT implementation encoded only one deterministic representative.
+
+A preregistered fixed-evidence scaling run exposed the cliff immediately.
+Default-cap exact recovery fell from `15/16` at `n=7` to `3/16` and `1/16`, and
+a 256-state beam improved those larger rows only to `4/16` and `1/16`. This was
+not merely ranking: nine and seven planted top-source hypotheses survived the
+wider beams, while only four and one exact keys were recovered. The solver was
+often proving the chosen completion UNSAT, not the retained hypothesis UNSAT.
+
+When scaling a controlled attack, count unresolved nuisance assignments after
+every constraint stage. Keep evidence and observed-key size fixed when the goal
+is to isolate deck-size scaling, and report both upstream retention and
+downstream completeness. A perfect small-size result is weak evidence when a
+factorial term happens to equal `1!`; the next honest rung is to marginalize
+that term under an explicit cap. Demonstrated:
+`handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`.

@@ -25,11 +25,11 @@ anchor. The harden-and-publish cycle is now complete: the transcription
 robustness certificates landed, and the publishable structural summary is in
 `research/findings/eyes-structural-summary.md`. The remaining useful work is
 mostly external-anchor documentation plus optional formalization; broad decode
-search is not the next move. The separate smaller-GAK/deck proving ground has
-now removed the public-base assumption at `n=7`: exact state SAT plus an
-optional 256-state beam recovered all 64 observed fixtures. The wider beam's
-gains were development-only, so defaults remain 96 and this fixture family
-should not receive another tuned optimizer.
+search is not the next move. The separate smaller-GAK/deck proving ground
+removed the public-base assumption at `n=7`, then tested scaling honestly:
+fixed-evidence exact recovery fell to `3/16` at `n=8` and `1/16` at `n=9`.
+The next rung is explicit unresolved-base completion marginalization, not
+another tuned `n=7` optimizer.
 
 ## House rules (read before any task)
 
