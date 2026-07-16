@@ -123,10 +123,12 @@ With only one observed letter, the base is not identifiable: every reachable
   `n in {7,11,17}` style surfaces. It should not be generalized to arbitrary GAK
   generators, larger `n`, or the real eyes.
 
-## Next Rung
+## Next Rung (completed)
 
-Task 02 should consume this fixture/audit surface but add a real
-known-plaintext unknown-base solver for `s=1`. The output should still distinguish
+Task 02 consumed this fixture/audit surface and added a real known-plaintext
+unknown-base solver for `s=1`; see
+[`02-known-plaintext-s1-recovery.md`](02-known-plaintext-s1-recovery.md). Its
+output distinguishes
 `RecoveredPlantedBase`, `RecoveredEquivalentKey`, `AmbiguousEquivalentClass`,
 `NoCandidate`, and `SearchCapExceeded`, and exact re-encryption must remain the
 acceptance oracle.

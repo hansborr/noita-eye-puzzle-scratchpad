@@ -155,9 +155,10 @@ Interpretation:
 - The solver supports only the top-card-swap family at `s=1`.
 - No eyes corpus and no language-scored ciphertext-only attack was run.
 
-## Next Rung
+## Next Rung (completed)
 
-Task 03 should use this exact-acceptance baseline to evaluate a
-base-marginalized or substitution-first method for `s=2..3`, with the same
-distinction between planted-base recovery, equivalent exact keys, ambiguity, and
-search limits.
+Task 03 used this exact-acceptance baseline to build and calibrate a
+base-marginalized substitution-first method for `s=2..3`; see
+[`03-base-marginalized-local-search.md`](03-base-marginalized-local-search.md).
+It preserves the distinction between planted-base recovery, equivalent exact
+keys, ambiguity, and search limits.

@@ -8,9 +8,15 @@ non-exact, so completion cap six is now the default.
 **Priority:** the measured bottleneck is top-source ranking, but do not tune it
 post hoc on these open fixtures. A new ranker needs a distinct preregistered
 algebraic feature and fresh holdout; this remains known-plaintext small-deck
-tooling, not an eyes attack
+tooling, not an eyes attack.
 **Depends on:** `gak-swap-recovery/`, especially `gak-swap-recover` and
 `research/data/practice-puzzles/deck-swap/SWAP-RECOVERY-METHOD.md`
+
+> **Reading note:** the implementation ladder below preserves the experiment
+> sequence. Its interim “next” statements describe what followed at that point
+> and are not a live work queue. Do not restart `n=7` refinement or deck-size
+> scaling; the current result is the
+> [replicated base-marginalization holdout](03-base-marginalized-local-search.md#unresolved-base-marginalization-holdout-result-2026-07-15).
 
 ## Mission
 
@@ -72,7 +78,7 @@ shared base action is hidden.
 - Do not generalize a top-swap result to arbitrary GAK. Report the measured
   model surface and its limits.
 
-## Suggested Implementation Ladder
+## Completed Implementation Ladder
 
 ### 01 - Hidden-base fixture and identifiability audit
 

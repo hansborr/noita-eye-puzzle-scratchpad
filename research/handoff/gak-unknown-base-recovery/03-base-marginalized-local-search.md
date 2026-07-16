@@ -1,11 +1,13 @@
 # 03 - base-marginalized local recovery, `s = 2..3`
 
-**Status:** bounded instrument, top-source CSP/beam, local neighborhoods, prefix
-CEGAR, and exact state SAT built. A preregistered fixed-evidence scaling rung
-measured `15/16`, `3/16`, and `1/16` exact recovery at `n=7,8,9` under the
-96-state default; all matched nulls stayed non-exact. The larger-size failure
-exposes both ranking loss and fixed representative-base incompleteness.
-Unresolved-base completion marginalization is preregistered next.
+> **Current status (supersedes interim “next” statements below):** bounded
+> recovery, exact state SAT, and deck-size scaling are complete. Preregistered
+> unresolved-base completion marginalization replicated at `n=8,9`, recovered
+> every retained plant on the measured development and holdout batches, and
+> left all matched nulls non-exact. Completion cap six is now the default. The
+> measured bottleneck is top-source ranking; do not restart `n=7` refinement or
+> the completed scaling rung. See the
+> [authoritative holdout result](#unresolved-base-marginalization-holdout-result-2026-07-15).
 
 ## Scope
 

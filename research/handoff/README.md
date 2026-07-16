@@ -98,9 +98,12 @@ known-plaintext community tooling, not an eyes decode bridge.
 
 **Tier 2A — active community-infrastructure frontier: Lymm's general-GAK interest.**
 - `gak-unknown-base-recovery/` — unknown-base known-plaintext GAK/deck recovery
-  on small planted instances is built and holdout-calibrated. Exact state SAT
-  and optional 256-state retention now saturate the observed `n=7` fixtures;
-  the next distinct rung is scaling or generator-family breadth, if requested.
+  on small planted instances is built, scaled through `n=9`, and
+  holdout-calibrated. Complete small base-completion sets recover every retained
+  plant on the measured `n=8,9` batches; top-source ranking remains the measured
+  bottleneck. Do not repeat `n=7` refinement or scaling. A further ranker would
+  need a distinct preregistered algebraic feature and fresh holdout;
+  generator-family breadth remains a separate optional direction.
 
 **Tier 2B — eyes-specific remaining work: the standing unblocker + optional formalization.**
 - `T11` — external-anchor hunt (the only real decode-unblocker; mostly
