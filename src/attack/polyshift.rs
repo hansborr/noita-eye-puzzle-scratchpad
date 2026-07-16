@@ -343,6 +343,7 @@ const CONTROL_TEXT: &str = "the quick brown fox jumps over the lazy dog while th
 mod tests {
     use super::{DEFAULT_SEED, PolyshiftError, analyze, planted_control};
     use crate::attack::quadgram::QuadgramModel;
+    use crate::nulls::null::SplitMix64;
 
     #[test]
     fn planted_degree_two_cipher_is_recovered_and_gated() {
@@ -357,8 +358,9 @@ mod tests {
     #[test]
     fn noise_does_not_survive() {
         let model = QuadgramModel::english().unwrap();
-        let noise = (0_usize..180)
-            .map(|index| u8::try_from((index * 17 + 3) % 26).unwrap_or(0))
+        let mut rng = SplitMix64::new(0x6e6f_6973_6500_0001);
+        let noise = (0..180)
+            .map(|_index| u8::try_from(rng.next_u64() % 26).unwrap_or(0))
             .collect::<Vec<_>>();
         let report = analyze(&noise, 2, 8, DEFAULT_SEED, &model).unwrap();
         assert!(!report.survives);
