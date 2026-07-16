@@ -26,10 +26,11 @@ robustness certificates landed, and the publishable structural summary is in
 `research/findings/eyes-structural-summary.md`. The remaining useful work is
 mostly external-anchor documentation plus optional formalization; broad decode
 search is not the next move. The separate smaller-GAK/deck proving ground
-removed the public-base assumption at `n=7`, then tested scaling honestly:
-fixed-evidence exact recovery fell to `3/16` at `n=8` and `1/16` at `n=9`.
-The next rung is explicit unresolved-base completion marginalization, not
-another tuned `n=7` optimizer.
+removed the public-base assumption at `n=7`, exposed a scaling cliff, and then
+replicated the diagnosed unresolved-base completion fix at `n=8,9`. Every
+retained plant now recovers on the measured development and holdout batches;
+top-source ranking still drops over half the larger-deck plants. This remains
+known-plaintext community tooling, not an eyes decode bridge.
 
 ## House rules (read before any task)
 

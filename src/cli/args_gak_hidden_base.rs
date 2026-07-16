@@ -133,7 +133,7 @@ pub(crate) struct GakHiddenBaseLocalRecoverArgs {
     #[arg(long = "state-sat-hypothesis-cap", default_value_t = 96)]
     pub(crate) state_sat_hypothesis_cap: usize,
     /// Maximum hidden-base completions solved per retained state-SAT hypothesis.
-    #[arg(long = "state-sat-base-completion-cap", default_value_t = 1)]
+    #[arg(long = "state-sat-base-completion-cap", default_value_t = 6)]
     pub(crate) state_sat_base_completion_cap: usize,
     /// Rerun each fixture after a post-anchor swap of the first two ciphertext labels.
     #[arg(long = "matched-label-shuffle-null")]

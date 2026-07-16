@@ -886,6 +886,47 @@ all 32 legs. This is development evidence only; the preregistered sealed
 `0x6261_7365_6d61_7267` holdout remains unopened, and the default remains one
 until its gate is decided.
 
+### Unresolved-base marginalization holdout result (2026-07-15)
+
+The sealed `0x6261_7365_6d61_7267` batch was opened only after commit
+`ea072ec` fixed enumeration, accounting, the cap-one regression, production
+tests, matched null, and the development result. The preregistered comparison
+replicated at both sizes:
+
+| `n` | completion cap | exact / 16 | planted / equivalent / ambiguous / miss | planted retained | null exact / 16 |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 8 | 1 | `6` | `3 / 0 / 3 / 10` | `9/16` | `0` |
+| 8 | 2 | `9` | `5 / 0 / 4 / 7` | `9/16` | `0` |
+| 9 | 1 | `2` | `2 / 0 / 0 / 14` | `6/16` | `0` |
+| 9 | 6 | `6` | `5 / 0 / 1 / 10` | `6/16` | `0` |
+
+The complete small completion sets recovered every retained plant in both
+holdout rows. At `n=8`, the three added exact keys came from retained ranks 1,
+26, and 12. At `n=9`, the four additions came from retained ranks 10, 27, 18,
+and 11. The rank-18 result is an exact equivalent-key ambiguity rather than the
+planted representative; exact re-encryption, not planted-key identity, remains
+the acceptance criterion. Across development plus holdout, cap-one recovery is
+`12/64` and complete-set recovery is `30/64`; all 64 complete-set matched-null
+legs are non-exact. Completion marginalization recovers all 29 retained plants,
+with one additional equivalent exact key, while 35 plants remain outside the
+96-state beam.
+
+The result passes the registered promotion gate, so the base-completion cap is
+now six by default. That is exhaustive for the `1!`, `2!`, and `3!` completion
+sets measured through `n=9`; it remains only a six-completion bound at larger
+sizes. Runtime again shows the tradeoff. On the holdout planted legs, aggregate
+release/state-SAT time changed from `31.389/9.094 s` to `32.671/12.390 s` at
+`n=8`, and from `46.062/19.914 s` to `109.894/85.780 s` at `n=9`. The matched
+null aggregate runtime at `n=9` rose from `49.601 s` to `151.175 s`. These are
+descriptive local wall times, not stable benchmarks.
+
+This is replicated progress on smaller known-plaintext top-swap GAK recovery,
+not an eyes decode bridge. It removes deterministic base completion as the
+within-beam failure on the measured surface. The dominant measured obstruction
+is now top-source ranking, and the real eyes additionally lack known plaintext
+and have `n=83`, where six anchors would leave `77!` base completions. No result
+here licenses a ciphertext-only language search or a claim about eye plaintext.
+
 ### Pre-registered fourth-prefix triple-repair follow-up (2026-07-15, before runs)
 
 The next bounded change targets the five retained-plant development stalls with

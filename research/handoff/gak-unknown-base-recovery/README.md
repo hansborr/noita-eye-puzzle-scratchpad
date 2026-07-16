@@ -1,13 +1,14 @@
 # Handoff - unknown-base GAK / deck-cipher recovery
 
 **Status:** tasks 01-03 built and calibrated. Unresolved-base completion
-marginalization raised the already-open `n=8,9` development rows from `3/16`
-and `1/16` to `8/16` and `7/16`, recovering every retained plant while all
-matched nulls stayed non-exact. The preregistered sealed holdout is still
-unopened, so the completion cap remains one by default.
-**Priority:** open the sealed completion-marginalization holdout only after the
-implementation and development result are committed. Do not tune the saturated
-`n=7` optimizer or the still-failing top-source ranker
+marginalization raised the `n=8,9` development rows from `3/16, 1/16` to
+`8/16, 7/16` and independently raised a sealed holdout from `6/16, 2/16` to
+`9/16, 6/16`. Every retained plant recovered and all matched nulls stayed
+non-exact, so completion cap six is now the default.
+**Priority:** the measured bottleneck is top-source ranking, but do not tune it
+post hoc on these open fixtures. A new ranker needs a distinct preregistered
+algebraic feature and fresh holdout; this remains known-plaintext small-deck
+tooling, not an eyes attack
 **Depends on:** `gak-swap-recovery/`, especially `gak-swap-recover` and
 `research/data/practice-puzzles/deck-swap/SWAP-RECOVERY-METHOD.md`
 

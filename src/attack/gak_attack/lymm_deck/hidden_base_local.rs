@@ -54,7 +54,6 @@ const DEFAULT_TRIPLE_MOVE_EVALUATION_CAP: usize = 0;
 const DEFAULT_TRIPLE_MOVE_TOTAL_EVALUATION_CAP: usize = 0;
 const DEFAULT_PREFIX_CEGAR_CAPS: (usize, usize) = (0, 0);
 const DEFAULT_STATE_SAT_HYPOTHESIS_CAP: usize = 96;
-const DEFAULT_STATE_SAT_BASE_COMPLETION_CAP: usize = 1;
 const DEFAULT_SEED: u64 = 0x6761_6b5f_6862_6c73;
 
 /// Generator family admitted by the hidden-base local solver.
@@ -119,8 +118,7 @@ pub struct HiddenBaseLocalSolverConfig {
     pub prefix_cegar_total_node_cap: usize,
     /// Maximum retained top-source hypotheses solved by exact state SAT.
     pub state_sat_hypothesis_cap: usize,
-    /// Maximum lexicographic hidden-base completions solved per retained
-    /// top-source hypothesis.
+    /// Maximum base completions solved per retained top-source hypothesis.
     pub state_sat_base_completion_cap: usize,
 }
 
@@ -147,7 +145,7 @@ impl HiddenBaseLocalSolverConfig {
             prefix_cegar_node_cap: DEFAULT_PREFIX_CEGAR_CAPS.0,
             prefix_cegar_total_node_cap: DEFAULT_PREFIX_CEGAR_CAPS.1,
             state_sat_hypothesis_cap: DEFAULT_STATE_SAT_HYPOTHESIS_CAP,
-            state_sat_base_completion_cap: DEFAULT_STATE_SAT_BASE_COMPLETION_CAP,
+            state_sat_base_completion_cap: 6,
         }
     }
 
@@ -242,16 +240,13 @@ impl HiddenBaseLocalSolverConfig {
         self.prefix_cegar_total_node_cap = cap;
         self
     }
-
     /// Replaces the retained-hypothesis cap for exact state SAT.
     #[must_use]
     pub const fn with_state_sat_hypothesis_cap(mut self, cap: usize) -> Self {
         self.state_sat_hypothesis_cap = cap;
         self
     }
-
-    /// Replaces the per-hypothesis hidden-base completion cap for exact state
-    /// SAT. One preserves the original deterministic representative behavior.
+    /// Replaces the per-hypothesis hidden-base completion cap for state SAT.
     #[must_use]
     pub const fn with_state_sat_base_completion_cap(mut self, cap: usize) -> Self {
         self.state_sat_base_completion_cap = cap;
@@ -414,8 +409,7 @@ pub struct HiddenBaseLocalRecoveryReport {
     pub planted_base_recovered: Option<bool>,
     /// Observed plaintext letters in alphabet order.
     pub observed_letters: Vec<char>,
-    /// Plaintext letters seen as the first alphabet symbol of an identity-restart
-    /// message, and therefore usable as base anchors.
+    /// Plaintext letters seen first in an identity-restart message (base anchors).
     pub anchored_letters: Vec<char>,
     /// Total known-plaintext alphabet events checked.
     pub event_count: usize,

@@ -386,3 +386,27 @@ downstream completeness. A perfect small-size result is weak evidence when a
 factorial term happens to equal `1!`; the next honest rung is to marginalize
 that term under an explicit cap. Demonstrated:
 `handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`.
+
+## 22. UNSAT for one representative is not UNSAT for its equivalence class
+
+A deterministic representative can make an incomplete search look like a
+proof. In hidden-base GAK recovery, the first state-SAT solver filled base
+positions not fixed by restart anchors in lexicographic order. At `n=8,9`, an
+UNSAT result therefore rejected only one of `2!` or `3!` compatible bases, not
+the retained top-source hypothesis that owned the whole completion class.
+
+Enumerate unresolved nuisance completions under their own cap, and report three
+quantities separately: parent hypotheses attempted/proved UNSAT, completions
+attempted/proved UNSAT, and parent hypotheses whose completion cap was
+exhausted. Only exhausting the complete class permits the parent-level UNSAT
+claim. Exact state-SAT plus full replay then raised development recovery from
+`3/16, 1/16` to `8/16, 7/16` at `n=8,9` and independently raised a sealed
+holdout from `6/16, 2/16` to `9/16, 6/16`, with no exact matched nulls. Every
+retained plant recovered; remaining misses moved cleanly upstream to ranking.
+
+This fix is bounded, not magic. Enumerating six completions increased the
+sealed `n=9` state-SAT time from `19.914 s` to `85.780 s`, and six anchors at
+`n=83` would still leave `77!` completions. Marginalization is decisive when
+the nuisance class is small and explicit; at large size it diagnoses the next
+need rather than removing it. Demonstrated:
+`handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`.

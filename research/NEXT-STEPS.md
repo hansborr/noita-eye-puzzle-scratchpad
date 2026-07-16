@@ -44,11 +44,11 @@ disclosure, or known plaintext — and the current status of each candidate sour
 (`T11`).
 
 If the target is helping Lymm's stated interests, the smaller-GAK workbench now
-enumerates base completions left unresolved by six anchors. On the already-open
-development batch this raised exact recovery from `3/16` and `1/16` to `8/16`
-and `7/16` at `n=8,9`, recovering every retained plant with no exact matched
-null. The preregistered sealed holdout is still unopened and ranking still drops
-half or more of the plants; this remains community tooling, not an eyes attack.
+enumerates base completions left unresolved by six anchors. The development
+gain from `3/16, 1/16` to `8/16, 7/16` at `n=8,9` replicated on a sealed
+holdout as `6/16, 2/16` to `9/16, 6/16`. Every retained plant recovered and no
+matched null did, so completion cap six is promoted. Ranking still drops half
+or more of the plants; this remains community tooling, not an eyes attack.
 
 ## Landed Status
 
@@ -69,7 +69,7 @@ result document that now owns the claim.
 | **Deck-swap tooling side path** | **BUILT + MERGED.** The general swap-recovery instrument and practice-puzzle results are reference material, not the next eyes queue. | [`data/practice-puzzles/deck-swap/SWAP-RECOVERY-RESULTS.md`](data/practice-puzzles/deck-swap/SWAP-RECOVERY-RESULTS.md), [`handoff/README.md`](handoff/README.md) |
 | **Unknown-base state SAT** | **BUILT + HOLDOUT-CALIBRATED.** Exact state channeling improved `n=7`, `s=3` recovery from `13/16` to `14/16` on a sealed holdout; both residual plants were outside the 96-state beam. | `f191ee0`; [`handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`](handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md#exact-state-sat-result-2026-07-15) |
 | **Unknown-base beam widening** | **BUILT; OPTIONAL.** Decoupled 256-state retention raised the already-open result from `45/48` to `48/48`, but a fresh holdout tied `16/16`; defaults remain 96. | `5540ddd`; [`handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`](handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md#top-source-beam-widening-result-2026-07-15) |
-| **Unknown-base deck scaling** | **MEASURED HONEST NEGATIVE + COMPLETION FOLLOW-UP OPEN.** Default-cap recovery fell `15/16 -> 3/16 -> 1/16` for `n=7,8,9`. Enumerating the complete small unresolved-base sets then raised the open `n=8,9` rows to `8/16` and `7/16`; the sealed holdout remains unopened. | `1cbd8ff`, `e25d95f`; [`handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`](handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md#unresolved-base-marginalization-implementation-and-open-result-2026-07-15) |
+| **Unknown-base deck scaling** | **MEASURED CLIFF + REPLICATED COMPLETION FIX.** Default-cap recovery fell `15/16 -> 3/16 -> 1/16` for `n=7,8,9`. Complete small unresolved-base sets raised the open `n=8,9` rows to `8/16, 7/16` and a sealed holdout from `6/16, 2/16` to `9/16, 6/16`; every retained plant recovered and matched nulls stayed non-exact. | `1cbd8ff`, `e25d95f`, `ea072ec`; [`handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`](handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md#unresolved-base-marginalization-holdout-result-2026-07-15) |
 | **T00** — planning refresh | **DONE.** `NEXT-STEPS.md` was converted from stale queue to status/navigation index. | `9c60769`; [`handoff/T00-refresh-next-steps.md`](handoff/T00-refresh-next-steps.md) |
 | **T01** — transcription-perturbation harness | **DONE.** Source-layer counterfactuals now perturb rendered orientation digits and rebuild reading-layer values through the accepted honeycomb order. | `3290d84`; [`../src/analysis/perturbation.rs`](../src/analysis/perturbation.rs) |
 | **T02** — AGL robustness | **DONE.** The AGL exclusion survives 324 one-digit and 5,184 bounded two-digit prefix-region counterfactuals. | `5052f10`; [`findings/agl-exclusion.md`](findings/agl-exclusion.md#7-transcription-robustness) |
@@ -82,9 +82,10 @@ Tier 1 is complete. The active backlog is now the remaining Tier-2/Tier-3 work i
 [`research/handoff/README.md`](handoff/README.md):
 
 1. `gak-unknown-base-recovery/` — unknown-base known-plaintext GAK/deck recovery
-   now enumerates unresolved base completions. The already-open development
-   mechanism gate passed at `n=8,9`; open the preregistered sealed holdout after
-   that implementation and result are committed.
+   now enumerates unresolved base completions with a replicated gain at
+   `n=8,9`. The next measured obstruction is top-source ranking; any new ranker
+   needs a distinct preregistered feature and fresh holdout, not more tuning on
+   the now-open fixtures.
 2. `T11` — external-anchor criteria/status document. This is the only remaining
    item likely to change the eyes decode outcome without new ciphertext.
 3. `T04` — optional `D166` transcription robustness; within the point-stabilizer
