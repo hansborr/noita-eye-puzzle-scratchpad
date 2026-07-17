@@ -23,6 +23,7 @@ mod controls;
 mod corpus;
 #[path = "hidden_base_local/joint.rs"]
 mod joint;
+mod local_config;
 #[path = "hidden_base_local/output.rs"]
 mod output;
 #[path = "hidden_base_local/prefix_cegar.rs"]
@@ -46,38 +47,15 @@ pub use controls::{
     HiddenBaseLocalControlExpectation, HiddenBaseLocalControlReport, HiddenBaseLocalSelfTestReport,
     hidden_base_local_self_test, post_anchor_ciphertext_label_swap,
 };
+use local_config::{
+    DEFAULT_ATTEMPTS, DEFAULT_JOINT_MOVE_EVALUATION_CAP, DEFAULT_JOINT_MOVE_TOTAL_EVALUATION_CAP,
+    DEFAULT_PREFIX_CEGAR_CAPS, DEFAULT_ROUNDS, DEFAULT_SEED, DEFAULT_STATE_SAT_HYPOTHESIS_CAP,
+    DEFAULT_TOP_SOURCE_BEAM_WIDTH, DEFAULT_TRIPLE_MOVE_EVALUATION_CAP,
+    DEFAULT_TRIPLE_MOVE_TOTAL_EVALUATION_CAP,
+};
+pub use local_config::{HiddenBaseLocalGeneratorFamily, HiddenBaseLocalJointMoveOrder};
 use report::{classify_recovery, factorial_u128, representative_audit};
 use search::run_local_search;
-
-const DEFAULT_ATTEMPTS: usize = 96;
-const DEFAULT_ROUNDS: usize = 18;
-const DEFAULT_TOP_SOURCE_BEAM_WIDTH: usize = 96;
-const DEFAULT_JOINT_MOVE_EVALUATION_CAP: usize = 4_096;
-const DEFAULT_JOINT_MOVE_TOTAL_EVALUATION_CAP: usize = 393_216;
-const DEFAULT_TRIPLE_MOVE_EVALUATION_CAP: usize = 0;
-const DEFAULT_TRIPLE_MOVE_TOTAL_EVALUATION_CAP: usize = 0;
-const DEFAULT_PREFIX_CEGAR_CAPS: (usize, usize) = (0, 0);
-const DEFAULT_STATE_SAT_HYPOTHESIS_CAP: usize = 96;
-const DEFAULT_SEED: u64 = 0x6761_6b5f_6862_6c73;
-
-/// Generator family admitted by the hidden-base local solver.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum HiddenBaseLocalGeneratorFamily {
-    /// The top-card transposition family `{(0,k)}`.
-    TopCardSwaps,
-}
-
-/// Candidate order for stalled two-letter sigma moves.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum HiddenBaseLocalJointMoveOrder {
-    /// Exhaust each letter-pair product before visiting the next pair.
-    PairMajor,
-    /// Visit one candidate from every letter pair in repeated strata.
-    PairRoundRobin,
-    /// Spend half of each pass round-robin, then continue pair-major without
-    /// repeating candidates.
-    Hybrid,
-}
 
 /// Search configuration for [`recover_hidden_base_local_known_plaintext`].
 #[derive(Clone, Debug, PartialEq, Eq)]
