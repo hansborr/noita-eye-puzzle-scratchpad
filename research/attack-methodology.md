@@ -431,3 +431,26 @@ explicit initialization convention is the formal discriminator. In any
 stateful attack, audit which prefix state is observed, which is assumed, and
 which plaintext symbols remain conditional on it. Demonstrated:
 `data/practice-puzzles/SIX-RESULTS.md`.
+
+## 24. A sound relaxation can be too saturated and too expensive to rank well
+
+A necessary-condition relaxation is attractive as a pre-beam ranker because it
+cannot reject the true key when implemented correctly. That safety does not make
+its score selective. In hidden-base GAK recovery, completion-marginalized route
+propagation deliberately forgot shared-letter choices and cross-position
+correlations. Every planted hypothesis survived all `384/384` events, but so did
+enough false hypotheses that a fresh `n=8` row stayed tied at `8/16`. The same
+feature did help `n=9`, moving two plants across the 96-state boundary and
+raising exact recovery from `5/16` to `7/16`, but it failed the preregistered
+two-size promotion gate.
+
+Measure a relaxation at three layers: true-hypothesis coverage (soundness), the
+number/order of false states that also saturate (selectivity), and total work
+before truncation (cost placement). Here the `n=9` rank alone grew from `2.485 s`
+to `158.796 s` over 16 planted trials because it scored roughly 60,000 complete
+states before the 96-state beam; downstream exact SAT was not the expensive
+place to add that work. Keep a one-size gain optional when the registered
+cross-size gate fails, and do not tune weights on the opened holdout. A useful
+next feature must restore a shared-choice correlation cheaply or move exact
+reasoning earlier under a genuinely bounded schedule. Demonstrated:
+`handoff/gak-unknown-base-recovery/03-base-marginalized-local-search.md`.

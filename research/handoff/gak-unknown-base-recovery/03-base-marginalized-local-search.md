@@ -5,8 +5,10 @@
 > unresolved-base completion marginalization replicated at `n=8,9`, recovered
 > every retained plant on the measured development and holdout batches, and
 > left all matched nulls non-exact. Completion cap six is now the default. The
-> measured bottleneck is top-source ranking; do not restart `n=7` refinement or
-> the completed scaling rung. See the
+> measured bottleneck is top-source ranking. A preregistered route-relaxation
+> rank improved a fresh `n=9` row from `5/16` to `7/16` but tied `8/16` at
+> `n=8`, so it remains opt-in and the landed rank stays default. Do not restart
+> `n=7` refinement or the completed scaling rung. See the
 > [authoritative holdout result](#unresolved-base-marginalization-holdout-result-2026-07-15).
 
 ## Scope
@@ -987,6 +989,57 @@ existing controls pass. A one-size or development-only gain remains an optional
 diagnostic. This experiment remains known-plaintext, small-deck, top-swap
 tooling; even a positive result would not supply the known plaintext or tractable
 base-completion surface missing from the eyes.
+
+### Route-relaxation top-source result (2026-07-16)
+
+Commit `89ab3cb` landed the preregistered feature behind
+`--route-rank relaxed`; `--route-rank off` preserves the prior ordering and is
+still the default. The implementation factors the promoted base-completion
+enumerator so route ranking and exact state SAT use the same lexicographic
+completion surface. It reports route-source union evaluations and the planted
+hypothesis's relaxed coverage. A focused production-path control gives its
+planted hypothesis full `144/144` relaxed coverage and exact replay, while the
+post-anchor label-shuffle leg stays non-exact. The broader existing hidden-base
+control/test surface also passed before the sealed run.
+
+The prospective `0x726f_7574_655f_7231` batch was then opened under the four
+registered cells. Every exact candidate below re-encrypts all `384/384` events;
+every miss is bounded `SearchCapExceeded`, not an exclusion.
+
+| `n` | rank | exact / 16 | planted / equivalent / ambiguous / miss | planted retained | null exact / 16 |
+| ---: | --- | ---: | ---: | ---: | ---: |
+| 8 | landed | `8` | `8 / 0 / 0 / 8` | `8/16` | `0` |
+| 8 | route relaxation | `8` | `8 / 0 / 0 / 8` | `8/16` | `0` |
+| 9 | landed | `5` | `4 / 0 / 1 / 11` | `5/16` | `0` |
+| 9 | route relaxation | `7` | `6 / 0 / 1 / 9` | `7/16` | `0` |
+
+The `n=9` gain is concrete: plants at landed ranks `4245` and `101` moved to
+route ranks `46` and `12` and then passed exact state SAT plus full replay. No
+landed exact recovery was lost. At `n=8`, several ranks compressed (including
+`1329 -> 266`), but no additional plant crossed the 96-state boundary. Every
+planted hypothesis at both sizes achieved the maximum relaxed coverage
+`384/384`, including hypotheses that remained dropped. Thus the feature's
+ordering among false states can help, but full relaxed coverage itself is too
+weak to separate the plant; the deliberately relaxed shared-letter and
+cross-position correlations leave many false hypotheses tied.
+
+The gain also carries substantial pre-beam cost. Aggregate planted-leg
+top-source time changed from `0.671 s` to `14.028 s` at `n=8` and from `2.485 s`
+to `158.796 s` at `n=9`. Complete planted-leg time changed from `37.593 s` to
+`49.997 s` and from `120.367 s` to `285.064 s`, respectively. The `n=9` relaxed
+rank evaluated `221.25M..3.878B` route-source unions per planted trial; its
+matched-null legs took `339.654 s` in aggregate versus `139.608 s` landed. These
+are descriptive local release timings, not stable benchmarks, but the direction
+and scale are clear.
+
+The preregistered promotion gate required an exact-recovery gain at both sizes.
+The `n=8` tie fails that gate, so route relaxation remains an opt-in diagnostic
+and the default rank is unchanged. All 64 matched-null attack legs across the
+four registered cells stayed non-exact. No post-holdout weight, cutoff, or
+coverage tie-break will be tuned on this now-open batch. Top-source ranking
+remains the measured obstruction; a further attempt needs another distinct
+predeclared feature and fresh holdout, or a generator-family breadth pivot.
+This remains small-deck known-plaintext tooling, not an eyes bridge.
 
 ### Pre-registered fourth-prefix triple-repair follow-up (2026-07-15, before runs)
 

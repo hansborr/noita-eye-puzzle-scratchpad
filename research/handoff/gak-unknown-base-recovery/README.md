@@ -9,6 +9,10 @@ non-exact, so completion cap six is now the default.
 post hoc on these open fixtures. A new ranker needs a distinct preregistered
 algebraic feature and fresh holdout; this remains known-plaintext small-deck
 tooling, not an eyes attack.
+**Latest rank result:** completion-marginalized route relaxation improved a
+fresh `n=9` row from `5/16` to `7/16` exact but tied `8/16` at `n=8`. It failed
+the two-size promotion gate and remains opt-in; the landed rank is still the
+default.
 **Depends on:** `gak-swap-recovery/`, especially `gak-swap-recover` and
 `research/data/practice-puzzles/deck-swap/SWAP-RECOVERY-METHOD.md`
 

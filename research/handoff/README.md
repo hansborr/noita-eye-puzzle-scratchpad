@@ -100,9 +100,11 @@ known-plaintext community tooling, not an eyes decode bridge.
 - `gak-unknown-base-recovery/` — unknown-base known-plaintext GAK/deck recovery
   on small planted instances is built, scaled through `n=9`, and
   holdout-calibrated. Complete small base-completion sets recover every retained
-  plant on the measured `n=8,9` batches; top-source ranking remains the measured
-  bottleneck. Do not repeat `n=7` refinement or scaling. A further ranker would
-  need a distinct preregistered algebraic feature and fresh holdout;
+  plant on the measured `n=8,9` batches. An opt-in route-relaxation rank improved
+  a fresh `n=9` row from `5/16` to `7/16` but tied `8/16` at `n=8`, failing its
+  two-size promotion gate; top-source ranking remains the measured bottleneck.
+  Do not repeat `n=7` refinement or scaling. A further ranker would need another
+  distinct preregistered algebraic feature and fresh holdout;
   generator-family breadth remains a separate optional direction.
 
 **Tier 2B — eyes-specific remaining work: the standing unblocker + optional formalization.**

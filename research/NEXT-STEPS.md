@@ -47,8 +47,10 @@ If the target is helping Lymm's stated interests, the smaller-GAK workbench now
 enumerates base completions left unresolved by six anchors. The development
 gain from `3/16, 1/16` to `8/16, 7/16` at `n=8,9` replicated on a sealed
 holdout as `6/16, 2/16` to `9/16, 6/16`. Every retained plant recovered and no
-matched null did, so completion cap six is promoted. Ranking still drops half
-or more of the plants; this remains community tooling, not an eyes attack.
+matched null did, so completion cap six is promoted. A later preregistered
+route-rank holdout improved a fresh `n=9` row from `5/16` to `7/16` but tied
+`8/16` at `n=8`; it therefore remains opt-in. Ranking still drops many plants;
+this remains community tooling, not an eyes attack.
 
 ## Landed Status
 
