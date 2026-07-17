@@ -36,9 +36,12 @@ pub(super) fn append_matched_null_surface(out: &mut String, trials: &[LocalTrial
     .expect("write to String");
     writeln!(
         out,
-        "matched null work: retained min/max={} state-sat-hypotheses min/max={} hypotheses-unsat min/max={} base-completions min/max={} completions-unsat min/max={} completion-cap-exhausted min/max={} variables min/max={} clauses min/max={} replay-events min/max={} elapsed-total={}",
+        "matched null work: retained min/max={} route-evaluations min/max={} state-sat-hypotheses min/max={} hypotheses-unsat min/max={} base-completions min/max={} completions-unsat min/max={} completion-cap-exhausted min/max={} variables min/max={} clauses min/max={} replay-events min/max={} elapsed-total={}",
         format_range(null_range(trials, |trial| {
             trial.report.top_source_hypotheses_retained
+        })),
+        format_range(null_range(trials, |trial| {
+            trial.report.top_source_route_evaluations
         })),
         format_range(null_range(trials, |trial| {
             trial.report.state_sat_hypotheses_attempted

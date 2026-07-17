@@ -225,6 +225,51 @@ fn top_source_retention_is_independent_of_local_attempts() {
 }
 
 #[test]
+fn route_relaxation_ranker_covers_plant_and_rejects_matched_null() {
+    let fixture_seed = 0x726f_7574_655f_7465;
+    let fixture = plant_hidden_base_fixture(&HiddenBaseFixtureConfig {
+        n: 5,
+        pt_alphabet: "ABCD".to_owned(),
+        swap_budget: 3,
+        message_count: 6,
+        message_len: 24,
+        seed: fixture_seed,
+        base_kind: HiddenBaseKind::Random,
+    })
+    .expect("route-rank fixture");
+    let config = HiddenBaseLocalSolverConfig::top_card_swaps(5, "ABCD", 3)
+        .with_ct_alphabet(fixture.spec.ct_alphabet.iter().collect::<String>())
+        .with_seed(mix_seed(fixture_seed, 0x6c73_736f_6c76_6572))
+        .with_attempts(1)
+        .with_max_rounds(1)
+        .with_top_source_beam_width(96)
+        .with_route_relaxation_top_source_ranking(true)
+        .with_joint_move_evaluation_cap(0)
+        .with_joint_move_total_evaluation_cap(0)
+        .with_state_sat_hypothesis_cap(96);
+    let positive = recover_hidden_base_local_known_plaintext_with_audit(
+        &config,
+        &fixture.pairs,
+        Some(&fixture.spec.base),
+    )
+    .expect("route-rank positive");
+    let (null_pairs, changed) = post_anchor_ciphertext_label_swap(&fixture.pairs, '!', '"');
+    let matched_null =
+        recover_hidden_base_local_known_plaintext_with_audit(&config, &null_pairs, None)
+            .expect("route-rank matched null");
+
+    assert!(positive.has_exact_recovery());
+    assert_eq!(
+        positive.planted_top_source_route_coverage,
+        Some(positive.event_count)
+    );
+    assert!(positive.top_source_route_evaluations > 0);
+    assert!(changed > 0);
+    assert!(!matched_null.has_exact_recovery());
+    assert!(matched_null.config.rank_top_sources_with_route_relaxation);
+}
+
+#[test]
 fn state_sat_rejects_matched_ciphertext_label_shuffle() {
     let fixture_seed = mix_seed(0x7769_6465_5f73_3301, 0x6c73_7265_636f_7600 ^ 7);
     let fixture = weak_restart_fixture(fixture_seed);

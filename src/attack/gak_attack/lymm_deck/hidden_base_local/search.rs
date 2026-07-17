@@ -37,6 +37,8 @@ pub(super) fn run_local_search(
     let top_source_beam = build_top_source_beam(
         config.top_source_beam_width,
         config.rank_top_sources_with_third_symbol,
+        config.rank_top_sources_with_route_relaxation,
+        config.state_sat_base_completion_cap,
         &corpus,
         &candidates,
         planted_sources.as_deref(),
@@ -98,6 +100,8 @@ pub(super) fn run_local_search(
         top_source_states_dropped: top_source_beam.states_dropped,
         top_source_constraint_evaluations: top_source_beam.constraint_evaluations,
         top_source_third_symbol_evaluations: top_source_beam.third_symbol_evaluations,
+        top_source_route_evaluations: top_source_beam.route_evaluations,
+        planted_top_source_route_coverage: top_source_beam.planted_route_coverage,
         top_source_elapsed: top_source_beam.elapsed,
         exact_candidate_count: search.exact_bases.len(),
         planted_base_recovered: search.planted_base_recovered,

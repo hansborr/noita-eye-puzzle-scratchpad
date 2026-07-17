@@ -15,6 +15,8 @@ use super::{
     lymm_default_ct_alphabet,
 };
 
+#[path = "hidden_base_local/base_completion.rs"]
+mod base_completion;
 #[path = "hidden_base_local/controls.rs"]
 mod controls;
 #[path = "hidden_base_local/corpus.rs"]
@@ -27,6 +29,8 @@ mod output;
 mod prefix_cegar;
 #[path = "hidden_base_local/report.rs"]
 mod report;
+#[path = "hidden_base_local/route_rank.rs"]
+mod route_rank;
 #[path = "hidden_base_local/score.rs"]
 mod score;
 #[path = "hidden_base_local/search.rs"]
@@ -99,6 +103,9 @@ pub struct HiddenBaseLocalSolverConfig {
     /// Whether to rank complete top-source states with third-symbol restart
     /// compatibility before applying the beam cap.
     pub rank_top_sources_with_third_symbol: bool,
+    /// Whether to rank complete top-source states by completion-marginalized
+    /// route-domain prefix coverage before the landed rank features.
+    pub rank_top_sources_with_route_relaxation: bool,
     /// Candidate order used by stalled two-letter sigma moves.
     pub joint_move_order: HiddenBaseLocalJointMoveOrder,
     /// Maximum two-letter sigma assignments scored per stalled `s=3` restart.
@@ -137,6 +144,7 @@ impl HiddenBaseLocalSolverConfig {
             max_rounds: DEFAULT_ROUNDS,
             top_source_beam_width: DEFAULT_TOP_SOURCE_BEAM_WIDTH,
             rank_top_sources_with_third_symbol: true,
+            rank_top_sources_with_route_relaxation: false,
             joint_move_order: HiddenBaseLocalJointMoveOrder::Hybrid,
             joint_move_evaluation_cap: DEFAULT_JOINT_MOVE_EVALUATION_CAP,
             joint_move_total_evaluation_cap: DEFAULT_JOINT_MOVE_TOTAL_EVALUATION_CAP,
@@ -189,6 +197,13 @@ impl HiddenBaseLocalSolverConfig {
     #[must_use]
     pub const fn with_third_symbol_top_source_ranking(mut self, enabled: bool) -> Self {
         self.rank_top_sources_with_third_symbol = enabled;
+        self
+    }
+
+    /// Enables or disables route-relaxation top-source ranking.
+    #[must_use]
+    pub const fn with_route_relaxation_top_source_ranking(mut self, enabled: bool) -> Self {
+        self.rank_top_sources_with_route_relaxation = enabled;
         self
     }
 
@@ -401,6 +416,11 @@ pub struct HiddenBaseLocalRecoveryReport {
     pub top_source_constraint_evaluations: usize,
     /// Sigma pairs checked by the third-symbol top-source ranker.
     pub top_source_third_symbol_evaluations: usize,
+    /// Route-source unions evaluated by the route-relaxation ranker.
+    pub top_source_route_evaluations: usize,
+    /// Relaxed prefix coverage of the planted top-source hypothesis when
+    /// supplied for synthetic audit.
+    pub planted_top_source_route_coverage: Option<usize>,
     /// Wall-clock time spent constructing the top-source beam.
     pub top_source_elapsed: Duration,
     /// Distinct exact hidden bases found by the bounded search.
@@ -540,6 +560,8 @@ fn recover_hidden_base_local_known_plaintext_inner(
         top_source_states_dropped: search.top_source_states_dropped,
         top_source_constraint_evaluations: search.top_source_constraint_evaluations,
         top_source_third_symbol_evaluations: search.top_source_third_symbol_evaluations,
+        top_source_route_evaluations: search.top_source_route_evaluations,
+        planted_top_source_route_coverage: search.planted_top_source_route_coverage,
         top_source_elapsed: search.top_source_elapsed,
         exact_candidate_count: search.exact_candidate_count,
         planted_base_recovered: search.planted_base_recovered,

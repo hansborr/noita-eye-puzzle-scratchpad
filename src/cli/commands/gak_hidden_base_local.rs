@@ -14,6 +14,7 @@ use noita_eye_puzzle::nulls::null::mix_seed;
 
 use crate::cli::args_gak_hidden_base::{
     GakHiddenBaseJointMoveOrder, GakHiddenBaseKind, GakHiddenBaseLocalRecoverArgs,
+    GakHiddenBaseRouteRank,
 };
 
 macro_rules! appendln {
@@ -189,6 +190,7 @@ fn solver_config_from_spec(
     .with_max_rounds(args.max_rounds)
     .with_top_source_beam_width(args.top_source_beam)
     .with_third_symbol_top_source_ranking(!args.disable_third_symbol_rank)
+    .with_route_relaxation_top_source_ranking(route_rank_enabled(args.route_rank))
     .with_joint_move_order(cli_joint_move_order(args.joint_move_order))
     .with_joint_move_evaluation_cap(args.joint_move_cap)
     .with_joint_move_total_evaluation_cap(args.joint_total_cap)
@@ -226,7 +228,7 @@ fn render_local_recovery_report(
         .unwrap_or_else(|| default_pt_alphabet(args.n));
     appendln!(
         &mut out,
-        "gak-hidden-base-local-recover: trials={} n={} s={} messages={}x{} base={} attempts={} max-rounds={} top-source-beam={} third-symbol-rank={} joint-move-order={} joint-move-cap={} joint-total-cap={} triple-move-cap={} triple-total-cap={} prefix-cegar-node-cap={} prefix-cegar-total-cap={} state-sat-hypothesis-cap={} state-sat-base-completion-cap={} matched-label-shuffle-null={}",
+        "gak-hidden-base-local-recover: trials={} n={} s={} messages={}x{} base={} attempts={} max-rounds={} top-source-beam={} third-symbol-rank={} route-relaxation-rank={} joint-move-order={} joint-move-cap={} joint-total-cap={} triple-move-cap={} triple-total-cap={} prefix-cegar-node-cap={} prefix-cegar-total-cap={} state-sat-hypothesis-cap={} state-sat-base-completion-cap={} matched-label-shuffle-null={}",
         trials.len(),
         args.n,
         args.num_swaps,
@@ -237,6 +239,7 @@ fn render_local_recovery_report(
         args.max_rounds,
         args.top_source_beam,
         !args.disable_third_symbol_rank,
+        route_rank_enabled(args.route_rank),
         joint_move_order_label(args.joint_move_order),
         args.joint_move_cap,
         args.joint_total_cap,
@@ -254,7 +257,7 @@ fn render_local_recovery_report(
     );
     appendln!(
         &mut out,
-        "solver: bounded top-source CSP/beam from first-symbol injectivity, second-symbol constraints, and optional third-symbol shared-sigma arc consistency, followed by constraint-filtered coordinate descent, objective-bounded two-letter s=3 moves, optional fourth-prefix triple repair, optional retained-hypothesis exact-prefix CEGAR, and optional retained-hypothesis exact state SAT; acceptance is exact compressed re-encryption only"
+        "solver: bounded top-source CSP/beam from first-symbol injectivity, second-symbol constraints, optional third-symbol shared-sigma arc consistency, and optional completion-marginalized route relaxation, followed by constraint-filtered coordinate descent, objective-bounded two-letter s=3 moves, optional fourth-prefix triple repair, optional retained-hypothesis exact-prefix CEGAR, and optional retained-hypothesis exact state SAT; acceptance is exact compressed re-encryption only"
     );
     appendln!(
         &mut out,
@@ -293,7 +296,7 @@ fn append_search_surface(out: &mut String, trials: &[LocalTrialReport]) {
     append_local_work_surface(out, trials);
     appendln!(
         out,
-        "top-source stage: retained min/max={} expanded min/max={} pruned min/max={} dropped min/max={} constraint-evaluations min/max={} third-symbol-evaluations min/max={} elapsed-total={}",
+        "top-source stage: retained min/max={} expanded min/max={} pruned min/max={} dropped min/max={} constraint-evaluations min/max={} third-symbol-evaluations min/max={} route-evaluations min/max={} elapsed-total={}",
         format_range(local_range(trials, |report| report.top_source_hypotheses_retained)),
         format_range(local_range(trials, |report| report.top_source_states_expanded)),
         format_range(local_range(trials, |report| report.top_source_states_pruned)),
@@ -302,11 +305,14 @@ fn append_search_surface(out: &mut String, trials: &[LocalTrialReport]) {
         format_range(local_range(trials, |report| {
             report.top_source_third_symbol_evaluations
         })),
+        format_range(local_range(trials, |report| {
+            report.top_source_route_evaluations
+        })),
         format_duration(top_source_elapsed(trials))
     );
     appendln!(
         out,
-        "top-source planted audit: retained={} dropped={} rank min/max={}",
+        "top-source planted audit: retained={} dropped={} rank min/max={} route-coverage min/max={}",
         trials
             .iter()
             .filter(|trial| trial.report.planted_top_source_hypothesis_retained == Some(true))
@@ -317,6 +323,9 @@ fn append_search_surface(out: &mut String, trials: &[LocalTrialReport]) {
             .count(),
         format_range(optional_local_range(trials, |report| {
             report.planted_top_source_hypothesis_rank
+        })),
+        format_range(optional_local_range(trials, |report| {
+            report.planted_top_source_route_coverage
         }))
     );
     appendln!(
@@ -486,6 +495,10 @@ const fn cli_joint_move_order(order: GakHiddenBaseJointMoveOrder) -> HiddenBaseL
     }
 }
 
+const fn route_rank_enabled(rank: GakHiddenBaseRouteRank) -> bool {
+    matches!(rank, GakHiddenBaseRouteRank::Relaxed)
+}
+
 const fn joint_move_order_label(order: GakHiddenBaseJointMoveOrder) -> &'static str {
     match order {
         GakHiddenBaseJointMoveOrder::PairMajor => "pair-major",
@@ -559,7 +572,7 @@ fn append_trial0(out: &mut String, trial: &LocalTrialReport) {
     );
     appendln!(
         out,
-        "trial-0 signal: observed={} anchored={} planted-top-source-rank={} retained={}",
+        "trial-0 signal: observed={} anchored={} planted-top-source-rank={} retained={} route-coverage={}",
         report.observed_letters.iter().collect::<String>(),
         report.anchored_letters.iter().collect::<String>(),
         report
@@ -567,7 +580,10 @@ fn append_trial0(out: &mut String, trial: &LocalTrialReport) {
             .map_or_else(|| "n/a".to_owned(), |rank| rank.to_string()),
         report
             .planted_top_source_hypothesis_retained
-            .map_or_else(|| "n/a".to_owned(), |retained| retained.to_string())
+            .map_or_else(|| "n/a".to_owned(), |retained| retained.to_string()),
+        report
+            .planted_top_source_route_coverage
+            .map_or_else(|| "n/a".to_owned(), |coverage| coverage.to_string())
     );
     if let Some(audit) = &report.representative_audit {
         appendln!(

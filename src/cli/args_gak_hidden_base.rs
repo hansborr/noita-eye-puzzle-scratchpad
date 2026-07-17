@@ -108,6 +108,9 @@ pub(crate) struct GakHiddenBaseLocalRecoverArgs {
     /// Use only the landed second-symbol likelihood for top-source ranking.
     #[arg(long = "disable-third-symbol-rank")]
     pub(crate) disable_third_symbol_rank: bool,
+    /// Optional route-domain feature placed before the landed top-source rank.
+    #[arg(long = "route-rank", value_enum, default_value_t = GakHiddenBaseRouteRank::Off)]
+    pub(crate) route_rank: GakHiddenBaseRouteRank,
     /// Candidate order for stalled two-letter sigma moves.
     #[arg(long = "joint-move-order", value_enum, default_value_t = GakHiddenBaseJointMoveOrder::Hybrid)]
     pub(crate) joint_move_order: GakHiddenBaseJointMoveOrder,
@@ -167,4 +170,13 @@ pub(crate) enum GakHiddenBaseJointMoveOrder {
     PairRoundRobin,
     /// Split each pass between round-robin breadth and pair-major depth.
     Hybrid,
+}
+
+/// Completion-marginalized route feature exposed by the hidden-base CLI.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+pub(crate) enum GakHiddenBaseRouteRank {
+    /// Preserve the landed third/second-symbol ordering.
+    Off,
+    /// Rank first by relaxed known-plaintext route-prefix coverage.
+    Relaxed,
 }

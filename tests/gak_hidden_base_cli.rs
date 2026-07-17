@@ -73,11 +73,14 @@ fn gak_hidden_base_local_recover_cli_reports_bounded_surface() {
         "96",
         "--max-rounds",
         "18",
+        "--route-rank",
+        "relaxed",
         "--matched-label-shuffle-null",
     ]);
 
     assert_contains(&stdout, "gak-hidden-base-local-recover: trials=1 n=5 s=3");
     assert_contains(&stdout, "third-symbol-rank=true");
+    assert_contains(&stdout, "route-relaxation-rank=true");
     assert_contains(&stdout, "joint-move-order=hybrid");
     assert_contains(&stdout, "joint-total-cap=393216");
     assert_contains(&stdout, "triple-move-cap=0");
@@ -103,7 +106,9 @@ fn gak_hidden_base_local_recover_cli_reports_bounded_surface() {
     assert_contains(&stdout, "completion-cap-exhausted min/max=");
     assert_contains(&stdout, "top-source stage: retained min/max=");
     assert_contains(&stdout, "third-symbol-evaluations min/max=");
+    assert_contains(&stdout, "route-evaluations min/max=");
     assert_contains(&stdout, "top-source planted audit: retained=");
+    assert_contains(&stdout, "route-coverage min/max=");
     assert_contains(&stdout, "trial-0 recovery:");
     assert_contains(&stdout, "trial-0 signal:");
     assert_contains(

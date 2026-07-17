@@ -53,6 +53,8 @@ pub(super) struct LocalSearchOutput {
     pub(super) top_source_states_dropped: usize,
     pub(super) top_source_constraint_evaluations: usize,
     pub(super) top_source_third_symbol_evaluations: usize,
+    pub(super) top_source_route_evaluations: usize,
+    pub(super) planted_top_source_route_coverage: Option<usize>,
     pub(super) top_source_elapsed: Duration,
     pub(super) exact_candidate_count: usize,
     pub(super) planted_base_recovered: Option<bool>,

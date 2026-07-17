@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 
 use super::corpus::LocalCorpus;
+use super::route_rank::route_relaxation_score;
 use super::search::SigmaDomain;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -17,6 +18,8 @@ pub(super) struct TopSourceBeam {
     pub(super) states_dropped: usize,
     pub(super) constraint_evaluations: usize,
     pub(super) third_symbol_evaluations: usize,
+    pub(super) route_evaluations: usize,
+    pub(super) planted_route_coverage: Option<usize>,
     pub(super) elapsed: Duration,
 }
 
@@ -33,11 +36,14 @@ struct BeamState {
     used_sources: Vec<bool>,
     likelihood: u128,
     third_symbol_viable: bool,
+    route_coverage: usize,
 }
 
 pub(super) fn build_top_source_beam(
     width: usize,
     rank_with_third_symbol: bool,
+    rank_with_route_relaxation: bool,
+    base_completion_cap: usize,
     corpus: &LocalCorpus,
     domain: &SigmaDomain,
     planted_sources: Option<&[Option<usize>]>,
@@ -46,17 +52,7 @@ pub(super) fn build_top_source_beam(
     let n = domain.by_top_source.len();
     let alphabet_len = corpus.anchors.len();
     if corpus.anchor_conflict {
-        return TopSourceBeam {
-            hypotheses: Vec::new(),
-            planted_hypothesis_rank: None,
-            planted_hypothesis_retained: planted_sources.map(|_| false),
-            states_expanded: 0,
-            states_pruned: 1,
-            states_dropped: 0,
-            constraint_evaluations: 0,
-            third_symbol_evaluations: 0,
-            elapsed: started.elapsed(),
-        };
+        return conflicted_beam(planted_sources.is_some(), started.elapsed());
     }
     let groups = anchor_groups(corpus);
     let mut states = vec![BeamState {
@@ -64,6 +60,7 @@ pub(super) fn build_top_source_beam(
         used_sources: vec![false; n],
         likelihood: 0,
         third_symbol_viable: false,
+        route_coverage: 0,
     }];
     let mut states_expanded = 0usize;
     let mut states_pruned = 0usize;
@@ -108,19 +105,14 @@ pub(super) fn build_top_source_beam(
         }
     }
 
-    let mut third_symbol_evaluations = 0usize;
-    if rank_with_third_symbol {
-        for state in &mut states {
-            state.third_symbol_viable = third_symbol_viability(
-                n,
-                corpus,
-                domain,
-                &state.sources,
-                &mut third_symbol_evaluations,
-            );
-        }
-    }
-    states.sort_by(compare_states);
+    let (third_symbol_evaluations, route_evaluations) = rank_complete_states(
+        &mut states,
+        rank_with_third_symbol,
+        rank_with_route_relaxation,
+        base_completion_cap,
+        corpus,
+        domain,
+    );
     let retained_cap = width.max(1);
     let planted_hypothesis_rank = planted_sources.and_then(|planted| {
         states
@@ -130,6 +122,16 @@ pub(super) fn build_top_source_beam(
     });
     let planted_hypothesis_retained =
         planted_sources.map(|_| planted_hypothesis_rank.is_some_and(|rank| rank <= retained_cap));
+    let planted_route_coverage = if rank_with_route_relaxation {
+        planted_sources.and_then(|planted| {
+            states
+                .iter()
+                .find(|state| state.sources == planted)
+                .map(|state| state.route_coverage)
+        })
+    } else {
+        None
+    };
     let states_dropped = states.len().saturating_sub(retained_cap);
     states.truncate(retained_cap);
     TopSourceBeam {
@@ -141,8 +143,60 @@ pub(super) fn build_top_source_beam(
         states_dropped,
         constraint_evaluations,
         third_symbol_evaluations,
+        route_evaluations,
+        planted_route_coverage,
         elapsed: started.elapsed(),
     }
+}
+
+fn conflicted_beam(planted: bool, elapsed: Duration) -> TopSourceBeam {
+    TopSourceBeam {
+        hypotheses: Vec::new(),
+        planted_hypothesis_rank: None,
+        planted_hypothesis_retained: planted.then_some(false),
+        states_expanded: 0,
+        states_pruned: 1,
+        states_dropped: 0,
+        constraint_evaluations: 0,
+        third_symbol_evaluations: 0,
+        route_evaluations: 0,
+        planted_route_coverage: None,
+        elapsed,
+    }
+}
+
+fn rank_complete_states(
+    states: &mut [BeamState],
+    rank_with_third_symbol: bool,
+    rank_with_route_relaxation: bool,
+    base_completion_cap: usize,
+    corpus: &LocalCorpus,
+    domain: &SigmaDomain,
+) -> (usize, usize) {
+    let n = domain.by_top_source.len();
+    let mut third_symbol_evaluations = 0usize;
+    if rank_with_third_symbol {
+        for state in states.iter_mut() {
+            state.third_symbol_viable = third_symbol_viability(
+                n,
+                corpus,
+                domain,
+                &state.sources,
+                &mut third_symbol_evaluations,
+            );
+        }
+    }
+    let mut route_evaluations = 0usize;
+    if rank_with_route_relaxation {
+        for state in states.iter_mut() {
+            let route_score =
+                route_relaxation_score(n, base_completion_cap, corpus, domain, &state.sources);
+            state.route_coverage = route_score.coverage;
+            route_evaluations = route_evaluations.saturating_add(route_score.evaluations);
+        }
+    }
+    states.sort_by(compare_states);
+    (third_symbol_evaluations, route_evaluations)
 }
 
 fn anchor_groups(corpus: &LocalCorpus) -> Vec<AnchorGroup> {
@@ -231,8 +285,9 @@ fn constraint_likelihood(
 
 fn compare_states(left: &BeamState, right: &BeamState) -> Ordering {
     right
-        .third_symbol_viable
-        .cmp(&left.third_symbol_viable)
+        .route_coverage
+        .cmp(&left.route_coverage)
+        .then_with(|| right.third_symbol_viable.cmp(&left.third_symbol_viable))
         .then_with(|| right.likelihood.cmp(&left.likelihood))
         .then_with(|| left.sources.cmp(&right.sources))
 }
@@ -402,7 +457,7 @@ fn third_symbol_matches(
         == Some(target)
 }
 
-fn compatible_candidates(
+pub(super) fn compatible_candidates(
     letter: usize,
     corpus: &LocalCorpus,
     domain: &SigmaDomain,
