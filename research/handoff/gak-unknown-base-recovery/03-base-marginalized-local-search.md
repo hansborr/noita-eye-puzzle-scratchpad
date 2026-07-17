@@ -929,6 +929,65 @@ is now top-source ranking, and the real eyes additionally lack known plaintext
 and have `n=83`, where six anchors would leave `77!` base completions. No result
 here licenses a ciphertext-only language search or a claim about eye plaintext.
 
+### Pre-registered route-relaxation top-source rank (2026-07-16, before implementation or runs)
+
+The next bounded change targets the measured ranking loss with a distinct
+algebraic feature rather than another beam-width increase or post hoc tuning on
+the open scaling fixtures. For each complete top-source hypothesis and each
+hidden-base completion admitted by the existing completion cap, it will
+propagate a route-domain relaxation through every known-plaintext message.
+
+Let `D_t[i]` be a bit set of deck values that position `i` may hold after event
+`t`, initialized by the identity restart as `D_0[i] = {i}`. For an event whose
+plaintext letter is `L`, let `S_L(i)` be the possible route sources
+`B[sigma_L(i)]` over the same top-source-fixed, second-symbol-compatible sigma
+domain used downstream. The relaxed transition is
+
+```text
+D_(t+1)[i] = union(D_t[j] for j in S_L(i)).
+```
+
+If the observed ciphertext value is absent from `D_(t+1)[0]`, that completion's
+message prefix is impossible even after allowing a different compatible sigma
+choice at every occurrence. Otherwise the propagation conditions
+`D_(t+1)[0]` to the observed singleton and continues. Relaxing shared-letter
+choices and cross-position correlations makes failure a necessary-condition
+rejection, not an exact solver verdict. The rank feature is the maximum, over
+admitted base completions, of the total number of consecutive emissions
+survived across the independently restarted messages. The fixed ordering tuple
+is: larger route-prefix coverage first, then the landed third-symbol viability,
+then landed second-symbol likelihood, then lexical source order. No hypothesis
+will be removed solely by this feature before the unchanged beam cap; exact
+state SAT and full re-encryption remain the only recovery acceptance path.
+
+The implementation will expose an opt-in CLI/config switch, report route
+transition evaluations and the planted hypothesis's route coverage for
+synthetic audit, and add a planted positive plus a post-anchor label-shuffle
+matched null through the production library path. It will reuse the promoted
+six-completion cap and must preserve the existing cap-zero/disabled ranking
+order exactly.
+
+No fixture, rank, recovery, or null outcome from the prospective holdout seed
+`0x726f_7574_655f_7231` will be inspected before this registration is committed.
+Its xor difference from every earlier top-level seed in this campaign is
+greater than `0x0f`, so the CLI trial-mixer inputs are disjoint for indices
+`0..16`. The sealed comparison uses 16 trials at each of `n=8` and `n=9`, with
+the same `ABCDEF`, `s=3`, `6x64`, random-base, 96-attempt, 18-round,
+hybrid-pair `4096/393216`, disabled triple/CEGAR, state-SAT cap 96, base-
+completion cap six, and post-anchor matched-null surface as the authoritative
+completion holdout. Each size compares the landed rank against the opt-in route
+rank on the same planted fixtures and transformed nulls.
+
+Primary results are exact recoveries out of 16, split by recovery state, plus
+planted top-source retention. Secondary diagnostics are planted rank and route
+coverage, route evaluations, state-SAT work, and release elapsed time. Promote
+the route rank only if it increases exact recovery at both sizes without losing
+an existing exact recovery, no matched-null leg recovers exactly, and all
+existing controls pass. A one-size or development-only gain remains an optional
+diagnostic. This experiment remains known-plaintext, small-deck, top-swap
+tooling; even a positive result would not supply the known plaintext or tractable
+base-completion surface missing from the eyes.
+
 ### Pre-registered fourth-prefix triple-repair follow-up (2026-07-15, before runs)
 
 The next bounded change targets the five retained-plant development stalls with
