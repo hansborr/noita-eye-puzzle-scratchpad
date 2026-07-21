@@ -15,9 +15,9 @@ is a *codec artifact* — a deterministic function of the plaintext letter — a
 may be simple. If it is, none of the search walls apply: we just **enumerate**
 the convention and decode. This is the same move that cracked `one`.
 
-This doc is a forward-looking backlog. It supersedes nothing in
-`CODEC-RESULTS.md` (rounds 1–7 stand as scoped negatives); it reframes what
-those negatives *mean* and lists the untried levers. Everything here is
+This doc is a dated forward-looking backlog. It supersedes none of the scoped
+negatives preserved in `two-pairclass-attack.md`; it reframes what those
+negatives *mean* and lists the then-untried levers. Everything here is
 **hypothesis** until a controls-first instrument fires. Produced from: a wiki
 re-read (`../eye-messages.wiki`), two grounding probes (this session, scratch),
 and a two-model design consult (codex `gpt-5.5` xhigh + Gemini-3.1-pro on a
@@ -29,7 +29,7 @@ Two diagnostics from the campaign are load-bearing and *unchanged*:
 
 1. **`two` is NOT decode-limited.** Given the true coloring, oracle decode with
    a word LM recovers ~0.534 (readable text), tie-consistent
-   (`CODEC-RESULTS.md` §Round 3, ~L1095).
+   (`two-pairclass-attack.md`, preserved Round 3).
 2. **The objective SEPARATES true colorings from found ones** — oracle scores
    sit well above found-coloring scores (§Round 3). A searcher that *reached*
    truth would recognize it.
@@ -52,7 +52,7 @@ codec deterministically emits for each letter:
 - **`one`'s lesson, verbatim:** the solve came from replacing the hidden-state
   assumption with a *deterministic convention* (7-bit ASCII + a fixed walk
   rule, zero key search, exact round-trip). The eyes-leads note in
-  `CODEC-RESULTS.md` already says to try deterministic conventions *before*
+  the current `CODEC-RESULTS.md` synthesis says to try deterministic conventions *before*
   assuming true hidden state.
 - **The wiki agrees the real key is structured, not random.** Community
   analysis of the *actual eyes* finds "the permutations are not completely
@@ -97,8 +97,7 @@ codec deterministically emits for each letter:
 > returned `LowPowerNoExclusion` with the real stream null-typical (curated
 > p_emp 0.840, broad p_emp 1.000) while planted truths retain top-3/top-6
 > rank 6/6. *These deterministic families produced no candidate* — not a
-> family-space exclusion. Full record:
-> `research/data/practice-puzzles/CODEC-RESULTS.md` §Round 8. Next levers per
+> family-space exclusion. Full record: `two-post-avenue-a-handoff.md`. Next levers per
 > the ranking below: G, then F (seeded from marginal-consistent colorings).
 
 **Idea.** Enumerate deterministic candidate colorings; oracle-decode each with
@@ -143,7 +142,7 @@ library fns.
 
 **Risk (both consults).** The coloring could be **stateful** — position- or
 deck-dependent — making a static 26→4 map wrong; the pair-letter model is a
-*hypothesis*, not a proof (`CODEC-RESULTS.md` §1035). Mitigation: the
+*hypothesis*, not a proof (see `two-pairclass-attack.md`). Mitigation: the
 fixed-coloring evidence (letter-aligned even-gap anchors, within-pair
 independence, period-2 stagger = letter-internal position) supports it, and the
 two token phases already cover the period-2 stagger. Test fixed-per-letter
@@ -164,8 +163,8 @@ first *because* it is cheap and falsifiable, not because it is certain.
 > spans** in all three normalized corpora. Claim ceiling: no normalized a..z
 > window in those committed corpora matches this fixed anchor/static-coloring
 > model; this does not exclude custom plaintext, an unscanned phrase source,
-> another phase, or a stateful codec. Full record: `research/data/practice-puzzles/CODEC-RESULTS.md`
-> §Round 9.
+> another phase, or a stateful codec. This document preserves the full Avenue-G
+> record.
 
 **Idea.** Attack the doubly-occurring ~34-letter repeated phrase *directly*,
 without dictionary DP or a score-ranked harvest (so it cannot hit the occ1

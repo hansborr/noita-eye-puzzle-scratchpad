@@ -11,8 +11,8 @@ author-confirmed — the mechanism is what the round-trip verifies.) Instrument:
 (planted positives + matched null + `--self-test`). Authoritative write-up,
 including why every negative below stands as scoped and how the convention
 closure + crib-window discriminator found the untested carrier:
-`CODEC-RESULTS.md` § "`one` — SOLVED: alternating-orientation dihedral GAK +
-7-bit ASCII (`maskdecode`)". The backlog below (external anchor / `anchorfit`,
+`CODEC-RESULTS.md` § "`one`: alternating orientation + 7-bit ASCII". The backlog
+below (external anchor / `anchorfit`,
 evolving tables, 2-D layouts) is obsolete for `one`; everything below is kept as
 the historical record of the attack ladder.
 
@@ -25,9 +25,9 @@ The puzzle's author supplied five hints (relayed by the maintainer). They refram
 each letter's up/down reading (hint h4), which is *why* every memoryless/static codec
 family here is an honest negative rather than a near-miss. The 2-symbol reduction
 `b_{i+1} = ¬obs_i` recovers exactly the direction-blind run-length carrier, so the
-carrier diagnosis stands — the model explains it. Full hint list + the honest-scope
-labeling: `CODEC-RESULTS.md` § "`one` — the author hints and the dihedral hidden-1-bit
-model (hypothesis)". Net: the principled codec families are closed, and
+carrier diagnosis stands — the model explains it. This handoff preserves the
+full hint list and historical honest-scope labeling; `CODEC-RESULTS.md` keeps the
+current verified mechanism. Net: the principled codec families are closed, and
 `codecpower`/`bigramcodec` show the gate is underpowered at `one`'s length, so the
 measured next lever is backlog #1 — the **external anchor / `anchorfit`** on the
 maintainer's withheld `one` snippet — not another codec search. The dihedral model is
@@ -61,9 +61,9 @@ results tighten the search:
 
 **The instrument:** `rlcodec` (`src/attack/rlcodec/` + the `rlcodec` subcommand) —
 file-driven, self-validating (planted-English-via-comma positive control + matched
-null + `--self-test`). Reproduces the census + the exclusion battery. Authoritative
-write-up: `CODEC-RESULTS.md` § "`one` — direction-blind run-length carrier +
-memoryless-codec exclusion".
+null + `--self-test`). Reproduces the census + the exclusion battery. This
+handoff preserves the detailed campaign record; `CODEC-RESULTS.md` §`one` keeps
+the durable result and scope.
 
 **What's left (the live regime).** A memoryless reading of `M` is excluded. The
 remaining hypotheses are **codecs with memory / non-transduction readings of the
@@ -90,8 +90,8 @@ is a bounded-increment walk and scores below its matched null: **honest negative
 the 21-bit / run-period-1 constraint.** Next agent: search the
 *bit-periodic-period-|21* and *evolving-table* families this narrows to, using
 `cribfit` as the consistency pre-filter before any language scoring (and remember
-a misaligned tokenization is set aside, not refuted). Write-up: `CODEC-RESULTS.md`
-§ "`one` — crib-consistency filter (cribfit)".
+a misaligned tokenization is set aside, not refuted). The detailed result is
+preserved in this handoff; the current synthesis is in `CODEC-RESULTS.md` §`one`.
 
 **UPDATE: bit-periodic keyed substitution lead closed as an honest negative.**
 `cribfit` now instantiates `BitPeriodicSubst(p)` as the free substitution on
@@ -120,8 +120,8 @@ order-`k` decode. Real `one` is an honest negative: no order is crib-admissible
 after the allowed `<=k` transient, and the built-in English source is not fully
 representable in ranks `<=5` under any swept order (best coverage 98.6%, still
 4/285 letters above rank 5). The tertiary gate has no survivor and remains
-underpowered by the `codecpower` result. Write-up: `CODEC-RESULTS.md` § "`one` —
-bounded-order predictive-rank codec (`rankcodec`)".
+underpowered by the `codecpower` result. This handoff preserves the detailed
+`rankcodec` result; `CODEC-RESULTS.md` §`one` keeps its durable scope.
 
 `mdlcodec` has now tested the final planned in-engine lever: a crib-synchronous
 MDL-like affine running-key family `idx[i] = (a*S_i + b*i) mod R`, with
@@ -130,8 +130,8 @@ alphabet `L_codec`, and a **post-selection** crib-pinned magnitude null that
 recomputes crib eligibility from each null draw's own bit-gaps. Real `one`'s best
 cell is `R=14,a=1,b=7,k=13` with `MDL=1988.56` bits and a candidate string, but it
 does **not** beat the null p05 survivor rule (`Delta=-54.89`, `z=-0.61`,
-survivor no). This is a candidate, not a decode. Write-up: `CODEC-RESULTS.md`
-§ "`one` — crib-synchronous MDL affine running-key search (`mdlcodec`)".
+survivor no). This is a candidate, not a decode. The detailed `mdlcodec` result
+is preserved here; `CODEC-RESULTS.md` §`one` keeps its durable scope.
 
 Ranked backlog for `one`:
 
@@ -205,7 +205,7 @@ redirects the search:
 
 ## Already tried — DO NOT just repeat (honest negatives)
 
-Per `research/data/practice-puzzles/CODEC-RESULTS.md` (§ `one`): Baconian (5-bit),
+Per this dated campaign record: Baconian (5-bit),
 ITA2, ASCII, Gray, bignum, transposition, run-length — all give gibberish, **flat
 IoC at every grouping**. Quick re-check this session: 4/6/7/8-bit fixed groupings
 with a full phase+order sweep stay at the uniform floor (k=4 pair-IoC 0.070 ≈
@@ -235,7 +235,7 @@ correctly rejects a 32→29 binary-move overfit.
   + a matched null + held-out scoring; a `--codec-search` survivor on a transition-
   structured stream must be read with the rendered text, not the gate count (a
   first-order Markov null can't separate a transition law from first-order language —
-  see CODEC-RESULTS.md § "Why the gate is fooled"). Use a **trigram/quadgram**
+  see `research/attack-methodology.md` §1). Use a **trigram/quadgram**
   objective.
 - Build a reusable file-driven CLI instrument (`--input-file`/`--stdin` + a planted
   control + matched null), not a throwaway script. Record results in
@@ -247,8 +247,8 @@ correctly rejects a 32→29 binary-move overfit.
 
 ## Related context
 
-- `research/data/practice-puzzles/CODEC-RESULTS.md` — the `one`/`two` codec record
-  (transparent-rotor leak, isoscan crib anchors, the gate blind-spot).
+- `research/data/practice-puzzles/CODEC-RESULTS.md` — concise current results for
+  `one`/`two`, including the superseded-model boundaries.
 - `research/findings/ctak-feedback-discriminator.md` — why `two` is blocked (hidden
   state); `one` is the cleaner codec target.
 - Instruments: `isoscan` (repeats + null), `solve --codec-search` (the codec layer,

@@ -19,7 +19,8 @@ differs by one *constant* group element `K`. That premise holds only for
 **plaintext-autokey** (the deck advances on the recovered plaintext symbol). Their
 robust verdicts on real `two` — `NoDeckSignal` and *constant-Δ plaintext-autokey
 excluded* — therefore leave exactly one regime untested, the one
-`CODEC-RESULTS.md` §"Readout convention and the autokey-family boundary" flagged:
+the earlier passive-deck analysis, now summarized in `CODEC-RESULTS.md` §`two`,
+flagged:
 
 > **ciphertext-autokey** — the deck advance is keyed on the *emitted ciphertext*,
 > not the plaintext. There no readout exposes a constant `K`, so the passive-deck
@@ -159,6 +160,6 @@ reproduced inside the null) are the load-bearing discipline. Had a convention
 fired, the recovered advance map would have been the deck *mechanism* only — the
 digit→language codec is a separate, still-unbroken layer.
 
-See `CODEC-RESULTS.md` §"Readout convention and the autokey-family boundary" (the
-lead this resolves), `key-difference-discriminator.md` (the additive sibling), and
-`group_order` / `groupscan` (the passive-deck sibling).
+See `CODEC-RESULTS.md` §`two` for the current route, this document for the lead it
+resolved, `key-difference-discriminator.md` for the additive sibling, and
+`group_order` / `groupscan` for the passive-deck sibling.

@@ -99,7 +99,8 @@ enumerate small closures — writing out all 16 one-bit update rules
 Corollary: sweep **zero-parameter self-reading codecs first** (fixed codes + exact
 re-encode round-trip) — at lengths where matched-null gates are measured-underpowered
 (`codecpower`), a round-trip verdict is decisive in both directions and costs nothing.
-Demonstrated: `data/practice-puzzles/CODEC-RESULTS.md` § "`one` — SOLVED".
+Demonstrated: `data/practice-puzzles/CODEC-RESULTS.md` § "`one`: alternating
+orientation + 7-bit ASCII".
 
 ## 8. Trim isomorph anchors before using them as hard filters
 
@@ -111,6 +112,11 @@ survivor set. The failure is invisible to a planted positive control whose
 anchor boundaries are clean — plant *dirty-boundary* anchors, or keep short
 repeats as soft scores only. Demonstrated (independent agent, reconciled):
 `handoff/two-cross-agent-recon.md`.
+
+Here “3.1M-key space” means the exhaustively enumerated **order-48 shadow
+parameterization** `48 × 4^8 = 3,145,728`, not arbitrary GAK keys or plaintexts.
+The derivation, pruning counts, and larger-group scaling are summarized in
+`data/practice-puzzles/CODEC-RESULTS.md`.
 
 ## 9. A group closed from observed evidence is a lower bound
 

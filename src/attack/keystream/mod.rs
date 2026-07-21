@@ -138,8 +138,8 @@ pub struct KeystreamSearchConfig {
     pub anneal_temp: f64,
     /// Deterministic PRNG seed for the entire search and both nulls.
     pub seed: u64,
-    /// Number of random-key null trials used for the reported diagnostic
-    /// (`null_mean`/`null_std`/`z`/`beats_null`), no longer the survival gate.
+    /// Number of random-key null trials used for the key-independence-leak gate
+    /// (`null_mean`/`null_std`/`z`/`beats_null`).
     pub null_trials: usize,
     /// Number of matched-null trials: reruns of the full search on Fisher-Yates
     /// shuffled ciphertext. This is the survival gate
@@ -265,8 +265,9 @@ pub fn crack_with_model(
     let decrypt_indices: Vec<u8> = buffer.iter().map(|&v| v as u8).collect();
     let heldout_score = model.score_indices(&crate::nulls::heldout::odd_index_fold(&buffer));
 
-    // Random-key null: a diagnostic only (too weak to gate — it never pays for
-    // the search's optimization power, so it green-lights overfitting at high L).
+    // Random-key null: the key-independence-leak gate. It does not pay for the
+    // search's optimization power, so the matched null separately polices
+    // overfitting at high L.
     let (null_mean, null_std) = random_key_null(ciphertext, family, l, n, cfg, model, &mut buffer);
     let random = crate::attack::crack::NullComparison::new(best_score, null_mean, null_std);
 

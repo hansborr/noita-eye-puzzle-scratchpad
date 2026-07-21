@@ -11,10 +11,9 @@
 > live route (that is `two-cross-agent-recon.md`).
 
 Status: **scoped dated record (2026-07-04) of the deck-free 4-class surface —
-no longer the live attack route.** Findings summary lives in
-`research/data/practice-puzzles/CODEC-RESULTS.md` §"`two` — rotor-carrier
-campaign"; this file preserves the exact derivations, what was excluded, and the
-ranked next steps as they stood.
+no longer the live attack route.** `research/data/practice-puzzles/CODEC-RESULTS.md`
+§`two` gives the current route; this file preserves the exact derivations, what
+was excluded, and the ranked next steps as they stood.
 
 ## Derivations (exact)
 
@@ -69,14 +68,14 @@ letter).
 1. ~~Joint word-aware decipherment (codex round 2)~~ **DONE — still
    underpowered.** Controls-first stop: plant coloring accuracy mean 0.365,
    plant letter recovery mean 0.072 (0/6 at the ≥0.5 bar) even with anchor ties
-   enforced in-beam; real streams never scored, per the discipline. Verdict in
-   CODEC-RESULTS.md §Round 2.
+   enforced in-beam; real streams never scored, per the discipline. This is the
+   preserved Round-2 verdict.
 2. ~~Oracle-decode diagnostic (codex round 3)~~ **DONE — NOT decode-limited.**
    Oracle plant recovery 0.534 mean with the 50k word LM (≥0.5 bar passed,
    readable output); Stage B (unknown coloring) still failed controls but at a
    tiny budget (16 anneal moves). The wall is localized to the outer coloring
-   search; the objective separates true from found colorings. Verdict in
-   CODEC-RESULTS.md §Round 3.
+   search; the objective separates true from found colorings. This is the
+   preserved Round-3 verdict.
 3. ~~Scale the outer coloring search (codex round 4)~~ **DONE —
    search-still-failing-at-scale.** 4^8 structured seeding + 112 restarts ×
    1000 anneal moves, 16 workers, anchor-span bonus, ~2h16m: mean plant letter
@@ -85,7 +84,7 @@ letter).
    best plant hit coloring accuracy 0.730 but only 0.221 recovery vs 0.534 at
    accuracy 1.0 — decode quality cliffs within ~7 wrong letters of truth, so
    annealing has no gradient where it matters; scale alone cannot fix this.
-   Verdict in CODEC-RESULTS.md §Round 4.
+   This is the preserved Round-4 verdict.
 4. ~~CSP with word-lattice propagation (codex rounds 5/5b)~~ **DONE for
    left-to-right ordering — truth BEAM-PRUNED at the string head.** Round 5
    (beam ≤420, ~1 min/plant) rejected as underpowered; round 5b at the real
@@ -94,7 +93,7 @@ letter).
    attribution is decisive: true path pruned at positions 10/9/4 of 348 with
    1-2 truth-states alive, never out-scored, prune position ~independent of
    beam width. Left-to-right beam ordering is excluded; the objective is not.
-   Verdict + partial data in CODEC-RESULTS.md §Rounds 5/5b.
+   This is the preserved Rounds-5/5b verdict.
 5. ~~Anchor-seeded search-order fork (codex round 6)~~ **DONE, corrected —
    controls still fail, but the original verdict was confounded.** A
    cross-family audit found the first round-6 run hard-dropped truth whenever
@@ -113,7 +112,7 @@ letter).
    INFEASIBLE at positions 5-6 (coverage/gap/lexicon limit), while plants
    0/1/4 were window BEAM-PRUNED at positions 24/5/6 (score-pruning/LM
    label-bias). Controls-first refused to score the real stream; the null gate
-   did not run. Verdict in CODEC-RESULTS.md §Round 6. Next crib-free lever:
+   did not run. This is the corrected Round-6 verdict. Next crib-free lever:
    first eliminate the coverage failure with the calibrated 50k LM and/or
    better phrase-window edge/gap handling, then avoid score-ranked phrase
    harvest via class-signature/internal-repeat enumeration or branch-and-bound

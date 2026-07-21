@@ -10,7 +10,7 @@
 >   commit `0b05f78`) planted-positive-fired and null-quiet on all three
 >   committed corpora, then returned **0 surviving spans** on real `two` — a
 >   scoped honest negative, not a decode. Record: `two-fresh-avenues.md`
->   §"Avenue G" and `research/data/practice-puzzles/CODEC-RESULTS.md` §Round 9.
+>   §"Avenue G".
 > - **The 26→4 coloring surface here is SUPERSEDED.** On 2026-07-04 the `two`
 >   campaign was route-reset (`research/handoff/two-cross-agent-recon.md`) to the
 >   **full 12-symbol ciphertext stream**: raw-symbol isomorph column-maps close
@@ -48,7 +48,7 @@ flight; branch tree is clean.
   **shared** `.git/info/exclude` so it stays untracked. Harmless; just don't be
   surprised it isn't in `git status`.
 
-## What just finished — Avenue A (full record: `CODEC-RESULTS.md` §Round 8)
+## What just finished — Avenue A
 
 Built as `pairclass --coloring-family {core,core-curated,toy}`: enumerate
 deterministic 26→4 colorings, oracle-decode every candidate, controls-first.
@@ -158,7 +158,7 @@ coloring pinning ~40% of the text's classes.
 - **Binary name** is `noita-eye` (not `noita-eye-puzzle`); `/usr/bin/time` is
   absent in this container (use epoch markers for timing).
 - **Wordlist** (if you reuse the decode path) is regenerated deterministically
-  from the committed corpus — recipe is in `CODEC-RESULTS.md` §Round 8.
+  from the committed corpus; this handoff preserves the Avenue-A setup.
 - **Gate**: the pre-commit hook runs `make verify`; a commit that lands is
   gate-green. Commit completed work without waiting to be asked (`AGENTS.md`).
 - **Honesty ceiling**: candidate never decode; controls-first; Inconclusive when
@@ -166,8 +166,8 @@ coloring pinning ~40% of the text's classes.
 
 ## Pointers
 
-- `research/data/practice-puzzles/CODEC-RESULTS.md` §Round 8 — the Avenue-A
-  record (instrument arc + both definitive runs + claim ceilings).
+- This document's Avenue-A section — instrument arc, definitive runs, and claim
+  ceilings.
 - `research/handoff/two-fresh-avenues.md` — the ranked avenue backlog (A done,
   G next, F deferred, E verifier); Avenue A status banner updated.
 - `research/handoff/gak-swap-recovery/README.md` — the merged community engine.

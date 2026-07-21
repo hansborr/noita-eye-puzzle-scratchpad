@@ -161,7 +161,7 @@ pub(crate) struct KeystreamArgs {
     /// Deterministic seed for the search and the matched null.
     #[arg(long, default_value_t = keystream::DEFAULT_SEED)]
     pub(crate) seed: u64,
-    /// Number of random-key null trials for the reported diagnostic (not the gate).
+    /// Number of random-key null trials for the key-independence-leak gate.
     #[arg(long = "null-trials", default_value_t = keystream::DEFAULT_NULL_TRIALS)]
     pub(crate) null_trials: usize,
     /// Number of matched-null trials (reruns of the search on shuffled

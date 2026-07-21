@@ -154,8 +154,8 @@ English word-segmentation / MDL over the whole 349-char decode, plus a separate
 repeated-anchor phrase score. IC / space-rate / strict-byte-rate are cheap
 filters and features, **not** verdicts. Do not expect IC or positional frequency
 to out-resolve a coverage-aware full-text model; the 8! can tune weak marginals
-and broad scoring has shown multiple-comparison swamping (`CODEC-RESULTS.md`
-Round 8 lessons).
+and broad scoring has shown multiple-comparison swamping
+(`two-post-avenue-a-handoff.md`, Avenue-A lessons).
 
 **Positive control (end-to-end, per #2):** plant real English → codec → shadow
 key → run the *whole* fixed finish → assert the truth interpretation survives
@@ -216,7 +216,7 @@ not requested) stands.
 ## Operational constraints
 
 Heavy search runs on this host have OOM-killed the container before
-(`practice-puzzles-one-two-analysis` memory; `CODEC-RESULTS.md` Round 4/5). The
+(`practice-puzzles-one-two-analysis` memory; `two-pairclass-attack.md`). The
 Phase-1/2 finish work is CPU-bound, not the 11 GB beam, but keep it
 memory-bounded and get maintainer sign-off before any large run. Land every
 capability as a file-driven, self-validated CLI instrument exercised by tests
